@@ -67,7 +67,7 @@ use crate::{
 #[cfg(feature = "bevy_animation")]
 use self::gltf_ext::scene::collect_path;
 use self::{
-    extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
+    extensions::{instance_transforms, AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
         check_for_cycles, get_linear_textures,
         material::{
@@ -149,34 +149,44 @@ pub enum GltfError {
         /// What is malformed.
         message: String,
     },
+    /// A node's `EXT_mesh_gpu_instancing` data is malformed.
+    #[error("invalid EXT_mesh_gpu_instancing data on node {node}: {message}")]
+    InvalidMeshGpuInstancing {
+        /// The node index.
+        node: usize,
+        /// What is malformed.
+        message: String,
+    },
 }
 
+const EXT_MESH_GPU_INSTANCING: &str = "EXT_mesh_gpu_instancing";
 const KHR_MESH_QUANTIZATION: &str = "KHR_mesh_quantization";
 const KHR_MESHOPT_COMPRESSION: &str = "KHR_meshopt_compression";
 const EXT_MESHOPT_COMPRESSION: &str = "EXT_meshopt_compression";
 const MESHOPT_COMPRESSION_EXTENSIONS: [&str; 2] =
     [KHR_MESHOPT_COMPRESSION, EXT_MESHOPT_COMPRESSION];
 
-/// Required extensions the loader decodes but the `gltf` crate rejects as
+/// Required extensions the loader supports but the `gltf` crate rejects as
 /// unsupported.
-const LOADER_DECODED_EXTENSIONS: &[&str] = if cfg!(feature = "meshopt") {
+const LOADER_SUPPORTED_EXTENSIONS: &[&str] = if cfg!(feature = "meshopt") {
     &[
+        EXT_MESH_GPU_INSTANCING,
         KHR_MESH_QUANTIZATION,
         KHR_MESHOPT_COMPRESSION,
         EXT_MESHOPT_COMPRESSION,
     ]
 } else {
-    &[KHR_MESH_QUANTIZATION]
+    &[EXT_MESH_GPU_INSTANCING, KHR_MESH_QUANTIZATION]
 };
 
-/// Runs the `gltf` crate's validation with [`LOADER_DECODED_EXTENSIONS`]
+/// Runs the `gltf` crate's validation with [`LOADER_SUPPORTED_EXTENSIONS`]
 /// hidden from `extensionsRequired`.
 fn validate_document(document: gltf::Document) -> Result<gltf::Document, GltfError> {
     let mut root = document.into_json();
     let required = core::mem::take(&mut root.extensions_required);
     root.extensions_required = required
         .iter()
-        .filter(|name| !LOADER_DECODED_EXTENSIONS.contains(&name.as_str()))
+        .filter(|name| !LOADER_SUPPORTED_EXTENSIONS.contains(&name.as_str()))
         .cloned()
         .collect();
     let mut root = gltf::Document::from_json(root)?.into_json();
@@ -1014,6 +1024,10 @@ impl GltfLoader {
         // Then check for cycles.
         check_for_cycles(&gltf)?;
 
+        // Instance transforms by node index. Empty for nodes that aren't
+        // instanced or have a skin.
+        let mut node_instances = vec![Vec::new(); gltf.nodes().len()];
+
         // Now populate the nodes.
         for node in gltf.nodes() {
             let skin = node.skin().map(|skin| {
@@ -1074,6 +1088,17 @@ impl GltfLoader {
                 node.extras().as_deref().map(GltfExtras::from),
             );
 
+            let instances = instance_transforms(&gltf.document, &node, &buffer_data)?;
+            if node.skin().is_some() && !instances.is_empty() {
+                warn!(
+                    "Spawning skinned node {} once, ignoring its {EXT_MESH_GPU_INSTANCING} instances",
+                    node.index()
+                );
+            } else {
+                node_instances[node.index()] = instances.clone();
+            }
+            let gltf_node = gltf_node.with_instances(instances);
+
             #[cfg(feature = "bevy_animation")]
             let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
 
@@ -1131,6 +1156,7 @@ impl GltfLoader {
                             &animation_roots,
                             #[cfg(feature = "bevy_animation")]
                             None,
+                            &node_instances,
                             &texture_handles,
                             &convert_coordinates,
                             &mut extensions,
@@ -1593,6 +1619,7 @@ fn load_node(
     parent_transform: &Transform,
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
+    node_instances: &[Vec<Transform>],
     textures: &[Handle<Image>],
     convert_coordinates: &GltfConvertCoordinates,
     extensions: &mut [Box<dyn extensions::ErasedGltfExtensionHandler>],
@@ -1601,13 +1628,6 @@ fn load_node(
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
-    // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
-    // if the determinant of the transform is negative we must invert the winding order of
-    // triangles in meshes on the node.
-    // instead we equivalently test if the global scale is inverted by checking if the number
-    // of negative scale factors is odd. if so we will assign a copy of the material with face
-    // culling inverted, rather than modifying the mesh data directly.
-    let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = child_spawner.spawn((transform, Visibility::default()));
 
     let name = node_name(gltf_node);
@@ -1688,136 +1708,80 @@ fn load_node(
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
     let mut max_morph_target_count = 0;
+    let node_entity = node.id();
 
     node.with_children(|parent| {
         // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
         if !settings.load_meshes.is_empty()
             && let Some(mesh) = gltf_node.mesh()
         {
-            // append primitives
-            for primitive in mesh.primitives() {
-                let material = primitive.material();
-                let mat_label = material_label(&material, is_scale_inverted);
-                let material_label = mat_label.to_string();
+            let primitive_meshes: Vec<(Handle<Mesh>, Aabb)> = mesh
+                .primitives()
+                .map(|primitive| {
+                    let label = GltfAssetLabel::Primitive {
+                        mesh: mesh.index(),
+                        primitive: primitive.index(),
+                    };
+                    let (mut bounds_min, mut bounds_max) = position_bounds(&primitive);
+                    if convert_coordinates.rotate_meshes {
+                        let converted_min = bounds_min.convert_coordinates();
+                        let converted_max = bounds_max.convert_coordinates();
 
-                // This adds materials that Bevy modifies depending on how they're used, like those with inverted scale.
-                if !root_load_context.has_labeled_asset(&material_label)
-                    && !load_context.has_labeled_asset(&material_label)
+                        bounds_min = converted_min.min(converted_max);
+                        bounds_max = converted_min.max(converted_max);
+                    }
+                    (
+                        // TODO: handle missing label handle errors here?
+                        load_context.get_label_handle(label.to_string()),
+                        Aabb::from_min_max(bounds_min, bounds_max),
+                    )
+                })
+                .collect();
+            // Whether the materials for each `is_scale_inverted` value are loaded.
+            let mut materials_loaded = [false; 2];
+            let mut spawn = |parent: &mut ChildSpawner, world_transform: &Transform| {
+                let is_scale_inverted = is_scale_inverted(world_transform);
+                if !core::mem::replace(&mut materials_loaded[usize::from(is_scale_inverted)], true)
                 {
-                    let (label, gltf_material) = load_material(
-                        &material,
-                        textures,
-                        is_scale_inverted,
-                        load_context.path().clone(),
-                    );
-                    // TODO: maybe move this into `load_material` ?
-                    let handle =
-                        load_context.add_labeled_asset(label.clone(), gltf_material.clone());
-
-                    // let extensions handle material data
-                    for extension in extensions.iter_mut() {
-                        extension.on_material(
-                            load_context,
-                            &material,
-                            handle.clone(),
-                            &gltf_material,
-                            &label.clone(),
-                        );
-                    }
-                }
-
-                let primitive_label = GltfAssetLabel::Primitive {
-                    mesh: mesh.index(),
-                    primitive: primitive.index(),
-                };
-                let parent_entity = parent.target_entity();
-
-                // Apply the inverse of the conversion transform that's been
-                // applied to the mesh asset. This preserves the mesh's relation
-                // to the node transform.
-                let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
-
-                let mut mesh_entity = parent.spawn((
-                    // TODO: handle missing label handle errors here?
-                    Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
-                    // TODO: could add the `GltfMaterial` here
-                    mesh_entity_transform,
-                ));
-
-                if gltf_node.skin().is_some() {
-                    match skinned_mesh_bounds_policy {
-                        GltfSkinnedMeshBoundsPolicy::Dynamic => {
-                            mesh_entity.insert(DynamicSkinnedMeshBounds);
-                        }
-                        GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
-                            mesh_entity.insert(NoFrustumCulling);
-                        }
-                        _ => {}
-                    }
-                }
-
-                let target_count = primitive.morph_targets().len();
-                if target_count != 0 {
-                    max_morph_target_count = max_morph_target_count.max(target_count);
-                    mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
-                }
-
-                let (mut bounds_min, mut bounds_max) = position_bounds(&primitive);
-
-                if convert_coordinates.rotate_meshes {
-                    let converted_min = bounds_min.convert_coordinates();
-                    let converted_max = bounds_max.convert_coordinates();
-
-                    bounds_min = converted_min.min(converted_max);
-                    bounds_max = converted_min.max(converted_max);
-                }
-
-                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
-
-                if let Some(extras) = primitive.extras() {
-                    mesh_entity.insert(GltfExtras {
-                        value: extras.get().to_string(),
-                    });
-                }
-
-                if let Some(extras) = mesh.extras() {
-                    mesh_entity.insert(GltfMeshExtras {
-                        value: extras.get().to_string(),
-                    });
-                }
-
-                if let Some(extras) = material.extras() {
-                    mesh_entity.insert(GltfMaterialExtras {
-                        value: extras.get().to_string(),
-                    });
-                }
-
-                if let Some(name) = mesh.name() {
-                    mesh_entity.insert(GltfMeshName(name.to_string()));
-                }
-
-                if let Some(name) = material.name() {
-                    mesh_entity.insert(GltfMaterialName(name.to_string()));
-                }
-
-                mesh_entity.insert(Name::new(primitive_name(&mesh, &material)));
-
-                // Mark for adding skinned mesh
-                if let Some(skin) = gltf_node.skin() {
-                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
-                }
-
-                // enable extension processing for a Bevy-created construct
-                // that is the Mesh and Material merged on a single entity
-                for extension in extensions.iter_mut() {
-                    extension.on_spawn_mesh_and_material(
-                        load_context,
-                        &primitive,
+                    load_primitive_materials(
                         &mesh,
-                        &material,
-                        &mut mesh_entity,
-                        &mat_label.to_string(),
+                        is_scale_inverted,
+                        root_load_context,
+                        load_context,
+                        textures,
+                        extensions,
                     );
+                }
+                max_morph_target_count = spawn_primitives(
+                    gltf_node,
+                    &mesh,
+                    &primitive_meshes,
+                    parent,
+                    node_entity,
+                    is_scale_inverted,
+                    load_context,
+                    entity_to_skin_index_map,
+                    convert_coordinates,
+                    extensions,
+                    skinned_mesh_bounds_policy,
+                );
+            };
+
+            let instances = &node_instances[gltf_node.index()];
+            if instances.is_empty() {
+                spawn(parent, &world_transform);
+            } else {
+                let name = node_name(gltf_node);
+                for (index, &instance) in instances.iter().enumerate() {
+                    parent
+                        .spawn((
+                            instance,
+                            Visibility::default(),
+                            Name::new(format!("{name}.Instance{index}")),
+                        ))
+                        .with_children(|parent| {
+                            spawn(parent, &(world_transform * instance));
+                        });
                 }
             }
         }
@@ -1916,6 +1880,7 @@ fn load_node(
                 animation_roots,
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
+                node_instances,
                 textures,
                 convert_coordinates,
                 extensions,
@@ -1970,6 +1935,159 @@ fn load_node(
     } else {
         Ok(())
     }
+}
+
+/// Whether `world_transform` mirrors the meshes under it.
+///
+/// [The glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation)
+/// treats triangles under a transform with a negative determinant as
+/// clockwise, which is the case when an odd number of scale factors are
+/// negative. The loader assigns such meshes a copy of the material with face
+/// culling inverted rather than modifying the mesh data.
+fn is_scale_inverted(world_transform: &Transform) -> bool {
+    world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1
+}
+
+/// Adds the materials of `mesh`'s primitives as labeled assets, unless they
+/// already exist.
+fn load_primitive_materials(
+    mesh: &gltf::Mesh,
+    is_scale_inverted: bool,
+    root_load_context: &LoadContext,
+    load_context: &mut LoadContext,
+    textures: &[Handle<Image>],
+    extensions: &mut [Box<dyn extensions::ErasedGltfExtensionHandler>],
+) {
+    for primitive in mesh.primitives() {
+        let material = primitive.material();
+        let material_label = material_label(&material, is_scale_inverted).to_string();
+
+        // This adds materials that Bevy modifies depending on how they're used, like those with inverted scale.
+        if !root_load_context.has_labeled_asset(&material_label)
+            && !load_context.has_labeled_asset(&material_label)
+        {
+            let (label, gltf_material) = load_material(
+                &material,
+                textures,
+                is_scale_inverted,
+                load_context.path().clone(),
+            );
+            // TODO: maybe move this into `load_material` ?
+            let handle = load_context.add_labeled_asset(label.clone(), gltf_material.clone());
+
+            // let extensions handle material data
+            for extension in extensions.iter_mut() {
+                extension.on_material(
+                    load_context,
+                    &material,
+                    handle.clone(),
+                    &gltf_material,
+                    &label.clone(),
+                );
+            }
+        }
+    }
+}
+
+/// Spawns an entity under `parent` for each primitive of `mesh`, the mesh of
+/// `gltf_node`, and returns the largest morph target count among them.
+///
+/// `primitive_meshes` holds each primitive's mesh and bounds. The primitives'
+/// [`MeshMorphWeights`] reference the [`MorphWeights`] on `node_entity`.
+fn spawn_primitives(
+    gltf_node: &Node,
+    mesh: &gltf::Mesh,
+    primitive_meshes: &[(Handle<Mesh>, Aabb)],
+    parent: &mut ChildSpawner,
+    node_entity: Entity,
+    is_scale_inverted: bool,
+    load_context: &mut LoadContext,
+    entity_to_skin_index_map: &mut EntityHashMap<usize>,
+    convert_coordinates: &GltfConvertCoordinates,
+    extensions: &mut [Box<dyn extensions::ErasedGltfExtensionHandler>],
+    skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+) -> usize {
+    let mut max_morph_target_count = 0;
+    for (primitive, (mesh_handle, aabb)) in mesh.primitives().zip(primitive_meshes) {
+        let material = primitive.material();
+        let material_label = material_label(&material, is_scale_inverted).to_string();
+
+        // Apply the inverse of the conversion transform that's been
+        // applied to the mesh asset. This preserves the mesh's relation
+        // to the node transform.
+        let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
+
+        let mut mesh_entity = parent.spawn((
+            Mesh3d(mesh_handle.clone()),
+            // TODO: could add the `GltfMaterial` here
+            mesh_entity_transform,
+            *aabb,
+            Name::new(primitive_name(mesh, &material)),
+        ));
+
+        if gltf_node.skin().is_some() {
+            match skinned_mesh_bounds_policy {
+                GltfSkinnedMeshBoundsPolicy::Dynamic => {
+                    mesh_entity.insert(DynamicSkinnedMeshBounds);
+                }
+                GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
+                    mesh_entity.insert(NoFrustumCulling);
+                }
+                _ => {}
+            }
+        }
+
+        let target_count = primitive.morph_targets().len();
+        if target_count != 0 {
+            max_morph_target_count = max_morph_target_count.max(target_count);
+            mesh_entity.insert(MeshMorphWeights::Reference(node_entity));
+        }
+
+        if let Some(extras) = primitive.extras() {
+            mesh_entity.insert(GltfExtras {
+                value: extras.get().to_string(),
+            });
+        }
+
+        if let Some(extras) = mesh.extras() {
+            mesh_entity.insert(GltfMeshExtras {
+                value: extras.get().to_string(),
+            });
+        }
+
+        if let Some(extras) = material.extras() {
+            mesh_entity.insert(GltfMaterialExtras {
+                value: extras.get().to_string(),
+            });
+        }
+
+        if let Some(name) = mesh.name() {
+            mesh_entity.insert(GltfMeshName(name.to_string()));
+        }
+
+        if let Some(name) = material.name() {
+            mesh_entity.insert(GltfMaterialName(name.to_string()));
+        }
+
+        // Mark for adding skinned mesh
+        if let Some(skin) = gltf_node.skin() {
+            entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
+        }
+
+        // enable extension processing for a Bevy-created construct
+        // that is the Mesh and Material merged on a single entity
+        for extension in extensions.iter_mut() {
+            extension.on_spawn_mesh_and_material(
+                load_context,
+                &primitive,
+                mesh,
+                &material,
+                &mut mesh_entity,
+                &material_label,
+            );
+        }
+    }
+    max_morph_target_count
 }
 
 /// Loads the raw glTF buffer data for a specific glTF file.
@@ -2245,6 +2363,14 @@ mod test {
     }
 
     fn load_gltf_bytes_into_app(gltf_path: &str, gltf: Vec<u8>) -> App {
+        load_gltf_bytes_into_app_with(gltf_path, gltf, |_| {})
+    }
+
+    fn load_gltf_bytes_into_app_with(
+        gltf_path: &str,
+        gltf: Vec<u8>,
+        setup: impl FnOnce(&mut App),
+    ) -> App {
         #[expect(
             dead_code,
             reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
@@ -2255,6 +2381,7 @@ mod test {
         let dir = Dir::default();
         dir.insert_asset(Path::new(gltf_path), gltf);
         let mut app = test_app(dir);
+        setup(&mut app);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
@@ -3091,5 +3218,228 @@ mod test {
                 morph([0.0, 0.0, 3.0])
             ])
         );
+    }
+
+    /// A triangle mesh on an `EXT_mesh_gpu_instancing` node under a translated
+    /// parent, with three instances and quantized rotations.
+    fn mesh_gpu_instancing_gltf() -> serde_json::Value {
+        let mut bin = Vec::new();
+        let mut floats = |values: &[f32]| values.iter().for_each(|v| bin.extend(v.to_le_bytes()));
+        // POSITION
+        floats(&[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
+        // TRANSLATION
+        floats(&[1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 3.0]);
+        // SCALE; the last instance mirrors the mesh.
+        floats(&[1.0, 1.0, 1.0, 2.0, 2.0, 2.0, -1.0, 1.0, 1.0]);
+        // ROTATION: normalized i16 identity, 90° about Y and 180° about Z.
+        for q in [
+            [0i16, 0, 0, i16::MAX],
+            [0, 23170, 0, 23170],
+            [0, 0, i16::MAX, 0],
+        ] {
+            q.iter().for_each(|c| bin.extend(c.to_le_bytes()));
+        }
+
+        let uri = format!(
+            "data:application/octet-stream;base64,{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bin)
+        );
+        serde_json::json!({
+            "asset": { "version": "2.0" },
+            "extensionsUsed": ["EXT_mesh_gpu_instancing"],
+            "extensionsRequired": ["EXT_mesh_gpu_instancing"],
+            "buffers": [{ "uri": uri, "byteLength": bin.len() }],
+            "bufferViews": [
+                { "buffer": 0, "byteOffset": 0, "byteLength": 36 },
+                { "buffer": 0, "byteOffset": 36, "byteLength": 36 },
+                { "buffer": 0, "byteOffset": 72, "byteLength": 36 },
+                { "buffer": 0, "byteOffset": 108, "byteLength": 24 }
+            ],
+            "accessors": [
+                { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
+                { "bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC3" },
+                { "bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3" },
+                { "bufferView": 3, "componentType": 5122, "normalized": true, "count": 3, "type": "VEC4" }
+            ],
+            "materials": [{ "name": "Material" }],
+            "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0 }, "material": 0 }] }],
+            "nodes": [
+                { "name": "Parent", "translation": [0, 0, -4], "children": [1] },
+                {
+                    "name": "Instanced",
+                    "mesh": 0,
+                    "translation": [10, 0, 0],
+                    "rotation": [0.70710677, 0, 0, 0.70710677],
+                    "extensions": { "EXT_mesh_gpu_instancing": { "attributes": {
+                        "TRANSLATION": 1, "ROTATION": 3, "SCALE": 2, "_ID": 1
+                    } } }
+                }
+            ],
+            "scene": 0,
+            "scenes": [{ "nodes": [0] }]
+        })
+    }
+
+    /// The material label the loader assigns a mesh entity.
+    #[derive(bevy_ecs::component::Component)]
+    struct MaterialLabel(String);
+
+    /// Inserts [`MaterialLabel`] on mesh entities.
+    #[derive(Clone)]
+    struct MaterialLabelHandler;
+
+    impl super::extensions::GltfExtensionHandler for MaterialLabelHandler {
+        fn dyn_clone(&self) -> Box<dyn super::extensions::ErasedGltfExtensionHandler> {
+            Box::new(self.clone())
+        }
+
+        fn on_spawn_mesh_and_material(
+            &mut self,
+            _load_context: &mut LoadContext<'_>,
+            _primitive: &gltf::Primitive,
+            _mesh: &gltf::Mesh,
+            _material: &gltf::Material,
+            entity: &mut bevy_ecs::world::EntityWorldMut,
+            material_label: &str,
+        ) {
+            entity.insert(MaterialLabel(material_label.to_owned()));
+        }
+    }
+
+    #[test]
+    fn spawns_mesh_gpu_instancing_instances() {
+        use bevy_ecs::{
+            entity::Entity,
+            hierarchy::{ChildOf, Children},
+            name::Name,
+            system::SystemState,
+        };
+        use bevy_math::{Quat, Vec3};
+        use bevy_mesh::Mesh3d;
+        use bevy_transform::{components::Transform, helper::TransformHelper};
+        use bevy_world_serialization::WorldAsset;
+
+        let gltf_path = "instanced.gltf";
+        let mut app = load_gltf_bytes_into_app_with(
+            gltf_path,
+            mesh_gpu_instancing_gltf().to_string().into_bytes(),
+            |app| {
+                app.world()
+                    .resource::<super::extensions::GltfExtensionHandlers>()
+                    .0
+                    .write_blocking()
+                    .push(Box::new(MaterialLabelHandler));
+            },
+        );
+
+        let expected = [
+            Transform::from_xyz(1.0, 0.0, 0.0),
+            Transform::from_xyz(0.0, 2.0, 0.0)
+                .with_rotation(Quat::from_rotation_y(core::f32::consts::FRAC_PI_2))
+                .with_scale(Vec3::splat(2.0)),
+            Transform::from_xyz(0.0, 0.0, 3.0)
+                .with_rotation(Quat::from_rotation_z(core::f32::consts::PI))
+                .with_scale(Vec3::new(-1.0, 1.0, 1.0)),
+        ];
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let gltf = app
+            .world()
+            .resource::<Assets<Gltf>>()
+            .get(&asset_server.load(gltf_path))
+            .unwrap();
+        let node = app
+            .world()
+            .resource::<Assets<GltfNode>>()
+            .get(&gltf.named_nodes["Instanced"])
+            .unwrap();
+        assert_eq!(node.instances.len(), expected.len());
+        for (actual, expected) in node.instances.iter().zip(&expected) {
+            assert!(
+                actual.to_matrix().abs_diff_eq(expected.to_matrix(), 1e-4),
+                "{actual:?} != {expected:?}"
+            );
+        }
+        let scene = gltf.scenes[0].clone();
+
+        let world = &mut core::mem::take(
+            &mut app
+                .world_mut()
+                .resource_mut::<Assets<WorldAsset>>()
+                .get_mut(&scene)
+                .unwrap()
+                .world,
+        );
+        let mut transform_helper = SystemState::<TransformHelper>::new(world);
+        let mut world_from_local = |world: &World, entity: Entity| {
+            transform_helper
+                .get(world)
+                .unwrap()
+                .compute_global_transform(entity)
+                .unwrap()
+                .to_matrix()
+        };
+        let named = |world: &mut World, name: &str| {
+            world
+                .query::<(Entity, &Name)>()
+                .iter(world)
+                .find(|(_, n)| n.as_str() == name)
+                .map(|(entity, _)| entity)
+                .unwrap()
+        };
+
+        // Each instance entity has one child per primitive, and the node's own
+        // mesh is not spawned.
+        assert_eq!(world.query::<&Mesh3d>().iter(world).count(), expected.len());
+        let instanced = named(world, "Instanced");
+        let instanced_world_from_local = world_from_local(world, instanced);
+        for (index, instance) in expected.iter().enumerate() {
+            let entity = named(world, &format!("Instanced.Instance{index}"));
+            assert_eq!(world.get::<ChildOf>(entity).unwrap().parent(), instanced);
+            let mesh_entity = world.get::<Children>(entity).unwrap()[0];
+            assert!(world_from_local(world, mesh_entity)
+                .abs_diff_eq(instanced_world_from_local * instance.to_matrix(), 1e-4));
+            // Only the mirrored instance gets the material with inverted
+            // culling.
+            let material = GltfAssetLabel::Material {
+                index: 0,
+                is_scale_inverted: index == 2,
+            };
+            assert_eq!(
+                world.get::<MaterialLabel>(mesh_entity).unwrap().0,
+                material.to_string()
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_mesh_gpu_instancing_fails_to_load() {
+        let cases: [fn(&mut serde_json::Value); 2] = [
+            // Attributes with different counts.
+            |gltf| gltf["accessors"][3]["count"] = 2.into(),
+            // A stride shorter than the TRANSLATION elements.
+            |gltf| gltf["bufferViews"][1]["byteStride"] = 4.into(),
+        ];
+        for (index, case) in cases.into_iter().enumerate() {
+            let mut gltf = mesh_gpu_instancing_gltf();
+            case(&mut gltf);
+
+            let (mut app, dir) = test_app_custom_asset_source();
+            dir.insert_asset_text(Path::new("instanced.gltf"), &gltf.to_string());
+            let asset_server = app.world().resource::<AssetServer>().clone();
+            let handle: Handle<Gltf> = asset_server.load("custom://instanced.gltf");
+            run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+                LoadState::Failed(err) => {
+                    assert!(
+                        err.to_string()
+                            .contains("invalid EXT_mesh_gpu_instancing data"),
+                        "case {index}: {err}"
+                    );
+                    Some(())
+                }
+                LoadState::Loading => None,
+                state => panic!("case {index}: unexpected load state {state:?}"),
+            });
+        }
     }
 }
