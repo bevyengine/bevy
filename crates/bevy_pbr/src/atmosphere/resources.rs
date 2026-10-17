@@ -1544,6 +1544,11 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     } else {
         world_pos
     };
+    // Lowered to the cumulus tops when above them (`cloud_shadow_anchor_origin` in the shaders).
+    let anchor = match cloud_layer {
+        Some(c) if anchor.length() > c.cloud_layer_end => anchor.normalize_or_zero() * c.cloud_layer_end,
+        _ => anchor,
+    };
 
     let trace_dir = (-light_dir).normalize_or_zero();
     let world_up = Vec3::Y;

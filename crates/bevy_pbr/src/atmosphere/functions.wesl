@@ -407,7 +407,7 @@ struct CloudShadowFrame {
 @if(CLOUDS_ENABLED)
 fn cloud_shadow_frame(direction_to_light: vec3<f32>) -> CloudShadowFrame {
     let basis = build_light_basis(safe_normalize(-direction_to_light));
-    let anchor = snap_anchor_to_texel_grid(get_view_position(), basis, settings.cloud_shadow_map_extent, settings.cloud_shadow_map_size);
+    let anchor = snap_anchor_to_texel_grid(cloud_shadow_anchor_origin(), basis, settings.cloud_shadow_map_extent, settings.cloud_shadow_map_size);
     return CloudShadowFrame(anchor, basis.x, basis.y);
 }
 
@@ -480,7 +480,7 @@ fn sample_cloud_shadow_map(world_pos: vec3<f32>, direction_to_light: vec3<f32>, 
     let basis = build_light_basis(trace_dir);
 
     // Anchor must match the compute shader's anchor to keep lookups stable.
-    var anchor = get_view_position();
+    var anchor = cloud_shadow_anchor_origin();
     anchor = snap_anchor_to_texel_grid(anchor, basis, extent, settings.cloud_shadow_map_size);
     let rel = world_pos - anchor;
 
@@ -695,6 +695,14 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 }
 
 /// Returns the observer's position in the atmosphere
+/// Centre of the cloud shadow map: the camera, lowered to the cumulus tops when above them
+/// (must match `cloud_shadow_anchor_origin` in cloud_shadow_map.wesl, which explains why).
+@if(CLOUDS_ENABLED)
+fn cloud_shadow_anchor_origin() -> vec3<f32> {
+    let p = get_view_position();
+    return normalize(p) * min(length(p), cloud_layer.cloud_layer_end);
+}
+
 fn get_view_position() -> vec3<f32> {
     let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
     return clamp_to_surface(atmosphere, atmo_pos);

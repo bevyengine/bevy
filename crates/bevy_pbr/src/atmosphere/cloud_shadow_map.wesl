@@ -62,6 +62,16 @@ fn clamp_to_surface(position: vec3<f32>) -> vec3<f32> {
     return position;
 }
 
+/// Centre of the cloud shadow map: the camera, lowered to the cumulus tops when above them. The
+/// map is an orthographic volume along the light centred on this point; centred on a camera tens
+/// of km up, the ground below it lay ~h cos(sun elevation) off-centre (60 km from 68 km at 30 deg
+/// sun), at the map's edge, and the view from space showed the map's edge as a seam between the
+/// mapped and the far-marched shadows.
+fn cloud_shadow_anchor_origin() -> vec3<f32> {
+    let p = get_view_position();
+    return normalize(p) * min(length(p), cloud_layer.cloud_layer_end);
+}
+
 fn get_view_position() -> vec3<f32> {
     // Matches `functions.wgsl::get_view_position()` to keep anchor consistent.
     let atmo_pos = (atmosphere.world_to_atmosphere * vec4(view.world_position, 1.0)).xyz;
@@ -201,7 +211,7 @@ fn main(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let uv = (vec2<f32>(gid.xy) + vec2(0.5)) / vec2<f32>(size);
     let xy = cloud_shadow_uv_to_xy(uv, extent);
 
-    var anchor = get_view_position();
+    var anchor = cloud_shadow_anchor_origin();
     anchor = snap_anchor_to_texel_grid(anchor, basis, extent, size);
     let ray_origin = anchor + basis.x * xy.x + basis.y * xy.y - trace_dir * half_depth;
     let max_t = 2.0 * half_depth;
