@@ -1128,7 +1128,7 @@ impl<'w> UnsafeEntityCell<'w> {
                     archetype,
                     location.table_id,
                     table,
-                )
+                );
             }
             // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
             let item = unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) };
