@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, Archetypes},
+    archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::Bundle,
     change_detection::{
         AtomicTick, ComponentTicksMut, ComponentTicksRef, ContiguousComponentTicksMut,
@@ -12,7 +12,7 @@ use crate::{
         Access, DebugCheckedUnwrap, ErasedQueryState, FilteredAccess, FilteredAccessSet,
         QueryFilter, QueryState, WorldQuery,
     },
-    storage::{ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableId, TableRow},
     system::Query,
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -523,7 +523,9 @@ unsafe impl WorldQuery for Entity {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -532,6 +534,7 @@ unsafe impl WorldQuery for Entity {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -648,7 +651,9 @@ unsafe impl WorldQuery for EntityLocation {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -657,6 +662,7 @@ unsafe impl WorldQuery for EntityLocation {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -838,8 +844,10 @@ unsafe impl WorldQuery for SpawnDetails {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
-        _table: &'w Table,
+        _table_id: TableId,
+        _table: &Table,
     ) {
     }
 
@@ -847,6 +855,7 @@ unsafe impl WorldQuery for SpawnDetails {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -975,7 +984,9 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -984,6 +995,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -1100,7 +1112,9 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -1109,6 +1123,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -1222,7 +1237,9 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
-        _: &'w Archetype,
+        _archetype_id: ArchetypeId,
+        _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -1231,6 +1248,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _: &'w Table,
     ) {
     }
@@ -1362,7 +1380,9 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
-        _: &'w Archetype,
+        _archetype_id: ArchetypeId,
+        _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -1371,6 +1391,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _: &'w Table,
     ) {
     }
@@ -1499,14 +1520,22 @@ where
     const IS_DENSE: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
-        _: &mut Self::Fetch<'w>,
-        _: &'s Self::State,
-        _: &'w Archetype,
-        _: &'w Table,
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
+        _archetype: &'w Archetype,
+        _table_id: TableId,
+        _table: &Table,
     ) {
     }
 
-    unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
+    unsafe fn set_table<'w, 's>(
+        _: &mut Self::Fetch<'w>,
+        _: &'s Self::State,
+        _: TableId,
+        _: &'w Table,
+    ) {
+    }
 
     fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess) {
         let access = filtered_access.access_mut();
@@ -1631,14 +1660,22 @@ where
     const IS_DENSE: bool = true;
 
     unsafe fn set_archetype<'w, 's>(
-        _: &mut Self::Fetch<'w>,
-        _: &'s Self::State,
-        _: &'w Archetype,
-        _: &'w Table,
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
+        _archetype: &'w Archetype,
+        _table_id: TableId,
+        _table: &Table,
     ) {
     }
 
-    unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
+    unsafe fn set_table<'w, 's>(
+        _: &mut Self::Fetch<'w>,
+        _: &'s Self::State,
+        _: TableId,
+        _: &'w Table,
+    ) {
+    }
 
     fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess) {
         let access = filtered_access.access_mut();
@@ -1759,7 +1796,9 @@ unsafe impl WorldQuery for &Archetype {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
     }
@@ -1768,6 +1807,7 @@ unsafe impl WorldQuery for &Archetype {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -1910,13 +1950,15 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
         component_id: &ComponentId,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table_id, table);
             }
         }
     }
@@ -1925,6 +1967,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
         &component_id: &ComponentId,
+        _table_id: TableId,
         table: &'w Table,
     ) {
         let table_data = Some(
@@ -2148,13 +2191,15 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut RefFetch<'w, T>,
         component_id: &ComponentId,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table_id, table);
             }
         }
     }
@@ -2163,6 +2208,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     unsafe fn set_table<'w>(
         fetch: &mut RefFetch<'w, T>,
         &component_id: &ComponentId,
+        _table_id: TableId,
         table: &'w Table,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
@@ -2434,13 +2480,15 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteFetch<'w, T>,
         component_id: &ComponentId,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table_id, table);
             }
         }
     }
@@ -2449,6 +2497,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn set_table<'w>(
         fetch: &mut WriteFetch<'w, T>,
         &component_id: &ComponentId,
+        _table_id: TableId,
         table: &'w Table,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
@@ -2682,16 +2731,30 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteFetch<'w, T>,
         state: &ComponentId,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
-        <&mut T as WorldQuery>::set_archetype(fetch, state, archetype, table);
+        <&mut T as WorldQuery>::set_archetype(
+            fetch,
+            state,
+            archetype_id,
+            archetype,
+            table_id,
+            table,
+        );
     }
 
     #[inline]
     // Forwarded to `&mut T`
-    unsafe fn set_table<'w>(fetch: &mut WriteFetch<'w, T>, state: &ComponentId, table: &'w Table) {
-        <&mut T as WorldQuery>::set_table(fetch, state, table);
+    unsafe fn set_table<'w>(
+        fetch: &mut WriteFetch<'w, T>,
+        state: &ComponentId,
+        table_id: TableId,
+        table: &'w Table,
+    ) {
+        <&mut T as WorldQuery>::set_table(fetch, state, table_id, table);
     }
 
     // NOT forwarded to `&mut T`
@@ -2899,7 +2962,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 /// ```
 /// # use bevy_ecs::{
-/// #     archetype::Archetype,
+/// #     archetype::{Archetype, ArchetypeId},
 /// #     change_detection::Tick,
 /// #     component::{ComponentId, Components},
 /// #     prelude::*,
@@ -2907,7 +2970,7 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 /// #         EcsAccessType, FilteredAccess, FilteredAccessSet, IterQueryData, NestedQuery,
 /// #         QueryData, QueryFilter, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery,
 /// #     },
-/// #     storage::{Table, TableRow},
+/// #     storage::{Table, TableId, TableRow},
 /// #     world::unsafe_world_cell::UnsafeWorldCell,
 /// # };
 /// #
@@ -2998,12 +3061,12 @@ impl<'__w, T: Component<Mutability = Mutable>> ContiguousQueryData for Mut<'__w,
 ///
 ///     const IS_DENSE: bool = <ParentInner<D, F> as WorldQuery>::IS_DENSE;
 ///
-///     unsafe fn set_archetype<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, archetype: &'w Archetype, table: &'w Table) {
-///         <ParentInner<D, F> as WorldQuery>::set_archetype(fetch, state, archetype, table)
+///     unsafe fn set_archetype<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, archetype_id: ArchetypeId, archetype: &'w Archetype, table_id: TableId, table: &'w Table) {
+///         <ParentInner<D, F> as WorldQuery>::set_archetype(fetch, state, archetype_id, archetype, table_id, table)
 ///     }
 ///
-///     unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
-///         <ParentInner<D, F> as WorldQuery>::set_table(fetch, state, table)
+///     unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table_id: TableId, table: &'w Table) {
+///         <ParentInner<D, F> as WorldQuery>::set_table(fetch, state, table_id, table)
 ///     }
 ///
 ///     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
@@ -3092,13 +3155,20 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
     unsafe fn set_archetype<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    unsafe fn set_table<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _table_id: TableId,
+        _table: &'w Table,
+    ) {
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {
@@ -3270,14 +3340,23 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut OptionFetch<'w, T>,
         state: &'s T::State,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.
             unsafe {
-                T::set_archetype(&mut fetch.fetch, state, archetype, table);
+                T::set_archetype(
+                    &mut fetch.fetch,
+                    state,
+                    archetype_id,
+                    archetype,
+                    table_id,
+                    table,
+                );
             }
         }
     }
@@ -3286,13 +3365,14 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn set_table<'w, 's>(
         fetch: &mut OptionFetch<'w, T>,
         state: &'s T::State,
+        table_id: TableId,
         table: &'w Table,
     ) {
         fetch.matches = T::matches_component_set(state, &|id| table.has_column(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.
             unsafe {
-                T::set_table(&mut fetch.fetch, state, table);
+                T::set_table(&mut fetch.fetch, state, table_id, table);
             }
         }
     }
@@ -3513,7 +3593,9 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &Table,
     ) {
         *fetch = archetype.contains(*state);
@@ -3523,6 +3605,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        _table_id: TableId,
         table: &'w Table,
     ) {
         *fetch = table.has_column(*state);
@@ -3800,7 +3883,9 @@ macro_rules! impl_anytuple_fetch {
             unsafe fn set_archetype<'w, 's>(
                 _fetch: &mut Self::Fetch<'w>,
                 _state: &'s Self::State,
+                _archetype_id: ArchetypeId,
                 _archetype: &'w Archetype,
+                _table_id: TableId,
                 _table: &'w Table
             ) {
                 let ($($name,)*) = _fetch;
@@ -3809,20 +3894,25 @@ macro_rules! impl_anytuple_fetch {
                     $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
                         // SAFETY: The invariants are upheld by the caller.
-                        unsafe { $name::set_archetype(&mut $name.0, $state, _archetype, _table); }
+                        unsafe { $name::set_archetype(&mut $name.0, $state, _archetype_id, _archetype, _table_id, _table); }
                     }
                 )*
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w>, _state: &'s Self::State, _table: &'w Table) {
+            unsafe fn set_table<'w, 's>(
+                _fetch: &mut Self::Fetch<'w>,
+                _state: &'s Self::State,
+                _table_id: TableId,
+                _table: &'w Table
+            ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
                     if $name.1 {
                         // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
+                        unsafe { $name::set_table(&mut $name.0, $state, _table_id, _table); }
                     }
                 )*
             }
@@ -4061,13 +4151,21 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     unsafe fn set_archetype(
         _fetch: &mut (),
         _state: &D::State,
+        _archetype_id: ArchetypeId,
         _archetype: &Archetype,
+        _table_id: TableId,
         _tables: &Table,
     ) {
     }
 
     #[inline(always)]
-    unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
+    unsafe fn set_table<'w>(
+        _fetch: &mut (),
+        _state: &D::State,
+        _table_id: TableId,
+        _table: &Table,
+    ) {
+    }
 
     fn update_component_access(_state: &D::State, _access: &mut FilteredAccess) {}
 
@@ -4166,7 +4264,9 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -4174,6 +4274,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     unsafe fn set_table<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s Self::State,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
@@ -4398,8 +4499,10 @@ mod tests {
             unsafe fn set_archetype<'w, 's>(
                 _fetch: &mut Self::Fetch<'w>,
                 _state: &'s Self::State,
+                _archetype_id: ArchetypeId,
                 _archetype: &'w Archetype,
-                _table: &Table,
+                _table_id: TableId,
+                _table: &'w Table,
             ) {
             }
 
@@ -4407,6 +4510,7 @@ mod tests {
             unsafe fn set_table<'w, 's>(
                 _fetch: &mut Self::Fetch<'w>,
                 _state: &'s Self::State,
+                _table_id: TableId,
                 _table: &'w Table,
             ) {
             }
