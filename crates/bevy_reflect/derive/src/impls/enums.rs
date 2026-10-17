@@ -164,10 +164,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                     _ => ::core::unreachable!(),
                 }
             }
-
-            fn to_dynamic_enum(&self) -> #FQResult<#bevy_reflect_path::enums::DynamicEnum, #bevy_reflect_path::ReflectCloneError> {
-                #bevy_reflect_path::enums::DynamicEnum::try_from_ref::<Self>(self)
-            }
         }
 
         impl #impl_generics #bevy_reflect_path::PartialReflect for #enum_path #ty_generics #where_reflect_clause {

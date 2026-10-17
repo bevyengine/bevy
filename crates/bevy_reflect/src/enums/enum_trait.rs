@@ -1,9 +1,9 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
-    enums::{DynamicEnum, VariantInfo, VariantType},
+    enums::{VariantInfo, VariantType},
     ty::impl_type_methods,
-    Generics, PartialReflect, ReflectCloneError, Type, TypePath,
+    Generics, PartialReflect, Type, TypePath,
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform::collections::HashMap;
@@ -124,13 +124,6 @@ pub trait Enum: PartialReflect {
     fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
-    /// Creates a new [`DynamicEnum`] from this enum.
-    ///
-    /// Returns an error if any field of the active variant cannot be converted via
-    /// [`PartialReflect::to_dynamic`].
-    fn to_dynamic_enum(&self) -> Result<DynamicEnum, ReflectCloneError> {
-        DynamicEnum::try_from_ref(self)
-    }
     /// Returns true if the current variant's type matches the given one.
     fn is_variant(&self, variant_type: VariantType) -> bool {
         self.variant_type() == variant_type

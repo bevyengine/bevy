@@ -3,7 +3,7 @@ use crate::{
     struct_utility::FieldAccessors,
     ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -128,13 +128,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
             fn iter_fields(&self) -> #bevy_reflect_path::structs::FieldIter {
                 #bevy_reflect_path::structs::FieldIter::new(self)
-            }
-
-            fn to_dynamic_struct(&self) -> #FQResult<#bevy_reflect_path::structs::DynamicStruct, #bevy_reflect_path::ReflectCloneError> {
-                let mut dynamic: #bevy_reflect_path::structs::DynamicStruct = #FQDefault::default();
-                dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert(#field_names, #bevy_reflect_path::dynamic::DynamicValue::try_from_reflect(#fields_ref)?);)*
-                #FQResult::Ok(dynamic)
             }
         }
 

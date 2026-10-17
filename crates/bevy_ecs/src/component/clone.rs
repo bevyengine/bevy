@@ -137,10 +137,13 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
     if let Some(reflect_from_world) =
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
+        use bevy_reflect::dynamic::DynamicValue;
+
         use crate::{entity::EntityMapper, world::World};
 
         let reflect_from_world = reflect_from_world.clone();
-        let Ok(source_component_cloned) = source_component_reflect.to_dynamic() else {
+        let Ok(source_component_cloned) = DynamicValue::try_from_reflect(source_component_reflect)
+        else {
             let component_info = ctx.component_info();
 
             log::error!(

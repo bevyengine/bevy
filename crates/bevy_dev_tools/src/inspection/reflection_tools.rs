@@ -1,7 +1,7 @@
 //! Helpers for working with reflected values during inspection.
 
 use bevy_ecs::{entity::Entity, world::World};
-use bevy_reflect::{PartialReflect, ReflectCloneError, ReflectRef};
+use bevy_reflect::{dynamic::DynamicValue, PartialReflect, ReflectCloneError, ReflectRef};
 use bevy_utils::prelude::ShortName;
 use core::any::TypeId;
 
@@ -15,7 +15,7 @@ pub fn clone_incomplete(
         Ok(cloned) => Ok(cloned.into_partial_reflect()),
         Err(err) => match reflected.reflect_ref() {
             ReflectRef::Opaque(_) => Err(err),
-            _ => reflected.to_dynamic(),
+            _ => Ok(DynamicValue::try_from_reflect(reflected)?.as_boxed_partial_reflect()),
         },
     }
 }

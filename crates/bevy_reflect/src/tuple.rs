@@ -59,19 +59,6 @@ pub trait Tuple: PartialReflect {
     /// Drain the fields of this tuple to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Creates a new [`DynamicTuple`] from this tuple.
-    ///
-    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
-        Ok(DynamicTuple {
-            represented_type: self.get_represented_type_info(),
-            fields: self
-                .iter_fields()
-                .map(DynamicValue::try_from_reflect)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
         self.get_represented_type_info()?.as_tuple().ok()
@@ -228,7 +215,7 @@ impl TupleInfo {
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default, Debug)]
 pub struct DynamicTuple {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     pub(crate) fields: Vec<DynamicValue>,
 }
 
@@ -248,6 +235,20 @@ impl DynamicTuple {
         Ok(Self {
             represented_type,
             fields,
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            fields: self
+                .fields
+                .iter()
+                .map(DynamicValue::dynamic_clone)
+                .collect::<Result<_, _>>()?,
         })
     }
 

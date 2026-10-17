@@ -718,7 +718,7 @@ mod tests {
             reflect_deserializer
                 .deserialize(&mut ron_deserializer)
                 .unwrap()
-                .as_ref(),
+                .as_partial_reflect(),
         )
         .unwrap();
 

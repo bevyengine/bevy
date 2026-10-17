@@ -708,7 +708,7 @@ pub enum UntypedAssetConversionError {
 mod tests {
     use alloc::boxed::Box;
     use bevy_platform::hash::FixedHasher;
-    use bevy_reflect::{FromReflect, PartialReflect};
+    use bevy_reflect::{dynamic::DynamicValue, FromReflect, PartialReflect};
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
@@ -849,7 +849,7 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
+                let dynamic_handle = DynamicValue::try_from_reflect(reflected).unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -858,7 +858,7 @@ mod tests {
                 );
 
                 let from_reflect_handle: Handle<MyAsset> =
-                    FromReflect::from_reflect(&*dynamic_handle).unwrap();
+                    FromReflect::from_reflect(dynamic_handle.as_partial_reflect()).unwrap();
 
                 assert_eq!(Arc::strong_count(strong), 4, "Converting the reflected value back to a handle should increase the strong count to 4");
                 assert!(
@@ -883,11 +883,11 @@ mod tests {
         let mut assets = app.world_mut().resource_mut::<Assets<A>>();
         let handle_a = assets.add(A);
 
-        let dynamic_handle_a = handle_a.to_dynamic().unwrap();
+        let dynamic_handle_a = DynamicValue::try_from_reflect(&handle_a).unwrap();
         let reflected_handle_a = handle_a.as_partial_reflect();
 
         let handle_b_from_reflect_dynamic: Option<Handle<B>> =
-            FromReflect::from_reflect(&*dynamic_handle_a);
+            FromReflect::from_reflect(dynamic_handle_a.as_partial_reflect());
         let handle_b_from_reflect: Option<Handle<B>> =
             FromReflect::from_reflect(reflected_handle_a);
         let handle_a_from_reflect: Option<Handle<A>> =

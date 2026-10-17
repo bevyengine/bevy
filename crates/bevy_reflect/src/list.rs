@@ -114,19 +114,6 @@ pub trait List: PartialReflect {
     /// [`Vec`] will match the order of items in `self`.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Creates a new [`DynamicList`] from this list.
-    ///
-    /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_list(&self) -> Result<DynamicList, ReflectCloneError> {
-        Ok(DynamicList {
-            represented_type: self.get_represented_type_info(),
-            values: self
-                .iter()
-                .map(DynamicValue::try_from_reflect)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
         self.get_represented_type_info()?.as_list().ok()
@@ -192,7 +179,7 @@ impl ListInfo {
 /// A list of reflected values.
 #[derive(Default)]
 pub struct DynamicList {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     values: Vec<DynamicValue>,
 }
 
@@ -212,6 +199,20 @@ impl DynamicList {
         Ok(Self {
             represented_type,
             values,
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            values: self
+                .values
+                .iter()
+                .map(DynamicValue::dynamic_clone)
+                .collect::<Result<_, _>>()?,
         })
     }
 
@@ -491,7 +492,10 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
                 v.try_apply(value)?;
             }
         } else {
-            List::push(a, value.to_dynamic()?);
+            List::push(
+                a,
+                DynamicValue::try_from_reflect(value)?.as_boxed_partial_reflect(),
+            );
         }
     }
 

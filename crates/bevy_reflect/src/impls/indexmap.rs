@@ -7,7 +7,7 @@ use crate::{
 };
 use bevy_platform::prelude::{Box, Vec};
 use bevy_reflect::{
-    map::{DynamicMap, Map, MapInfo},
+    map::{Map, MapInfo},
     MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed,
 };
 use bevy_reflect_derive::impl_type_path;
@@ -56,21 +56,6 @@ where
 
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
         self.retain(move |key, value| f(key, value));
-    }
-
-    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
-        let mut dynamic_map = DynamicMap::default();
-        dynamic_map.set_represented_type(PartialReflect::get_represented_type_info(self));
-        for (k, v) in self {
-            let key = K::from_reflect(k).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to clone invalid key of type {}.",
-                    k.reflect_type_path()
-                )
-            });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic()?);
-        }
-        Ok(dynamic_map)
     }
 
     fn insert_boxed(

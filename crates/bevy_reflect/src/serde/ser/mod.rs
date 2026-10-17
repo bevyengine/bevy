@@ -21,8 +21,8 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
+        dynamic::DynamicValue,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
-        structs::Struct,
         PartialReflect, Reflect, ReflectSerialize, TypeRegistry,
     };
     #[cfg(feature = "functions")]
@@ -408,7 +408,7 @@ mod tests {
             some: Some(SomeStruct { foo: 999999999 }),
             none: None,
         };
-        let dynamic = value.to_dynamic_struct().unwrap();
+        let dynamic = DynamicValue::try_from_reflect(&value).unwrap();
         let reflect = dynamic.as_partial_reflect();
 
         let registry = get_registry();

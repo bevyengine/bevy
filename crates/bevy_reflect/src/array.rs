@@ -80,19 +80,6 @@ pub trait Array: PartialReflect {
     /// Drain the elements of this array to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Creates a new [`DynamicArray`] from this array.
-    ///
-    /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_array(&self) -> Result<DynamicArray, ReflectCloneError> {
-        Ok(DynamicArray {
-            represented_type: self.get_represented_type_info(),
-            values: self
-                .iter()
-                .map(DynamicValue::try_from_reflect)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
         self.get_represented_type_info()?.as_array().ok()
@@ -199,6 +186,20 @@ impl DynamicArray {
         Ok(Self {
             represented_type,
             values: values.into_boxed_slice(),
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            values: self
+                .values
+                .iter()
+                .map(DynamicValue::dynamic_clone)
+                .collect::<Result<_, _>>()?,
         })
     }
 

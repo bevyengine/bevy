@@ -77,18 +77,6 @@ pub trait Set: PartialReflect {
     /// In other words, remove all elements `e` for which `f(&e)` returns `false`.
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool);
 
-    /// Creates a new [`DynamicSet`] from this set.
-    ///
-    /// Returns an error if any value cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_set(&self) -> Result<DynamicSet, ReflectCloneError> {
-        let mut set = DynamicSet::default();
-        set.set_represented_type(self.get_represented_type_info());
-        for value in self.iter() {
-            set.insert_boxed(value.to_dynamic()?);
-        }
-        Ok(set)
-    }
-
     /// Inserts a value into the set.
     ///
     /// If the set did not have this value present, `true` is returned.
@@ -154,7 +142,7 @@ impl SetInfo {
 /// An unordered set of reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     hash_table: HashTable<DynamicValue>,
 }
 
@@ -166,9 +154,33 @@ impl DynamicSet {
     pub fn try_from_reflect(value: &dyn Set) -> Result<Self, ReflectCloneError> {
         let represented_type = value.get_represented_type_info();
 
+        Ok(Self {
+            represented_type,
+            hash_table: Self::create_hash_table_from_iter(
+                value.iter().map(DynamicValue::try_from_reflect),
+            )?,
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            hash_table: Self::create_hash_table_from_iter(
+                self.hash_table.iter().map(DynamicValue::dynamic_clone),
+            )?,
+        })
+    }
+
+    /// Creates the internal hash table from an iterator of the dynamic values.
+    fn create_hash_table_from_iter(
+        iter: impl Iterator<Item = Result<DynamicValue, ReflectCloneError>>,
+    ) -> Result<HashTable<DynamicValue>, ReflectCloneError> {
         let mut hash_table = HashTable::new();
-        for value in value.iter() {
-            let value = DynamicValue::try_from_reflect(value)?;
+        for entry in iter {
+            let value = entry?;
             let hash = Self::internal_hash(value.as_partial_reflect());
             let eq = Self::internal_eq(value.as_partial_reflect());
             match hash_table.find_mut(hash, eq) {
@@ -182,11 +194,7 @@ impl DynamicSet {
                 }
             }
         }
-
-        Ok(Self {
-            represented_type,
-            hash_table,
-        })
+        Ok(hash_table)
     }
 
     /// Sets the [type] to be represented by this `DynamicSet`.
@@ -518,7 +526,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 
     for b_value in set_value.iter() {
         if a.get(b_value).is_none() {
-            a.insert_boxed(b_value.to_dynamic()?);
+            a.insert_boxed(DynamicValue::try_from_reflect(b_value)?.as_boxed_partial_reflect());
         }
     }
     a.retain(&mut |value| set_value.get(value).is_some());

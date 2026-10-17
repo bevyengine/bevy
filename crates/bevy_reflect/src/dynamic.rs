@@ -11,7 +11,7 @@ use crate::{
     structs::{DynamicStruct, Struct},
     tuple::{DynamicTuple, Tuple},
     tuple_struct::{DynamicTupleStruct, TupleStruct},
-    ApplyError, PartialReflect, Reflect, ReflectCloneError, ReflectRef,
+    ApplyError, PartialReflect, Reflect, ReflectCloneError, ReflectRef, TypeInfo, TypePath,
 };
 
 use alloc::{boxed::Box, string::String, vec::Vec};
@@ -111,6 +111,53 @@ impl DynamicValue {
             Self::Concrete(inner_box) => &mut **inner_box,
             _ => DynamicValueWrapper::from_mut(self),
         }
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// Note: Any [`Self::Concrete`] variants first call [`PartialReflect::reflect_clone`], and then
+    /// fallback to converting the value to a dynamic representation.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        match self {
+            Self::Concrete(inner_box) => {
+                if let Ok(value) = inner_box.reflect_clone() {
+                    return Ok(Self::Concrete(value));
+                }
+
+                Self::try_from_reflect(&**inner_box)
+            }
+            Self::Struct(value) => Ok(Self::Struct(DynamicStruct::dynamic_clone(value)?)),
+            Self::TupleStruct(value) => {
+                Ok(Self::TupleStruct(DynamicTupleStruct::dynamic_clone(value)?))
+            }
+            Self::Tuple(value) => Ok(Self::Tuple(DynamicTuple::dynamic_clone(value)?)),
+            Self::List(value) => Ok(Self::List(DynamicList::dynamic_clone(value)?)),
+            Self::Array(value) => Ok(Self::Array(DynamicArray::dynamic_clone(value)?)),
+            Self::Map(value) => Ok(Self::Map(DynamicMap::dynamic_clone(value)?)),
+            Self::Set(value) => Ok(Self::Set(DynamicSet::dynamic_clone(value)?)),
+            Self::Enum(value) => Ok(Self::Enum(DynamicEnum::dynamic_clone(value)?)),
+        }
+    }
+
+    /// Gets the type that this dynamic representation represents.
+    pub fn get_represented_type_into(&self) -> Option<&'static TypeInfo> {
+        match self {
+            Self::Struct(value) => value.represented_type,
+            Self::TupleStruct(value) => value.represented_type,
+            Self::Tuple(value) => value.represented_type,
+            Self::List(value) => value.represented_type,
+            Self::Array(value) => value.represented_type,
+            Self::Map(value) => value.represented_type,
+            Self::Set(value) => value.represented_type,
+            Self::Enum(value) => value.represented_type,
+            Self::Concrete(value) => Some(value.reflect_type_info()),
+        }
+    }
+
+    /// Returns `true` if the underlying value represents a value of type `T`, or `false` otherwise.
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.get_represented_type_into()
+            .is_some_and(|t| t.type_path() == T::type_path())
     }
 }
 
@@ -239,7 +286,7 @@ impl DynamicValueWrapper {
 impl_type_path!((in bevy_reflect) DynamicValueWrapper);
 
 impl PartialReflect for DynamicValueWrapper {
-    fn get_represented_type_info(&self) -> Option<&'static crate::TypeInfo> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         forward_method!(&self.0, value, value.get_represented_type_info())
     }
 
@@ -297,20 +344,6 @@ impl PartialReflect for DynamicValueWrapper {
             // with this variant.
             DynamicValue::Concrete(_) => unreachable!(),
         }
-    }
-
-    fn to_dynamic(&self) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
-        Ok(match &self.0 {
-            DynamicValue::Struct(value) => value.to_dynamic()?,
-            DynamicValue::TupleStruct(value) => value.to_dynamic()?,
-            DynamicValue::Tuple(value) => value.to_dynamic()?,
-            DynamicValue::List(value) => value.to_dynamic()?,
-            DynamicValue::Array(value) => value.to_dynamic()?,
-            DynamicValue::Map(value) => value.to_dynamic()?,
-            DynamicValue::Set(value) => value.to_dynamic()?,
-            DynamicValue::Enum(value) => value.to_dynamic()?,
-            DynamicValue::Concrete(value) => value.reflect_clone()?,
-        })
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -495,10 +528,6 @@ impl Struct for DynamicValueWrapper {
         self.as_struct().iter_fields()
     }
 
-    fn to_dynamic_struct(&self) -> Result<DynamicStruct, ReflectCloneError> {
-        self.as_struct().to_dynamic_struct()
-    }
-
     fn get_represented_struct_info(&self) -> Option<&'static crate::structs::StructInfo> {
         self.as_struct().get_represented_struct_info()
     }
@@ -519,10 +548,6 @@ impl TupleStruct for DynamicValueWrapper {
 
     fn iter_fields(&self) -> crate::tuple_struct::TupleStructFieldIter<'_> {
         self.as_tuple_struct().iter_fields()
-    }
-
-    fn to_dynamic_tuple_struct(&self) -> Result<DynamicTupleStruct, ReflectCloneError> {
-        self.as_tuple_struct().to_dynamic_tuple_struct()
     }
 }
 
@@ -545,10 +570,6 @@ impl Tuple for DynamicValueWrapper {
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.as_tuple_owned().into_boxed_fields()
-    }
-
-    fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
-        self.as_tuple().to_dynamic_tuple()
     }
 
     fn get_represented_tuple_info(&self) -> Option<&'static crate::tuple::TupleInfo> {
@@ -601,10 +622,6 @@ impl List for DynamicValueWrapper {
         self.as_list().is_empty()
     }
 
-    fn to_dynamic_list(&self) -> Result<DynamicList, ReflectCloneError> {
-        self.as_list().to_dynamic_list()
-    }
-
     fn get_represented_list_info(&self) -> Option<&'static crate::list::ListInfo> {
         self.as_list().get_represented_list_info()
     }
@@ -637,10 +654,6 @@ impl Array for DynamicValueWrapper {
 
     fn is_empty(&self) -> bool {
         self.as_array().is_empty()
-    }
-
-    fn to_dynamic_array(&self) -> Result<DynamicArray, ReflectCloneError> {
-        self.as_array().to_dynamic_array()
     }
 
     fn get_represented_array_info(&self) -> Option<&'static crate::array::ArrayInfo> {
@@ -689,10 +702,6 @@ impl Map for DynamicValueWrapper {
         self.as_map().is_empty()
     }
 
-    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
-        self.as_map().to_dynamic_map()
-    }
-
     fn get_represented_map_info(&self) -> Option<&'static crate::map::MapInfo> {
         self.as_map().get_represented_map_info()
     }
@@ -733,10 +742,6 @@ impl Set for DynamicValueWrapper {
 
     fn is_empty(&self) -> bool {
         self.as_set().is_empty()
-    }
-
-    fn to_dynamic_set(&self) -> Result<DynamicSet, ReflectCloneError> {
-        self.as_set().to_dynamic_set()
     }
 }
 
@@ -783,10 +788,6 @@ impl Enum for DynamicValueWrapper {
 
     fn variant_type(&self) -> crate::enums::VariantType {
         self.as_enum().variant_type()
-    }
-
-    fn to_dynamic_enum(&self) -> Result<DynamicEnum, ReflectCloneError> {
-        self.as_enum().to_dynamic_enum()
     }
 
     fn is_variant(&self, variant_type: crate::enums::VariantType) -> bool {

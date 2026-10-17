@@ -42,21 +42,6 @@ macro_rules! impl_reflect_for_hashmap {
                     self.retain(move |key, value| f(key, value));
                 }
 
-                fn to_dynamic_map(&self) -> Result<$crate::map::DynamicMap, $crate::error::ReflectCloneError> {
-                    let mut dynamic_map = $crate::map::DynamicMap::default();
-                    dynamic_map.set_represented_type($crate::reflect::PartialReflect::get_represented_type_info(self));
-                    for (k, v) in self {
-                        let key = K::from_reflect(k).unwrap_or_else(|| {
-                            panic!(
-                                "Attempted to clone invalid key of type {}.",
-                                k.reflect_type_path()
-                            )
-                        });
-                        dynamic_map.insert_boxed(bevy_platform::prelude::Box::new(key), v.to_dynamic()?);
-                    }
-                    Ok(dynamic_map)
-                }
-
                 fn insert_boxed(
                     &mut self,
                     key: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>,

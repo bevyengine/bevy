@@ -59,19 +59,6 @@ pub trait TupleStruct: PartialReflect {
     /// Returns an iterator over the values of the tuple struct's fields.
     fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
-    /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
-    ///
-    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_tuple_struct(&self) -> Result<DynamicTupleStruct, ReflectCloneError> {
-        Ok(DynamicTupleStruct {
-            represented_type: self.get_represented_type_info(),
-            fields: self
-                .iter_fields()
-                .map(DynamicValue::try_from_reflect)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
         self.get_represented_type_info()?.as_tuple_struct().ok()
@@ -243,7 +230,7 @@ impl GetTupleStructField for dyn TupleStruct {
 /// A tuple struct which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTupleStruct {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     fields: Vec<DynamicValue>,
 }
 
@@ -263,6 +250,20 @@ impl DynamicTupleStruct {
         Ok(Self {
             represented_type,
             fields,
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            fields: self
+                .fields
+                .iter()
+                .map(DynamicValue::dynamic_clone)
+                .collect::<Result<_, _>>()?,
         })
     }
 

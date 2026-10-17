@@ -3,7 +3,7 @@ use crate::{
     struct_utility::FieldAccessors,
     ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQDefault, FQIterator, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQIterator, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -88,13 +88,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             #[inline]
             fn iter_fields(&self) -> #bevy_reflect_path::tuple_struct::TupleStructFieldIter {
                 #bevy_reflect_path::tuple_struct::TupleStructFieldIter::new(self)
-            }
-
-            fn to_dynamic_tuple_struct(&self) -> #FQResult<#bevy_reflect_path::tuple_struct::DynamicTupleStruct, #bevy_reflect_path::ReflectCloneError> {
-                let mut dynamic: #bevy_reflect_path::tuple_struct::DynamicTupleStruct = #FQDefault::default();
-                dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
-                #(dynamic.insert(#bevy_reflect_path::dynamic::DynamicValue::try_from_reflect(#fields_ref)?);)*
-                #FQResult::Ok(dynamic)
             }
         }
 

@@ -82,18 +82,6 @@ pub trait Map: PartialReflect {
     /// In other words, remove all pairs `(k, v)` such that `f(&k, &mut v)` returns `false`.
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool);
 
-    /// Creates a new [`DynamicMap`] from this map.
-    ///
-    /// Returns an error if any key or value cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
-        let mut map = DynamicMap::default();
-        map.set_represented_type(self.get_represented_type_info());
-        for (key, value) in self.iter() {
-            map.insert_boxed(key.to_dynamic()?, value.to_dynamic()?);
-        }
-        Ok(map)
-    }
-
     /// Inserts a key-value pair into the map.
     ///
     /// If the map did not have this key present, `None` is returned.
@@ -224,7 +212,7 @@ macro_rules! hash_error {
 /// An unordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicMap {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     hash_table: HashTable<(DynamicValue, DynamicValue)>,
 }
 
@@ -236,10 +224,38 @@ impl DynamicMap {
     pub fn try_from_reflect(value: &dyn Map) -> Result<Self, ReflectCloneError> {
         let represented_type = value.get_represented_type_info();
 
+        Ok(Self {
+            represented_type,
+            hash_table: Self::create_hash_table_from_iter(value.iter().map(|(key, value)| {
+                Ok((
+                    DynamicValue::try_from_reflect(key)?,
+                    DynamicValue::try_from_reflect(value)?,
+                ))
+            }))?,
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            hash_table: Self::create_hash_table_from_iter(
+                self.hash_table
+                    .iter()
+                    .map(|(key, value)| Ok((key.dynamic_clone()?, value.dynamic_clone()?))),
+            )?,
+        })
+    }
+
+    /// Creates the internal hash table from an iterator of the dynamic values.
+    fn create_hash_table_from_iter(
+        iter: impl Iterator<Item = Result<(DynamicValue, DynamicValue), ReflectCloneError>>,
+    ) -> Result<HashTable<(DynamicValue, DynamicValue)>, ReflectCloneError> {
         let mut hash_table = HashTable::new();
-        for (key, value) in value.iter() {
-            let key = DynamicValue::try_from_reflect(key)?;
-            let value = DynamicValue::try_from_reflect(value)?;
+        for entry in iter {
+            let (key, value) = entry?;
             let hash = Self::internal_hash(key.as_partial_reflect());
             let eq = Self::internal_eq(key.as_partial_reflect());
             match hash_table.find_mut(hash, eq) {
@@ -253,11 +269,7 @@ impl DynamicMap {
                 }
             }
         }
-
-        Ok(Self {
-            represented_type,
-            hash_table,
-        })
+        Ok(hash_table)
     }
 
     /// Sets the [type] to be represented by this `DynamicMap`.
@@ -652,7 +664,10 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
         if let Some(a_value) = a.get_mut(key) {
             a_value.try_apply(b_value)?;
         } else {
-            a.insert_boxed(key.to_dynamic()?, b_value.to_dynamic()?);
+            a.insert_boxed(
+                DynamicValue::try_from_reflect(key)?.as_boxed_partial_reflect(),
+                DynamicValue::try_from_reflect(b_value)?.as_boxed_partial_reflect(),
+            );
         }
     }
     a.retain(&mut |key, _| map_value.get(key).is_some());

@@ -77,18 +77,6 @@ pub trait Struct: PartialReflect {
     /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter<'_>;
 
-    /// Creates a new [`DynamicStruct`] from this struct.
-    ///
-    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_struct(&self) -> Result<DynamicStruct, ReflectCloneError> {
-        let mut dynamic_struct = DynamicStruct::default();
-        dynamic_struct.set_represented_type(self.get_represented_type_info());
-        for (name, value) in self.iter_fields() {
-            dynamic_struct.insert(name, DynamicValue::try_from_reflect(value)?);
-        }
-        Ok(dynamic_struct)
-    }
-
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
         self.get_represented_type_info()?.as_struct().ok()
@@ -305,7 +293,7 @@ impl GetField for dyn Struct {
 /// A struct type which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicStruct {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     fields: Vec<DynamicValue>,
     field_names: Vec<Cow<'static, str>>,
     field_indices: HashMap<Cow<'static, str>, usize>,
@@ -332,6 +320,22 @@ impl DynamicStruct {
             fields,
             field_names,
             field_indices,
+        })
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            fields: self
+                .fields
+                .iter()
+                .map(DynamicValue::dynamic_clone)
+                .collect::<Result<_, _>>()?,
+            field_names: self.field_names.clone(),
+            field_indices: self.field_indices.clone(),
         })
     }
 
@@ -805,7 +809,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_at() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
+        let mut s = DynamicStruct::try_from_reflect(&OtherStruct::default()).unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -833,7 +837,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_by_name() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
+        let mut s = DynamicStruct::try_from_reflect(&OtherStruct::default()).unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -861,7 +865,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_if() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
+        let mut s = DynamicStruct::try_from_reflect(&OtherStruct::default()).unwrap();
 
         assert_eq!(s.field_len(), 3);
 
@@ -879,7 +883,7 @@ mod tests {
 
     #[test]
     fn dynamic_struct_remove_combo() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
+        let mut s = DynamicStruct::try_from_reflect(&OtherStruct::default()).unwrap();
 
         assert_eq!(s.field_len(), 3);
 

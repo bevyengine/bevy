@@ -28,20 +28,27 @@ pub enum DynamicVariant {
     Struct(DynamicStruct),
 }
 
+impl DynamicVariant {
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(match self {
+            Self::Unit => Self::Unit,
+            Self::Tuple(value) => Self::Tuple(value.dynamic_clone()?),
+            Self::Struct(value) => Self::Struct(value.dynamic_clone()?),
+        })
+    }
+}
+
 /// # Panics
 ///
 /// `Clone` cannot fail, so deep-cloning a variant whose fields contain a non-cloneable
 /// opaque value panics. This is unavoidable: the field-by-field deep clone relies on
-/// `to_dynamic_*`, which is fallible to avoid exactly this problem.
+/// `PartialReflect::reflect_clone`, which is fallible to avoid exactly this problem.
 impl Clone for DynamicVariant {
     fn clone(&self) -> Self {
-        match self {
-            DynamicVariant::Unit => DynamicVariant::Unit,
-            DynamicVariant::Tuple(data) => DynamicVariant::Tuple(data.to_dynamic_tuple().unwrap()),
-            DynamicVariant::Struct(data) => {
-                DynamicVariant::Struct(data.to_dynamic_struct().unwrap())
-            }
-        }
+        self.dynamic_clone().unwrap()
     }
 }
 
@@ -77,7 +84,7 @@ impl From<()> for DynamicVariant {
 /// ```
 #[derive(Default, Debug)]
 pub struct DynamicEnum {
-    represented_type: Option<&'static TypeInfo>,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     variant_name: String,
     variant_index: usize,
     variant: DynamicVariant,
@@ -244,6 +251,18 @@ impl DynamicEnum {
 
         dyn_enum.set_represented_type(type_info);
         Ok(dyn_enum)
+    }
+
+    /// Attempts to clone this value's data.
+    ///
+    /// May fail if an opaque value cannot be cloned.
+    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
+        Ok(Self {
+            represented_type: self.represented_type,
+            variant_name: self.variant_name.clone(),
+            variant_index: self.variant_index,
+            variant: self.variant.dynamic_clone()?,
+        })
     }
 }
 

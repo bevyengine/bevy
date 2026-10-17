@@ -1,4 +1,4 @@
-use bevy_reflect::{PartialReflect, ReflectFromReflect, TypeRegistration};
+use bevy_reflect::{dynamic::DynamicValue, PartialReflect, ReflectFromReflect, TypeRegistration};
 
 /// Attempts to clone a [`PartialReflect`] value using various methods.
 ///
@@ -20,6 +20,10 @@ pub(super) fn clone_reflect_value(
                 .data::<ReflectFromReflect>()
                 .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
                 .map(PartialReflect::into_partial_reflect)
-                .unwrap_or_else(|| value.to_dynamic().unwrap())
+                .unwrap_or_else(|| {
+                    DynamicValue::try_from_reflect(value)
+                        .unwrap()
+                        .as_boxed_partial_reflect()
+                })
         })
 }

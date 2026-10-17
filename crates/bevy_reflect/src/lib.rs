@@ -210,7 +210,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect, dynamic::DynamicValue};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -219,8 +219,8 @@
 //!   foo: 123
 //! });
 //!
-//! // `dynamic` will be a `DynamicStruct` representing a `MyStruct`
-//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic().unwrap();
+//! // `dynamic` will be a `DynamicValue::Struct` representing a `MyStruct`
+//! let dynamic = DynamicValue::try_from_reflect(&*original).unwrap();
 //! assert!(dynamic.represents::<MyStruct>());
 //! ```
 //!
@@ -244,7 +244,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect};
+//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect, dynamic::DynamicValue};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -253,7 +253,7 @@
 //!   foo: 123
 //! });
 //!
-//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic().unwrap();
+//! let dynamic = DynamicValue::try_from_reflect(&*original).unwrap();
 //! let value = dynamic.try_take::<MyStruct>().unwrap(); // PANIC!
 //! ```
 //!
@@ -269,7 +269,7 @@
 //! using `#[reflect(from_reflect = false)]` on the item.
 //!
 //! ```
-//! # use bevy_reflect::{FromReflect, PartialReflect, Reflect};
+//! # use bevy_reflect::{FromReflect, PartialReflect, Reflect, dynamic::DynamicValue};
 //! #[derive(Reflect)]
 //! struct MyStruct {
 //!   foo: i32
@@ -278,8 +278,8 @@
 //!   foo: 123
 //! });
 //!
-//! let dynamic: Box<dyn PartialReflect> = original.to_dynamic().unwrap();
-//! let value = <MyStruct as FromReflect>::from_reflect(&*dynamic).unwrap(); // OK!
+//! let dynamic = DynamicValue::try_from_reflect(&*original).unwrap();
+//! let value = <MyStruct as FromReflect>::from_reflect(dynamic.as_partial_reflect()).unwrap(); // OK!
 //! ```
 //!
 //! When deriving, all active fields and sub-elements must also implement `FromReflect`.
@@ -1084,7 +1084,7 @@ mod tests {
 
         let foo = Foo { a: 1 };
         assert!(foo.reflect_hash().is_some());
-        let dynamic = foo.to_dynamic_struct().unwrap();
+        let dynamic = DynamicStruct::try_from_reflect(&foo).unwrap();
 
         let mut map = DynamicMap::default();
         map.insert(dynamic, 11u32);
@@ -2148,7 +2148,7 @@ mod tests {
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", list.to_dynamic_list().unwrap());
+        foo_patch.insert("c", DynamicList::try_from_reflect(&list).unwrap());
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
@@ -2157,7 +2157,7 @@ mod tests {
 
         let mut bar_patch = DynamicStruct::default();
         bar_patch.insert("x", 2u32);
-        foo_patch.insert("e", bar_patch.to_dynamic_struct().unwrap());
+        foo_patch.insert("e", DynamicStruct::try_from_reflect(&bar_patch).unwrap());
 
         let mut tuple = DynamicTuple::default();
         tuple.insert(2i32);
@@ -2483,22 +2483,22 @@ mod tests {
     #[test]
     fn not_dynamic_names() {
         let list = Vec::<usize>::new();
-        let dyn_list = list.to_dynamic_list().unwrap();
+        let dyn_list = DynamicList::try_from_reflect(&list).unwrap();
         assert_ne!(dyn_list.reflect_type_path(), Vec::<usize>::type_path());
 
         let array = [b'0'; 4];
-        let dyn_array = array.to_dynamic_array().unwrap();
+        let dyn_array = DynamicArray::try_from_reflect(&array).unwrap();
         assert_ne!(dyn_array.reflect_type_path(), <[u8; 4]>::type_path());
 
         let map = HashMap::<usize, String>::default();
-        let dyn_map = map.to_dynamic_map().unwrap();
+        let dyn_map = DynamicMap::try_from_reflect(&map).unwrap();
         assert_ne!(
             dyn_map.reflect_type_path(),
             HashMap::<usize, String>::type_path()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
-        let mut dyn_tuple = tuple.to_dynamic_tuple().unwrap();
+        let mut dyn_tuple = DynamicTuple::try_from_reflect(&tuple).unwrap();
         dyn_tuple.insert(3);
         assert_ne!(
             dyn_tuple.reflect_type_path(),
@@ -2510,13 +2510,13 @@ mod tests {
             a: usize,
         }
         let struct_ = TestStruct { a: 0 };
-        let dyn_struct = struct_.to_dynamic_struct().unwrap();
+        let dyn_struct = DynamicStruct::try_from_reflect(&struct_).unwrap();
         assert_ne!(dyn_struct.reflect_type_path(), TestStruct::type_path());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
         let tuple_struct = TestTupleStruct(0);
-        let dyn_tuple_struct = tuple_struct.to_dynamic_tuple_struct().unwrap();
+        let dyn_tuple_struct = DynamicTupleStruct::try_from_reflect(&tuple_struct).unwrap();
         assert_ne!(
             dyn_tuple_struct.reflect_type_path(),
             TestTupleStruct::type_path()
@@ -2926,7 +2926,7 @@ mod tests {
     #[test]
     fn should_permit_valid_represented_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
-        let mut dynamic_array = [123; 2].to_dynamic_array().unwrap();
+        let mut dynamic_array = DynamicArray::try_from_reflect(&[123; 2]).unwrap();
         dynamic_array.set_represented_type(Some(type_info));
     }
 
@@ -2934,7 +2934,7 @@ mod tests {
     #[should_panic(expected = "expected TypeInfo::Array but received")]
     fn should_prohibit_invalid_represented_type_for_dynamic() {
         let type_info = <(i32, i32) as Typed>::type_info();
-        let mut dynamic_array = [123; 2].to_dynamic_array().unwrap();
+        let mut dynamic_array = DynamicArray::try_from_reflect(&[123; 2]).unwrap();
         dynamic_array.set_represented_type(Some(type_info));
     }
 
@@ -3478,7 +3478,7 @@ bevy_reflect::tests::Test {
         }
         let mut map = <HashMap<_, _>>::default();
         map.insert(9, 10);
-        let mut test_struct: DynamicStruct = TestStruct {
+        let mut test_struct: DynamicStruct = DynamicStruct::try_from_reflect(&TestStruct {
             tuple: (0, 1),
             list: vec![2, 3, 4],
             array: [5, 6, 7],
@@ -3486,8 +3486,7 @@ bevy_reflect::tests::Test {
             e: TestEnum::A(11),
             map,
             value: 12,
-        }
-        .to_dynamic_struct()
+        })
         .unwrap();
 
         // test unknown DynamicStruct

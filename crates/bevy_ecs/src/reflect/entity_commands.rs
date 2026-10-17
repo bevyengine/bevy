@@ -421,7 +421,7 @@ mod tests {
     };
     use alloc::{borrow::ToOwned, boxed::Box};
     use bevy_ecs_macros::Resource;
-    use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
+    use bevy_reflect::{dynamic::DynamicValue, PartialReflect, Reflect, TypeRegistry};
 
     #[derive(Resource)]
     struct TypeRegistryResource {
@@ -470,7 +470,10 @@ mod tests {
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
         let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
-        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic().unwrap();
+        let boxed_reflect_component_a_dynamic =
+            DynamicValue::try_from_reflect(&*boxed_reflect_component_a)
+                .unwrap()
+                .as_boxed_partial_reflect();
 
         commands
             .entity(entity)
