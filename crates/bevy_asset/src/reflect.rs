@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
+    dynamic::DynamicValue,
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
     CreateTypeData, FromReflect, PartialReflect, Reflect, TypeRegistry,
 };
@@ -479,7 +480,7 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
         registration: &bevy_reflect::TypeRegistration,
         registry: &TypeRegistry,
         deserializer: D,
-    ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+    ) -> Result<Result<DynamicValue, D>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -493,12 +494,14 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
                 )));
             };
             let type_id = asset_type.type_id();
-            return Ok(Ok(Box::new(match typed_handle_reference.reference {
-                HandleReference::Path(path) => {
-                    self.load_from_path.load_from_path_erased(type_id, path)
-                }
-                HandleReference::Uuid(uuid) => UntypedHandle::Uuid { type_id, uuid },
-            })));
+            return Ok(Ok(DynamicValue::from(
+                match typed_handle_reference.reference {
+                    HandleReference::Path(path) => {
+                        self.load_from_path.load_from_path_erased(type_id, path)
+                    }
+                    HandleReference::Uuid(uuid) => UntypedHandle::Uuid { type_id, uuid },
+                },
+            )));
         }
 
         let Some(reflect_handle) = registration.data::<ReflectHandle>() else {
@@ -512,10 +515,14 @@ impl ReflectDeserializerProcessor for HandleDeserializeProcessor<'_> {
         let handle_reference = HandleReference::deserialize(deserializer)?;
 
         let type_id = reflect_handle.asset_type_id;
-        Ok(Ok(reflect_handle.typed(match handle_reference {
-            HandleReference::Path(path) => self.load_from_path.load_from_path_erased(type_id, path),
-            HandleReference::Uuid(uuid) => UntypedHandle::Uuid { type_id, uuid },
-        })))
+        Ok(Ok(DynamicValue::from(reflect_handle.typed(
+            match handle_reference {
+                HandleReference::Path(path) => {
+                    self.load_from_path.load_from_path_erased(type_id, path)
+                }
+                HandleReference::Uuid(uuid) => UntypedHandle::Uuid { type_id, uuid },
+            },
+        ))))
     }
 }
 

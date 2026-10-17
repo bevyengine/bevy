@@ -24,6 +24,7 @@ use bevy_ecs::{
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
+    dynamic::DynamicValue,
     serde::{ReflectSerializer, TypedReflectDeserializer},
     structs::DynamicStruct,
     GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
@@ -1406,7 +1407,7 @@ pub fn process_remote_mutate_components_request(
 
     // Get the reflected representation of the value to be inserted
     // into the component.
-    let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
+    let value: DynamicValue = TypedReflectDeserializer::new(value_type, &type_registry)
         .deserialize(&value)
         .map_err(BrpError::component_error)?;
 
@@ -1414,7 +1415,7 @@ pub fn process_remote_mutate_components_request(
     reflected
         .reflect_path_mut(path.as_str())
         .map_err(BrpError::component_error)?
-        .try_apply(value.as_ref())
+        .try_apply(value.as_partial_reflect())
         .map_err(BrpError::component_error)?;
 
     Ok(Value::Null)
@@ -1460,7 +1461,7 @@ pub fn process_remote_mutate_resources_request(
         })?;
 
     // Use the field's type registration to deserialize the given value.
-    let deserialized_value: Box<dyn PartialReflect> =
+    let deserialized_value: DynamicValue =
         TypedReflectDeserializer::new(value_registration, &type_registry)
             .deserialize(&value)
             .map_err(BrpError::resource_error)?;
@@ -1469,7 +1470,7 @@ pub fn process_remote_mutate_resources_request(
     reflected_component
         .reflect_path_mut(field_path.as_str())
         .map_err(BrpError::resource_error)?
-        .try_apply(&*deserialized_value)
+        .try_apply(deserialized_value.as_partial_reflect())
         .map_err(BrpError::resource_error)?;
 
     Ok(Value::Null)
@@ -1694,13 +1695,10 @@ pub fn process_remote_trigger_event_request(
         };
 
         if let Some(payload) = value {
-            let payload: Box<dyn PartialReflect> =
-                TypedReflectDeserializer::new(registration, &registry)
-                    .deserialize(payload.into_deserializer())
-                    .map_err(|err| {
-                        BrpError::resource_error(format!("{event} is invalid: {err}"))
-                    })?;
-            reflect_event.trigger(world, &*payload, &registry);
+            let payload: DynamicValue = TypedReflectDeserializer::new(registration, &registry)
+                .deserialize(payload.into_deserializer())
+                .map_err(|err| BrpError::resource_error(format!("{event} is invalid: {err}")))?;
+            reflect_event.trigger(world, payload.as_partial_reflect(), &registry);
         } else {
             let payload = DynamicStruct::default();
             reflect_event.trigger(world, &payload, &registry);
@@ -1732,13 +1730,10 @@ pub fn process_remote_write_message_request(
         };
 
         if let Some(payload) = value {
-            let payload: Box<dyn PartialReflect> =
-                TypedReflectDeserializer::new(registration, &registry)
-                    .deserialize(payload.into_deserializer())
-                    .map_err(|err| {
-                        BrpError::resource_error(format!("{message} is invalid: {err}"))
-                    })?;
-            reflect_message.write_message(world, &*payload, &registry);
+            let payload: DynamicValue = TypedReflectDeserializer::new(registration, &registry)
+                .deserialize(payload.into_deserializer())
+                .map_err(|err| BrpError::resource_error(format!("{message} is invalid: {err}")))?;
+            reflect_message.write_message(world, payload.as_partial_reflect(), &registry);
         } else {
             let payload = DynamicStruct::default();
             reflect_message.write_message(world, &payload, &registry);
@@ -2211,11 +2206,10 @@ fn deserialize_components(
         let Some(component_type) = type_registry.get_with_type_path(&component_path) else {
             return Err(anyhow!("Unknown component type: `{}`", component_path));
         };
-        let reflected: Box<dyn PartialReflect> =
-            TypedReflectDeserializer::new(component_type, type_registry)
-                .deserialize(&component)
-                .map_err(|err| anyhow!("{component_path} is invalid: {err}"))?;
-        reflect_components.push(reflected);
+        let reflected: DynamicValue = TypedReflectDeserializer::new(component_type, type_registry)
+            .deserialize(&component)
+            .map_err(|err| anyhow!("{component_path} is invalid: {err}"))?;
+        reflect_components.push(reflected.as_boxed_partial_reflect());
     }
 
     Ok(reflect_components)
@@ -2231,11 +2225,10 @@ fn deserialize_resource(
     let Some(resource_type) = type_registry.get_with_type_path(resource_path) else {
         return Err(anyhow!("Unknown resource type: `{}`", resource_path));
     };
-    let reflected: Box<dyn PartialReflect> =
-        TypedReflectDeserializer::new(resource_type, type_registry)
-            .deserialize(&value)
-            .map_err(|err| anyhow!("{resource_path} is invalid: {err}"))?;
-    Ok(reflected)
+    let reflected: DynamicValue = TypedReflectDeserializer::new(resource_type, type_registry)
+        .deserialize(&value)
+        .map_err(|err| anyhow!("{resource_path} is invalid: {err}"))?;
+    Ok(reflected.as_boxed_partial_reflect())
 }
 
 /// Given a collection `reflect_components` of reflected component values, insert them into

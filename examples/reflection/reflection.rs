@@ -100,21 +100,23 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a `Box<dyn PartialReflect>` value.
-    // Generally, deserializing a value will return the "dynamic" variant of a type.
-    // For example, deserializing a struct will return the DynamicStruct type.
-    // "Opaque types" will be deserialized as themselves.
+    // Deserializing returns a `DynamicValue` value.
+    // Generally, deserializing a value will return the `Concrete` variant through the `FromReflect`
+    // trait. However, in this example, we've disabled the `FromReflect` implementation for `Foo`.
     assert_eq!(
-        reflect_value.reflect_type_path(),
-        DynamicStruct::type_path(),
+        reflect_value.as_partial_reflect().reflect_type_path(),
+        "bevy_reflect::DynamicValueWrapper",
     );
 
     // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves
     // like normal `partial_eq`, but it treats "dynamic" and "non-dynamic" types the same. The
     // `Foo` struct and deserialized `DynamicStruct` are considered equal for this reason:
-    assert!(reflect_value.reflect_partial_eq(&value).unwrap());
+    assert!(reflect_value
+        .as_partial_reflect()
+        .reflect_partial_eq(&value)
+        .unwrap());
 
     // By "patching" `Foo` with the deserialized DynamicStruct, we can "Deserialize" Foo.
     // This means we can serialize and deserialize with a single `Reflect` derive!
-    value.apply(&*reflect_value);
+    value.apply(reflect_value.as_partial_reflect());
 }

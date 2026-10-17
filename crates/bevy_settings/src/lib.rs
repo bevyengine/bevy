@@ -668,7 +668,7 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                             if let Ok(field_value) =
                                 deserializer.deserialize(toml_field_value.clone())
                             {
-                                field.apply(&*field_value);
+                                field.apply(field_value.as_partial_reflect());
                             }
                         }
                     }
@@ -690,7 +690,10 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                                 deserializer.deserialize(toml_field_value.clone())
                             {
                                 // Should be safe to unwrap here since we know the field exists (above).
-                                tst_reflect.field_mut(idx).unwrap().apply(&*field_value);
+                                tst_reflect
+                                    .field_mut(idx)
+                                    .unwrap()
+                                    .apply(field_value.as_partial_reflect());
                             }
                         }
                     }
@@ -701,7 +704,10 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                     let deserializer = TypedReflectDeserializer::new(field_type, types);
                     if let Ok(field_value) = deserializer.deserialize(value.clone()) {
                         // Should be safe to unwrap here since we know the field exists (above).
-                        tst_reflect.field_mut(0).unwrap().apply(&*field_value);
+                        tst_reflect
+                            .field_mut(0)
+                            .unwrap()
+                            .apply(field_value.as_partial_reflect());
                     }
                 }
             }
@@ -713,7 +719,7 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                 let deserializer = TypedReflectDeserializer::new(variant_type, types);
 
                 if let Ok(variant_value) = deserializer.deserialize(value.clone()) {
-                    en_reflect.apply(&*variant_value);
+                    en_reflect.apply(variant_value.as_partial_reflect());
                 }
             }
         }

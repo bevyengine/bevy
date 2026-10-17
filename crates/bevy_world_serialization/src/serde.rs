@@ -499,7 +499,7 @@ impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
     {
         let mut dynamic_properties = Vec::new();
         while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
-            dynamic_properties.push(entity);
+            dynamic_properties.push(entity.as_boxed_partial_reflect());
         }
 
         Ok(dynamic_properties)
@@ -535,8 +535,8 @@ impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
                 .get(registration.type_id())
                 .and_then(|tr| tr.data::<ReflectFromReflect>())
                 .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
-                .map(PartialReflect::into_partial_reflect)
-                .unwrap_or(value);
+                .map(|value| value as _)
+                .unwrap_or(value.as_boxed_partial_reflect());
 
             entries.push(value);
         }

@@ -1066,21 +1066,21 @@ fn default_variant(variant: &VariantInfo, registry: &TypeRegistry) -> Option<Dyn
     let default = |type_id| {
         registry
             .get_type_data::<ReflectDefault>(type_id)
-            .map(|default| default.default().into_partial_reflect())
+            .map(|default| default.default())
     };
     Some(match variant {
         VariantInfo::Unit(_) => DynamicVariant::Unit,
         VariantInfo::Tuple(info) => {
             let mut tuple = DynamicTuple::default();
             for field in info.iter() {
-                tuple.insert_boxed(default(field.type_id())?);
+                tuple.insert(default(field.type_id())?);
             }
             DynamicVariant::Tuple(tuple)
         }
         VariantInfo::Struct(info) => {
             let mut fields = DynamicStruct::default();
             for field in info.iter() {
-                fields.insert_boxed(field.name(), default(field.type_id())?);
+                fields.insert(field.name(), default(field.type_id())?);
             }
             DynamicVariant::Struct(fields)
         }

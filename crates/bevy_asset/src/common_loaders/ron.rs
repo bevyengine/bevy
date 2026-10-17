@@ -8,6 +8,7 @@ use futures_lite::AsyncWriteExt;
 use ron::ser::PrettyConfig;
 
 use bevy_reflect::{
+    dynamic::DynamicValue,
     serde::{ReflectDeserializer, ReflectSerializer},
     Reflect, ReflectFromPtr, TypePath, TypeRegistryArc,
 };
@@ -122,7 +123,10 @@ impl AssetLoader for RonLoader {
 
         // Unwrap is ok because the `ReflectDeserializer` will produce values representing a
         // particular type.
-        let asset_type_info = reflected_asset.get_represented_type_info().unwrap();
+        let asset_type_info = reflected_asset
+            .as_partial_reflect()
+            .get_represented_type_info()
+            .unwrap();
         let asset_type_id = asset_type_info.type_id();
         // Unwrap is ok because the `ReflectDeserializer` could not have deserialized this value if
         // the type weren't in the registry.
@@ -137,7 +141,7 @@ impl AssetLoader for RonLoader {
         // `ReflectFromReflect` for the loaded type to convert into a concrete type. If that fails,
         // that must mean `ReflectFromReflect` wasn't registered for the type, so there's nothing we
         // can do.
-        let Ok(reflected_asset) = reflected_asset.try_into_reflect() else {
+        let DynamicValue::Concrete(reflected_asset) = reflected_asset else {
             // We're kind of cheating here: the current implementation of `ReflectDeserializer` (at
             // the time of writing) only doesn't return the concrete type if `ReflectFromReflect` is
             // not registered. We return that here for better error messages (even though an
