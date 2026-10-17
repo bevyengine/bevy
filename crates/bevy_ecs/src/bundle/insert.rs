@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use bevy_platform::collections::HashSet;
 use bevy_ptr::{ConstNonNull, MovingPtr};
 use core::ptr::NonNull;
 
@@ -645,8 +646,8 @@ impl BundleInfo {
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
         let mut existing = Vec::new();
-        let mut removed_table = Vec::new();
-        let mut removed_sparse = Vec::new();
+        let mut removed_table = HashSet::new();
+        let mut removed_sparse = HashSet::new();
         let mut maybe_incompatible = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
@@ -677,9 +678,9 @@ impl BundleInfo {
                         match unsafe { components.get_info_unchecked(incompatible_id) }
                             .storage_type()
                         {
-                            StorageType::SparseSet => removed_sparse.push(incompatible_id),
-                            StorageType::Table => removed_table.push(incompatible_id),
-                        }
+                            StorageType::SparseSet => removed_sparse.insert(incompatible_id),
+                            StorageType::Table => removed_table.insert(incompatible_id),
+                        };
                     }
                 }
             }
@@ -710,9 +711,9 @@ impl BundleInfo {
                         match unsafe { components.get_info_unchecked(incompatible_id) }
                             .storage_type()
                         {
-                            StorageType::SparseSet => removed_sparse.push(incompatible_id),
-                            StorageType::Table => removed_table.push(incompatible_id),
-                        }
+                            StorageType::SparseSet => removed_sparse.insert(incompatible_id),
+                            StorageType::Table => removed_table.insert(incompatible_id),
+                        };
                     }
                 }
             }

@@ -712,6 +712,38 @@ fn mutually_exclusive_removal_triggers_removed_components_message() {
 }
 
 #[test]
+fn mutually_exclusive_removal_removed_components_message_has_not_duplicates() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    let mut world = World::new();
+    let a_id = world.register_component::<CompA>();
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_mutually_exclusive_components::<(CompA, CompC)>();
+
+    let e1 = world.spawn(CompA).id();
+    world.entity_mut(e1).insert((CompB, CompC));
+    assert_eq!(
+        world
+            .removed_components()
+            .get(a_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e1]
+    );
+}
+
+#[test]
 #[should_panic]
 fn mutually_exclusive_with_existing_required_component_panics() {
     #[derive(Component, Default)]

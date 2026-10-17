@@ -29,7 +29,7 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
@@ -293,8 +293,8 @@ impl Edges {
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
         mut added: Vec<ComponentId>,
         existing: Vec<ComponentId>,
-        removed_sparse: Vec<ComponentId>,
-        removed_table: Vec<ComponentId>,
+        removed_sparse: HashSet<ComponentId>,
+        removed_table: HashSet<ComponentId>,
     ) {
         let existing_start_idx = added.len() as u32;
         let removed_sparse_start_idx = existing_start_idx + existing.len() as u32;
@@ -303,10 +303,9 @@ impl Edges {
         added.reserve_exact(existing.len() + removed_sparse.len() + removed_table.len());
         added.extend(
             existing
-                .iter()
-                .copied()
-                .chain(removed_sparse.iter().copied())
-                .chain(removed_table.iter().copied()),
+                .into_iter()
+                .chain(removed_sparse)
+                .chain(removed_table),
         );
         self.insert_bundle.insert(
             bundle_id,
