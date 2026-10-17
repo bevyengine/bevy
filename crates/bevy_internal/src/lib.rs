@@ -20,6 +20,7 @@ pub use bevy_a11y as a11y;
 pub use bevy_android as android;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
+pub use bevy_annotations as annotations;
 #[cfg(feature = "bevy_anti_alias")]
 pub use bevy_anti_alias as anti_alias;
 pub use bevy_app as app;
@@ -27,6 +28,8 @@ pub use bevy_app as app;
 pub use bevy_asset as asset;
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
+#[cfg(feature = "bevy_bsn")]
+pub use bevy_bsn as bsn;
 #[cfg(feature = "bevy_camera")]
 pub use bevy_camera as camera;
 #[cfg(feature = "bevy_camera_controller")]

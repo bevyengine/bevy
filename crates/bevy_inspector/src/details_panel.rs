@@ -1,5 +1,7 @@
 //! A panel showing the components of the selected entity, and the systems that keep it in sync.
 
+use core::any::Any;
+
 use alloc::{
     borrow::Cow,
     format,
@@ -7,7 +9,10 @@ use alloc::{
     vec::Vec,
 };
 
-use bevy_color::{Color, LinearRgba, Srgba};
+use bevy_color::{
+    Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba,
+    Oklaba, Oklcha, Srgba, Xyza,
+};
 use bevy_dev_tools::inspection::{
     component_inspection::{ComponentDetailLevel, ComponentInspectionSettings},
     entity_inspection::EntityInspectionSettings,
@@ -30,18 +35,25 @@ use bevy_ecs::{
 use bevy_feathers::{
     containers::{group, group_body, group_header, subpane, subpane_body, subpane_header},
     controls::{
-        list_rows_from_strings, ColorSwatchValue, FeathersCheckbox, FeathersColorSwatch,
+        list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
         FeathersTextInput, FeathersTextInputContainer, HardLimit, OptionIndex, ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
 };
-use bevy_log::warn;
+use bevy_input::{
+    keyboard::{KeyCode, KeyboardInput},
+    ButtonState,
+};
+use bevy_input_focus::{FocusLost, FocusedInput};
+use bevy_log::{warn, warn_once};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{
-    enums::{DynamicEnum, DynamicVariant, VariantType},
+    enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
+    structs::DynamicStruct,
+    tuple::DynamicTuple,
     GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
@@ -49,7 +61,7 @@ use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, Checked, Display, FlexDirection, Node, Overflow,
-    PositionType, UiRect,
+    PositionType, UiRect, Val,
 };
 use bevy_ui_widgets::{ControlOrientation, NumericRange, NumericValue, ScrollArea, ValueChange};
 use bevy_utils::prelude::ShortName;
@@ -100,9 +112,9 @@ pub enum FieldKind {
     Number,
     /// A text input.
     Text,
-    /// A color swatch and its hexadecimal value.
+    /// A color picker and a text input holding its hexadecimal value.
     Color,
-    /// A select listing the variants of a unit-only enum.
+    /// A select listing the variants an enum can switch to.
     Variant,
     /// A plain text label.
     #[default]
@@ -122,9 +134,9 @@ pub enum FieldValue {
     Text(String),
     /// A color value.
     Color(Color),
-    /// The variants of a unit-only enum, and the index of the current one.
+    /// The variants an enum can switch to, and the index of the current one.
     Variant {
-        /// The names of every variant of the enum.
+        /// The names of the variants the enum can switch to.
         variants: Vec<String>,
         /// The index of the current variant in `variants`.
         selected: usize,
@@ -150,9 +162,8 @@ impl FieldValue {
 /// A request to write a new value into one field of a component on an inspected entity.
 ///
 /// The edit is applied through commands, and only when the [`InspectorSource`] is
-/// [`InspectorSource::Local`]; it is ignored otherwise. [`FieldValue::Color`] and
-/// [`FieldValue::Label`] values are not supported. An edit that cannot be applied logs a warning
-/// and leaves the component unchanged.
+/// [`InspectorSource::Local`]; it is ignored otherwise. [`FieldValue::Label`] values are not
+/// supported. An edit that cannot be applied logs a warning and leaves the component unchanged.
 #[derive(EntityEvent, Debug, Clone)]
 pub struct FieldEdit {
     /// The inspected entity holding the component.
@@ -502,7 +513,8 @@ number_changed_observer!(inspector_field_i64_changed, i64, I64);
 /// Observer that turns a details panel text input edit into a [`FieldEdit`].
 ///
 /// Text equal to the value the input last showed is skipped, since it is the panel writing that
-/// value into the input.
+/// value into the input. Hexadecimal color inputs are committed by [`inspector_field_hex_entered`]
+/// and [`inspector_field_hex_focus_lost`] instead.
 pub(crate) fn inspector_field_text_changed(
     change: On<TextEditChange>,
     texts: Query<&EditableText>,
@@ -519,12 +531,131 @@ pub(crate) fn inspector_field_text_changed(
         widget,
         |current| match current {
             FieldValue::Text(current) if *current == text => None,
+            FieldValue::Color(_) => None,
             _ => Some(FieldValue::Text(text)),
         },
         &fields,
         &mut index,
         &mut commands,
     );
+}
+
+/// Observer that commits a details panel hexadecimal color input when Enter is pressed.
+pub(crate) fn inspector_field_hex_entered(
+    key: On<FocusedInput<KeyboardInput>>,
+    texts: Query<&EditableText>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    if key.input.state != ButtonState::Pressed
+        || !matches!(key.input.key_code, KeyCode::Enter | KeyCode::NumpadEnter)
+    {
+        return;
+    }
+    commit_hex_color(
+        key.event_target(),
+        &texts,
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// Observer that commits a details panel hexadecimal color input when it loses focus.
+pub(crate) fn inspector_field_hex_focus_lost(
+    focus_lost: On<FocusLost>,
+    texts: Query<&EditableText>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    commit_hex_color(
+        focus_lost.event_target(),
+        &texts,
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// Emits a [`FieldEdit`] for the color typed into the hexadecimal input `widget`.
+///
+/// Text that does not parse, or that names the stored color, is replaced by the stored color's
+/// hexadecimal code.
+fn commit_hex_color(
+    widget: Entity,
+    texts: &Query<&EditableText>,
+    fields: &Query<&InspectorField>,
+    index: &mut DetailsIndex,
+    commands: &mut Commands,
+) {
+    let Ok(editable) = texts.get(widget) else {
+        return;
+    };
+    let text = editable.value().to_string();
+    let mut restore = None;
+    emit_field_edit(
+        widget,
+        |current| {
+            let FieldValue::Color(stored) = current else {
+                return None;
+            };
+            match parse_hex_color(&text) {
+                Some(color) if color_to_hex(color) != color_to_hex(*stored) => {
+                    edited_color(*stored, color)
+                }
+                _ => {
+                    restore = Some(color_to_hex(*stored));
+                    None
+                }
+            }
+        },
+        fields,
+        index,
+        commands,
+    );
+    if let Some(hex) = restore {
+        commands.queue(move |world: &mut World| replace_text(world, Some(widget), &hex));
+    }
+}
+
+/// Observer that turns a details panel color picker change into a [`FieldEdit`].
+pub(crate) fn inspector_field_color_changed(
+    change: On<ValueChange<Color>>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    let value = change.value;
+    emit_field_edit(
+        change.source,
+        |current| match current {
+            FieldValue::Color(stored) => edited_color(*stored, value),
+            _ => Some(FieldValue::Color(value)),
+        },
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// The edit replacing `stored` with `color`, logging a warning once if `stored` is outside the
+/// `0..=1` range that the color picker and hexadecimal input are limited to.
+fn edited_color(stored: Color, color: Color) -> Option<FieldValue> {
+    if is_out_of_range(stored) {
+        warn_once!("Color values outside 0..=1 are clamped by the inspector color picker");
+    }
+    Some(FieldValue::Color(color))
+}
+
+/// Whether any sRGB channel of `color` is outside `0..=1`, allowing for rounding errors.
+fn is_out_of_range(color: Color) -> bool {
+    const TOLERANCE: f32 = 1e-4;
+    Srgba::from(color)
+        .to_f32_array()
+        .into_iter()
+        .any(|channel| !(-TOLERANCE..=1.0 + TOLERANCE).contains(&channel))
 }
 
 /// Observer that turns a details panel variant selection into a [`FieldEdit`].
@@ -608,7 +739,7 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     };
     let (write, held, typing_a_char) = match field {
         Ok(field) => {
-            let write = write_field_value(field, &edit.value);
+            let write = write_field_value(field, &edit.value, &registry);
             let held = write != FieldWrite::Rejected && holds_value(field, &edit.value);
             let typing_a_char = matches!(edit.value, FieldValue::Text(_))
                 && field.try_downcast_ref::<char>().is_some();
@@ -642,10 +773,12 @@ fn holds_value(field: &dyn PartialReflect, value: &FieldValue) -> bool {
     scalar_value(field).is_some_and(|current| same_value(&current, value))
 }
 
-/// Whether two field values are equal, comparing floats bit for bit so that a NaN equals itself.
+/// Whether two field values are equal, comparing floats bit for bit so that a NaN equals itself,
+/// and colors by the hexadecimal code they show.
 fn same_value(left: &FieldValue, right: &FieldValue) -> bool {
-    use FieldValue::Number;
+    use FieldValue::{Color, Number};
     match (left, right) {
+        (Color(left), Color(right)) => color_to_hex(*left) == color_to_hex(*right),
         (Number(NumericValue::F32(left)), Number(NumericValue::F32(right))) => {
             left.to_bits() == right.to_bits()
         }
@@ -677,7 +810,11 @@ fn assign<T: PartialEq>(target: &mut T, value: T) -> FieldWrite {
     }
 }
 
-fn write_field_value(field: &mut dyn PartialReflect, value: &FieldValue) -> FieldWrite {
+fn write_field_value(
+    field: &mut dyn PartialReflect,
+    value: &FieldValue,
+    registry: &TypeRegistry,
+) -> FieldWrite {
     match value {
         FieldValue::Bool(new) => match field.try_downcast_mut::<bool>() {
             Some(target) => assign(target, *new),
@@ -685,11 +822,12 @@ fn write_field_value(field: &mut dyn PartialReflect, value: &FieldValue) -> Fiel
         },
         FieldValue::Number(number) => write_number_field(field, *number),
         FieldValue::Text(text) => write_text_field(field, text),
+        FieldValue::Color(color) => write_color_field(field, *color),
         FieldValue::Variant { variants, selected } => match variants.get(*selected) {
-            Some(name) => write_variant_field(field, name),
+            Some(name) => write_variant_field(field, name, registry),
             None => FieldWrite::Rejected,
         },
-        FieldValue::Color(_) | FieldValue::Label(_) => FieldWrite::Rejected,
+        FieldValue::Label(_) => FieldWrite::Rejected,
     }
 }
 
@@ -785,8 +923,79 @@ fn assign_bits<T: Copy, B: PartialEq>(target: &mut T, value: T, bits: fn(T) -> B
     }
 }
 
-/// Switches a unit-only enum field to the variant `name`.
-fn write_variant_field(field: &mut dyn PartialReflect, name: &str) -> FieldWrite {
+/// Writes a color into a color field, keeping the field's color space.
+fn write_color_field(field: &mut dyn PartialReflect, color: Color) -> FieldWrite {
+    if let Some(target) = field.try_downcast_mut::<Color>() {
+        let value = in_color_space(color, *target);
+        return assign(target, value);
+    }
+
+    let writers: [fn(&mut dyn PartialReflect, Color) -> Option<FieldWrite>; 13] = [
+        write_color_as::<Srgba>,
+        write_color_as::<LinearRgba>,
+        write_color_as::<Hsla>,
+        write_color_as::<Hsva>,
+        write_color_as::<Hwba>,
+        write_color_as::<Laba>,
+        write_color_as::<Lcha>,
+        write_color_as::<Oklaba>,
+        write_color_as::<Oklcha>,
+        write_color_as::<Xyza>,
+        write_color_as::<Okhsla>,
+        write_color_as::<Okhsva>,
+        write_color_as::<Okhwba>,
+    ];
+    writers
+        .into_iter()
+        .find_map(|write| write(field, color))
+        .unwrap_or(FieldWrite::Rejected)
+}
+
+/// Writes `color` into `field` if it is a `T`.
+fn write_color_as<T: From<Color> + PartialEq + Any>(
+    field: &mut dyn PartialReflect,
+    color: Color,
+) -> Option<FieldWrite> {
+    field
+        .try_downcast_mut::<T>()
+        .map(|target| assign(target, T::from(color)))
+}
+
+/// Converts `color` into the color space of the `space` variant.
+fn in_color_space(color: Color, space: Color) -> Color {
+    match space {
+        Color::Srgba(_) => Color::Srgba(color.into()),
+        Color::LinearRgba(_) => Color::LinearRgba(color.into()),
+        Color::Hsla(_) => Color::Hsla(color.into()),
+        Color::Hsva(_) => Color::Hsva(color.into()),
+        Color::Hwba(_) => Color::Hwba(color.into()),
+        Color::Laba(_) => Color::Laba(color.into()),
+        Color::Lcha(_) => Color::Lcha(color.into()),
+        Color::Oklaba(_) => Color::Oklaba(color.into()),
+        Color::Oklcha(_) => Color::Oklcha(color.into()),
+        Color::Xyza(_) => Color::Xyza(color.into()),
+        Color::Okhsla(_) => Color::Okhsla(color.into()),
+        Color::Okhsva(_) => Color::Okhsva(color.into()),
+        Color::Okhwba(_) => Color::Okhwba(color.into()),
+    }
+}
+
+/// Parses a `#RRGGBB` or `#RRGGBBAA` hexadecimal sRGB color.
+fn parse_hex_color(text: &str) -> Option<Color> {
+    let text = text.trim();
+    let digits = text.strip_prefix('#').unwrap_or(text);
+    if !matches!(digits.len(), 6 | 8) {
+        return None;
+    }
+    Srgba::hex(digits).ok().map(Color::from)
+}
+
+/// Switches an enum field to the variant `name`, building any variant fields from their defaults.
+fn write_variant_field(
+    field: &mut dyn PartialReflect,
+    name: &str,
+    registry: &TypeRegistry,
+) -> FieldWrite {
     let ReflectRef::Enum(current) = field.reflect_ref() else {
         return FieldWrite::Rejected;
     };
@@ -796,16 +1005,50 @@ fn write_variant_field(field: &mut dyn PartialReflect, name: &str) -> FieldWrite
     let Some(TypeInfo::Enum(info)) = field.get_represented_type_info() else {
         return FieldWrite::Rejected;
     };
-    if info.variant(name).is_none()
-        || info
-            .iter()
-            .any(|variant| variant.variant_type() != VariantType::Unit)
-    {
+    let Some(variant) = info
+        .variant(name)
+        .and_then(|variant| default_variant(variant, registry))
+    else {
         return FieldWrite::Rejected;
-    }
-    match field.try_apply(&DynamicEnum::new(name, DynamicVariant::Unit)) {
+    };
+    match field.try_apply(&DynamicEnum::new(name, variant)) {
         Ok(()) => FieldWrite::Written,
         Err(_) => FieldWrite::Rejected,
+    }
+}
+
+fn default_variant(variant: &VariantInfo, registry: &TypeRegistry) -> Option<DynamicVariant> {
+    let default = |type_id| {
+        registry
+            .get_type_data::<ReflectDefault>(type_id)
+            .map(|default| default.default().into_partial_reflect())
+    };
+    Some(match variant {
+        VariantInfo::Unit(_) => DynamicVariant::Unit,
+        VariantInfo::Tuple(info) => {
+            let mut tuple = DynamicTuple::default();
+            for field in info.iter() {
+                tuple.insert_boxed(default(field.type_id())?);
+            }
+            DynamicVariant::Tuple(tuple)
+        }
+        VariantInfo::Struct(info) => {
+            let mut fields = DynamicStruct::default();
+            for field in info.iter() {
+                fields.insert_boxed(field.name(), default(field.type_id())?);
+            }
+            DynamicVariant::Struct(fields)
+        }
+    })
+}
+
+/// Whether every field of `variant` has a registered [`ReflectDefault`].
+fn has_defaults(variant: &VariantInfo, registry: &TypeRegistry) -> bool {
+    let has_default = |type_id| registry.get_type_data::<ReflectDefault>(type_id).is_some();
+    match variant {
+        VariantInfo::Unit(_) => true,
+        VariantInfo::Tuple(info) => info.iter().all(|field| has_default(field.type_id())),
+        VariantInfo::Struct(info) => info.iter().all(|field| has_default(field.type_id())),
     }
 }
 
@@ -1207,16 +1450,18 @@ fn spawn_field_row(
         apply_value(world, &widget, &entry.value);
     }
 
-    let input = match entry.value {
+    let inputs = match entry.value {
         FieldValue::Bool(_)
         | FieldValue::Number(_)
         | FieldValue::Text(_)
-        | FieldValue::Variant { .. } => Some(widget.entity),
-        FieldValue::Color(_) | FieldValue::Label(_) => None,
+        | FieldValue::Variant { .. } => [Some(widget.entity), None],
+        FieldValue::Color(_) => [Some(widget.entity), widget.text],
+        FieldValue::Label(_) => [None, None],
     };
-    if let Some(input) = input
-        && let Ok(mut entity) = world.get_entity_mut(input)
-    {
+    for input in inputs.into_iter().flatten() {
+        let Ok(mut entity) = world.get_entity_mut(input) else {
+            continue;
+        };
         entity.insert(InspectorField {
             component: component.id,
             type_path: component.type_path.clone(),
@@ -1273,7 +1518,7 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             }
         }
         FieldValue::Text(_) => {
-            let entity = spawn_text_input(world, row, FIELD_WIDGET_WIDTH)?;
+            let entity = spawn_text_input(world, row, px(FIELD_WIDGET_WIDTH), 0.0)?;
             FieldWidget {
                 entity,
                 text: None,
@@ -1301,15 +1546,15 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                 cell,
                 bsn! {
                     InspectorUi
-                    @FeathersColorSwatch
-                    Node {
-                        width: px(24),
-                        height: px(14),
-                        flex_grow: 0.0,
-                    }
+                    @FeathersColorInput
+                    on(inspector_field_color_changed)
                 },
             )?;
-            let text = spawn_value_caption(world, cell, String::new())?;
+            let text = spawn_text_input(world, cell, Val::Auto, 1.0)?;
+            world
+                .entity_mut(text)
+                .observe(inspector_field_hex_entered)
+                .observe(inspector_field_hex_focus_lost);
             FieldWidget {
                 entity,
                 text: Some(text),
@@ -1354,17 +1599,24 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
     Some(widget)
 }
 
-/// Spawns a text input of the given width, returning the entity holding its [`EditableText`].
-fn spawn_text_input(world: &mut World, row: Entity, width: f32) -> Option<Entity> {
+/// Spawns a text input sized by `width` and `flex_grow`, returning the entity holding its
+/// [`EditableText`].
+fn spawn_text_input(
+    world: &mut World,
+    parent: Entity,
+    width: Val,
+    flex_grow: f32,
+) -> Option<Entity> {
     let container = spawn_child_scene(
         world,
-        row,
+        parent,
         bsn! {
             InspectorUi
             @FeathersTextInputContainer
             Node {
-                width: px(width),
-                flex_grow: 0.0,
+                width: {width},
+                min_width: px(0),
+                flex_grow: {flex_grow},
             }
             Children [
                 @FeathersTextInput
@@ -1418,9 +1670,9 @@ fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
         FieldValue::Text(text) => replace_text(world, Some(widget.entity), text),
         FieldValue::Color(color) => {
             if let Ok(mut entity) = world.get_entity_mut(widget.entity) {
-                entity.insert(ColorSwatchValue(*color));
+                entity.insert(ColorInputValue(*color));
             }
-            set_text(world, widget.text, color_to_hex(*color));
+            replace_text(world, widget.text, &color_to_hex(*color));
         }
         FieldValue::Variant { .. } => {}
         FieldValue::Label(text) => set_text(world, Some(widget.entity), text.clone()),
@@ -1432,7 +1684,7 @@ fn replace_text(world: &mut World, entity: Option<Entity>, text: &str) {
     if let Some(mut editable) = entity.and_then(|entity| world.get_mut::<EditableText>(entity))
         && editable.value() != text
     {
-        editable.queue_edit(TextEdit::SelectAll);
+        editable.clear();
         editable.queue_edit(TextEdit::Insert(text.into()));
     }
 }
@@ -1489,7 +1741,7 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
 
 /// Flattens a reflected component value into the rows the details panel renders.
 ///
-/// `registry` rebuilds dynamic values into their concrete types so that their fields can be read.
+/// `registry` decides which enum variants can be built from defaults and so offered for switching.
 pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec<FieldEntry> {
     let concrete = value
         .try_as_reflect()
@@ -1506,6 +1758,7 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         .map(PartialReflect::as_partial_reflect)
         .unwrap_or(value);
     let mut walk = Walk {
+        registry,
         entries: Vec::new(),
     };
     if let Some(name) = value.try_downcast_ref::<Name>() {
@@ -1518,9 +1771,11 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         return walk.entries;
     }
     let (value, path) = flatten_newtypes(value, String::new());
-    if let Some(scalar) = scalar_value(value) {
+    if let Some(label) = asset_handle_label(value) {
+        walk.push(path, "value".to_string(), 0, FieldValue::Label(label));
+    } else if let Some(scalar) = scalar_value(value) {
         walk.push_scalar(path, "value".to_string(), 0, value, scalar);
-    } else if let Some(variant) = variant_value(value) {
+    } else if let Some(variant) = variant_value(value, registry) {
         walk.push(path.clone(), "variant".to_string(), 0, variant);
         walk.children(value, &path, 0, true);
     } else if let Some(summary) = summary(value) {
@@ -1545,11 +1800,12 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
 }
 
 /// The state of a walk over a reflected value.
-struct Walk {
+struct Walk<'a> {
+    registry: &'a TypeRegistry,
     entries: Vec<FieldEntry>,
 }
 
-impl Walk {
+impl Walk<'_> {
     fn push(&mut self, path: String, label: String, depth: usize, value: FieldValue) {
         self.entries.push(FieldEntry {
             path,
@@ -1599,12 +1855,17 @@ impl Walk {
             return;
         }
 
+        if let Some(caption) = asset_handle_label(value) {
+            self.push(path, label, depth, FieldValue::Label(caption));
+            return;
+        }
+
         if let Some(scalar) = scalar_value(value) {
             self.push_scalar(path, label, depth, value, lock(scalar));
             return;
         }
 
-        if let Some(variant) = variant_value(value) {
+        if let Some(variant) = variant_value(value, self.registry) {
             self.push(path.clone(), label, depth, lock(variant));
             self.children(value, &path, depth + 1, editable);
             return;
@@ -1691,6 +1952,18 @@ impl Walk {
         }
     }
 }
+
+/// The read-only caption of an asset handle, or `None` if `value` is not one.
+///
+/// Handles are matched by type path, since this crate does not depend on `bevy_asset`.
+fn asset_handle_label(value: &dyn PartialReflect) -> Option<String> {
+    let type_path = value.get_represented_type_info()?.type_path();
+    type_path
+        .starts_with(ASSET_HANDLE_PREFIX)
+        .then(|| ShortName(type_path).to_string())
+}
+
+const ASSET_HANDLE_PREFIX: &str = "bevy_asset::handle::Handle<";
 
 /// The read-only caption form of a field value.
 pub(crate) fn read_only(value: FieldValue) -> FieldValue {
@@ -1867,7 +2140,10 @@ fn color_value(value: &dyn PartialReflect) -> Option<FieldValue> {
         };
     }
 
-    color!(Srgba, LinearRgba);
+    color!(
+        Srgba, LinearRgba, Hsla, Hsva, Hwba, Laba, Lcha, Oklaba, Oklcha, Xyza, Okhsla, Okhsva,
+        Okhwba
+    );
     None
 }
 
@@ -1920,27 +2196,29 @@ fn integer_limit(value: &dyn PartialReflect) -> Option<NumericRange> {
     None
 }
 
-/// The variants of a unit-only enum, and the index of the current one.
+/// The variants an enum can switch to: its current variant, and every variant whose fields have
+/// registered defaults.
 ///
-/// Returns `None` for an enum with data, whose variant is shown as a caption instead.
-fn variant_value(value: &dyn PartialReflect) -> Option<FieldValue> {
+/// Returns `None` for an enum with data that cannot switch to any other variant.
+fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<FieldValue> {
     let ReflectRef::Enum(reflected) = value.reflect_ref() else {
         return None;
     };
     let TypeInfo::Enum(info) = value.get_represented_type_info()? else {
         return None;
     };
-    if info
-        .iter()
-        .any(|variant| variant.variant_type() != VariantType::Unit)
-    {
-        return None;
-    }
     let current = reflected.variant_name();
     let variants: Vec<String> = info
         .iter()
+        .filter(|variant| variant.name() == current || has_defaults(variant, registry))
         .map(|variant| variant.name().to_string())
         .collect();
+    let unit_only = info
+        .iter()
+        .all(|variant| variant.variant_type() == VariantType::Unit);
+    if !unit_only && variants.len() < 2 {
+        return None;
+    }
     let selected = variants.iter().position(|name| name == current)?;
     Some(FieldValue::Variant { variants, selected })
 }
@@ -2013,6 +2291,21 @@ mod tests {
 
     #[derive(Reflect, Debug, Default, PartialEq)]
     struct Point(f32, f32);
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    struct Pointer(bevy_asset::Handle<bevy_image::Image>);
+
+    #[derive(Reflect, Debug)]
+    struct Texture(bevy_asset::Handle<bevy_image::Image>);
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    struct Skin {
+        texture: Texture,
+        direct: bevy_asset::Handle<bevy_image::Image>,
+        mode: Mode,
+    }
 
     #[derive(Reflect, Debug, Default)]
     struct Outer {
@@ -2468,6 +2761,49 @@ mod tests {
             "expected one caption row, got {entries:?}"
         );
         assert_eq!(entries[0].value, FieldValue::Label("Left Cube".to_string()));
+    }
+
+    #[test]
+    fn asset_handles_are_read_only_labels() {
+        let handle = bevy_asset::Handle::<bevy_image::Image>::default();
+        assert!(
+            bevy_asset::Handle::<bevy_image::Image>::type_path().starts_with(ASSET_HANDLE_PREFIX)
+        );
+        let mut registry = TypeRegistry::new();
+        registry.register::<Mode>();
+        registry.register_type_data::<Mode, ReflectDefault>();
+
+        let entries = field_entries(&Pointer(handle.clone()), &registry);
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        assert_eq!(
+            entries[0].value,
+            FieldValue::Label("Handle<Image>".to_string())
+        );
+
+        let entries = field_entries(
+            &Skin {
+                texture: Texture(handle.clone()),
+                direct: handle,
+                mode: Mode::Idle,
+            },
+            &registry,
+        );
+        let label = FieldValue::Label("Handle<Image>".to_string());
+        assert_eq!(entry(&entries, "texture.0").value, label);
+        assert_eq!(entry(&entries, "direct").value, label);
+        assert!(
+            entries
+                .iter()
+                .filter(
+                    |entry| entry.path.starts_with("texture") || entry.path.starts_with("direct")
+                )
+                .all(|entry| entry.value == label),
+            "{entries:?}"
+        );
+        assert!(matches!(
+            entry(&entries, "mode").value,
+            FieldValue::Variant { .. }
+        ));
     }
 
     #[test]
@@ -3062,7 +3398,7 @@ mod tests {
         assert_eq!(entry(&entries, "linear").value.kind(), FieldKind::Color);
         assert_eq!(
             entry(&entries, "shape").value,
-            FieldValue::Label("Circle".to_string())
+            variant(&["Empty", "Circle"], 1)
         );
         assert_eq!(
             entry(&entries, "shape.radius").value.kind(),
@@ -3070,7 +3406,7 @@ mod tests {
         );
         assert_eq!(
             entry(&entries, "maybe").value,
-            FieldValue::Label("None".to_string())
+            variant(&["None", "Some"], 0)
         );
         assert_eq!(
             entry(&entries, "outer.inner.depth").value.kind(),
@@ -3229,13 +3565,35 @@ mod tests {
     }
 
     #[test]
-    fn edits_fields_of_the_current_variant_only() {
+    fn edits_colors_in_their_own_space() {
         let (mut app, entity) = kinds_app();
-        {
-            let mut kinds = app.world_mut().get_mut::<Kinds>(entity).unwrap();
-            kinds.shape = Shape::Circle { radius: 1.0 };
-            kinds.maybe = Some(1);
-        }
+        app.world_mut().get_mut::<Kinds>(entity).unwrap().color = Color::hsla(0.0, 0.5, 0.5, 1.0);
+        let red = parse_hex_color("#FF0000").unwrap();
+        assert_eq!(parse_hex_color("#F00"), None);
+        assert_eq!(parse_hex_color("#GG0000"), None);
+        assert!(parse_hex_color("#00FF0080").is_some());
+
+        edit_kinds(&mut app, entity, "color", FieldValue::Color(red));
+        edit_kinds(&mut app, entity, "srgba", FieldValue::Color(red));
+        edit_kinds(&mut app, entity, "linear", FieldValue::Color(red));
+
+        let kinds = app.world().get::<Kinds>(entity).unwrap();
+        assert!(matches!(kinds.color, Color::Hsla(_)));
+        assert_eq!(color_to_hex(kinds.color), "#FF0000");
+        assert_eq!(kinds.srgba, Srgba::RED);
+        assert_eq!(kinds.linear, LinearRgba::RED);
+    }
+
+    #[test]
+    fn switches_data_enum_variants_from_defaults() {
+        let (mut app, entity) = kinds_app();
+        let shape = ["Empty", "Circle", "Custom"];
+
+        edit_kinds(&mut app, entity, "shape", variant(&shape, 1));
+        assert_eq!(
+            app.world().get::<Kinds>(entity).unwrap().shape,
+            Shape::Circle { radius: 0.0 }
+        );
 
         edit_kinds(
             &mut app,
@@ -3243,18 +3601,55 @@ mod tests {
             "shape.radius",
             FieldValue::Number(NumericValue::F32(2.0)),
         );
-        edit_kinds(&mut app, entity, "maybe.0", int(5));
-        edit_kinds(
-            &mut app,
-            entity,
-            "shape",
-            variant(&["Empty", "Circle", "Custom"], 0),
+        edit_kinds(&mut app, entity, "shape", variant(&shape, 2));
+        assert_eq!(
+            app.world().get::<Kinds>(entity).unwrap().shape,
+            Shape::Circle { radius: 2.0 }
         );
-        edit_kinds(&mut app, entity, "maybe", variant(&["None", "Some"], 0));
 
-        let kinds = app.world().get::<Kinds>(entity).unwrap();
-        assert_eq!(kinds.shape, Shape::Circle { radius: 2.0 });
-        assert_eq!(kinds.maybe, Some(5));
+        edit_kinds(&mut app, entity, "shape", variant(&shape, 0));
+        assert_eq!(
+            app.world().get::<Kinds>(entity).unwrap().shape,
+            Shape::Empty
+        );
+    }
+
+    #[test]
+    fn does_not_offer_variants_without_defaults() {
+        let registry = TypeRegistry::new();
+        let entries = field_entries(
+            &Kinds {
+                shape: Shape::Custom(Locked(3)),
+                ..Default::default()
+            },
+            &registry,
+        );
+
+        assert_eq!(
+            entry(&entries, "shape").value,
+            variant(&["Empty", "Circle", "Custom"], 2)
+        );
+
+        let entries = field_entries(&Kinds::default(), &registry);
+        assert_eq!(
+            entry(&entries, "shape").value,
+            variant(&["Empty", "Circle"], 0)
+        );
+    }
+
+    #[test]
+    fn switches_an_option_between_none_and_some() {
+        let (mut app, entity) = kinds_app();
+        let options = ["None", "Some"];
+
+        edit_kinds(&mut app, entity, "maybe", variant(&options, 1));
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().maybe, Some(0));
+
+        edit_kinds(&mut app, entity, "maybe.0", int(5));
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().maybe, Some(5));
+
+        edit_kinds(&mut app, entity, "maybe", variant(&options, 0));
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().maybe, None);
     }
 
     #[test]
@@ -3321,6 +3716,13 @@ mod tests {
         }
 
         assert_eq!(app.world().resource::<EditCount>().0, 0);
+        let component = app.world().component_id::<Kinds>().unwrap();
+        let index = app.world().resource::<DetailsIndex>();
+        let color = &index.fields[&(component, "color".to_string())];
+        assert!(app
+            .world()
+            .get::<InspectorField>(color.text.unwrap())
+            .is_some());
     }
 
     fn widget_app() -> (App, Entity) {
@@ -3636,6 +4038,7 @@ mod tests {
     struct Frozen {
         flag: bool,
         mode: Mode,
+        tint: Color,
     }
 
     #[derive(Component, Reflect, Debug, Default, PartialEq)]
@@ -3785,6 +4188,10 @@ mod tests {
 
         let byte = |value| FieldValue::Number(NumericValue::I32(value));
         edit_kinds(&mut app, entity, "byte", byte(12));
+        assert_eq!(elapsed(&mut app), Duration::ZERO);
+
+        let red = Color::hsla(0.0, 1.0, 0.5, 1.0);
+        edit_kinds(&mut app, entity, "color", FieldValue::Color(red));
         assert_eq!(elapsed(&mut app), Duration::ZERO);
 
         edit_kinds(&mut app, entity, "byte", byte(300));
@@ -4005,5 +4412,110 @@ mod tests {
         assert_eq!(app.world().get::<Subject>(subject).unwrap().scale, 1.0);
         let mut fields = app.world_mut().query::<&InspectorField>();
         assert_eq!(fields.iter(app.world()).count(), 0);
+    }
+
+    #[test]
+    fn picking_a_color_edits_the_field() {
+        let (mut app, entity) = kinds_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.update();
+        let mut pickers = app
+            .world_mut()
+            .query_filtered::<(Entity, &InspectorField), With<FeathersColorInput>>();
+        let picker = pickers
+            .iter(app.world())
+            .find(|(_, field)| field.path == "color")
+            .map(|(picker, _)| picker)
+            .unwrap();
+
+        for value in [Color::srgb(1.0, 0.0, 0.0), Color::srgb(0.0, 1.0, 0.0)] {
+            app.world_mut().trigger(ValueChange {
+                source: picker,
+                value,
+                is_final: false,
+            });
+            app.update();
+            let color = app.world().get::<Kinds>(entity).unwrap().color;
+            assert_eq!(color_to_hex(color), color_to_hex(value));
+            assert_eq!(
+                app.world()
+                    .get::<ColorInputValue>(picker)
+                    .map(|input| input.0),
+                Some(value)
+            );
+        }
+
+        settle(&mut app);
+        let color = app.world().get::<Kinds>(entity).unwrap().color;
+        assert_eq!(color_to_hex(color), "#00FF00");
+    }
+
+    fn hex_input(app: &mut App, entity: Entity) -> Entity {
+        app.init_resource::<bevy_text::FontCx>()
+            .init_resource::<bevy_text::LayoutCx>()
+            .init_resource::<bevy_clipboard::Clipboard>()
+            .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.update();
+        let mut inputs = app
+            .world_mut()
+            .query_filtered::<(Entity, &InspectorField), With<EditableText>>();
+        inputs
+            .iter(app.world())
+            .find(|(_, field)| field.path == "color")
+            .map(|(input, _)| input)
+            .unwrap()
+    }
+
+    fn type_text(app: &mut App, input: Entity, text: &str) {
+        replace_text(app.world_mut(), Some(input), text);
+        app.update();
+    }
+
+    fn input_text(app: &App, input: Entity) -> String {
+        app.world()
+            .get::<EditableText>(input)
+            .unwrap()
+            .value()
+            .to_string()
+    }
+
+    #[test]
+    fn hex_input_commits_on_focus_lost() {
+        let (mut app, entity) = kinds_app();
+        let input = hex_input(&mut app, entity);
+        let before = app.world().get::<Kinds>(entity).unwrap().color;
+
+        type_text(&mut app, input, "#00FF00");
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().color, before);
+
+        app.world_mut().trigger(FocusLost { entity: input });
+        app.update();
+        let color = app.world().get::<Kinds>(entity).unwrap().color;
+        assert_eq!(color_to_hex(color), "#00FF00");
+    }
+
+    #[test]
+    fn hex_input_restores_invalid_text() {
+        let (mut app, entity) = kinds_app();
+        let input = hex_input(&mut app, entity);
+        let before = app.world().get::<Kinds>(entity).unwrap().color;
+
+        type_text(&mut app, input, "#00FF");
+        app.world_mut().trigger(FocusLost { entity: input });
+        app.update();
+
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().color, before);
+        assert_eq!(input_text(&app, input), color_to_hex(before));
+    }
+
+    #[test]
+    fn detects_out_of_range_colors() {
+        assert!(!is_out_of_range(Color::WHITE));
+        assert!(!is_out_of_range(Color::hsla(0.0, 0.5, 0.5, 1.0)));
+        assert!(is_out_of_range(Color::linear_rgb(2.0, 1.0, 1.0)));
+        assert!(is_out_of_range(Color::srgb(-0.5, 0.0, 0.0)));
     }
 }
