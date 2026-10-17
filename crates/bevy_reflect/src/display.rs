@@ -503,8 +503,11 @@ fn write_opaque(
 mod tests {
     use super::*;
     use crate::{
-        array::DynamicArray, dynamic::DynamicValue, map::DynamicMap, set::DynamicSet,
-        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct, Reflect,
+        dynamic::{
+            DynamicArray, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicTupleStruct,
+            DynamicValue,
+        },
+        Reflect,
     };
     use alloc::{
         collections::BTreeMap,

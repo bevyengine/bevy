@@ -1,9 +1,11 @@
 use crate::{
-    enums::{Enum, VariantType},
+    dynamic::{DynamicEnum, DynamicValue, DynamicValueRef, DynamicVariantField},
+    enums::{Enum, VariantField, VariantType},
     utility::reflect_hasher,
     PartialReflect, ReflectRef,
 };
 use core::{
+    cmp::Ordering,
     fmt::Debug,
     hash::{Hash, Hasher},
 };
@@ -21,6 +23,109 @@ pub fn enum_hash(value: &dyn Enum) -> Option<u64> {
     Some(hasher.finish())
 }
 
+/// Returns the `u64` hash of the given [`DynamicEnum`].
+pub(crate) fn dynamic_enum_hash(value: &DynamicEnum) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+    // TODO: This type_id is **not** correct.
+    core::any::Any::type_id(value).hash(&mut hasher);
+    value.variant_name().hash(&mut hasher);
+    value.variant_type().hash(&mut hasher);
+    for field in value.iter_fields() {
+        hasher.write_u64(field.value().dynamic_hash()?);
+    }
+    Some(hasher.finish())
+}
+
+pub(crate) trait EnumLike {
+    fn variant_name(&self) -> &str;
+
+    fn variant_type(&self) -> VariantType;
+
+    fn field_len(&self) -> usize;
+
+    fn field(&self, name: &str) -> Option<DynamicValueRef<'_>>;
+
+    fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
+    fn name_at(&self, index: usize) -> Option<&str>;
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>>;
+}
+
+impl EnumLike for DynamicEnum {
+    fn variant_name(&self) -> &str {
+        self.variant_name()
+    }
+
+    fn variant_type(&self) -> VariantType {
+        self.variant_type()
+    }
+
+    fn field_len(&self) -> usize {
+        self.field_len()
+    }
+
+    fn field(&self, name: &str) -> Option<DynamicValueRef<'_>> {
+        self.field(name).map(DynamicValue::as_ref)
+    }
+
+    fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field_at(index).map(DynamicValue::as_ref)
+    }
+
+    fn name_at(&self, index: usize) -> Option<&str> {
+        self.name_at(index)
+    }
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>> {
+        self.iter_fields()
+    }
+}
+
+impl EnumLike for dyn Enum {
+    fn variant_name(&self) -> &str {
+        self.variant_name()
+    }
+
+    fn variant_type(&self) -> VariantType {
+        self.variant_type()
+    }
+
+    fn field_len(&self) -> usize {
+        self.field_len()
+    }
+
+    fn field(&self, name: &str) -> Option<DynamicValueRef<'_>> {
+        self.field(name)
+            // TODO: Don't unwrap here.
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+    }
+
+    fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field_at(index)
+            // TODO: Don't unwrap here.
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+    }
+
+    fn name_at(&self, index: usize) -> Option<&str> {
+        self.name_at(index)
+    }
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>> {
+        self.iter_fields().map(|value| match value {
+            VariantField::Struct(name, value) => DynamicVariantField::Struct(
+                name,
+                // TODO: Don't unwrap here.
+                DynamicValueRef::from(value.try_as_reflect().unwrap()),
+            ),
+            VariantField::Tuple(value) => {
+                // TODO: Don't unwrap here.
+                DynamicVariantField::Tuple(DynamicValueRef::from(value.try_as_reflect().unwrap()))
+            }
+        })
+    }
+}
+
 /// Compares an [`Enum`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -35,14 +140,21 @@ pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
     };
+    enum_like_partial_eq(a, b)
+}
 
+/// Same as above, but for any two [`EnumLike`] types.
+pub(crate) fn enum_like_partial_eq<L: EnumLike + ?Sized, R: EnumLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
     // Same variant name?
     if a.variant_name() != b.variant_name() {
         return Some(false);
     }
 
     // Same variant type?
-    if !a.is_variant(b.variant_type()) {
+    if a.variant_type() != b.variant_type() {
         return Some(false);
     }
 
@@ -55,7 +167,7 @@ pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
             for field in a.iter_fields() {
                 let field_name = field.name().unwrap();
                 if let Some(field_value) = b.field(field_name) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
+                    if let Some(false) | None = field_value.dynamic_partial_eq(field.value()) {
                         // Fields failed comparison
                         return Some(false);
                     }
@@ -73,7 +185,7 @@ pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
             // Same tuple fields?
             for (i, field) in a.iter_fields().enumerate() {
                 if let Some(field_value) = b.field_at(i) {
-                    if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
+                    if let Some(false) | None = field_value.dynamic_partial_eq(field.value()) {
                         // Fields failed comparison
                         return Some(false);
                     }
@@ -95,12 +207,19 @@ pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
 ///
 /// The ordering is same with `derive` macro. First order by variant index, then by fields.
 #[inline(never)]
-pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<Ordering> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return None;
     };
+    enum_like_partial_cmp(a, b)
+}
 
+/// Same as above, but for any two [`EnumLike`] types.
+pub(crate) fn enum_like_partial_cmp<L: EnumLike + ?Sized, R: EnumLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
     // Same variant name?
     if a.variant_name() != b.variant_name() {
         // Different variant names.
@@ -111,7 +230,7 @@ pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<::core::
     }
 
     // Same variant type?
-    if !a.is_variant(b.variant_type()) {
+    if a.variant_type() != b.variant_type() {
         return None;
     }
 
@@ -135,17 +254,17 @@ pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<::core::
             }
             for (i, field) in a.iter_fields().enumerate() {
                 if let Some(field_value) = b.field_at(i) {
-                    match field.value().reflect_partial_cmp(field_value) {
+                    match field.value().dynamic_partial_cmp(field_value) {
                         None => return None,
-                        Some(core::cmp::Ordering::Equal) => continue,
+                        Some(Ordering::Equal) => continue,
                         Some(ord) => return Some(ord),
                     }
                 }
                 return None;
             }
-            Some(core::cmp::Ordering::Equal)
+            Some(Ordering::Equal)
         }
-        _ => Some(core::cmp::Ordering::Equal),
+        _ => Some(Ordering::Equal),
     }
 }
 

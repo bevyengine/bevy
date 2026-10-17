@@ -1,15 +1,17 @@
 //! Traits and types used to power [map-like] operations via reflection.
 //!
 //! [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
-use core::fmt::{Debug, Formatter};
-
-use bevy_platform::collections::HashTable;
-use bevy_reflect_derive::impl_type_path;
+use core::{
+    cmp::Ordering,
+    fmt::{Debug, Formatter},
+};
 
 use crate::{
-    dynamic::DynamicValue, generics::impl_generic_info_methods, ty::impl_type_methods, ApplyError,
-    Generics, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    dynamic::{DynamicMap, DynamicValue, DynamicValueRef},
+    generics::impl_generic_info_methods,
+    ty::impl_type_methods,
+    ApplyError, Generics, MaybeTyped, PartialReflect, Reflect, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 
@@ -183,348 +185,46 @@ impl MapInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// Used to produce an error message when an attempt is made to hash
-/// a [`PartialReflect`] value that does not support hashing.
-#[macro_export]
-macro_rules! hash_error {
-    ( $key:expr ) => {{
-        let type_path = (*$key).reflect_type_path();
-        if !$key.is_dynamic() {
-            $crate::__macro_exports::alloc_utils::format!(
-                "the given key of type `{}` does not support hashing",
-                type_path
-            )
-        } else {
-            match (*$key).get_represented_type_info() {
-                // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
-                ::core::option::Option::None => $crate::__macro_exports::alloc_utils::format!("the dynamic type `{}` does not support hashing", type_path),
-                // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
-                ::core::option::Option::Some(s) => $crate::__macro_exports::alloc_utils::format!(
-                    "the dynamic type `{}` (representing `{}`) does not support hashing",
-                    type_path,
-                    s.type_path()
-                ),
-            }
-        }
-    }}
+pub(crate) trait MapLike {
+    fn get(&self, key: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>>;
+
+    fn len(&self) -> usize;
+
+    fn iter(&self) -> impl Iterator<Item = (DynamicValueRef<'_>, DynamicValueRef<'_>)>;
 }
 
-/// An unordered mapping between reflected values.
-#[derive(Default)]
-pub struct DynamicMap {
-    pub(crate) represented_type: Option<&'static TypeInfo>,
-    hash_table: HashTable<(DynamicValue, DynamicValue)>,
-}
-
-impl DynamicMap {
-    /// Creates an equivalent dynamic representation of `value`.
-    ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
-    pub fn try_from_reflect(value: &dyn Map) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
-
-        Ok(Self {
-            represented_type,
-            hash_table: Self::create_hash_table_from_iter(value.iter().map(|(key, value)| {
-                Ok((
-                    DynamicValue::try_from_reflect(key)?,
-                    DynamicValue::try_from_reflect(value)?,
-                ))
-            }))?,
-        })
-    }
-
-    /// Attempts to clone this value's data.
-    ///
-    /// May fail if an opaque value cannot be cloned.
-    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
-        Ok(Self {
-            represented_type: self.represented_type,
-            hash_table: Self::create_hash_table_from_iter(
-                self.hash_table
-                    .iter()
-                    .map(|(key, value)| Ok((key.dynamic_clone()?, value.dynamic_clone()?))),
-            )?,
-        })
-    }
-
-    /// Creates the internal hash table from an iterator of the dynamic values.
-    fn create_hash_table_from_iter(
-        iter: impl Iterator<Item = Result<(DynamicValue, DynamicValue), ReflectCloneError>>,
-    ) -> Result<HashTable<(DynamicValue, DynamicValue)>, ReflectCloneError> {
-        let mut hash_table = HashTable::new();
-        for entry in iter {
-            let (key, value) = entry?;
-            let hash = Self::internal_hash(key.as_partial_reflect());
-            let eq = Self::internal_eq(key.as_partial_reflect());
-            match hash_table.find_mut(hash, eq) {
-                Some((_, old)) => {
-                    *old = value;
-                }
-                None => {
-                    hash_table.insert_unique(hash, (key, value), |(key, _)| {
-                        Self::internal_hash(key.as_partial_reflect())
-                    });
-                }
-            }
-        }
-        Ok(hash_table)
-    }
-
-    /// Sets the [type] to be represented by this `DynamicMap`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given [type] is not a [`TypeInfo::Map`].
-    ///
-    /// [type]: TypeInfo
-    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Map(_)),
-                "expected TypeInfo::Map but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
-    }
-
-    /// Inserts a typed key-value pair into the map.
-    pub fn insert<K: Into<DynamicValue>, V: Into<DynamicValue>>(
-        &mut self,
-        key: K,
-        value: V,
-    ) -> Option<DynamicValue> {
-        let key = key.into();
-        let value = value.into();
-        assert_eq!(
-            key.as_partial_reflect()
-                .reflect_partial_eq(key.as_partial_reflect()),
-            Some(true),
-            "keys inserted in `Map`-like types are expected to reflect `PartialEq`"
-        );
-
-        let hash = Self::internal_hash(key.as_partial_reflect());
-        let eq = Self::internal_eq(key.as_partial_reflect());
-        match self.hash_table.find_mut(hash, eq) {
-            Some((_, old)) => Some(core::mem::replace(old, value)),
-            None => {
-                self.hash_table
-                    .insert_unique(hash, (key, value), |(key, _)| {
-                        Self::internal_hash(key.as_partial_reflect())
-                    });
-                None
-            }
-        }
-    }
-
-    fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(&hash_error!(value))
-    }
-
-    fn internal_eq(
-        key: &dyn PartialReflect,
-    ) -> impl FnMut(&(DynamicValue, DynamicValue)) -> bool + '_ {
-        |(other, _)| {
-            key
-            .reflect_partial_eq(other.as_partial_reflect())
-            .expect("underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
-        }
-    }
-}
-
-impl Map for DynamicMap {
-    fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
-        self.hash_table
-            .find(Self::internal_hash(key), Self::internal_eq(key))
-            .map(|(_, value)| value.as_partial_reflect())
-    }
-
-    fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
-        self.hash_table
-            .find_mut(Self::internal_hash(key), Self::internal_eq(key))
-            .map(|(_, value)| value.as_partial_reflect_mut())
+impl MapLike for DynamicMap {
+    fn get(&self, key: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
+        self.get(key).map(DynamicValue::as_ref)
     }
 
     fn len(&self) -> usize {
-        self.hash_table.len()
+        self.len()
     }
 
-    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_> {
-        let iter = self
-            .hash_table
-            .iter()
-            .map(|(k, v)| (k.as_partial_reflect(), v.as_partial_reflect()));
-        Box::new(iter)
-    }
-
-    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        self.hash_table
-            .drain()
-            .map(|(key, value)| {
-                // Note: the non-dynamic maps also Box their keys/values, so it's ok to do that here
-                // too.
-                (
-                    key.as_boxed_partial_reflect(),
-                    value.as_boxed_partial_reflect(),
-                )
-            })
-            .collect()
-    }
-
-    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
-        self.hash_table.retain(move |(key, value)| {
-            f(key.as_partial_reflect(), value.as_partial_reflect_mut())
-        });
-    }
-
-    fn insert_boxed(
-        &mut self,
-        key: Box<dyn PartialReflect>,
-        value: Box<dyn PartialReflect>,
-    ) -> Option<Box<dyn PartialReflect>> {
-        // TODO: Don't unwrap here.
-        let key = DynamicValue::try_from_reflect(&*key).unwrap();
-        let value = DynamicValue::try_from_reflect(&*value).unwrap();
-        self.insert(key, value)
-            .map(DynamicValue::as_boxed_partial_reflect)
-    }
-
-    fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
-        let hash = Self::internal_hash(key);
-        let eq = Self::internal_eq(key);
-        match self.hash_table.find_entry(hash, eq) {
-            Ok(entry) => {
-                let ((_, old_value), _) = entry.remove();
-                Some(old_value.as_boxed_partial_reflect())
-            }
-            Err(_) => None,
-        }
+    fn iter(&self) -> impl Iterator<Item = (DynamicValueRef<'_>, DynamicValueRef<'_>)> {
+        self.iter().map(|(k, v)| (k.as_ref(), v.as_ref()))
     }
 }
 
-impl PartialReflect for DynamicMap {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+impl MapLike for dyn Map {
+    fn get(&self, _key: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
+        // This is broken until Map can figure out what it's keyed by.
+        todo!()
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
+    fn len(&self) -> usize {
+        self.len()
     }
 
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        map_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        map_try_apply(self, value)
-    }
-
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Map
-    }
-
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::Map(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::Map(self)
-    }
-
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Map(self)
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        map_partial_eq(self, value)
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicMap(")?;
-        map_debug(self, f)?;
-        write!(f, ")")
-    }
-
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-}
-
-impl_type_path!((in bevy_reflect) DynamicMap);
-
-impl Debug for DynamicMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        self.debug(f)
-    }
-}
-
-impl FromIterator<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> for DynamicMap {
-    fn from_iter<I: IntoIterator<Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>)>>(
-        items: I,
-    ) -> Self {
-        let mut map = Self::default();
-        for (key, value) in items.into_iter() {
-            map.insert_boxed(key, value);
-        }
-        map
-    }
-}
-
-impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
-    fn from_iter<I: IntoIterator<Item = (K, V)>>(items: I) -> Self {
-        let mut map = Self::default();
-        for (key, value) in items.into_iter() {
-            map.insert(key, value);
-        }
-        map
-    }
-}
-
-impl IntoIterator for DynamicMap {
-    type Item = (DynamicValue, DynamicValue);
-    type IntoIter = bevy_platform::collections::hash_table::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.hash_table.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a DynamicMap {
-    type Item = (&'a DynamicValue, &'a DynamicValue);
-    type IntoIter = core::iter::Map<
-        bevy_platform::collections::hash_table::Iter<'a, (DynamicValue, DynamicValue)>,
-        fn(&'a (DynamicValue, DynamicValue)) -> Self::Item,
-    >;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.hash_table.iter().map(|(k, v)| (k, v))
+    fn iter(&self) -> impl Iterator<Item = (DynamicValueRef<'_>, DynamicValueRef<'_>)> {
+        self.iter().map(|(k, v)| {
+            (
+                // TODO: Don't unwrap here.
+                DynamicValueRef::from(k.try_as_reflect().unwrap()),
+                DynamicValueRef::from(v.try_as_reflect().unwrap()),
+            )
+        })
     }
 }
 
@@ -537,19 +237,26 @@ impl<'a> IntoIterator for &'a DynamicMap {
 ///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
-    let ReflectRef::Map(map) = b.reflect_ref() else {
+#[inline(never)]
+pub fn map_partial_eq(a: &dyn Map, b: &dyn PartialReflect) -> Option<bool> {
+    let ReflectRef::Map(b) = b.reflect_ref() else {
         return Some(false);
     };
+    map_like_partial_eq(a, b)
+}
 
-    if a.len() != map.len() {
+/// Same as above, but for any two [`MapLike`] types.
+pub(crate) fn map_like_partial_eq<L: MapLike + ?Sized, R: MapLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
+    if a.len() != b.len() {
         return Some(false);
     }
 
     for (key, value) in a.iter() {
-        if let Some(map_value) = map.get(key) {
-            let eq_result = value.reflect_partial_eq(map_value);
+        if let Some(map_value) = b.get(key) {
+            let eq_result = value.dynamic_partial_eq(map_value);
             if let failed @ (Some(false) | None) = eq_result {
                 return failed;
             }
@@ -572,29 +279,33 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 /// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
 /// an element comparison returns `None`).
 #[inline]
-pub fn map_partial_cmp<M: Map + ?Sized>(
-    a: &M,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
-    let ReflectRef::Map(map) = b.reflect_ref() else {
+pub fn map_partial_cmp(a: &dyn Map, b: &dyn PartialReflect) -> Option<Ordering> {
+    let ReflectRef::Map(b) = b.reflect_ref() else {
         return None;
     };
+    map_like_partial_cmp(a, b)
+}
 
+/// Same as above, but for any two [`MapLike`] types.
+pub(crate) fn map_like_partial_cmp<L: MapLike + ?Sized, R: MapLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
     let mut a_iter = a.iter();
-    let mut b_iter = map.iter();
+    let mut b_iter = b.iter();
 
     loop {
         match (a_iter.next(), b_iter.next()) {
             (Some((a_k, a_v)), Some((b_k, b_v))) => {
-                match a_k.reflect_partial_cmp(b_k) {
+                match a_k.dynamic_partial_cmp(b_k) {
                     None => return None,
-                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(Ordering::Equal) => {}
                     Some(ord) => return Some(ord),
                 }
 
-                match a_v.reflect_partial_cmp(b_v) {
+                match a_v.dynamic_partial_cmp(b_v) {
                     None => return None,
-                    Some(core::cmp::Ordering::Equal) => {}
+                    Some(Ordering::Equal) => {}
                     Some(ord) => return Some(ord),
                 }
             }
@@ -673,46 +384,4 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
     a.retain(&mut |key, _| map_value.get(key).is_some());
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-
-    use crate::PartialReflect;
-
-    use super::{DynamicMap, Map};
-
-    #[test]
-    fn remove() {
-        let mut map = DynamicMap::default();
-        map.insert(0, 0);
-        map.insert(1, 1);
-
-        assert_eq!(map.remove(&0).unwrap().try_downcast_ref(), Some(&0));
-        assert!(map.get(&0).is_none());
-        assert_eq!(map.get(&1).unwrap().try_downcast_ref(), Some(&1));
-
-        assert_eq!(map.remove(&1).unwrap().try_downcast_ref(), Some(&1));
-        assert!(map.get(&1).is_none());
-
-        assert!(map.remove(&1).is_none());
-        assert!(map.get(&1).is_none());
-    }
-
-    #[test]
-    fn apply() {
-        let mut map_a = DynamicMap::default();
-        map_a.insert(0, 0);
-        map_a.insert(1, 1);
-
-        let mut map_b = DynamicMap::default();
-        map_b.insert(10, 10);
-        map_b.insert(1, 5);
-
-        map_a.apply(&map_b);
-
-        assert!(map_a.get(&0).is_none());
-        assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&5));
-        assert_eq!(map_a.get(&10).unwrap().try_downcast_ref(), Some(&10));
-    }
 }

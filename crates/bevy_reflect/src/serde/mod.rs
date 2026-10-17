@@ -12,8 +12,9 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        dynamic::DynamicValue, structs::DynamicStruct, tuple_struct::DynamicTupleStruct,
-        type_registry::TypeRegistry, FromReflect, PartialReflect, Reflect,
+        dynamic::{DynamicStruct, DynamicTupleStruct, DynamicValue},
+        type_registry::TypeRegistry,
+        FromReflect, PartialReflect, Reflect,
     };
     use serde::de::DeserializeSeed;
 
@@ -143,7 +144,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "cannot serialize dynamic value without represented type: `bevy_reflect::DynamicStruct`"
+        expected = "cannot serialize dynamic value without represented type: `bevy_reflect::dynamic::DynamicStruct`"
     )]
     fn should_not_serialize_unproxied_dynamic() {
         let registry = TypeRegistry::default();

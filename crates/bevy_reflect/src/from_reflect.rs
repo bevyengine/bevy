@@ -20,7 +20,7 @@ use alloc::boxed::Box;
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
 /// [derive macro]: bevy_reflect_derive::FromReflect
-/// [`DynamicStruct`]: crate::structs::DynamicStruct
+/// [`DynamicStruct`]: crate::dynamic::DynamicStruct
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
@@ -38,8 +38,8 @@ pub trait FromReflect: Sized + 'static {
     /// rather than a boxed dynamic type (e.g. [`DynamicStruct`], [`DynamicList`], etc.).
     ///
     /// [`from_reflect`]: Self::from_reflect
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
-    /// [`DynamicList`]: crate::list::DynamicList
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
+    /// [`DynamicList`]: crate::dynamic::DynamicList
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
     ) -> Result<Self, Box<dyn PartialReflect>> {
@@ -62,7 +62,7 @@ pub trait FromReflect: Sized + 'static {
 /// However, to do this, you normally need to specify the exact concrete type:
 ///
 /// ```
-/// # use bevy_reflect::{tuple_struct::DynamicTupleStruct, FromReflect, Reflect};
+/// # use bevy_reflect::{dynamic::DynamicTupleStruct, FromReflect, Reflect};
 /// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
@@ -82,7 +82,7 @@ pub trait FromReflect: Sized + 'static {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{tuple_struct::DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
+/// # use bevy_reflect::{dynamic::DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
 /// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }
@@ -100,7 +100,7 @@ pub trait FromReflect: Sized + 'static {
 /// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
 /// ```
 ///
-/// [`DynamicStruct`]: crate::structs::DynamicStruct
+/// [`DynamicStruct`]: crate::dynamic::DynamicStruct
 /// [`DynamicEnum`]: crate::enums::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {

@@ -53,10 +53,9 @@ use bevy_platform::{
     sync::Arc,
 };
 use bevy_reflect::{
+    dynamic::{DynamicStruct, DynamicTuple},
     enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
-    structs::DynamicStruct,
-    tuple::DynamicTuple,
     GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};

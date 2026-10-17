@@ -1,10 +1,10 @@
 use crate::{
-    enums::{DynamicEnum, EnumInfo, VariantInfo},
+    dynamic::{DynamicEnum, DynamicTuple},
+    enums::{EnumInfo, VariantInfo},
     serde::{
         de::{error_utils::make_custom_error, registration_utils::try_get_registration},
         TypedReflectDeserializer,
     },
-    tuple::DynamicTuple,
     TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};

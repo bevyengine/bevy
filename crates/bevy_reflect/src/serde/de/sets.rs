@@ -1,6 +1,7 @@
 use crate::{
+    dynamic::DynamicSet,
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
-    set::{DynamicSet, SetInfo},
+    set::SetInfo,
     TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};

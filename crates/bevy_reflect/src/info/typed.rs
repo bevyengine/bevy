@@ -1,8 +1,4 @@
-use crate::{
-    array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap, set::DynamicSet,
-    structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct, PartialReflect,
-    Reflect, TypeInfo, TypePath,
-};
+use crate::{PartialReflect, Reflect, TypeInfo, TypePath};
 
 /// A static accessor to compile-time type information.
 ///
@@ -140,19 +136,3 @@ impl<T: Typed> MaybeTyped for T {
         Some(T::type_info())
     }
 }
-
-impl MaybeTyped for DynamicEnum {}
-
-impl MaybeTyped for DynamicTupleStruct {}
-
-impl MaybeTyped for DynamicStruct {}
-
-impl MaybeTyped for DynamicMap {}
-
-impl MaybeTyped for DynamicSet {}
-
-impl MaybeTyped for DynamicList {}
-
-impl MaybeTyped for DynamicArray {}
-
-impl MaybeTyped for DynamicTuple {}

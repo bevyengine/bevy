@@ -301,7 +301,7 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
     fn path<'p, T: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
         path.element(self.as_partial_reflect())
     }
@@ -312,7 +312,7 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
     fn path_mut<'p, T: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
         path.element_mut(self.as_partial_reflect_mut())
     }

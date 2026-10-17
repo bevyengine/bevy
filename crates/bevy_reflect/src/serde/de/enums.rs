@@ -1,7 +1,6 @@
 use crate::{
-    enums::{
-        DynamicEnum, DynamicVariant, EnumInfo, StructVariantInfo, TupleVariantInfo, VariantInfo,
-    },
+    dynamic::{DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant},
+    enums::{EnumInfo, StructVariantInfo, TupleVariantInfo, VariantInfo},
     serde::{
         de::{
             error_utils::make_custom_error,
@@ -12,8 +11,6 @@ use crate::{
         },
         TypedReflectDeserializer,
     },
-    structs::DynamicStruct,
-    tuple::DynamicTuple,
     TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};

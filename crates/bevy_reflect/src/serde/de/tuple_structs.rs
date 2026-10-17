@@ -1,6 +1,7 @@
 use crate::{
+    dynamic::DynamicTupleStruct,
     serde::{de::tuple_utils::visit_tuple, SerializationData},
-    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    tuple_struct::TupleStructInfo,
     TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};

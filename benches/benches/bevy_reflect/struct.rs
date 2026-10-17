@@ -2,7 +2,8 @@ use core::{hint::black_box, time::Duration};
 
 use benches::bench;
 use bevy_reflect::{
-    structs::{DynamicStruct, GetField, Struct},
+    dynamic::DynamicStruct,
+    structs::{GetField, Struct},
     PartialReflect, Reflect,
 };
 use criterion::{

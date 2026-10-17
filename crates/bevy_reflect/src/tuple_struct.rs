@@ -1,18 +1,15 @@
 //! Traits and types used to power [tuple-struct-like] operations via reflection.
 //!
 //! [tuple-struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
-use bevy_reflect_derive::impl_type_path;
-
-use crate::dynamic::DynamicValue;
+use crate::dynamic::{DynamicTupleStruct, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
-    tuple::DynamicTuple,
     ty::impl_type_methods,
-    ApplyError, Generics, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
+    Generics, PartialReflect, Reflect, ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
+use core::cmp::Ordering;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -227,224 +224,42 @@ impl GetTupleStructField for dyn TupleStruct {
     }
 }
 
-/// A tuple struct which allows fields to be added at runtime.
-#[derive(Default)]
-pub struct DynamicTupleStruct {
-    pub(crate) represented_type: Option<&'static TypeInfo>,
-    fields: Vec<DynamicValue>,
+pub(crate) trait TupleStructLike {
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
+    fn field_len(&self) -> usize;
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
 }
 
-impl DynamicTupleStruct {
-    /// Creates an equivalent dynamic representation of `value`.
-    ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
-    pub fn try_from_reflect(value: &dyn TupleStruct) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
-
-        let mut fields = Vec::with_capacity(value.field_len());
-        for field in value.iter_fields() {
-            fields.push(DynamicValue::try_from_reflect(field)?);
-        }
-
-        Ok(Self {
-            represented_type,
-            fields,
-        })
+impl TupleStructLike for DynamicTupleStruct {
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field(index).map(DynamicValue::as_ref)
     }
 
-    /// Attempts to clone this value's data.
-    ///
-    /// May fail if an opaque value cannot be cloned.
-    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
-        Ok(Self {
-            represented_type: self.represented_type,
-            fields: self
-                .fields
-                .iter()
-                .map(DynamicValue::dynamic_clone)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
-    /// Sets the [type] to be represented by this `DynamicTupleStruct`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given [type] is not a [`TypeInfo::TupleStruct`].
-    ///
-    /// [type]: TypeInfo
-    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::TupleStruct(_)),
-                "expected TypeInfo::TupleStruct but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
-    }
-
-    /// Appends a typed element with value `value` to the tuple struct.
-    pub fn insert(&mut self, value: impl Into<DynamicValue>) {
-        self.fields.push(value.into());
-    }
-}
-
-impl TupleStruct for DynamicTupleStruct {
-    #[inline]
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(DynamicValue::as_partial_reflect)
-    }
-
-    #[inline]
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields
-            .get_mut(index)
-            .map(DynamicValue::as_partial_reflect_mut)
-    }
-
-    #[inline]
     fn field_len(&self) -> usize {
-        self.fields.len()
+        self.field_len()
     }
 
-    #[inline]
-    fn iter_fields(&self) -> TupleStructFieldIter<'_> {
-        TupleStructFieldIter {
-            tuple_struct: self,
-            index: 0,
-        }
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        self.iter_fields().map(DynamicValue::as_ref)
     }
 }
 
-impl PartialReflect for DynamicTupleStruct {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+impl TupleStructLike for dyn TupleStruct {
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        // TODO: Don't unwrap here.
+        self.field(index)
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
+    fn field_len(&self) -> usize {
+        self.field_len()
     }
 
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        let tuple_struct = value.reflect_ref().as_tuple_struct()?;
-
-        for (i, value) in tuple_struct.iter_fields().enumerate() {
-            if let Some(v) = self.field_mut(i) {
-                v.try_apply(value)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::TupleStruct
-    }
-
-    #[inline]
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::TupleStruct(self)
-    }
-
-    #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::TupleStruct(self)
-    }
-
-    #[inline]
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::TupleStruct(self)
-    }
-
-    #[inline]
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        tuple_struct_partial_eq(self, value)
-    }
-
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        tuple_struct_partial_cmp(self, value)
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicTupleStruct(")?;
-        tuple_struct_debug(self, f)?;
-        write!(f, ")")
-    }
-
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-}
-
-impl_type_path!((in bevy_reflect) DynamicTupleStruct);
-
-impl Debug for DynamicTupleStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        self.debug(f)
-    }
-}
-
-impl From<DynamicTuple> for DynamicTupleStruct {
-    fn from(value: DynamicTuple) -> Self {
-        Self {
-            represented_type: None,
-            fields: value.fields,
-        }
-    }
-}
-
-impl<T: Into<DynamicValue>> FromIterator<T> for DynamicTupleStruct {
-    fn from_iter<I: IntoIterator<Item = T>>(fields: I) -> Self {
-        Self {
-            represented_type: None,
-            fields: fields.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-impl IntoIterator for DynamicTupleStruct {
-    type Item = DynamicValue;
-    type IntoIter = alloc::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.fields.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a DynamicTupleStruct {
-    type Item = &'a dyn PartialReflect;
-    type IntoIter = TupleStructFieldIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
         self.iter_fields()
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
     }
 }
 
@@ -458,17 +273,28 @@ impl<'a> IntoIterator for &'a DynamicTupleStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
 pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<bool> {
-    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+    let ReflectRef::TupleStruct(b) = b.reflect_ref() else {
         return Some(false);
     };
 
-    if a.field_len() != tuple_struct.field_len() {
+    tuple_struct_like_partial_eq(a, b)
+}
+
+/// Same as above, but comparing two [`TupleStructLike`] values.
+pub(crate) fn tuple_struct_like_partial_eq<
+    L: TupleStructLike + ?Sized,
+    R: TupleStructLike + ?Sized,
+>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
+    if a.field_len() != b.field_len() {
         return Some(false);
     }
 
-    for (i, value) in tuple_struct.iter_fields().enumerate() {
+    for (i, value) in b.iter_fields().enumerate() {
         if let Some(field_value) = a.field(i) {
-            let eq_result = field_value.reflect_partial_eq(value);
+            let eq_result = field_value.dynamic_partial_eq(value);
             if let failed @ (Some(false) | None) = eq_result {
                 return failed;
             }
@@ -484,30 +310,37 @@ pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn PartialReflect) -> O
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn tuple_struct_partial_cmp(
-    a: &dyn TupleStruct,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
-    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
+pub fn tuple_struct_partial_cmp(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<Ordering> {
+    let ReflectRef::TupleStruct(b) = b.reflect_ref() else {
         return None;
     };
+    tuple_struct_like_partial_cmp(a, b)
+}
 
-    if a.field_len() != tuple_struct.field_len() {
+/// Same as above, but for any two [`TupleStructLike`] types.
+pub(crate) fn tuple_struct_like_partial_cmp<
+    L: TupleStructLike + ?Sized,
+    R: TupleStructLike + ?Sized,
+>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
+    if a.field_len() != b.field_len() {
         return None;
     }
 
-    for (i, value) in tuple_struct.iter_fields().enumerate() {
+    for (i, value) in b.iter_fields().enumerate() {
         if let Some(field_value) = a.field(i) {
-            match field_value.reflect_partial_cmp(value) {
+            match field_value.dynamic_partial_cmp(value) {
                 None => return None,
-                Some(core::cmp::Ordering::Equal) => continue,
+                Some(Ordering::Equal) => continue,
                 Some(ord) => return Some(ord),
             }
         }
         return None;
     }
 
-    Some(core::cmp::Ordering::Equal)
+    Some(Ordering::Equal)
 }
 
 /// The default debug formatter for [`TupleStruct`] types.

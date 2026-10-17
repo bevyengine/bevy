@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicStruct,
     enums::StructVariantInfo,
     serde::{
         de::{
@@ -8,7 +9,7 @@ use crate::{
         },
         SerializationData, TypedReflectDeserializer,
     },
-    structs::{DynamicStruct, StructInfo},
+    structs::StructInfo,
     NamedField, TypeRegistration, TypeRegistry,
 };
 use alloc::string::ToString;

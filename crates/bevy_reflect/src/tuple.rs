@@ -1,10 +1,9 @@
 //! Traits and types used to power [tuple-like] operations via reflection.
 //!
 //! [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
-use bevy_reflect_derive::impl_type_path;
 use variadics_please::all_tuples;
 
-use crate::dynamic::DynamicValue;
+use crate::dynamic::{DynamicTuple, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
     ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
@@ -13,6 +12,7 @@ use crate::{
     Typed, UnnamedField,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
+use core::cmp::Ordering;
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -212,218 +212,6 @@ impl TupleInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// A tuple which allows fields to be added at runtime.
-#[derive(Default, Debug)]
-pub struct DynamicTuple {
-    pub(crate) represented_type: Option<&'static TypeInfo>,
-    pub(crate) fields: Vec<DynamicValue>,
-}
-
-impl DynamicTuple {
-    /// Creates an equivalent dynamic representation of `value`.
-    ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
-    pub fn try_from_reflect(value: &dyn Tuple) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
-
-        let mut fields = Vec::with_capacity(value.field_len());
-        for field in value.iter_fields() {
-            fields.push(DynamicValue::try_from_reflect(field)?);
-        }
-
-        Ok(Self {
-            represented_type,
-            fields,
-        })
-    }
-
-    /// Attempts to clone this value's data.
-    ///
-    /// May fail if an opaque value cannot be cloned.
-    pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
-        Ok(Self {
-            represented_type: self.represented_type,
-            fields: self
-                .fields
-                .iter()
-                .map(DynamicValue::dynamic_clone)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
-    /// Sets the [type] to be represented by this `DynamicTuple`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given [type] is not a [`TypeInfo::Tuple`].
-    ///
-    /// [type]: TypeInfo
-    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Tuple(_)),
-                "expected TypeInfo::Tuple but received: {represented_type:?}"
-            );
-        }
-        self.represented_type = represented_type;
-    }
-
-    /// Appends an element with value `value` to the tuple.
-    pub fn insert(&mut self, value: impl Into<DynamicValue>) {
-        self.represented_type = None;
-        self.fields.push(value.into());
-    }
-
-    /// Takes the fields that make up this dynamic tuple.
-    pub fn into_boxed_fields(self) -> Vec<Box<dyn PartialReflect>> {
-        self.fields
-            .into_iter()
-            .map(DynamicValue::as_boxed_partial_reflect)
-            .collect()
-    }
-}
-
-impl Tuple for DynamicTuple {
-    #[inline]
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(DynamicValue::as_partial_reflect)
-    }
-
-    #[inline]
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields
-            .get_mut(index)
-            .map(DynamicValue::as_partial_reflect_mut)
-    }
-
-    #[inline]
-    fn field_len(&self) -> usize {
-        self.fields.len()
-    }
-
-    #[inline]
-    fn iter_fields(&self) -> TupleFieldIter<'_> {
-        TupleFieldIter {
-            tuple: self,
-            index: 0,
-        }
-    }
-
-    #[inline]
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.into_boxed_fields()
-    }
-}
-
-impl PartialReflect for DynamicTuple {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        tuple_apply(self, value);
-    }
-
-    #[inline]
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Tuple
-    }
-
-    #[inline]
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::Tuple(self)
-    }
-
-    #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::Tuple(self)
-    }
-
-    #[inline]
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Tuple(self)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        tuple_try_apply(self, value)
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        tuple_partial_eq(self, value)
-    }
-
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        tuple_partial_cmp(self, value)
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicTuple(")?;
-        tuple_debug(self, f)?;
-        write!(f, ")")
-    }
-
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-}
-
-impl_type_path!((in bevy_reflect) DynamicTuple);
-
-impl<T: Into<DynamicValue>> FromIterator<T> for DynamicTuple {
-    fn from_iter<I: IntoIterator<Item = T>>(fields: I) -> Self {
-        Self {
-            represented_type: None,
-            fields: fields.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-impl IntoIterator for DynamicTuple {
-    type Item = DynamicValue;
-    type IntoIter = vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.fields.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a DynamicTuple {
-    type Item = &'a dyn PartialReflect;
-    type IntoIter = TupleFieldIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_fields()
-    }
-}
-
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
 /// # Panics
@@ -456,6 +244,34 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<()
     Ok(())
 }
 
+pub(crate) trait TupleLike {
+    fn field_len(&self) -> usize;
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
+}
+
+impl TupleLike for DynamicTuple {
+    fn field_len(&self) -> usize {
+        self.field_len()
+    }
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        self.iter_fields().map(DynamicValue::as_ref)
+    }
+}
+
+impl TupleLike for dyn Tuple {
+    fn field_len(&self) -> usize {
+        self.field_len()
+    }
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        // TODO: Don't unwrap here.
+        self.iter_fields()
+            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+    }
+}
+
 /// Compares a [`Tuple`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
@@ -464,18 +280,25 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<()
 /// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Option<bool> {
+#[inline(never)]
+pub fn tuple_partial_eq(a: &dyn Tuple, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return Some(false);
     };
+    tuple_like_partial_eq(a, b)
+}
 
+/// Same as above, but for any two [`TupleLike`] types.
+pub(crate) fn tuple_like_partial_eq<L: TupleLike + ?Sized, R: TupleLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
     if a.field_len() != b.field_len() {
         return Some(false);
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        let eq_result = a_field.reflect_partial_eq(b_field);
+        let eq_result = a_field.dynamic_partial_eq(b_field);
         if let failed @ (Some(false) | None) = eq_result {
             return failed;
         }
@@ -488,27 +311,32 @@ pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Opt
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-#[inline]
-pub fn tuple_partial_cmp<T: Tuple + ?Sized>(
-    a: &T,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
+#[inline(never)]
+pub fn tuple_partial_cmp(a: &dyn Tuple, b: &dyn PartialReflect) -> Option<Ordering> {
     let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return None;
     };
+    tuple_like_partial_cmp(a, b)
+}
+
+/// Same as above, but for any two [`TupleLike`] types.
+pub(crate) fn tuple_like_partial_cmp<L: TupleLike + ?Sized, R: TupleLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
     if a.field_len() != b.field_len() {
         return None;
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        match a_field.reflect_partial_cmp(b_field) {
+        match a_field.dynamic_partial_cmp(b_field) {
             None => return None,
-            Some(core::cmp::Ordering::Equal) => continue,
+            Some(Ordering::Equal) => continue,
             Some(ord) => return Some(ord),
         }
     }
 
-    Some(core::cmp::Ordering::Equal)
+    Some(Ordering::Equal)
 }
 
 /// The default debug formatter for [`Tuple`] types.

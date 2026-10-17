@@ -24,9 +24,9 @@ use bevy_ecs::{
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
+    dynamic::DynamicStruct,
     dynamic::DynamicValue,
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    structs::DynamicStruct,
     GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};

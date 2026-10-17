@@ -36,8 +36,7 @@ mod tests {
     use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
-        dynamic::DynamicValue,
-        enums::DynamicEnum,
+        dynamic::{DynamicEnum, DynamicValue},
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,

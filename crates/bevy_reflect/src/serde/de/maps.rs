@@ -1,5 +1,6 @@
 use crate::{
-    map::{DynamicMap, MapInfo},
+    dynamic::DynamicMap,
+    map::MapInfo,
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     TypeRegistry,
 };

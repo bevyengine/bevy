@@ -1,10 +1,11 @@
 use crate::{
+    dynamic::DynamicTuple,
     enums::TupleVariantInfo,
     serde::{
         de::{error_utils::make_custom_error, registration_utils::try_get_registration},
         SerializationData, TypedReflectDeserializer,
     },
-    tuple::{DynamicTuple, TupleInfo},
+    tuple::TupleInfo,
     tuple_struct::TupleStructInfo,
     TypeRegistration, TypeRegistry, UnnamedField,
 };

@@ -120,8 +120,8 @@ where
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
-    /// [`DynamicList`]: crate::list::DynamicList
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
+    /// [`DynamicList`]: crate::dynamic::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
@@ -338,9 +338,9 @@ where
     ///
     /// By default, this method will return `false`.
     ///
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
-    /// [`DynamicList`]: crate::list::DynamicList
-    /// [`DynamicTuple`]: crate::tuple::DynamicTuple
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
+    /// [`DynamicList`]: crate::dynamic::DynamicList
+    /// [`DynamicTuple`]: crate::dynamic::DynamicTuple
     fn is_dynamic(&self) -> bool {
         false
     }

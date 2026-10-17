@@ -1,19 +1,14 @@
+use core::fmt::{Debug, Formatter};
+
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    dynamic::DynamicValue,
-    enums::{
-        enum_debug, enum_hash, enum_partial_cmp, enum_partial_eq, Enum, VariantFieldIter,
-        VariantType,
-    },
-    structs::{DynamicStruct, Struct},
-    tuple::{DynamicTuple, Tuple},
-    ApplyError, PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo,
+    dynamic::{DynamicStruct, DynamicTuple, DynamicValue, DynamicValueRef},
+    enums::{Enum, EnumInfo, VariantType},
+    ApplyError, DynamicTypePath, PartialReflect, ReflectCloneError, TypeInfo,
 };
 
-use alloc::{boxed::Box, string::String};
-use core::fmt::Formatter;
+use alloc::{format, string::String};
 use derive_more::derive::From;
 
 /// A dynamic representation of an enum variant.
@@ -65,7 +60,7 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{enums::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
+/// # use bevy_reflect::{dynamic::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
@@ -82,7 +77,7 @@ impl From<()> for DynamicVariant {
 /// // Tada!
 /// assert_eq!(None, value);
 /// ```
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct DynamicEnum {
     pub(crate) represented_type: Option<&'static TypeInfo>,
     variant_name: String,
@@ -264,10 +259,12 @@ impl DynamicEnum {
             variant: self.variant.dynamic_clone()?,
         })
     }
-}
 
-impl Enum for DynamicEnum {
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
+    /// Gets the value of a field from the current variant by the field's name.
+    ///
+    /// Returns [`None`] if there is no field with such a name, or if the enum is not a struct
+    /// variant.
+    pub fn field(&self, name: &str) -> Option<&DynamicValue> {
         if let DynamicVariant::Struct(data) = &self.variant {
             data.field(name)
         } else {
@@ -275,7 +272,10 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
+    /// Gets the value of a field from the current variant by the field's index.
+    ///
+    /// Returns [`None`] if there is no field with such a name, or if the enum is a unit variant.
+    pub fn field_at(&self, index: usize) -> Option<&DynamicValue> {
         match &self.variant {
             DynamicVariant::Tuple(data) => data.field(index),
             DynamicVariant::Struct(data) => data.field_at(index),
@@ -283,7 +283,11 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
+    /// Gets the value mutably of a field from the current variant by the field's name.
+    ///
+    /// Returns [`None`] if there is no field with such a name, or if the enum is not a struct
+    /// variant.
+    pub fn field_mut(&mut self, name: &str) -> Option<&mut DynamicValue> {
         if let DynamicVariant::Struct(data) = &mut self.variant {
             data.field_mut(name)
         } else {
@@ -291,7 +295,10 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+    /// Gets the value mutably of a field from the current variant by the field's index.
+    ///
+    /// Returns [`None`] if there is no field with such a name, or if the enum is a unit variant.
+    pub fn field_at_mut(&mut self, index: usize) -> Option<&mut DynamicValue> {
         match &mut self.variant {
             DynamicVariant::Tuple(data) => data.field_mut(index),
             DynamicVariant::Struct(data) => data.field_at_mut(index),
@@ -299,7 +306,11 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn index_of(&self, name: &str) -> Option<usize> {
+    /// Gets the index of a field by its name in the current variant.
+    ///
+    /// Returns [`None`] if there is no field with such a name, or if the enum is not a struct
+    /// variant.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
         if let DynamicVariant::Struct(data) = &self.variant {
             data.index_of_name(name)
         } else {
@@ -307,7 +318,10 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn name_at(&self, index: usize) -> Option<&str> {
+    /// Gets the name of a field by its index in the current variant.
+    ///
+    /// Returns [`None`] if the field index is out of range, or if the enum is not a struct variant.
+    pub fn name_at(&self, index: usize) -> Option<&str> {
         if let DynamicVariant::Struct(data) = &self.variant {
             data.name_at(index)
         } else {
@@ -315,11 +329,25 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn iter_fields(&self) -> VariantFieldIter<'_> {
-        VariantFieldIter::new(self)
+    /// Iterates through the fields if the enum.
+    pub fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>> + ExactSizeIterator {
+        match &self.variant {
+            DynamicVariant::Unit => DynamicEnumFieldIter::Unit,
+            DynamicVariant::Struct(value) => DynamicEnumFieldIter::Struct(
+                value
+                    .iter_fields()
+                    .map(|(name, value)| DynamicVariantField::Struct(name, value.as_ref())),
+            ),
+            DynamicVariant::Tuple(value) => DynamicEnumFieldIter::Tuple(
+                value
+                    .iter_fields()
+                    .map(|value| DynamicVariantField::Tuple(value.as_ref())),
+            ),
+        }
     }
 
-    fn field_len(&self) -> usize {
+    /// Returns the number of fields in the enum.
+    pub fn field_len(&self) -> usize {
         match &self.variant {
             DynamicVariant::Unit => 0,
             DynamicVariant::Tuple(data) => data.field_len(),
@@ -327,154 +355,189 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn variant_name(&self) -> &str {
+    /// Returns the name of the current variant of the enum.
+    pub fn variant_name(&self) -> &str {
         &self.variant_name
     }
 
-    fn variant_index(&self) -> usize {
+    /// Returns the index of the current variant of the enum.
+    pub fn variant_index(&self) -> usize {
         self.variant_index
     }
 
-    fn variant_type(&self) -> VariantType {
+    /// Returns the type of the current variant.
+    pub fn variant_type(&self) -> VariantType {
         match &self.variant {
             DynamicVariant::Unit => VariantType::Unit,
             DynamicVariant::Tuple(..) => VariantType::Tuple,
             DynamicVariant::Struct(..) => VariantType::Struct,
         }
     }
+
+    /// Returns the type path of the current variant.
+    pub fn variant_path(&self) -> String {
+        format!("{}::{}", self.reflect_type_path(), self.variant_name())
+    }
+
+    /// Gets the type info of the represented enum, if this dynamic value represents a known type.
+    pub fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
+        self.represented_type?.as_enum().ok()
+    }
 }
 
-impl PartialReflect for DynamicEnum {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    #[inline]
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        let value = value.reflect_ref().as_enum()?;
-
-        if Enum::variant_name(self) == value.variant_name() {
-            // Same variant -> just update fields
-            match value.variant_type() {
-                VariantType::Struct => {
-                    for field in value.iter_fields() {
-                        let name = field.name().unwrap();
-                        if let Some(v) = Enum::field_mut(self, name) {
-                            v.try_apply(field.value())?;
-                        }
-                    }
-                }
-                VariantType::Tuple => {
-                    for (index, field) in value.iter_fields().enumerate() {
-                        if let Some(v) = Enum::field_at_mut(self, index) {
-                            v.try_apply(field.value())?;
-                        }
-                    }
-                }
-                _ => {}
-            }
-        } else {
-            // New variant -> perform a switch
-            let dyn_variant = match value.variant_type() {
-                VariantType::Unit => DynamicVariant::Unit,
-                VariantType::Tuple => {
-                    let mut dyn_tuple = DynamicTuple::default();
-                    for field in value.iter_fields() {
-                        dyn_tuple.insert(DynamicValue::try_from_reflect(field.value())?);
-                    }
-                    DynamicVariant::Tuple(dyn_tuple)
-                }
-                VariantType::Struct => {
-                    let mut dyn_struct = DynamicStruct::default();
-                    for field in value.iter_fields() {
-                        dyn_struct.insert(
-                            field.name().unwrap(),
-                            DynamicValue::try_from_reflect(field.value())?,
-                        );
-                    }
-                    DynamicVariant::Struct(dyn_struct)
-                }
-            };
-            self.set_variant(value.variant_name(), dyn_variant);
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Enum
-    }
-
-    #[inline]
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::Enum(self)
-    }
-
-    #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::Enum(self)
-    }
-
-    #[inline]
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Enum(self)
-    }
-
-    #[inline]
-    fn reflect_hash(&self) -> Option<u64> {
-        enum_hash(self)
-    }
-
-    #[inline]
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        enum_partial_eq(self, value)
-    }
-
-    #[inline]
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        enum_partial_cmp(self, value)
-    }
-
-    #[inline]
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+impl Debug for DynamicEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicEnum(")?;
-        enum_debug(self, f)?;
+        match &self.variant {
+            DynamicVariant::Unit => {
+                f.write_str(self.variant_name())?;
+            }
+            DynamicVariant::Tuple(value) => {
+                let mut debug = f.debug_tuple(&self.variant_name);
+                for field in value.fields.iter() {
+                    debug.field(field as &dyn Debug);
+                }
+                debug.finish()?;
+            }
+            DynamicVariant::Struct(value) => {
+                let mut debug = f.debug_struct(&self.variant_name);
+                for (field, name) in value.fields.iter().zip(value.field_names.iter()) {
+                    debug.field(name, field as &dyn Debug);
+                }
+                debug.finish()?;
+            }
+        }
         write!(f, ")")
     }
+}
 
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
+impl_type_path!((in bevy_reflect::dynamic) DynamicEnum);
+
+/// A field in the current [`DynamicEnum`] variant.
+pub enum DynamicVariantField<'a> {
+    /// The name and value of a field in a struct variant.
+    Struct(&'a str, DynamicValueRef<'a>),
+    /// The value of a field in a tuple variant.
+    Tuple(DynamicValueRef<'a>),
+}
+
+impl<'a> DynamicVariantField<'a> {
+    /// Returns the name of a struct variant field, or [`None`] for a tuple variant field.
+    pub fn name(&self) -> Option<&'a str> {
+        if let Self::Struct(name, ..) = self {
+            Some(*name)
+        } else {
+            None
+        }
+    }
+
+    /// Gets a reference to the value of this field.
+    pub fn value(&self) -> DynamicValueRef<'a> {
+        match *self {
+            Self::Struct(_, value) | Self::Tuple(value) => value,
+        }
     }
 }
 
-impl_type_path!((in bevy_reflect) DynamicEnum);
+/// An enum of iterators for different enum variant types.
+enum DynamicEnumFieldIter<StructIter, TupleIter> {
+    /// The enum being iterated is a unit type.
+    Unit,
+    /// The enum being iterated is a struct variant.
+    Struct(StructIter),
+    /// The enum being iterated is a tuple struct variant.
+    Tuple(TupleIter),
+}
+
+impl<'a, T, StructIter, TupleIter> Iterator for DynamicEnumFieldIter<StructIter, TupleIter>
+where
+    StructIter: Iterator<Item = T>,
+    TupleIter: Iterator<Item = T>,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Unit => None,
+            Self::Struct(iter) => iter.next(),
+            Self::Tuple(iter) => iter.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Unit => (0, Some(0)),
+            Self::Struct(iter) => iter.size_hint(),
+            Self::Tuple(iter) => iter.size_hint(),
+        }
+    }
+}
+
+impl<'a, T, StructIter, TupleIter> ExactSizeIterator for DynamicEnumFieldIter<StructIter, TupleIter>
+where
+    StructIter: Iterator<Item = T> + ExactSizeIterator,
+    TupleIter: Iterator<Item = T> + ExactSizeIterator,
+{
+    fn len(&self) -> usize {
+        match self {
+            Self::Unit => 0,
+            Self::Struct(iter) => iter.len(),
+            Self::Tuple(iter) => iter.len(),
+        }
+    }
+}
+
+/// Tries to apply `value` to the enum defined by `target`.
+pub fn enum_try_apply(
+    target: &mut DynamicEnum,
+    value: &dyn PartialReflect,
+) -> Result<(), ApplyError> {
+    let value = value.reflect_ref().as_enum()?;
+
+    if target.variant_name() == value.variant_name() {
+        // Same variant -> just update fields
+        match value.variant_type() {
+            VariantType::Struct => {
+                for field in value.iter_fields() {
+                    let name = field.name().unwrap();
+                    if let Some(v) = target.field_mut(name) {
+                        v.as_partial_reflect_mut().try_apply(field.value())?;
+                    }
+                }
+            }
+            VariantType::Tuple => {
+                for (index, field) in value.iter_fields().enumerate() {
+                    if let Some(v) = target.field_at_mut(index) {
+                        v.as_partial_reflect_mut().try_apply(field.value())?;
+                    }
+                }
+            }
+            _ => {}
+        }
+    } else {
+        // New variant -> perform a switch
+        let dyn_variant = match value.variant_type() {
+            VariantType::Unit => DynamicVariant::Unit,
+            VariantType::Tuple => {
+                let mut dyn_tuple = DynamicTuple::default();
+                for field in value.iter_fields() {
+                    dyn_tuple.insert(DynamicValue::try_from_reflect(field.value())?);
+                }
+                DynamicVariant::Tuple(dyn_tuple)
+            }
+            VariantType::Struct => {
+                let mut dyn_struct = DynamicStruct::default();
+                for field in value.iter_fields() {
+                    dyn_struct.insert(
+                        field.name().unwrap(),
+                        DynamicValue::try_from_reflect(field.value())?,
+                    );
+                }
+                DynamicVariant::Struct(dyn_struct)
+            }
+        };
+        target.set_variant(value.variant_name(), dyn_variant);
+    }
+
+    Ok(())
+}

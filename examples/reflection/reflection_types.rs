@@ -4,7 +4,7 @@
 use bevy::{
     platform::collections::HashMap,
     prelude::*,
-    reflect::{list::DynamicList, PartialReflect, ReflectRef},
+    reflect::{dynamic::DynamicList, PartialReflect, ReflectRef},
 };
 use serde::{Deserialize, Serialize};
 

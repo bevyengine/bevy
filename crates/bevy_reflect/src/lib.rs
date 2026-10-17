@@ -196,7 +196,7 @@
 //! These dynamic types may contain any arbitrary reflected data.
 //!
 //! ```
-//! # use bevy_reflect::structs::{DynamicStruct, Struct};
+//! # use bevy_reflect::{structs::Struct, dynamic::DynamicStruct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
 //! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
@@ -210,7 +210,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect, dynamic::DynamicValue};
+//! # use bevy_reflect::{dynamic::DynamicStruct, PartialReflect, Reflect, dynamic::DynamicValue};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -230,7 +230,7 @@
 //! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{enums::DynamicEnum, PartialReflect};
+//! # use bevy_reflect::{dynamic::DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
@@ -244,7 +244,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{structs::DynamicStruct, PartialReflect, Reflect, dynamic::DynamicValue};
+//! # use bevy_reflect::{dynamic::DynamicStruct, PartialReflect, Reflect, dynamic::DynamicValue};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -553,12 +553,12 @@
 //! [`Enum`]: crate::enums::Enum
 //! [`Function`]: crate::func::Function
 //! [`Struct::field`]: crate::structs::Struct::field
-//! [`DynamicTuple`]: crate::tuple::DynamicTuple
-//! [`DynamicArray`]: crate::array::DynamicArray
-//! [`DynamicList`]: crate::list::DynamicList
+//! [`DynamicTuple`]: crate::dynamic::DynamicTuple
+//! [`DynamicArray`]: crate::dynamic::DynamicArray
+//! [`DynamicList`]: crate::dynamic::DynamicList
 //! [`DynamicMap`]: crate::map::DynamicMap
-//! [`DynamicStruct`]: crate::structs::DynamicStruct
-//! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
+//! [`DynamicStruct`]: crate::dynamic::DynamicStruct
+//! [`DynamicTupleStruct`]: crate::dynamic::DynamicTupleStruct
 //! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
@@ -703,8 +703,10 @@ pub use erased_serde;
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::{
-        array::DynamicArray, enums::DynamicEnum, list::DynamicList, map::DynamicMap,
-        structs::DynamicStruct, tuple::DynamicTuple, tuple_struct::DynamicTupleStruct,
+        dynamic::{
+            DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+            DynamicTupleStruct,
+        },
         GetTypeRegistration, TypeRegistry,
     };
 
@@ -889,6 +891,10 @@ mod tests {
         array::*, enums::*, list::*, map::*, prelude::*, structs::*, tuple::*, tuple_struct::*, *,
     };
     use crate::{
+        dynamic::{
+            DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+            DynamicTupleStruct,
+        },
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,
     };
@@ -1073,7 +1079,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "the dynamic type `bevy_reflect::DynamicValueWrapper` (representing `bevy_reflect::tests::Foo`) does not support hashing"
+        expected = "the dynamic type `bevy_reflect::dynamic::DynamicValueWrapper` (representing `bevy_reflect::tests::Foo`) does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic_representing() {
         #[derive(Reflect, Hash)]
@@ -1092,7 +1098,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "the dynamic type `bevy_reflect::DynamicValueWrapper` does not support hashing"
+        expected = "the dynamic type `bevy_reflect::dynamic::DynamicValueWrapper` does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic() {
         #[allow(
@@ -1773,8 +1779,6 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_struct_named_field_reorder() {
-        use crate::structs::DynamicStruct;
-
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
         struct S {
             a: i32,
@@ -1831,8 +1835,6 @@ mod tests {
 
     #[test]
     fn reflect_partial_cmp_dynamic_vs_concrete_struct_equal() {
-        use crate::structs::DynamicStruct;
-
         #[derive(PartialEq, PartialOrd, Reflect, Debug)]
         struct S {
             a: i32,

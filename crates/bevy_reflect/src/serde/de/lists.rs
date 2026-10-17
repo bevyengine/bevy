@@ -1,5 +1,6 @@
 use crate::{
-    list::{DynamicList, ListInfo},
+    dynamic::DynamicList,
+    list::ListInfo,
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     TypeRegistry,
 };
