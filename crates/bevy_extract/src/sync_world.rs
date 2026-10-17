@@ -353,7 +353,7 @@ mod sub_entities_world_query_impls {
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `SubEntity`.
             unsafe {
-                <&SubEntity<L> as WorldQuery>::set_table(fetch, &component_id, table_id, table)
+                <&SubEntity<L> as WorldQuery>::set_table(fetch, &component_id, table_id, table);
             }
         }
 
