@@ -1100,7 +1100,6 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
     // dark pattern on the ground that did not follow the sun; around a small cloud most of the
     // sky is open. Occluded directions see the cloud base lit by diffusely transmitted sunlight
     // (Lambertian, PI * L).
-    let tau0 = cloud_column_optical_depth(p);
     let h_mid = 0.5 * (cloud_layer.cloud_layer_start + cloud_layer.cloud_layer_end) - length(p);
     var sky = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
@@ -1109,7 +1108,7 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
         let horiz = tx * cos(phi) + ty * sin(phi);
         let mu = sqrt(1.0 - u);
         let d = normalize(n * mu + horiz * sqrt(u));
-        let tau = cloud_column_optical_depth_field(p + horiz * (max(h_mid, 0.0) * sqrt(u) / mu), tau0);
+        let tau = cloud_column_march_optical_depth(p + horiz * (max(h_mid, 0.0) * sqrt(u) / mu));
         let t_cloud = exp(-tau / mu);
         sky += sample_sky_view_lut(r_cam, direction_world_to_atmosphere(d)) * t_cloud
             + (1.0 - t_cloud) * e_top / (1.0 + 0.75 * (1.0 - CLOUD_MIE_MEAN_COS) * tau);
@@ -1117,17 +1116,14 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>) -> vec3<f32> {
     return sky * (PI / f32(GROUND_SKY_DIRS));
 }
 
-/// Column optical depth from the cloud field at `p` (no march); `fallback` outside the field.
+/// Column optical depth above a ground point from a short vertical march through the cloud layer
+/// (cloud_far_transmittance: ~2 coarse samples for a vertical path), the same everywhere. The
+/// cloud field's column (inside +-12 km only, blurred over ~750 m) and a fallback to the column
+/// straight above the pixel outside it lit the shadowed ground differently on either side of the
+/// field's edge (a dark/light shadow junction along a square).
 @if(CLOUDS_ENABLED)
-fn cloud_column_optical_depth_field(p: vec3<f32>, fallback: f32) -> f32 {
-    @if(CLOUD_FIELD_BOUND) {
-        let uvw = cloud_field_uvw(p, textureLoad(cloud_field_sdf, vec3(0), 0).ba);
-        if (all(uvw.xy >= vec2(0.0)) && all(uvw.xy <= vec2(1.0))) {
-            return textureSampleLevel(cloud_field_sdf, atmosphere_lut_sampler, vec3(uvw.xy, 0.5), 0.0).g
-                * settings.cloud_shadow_map_strength;
-        }
-    }
-    return fallback;
+fn cloud_column_march_optical_depth(p: vec3<f32>) -> f32 {
+    return -log(max(cloud_far_transmittance(p, normalize(p), true), 1e-6));
 }
 
 /// Blurred cloud column optical depth above an atmosphere-space point (cloud AO).
