@@ -5,4 +5,4 @@ pull_requests: [26222]
 
 Enums that derive `Reflect` are now **required** to implement `FromReflect`. By default, deriving
 `Reflect` also derives `FromReflect`. This can be disabled with `#[reflect(from_reflect = false)]`.
-For enums, that have disabled this, they are now required to implement `FromReflect` manually.
+Enums that have already disabled this must now opt back into deriving `FromReflect` or implement it manually.
