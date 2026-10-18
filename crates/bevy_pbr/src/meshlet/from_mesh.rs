@@ -9,7 +9,7 @@ use bevy_render::render_resource::PrimitiveTopology;
 use bevy_shape::{Aabb3d, BoundingSphere, BoundingVolume};
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::{f32, ops::Range};
+use core::ops::Range;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, ffi::meshopt_Meshlet, generate_position_remap,

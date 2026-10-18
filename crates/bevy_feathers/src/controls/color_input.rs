@@ -12,7 +12,7 @@ use bevy_ecs::{
     lifecycle::Despawn,
     observer::On,
     query::{Changed, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     relationship::Relationship,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -28,6 +28,8 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
+#[cfg(feature = "bevy_settings")]
+use bevy_settings::{ReflectSettingsGroup, SettingsGroup};
 use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
@@ -35,7 +37,7 @@ use bevy_ui::{
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-    Activate, ActivateOnPress, SliderValue, ValueChange,
+    Activate, ActivateOnPress, NumericRange, NumericValue, SliderValue, ValueChange,
 };
 
 use crate::{
@@ -45,8 +47,8 @@ use crate::{
         ColorSwatchValue, ColorWheelValue, FeathersButton, FeathersColorPlane, FeathersColorSlider,
         FeathersColorSwatch, FeathersColorSwatchGrid, FeathersColorWheel, FeathersLazyMenu,
         FeathersMenuPopup, FeathersMenuToolButton, FeathersNumberInput, FeathersTextInput,
-        FeathersTextInputContainer, HardLimit, NumberInputPrecision, NumberInputRange,
-        NumberInputStep, NumberInputValue, SliderBaseColor,
+        FeathersTextInputContainer, HardLimit, NumberInputPrecision, NumberInputStep,
+        SliderBaseColor,
     },
     display::{caption, label},
     font_styles::InheritableFont,
@@ -84,8 +86,15 @@ pub enum ColorInputMode {
 /// the picker will be in that mode. The assumption is that artists have a preferred mode and will
 /// generally stick with it. (Also, we have no way to store the user's preference on a
 /// per-attribute basis.)
-#[derive(Resource, Default)]
-// #[derive(SettingsGroup)] // TODO
+///
+/// To save color input preferences between app runs, enable the `bevy_settings` feature,
+/// add `FeathersPlugins` before `SettingsPlugin` to your app, and trigger a save. See the
+/// [settings example](https://github.com/bevyengine/bevy/blob/latest/examples/app/settings.rs)
+/// for a complete demonstration.
+#[derive(Resource, Reflect, Default, Clone, PartialEq)]
+#[reflect(Resource, Default)]
+#[cfg_attr(feature = "bevy_settings", derive(SettingsGroup))]
+#[cfg_attr(feature = "bevy_settings", reflect(SettingsGroup))]
 pub struct ColorInputSettings {
     /// Which color space we're editing
     pub mode: ColorInputMode,
@@ -116,9 +125,9 @@ impl ColorInputSettings {
 /// This is spawnable by inheriting it as a "scene component" with optional
 /// [`FeathersColorInputProps`].
 ///
-/// The picker contains a number of user preferences which are sticky, and which
-/// are stored on the [`ColorInputSettings`] resource. If the bevy settings plugin in installed,
-/// these user preferences will be saved along with the user's settings.
+/// The picker has a number of sticky user preferences, stored on the
+/// [`ColorInputSettings`] resource. See its documentation for details on
+/// saving these preferences between app runs.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 #[scene(FeathersColorInputProps)]
@@ -529,8 +538,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #r_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(20.0)
                 NumberInputChannel(ColorChannel::Red)
@@ -548,8 +557,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #g_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(20.0)
                 NumberInputChannel(ColorChannel::Green)
@@ -567,8 +576,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #b_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(20.0)
                 NumberInputChannel(ColorChannel::Blue)
@@ -601,8 +610,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #h_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=360.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=360.0))
                 NumberInputPrecision(1)
                 NumberInputStep(30.0)
                 NumberInputChannel(ColorChannel::HslHue)
@@ -623,8 +632,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #s_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=100.0))
                 NumberInputPrecision(1)
                 NumberInputStep(10.0)
                 NumberInputChannel(ColorChannel::HslSaturation)
@@ -645,8 +654,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #l_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=100.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=100.0))
                 NumberInputPrecision(1)
                 NumberInputStep(10.0)
                 NumberInputChannel(ColorChannel::HslLightness)
@@ -681,8 +690,8 @@ fn color_input_popup() -> Box<dyn Scene> {
                 --
                 #a_input
                 @FeathersNumberInput
-                NumberInputValue::F32(0.0)
-                HardLimit(NumberInputRange::F32(0.0..=255.0))
+                NumericValue::F32(0.0)
+                HardLimit(NumericRange::F32(0.0..=255.0))
                 NumberInputPrecision(1)
                 NumberInputStep(10.0)
                 NumberInputChannel(ColorChannel::Alpha)
@@ -835,7 +844,10 @@ fn hex_input_on_enter_key(
     mut q_state: Query<&mut ColorInputState>,
     mut commands: Commands,
 ) {
-    if key_input.input.key_code != KeyCode::Enter {
+    if !matches!(
+        key_input.input.key_code,
+        KeyCode::Enter | KeyCode::NumpadEnter
+    ) {
         return;
     }
 
@@ -1248,8 +1260,8 @@ fn update_controls(
 
     // Round to nearest tenth, so that the string of digits
     // won't be too long to display in the limited space.
-    fn scaled_number_input_value(channel: ColorChannel, native: f32) -> NumberInputValue {
-        NumberInputValue::F32((native * display_scale(channel) * 10.0).round() / 10.0)
+    fn scaled_number_input_value(channel: ColorChannel, native: f32) -> NumericValue {
+        NumericValue::F32((native * display_scale(channel) * 10.0).round() / 10.0)
     }
 
     commands
@@ -1340,6 +1352,10 @@ pub struct ColorInputPlugin;
 impl Plugin for ColorInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ColorInputSettings>();
+
+        #[cfg(feature = "bevy_settings")]
+        app.register_type::<ColorInputSettings>();
+
         app.add_systems(
             PostUpdate,
             (update_mode_selector, color_input_value_change).chain(),

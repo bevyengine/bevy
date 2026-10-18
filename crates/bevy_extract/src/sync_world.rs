@@ -351,10 +351,9 @@ mod sub_entities_world_query_impls {
 
         fn init_nested_access(
             _state: &Self::State,
-            _system_name: Option<&str>,
             _component_access_set: &mut FilteredAccessSet,
-            _world: UnsafeWorldCell,
-        ) {
+        ) -> Result<(), FilteredAccessSet> {
+            Ok(())
         }
 
         fn init_state(world: &mut World) -> ComponentId {
@@ -482,10 +481,9 @@ mod sub_entities_world_query_impls {
 
         fn init_nested_access(
             _state: &Self::State,
-            _system_name: Option<&str>,
             _component_access_set: &mut FilteredAccessSet,
-            _world: UnsafeWorldCell,
-        ) {
+        ) -> Result<(), FilteredAccessSet> {
+            Ok(())
         }
 
         fn init_state(world: &mut World) -> ComponentId {

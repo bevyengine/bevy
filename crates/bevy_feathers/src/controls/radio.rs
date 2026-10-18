@@ -10,7 +10,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
+use bevy_input_focus::Focusable;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
@@ -75,7 +75,7 @@ impl FeathersRadio {
             RadioButton
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
+            Focusable
             InheritableThemeTextColor(tokens::RADIO_TEXT)
             InheritableFont {
                 font: fonts::REGULAR,

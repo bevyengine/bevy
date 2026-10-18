@@ -20,11 +20,12 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Has,
+    query::{Has, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
+use bevy_light::AtmosphereEnvironmentMapLight;
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -76,7 +77,13 @@ impl Plugin for SolariLightingPlugin {
             return;
         }
 
-        app.add_systems(PostUpdate, manage_prepass_double_buffers);
+        app.add_systems(
+            PostUpdate,
+            (
+                manage_prepass_double_buffers,
+                disable_atmosphere_env_map_filtering,
+            ),
+        );
 
         app.sub_app_mut(RenderApp)
             .add_systems(
@@ -263,5 +270,25 @@ fn manage_prepass_double_buffers(
                 entity.remove::<DepthPrepassDoubleBuffer>();
             }
         }
+    }
+}
+
+/// Turn off atmosphere cubemap filtering for Solari cameras to save performance, since Solari does not require it.
+fn disable_atmosphere_env_map_filtering(
+    mut commands: Commands,
+    lights: Query<(Entity, &AtmosphereEnvironmentMapLight), With<SolariLighting>>,
+) {
+    for (entity, light) in &lights {
+        if !light.filtered {
+            continue;
+        }
+
+        // Re-insert so the insert observer rebuilds the env map without filtering.
+        commands
+            .entity(entity)
+            .insert(AtmosphereEnvironmentMapLight {
+                filtered: false,
+                ..light.clone()
+            });
     }
 }

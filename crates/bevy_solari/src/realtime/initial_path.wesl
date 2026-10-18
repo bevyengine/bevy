@@ -6,7 +6,7 @@ import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf,
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
 import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
 import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
-import package::scene::bindings::{light_sources, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
+import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
 @if(DLSS_RR_GUIDE_BUFFERS)
@@ -89,12 +89,9 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
         let NdotV = max(dot(path.normal, path.wo), 0.0001);
         let F_ab = F_AB(path.material.perceptual_roughness, NdotV);
 
-        // Stochastic NEE, with probability proportional to how diffuse the vertex is. Mirror-like
-        // metals have too narrow a lobe for NEE to help, so mostly skip it there and let
-        // BRDF-sampled emissive do the work. Pure dielectrics always run NEE.
-        let p_nee = mix(1.0, path.material.perceptual_roughness, path.material.metallic);
+        // Sample lights via NEE
         let di_samples = select(constants.secondary_di_samples, constants.primary_di_samples, bounce == 0u);
-        generate_nee_candidate(&path, F_ab, p_nee, di_samples, workgroup_id, bounce, rng);
+        generate_nee_candidate(&path, F_ab, di_samples, workgroup_id, bounce, rng);
 
         // Sample the BRDF and trace the next ray
         let next_bounce = evaluate_and_sample_brdf(path.wo, path.normal, path.material, F_ab, rng);
@@ -165,7 +162,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
 
         // Resample emissive hits
         if any(ray_hit.material.emissive > vec3(0.0)) && dot(ray_hit.world_normal, -next_bounce.wi) > 0.0 {
-            generate_emissive_candidate(&path, ray_hit, next_bounce.wi, p_brdf, ray.t, p_nee, di_samples, bounce, rng);
+            generate_emissive_candidate(&path, ray_hit, next_bounce.wi, p_brdf, ray.t, di_samples, bounce, rng);
         }
 
         // Try terminating into the world cache
@@ -205,20 +202,38 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
     return result;
 }
 
+/// Probability of running NEE for lights that BRDF rays can also hit, proportional to how diffuse the
+/// vertex is. On smooth metals BRDF samples find those lights well, so mostly skip NEE there to
+/// increase performance. Perfect mirrors skip NEE entirely, since NEE can't sample their delta lobe.
+/// Pure dielectrics always run NEE.
+fn nee_probability(material: ResolvedMaterial) -> f32 {
+    if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && material.metallic > 0.9999 { return 0.0; }
+    return mix(1.0, material.perceptual_roughness, material.metallic);
+}
+
 fn generate_nee_candidate(
     path: ptr<function, PathState>,
     F_ab: vec2<f32>,
-    p_nee: f32,
     di_samples: u32,
     workgroup_id: vec2<u32>,
     bounce: u32,
     rng: ptr<function, u32>,
 ) {
-    if rand_f(rng) >= p_nee { return; }
+    let p_nee = nee_probability((*path).material);
+    if p_nee == 0.0 { return; }
 
-    let di = sample_light_ris((*path).ray_origin, (*path).normal, (*path).wo, (*path).material, F_ab, di_samples, workgroup_id, bounce, rng);
+    var di = sample_light_ris((*path).ray_origin, (*path).normal, (*path).wo, (*path).material, F_ab, di_samples, workgroup_id, bounce, rng);
     let di_target_function = luminance(di.brdf_radiance);
     if di_target_function <= 0.0 { return; }
+
+    // Only skip lights that can also be sampled by BRDF rays. NEE is the only way to find analytic lights like
+    // the sun, so skipping them would add a ton of variance.
+    let p_keep = select(1.0, p_nee, di.brdf_rays_can_hit);
+    if rand_f(rng) >= p_keep { return; }
+
+    // Trace visibility
+    di.unbiased_contribution_weight *= trace_visibility((*path).ray_origin, di.world_position);
+    if di.unbiased_contribution_weight <= 0.0 { return; }
 
     // MIS against the BRDF strategy. RIS over N candidates makes the effective NEE pdf at the
     // winner roughly N * light_pdf(winner), so scale by p_nee for the stochastic gate.
@@ -234,7 +249,7 @@ fn generate_nee_candidate(
             // Bounce 0: Candidate is the light sample, stored by reference and re-resolved each frame
             // nee_mis_weight goes into the target function since it gets recomputed per-pixel during reuse
             let target_function = di_target_function * nee_mis_weight;
-            let resampling_weight = target_function * di.unbiased_contribution_weight / p_nee;
+            let resampling_weight = target_function * di.unbiased_contribution_weight / p_keep;
 
             (*path).weight_sum += resampling_weight;
             if rand_f(rng) * (*path).weight_sum < resampling_weight {
@@ -242,11 +257,11 @@ fn generate_nee_candidate(
                 (*path).selected_target_function = target_function;
             }
         } @else {
-            (*path).radiance += di.brdf_radiance * di.unbiased_contribution_weight * nee_mis_weight / p_nee;
+            (*path).radiance += di.brdf_radiance * di.unbiased_contribution_weight * nee_mis_weight / p_keep;
         }
     } else {
         // Deeper bounces: Candidate is the reconnection radiance at x2
-        let L_at_reconnection = (*path).throughput_past_first_hit * di.brdf_radiance * di.unbiased_contribution_weight * nee_mis_weight / p_nee;
+        let L_at_reconnection = (*path).throughput_past_first_hit * di.brdf_radiance * di.unbiased_contribution_weight * nee_mis_weight / p_keep;
 
         @if(RESTIR) {
             resample_reconnection_candidate(path, L_at_reconnection, rng);
@@ -259,6 +274,7 @@ fn generate_nee_candidate(
 struct DiSample {
     unbiased_contribution_weight: f32,
     light_sample: LightSample,
+    world_position: vec4<f32>,
     wi: vec3<f32>,
     brdf_radiance: vec3<f32>,
     inverse_solid_angle_pdf: f32,
@@ -304,10 +320,9 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
     var unbiased_contribution_weight = 0.0;
     if selected_target_function > 0.0 {
         unbiased_contribution_weight = weight_sum / selected_target_function;
-        unbiased_contribution_weight *= trace_visibility(ray_origin, selected_world_position);
     }
 
-    return DiSample(unbiased_contribution_weight, light_tile_samples[selected_tile_sample], selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
+    return DiSample(unbiased_contribution_weight, light_tile_samples[selected_tile_sample], selected_world_position, selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
 }
 
 fn generate_emissive_candidate(
@@ -316,7 +331,6 @@ fn generate_emissive_candidate(
     wi: vec3<f32>,
     p_brdf: f32,
     ray_t: f32,
-    p_nee: f32,
     di_samples: u32,
     bounce: u32,
     rng: ptr<function, u32>,
@@ -325,6 +339,7 @@ fn generate_emissive_candidate(
     let light_count = arrayLength(&light_sources);
     let area_pdf = 1.0 / (f32(light_count) * f32(ray_hit.triangle_count) * ray_hit.triangle_area);
     let p_light = area_pdf * ray_t * ray_t / NdotV_hit;
+    let p_nee = nee_probability((*path).material);
     let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(di_samples));
 
     @if(RESTIR) {
