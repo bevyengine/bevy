@@ -1,6 +1,6 @@
 ---
 title: "`InheritableFont::font` is now a `FontSource`"
-pull_requests: []
+pull_requests: [26242]
 ---
 
 The `font` field of `bevy_feathers`'s `InheritableFont` is now a `FontSource` instead of a `Handle<Font>`, so it can name a font family list with per-glyph fallback.

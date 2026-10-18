@@ -1,7 +1,7 @@
 ---
 title: Keyboard symbols in Feathers
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [26242]
 ---
 
 Fira Sans, the font used by Feathers, has no glyphs for modifier keys such as command (⌘), shift (⇧) and option (⌥), which an editor needs in order to display keyboard shortcuts.
