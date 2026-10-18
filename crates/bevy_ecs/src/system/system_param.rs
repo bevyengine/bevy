@@ -26,6 +26,7 @@ use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::prelude::DebugName;
 use core::{
     any::Any,
+    cell::UnsafeCell,
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -750,14 +751,14 @@ unsafe impl<F: QueryFilter + 'static> ReadOnlySystemParam for SkipIfAny<F> {}
 /// # bevy_ecs::system::assert_is_system(message_system);
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
-    param_states: &'s mut T::State,
+    param_states: &'s mut UnsafeCell<T::State>,
     world: UnsafeWorldCell<'w>,
     system_meta: SystemMeta,
     change_tick: Tick,
 }
 
 macro_rules! impl_param_set {
-    ($(($index: tt, $param: ident, $fn_name: ident)),*) => {
+    ($(($index: tt, $param: ident, $fn_name: ident, $unchecked_fn_name: ident)),*) => {
         // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
         unsafe impl<'w, 's, $($param,)*> ReadOnlySystemParam for ParamSet<'w, 's, ($($param,)*)>
         where $($param: ReadOnlySystemParam,)*
@@ -833,7 +834,7 @@ macro_rules! impl_param_set {
                 )*
 
                 Ok(ParamSet {
-                    param_states: state,
+                    param_states: UnsafeCell::from_mut(state),
                     system_meta: system_meta.clone(),
                     world,
                     change_tick,
@@ -849,11 +850,30 @@ macro_rules! impl_param_set {
                 /// in this [`ParamSet`].
                 /// No other parameters may be accessed while this one is active.
                 pub fn $fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, $param> {
+                    // SAFETY: we require exclusive access to self, so no other parameter can be accessed for
+                    // the lifetime of this function or its returned value.
+                    unsafe { Self::$unchecked_fn_name(self) }
+                }
+
+                /// Gets access to the parameter at index
+                #[doc = stringify!($index)]
+                /// in this [`ParamSet`].
+                ///
+                /// # Safety
+                ///
+                /// No parameter in this set may be accessed or used in a way that conflicts with this one
+                /// while it's active.
+                pub unsafe fn $unchecked_fn_name<'a>(&'a self) -> SystemParamItem<'a, 'a, $param> {
+                    // SAFETY: The caller guarantees that no parameter in this set can be accessed or used
+                    // in a way that conflicts with this one. This means that the current parameter is not
+                    // currently in use, as otherwise the two states would conflict.
+                    let state = unsafe { &mut * (&raw mut (*self.param_states.get()).$index) };
+
                     // SAFETY: systems run without conflicts with other systems.
-                    // Conflicting params in ParamSet are not accessible at the same time
+                    // Caller guarantees conflicting params in ParamSet are not used at the same time
                     // ParamSets are guaranteed to not conflict with other SystemParams
                     unsafe {
-                        $param::get_param(&mut self.param_states.$index, &self.system_meta, self.world, self.change_tick)
+                        $param::get_param(state, &self.system_meta, self.world, self.change_tick)
                     }
                     .unwrap_or_else(|err| panic!("ParamSet parameter validation failed: {err}"))
                 }
@@ -862,7 +882,7 @@ macro_rules! impl_param_set {
     }
 }
 
-all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
+all_tuples_enumerated!(impl_param_set, 1, 8, P, p, unchecked_p);
 
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
@@ -2127,7 +2147,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         }
 
         Ok(ParamSet {
-            param_states: state,
+            param_states: UnsafeCell::from_mut(state),
             system_meta: system_meta.clone(),
             world,
             change_tick,
@@ -2157,7 +2177,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
         // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
         unsafe {
             T::get_param(
-                &mut self.param_states[index],
+                &mut self.param_states.get_mut()[index],
                 &self.system_meta,
                 self.world,
                 self.change_tick,
@@ -2168,7 +2188,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
 
     /// Calls a closure for each parameter in the set.
     pub fn for_each(&mut self, mut f: impl FnMut(T::Item<'_, '_>)) {
-        self.param_states.iter_mut().for_each(|state| {
+        self.param_states.get_mut().iter_mut().for_each(|state| {
             f(
                 // SAFETY:
                 // - We initialized the access for each parameter, so the caller ensures we have access to any world data needed by any param.
