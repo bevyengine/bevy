@@ -1201,6 +1201,152 @@ impl ContiguousQueryData for TableRow {
     }
 }
 
+/// A `QueryData` that delays the materialization of the `QueryData` it wraps.
+///
+/// This can be useful to `unsafe` code which wants to fetch multiple components in the same query,
+/// but doesn't know whether it can materialize a reference to all the components until it inspects the others.
+pub struct Lazy<'w, 's, D: QueryData> {
+    state: &'s D::State,
+    fetch: D::Fetch<'w>,
+    entity: Entity,
+    table_row: TableRow,
+}
+
+impl<'w, 's, D: QueryData> Lazy<'w, 's, D> {
+    /// Materializes the item for the underlying `QueryData`.
+    pub fn get(&mut self) -> Option<D::Item<'w, 's>> {
+        // SAFETY:
+        // - `Lazy` is always created in `Lazy::fetch`, where the caller guarantees `set_table`/`set_archetype` are called
+        // - `D` guarantees there aren't simultaneous conflicting components registered.
+        // - If `Self` doesn't implement `ReadOnlyQueryData` there can't be other `Lazy` for the same `Entity` alive, and thus `D` items too.
+        // - If `Self` doesn't implement `IterQueryData` there can't be other `Lazy` items, and hence other `D` items too.
+        unsafe { D::fetch(self.state, &mut self.fetch, self.entity, self.table_row) }
+    }
+}
+
+// SAFETY: everything is delegated to `D`, which implements `QueryData` soundly.
+unsafe impl<D: QueryData + 'static> WorldQuery for Lazy<'_, '_, D> {
+    type Fetch<'w> = D::Fetch<'w>;
+
+    type State = D::State;
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        D::shrink_fetch(fetch)
+    }
+
+    unsafe fn init_fetch<'w, 's>(
+        world: UnsafeWorldCell<'w>,
+        state: &'s Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        D::init_fetch(world, state, last_run, this_run)
+    }
+
+    const IS_DENSE: bool = D::IS_DENSE;
+
+    unsafe fn set_archetype<'w, 's>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &'s Self::State,
+        archetype_id: ArchetypeId,
+        archetype: &'w Archetype,
+        table_id: TableId,
+        table: &'w Table,
+    ) {
+        D::set_archetype(fetch, state, archetype_id, archetype, table_id, table);
+    }
+
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &'s Self::State,
+        table_id: TableId,
+        table: &'w Table,
+    ) {
+        D::set_table(fetch, state, table_id, table);
+    }
+
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
+        D::update_component_access(state, access);
+    }
+
+    fn init_nested_access(
+        state: &Self::State,
+        component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        D::init_nested_access(state, component_access_set)
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        D::init_state(world)
+    }
+
+    fn get_state(components: &Components) -> Option<Self::State> {
+        D::get_state(components)
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        D::matches_component_set(state, set_contains_id)
+    }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        D::update_archetypes(state, world);
+    }
+}
+
+// SAFETY: everything is delegated to `D`, which implements `QueryData` soundly.
+unsafe impl<'lw, 'ls, D: QueryData + 'static> QueryData for Lazy<'lw, 'ls, D> {
+    const IS_READ_ONLY: bool = D::IS_READ_ONLY;
+
+    const IS_ARCHETYPAL: bool = D::IS_ARCHETYPAL;
+
+    type ReadOnly = Lazy<'lw, 'ls, D::ReadOnly>;
+
+    type Item<'w, 's> = Lazy<'w, 's, D>;
+
+    fn shrink<'wlong: 'wshort, 'wshort, 's>(
+        item: Self::Item<'wlong, 's>,
+    ) -> Self::Item<'wshort, 's> {
+        Lazy {
+            state: item.state,
+            fetch: D::shrink_fetch(item.fetch),
+            entity: item.entity,
+            table_row: item.table_row,
+        }
+    }
+
+    unsafe fn fetch<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Option<Self::Item<'w, 's>> {
+        Some(Lazy {
+            state,
+            fetch: fetch.clone(),
+            entity,
+            table_row,
+        })
+    }
+
+    fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
+        D::iter_access(state)
+    }
+}
+
+// SAFETY: access is the same as D, which implements `IterQueryData`
+unsafe impl<D: IterQueryData + 'static> IterQueryData for Lazy<'_, '_, D> {}
+
+// SAFETY: access is the same as D, which implements `ReadOnlyQueryData`
+unsafe impl<D: ReadOnlyQueryData + 'static> ReadOnlyQueryData for Lazy<'_, '_, D> {}
+
+// SAFETY: access is the same as D, which implements `SingleEntityQueryData`
+unsafe impl<D: SingleEntityQueryData + 'static> SingleEntityQueryData for Lazy<'_, '_, D> {}
+
+impl<D: ArchetypeQueryData + 'static> ArchetypeQueryData for Lazy<'_, '_, D> {}
+
 /// The [`WorldQuery::Fetch`] type for WorldQueries that can fetch multiple components from an entity
 /// ([`EntityRef`], [`EntityMut`], etc.)
 #[derive(Copy, Clone)]
