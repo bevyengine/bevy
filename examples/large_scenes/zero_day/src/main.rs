@@ -712,9 +712,7 @@ fn benchmark(
         let Some(span) = diagnostic.path().as_str().strip_suffix("/elapsed_gpu") else {
             continue;
         };
-        let (total, frames, seen) = gpu_spans
-            .entry(span.to_string())
-            .or_insert((0.0, 0, start));
+        let (total, frames, seen) = gpu_spans.entry(span.to_string()).or_insert((0.0, 0, start));
         let mut latest = *seen;
         for measurement in diagnostic.measurements().filter(|m| m.time > *seen) {
             *total += measurement.value;
