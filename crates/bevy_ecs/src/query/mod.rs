@@ -818,7 +818,6 @@ mod tests {
         assert_eq!(values, vec![&B(2)]);
     }
 
-    // regression test for https://github.com/bevyengine/bevy/issues/26134
     #[test]
     fn par_iter_many_unique_visits_each_listed_entity_once() {
         use crate::entity::UniqueEntityVec;
