@@ -26,11 +26,11 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
-use bevy_math::{Affine3A, Mat4, Vec2};
+use bevy_math::{Affine3A, Mat4, Vec2, Vec2Swizzles, Vec4, Vec4Swizzles};
 use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    camera::{DirtySpecializations, PendingQueues, TemporalJitter},
+    camera::{DirtySpecializations, ExtractedCamera, PendingQueues, TemporalJitter},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
@@ -212,6 +212,8 @@ pub fn update_previous_view_data(
             clip_from_view: camera.clip_from_view(),
             world_from_clip: Mat4::from(world_from_view) * view_from_clip,
             view_from_clip,
+            // Filled from render-world history before uploading the uniform.
+            main_pass_viewport_uv: Vec4::ZERO,
         });
     }
 }
@@ -736,6 +738,8 @@ pub fn prepare_previous_view_uniforms(
             &ExtractedView,
             Option<&PreviousViewData>,
             Option<&PreviousTemporalJitter>,
+            Option<&PreviousViewViewport>,
+            Option<&ExtractedCamera>,
             Option<&TemporalJitter>,
             Option<&MainPassResolutionOverride>,
         ),
@@ -757,6 +761,8 @@ pub fn prepare_previous_view_uniforms(
         camera,
         maybe_previous_view_uniforms,
         maybe_previous_jitter,
+        previous_viewport,
+        extracted_camera,
         maybe_jitter,
         resolution_override,
     ) in views_iter
@@ -775,9 +781,26 @@ pub fn prepare_previous_view_uniforms(
                     clip_from_view: camera.clip_from_view,
                     world_from_clip: Mat4::from(world_from_view) * view_from_clip,
                     view_from_clip,
+                    main_pass_viewport_uv: Vec4::ZERO,
                 }
             }
         };
+
+        let mut main_pass_viewport = camera.viewport.as_vec4();
+        if let Some(size) = resolution_override {
+            main_pass_viewport.z = size.x as f32;
+            main_pass_viewport.w = size.y as f32;
+        }
+        let target_size = extracted_camera
+            .and_then(|camera| camera.physical_target_size)
+            .unwrap_or(camera.viewport.zw())
+            .as_vec2();
+        let viewport = PreviousViewViewport {
+            main_pass_viewport_uv: main_pass_viewport / target_size.xyxy(),
+        };
+        let previous_viewport = previous_viewport.unwrap_or(&viewport);
+        prev_view_data.main_pass_viewport_uv = previous_viewport.main_pass_viewport_uv;
+        commands.entity(entity).insert(viewport);
 
         // The previous frame's depth/gbuffer were rasterized with that frame's temporal
         // jitter, but `PreviousViewData` is recorded in the main world, which doesn't know
@@ -821,6 +844,12 @@ pub fn prepare_previous_view_uniforms(
             }
         }
     }
+}
+
+/// Render-world history of the main-pass viewport, normalized to its full render target.
+#[derive(Component, Clone)]
+pub struct PreviousViewViewport {
+    pub main_pass_viewport_uv: Vec4,
 }
 
 /// Render-world component recording the [`TemporalJitter`] a view was rendered with, plus
