@@ -12,6 +12,9 @@ pub mod fonts {
     pub const BOLD_ITALIC: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-BoldItalic.ttf";
     /// Monospace font path
     pub const MONO: &str = "embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf";
+    /// Supplemental font containing symbols for keyboard modifier keys (command, shift, option,
+    /// etc.) which are missing from Fira Sans.
+    pub const KEY_SYMBOLS: &str = "embedded://bevy_feathers/assets/fonts/KeySymbols.ttf";
 }
 
 /// Icon paths
