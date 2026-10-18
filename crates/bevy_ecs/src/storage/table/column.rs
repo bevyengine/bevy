@@ -200,7 +200,7 @@ impl Column {
                 changed_by.initialize_unchecked(row.index(), UnsafeCell::new(caller));
             });
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(tick);
+            Self::update_summary_tick(summary_tick, tick);
         }
     }
 
@@ -225,7 +225,7 @@ impl Column {
             .map(|changed_by| changed_by.get_unchecked_mut(row.index()).get_mut())
             .assign(caller);
         if let Some(summary_tick) = &self.summary_tick {
-            summary_tick.set(change_tick);
+            Self::update_summary_tick(summary_tick, change_tick);
         }
     }
 
@@ -252,6 +252,24 @@ impl Column {
         this_run: Tick,
     ) {
         debug_assert!(self.data.layout() == src.data.layout());
+
+        // Making this a cold path avoids most of the performance cost.
+        #[cold]
+        fn update_summary_tick_from_row(
+            changed_ticks: &ThinArrayPtr<UnsafeCell<Tick>>,
+            summary_tick: &AtomicTick,
+            dst_row: TableRow,
+            this_run: Tick,
+        ) {
+            // SAFETY:
+            // - Changed tick just got initialized at dst_row
+            // - There are no mutable references to the changed tick
+            let row_change_tick = unsafe { changed_ticks.get_unchecked(dst_row.index()).read() };
+            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
+                summary_tick.set(row_change_tick);
+            }
+        }
+
         // SAFETY:
         // In bounds, same layout & correct last element index as per preconditions
         unsafe {
@@ -286,14 +304,7 @@ impl Column {
         }
 
         if let Some(summary_tick) = &self.summary_tick {
-            // SAFETY:
-            // - Changed tick just got initialized at dst_row
-            // - There are no mutable references to the changed tick
-            let row_change_tick =
-                unsafe { self.changed_ticks.get_unchecked(dst_row.index()).read() };
-            if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
-                summary_tick.set(row_change_tick);
-            }
+            update_summary_tick_from_row(&self.changed_ticks, summary_tick, dst_row, this_run);
         }
     }
 
@@ -509,5 +520,12 @@ impl Column {
     #[inline]
     pub fn get_summary_tick(&self) -> Option<&AtomicTick> {
         self.summary_tick.as_ref()
+    }
+
+    /// Separate method for the sake of using `#[cold]`,
+    /// since most components won't have summary ticks.
+    #[cold]
+    fn update_summary_tick(summary_tick: &AtomicTick, tick: Tick) {
+        summary_tick.set(tick);
     }
 }

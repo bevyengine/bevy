@@ -4,6 +4,7 @@
 use std::{f64::consts::PI, time::Duration};
 
 use bevy_app::prelude::*;
+use bevy_curve::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_ecs::resource::IsResource;
 use bevy_math::{prelude::*, DAffine3, DQuat, DVec3};

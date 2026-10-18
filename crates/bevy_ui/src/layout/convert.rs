@@ -10,7 +10,7 @@ use crate::{
 use super::LayoutContext;
 
 impl Val {
-    fn into_length_percentage_auto(
+    pub(super) fn into_length_percentage_auto(
         self,
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
@@ -33,7 +33,10 @@ impl Val {
         }
     }
 
-    fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
+    pub(super) fn into_length_percentage(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
@@ -53,13 +56,37 @@ impl Val {
         }
     }
 
+    // Only used for border values in `from_node` below. Floors length based borders
+    // to a whole number of physical pixels, following the CSS "snap a length as a
+    // border width" algorithm used by browsers:
+    // https://www.w3.org/TR/css-values-4/#snap-a-length-as-a-border-width
+    //
+    // * A non-zero border smaller than one physical pixel is rounded up to one pixel.
+    // * A border larger than one physical pixel is rounded down to a whole pixel.
+    fn into_length_percentage_for_border(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::LengthPercentage {
+        let length = self.into_length_percentage(context);
+        let raw = length.into_raw();
+        // we're only snapping if sized in non-zero px
+        if raw.tag() == taffy::style::CompactLength::LENGTH_TAG && raw.value() > 0.0 {
+            taffy::style::LengthPercentage::length(raw.value().floor().max(1.0))
+        } else {
+            length
+        }
+    }
+
     fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
         self.into_length_percentage_auto(context).into()
     }
 }
 
 impl UiRect {
-    fn map_to_taffy_rect<T>(self, map_fn: impl Fn(Val) -> T) -> taffy::geometry::Rect<T> {
+    pub(super) fn map_to_taffy_rect<T>(
+        self,
+        map_fn: impl Fn(Val) -> T,
+    ) -> taffy::geometry::Rect<T> {
         taffy::geometry::Rect {
             left: map_fn(self.left),
             right: map_fn(self.right),
@@ -69,87 +96,94 @@ impl UiRect {
     }
 }
 
-pub fn from_node(node: &Node, context: &LayoutContext) -> taffy::style::Style {
-    taffy::style::Style {
-        display: node.display.into(),
-        box_sizing: node.box_sizing.into(),
-        item_is_table: false,
-        text_align: taffy::TextAlign::Auto,
-        overflow: taffy::Point {
-            x: node.overflow.x.into(),
-            y: node.overflow.y.into(),
-        },
-        scrollbar_width: node.scrollbar_width * context.scale_factor,
-        position: node.position_type.into(),
-        flex_direction: node.flex_direction.into(),
-        flex_wrap: node.flex_wrap.into(),
-        align_items: node.align_items.into(),
-        justify_items: node.justify_items.into(),
-        align_self: node.align_self.into(),
-        justify_self: node.justify_self.into(),
-        align_content: node.align_content.into(),
-        justify_content: node.justify_content.into(),
-        direction: node.direction.into(),
-        inset: taffy::Rect {
-            left: node.left.into_length_percentage_auto(context),
-            right: node.right.into_length_percentage_auto(context),
-            top: node.top.into_length_percentage_auto(context),
-            bottom: node.bottom.into_length_percentage_auto(context),
-        },
-        margin: node
-            .margin
-            .map_to_taffy_rect(|m| m.into_length_percentage_auto(context)),
-        padding: node
-            .padding
-            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
-        border: node
-            .border
-            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
-        flex_grow: node.flex_grow,
-        flex_shrink: node.flex_shrink,
-        flex_basis: node.flex_basis.into_dimension(context),
-        size: taffy::Size {
-            width: node.width.into_dimension(context),
-            height: node.height.into_dimension(context),
-        },
-        min_size: taffy::Size {
-            width: node.min_width.into_dimension(context),
-            height: node.min_height.into_dimension(context),
-        },
-        max_size: taffy::Size {
-            width: node.max_width.into_dimension(context),
-            height: node.max_height.into_dimension(context),
-        },
-        aspect_ratio: node.aspect_ratio,
-        gap: taffy::Size {
-            width: node.column_gap.into_length_percentage(context),
-            height: node.row_gap.into_length_percentage(context),
-        },
-        grid_auto_flow: node.grid_auto_flow.into(),
-        grid_template_rows: node
-            .grid_template_rows
+// Update taffy style in place from the given `Node` and context
+pub fn update_taffy_style_from_node(
+    node: &Node,
+    context: &LayoutContext,
+    style: &mut taffy::Style,
+) {
+    style.display = node.display.into();
+    style.box_sizing = node.box_sizing.into();
+    style.item_is_table = false;
+    style.text_align = taffy::TextAlign::Auto;
+    style.overflow = taffy::Point {
+        x: node.overflow.x.into(),
+        y: node.overflow.y.into(),
+    };
+    style.scrollbar_width = node.scrollbar_width * context.scale_factor;
+    style.position = node.position_type.into();
+    style.flex_direction = node.flex_direction.into();
+    style.flex_wrap = node.flex_wrap.into();
+    style.align_items = node.align_items.into();
+    style.justify_items = node.justify_items.into();
+    style.align_self = node.align_self.into();
+    style.justify_self = node.justify_self.into();
+    style.align_content = node.align_content.into();
+    style.justify_content = node.justify_content.into();
+    style.direction = node.direction.into();
+    style.inset = taffy::Rect {
+        left: node.left.into_length_percentage_auto(context),
+        right: node.right.into_length_percentage_auto(context),
+        top: node.top.into_length_percentage_auto(context),
+        bottom: node.bottom.into_length_percentage_auto(context),
+    };
+    style.margin = node
+        .margin
+        .map_to_taffy_rect(|m| m.into_length_percentage_auto(context));
+    style.padding = node
+        .padding
+        .map_to_taffy_rect(|m| m.into_length_percentage(context));
+    // border floors >=1px sized to nearest (>=1) real pixel size, see `into_length_percentage_for_border`.
+    style.border = node
+        .border
+        .map_to_taffy_rect(|m| m.into_length_percentage_for_border(context));
+    style.flex_grow = node.flex_grow;
+    style.flex_shrink = node.flex_shrink;
+    style.flex_basis = node.flex_basis.into_dimension(context);
+    style.size = taffy::Size {
+        width: node.width.into_dimension(context),
+        height: node.height.into_dimension(context),
+    };
+    style.min_size = taffy::Size {
+        width: node.min_width.into_length_percentage_auto(context),
+        height: node.min_height.into_length_percentage_auto(context),
+    };
+    style.max_size = taffy::Size {
+        width: node.max_width.into_length_percentage_auto(context),
+        height: node.max_height.into_length_percentage_auto(context),
+    };
+    style.aspect_ratio = node.aspect_ratio;
+    style.gap = taffy::Size {
+        width: node.column_gap.into_length_percentage(context),
+        height: node.row_gap.into_length_percentage(context),
+    };
+    style.grid_auto_flow = node.grid_auto_flow.into();
+    style.grid_template_rows.clear();
+    style.grid_template_rows.extend(
+        node.grid_template_rows
             .iter()
-            .map(|track| track.clone_into_repeated_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_template_columns: node
-            .grid_template_columns
+            .map(|track| track.clone_into_repeated_taffy_track(context)),
+    );
+    style.grid_template_columns.clear();
+    style.grid_template_columns.extend(
+        node.grid_template_columns
             .iter()
-            .map(|track| track.clone_into_repeated_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_auto_rows: node
-            .grid_auto_rows
+            .map(|track| track.clone_into_repeated_taffy_track(context)),
+    );
+    style.grid_auto_rows.clear();
+    style.grid_auto_rows.extend(
+        node.grid_auto_rows
             .iter()
-            .map(|track| track.into_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_auto_columns: node
-            .grid_auto_columns
+            .map(|track| track.into_taffy_track(context)),
+    );
+    style.grid_auto_columns.clear();
+    style.grid_auto_columns.extend(
+        node.grid_auto_columns
             .iter()
-            .map(|track| track.into_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_row: node.grid_row.into(),
-        grid_column: node.grid_column.into(),
-        ..Default::default()
-    }
+            .map(|track| track.into_taffy_track(context)),
+    );
+    style.grid_row = node.grid_row.into();
+    style.grid_column = node.grid_column.into();
 }
 
 impl From<AlignItems> for Option<taffy::style::AlignItems> {
@@ -157,10 +191,15 @@ impl From<AlignItems> for Option<taffy::style::AlignItems> {
         match value {
             AlignItems::Default => None,
             AlignItems::Start => taffy::style::AlignItems::START.into(),
+            AlignItems::StartSafe => taffy::style::AlignItems::SAFE_START.into(),
             AlignItems::End => taffy::style::AlignItems::END.into(),
+            AlignItems::EndSafe => taffy::style::AlignItems::SAFE_END.into(),
             AlignItems::FlexStart => taffy::style::AlignItems::FLEX_START.into(),
+            AlignItems::FlexStartSafe => taffy::style::AlignItems::SAFE_FLEX_START.into(),
             AlignItems::FlexEnd => taffy::style::AlignItems::FLEX_END.into(),
+            AlignItems::FlexEndSafe => taffy::style::AlignItems::SAFE_FLEX_END.into(),
             AlignItems::Center => taffy::style::AlignItems::CENTER.into(),
+            AlignItems::CenterSafe => taffy::style::AlignItems::SAFE_CENTER.into(),
             AlignItems::Baseline => taffy::style::AlignItems::BASELINE.into(),
             AlignItems::Stretch => taffy::style::AlignItems::STRETCH.into(),
         }
@@ -172,8 +211,11 @@ impl From<JustifyItems> for Option<taffy::style::JustifyItems> {
         match value {
             JustifyItems::Default => None,
             JustifyItems::Start => taffy::style::JustifyItems::START.into(),
+            JustifyItems::StartSafe => taffy::style::JustifyItems::SAFE_START.into(),
             JustifyItems::End => taffy::style::JustifyItems::END.into(),
+            JustifyItems::EndSafe => taffy::style::JustifyItems::SAFE_END.into(),
             JustifyItems::Center => taffy::style::JustifyItems::CENTER.into(),
+            JustifyItems::CenterSafe => taffy::style::JustifyItems::SAFE_CENTER.into(),
             JustifyItems::Baseline => taffy::style::JustifyItems::BASELINE.into(),
             JustifyItems::Stretch => taffy::style::JustifyItems::STRETCH.into(),
         }
@@ -185,10 +227,15 @@ impl From<AlignSelf> for Option<taffy::style::AlignSelf> {
         match value {
             AlignSelf::Auto => None,
             AlignSelf::Start => taffy::style::AlignSelf::START.into(),
+            AlignSelf::StartSafe => taffy::style::AlignSelf::SAFE_START.into(),
             AlignSelf::End => taffy::style::AlignSelf::END.into(),
+            AlignSelf::EndSafe => taffy::style::AlignSelf::SAFE_END.into(),
             AlignSelf::FlexStart => taffy::style::AlignSelf::FLEX_START.into(),
+            AlignSelf::FlexStartSafe => taffy::style::AlignSelf::SAFE_FLEX_START.into(),
             AlignSelf::FlexEnd => taffy::style::AlignSelf::FLEX_END.into(),
+            AlignSelf::FlexEndSafe => taffy::style::AlignSelf::SAFE_FLEX_END.into(),
             AlignSelf::Center => taffy::style::AlignSelf::CENTER.into(),
+            AlignSelf::CenterSafe => taffy::style::AlignSelf::SAFE_CENTER.into(),
             AlignSelf::Baseline => taffy::style::AlignSelf::BASELINE.into(),
             AlignSelf::Stretch => taffy::style::AlignSelf::STRETCH.into(),
         }
@@ -200,8 +247,11 @@ impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
         match value {
             JustifySelf::Auto => None,
             JustifySelf::Start => taffy::style::JustifySelf::START.into(),
+            JustifySelf::StartSafe => taffy::style::JustifySelf::SAFE_START.into(),
             JustifySelf::End => taffy::style::JustifySelf::END.into(),
+            JustifySelf::EndSafe => taffy::style::JustifySelf::SAFE_END.into(),
             JustifySelf::Center => taffy::style::JustifySelf::CENTER.into(),
+            JustifySelf::CenterSafe => taffy::style::JustifySelf::SAFE_CENTER.into(),
             JustifySelf::Baseline => taffy::style::JustifySelf::BASELINE.into(),
             JustifySelf::Stretch => taffy::style::JustifySelf::STRETCH.into(),
         }
@@ -213,10 +263,15 @@ impl From<AlignContent> for Option<taffy::style::AlignContent> {
         match value {
             AlignContent::Default => None,
             AlignContent::Start => taffy::style::AlignContent::START.into(),
+            AlignContent::StartSafe => taffy::style::AlignContent::SAFE_START.into(),
             AlignContent::End => taffy::style::AlignContent::END.into(),
+            AlignContent::EndSafe => taffy::style::AlignContent::SAFE_END.into(),
             AlignContent::FlexStart => taffy::style::AlignContent::FLEX_START.into(),
+            AlignContent::FlexStartSafe => taffy::style::AlignContent::SAFE_FLEX_START.into(),
             AlignContent::FlexEnd => taffy::style::AlignContent::FLEX_END.into(),
+            AlignContent::FlexEndSafe => taffy::style::AlignContent::SAFE_FLEX_END.into(),
             AlignContent::Center => taffy::style::AlignContent::CENTER.into(),
+            AlignContent::CenterSafe => taffy::style::AlignContent::SAFE_CENTER.into(),
             AlignContent::Stretch => taffy::style::AlignContent::STRETCH.into(),
             AlignContent::SpaceBetween => taffy::style::AlignContent::SPACE_BETWEEN.into(),
             AlignContent::SpaceAround => taffy::style::AlignContent::SPACE_AROUND.into(),
@@ -230,10 +285,15 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
         match value {
             JustifyContent::Default => None,
             JustifyContent::Start => taffy::style::JustifyContent::START.into(),
+            JustifyContent::StartSafe => taffy::style::JustifyContent::SAFE_START.into(),
             JustifyContent::End => taffy::style::JustifyContent::END.into(),
+            JustifyContent::EndSafe => taffy::style::JustifyContent::SAFE_END.into(),
             JustifyContent::FlexStart => taffy::style::JustifyContent::FLEX_START.into(),
+            JustifyContent::FlexStartSafe => taffy::style::JustifyContent::SAFE_FLEX_START.into(),
             JustifyContent::FlexEnd => taffy::style::JustifyContent::FLEX_END.into(),
+            JustifyContent::FlexEndSafe => taffy::style::JustifyContent::SAFE_FLEX_END.into(),
             JustifyContent::Center => taffy::style::JustifyContent::CENTER.into(),
+            JustifyContent::CenterSafe => taffy::style::JustifyContent::SAFE_CENTER.into(),
             JustifyContent::Stretch => taffy::style::JustifyContent::STRETCH.into(),
             JustifyContent::SpaceBetween => taffy::style::JustifyContent::SPACE_BETWEEN.into(),
             JustifyContent::SpaceAround => taffy::style::JustifyContent::SPACE_AROUND.into(),
@@ -424,7 +484,10 @@ impl MaxTrackSizingFunction {
 }
 
 impl GridTrack {
-    fn into_taffy_track(self, context: &LayoutContext) -> taffy::style::TrackSizingFunction {
+    pub(super) fn into_taffy_track(
+        self,
+        context: &LayoutContext,
+    ) -> taffy::style::TrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(context);
         let max = self.max_sizing_function.into_taffy(context);
         style_helpers::minmax(min, max)
@@ -432,7 +495,7 @@ impl GridTrack {
 }
 
 impl RepeatedGridTrack {
-    fn clone_into_repeated_taffy_track(
+    pub(super) fn clone_into_repeated_taffy_track(
         &self,
         context: &LayoutContext,
     ) -> taffy::style::GridTemplateComponent<String> {
@@ -556,7 +619,8 @@ mod tests {
             EmSize(DEFAULT_REM_SIZE_PX),
             RemSize(DEFAULT_REM_SIZE_PX),
         );
-        let taffy_style = from_node(&node, &viewport_values);
+        let mut taffy_style = taffy::Style::default();
+        update_taffy_style_from_node(&node, &viewport_values, &mut taffy_style);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
@@ -650,10 +714,38 @@ mod tests {
         assert_eq!(taffy_style.flex_basis, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.size.width, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.size.height, taffy::style::Dimension::auto());
-        assert_eq!(taffy_style.min_size.width, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.min_size.height, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.max_size.width, taffy::style::Dimension::auto());
-        assert_eq!(taffy_style.max_size.height, taffy::style::Dimension::ZERO);
+        assert_eq!(
+            taffy_style.min_size.width,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.min_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.max_size.width,
+            taffy::style::LengthPercentageAuto::auto()
+        );
+        assert_eq!(
+            taffy_style.max_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.min_size.width,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.min_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
+        assert_eq!(
+            taffy_style.max_size.width,
+            taffy::style::LengthPercentageAuto::auto()
+        );
+        assert_eq!(
+            taffy_style.max_size.height,
+            taffy::style::LengthPercentageAuto::ZERO
+        );
         assert_eq!(taffy_style.aspect_ratio, None);
         assert_eq!(taffy_style.scrollbar_width, 7.);
         assert_eq!(taffy_style.gap.width, taffy::style::LengthPercentage::ZERO);

@@ -204,6 +204,11 @@ where
         registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
+
+    fn register_type_dependencies(registry: &mut crate::TypeRegistry) {
+        registry.register::<K>();
+        registry.register::<V>();
+    }
 }
 
 impl<K, V> FromReflect for ::alloc::collections::BTreeMap<K, V>

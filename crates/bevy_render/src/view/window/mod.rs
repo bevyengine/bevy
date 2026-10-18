@@ -1,4 +1,4 @@
-use crate::renderer::WgpuWrapper;
+use crate::renderer::wgpu_wrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
 use crate::{camera::extract_cameras, renderer::RenderQueue};
 use crate::{
@@ -190,14 +190,29 @@ fn extract_windows(
         }
     }
 
+    // Remove the components instead of despawn the synced render entity here:
+    // `RawHandleWrapper` removal is not necessarily
+    // terminal. On Android the native window is destroyed (and its handle removed) when the app
+    // suspends, but the window entity survives and is given a new handle on resume. Despawning
+    // would leave the `SubEntity` on the main world entity pointing at a dead entity, and the
+    // next round of extraction would panic when reusing it.
+    //
+    // The render entity is only ever despawned by the entity sync system once the main world
+    // window entity is actually destroyed. Here we only tear down the surface and drop the
+    // extracted window data; extraction and `create_surfaces` will recreate them whenever the
+    // window has a (new) `RawHandleWrapper` again.
     for closing_window in closing.read() {
         if let Ok(render_entity) = mapper.get(closing_window.window) {
-            commands.entity(render_entity.entity()).despawn();
+            commands
+                .entity(render_entity.entity())
+                .remove::<(ExtractedWindow, RawHandleWrapper, SurfaceData)>();
         }
     }
     for removed_window in removed.read() {
         if let Ok(render_entity) = mapper.get(removed_window) {
-            commands.entity(render_entity.entity()).despawn();
+            commands
+                .entity(render_entity.entity())
+                .remove::<(ExtractedWindow, RawHandleWrapper, SurfaceData)>();
         }
     }
     for removed_window in removed_primary.read() {
@@ -209,10 +224,12 @@ fn extract_windows(
     }
 }
 
+// TODO: what lifetime should this be?
+wgpu_wrapper!(struct WgpuSurface(wgpu::Surface<'static>));
+
 #[derive(Component)]
 pub struct SurfaceData {
-    // TODO: what lifetime should this be?
-    surface: WgpuWrapper<wgpu::Surface<'static>>,
+    surface: WgpuSurface,
     configuration: SurfaceConfiguration,
     texture_view_format: Option<TextureFormat>,
 }
@@ -426,7 +443,7 @@ pub fn create_surfaces(
             render_device.configure_surface(&surface, &configuration);
 
             commands.entity(entity).insert(SurfaceData {
-                surface: WgpuWrapper::new(surface),
+                surface: WgpuSurface::new(surface),
                 configuration,
                 texture_view_format,
             });

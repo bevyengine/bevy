@@ -30,7 +30,6 @@ enum AppState {
 // in [`AppState::InGame`], the [`IsPaused`] state resource
 // will not exist.
 #[source(AppState = AppState::InGame)]
-#[states(scoped_entities)]
 enum IsPaused {
     #[default]
     Running,
@@ -198,7 +197,7 @@ mod ui {
             Node {
                 margin: px(10),
             }
-            Text::new("Move with arrow keys.\nPress SPACEBAR to pause.")
+            Text("Move with arrow keys.\nPress SPACEBAR to pause.")
         });
     }
 

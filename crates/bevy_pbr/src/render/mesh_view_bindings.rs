@@ -1,6 +1,6 @@
 use crate::{
-    AreaLightLuts, DfgLut, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    AreaLightLuts, DfgLut, ScreenSpaceTransmission, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use arrayvec::ArrayVec;
 use bevy_core_pipeline::{
@@ -32,7 +32,7 @@ use bevy_render::{
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        VISIBILITY_RANGES_STORAGE_BUFFER_COUNT, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE,
     },
 };
 use core::fmt::Write;
@@ -49,9 +49,7 @@ use crate::{
         },
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{
-        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
-    },
+    irradiance_volume::{self, RenderViewIrradianceVolumeBindGroupEntries},
     prepass,
     resources::{AtmosphereBuffer, AtmosphereSampler, AtmosphereTextures, GpuAtmosphere},
     Bluenoise, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusteredLights,
@@ -99,6 +97,7 @@ bitflags::bitflags! {
         const CONTACT_SHADOWS                  = 1 << 13;
         const DISTANCE_FOG                     = 1 << 14;
         const AREA_LIGHT_LUTS                  = 1 << 15;
+        const VIEW_TRANSMISSION_TEXTURE        = 1 << 16;
     }
 }
 
@@ -179,6 +178,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         if value.contains(MeshPipelineKey::DISTANCE_FOG) {
             result |= MeshPipelineViewLayoutKey::DISTANCE_FOG;
         }
+        if value.contains(MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE) {
+            result |= MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE;
+        }
 
         result
     }
@@ -233,6 +235,17 @@ pub(crate) fn buffer_layout(
                 storage_buffer_sized(has_dynamic_offset, min_binding_size)
             }
         }
+    }
+}
+
+/// The minimum size of the visibility ranges binding: one element of the
+/// runtime-sized storage array, or the whole fixed-size uniform array.
+pub(crate) fn visibility_ranges_min_binding_size(
+    buffer_binding_type: BufferBindingType,
+) -> NonZero<u64> {
+    match buffer_binding_type {
+        BufferBindingType::Uniform => <[Vec4; VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE]>::min_size(),
+        BufferBindingType::Storage { .. } => Vec4::min_size(),
     }
 }
 
@@ -346,7 +359,9 @@ fn layout_entries(
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
-                    Some(Vec4::min_size()),
+                    Some(visibility_ranges_min_binding_size(
+                        visibility_ranges_buffer_binding_type,
+                    )),
                 )
                 .visibility(ShaderStages::VERTEX),
             ),
@@ -411,13 +426,15 @@ fn layout_entries(
     }
 
     // View Transmission Texture
-    entries = entries.extend_with_indices((
-        (
-            24,
-            texture_2d(TextureSampleType::Float { filterable: true }),
-        ),
-        (25, sampler(SamplerBindingType::Filtering)),
-    ));
+    if layout_key.contains(MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE) {
+        entries = entries.extend_with_indices((
+            (
+                24,
+                texture_2d(TextureSampleType::Float { filterable: true }),
+            ),
+            (25, sampler(SamplerBindingType::Filtering)),
+        ));
+    }
 
     // OIT
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
@@ -498,12 +515,10 @@ fn layout_entries(
 
     if layout_key.contains(MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME) {
         // Irradiance volumes
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            binding_array_entries = binding_array_entries.extend_with_indices((
-                (3, irradiance_volume_entries[0]),
-                (4, irradiance_volume_entries[1]),
-            ));
-        }
+        binding_array_entries = binding_array_entries.extend_with_indices((
+            (3, irradiance_volume_entries[0]),
+            (4, irradiance_volume_entries[1]),
+        ));
     }
 
     // Clustered decals
@@ -663,6 +678,7 @@ pub fn prepare_mesh_view_bind_groups(
             Option<&ViewScreenSpaceReflectionsUniformOffset>,
             Option<&ViewContactShadowsUniformOffset>,
             Option<&OrderIndependentTransparencySettingsOffset>,
+            Has<ScreenSpaceTransmission>,
         ),
     )>,
     (images, fallback_image, fallback_image_zero): (
@@ -732,6 +748,7 @@ pub fn prepare_mesh_view_bind_groups(
                 view_ssr_offset,
                 view_contact_shadows_offset,
                 view_oit_settings_offset,
+                has_transmission,
             ),
         ) in &views
         {
@@ -751,8 +768,7 @@ pub fn prepare_mesh_view_bind_groups(
                     .collect();
             }
 
-            let tonemap_in_shader =
-                camera.is_none_or(|camera| !camera.hdr) && tonemapping.is_enabled();
+            let tonemap_in_shader = camera.is_some_and(|camera| camera.tonemap_in_shader);
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
             let mut offsets = ArrayVec::from_iter([
@@ -858,16 +874,17 @@ pub fn prepare_mesh_view_bind_groups(
                 entries = entries.extend_with_indices(((17, ssao_view),));
             }
 
-            let transmission_view = transmission_texture
-                .map(|transmission| &transmission.view)
-                .unwrap_or(&fallback_image_zero.texture_view);
-
-            let transmission_sampler = transmission_texture
-                .map(|transmission| &transmission.sampler)
-                .unwrap_or(&fallback_image_zero.sampler);
-
-            entries =
-                entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
+            if has_transmission {
+                layout_key |= MeshPipelineViewLayoutKey::VIEW_TRANSMISSION_TEXTURE;
+                let transmission_view = transmission_texture
+                    .map(|transmission| &transmission.view)
+                    .unwrap_or(&fallback_image_zero.texture_view);
+                let transmission_sampler = transmission_texture
+                    .map(|transmission| &transmission.sampler)
+                    .unwrap_or(&fallback_image_zero.sampler);
+                entries = entries
+                    .extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
+            }
 
             // When using WebGL, we can't have a multisampled texture with `TEXTURE_BINDING`
             // See https://github.com/gfx-rs/wgpu/issues/5263
@@ -943,20 +960,19 @@ pub fn prepare_mesh_view_bind_groups(
                 None => {}
             }
 
-            let irradiance_volume_bind_group_entries =
-                if render_view_irradiance_volumes.is_some() && IRRADIANCE_VOLUMES_ARE_USABLE {
-                    layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
+            let irradiance_volume_bind_group_entries = if render_view_irradiance_volumes.is_some() {
+                layout_key |= MeshPipelineViewLayoutKey::IRRADIANCE_VOLUME;
 
-                    Some(RenderViewIrradianceVolumeBindGroupEntries::get(
-                        render_view_irradiance_volumes,
-                        &images,
-                        &fallback_image,
-                        &render_device,
-                        &render_adapter,
-                    ))
-                } else {
-                    None
-                };
+                Some(RenderViewIrradianceVolumeBindGroupEntries::get(
+                    render_view_irradiance_volumes,
+                    &images,
+                    &fallback_image,
+                    &render_device,
+                    &render_adapter,
+                ))
+            } else {
+                None
+            };
 
             match irradiance_volume_bind_group_entries {
                 Some(RenderViewIrradianceVolumeBindGroupEntries::Single {

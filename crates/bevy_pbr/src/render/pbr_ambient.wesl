@@ -3,8 +3,8 @@ import package::render::{
     mesh_view_bindings::lights,
 };
 
-// A precomputed `NdotV` is provided because it is computed regardless,
-// but `world_normal` and the view vector `V` are provided separately for more advanced uses.
+/// A precomputed `NdotV` is provided because it is computed regardless,
+/// but `world_normal` and the view vector `V` are provided separately for more advanced uses.
 fn ambient_light(
     world_position: vec4<f32>,
     world_normal: vec3<f32>,

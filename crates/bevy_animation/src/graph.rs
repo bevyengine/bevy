@@ -1280,11 +1280,9 @@ mod tests {
     use std::array;
 
     use bevy_asset::Assets;
+    use bevy_curve::{ConstantCurve, Interval};
     use bevy_ecs::name::Name;
-    use bevy_math::{
-        curve::{ConstantCurve, Interval},
-        Vec3,
-    };
+    use bevy_math::Vec3;
     use bevy_transform::components::Transform;
     use itertools::Itertools;
     use petgraph::graph::NodeIndex;

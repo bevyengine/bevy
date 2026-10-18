@@ -1,5 +1,5 @@
 use bevy_app::Propagate;
-use bevy_ecs::{hierarchy::Children, template::template};
+use bevy_ecs::hierarchy::Children;
 use bevy_scene::{bsn, Scene};
 use bevy_text::FontWeight;
 use bevy_ui::{
@@ -49,7 +49,7 @@ pub fn pane_header() -> impl Scene {
         ThemeBackgroundColor(tokens::PANE_HEADER_BG)
         ThemeBorderColor(tokens::PANE_HEADER_BORDER)
         InheritableThemeTextColor(tokens::PANE_HEADER_TEXT)
-        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Base))))
+        Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Base))
         InheritableFont {
             font: fonts::REGULAR,
             font_size: size::MEDIUM_FONT,
@@ -65,7 +65,7 @@ pub fn pane_header_divider() -> impl Scene {
             width: px(1),
             align_self: AlignSelf::Stretch,
         }
-        Children [(
+        Children [
             // Because we want to extend the divider into the header padding area, we'll use
             // an absolutely-positioned child.
             Node {
@@ -76,7 +76,7 @@ pub fn pane_header_divider() -> impl Scene {
                 bottom: px(-6),
             }
             ThemeBackgroundColor(tokens::PANE_HEADER_DIVIDER)
-        )]
+        ]
     }
 }
 
@@ -90,7 +90,7 @@ pub fn pane_body() -> impl Scene {
             padding: px(6),
             border_radius: {RoundedCorners::Bottom.to_border_radius(4.0)}
         }
-        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
+        Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
         ThemeBackgroundColor(tokens::PANE_BODY_BG)
     }
 }

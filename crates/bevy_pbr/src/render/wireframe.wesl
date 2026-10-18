@@ -34,7 +34,7 @@ struct WireframeVertexOutput {
     @location(0) @interpolate(linear) edge_distance: vec4<f32>,
 }
 
-// unsigned perpendicular distance from point p to the infinite line through a and b.
+/// unsigned perpendicular distance from point p to the infinite line through a and b.
 fn point_line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     let edge = b - a;
     let len = length(edge);
@@ -44,9 +44,9 @@ fn point_line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
     return abs(edge.x * (p.y - a.y) - edge.y * (p.x - a.x)) / len;
 }
 
-// finds the local-space vertex position for a given vertex index by reading from the vertex buffer using the provided
-// parameters. the vertex buffer is interpreted as an array of u32s, so the parameters allow us to calculate the
-// correct offset for the position attribute of the vertex at the given index.
+/// finds the local-space vertex position for a given vertex index by reading from the vertex buffer using the provided
+/// parameters. the vertex buffer is interpreted as an array of u32s, so the parameters allow us to calculate the
+/// correct offset for the position attribute of the vertex at the given index.
 fn read_local_position(first_vertex: u32, vertex_index: u32) -> vec3<f32> {
     let base = (first_vertex + vertex_index) * vp_params.vertex_stride
                + vp_params.position_offset;

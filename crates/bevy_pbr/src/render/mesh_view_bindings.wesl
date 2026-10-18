@@ -80,8 +80,10 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @if(DEFERRED_PREPASS)
 @group(0) @binding(23) var deferred_prepass_texture: texture_2d<u32>;
 
+@if (VIEW_TRANSMISSION_TEXTURE) {
 @group(0) @binding(24) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(25) var view_transmission_sampler: sampler;
+}
 
 @if(OIT_ENABLED) {
 @group(0) @binding(26) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
@@ -121,11 +123,11 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @if(ENVIRONMENT_MAP)
 @group(1) @binding(2) var environment_map_sampler: sampler;
 
-@if(IRRADIANCE_VOLUME && IRRADIANCE_VOLUMES_ARE_USABLE && MULTIPLE_LIGHT_PROBES_IN_ARRAY)
+@if(IRRADIANCE_VOLUME && MULTIPLE_LIGHT_PROBES_IN_ARRAY)
 @group(1) @binding(3) var irradiance_volumes: binding_array<texture_3d<f32>, 8u>;
-@if(IRRADIANCE_VOLUME && IRRADIANCE_VOLUMES_ARE_USABLE && !MULTIPLE_LIGHT_PROBES_IN_ARRAY)
+@if(IRRADIANCE_VOLUME && !MULTIPLE_LIGHT_PROBES_IN_ARRAY)
 @group(1) @binding(3) var irradiance_volume: texture_3d<f32>;
-@if(IRRADIANCE_VOLUME && IRRADIANCE_VOLUMES_ARE_USABLE)
+@if(IRRADIANCE_VOLUME)
 @group(1) @binding(4) var irradiance_volume_sampler: sampler;
 
 @if(CLUSTERED_DECALS_ARE_USABLE) {

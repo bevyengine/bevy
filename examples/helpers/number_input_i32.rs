@@ -2,10 +2,11 @@
 /// Using these helpers requires the `bevy_feathers` feature to be enabled.
 use bevy::{
     feathers::{
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision},
         display::label,
     },
     prelude::*,
+    ui_widgets::NumericValue,
 };
 
 /// Creates an i32 number input.
@@ -39,13 +40,13 @@ where
                     width: px(150),
                 }
                 Children [
-                    label(name)
-                ],
-
-                template_value(identifier)
+                    @label(name)
+                ]
+                --
+                identifier
                 @FeathersNumberInput
-                template_value(NumberInputValue::I32(value))
-                template_value(precision)
+                NumericValue::I32(value)
+                precision
                 HardLimit::i32(limits)
                 Node {
                     align_items: AlignItems::Center,
@@ -66,12 +67,12 @@ where
                     width: px(150),
                 }
                 Children [
-                    label(name)
-                ],
-
-                @FeathersNumberInput
-                template_value(NumberInputValue::I32(value))
-                template_value(precision)
+                    @label(name)
+                ]
+                --
+               @FeathersNumberInput
+                NumericValue::I32(value)
+                precision
                 HardLimit::i32(limits)
                 Node {
                     align_items: AlignItems::Center,

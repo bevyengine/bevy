@@ -162,7 +162,7 @@ where
         self.system.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::query::FilteredAccessSet {
+    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::system::SystemAccess {
         self.system.initialize(world)
     }
 

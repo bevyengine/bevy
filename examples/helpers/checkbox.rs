@@ -7,7 +7,7 @@ use bevy::{
     ui_widgets::checkbox_self_update,
 };
 
-/// Creates a single feathers checkbox that allows configuration of a setting.  
+/// Creates a single feathers checkbox that allows configuration of a setting.
 ///
 /// Examples that use this to create a checkbox should handle its `ValueChange<bool>` events.
 /// If there is a need to identify the checkbox that originated the value change,
@@ -28,10 +28,10 @@ where
             }
             Children [
                 @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
+                    @caption: bsn! { @caption(option_name) }
                 }
-                Hovered::default()
-                template_value(identifier)
+                Hovered
+                identifier
                 on(checkbox_self_update)
             ]
         })
@@ -43,9 +43,9 @@ where
             }
             Children [
                 @FeathersCheckbox {
-                    @caption: bsn! { caption(option_name) }
+                    @caption: bsn! { @caption(option_name) }
                 }
-                Hovered::default()
+                Hovered
                 on(checkbox_self_update)
             ]
         })

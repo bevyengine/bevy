@@ -186,7 +186,7 @@ impl Color {
     /// let black = Color::srgb_u32(0x000000);
     /// let red = Color::srgb_u32(0xff0000);
     /// ```
-    pub fn srgb_u32(color: u32) -> Self {
+    pub const fn srgb_u32(color: u32) -> Self {
         Self::Srgba(Srgba::rgb(
             ((color >> 16) & 0xff) as f32 / 255.,
             ((color >> 8) & 0xff) as f32 / 255.,
@@ -205,7 +205,7 @@ impl Color {
     /// let black = Color::srgba_u32(0x000000ff);
     /// let semi_transparent_red = Color::srgba_u32(0xff000080);
     /// ```
-    pub fn srgba_u32(color: u32) -> Self {
+    pub const fn srgba_u32(color: u32) -> Self {
         Self::Srgba(Srgba::new(
             ((color >> 24) & 0xff) as f32 / 255.,
             ((color >> 16) & 0xff) as f32 / 255.,
@@ -256,12 +256,7 @@ impl Color {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
-        Self::Hsla(Hsla {
-            hue,
-            saturation,
-            lightness,
-            alpha,
-        })
+        Self::Hsla(Hsla::new(hue, saturation, lightness, alpha))
     }
 
     /// Creates a new [`Color`] object storing a [`Hsla`] color with an alpha of 1.0.
@@ -272,12 +267,7 @@ impl Color {
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
-        Self::Hsla(Hsla {
-            hue,
-            saturation,
-            lightness,
-            alpha: 1.0,
-        })
+        Self::Hsla(Hsla::new(hue, saturation, lightness, 1.0))
     }
 
     /// Creates a new [`Color`] object storing a [`Hsva`] color.

@@ -3,8 +3,7 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::Result,
-    query::FilteredAccessSet,
-    system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemInput},
+    system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemAccess, SystemInput},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
@@ -84,7 +83,7 @@ where
         self.system.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         self.system.initialize(world)
     }
 
@@ -175,7 +174,7 @@ where
         self.system.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }
