@@ -67,6 +67,7 @@ mod executor;
 pub mod futures;
 mod iter;
 mod slice;
+mod task_scope;
 mod usages;
 
 cfg::async_executor! {
@@ -79,6 +80,7 @@ cfg::async_executor! {
 pub use async_task::Task;
 pub use iter::ParallelIterator;
 pub use slice::{ParallelSlice, ParallelSliceMut};
+pub use task_scope::{task_scope, TaskRunner, TaskScope, TaskWorker};
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 pub use futures_lite;
