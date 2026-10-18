@@ -26,13 +26,18 @@ struct DebugBufferConfig {
 
 @fragment
 fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
-    let uv = frag_coord.xy / view.viewport.zw;
-    let background = textureSampleLevel(background_texture, background_sampler, uv, 0.0);
+    let uv = (frag_coord.xy - view.viewport.xy) / view.viewport.zw;
+    let background_uv = frag_coord.xy / vec2<f32>(textureDimensions(background_texture));
+    let background = textureSampleLevel(background_texture, background_sampler, background_uv, 0.0);
+    if any(uv < vec2(0.0)) || any(uv >= vec2(1.0)) {
+        return background;
+    }
+    let prepass_coord = vec2<i32>(view.main_pass_viewport.xy + uv * view.main_pass_viewport.zw);
     var output_color: vec4<f32> = vec4(0.0);
 
 @if(DEBUG_DEPTH) {
     @if(DEPTH_PREPASS) {
-        let depth = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let depth = textureLoad(depth_prepass_texture, prepass_coord, 0);
         output_color = vec4(vec3(depth), 1.0);
     }
     @else {
@@ -42,12 +47,12 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(DEBUG_NORMAL) {
     @if(NORMAL_PREPASS) {
-        let normal_sample = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let normal_sample = textureLoad(normal_prepass_texture, prepass_coord, 0);
         output_color = vec4(normal_sample.xyz, 1.0);
     }
     @else {
         @if(DEFERRED_PREPASS) {
-            let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+            let deferred = textureLoad(deferred_prepass_texture, prepass_coord, 0);
             let normal = octahedral_decode(unpack_24bit_normal(deferred.a));
             output_color = vec4(normal * 0.5 + 0.5, 1.0);
         }
@@ -59,7 +64,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(DEBUG_MOTION_VECTORS) {
     @if(MOTION_VECTOR_PREPASS) {
-        let motion_vector = textureLoad(motion_vector_prepass_texture, vec2<i32>(frag_coord.xy), 0).rg;
+        let motion_vector = textureLoad(motion_vector_prepass_texture, prepass_coord, 0).rg;
         // These motion vectors are stored in a format where 1.0 represents full-screen movement.
         // We use a power curve to amplify small movements while keeping them centered.
         let mapped_motion = sign(motion_vector) * pow(abs(motion_vector), vec2(0.2)) * 0.5 + 0.5;
@@ -72,7 +77,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(DEBUG_DEFERRED) {
     @if(DEFERRED_PREPASS) {
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let deferred = textureLoad(deferred_prepass_texture, prepass_coord, 0);
         output_color = vec4(vec3(f32(deferred.x) / 255.0, f32(deferred.y) / 255.0, f32(deferred.z) / 255.0), 1.0);
     }
     @else {
@@ -82,7 +87,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(DEBUG_DEFERRED_BASE_COLOR) {
     @if(DEFERRED_PREPASS) {
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let deferred = textureLoad(deferred_prepass_texture, prepass_coord, 0);
         let base_rough = unpack_unorm4x8_(deferred.x);
         output_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
     }
@@ -93,7 +98,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(DEBUG_DEFERRED_EMISSIVE) {
     @if(DEFERRED_PREPASS) {
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let deferred = textureLoad(deferred_prepass_texture, prepass_coord, 0);
         let emissive = rgb9e5_to_vec3_(deferred.y);
         output_color = vec4(emissive, 1.0);
     }
@@ -104,7 +109,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 
 @if(DEBUG_DEFERRED_METALLIC_ROUGHNESS) {
     @if(DEFERRED_PREPASS) {
-        let deferred = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+        let deferred = textureLoad(deferred_prepass_texture, prepass_coord, 0);
         let base_rough = unpack_unorm4x8_(deferred.x);
         let props = unpack_unorm4x8_(deferred.z);
         // R: Reflectance, G: Metallic, B: Occlusion, A: Perceptual Roughness
@@ -116,7 +121,7 @@ fn fragment(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> 
 }
 
 @if(DEBUG_DEPTH_PYRAMID) {
-    let depth_pyramid = textureSampleLevel(depth_pyramid_texture, depth_pyramid_sampler, uv, f32(config.mip_level)).r;
+    let depth_pyramid = textureSampleLevel(depth_pyramid_texture, depth_pyramid_sampler, (view.main_pass_viewport.xy + uv * view.main_pass_viewport.zw) / vec2<f32>(textureDimensions(background_texture)), f32(config.mip_level)).r;
     output_color = vec4(vec3(depth_pyramid), 1.0);
 }
 
