@@ -69,7 +69,12 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default))]
-#[cfg_attr(feature = "bevy-support", derive(Component), require(GlobalTransform))]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    require(GlobalTransform),
+    component(summary_tick)
+)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
