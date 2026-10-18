@@ -126,6 +126,7 @@ impl Plugin for FeathersCorePlugin {
         .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+        app.init_resource::<font_styles::FeathersFonts>();
     }
 }
 

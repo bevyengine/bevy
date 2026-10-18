@@ -15,6 +15,11 @@ pub mod fonts {
     /// Supplemental font containing symbols for keyboard modifier keys (command, shift, option,
     /// etc.) which are missing from Fira Sans.
     pub const KEY_SYMBOLS: &str = "embedded://bevy_feathers/assets/fonts/KeySymbols.ttf";
+    /// Font family list for regular text: Fira Sans, falling back to the key symbols font for
+    /// glyphs that Fira Sans lacks. Font weight and style select the matching Fira Sans face.
+    ///
+    /// These fonts are loaded by [`FeathersCorePlugin`](crate::FeathersCorePlugin).
+    pub const SANS: &str = "Fira Sans, Key Symbols";
 }
 
 /// Icon paths
