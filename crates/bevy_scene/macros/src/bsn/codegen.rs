@@ -690,13 +690,14 @@ impl BsnType {
                     .map(|struct_update| quote! { #struct_update })
                     .unwrap_or_else(|| quote! {..#FQDefault::default()});
                 quote! {
-                    // Needed because otherwise `..Default::default()` can emit a warning.
-                    #[allow(clippy::needless_update)]
                     {
-                        #template_path {
+                        // Needed because otherwise `..Default::default()` can emit a warning.
+                        #[allow(clippy::needless_update)]
+                        let value = #template_path {
                             #(#assigns)*
                             #struct_update
-                        }
+                        };
+                        value
                     }
                 }
             }
