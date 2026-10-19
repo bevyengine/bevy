@@ -41,11 +41,18 @@ pub trait TaskRunner: Sized + ConditionalSync {
     fn init_local<'w>(&'w self) -> Self::WorkerLocal<'w>;
 
     /// Runs a task. The task can spawn more tasks on the given `scope`.
-    fn run(&self, task: Self::Task, local: &mut Self::WorkerLocal<'_>, scope: TaskScope<Self>);
+    fn run(&self, task: Self::Task, scope: TaskScope<'_, '_, Self>);
+
+    // Dummy method as otherwise the compiler requires having `type WorkerLocal<'w> where Self: 'w`,
+    // which is more restrictive than necessary.
+    #[doc(hidden)]
+    fn __dummy(&self, _: Self::WorkerLocal<'_>) {}
 }
 
 /// A scope object for creating new tasks.
-pub struct TaskScope<'s, R: TaskRunner> {
+pub struct TaskScope<'s, 'l, R: TaskRunner + 'l> {
+    local: &'s mut R::WorkerLocal<'l>,
+
     #[cfg(feature = "multi_threaded")]
     queue: &'s ConcurrentQueue<Vec<R::Task>>,
     #[cfg(feature = "multi_threaded")]
@@ -57,7 +64,12 @@ pub struct TaskScope<'s, R: TaskRunner> {
     runner: &'s R,
 }
 
-impl<'s, R: TaskRunner> TaskScope<'s, R> {
+impl<'s, 'l, R: TaskRunner> TaskScope<'s, 'l, R> {
+    /// Returns a reference to the worker local data of this scope.
+    pub fn worker_local(&mut self) -> &mut R::WorkerLocal<'l> {
+        &mut *self.local
+    }
+
     /// Add a task to the task scope.
     ///
     /// The task may be executed immediately or at a later time.
@@ -77,12 +89,11 @@ impl<'s, R: TaskRunner> TaskScope<'s, R> {
         #[cfg(not(feature = "multi_threaded"))]
         {
             // When multithreading is disabled, just immediately run the task.
-            // TODO: Maybe not init a new local here?
-            let mut local = self.runner.init_local();
             let scope = TaskScope {
+                local: &mut *self.local,
                 runner: self.runner,
             };
-            self.runner.run(task, &mut local, scope);
+            self.runner.run(task, scope);
         }
     }
 
@@ -117,21 +128,19 @@ impl<'s, R: TaskRunner> TaskScope<'s, R> {
 
         #[cfg(not(feature = "multi_threaded"))]
         {
-            // TODO: Maybe not init a new local here?
-            let mut local = self.runner.init_local();
-
             // When multithreading is disabled, just immediately run the tasks.
             for task in tasks {
                 let scope = TaskScope {
+                    local: &mut *self.local,
                     runner: self.runner,
                 };
-                self.runner.run(task, &mut local, scope);
+                self.runner.run(task, scope);
             }
         }
     }
 }
 
-impl<'s, R: TaskRunner> Drop for TaskScope<'s, R> {
+impl<'s, 'l, R: TaskRunner + 'l> Drop for TaskScope<'s, 'l, R> {
     fn drop(&mut self) {
         #[cfg(feature = "multi_threaded")]
         {
@@ -202,11 +211,12 @@ impl<R: TaskRunner> TaskWorker<'_, R> {
                     // Process each task.
                     for task in tasks.drain(..) {
                         let scope = TaskScope {
+                            local: &mut local,
                             queue: self.queue,
                             chunk_size: self.chunk_size,
                             outbox: &mut outbox,
                         };
-                        self.runner.run(task, &mut local, scope);
+                        self.runner.run(task, scope);
                     }
 
                     // We finished out list of tasks, check if there are more in the outbox
@@ -228,9 +238,10 @@ impl<R: TaskRunner> TaskWorker<'_, R> {
 
             for task in self.tasks {
                 let scope = TaskScope {
+                    local: &mut local,
                     runner: self.runner,
                 };
-                self.runner.run(task, &mut local, scope)
+                self.runner.run(task, scope)
             }
         }
     }

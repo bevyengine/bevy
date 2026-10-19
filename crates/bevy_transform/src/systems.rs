@@ -289,14 +289,9 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
     }
 
     #[expect(unsafe_code, reason = "To skip bound checks")]
-    fn run(
-        &self,
-        task: Self::Task,
-        local: &mut Self::WorkerLocal<'_>,
-        _: bevy_tasks::TaskScope<Self>,
-    ) {
+    fn run(&self, task: Self::Task, mut scope: bevy_tasks::TaskScope<Self>) {
         let entity = task;
-        let propagation_sources = &mut **local;
+        let propagation_sources = scope.worker_local();
 
         // First loop: determine whether any ancestor of the current entity is a source.
         let mut has_ancestor_source = false;
@@ -479,12 +474,7 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
     fn init_local<'w>(&'w self) -> Self::WorkerLocal<'w> {}
 
     #[expect(unsafe_code, reason = "Parallel transform propagation requires unsafe")]
-    fn run(
-        &self,
-        task: Self::Task,
-        _local: &mut Self::WorkerLocal<'_>,
-        mut scope: bevy_tasks::TaskScope<Self>,
-    ) {
+    fn run(&self, task: Self::Task, mut scope: bevy_tasks::TaskScope<Self>) {
         let entity = task;
 
         // Fetch the data for the current entity.
