@@ -1,12 +1,25 @@
 ---
-title: Reflect is no longer a super trait of FromReflect.
-pull_requests: [26249]
+title: FromReflect is now a super trait of Reflect.
+pull_requests: [26222, 26249]
 ---
 
-Previously, `Reflect` was a super trait of `FromReflect`. Now, this is no longer the case. This
-means trait bounds that used to only require `T: FromReflect` may *also* need to add `Reflect` like
-`T: FromReflect + Reflect`.
+Previously, `Reflect` was a super trait of `FromReflect`. Now, `FromReflect` is a super trait of
+`Reflect`. This means trait bounds that used to require `T: FromReflect` may instead need to require
+`T: Reflect`.
 
-In many cases however, this additional trait bound is **not** needed. Check if you actually depend
-on any `Reflect` methods, and consider tightening trait bounds where possible (e.g., only add a
-`PartialReflect` bound if you actually use `PartialReflect` methods).
+In some cases however, this changed trait bound is **not** needed. Check if you actually depend
+on any `Reflect` methods; `FromReflect` alone may be enough!
+
+In addition, this means that **all** `Reflect` types now need to implement `FromReflect`. By
+default, `#[derive(Reflect)]` will also derive `FromReflect`. However, users may disable this with
+`#[reflect(from_reflect = false)]`. For these cases, you now **must** implement `FromReflect` (where
+previously you could choose not to). If your type truly cannot be created through reflection, you
+can implement the trait as:
+
+```rust
+impl FromReflect for MyStruct {
+  fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+    None
+  }
+}
+```
