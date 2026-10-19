@@ -10,7 +10,7 @@ use core::any::type_name;
 use core::fmt::{self, Debug};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
+use bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
@@ -82,6 +82,16 @@ where
 
     fn module_path() -> Option<&'static str> {
         Some(paths::THIS_MODULE)
+    }
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<T: 'static, I: 'static> FromReflect for SampleCurve<T, I> {
+    fn from_reflect(_reflect: &dyn bevy_reflect::PartialReflect) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
     }
 }
 
@@ -242,6 +252,16 @@ where
 
     fn module_path() -> Option<&'static str> {
         Some(paths::THIS_MODULE)
+    }
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<T: 'static, I: 'static> FromReflect for UnevenSampleCurve<T, I> {
+    fn from_reflect(_reflect: &dyn bevy_reflect::PartialReflect) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
     }
 }
 

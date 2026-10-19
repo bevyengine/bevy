@@ -149,6 +149,16 @@ where
     }
 }
 
+#[cfg(feature = "bevy_reflect")]
+impl<T: 'static, F: 'static> FromReflect for FunctionCurve<T, F> {
+    fn from_reflect(_reflect: &dyn bevy_reflect::PartialReflect) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
+    }
+}
+
 impl<T, F> FunctionCurve<T, F>
 where
     F: Fn(f32) -> T,
@@ -260,6 +270,16 @@ where
     }
 }
 
+#[cfg(feature = "bevy_reflect")]
+impl<S: 'static, T: 'static, C: 'static, F: 'static> FromReflect for MapCurve<S, T, C, F> {
+    fn from_reflect(_reflect: &dyn bevy_reflect::PartialReflect) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
+    }
+}
+
 impl<S, T, C, F> Curve<T> for MapCurve<S, T, C, F>
 where
     C: Curve<S>,
@@ -356,6 +376,16 @@ where
     }
 }
 
+#[cfg(feature = "bevy_reflect")]
+impl<T: 'static, C: 'static, F: 'static> FromReflect for ReparamCurve<T, C, F> {
+    fn from_reflect(_reflect: &dyn bevy_reflect::PartialReflect) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        None
+    }
+}
+
 impl<T, C, F> Curve<T> for ReparamCurve<T, C, F>
 where
     C: Curve<T>,
@@ -376,11 +406,7 @@ where
 /// Curves of this type are produced by [`CurveExt::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct LinearReparamCurve<T, C> {
     /// Invariants: The domain of this curve must always be bounded.
     pub(crate) base: C,
@@ -412,11 +438,7 @@ where
 /// sample times before sampling. Curves of this type are produced by [`CurveExt::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct CurveReparamCurve<T, C, D> {
     pub(crate) base: C,
     pub(crate) reparam_curve: D,
@@ -446,11 +468,7 @@ where
 /// produced by [`CurveExt::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct GraphCurve<T, C> {
     pub(crate) base: C,
     #[cfg_attr(feature = "serialize", serde(skip))]
@@ -477,11 +495,7 @@ where
 /// of this type are produced by [`CurveExt::zip`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ZipCurve<S, T, C, D> {
     pub(crate) domain: Interval,
     pub(crate) first: C,
@@ -519,11 +533,7 @@ where
 /// Curves of this type are produced by [`CurveExt::chain`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ChainCurve<T, C, D> {
     pub(crate) first: C,
     pub(crate) second: D,
@@ -570,11 +580,7 @@ where
 /// The original curve's domain must be bounded to get a valid [`ReverseCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ReverseCurve<T, C> {
     pub(crate) curve: C,
     #[cfg_attr(feature = "serialize", serde(skip))]
@@ -612,11 +618,7 @@ where
 /// The original curve's domain must be bounded to get a valid [`RepeatCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct RepeatCurve<T, C> {
     pub(crate) domain: Interval,
     pub(crate) curve: C,
@@ -672,11 +674,7 @@ where
 /// The original curve's domain must be bounded to get a valid [`ForeverCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ForeverCurve<T, C> {
     pub(crate) curve: C,
     #[cfg_attr(feature = "serialize", serde(skip))]
@@ -727,11 +725,7 @@ where
 /// The original curve's domain must be right-finite to get a valid [`PingPongCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct PingPongCurve<T, C> {
     pub(crate) curve: C,
     #[cfg_attr(feature = "serialize", serde(skip))]
@@ -782,11 +776,7 @@ where
 /// valid [`ContinuationCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ContinuationCurve<T, C, D> {
     pub(crate) first: C,
     pub(crate) second: D,
