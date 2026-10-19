@@ -9,7 +9,7 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_ecs::{
     prelude::*,
-    query::{Lazy, QueryFilter},
+    query::QueryFilter,
     relationship::Relationship,
     storage::{Table, TableId, TableRow},
     system::SystemParam,
@@ -257,28 +257,22 @@ type ChangedQueryData = (TableId, TableRow, Entity);
 type ChangedQueryFilter = Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>;
 type ChangedQuery<'w, 's> = Query<'w, 's, ChangedQueryData, (ChangedQueryFilter, BaseQueryFilter)>;
 
-type SourceTransformsQuery<'w, 's> =
+type TransformsQuery<'w, 's> =
     Query<'w, 's, (&'static Transform, &'static mut GlobalTransform), BaseQueryFilter>;
-type ParentTransformsQuery<'w, 's> = Query<'w, 's, &'static GlobalTransform, BaseQueryFilter>;
-type TransformQueries<'w, 's> = (
-    ChangedQuery<'w, 's>,
-    SourceTransformsQuery<'w, 's>,
-    ParentTransformsQuery<'w, 's>,
-);
+type TransformQueries<'w, 's> = (ChangedQuery<'w, 's>, TransformsQuery<'w, 's>);
 
 #[derive(SystemParam)]
 struct MarkDirtySubtreesParams<'w, 's> {
     tables: Query<'w, 's, TablesQueryData, BaseQueryFilter>,
     parents: Query<'w, 's, &'static ChildOf, BaseQueryFilter>,
     orphaned: RemovedComponents<'w, 's, ChildOf>,
-    transforms: ParamSet<'w, 's, TransformQueries<'static, 'static>>,
+    param_set: ParamSet<'w, 's, TransformQueries<'static, 'static>>,
 }
 
 struct MarkDirtySubtreesTaskRunner<'w, 's, 'b, 'p> {
     tables: Query<'w, 's, TablesQueryData, BaseQueryFilter>,
     parents: Query<'w, 's, &'static ChildOf, BaseQueryFilter>,
-    source_transforms: SourceTransformsQuery<'w, 's>,
-    parent_transforms: ParentTransformsQuery<'w, 's>,
+    transforms: TransformsQuery<'w, 's>,
 
     is_source: &'b BitsetStorage,
     is_not_source: &'b BitsetStorage,
@@ -369,13 +363,16 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
         if !has_ancestor_source {
             propagation_sources.push(entity);
 
-            // SAFETY: This is the only task processing this entity, so it cannot conflict with other calls at this point.
+            // SAFETY: This is the only task processing this entity, so it cannot conflict with the same call at this point.
+            // It also cannot conflict with the `get` on the same query right after this, as that can only alias this one
+            // if we reach this point of the code when processing a child of the current entity, but the child of a propagation
+            // source is never a propagation source, since one of its ancestor is one.
             let (transform, mut global_transform) =
-                unsafe { self.source_transforms.get_unchecked(entity) }
+                unsafe { self.transforms.get_unchecked(entity) }
                     .expect("entity matches the base filters");
 
             if let Ok(parent) = self.parents.get(entity)
-                && let Ok(parent_transform) = self.parent_transforms.get(parent.get())
+                && let Ok((_, parent_transform)) = self.transforms.get(parent.get())
             {
                 global_transform.set_if_neq(parent_transform.mul_transform(*transform));
             } else {
@@ -411,7 +408,7 @@ fn mark_dirty_subtrees(
     // We need to identify the propagation sources such that no source is a descendent of another source (for soundness!)
     // and finally run transform propagation from each of them.
 
-    let changed = param.transforms.p0();
+    let changed = param.param_set.p0();
     // First gather and mark the potential propagation sources.
     // TODO: Maybe make this parallel?
     for (table_id, table_row, entity) in changed {
@@ -444,13 +441,7 @@ fn mark_dirty_subtrees(
         MarkDirtySubtreesTaskRunner {
             tables: param.tables,
             parents: param.parents,
-            // SAFETY: `source_transforms` is only going to be used for accessing propagation sources transforms,
-            // while `parent_transforms` is only going to be used for reading their parent's transforms.
-            // The marking algorithm guarantees that propagation sources are roots of disjoint subtrees, so the parent of a
-            // propagation source cannot be a propagation source itself.
-            source_transforms: unsafe { param.transforms.unchecked_p1() },
-            // SAFETY: See source_transforms's SAFETY comment.
-            parent_transforms: unsafe { param.transforms.unchecked_p2() },
+            transforms: param.param_set.p1(),
             is_source,
             is_not_source,
             propagation_sources,
@@ -458,11 +449,8 @@ fn mark_dirty_subtrees(
     );
 }
 
-type ParentTransformQueryData<'a> = (Ref<'a, GlobalTransform>, Option<&'a Children>);
-
 type ChildTransformsQueryData<'a> = (
     &'a Transform,
-    Lazy<'a, 'a, &'a mut GlobalTransform>,
     &'a ChildOf,
     TableId,
     TableRow,
@@ -471,19 +459,13 @@ type ChildTransformsQueryData<'a> = (
 
 #[derive(SystemParam)]
 struct PropagateTransformParams<'w, 's> {
-    transforms: ParamSet<
-        'w,
-        's,
-        (
-            Query<'static, 'static, ParentTransformQueryData<'static>, BaseQueryFilter>,
-            Query<'static, 'static, ChildTransformsQueryData<'static>, BaseQueryFilter>,
-        ),
-    >,
+    parent_query: Query<'w, 's, Option<&'static Children>, BaseQueryFilter>,
+    child_query: Query<'w, 's, ChildTransformsQueryData<'static>, BaseQueryFilter>,
+    transform_query: Query<'w, 's, Mut<'static, GlobalTransform>, BaseQueryFilter>,
 }
 
 struct PropagateTransformTaskRunner<'o, 'w, 's> {
-    parent_transforms: Query<'w, 's, ParentTransformQueryData<'static>, BaseQueryFilter>,
-    child_transforms: Query<'w, 's, ChildTransformsQueryData<'static>, BaseQueryFilter>,
+    params: PropagateTransformParams<'w, 's>,
     is_source: &'o BitsetStorage,
     is_not_source: &'o BitsetStorage,
     static_optimizations: StaticTransformOptimizations,
@@ -506,11 +488,14 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
         let entity = task;
 
         // Fetch the data for the current entity.
-        let Ok((parent_transform, children)) = self.parent_transforms.get(entity) else {
+        let Ok(children) = self.params.parent_query.get(entity) else {
             return;
         };
         let Some(children) = children else { return };
 
+        // SAFETY: parent_query requires `BaseQueryFilter`, which requires `GlobalTransform`, meaning this query must match.
+        let parent_transform =
+            unsafe { self.params.transform_query.get(entity).unwrap_unchecked() };
         let changed = parent_transform.is_changed();
         let mut curr = Some((entity, &*parent_transform, changed, children));
 
@@ -526,18 +511,8 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
             );
 
             for &child in children {
-                // SAFETY: we are not accessing anything mutably right now.
-                // We access global_transform mutably later on once it's confirmed that `entity` is the parent of
-                // `child`. Since each `entity` is processed only once, it must be the case that we're processing
-                // `child` here only once, so that mutable access also doesn't conflict.
-                let Ok((
-                    transform,
-                    mut global_transform,
-                    parent,
-                    table_id,
-                    table_row,
-                    child_children,
-                )) = (unsafe { self.child_transforms.get_unchecked(child) })
+                let Ok((transform, parent, table_id, table_row, child_children)) =
+                    self.params.child_query.get(child)
                 else {
                     continue;
                 };
@@ -560,10 +535,14 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
                     continue;
                 }
 
-                // Now we can actually materialize the `&mut` reference to the `GlobalTransform`.
-                let Some(mut global_transform) = global_transform.get() else {
-                    continue;
-                };
+                // SAFETY: we only process each parent once, and we just checked that we are actually processing this entity's
+                // parent, meaning we cannot be processing this entity twice. We only use this query mutably here, meaning
+                // this is the only place where we mutably borrow this entity and no conflict can arise.
+                let global_transform = unsafe { self.params.transform_query.get_unchecked(child) };
+
+                // SAFETY: `child` matches `child_query`, whose `BaseQueryFilter` requires `GlobalTransform`, meaning
+                // it must also match `transform_query`.
+                let mut global_transform = unsafe { global_transform.unwrap_unchecked() };
 
                 let changed =
                     global_transform.set_if_neq(parent_transform.mul_transform(*transform));
@@ -599,15 +578,8 @@ fn propagate_transform_dirty_subtrees(
             let _span = tracing::info_span!("transform propagation worker").entered();
             worker.run();
         },
-        #[expect(unsafe_code, reason = "Creating potentially overlapping queries")]
         PropagateTransformTaskRunner {
-            // SAFETY: this `Query` will only be used to access parents of propagation sources.
-            // Propagation sources are roots of disjoing subtrees so their parents cannot be part of
-            // propagation subtrees.
-            parent_transforms: unsafe { params.transforms.unchecked_p0() },
-            // SAFETY: this `Query` will only be used to access descendants of propagation sources,
-            // which are not propagation sources themselves.
-            child_transforms: unsafe { params.transforms.unchecked_p1() },
+            params,
             is_source,
             is_not_source,
             static_optimizations,
