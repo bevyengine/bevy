@@ -21,10 +21,10 @@ mod easy_camera;
 #[cfg(feature = "render")]
 mod easy_screenshot;
 
-#[cfg(all(feature = "render", feature = "bevy_ui_render"))]
+#[cfg(feature = "bevy_ui_render")]
 pub mod fps_overlay;
 
-#[cfg(all(feature = "render", feature = "bevy_ui_render"))]
+#[cfg(feature = "bevy_ui_render")]
 pub mod frame_time_graph;
 
 pub mod inspection;

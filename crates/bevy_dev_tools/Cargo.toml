@@ -20,7 +20,7 @@ render = [
 ]
 bevy_pbr = ["dep:bevy_pbr", "render"]
 bevy_ui = ["dep:bevy_ui"]
-bevy_ui_render = ["dep:bevy_ui_render", "render"]
+bevy_ui_render = ["dep:bevy_ui_render", "bevy_ui", "render"]
 bevy_ui_widgets = ["dep:bevy_ui_widgets", "bevy_ui"]
 webgl = ["dep:bevy_render", "bevy_render?/webgl"]
 webgpu = ["dep:bevy_render", "bevy_render?/webgpu"]
