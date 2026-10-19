@@ -13,7 +13,7 @@ use bevy_ecs::{
     lifecycle::{Insert, Remove, RemovedComponents},
     observer::On,
     query::{Changed, Has, Or, QueryFilter, With, Without},
-    relationship::{Relationship, RelationshipTarget},
+    relationship::{RelationshipTarget, SingleTargetRelationship},
     schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query},
     template::{FromTemplate, Template},
@@ -44,13 +44,13 @@ use bevy_reflect::Reflect;
 pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
-    R: Relationship = ChildOf,
+    R: SingleTargetRelationship = ChildOf,
 > {
     schedule: Interned<dyn ScheduleLabel>,
     _marker: PhantomData<fn() -> (C, F, R)>,
 }
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
+impl<C: Component + Clone + PartialEq, F: QueryFilter, R: SingleTargetRelationship>
     HierarchyPropagatePlugin<C, F, R>
 {
     /// Construct the plugin. The propagation systems will be placed in the specified schedule.
@@ -175,7 +175,7 @@ impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
     }
 }
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship> Plugin
+impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: SingleTargetRelationship> Plugin
     for HierarchyPropagatePlugin<C, F, R>
 {
     fn build(&self, app: &mut App) {
@@ -196,7 +196,11 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
 }
 
 /// add/remove `Inherited::<C>` for entities with a direct `Propagate::<C>`
-pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+pub fn update_source<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter,
+    R: SingleTargetRelationship,
+>(
     mut commands: Commands,
     changed: Query<(Entity, &Propagate<C>), (Or<(Changed<Propagate<C>>, Without<Inherited<C>>)>,)>,
     mut removed: RemovedComponents<Propagate<C>>,
@@ -232,7 +236,7 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relati
 pub fn on_r_inserted<
     C: Component + Clone + PartialEq,
     F: QueryFilter + 'static,
-    R: Relationship,
+    R: SingleTargetRelationship,
 >(
     event: On<Insert<R>>,
     mut commands: Commands,
@@ -250,7 +254,11 @@ pub fn on_r_inserted<
 }
 
 /// Remove [`Inherited::<C>`] when an entity loses its `R` relationship
-pub fn on_r_removed<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship>(
+pub fn on_r_removed<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter + 'static,
+    R: SingleTargetRelationship,
+>(
     event: On<Remove<R>>,
     mut commands: Commands,
     query: Query<(), (With<Inherited<C>>, Without<Propagate<C>>, F)>,
@@ -261,7 +269,11 @@ pub fn on_r_removed<C: Component + Clone + PartialEq, F: QueryFilter + 'static, 
 }
 
 /// When `PropagateOver` or `PropagateStop` is removed, update the `Inherited::<C>` to trigger propagation
-pub fn update_removed_limit<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+pub fn update_removed_limit<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter,
+    R: SingleTargetRelationship,
+>(
     mut inherited: Query<&mut Inherited<C>>,
     mut removed_skip: RemovedComponents<PropagateOver<C>>,
     mut removed_stop: RemovedComponents<PropagateStop<C>>,
@@ -279,7 +291,11 @@ pub fn update_removed_limit<C: Component + Clone + PartialEq, F: QueryFilter, R:
 }
 
 /// add/remove `Inherited::<C>` for targets of entities with modified `Inherited::<C>`
-pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+pub fn propagate_inherited<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter,
+    R: SingleTargetRelationship,
+>(
     mut commands: Commands,
     changed: Query<
         (&Inherited<C>, &R::RelationshipTarget),
