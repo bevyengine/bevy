@@ -2,6 +2,7 @@
 
 use bevy_animation::AnimationPlayer;
 use bevy_app::{App, Plugin};
+#[cfg(feature = "bevy_audio")]
 use bevy_audio::{AudioPlayer, AudioSink};
 use bevy_camera::{Camera, Camera2d};
 #[cfg(feature = "render")]
@@ -360,10 +361,13 @@ impl Plugin for LabelResolutionPlugin {
             .register_label_defining_type::<AnimationPlayer>(LabelDefinitionPriority::LIBRARY);
 
         // Audio
-        label_resolution_registry
-            .register_label_defining_type::<AudioPlayer>(LabelDefinitionPriority::LIBRARY);
-        label_resolution_registry
-            .register_label_defining_type::<AudioSink>(LabelDefinitionPriority::LIBRARY);
+        #[cfg(feature = "bevy_audio")]
+        {
+            label_resolution_registry
+                .register_label_defining_type::<AudioPlayer>(LabelDefinitionPriority::LIBRARY);
+            label_resolution_registry
+                .register_label_defining_type::<AudioSink>(LabelDefinitionPriority::LIBRARY);
+        }
 
         // System-likes
         label_resolution_registry
