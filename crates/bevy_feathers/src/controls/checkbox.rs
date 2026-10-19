@@ -11,7 +11,6 @@ use bevy_ecs::{
     system::{Commands, Query},
     template::FromTemplate,
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -77,7 +76,6 @@ impl FeathersCheckbox {
             CheckboxFrame
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             InheritableThemeTextColor(tokens::CHECKBOX_TEXT)
             InheritableFont {
                 font: fonts::REGULAR,

@@ -1,12 +1,11 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, collections::BTreeMap};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
-use bevy_platform::collections::HashMap;
 use bevy_reflect::{
-    enums::VariantInfo, GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration,
-    TypeRegistry,
+    enums::VariantInfo, serde::TypedReflectSerializer, std_traits::ReflectDefault,
+    GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -41,7 +40,7 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         components: &Components,
     ) -> Option<JsonSchemaBevyType> {
         let type_reg = self.get(type_id)?;
-        Some((type_reg, extra_info, components).into())
+        Some((type_reg, extra_info, components, self).into())
     }
 }
 
@@ -50,16 +49,41 @@ pub fn export_type(
     reg: &TypeRegistration,
     metadata: &SchemaTypesMetadata,
     components: &Components,
+    registry: &TypeRegistry,
 ) -> (Cow<'static, str>, JsonSchemaBevyType) {
     (
         reg.type_info().type_path().into(),
-        (reg, metadata, components).into(),
+        (reg, metadata, components, registry).into(),
     )
 }
 
-impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchemaBevyType {
-    fn from(value: (&TypeRegistration, &SchemaTypesMetadata, &Components)) -> Self {
-        let (reg, metadata, components) = value;
+/// Serializes the [`ReflectDefault`] value of a type, if it has one and it can be serialized.
+fn default_value(reg: &TypeRegistration, registry: &TypeRegistry) -> Option<Value> {
+    let value = reg.data::<ReflectDefault>()?.default();
+    serde_json::to_value(TypedReflectSerializer::new(
+        value.as_partial_reflect(),
+        registry,
+    ))
+    .ok()
+}
+
+impl
+    From<(
+        &TypeRegistration,
+        &SchemaTypesMetadata,
+        &Components,
+        &TypeRegistry,
+    )> for JsonSchemaBevyType
+{
+    fn from(
+        value: (
+            &TypeRegistration,
+            &SchemaTypesMetadata,
+            &Components,
+            &TypeRegistry,
+        ),
+    ) -> Self {
+        let (reg, metadata, components, registry) = value;
         let t = reg.type_info();
         let binding = t.type_path_table();
 
@@ -71,6 +95,7 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
             type_path: type_path.to_owned(),
             crate_name: binding.crate_name().map(str::to_owned),
             module_path: binding.module_path().map(str::to_owned),
+            default: default_value(reg, registry),
             ..Default::default()
         };
         let component_info: Option<&ComponentInfo> = components
@@ -101,8 +126,9 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
             TypeInfo::Struct(info) => {
                 typed_schema.properties = info
                     .iter()
-                    .map(|field| (field.name().to_owned(), field.ty().ref_type()))
-                    .collect::<HashMap<_, _>>();
+                    .enumerate()
+                    .map(|(index, field)| (field.name().to_owned(), field.property(index)))
+                    .collect();
                 typed_schema.required = info
                     .iter()
                     .filter(|field| !field.type_path().starts_with("core::option::Option"))
@@ -139,7 +165,8 @@ impl From<(&TypeRegistration, &SchemaTypesMetadata, &Components)> for JsonSchema
                         "shortPath": v.name(),
                         "properties": v
                             .iter()
-                            .map(|field| (field.name().to_owned(), field.ref_type()))
+                            .enumerate()
+                            .map(|(index, field)| (field.name().to_owned(), field.property(index)))
                             .collect::<Map<_, _>>(),
                         "additionalProperties": false,
                         "required": v
@@ -262,8 +289,10 @@ pub struct JsonSchemaBevyType {
     /// Validation succeeds if, for each name that appears in both the instance and as a name
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
-    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
-    pub properties: HashMap<String, Value>,
+    ///
+    /// Keys are sorted by name. Each property's `fieldIndex` gives its declaration order.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub properties: BTreeMap<String, Value>,
     /// An object instance is valid against this keyword if every item in the array is the name of a property in the instance.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub required: Vec<String>,
@@ -289,6 +318,11 @@ pub struct JsonSchemaBevyType {
     /// array elements have been evaluated against this keyword's subschema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub items: Option<Value>,
+    /// The default value of the type, serialized the same way as BRP component values.
+    ///
+    /// Only present when the type registers [`ReflectDefault`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub default: Option<Value>,
 }
 
 /// Kind of json schema, maps [`TypeInfo`] type
@@ -448,10 +482,19 @@ impl SchemaJsonReference for &bevy_reflect::UnnamedField {
     }
 }
 
-impl SchemaJsonReference for &NamedField {
-    fn ref_type(self) -> Value {
+/// Helper trait for building the schema of a struct property.
+trait SchemaJsonProperty {
+    /// Property schema, with `index` being the field's position in its declaration.
+    fn property(self, index: usize) -> Value;
+}
+
+impl SchemaJsonProperty for &NamedField {
+    fn property(self, index: usize) -> Value {
         let type_path = self.type_path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": self.name()})
+        json!({
+            "type": { "$ref": format!("#/$defs/{type_path}") },
+            "fieldIndex": index,
+        })
     }
 }
 
@@ -488,6 +531,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
 
         assert!(
@@ -533,6 +577,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
@@ -572,6 +617,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         assert!(
             !schema.reflect_types.contains(&"Component".to_owned()),
@@ -620,7 +666,12 @@ mod tests {
             .get(TypeId::of::<EnumComponent>())
             .expect("SHOULD BE REGISTERED")
             .clone();
-        let (_, schema) = export_type(&foo_registration, &metadata, &Components::default());
+        let (_, schema) = export_type(
+            &foo_registration,
+            &metadata,
+            &Components::default(),
+            &type_registry,
+        );
         assert!(
             !metadata.has_type_data::<ReflectComponent>(&schema.reflect_types),
             "Should not be a component"
@@ -661,6 +712,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         assert!(
             schema.reflect_types.contains(&"Component".to_owned()),
@@ -696,6 +748,7 @@ mod tests {
             &foo_registration,
             &SchemaTypesMetadata::default(),
             &Components::default(),
+            &type_registry,
         );
         let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
         let value = json!({
@@ -715,14 +768,168 @@ mod tests {
             "a": {
               "type": {
                 "$ref": "#/$defs/f32"
-              }
+              },
+              "fieldIndex": 0
             },
           },
           "required": [
             "a"
-          ]
+          ],
+          "default": {
+            "a": 0.0
+          }
         });
         assert_normalized_values(schema_as_value, value);
+    }
+
+    #[test]
+    fn reflect_export_field_index() {
+        #[derive(Reflect)]
+        struct Unordered {
+            c: u8,
+            a: f32,
+            b: Option<u8>,
+        }
+
+        #[derive(Reflect)]
+        enum UnorderedEnum {
+            Variant { y: u8, x: i32 },
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Unordered>();
+            register.register::<UnorderedEnum>();
+        }
+        let type_registry = atr.read();
+        let export = |type_id| {
+            export_type(
+                type_registry.get(type_id).expect("SHOULD BE REGISTERED"),
+                &SchemaTypesMetadata::default(),
+                &Components::default(),
+                &type_registry,
+            )
+            .1
+        };
+
+        let schema = export(TypeId::of::<Unordered>());
+        assert_eq!(
+            schema.properties.keys().collect::<Vec<_>>(),
+            ["a", "b", "c"],
+            "Properties should be sorted by name"
+        );
+        assert_eq!(schema.properties["c"]["fieldIndex"], 0);
+        assert_eq!(schema.properties["a"]["fieldIndex"], 1);
+        assert_eq!(schema.properties["b"]["fieldIndex"], 2);
+        assert_eq!(
+            schema.properties["a"]["type"]["$ref"], "#/$defs/f32",
+            "Properties should reference their field type"
+        );
+        assert!(schema.properties["a"].get("typePath").is_none());
+
+        let schema = export(TypeId::of::<UnorderedEnum>());
+        let properties = &schema.one_of[0]["properties"];
+        assert_eq!(properties["y"]["fieldIndex"], 0);
+        assert_eq!(properties["x"]["fieldIndex"], 1);
+        assert_eq!(properties["x"]["type"]["$ref"], "#/$defs/i32");
+    }
+
+    fn export_and_round_trip_default<T>(type_registry: &TypeRegistry) -> T
+    where
+        T: Reflect + bevy_reflect::FromReflect + bevy_reflect::Typed,
+    {
+        let registration = type_registry
+            .get(TypeId::of::<T>())
+            .expect("SHOULD BE REGISTERED");
+        let (_, schema) = export_type(
+            registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+            type_registry,
+        );
+        let default = schema.default.expect("Should export a default");
+        let deserializer =
+            bevy_reflect::serde::TypedReflectDeserializer::new(registration, type_registry);
+        let value = serde::de::DeserializeSeed::deserialize(deserializer, default)
+            .expect("Default should deserialize");
+        T::from_reflect(value.as_ref()).expect("Should convert from reflect")
+    }
+
+    #[test]
+    fn reflect_export_struct_default_round_trips() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Default)]
+        struct Foo {
+            a: f32,
+            b: Option<i32>,
+            c: String,
+        }
+
+        impl Default for Foo {
+            fn default() -> Self {
+                Self {
+                    a: 1.5,
+                    b: Some(3),
+                    c: "hello".to_owned(),
+                }
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<Foo>();
+        let type_registry = atr.read();
+        let value = export_and_round_trip_default::<Foo>(&type_registry);
+        assert_eq!(value, Foo::default());
+    }
+
+    #[test]
+    fn reflect_export_enum_struct_variant_default_round_trips() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Default)]
+        enum Shape {
+            Point,
+            Rect { width: f32, height: f32 },
+        }
+
+        impl Default for Shape {
+            fn default() -> Self {
+                Self::Rect {
+                    width: 2.0,
+                    height: 4.0,
+                }
+            }
+        }
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<Shape>();
+        let type_registry = atr.read();
+        let value = export_and_round_trip_default::<Shape>(&type_registry);
+        assert_eq!(value, Shape::default());
+    }
+
+    #[test]
+    fn reflect_export_without_default_has_no_default_key() {
+        #[derive(Reflect)]
+        struct NoDefault {
+            a: f32,
+        }
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<NoDefault>();
+        let type_registry = atr.read();
+        let registration = type_registry
+            .get(TypeId::of::<NoDefault>())
+            .expect("SHOULD BE REGISTERED");
+        let (_, schema) = export_type(
+            registration,
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+            &type_registry,
+        );
+        assert!(schema.default.is_none());
+        let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
+        assert!(schema_as_value.get("default").is_none());
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.

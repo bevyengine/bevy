@@ -27,7 +27,7 @@ runs:
       run: |
         case "$CHANNEL" in
           stable)
-            toolchain="1.98.1"
+            toolchain="1.99.0"
             ;;
           nightly)
             # If nightly is breaking CI, pin this to a specific `nightly-YYYY-MM-DD`.

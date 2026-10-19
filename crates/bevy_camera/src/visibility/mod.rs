@@ -404,7 +404,7 @@ impl VisibleEntities {
 /// Collection of mesh entities visible for 3D lighting.
 ///
 /// This component contains all mesh entities visible from the current light view.
-/// The collection is updated automatically by `bevy_pbr::SimulationLightSystems`.
+/// The collection is updated automatically by `bevy_light::SimulationLightSystems`.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct VisibleMeshEntities {

@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.96.0"
+rust-version = "1.97.1"
 
 [workspace]
 resolver = "3"
@@ -34,6 +34,7 @@ members = [
   "examples/large_scenes/bistro",
   "examples/large_scenes/caldera_hotel",
   "examples/large_scenes/bevy_city",
+  "examples/large_scenes/zero_day",
   # Mipmap generator for testing large bevy scenes with mips and texture compression.
   "examples/large_scenes/mipmap_generator",
   # Benchmarks
@@ -46,6 +47,8 @@ members = [
 exclude = [
   # Integration tests are not part of the workspace
   "tests-integration",
+  # Fuzz testing crates
+  "crates/bevy_ecs/fuzz",
 ]
 
 [workspace.lints.clippy]
@@ -334,6 +337,9 @@ bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
 
+# Provides BSN AST / parsing functionality
+bevy_bsn = ["bevy_internal/bevy_bsn"]
+
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
 
@@ -400,8 +406,14 @@ pan_camera = ["bevy_internal/pan_camera"]
 # Enables the pan orbit camera from bevy_camera_controller
 pan_orbit_camera = ["bevy_internal/pan_orbit_camera"]
 
+# Enables the pan orbit camera anchor indicator gizmo
+pan_orbit_gizmo = ["bevy_internal/pan_orbit_gizmo"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable a native client for calling a running app over the Bevy Remote Protocol, used by in-engine tools like the inspector and by the remote examples
+bevy_remote_client = ["bevy_remote", "bevy_internal/bevy_remote_client"]
 
 # Enable integration with `tracing` and `log`
 bevy_log = ["bevy_internal/bevy_log"]
@@ -424,6 +436,9 @@ bevy_settings = ["bevy_internal/bevy_settings"]
 
 # Feathers widget collection.
 bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
+
+# Entity inspector built on bevy_ui and bevy_feathers.
+bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -459,6 +474,9 @@ compressed_image_saver_universal = [
 
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_internal/compressed_image_saver"]
+
+# Equirectangular (lat-long) panorama to cubemap conversion
+equirectangular_cubemap = ["bevy_internal/equirectangular_cubemap"]
 
 # Enables system-level clipboard support.
 system_clipboard = ["bevy_clipboard", "bevy_internal/system_clipboard"]
@@ -577,6 +595,9 @@ render_dev_tools = ["bevy_internal/render_dev_tools"]
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
 
+# Enables loading glTF files that use KHR_meshopt_compression or EXT_meshopt_compression
+gltf_meshopt = ["bevy_internal/gltf_meshopt"]
+
 # Enables support for morph target weights in bevy_mesh
 morph = ["bevy_internal/morph"]
 
@@ -609,6 +630,9 @@ force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
+
+# Enable Feral Interactive's `GameMode` integration on Linux
+linux_game_mode = ["bevy_internal/linux_game_mode"]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_internal/glam_assert"]
@@ -710,9 +734,6 @@ reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
-
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 # Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
@@ -1688,9 +1709,7 @@ doc-scrape-examples = true
 name = "Irradiance Volumes"
 description = "Demonstrates irradiance volumes"
 category = "3D Rendering"
-# On WebGL and WebGPU, the number of texture bindings is too low
-# See <https://github.com/bevyengine/bevy/issues/11885>
-wasm = false
+wasm = true
 
 [[example]]
 name = "meshlet"
@@ -2153,6 +2172,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.custom_asset]
 name = "Custom Asset"
+description = "Implements a custom asset, with a default loader"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "custom_asset_loader"
+path = "examples/asset/custom_asset_loader.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_asset_loader]
+name = "Custom Asset Loader"
 description = "Implements a custom asset loader"
 category = "Assets"
 wasm = true
@@ -3083,6 +3113,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "annotations"
+path = "examples/reflection/annotations.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.annotations]
+name = "Annotations"
+description = "Annotating reflected types with tooltips, ranges and units for tools"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "dynamic_types"
 path = "examples/reflection/dynamic_types.rs"
 doc-scrape-examples = true
@@ -3720,7 +3761,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
-required-features = ["free_camera", "bevy_dev_tools"]
+required-features = ["free_camera", "bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -4143,7 +4184,6 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/layout/ghost_nodes.rs"
 doc-scrape-examples = true
-required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -4469,7 +4509,7 @@ hidden = true
 name = "desktop_request_redraw"
 path = "tests/window/desktop_request_redraw.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
+required-features = ["bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.desktop_request_redraw]
 hidden = true
@@ -4800,7 +4840,7 @@ wasm = true
 name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
+required-features = ["bevy_dev_tools", "render_dev_tools"]
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -4824,13 +4864,49 @@ wasm = false
 name = "infinite_grid"
 path = "examples/dev_tools/infinite_grid.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools", "free_camera"]
+required-features = ["bevy_dev_tools", "free_camera", "render_dev_tools"]
 
 [package.metadata.example.infinite_grid]
 name = "Infinite grid"
 description = "Demonstrates Bevy's infinite grid, suitable as a ground plane for editors"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "infinite_grid_2d"
+path = "examples/dev_tools/infinite_grid_2d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.infinite_grid_2d]
+name = "Infinite grid 2D"
+description = "Demonstrates Bevy's infinite grid in a 2D scene"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "local_inspector"
+path = "examples/inspector/local_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector"]
+
+[package.metadata.example.local_inspector]
+name = "Local Inspector"
+description = "Inspects the app's own world with the bevy_inspector entity tree panel"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"
@@ -5041,7 +5117,7 @@ wasm = false
 name = "integration_test"
 path = "examples/remote/integration_test.rs"
 doc-scrape-examples = true
-required-features = ["bevy_remote", "bevy_feathers"]
+required-features = ["bevy_remote_client", "bevy_feathers"]
 
 [package.metadata.example.integration_test]
 name = "Integration Test"
@@ -5525,6 +5601,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "headless_split_pane"
+path = "examples/ui/widgets/headless_split_pane.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_split_pane]
+name = "Headless Split Pane"
+description = "Demonstrates nested headless split panes with draggable handles"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "headless_tabs"
 path = "examples/ui/widgets/headless_tabs.rs"
 doc-scrape-examples = true
@@ -5532,6 +5619,17 @@ doc-scrape-examples = true
 [package.metadata.example.headless_tabs]
 name = "Headless Tabs"
 description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "headless_tree"
+path = "examples/ui/widgets/headless_tree.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_tree]
+name = "Headless Tree"
+description = "Demonstrates the headless tree view with lazy population and keyboard navigation"
 category = "UI (User Interface)"
 wasm = true
 
@@ -5656,7 +5754,13 @@ wasm = true
 name = "pan_orbit_camera_cad"
 path = "examples/camera/pan_orbit_camera_cad.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_cad]
 name = "Pan Orbit Camera"
@@ -5668,7 +5772,13 @@ wasm = true
 name = "pan_orbit_camera_minimal"
 path = "examples/camera/pan_orbit_camera_minimal.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_minimal]
 name = "Minimal Pan Orbit Camera"
@@ -5680,7 +5790,13 @@ wasm = true
 name = "pan_orbit_camera_ortho"
 path = "examples/camera/pan_orbit_camera_ortho.rs"
 doc-scrape-examples = true
-required-features = ["pan_orbit_camera", "https", "3d_api", "jpeg"]
+required-features = [
+  "pan_orbit_camera",
+  "pan_orbit_gizmo",
+  "https",
+  "3d_api",
+  "jpeg",
+]
 
 [package.metadata.example.pan_orbit_camera_ortho]
 name = "Orthographic Pan Orbit Camera"
@@ -5780,3 +5896,14 @@ name = "GPU Component Array Buffer"
 description = "Shows how to expose per-mesh-instance data to the GPU"
 category = "Shaders"
 wasm = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "assets/shaders"
+
+[package.metadata.wgsl-analyzer.dependencies]
+bevy_render = { path = "crates/bevy_render" }
+bevy_pbr = { path = "crates/bevy_pbr" }
+bevy_core_pipeline = { path = "crates/bevy_core_pipeline" }
+bevy_sprite_render = { path = "crates/bevy_sprite_render" }
+bevy_ui_render = { path = "crates/bevy_ui_render" }

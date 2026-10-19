@@ -94,9 +94,7 @@ impl Plugin for WireframePlugin {
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
-        .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
         .init_resource::<WireframeConfig>()
-        .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .register_type::<WireframeLineWidth>()
         .register_type::<WireframeTopology>()
         .register_type::<WireframeXray>()
@@ -1524,6 +1522,10 @@ pub fn specialize_wireframes(
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                // Retry specialization once the mesh is ready.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 

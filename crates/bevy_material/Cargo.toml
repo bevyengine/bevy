@@ -20,7 +20,7 @@ bevy_shader = { path = "../bevy_shader", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev" }
 
-encase = "0.12"
+encase = "0.13"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 wgpu-types = { version = "30", default-features = false }

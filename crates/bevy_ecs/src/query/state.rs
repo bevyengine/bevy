@@ -18,8 +18,14 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
-use alloc::{format, vec::Vec};
+#[cfg(feature = "trace")]
+use alloc::format;
+use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
+#[cfg(feature = "trace")]
+use bevy_utils::prelude::ShortName;
+#[cfg(debug_assertions)]
+use core::any::TypeId;
 use core::{fmt, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
@@ -120,6 +126,40 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+    /// Converts this `QueryState` to a `QueryState` that does not access anything mutably.
+    ///
+    /// The returned `QueryState` includes any original mutable query access,
+    /// and it is sound to transmute back to `QueryState<D, F>`.
+    pub fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
+        let QueryState {
+            world_id,
+            archetype_generation,
+            matched_tables,
+            matched_archetypes,
+            component_access,
+            matched_storage_ids,
+            is_dense,
+            fetch_state,
+            filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span,
+        } = self;
+
+        QueryState {
+            world_id,
+            archetype_generation,
+            matched_tables,
+            matched_archetypes,
+            component_access,
+            matched_storage_ids,
+            is_dense,
+            fetch_state,
+            filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span,
+        }
+    }
+
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
@@ -197,35 +237,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// or with any previous access.
     pub fn init_access(
         &self,
-        system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
-        world: UnsafeWorldCell,
-    ) {
-        let conflicts = component_access_set.get_conflicts_single(&self.component_access);
-        if !conflicts.is_empty() {
-            let mut accesses = conflicts.format_conflict_list(world);
-            // Access list may be empty (if access to all components requested)
-            if !accesses.is_empty() {
-                accesses.push(' ');
-            }
-            let type_name = DebugName::type_name::<Query<D, F>>();
-            let type_name = type_name.shortname();
-            let system = system_name
-                .map(|name| format!(" in system {name}"))
-                .unwrap_or_default();
-            panic!("error[B0001]: {type_name}{system} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001",);
-        }
-
-        component_access_set.add(self.component_access.clone());
-        D::init_nested_access(&self.fetch_state, system_name, component_access_set, world);
-        F::init_nested_access(&self.filter_state, system_name, component_access_set, world);
+    ) -> Result<(), FilteredAccessSet> {
+        component_access_set.try_add(self.component_access.clone())?;
+        D::init_nested_access(&self.fetch_state, component_access_set)?;
+        F::init_nested_access(&self.filter_state, component_access_set)?;
+        Ok(())
     }
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         // SAFETY: We immediately call `init_access`
         let state = unsafe { Self::new_unchecked(world) };
-        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.assert_no_conflicts_with_nested_queries(world.into());
         state
     }
 
@@ -239,7 +263,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY: We immediately call `init_access`
         let mut state =
             unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
-        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.assert_no_conflicts_with_nested_queries(world.into());
         state.update_archetypes(world);
         Some(state)
     }
@@ -296,8 +320,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                query = core::any::type_name::<D>(),
-                filter = core::any::type_name::<F>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         }
     }
@@ -339,13 +363,36 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                data = core::any::type_name::<D>(),
-                filter = core::any::type_name::<F>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         };
-        state.init_access(None, &mut FilteredAccessSet::new(), builder.world().into());
+        state.assert_no_conflicts_with_nested_queries(builder.world().into());
         state.update_archetypes(builder.world());
         state
+    }
+
+    fn assert_no_conflicts_with_nested_queries(&self, world: UnsafeWorldCell<'_>) {
+        self.init_access(&mut FilteredAccessSet::new())
+            .unwrap_or_else(|access2| {
+                // Find the other conflicting query.
+                // By initializing `access` with the access of the later query,
+                // the earlier one will detect the conflict instead.
+                let mut access = access2.clone();
+                let access1 = self.init_access(&mut access).expect_err(
+                    "Query with internal access conflict must always report a conflict",
+                );
+                let conflicts = access1.get_conflicts(&access2);
+                let mut accesses = conflicts.format_conflict_list(world);
+                // Access list may be empty (if access to all components requested)
+                if !accesses.is_empty() {
+                    accesses.insert_str(0, " on component(s) ");
+                }
+                panic!(
+                    "`{}` has access conflicts between nested queries{accesses}.",
+                    DebugName::type_name::<Self>().shortname()
+                );
+            });
     }
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
@@ -765,8 +812,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                query = core::any::type_name::<NewD>(),
-                filter = core::any::type_name::<NewF>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         }
     }
@@ -913,8 +960,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: tracing::info_span!(
                 "par_for_each",
-                query = core::any::type_name::<NewD>(),
-                filter = core::any::type_name::<NewF>(),
+                query = format!("{}", ShortName(core::any::type_name::<D>())),
+                filter = format!("{}", ShortName(core::any::type_name::<F>())),
             ),
         }
     }
@@ -1791,6 +1838,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         F: ArchetypeFilter,
     {
         debug_assert!(self.is_dense);
+        // The caller ensures a batch size of at least 1.
+        debug_assert!(batch_size > 0);
 
         // The maximum number of tables we can accumulate before we must flush
         // them into a batch.
@@ -1853,10 +1902,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         queue_entity_count = 0;
                     }
 
-                    // Can we include the entire remainder of the table, or do
-                    // we need to split it?
-                    if queue_entity_count + row_count - row_start_offset > batch_size {
-                        // We need to split the table. Push the portion that fits.
+                    // Can the remaining rows fill the batch?
+                    // Submit exact fits too, so the next table cannot add an empty range
+                    // to a full batch.
+                    if queue_entity_count + row_count - row_start_offset >= batch_size {
+                        // Push enough rows to fill the batch.
                         let row_end_offset = row_start_offset + (batch_size - queue_entity_count);
                         batch_queue.push((table_id, row_start_offset..row_end_offset));
                         row_start_offset = row_end_offset;
@@ -2101,6 +2151,185 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
     fn from(mut value: QueryBuilder<D, F>) -> Self {
         QueryState::from_builder(&mut value)
+    }
+}
+
+/// A [`QueryState`] whose exact [`QueryData`] type has been erased so that
+/// it has the same type as its read-only version,
+/// but that still preserves any original mutable query access.
+///
+/// This is primarily useful for manually implementing [`QueryData`] types that contain other queries,
+/// and is used by [`NestedQuery`].
+/// In most cases, it will be easier to delegate to [`NestedQuery`] than to use [`ErasedQueryState`] directly.
+///
+/// [`QueryData`] types have a requirement that their [`WorldQuery::State`] equal the `State`
+/// for their [`QueryData::ReadOnly`] type.
+/// This is used to allow efficient conversion to read-only queries, such as in [`Query::iter`].
+/// Unfortunately, it prevents a mutable [`QueryState`] from being used directly inside of a [`WorldQuery::State`] type,
+/// since `QueryState<D>` and `QueryState<D::ReadOnly>` are different types.
+/// (And although they could be transmuted to each other,
+/// any types or tuples containing them would be different types and could not be.)
+///
+/// Instead, types with nested mutable queries can use `type State = ErasedQueryState<D::ReadOnly, F>`.
+/// That type will be the same for `D` and `D::ReadOnly`,
+/// and it may be recovered as either `QueryState<D, F>` or `QueryState<D::ReadOnly, F>`.
+///
+/// [`ErasedQueryState`] is implemented by storing the state as a `QueryState<D::ReadOnly, F>`
+/// that preserves any original mutable query access,
+/// and then transmuting references back to `&QueryState<D, F>` or `&mut QueryState<D, F>` as needed.
+///
+/// [`NestedQuery`]: crate::query::NestedQuery
+pub struct ErasedQueryState<R: ReadOnlyQueryData + 'static, F: QueryFilter = ()> {
+    /// The original `QueryState<D, F>` for some `D: QueryData<ReadOnly = R>`,
+    /// with the original [`QueryData`] type erased while preserving any original mutable query access.
+    query_state: QueryState<R, F>,
+    /// The `D: QueryData<ReadOnly = R>` type parameter originally passed to [`Self::new`].
+    ///
+    /// This is used to validate that the correct type is passed to [`Self::recover_query_data_type`]
+    /// and [`Self::recover_query_data_type_mut`].
+    #[cfg(debug_assertions)]
+    original_query_data_type: TypeId,
+}
+
+impl<R: ReadOnlyQueryData + 'static, F: QueryFilter> ErasedQueryState<R, F> {
+    /// Create an [`ErasedQueryState`] from a [`QueryState`],
+    /// erasing the original [`QueryData`] type while preserving any original mutable query access.
+    pub fn new<D: QueryData<ReadOnly = R> + 'static>(query_state: QueryState<D, F>) -> Self {
+        Self {
+            query_state: query_state.into_readonly(),
+            #[cfg(debug_assertions)]
+            original_query_data_type: TypeId::of::<D>(),
+        }
+    }
+
+    /// Cast to a [`QueryState`] reference, recovering the original [`QueryData`] type
+    /// or the read-only version of it.
+    ///
+    /// This must be called with either the original [`QueryData`] type supplied to [`Self::new`],
+    /// or with the [`QueryData::ReadOnly`] of that type (which will equal `R`).
+    ///
+    /// Note that if this [`ErasedQueryState`] was created from a [`ReadOnlyQueryData`],
+    /// then it is *not* sound to call this with a mutable [`QueryData`],
+    /// since the resulting [`QueryState`] will not have performed conflict checks
+    /// and will not include mutable component access.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::query::ErasedQueryState;
+    /// # #[derive(Component)]
+    /// # struct C1;
+    /// # #[derive(Component)]
+    /// # struct C2;
+    /// # let mut world = World::new();
+    /// let query_state: QueryState<(&C1, &mut C2)> = world.query();
+    /// let erased: ErasedQueryState<(&C1, &C2)> = ErasedQueryState::new(query_state);
+    /// // SAFETY: `(&C1, &mut C2)` was the original `QueryData` type
+    /// let recovered_mutable = unsafe { erased.recover_query_data_type::<(&C1, &mut C2)>() };
+    /// // SAFETY: `(&C1, &C2)` is the read-only version of `(&C1, &mut C2)`,
+    /// // and therefore equal to `R`
+    /// let recovered_readonly = unsafe { erased.recover_query_data_type::<(&C1, &C2)>() };
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::query::ErasedQueryState;
+    /// # #[derive(Component)]
+    /// # struct C1;
+    /// # #[derive(Component)]
+    /// # struct C2;
+    /// # let mut world = World::new();
+    /// # let query_state: QueryState<(&C1, &mut C2)> = world.query();
+    /// # let erased: ErasedQueryState<(&C1, &C2)> = ErasedQueryState::new(query_state);
+    /// // This compiles, but is unsound because it is not the original `QueryData` type,
+    /// // so the `QueryState` does not have mutable access to `C1`.
+    /// let invalid = unsafe { erased.recover_query_data_type::<(&mut C1, &mut C2)>() };
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// Either `D` is read-only (and therefore equal to `R`),
+    /// or `self` was created from a call to [`Self::new<D>`] with the *same* `D`.
+    pub unsafe fn recover_query_data_type<D: QueryData<ReadOnly = R> + 'static>(
+        &self,
+    ) -> &QueryState<D, F> {
+        #[cfg(debug_assertions)]
+        if TypeId::of::<D>() != TypeId::of::<R>() {
+            assert_eq!(TypeId::of::<D>(), self.original_query_data_type);
+        }
+        // SAFETY: Caller ensures this is either a no-op,
+        // or that the contents were created as a valid `QueryState<D, F>`
+        unsafe {
+            ptr::from_ref(&self.query_state)
+                .cast::<QueryState<D, F>>()
+                .as_ref_unchecked()
+        }
+    }
+
+    /// Cast to a mutable [`QueryState`] reference, recovering the original [`QueryData`] type
+    /// or the read-only version of it.
+    ///
+    /// This must be called with either the original [`QueryData`] type supplied to [`Self::new`],
+    /// or with the [`QueryData::ReadOnly`] of that type (which will equal `R`).
+    ///
+    /// Note that if this [`ErasedQueryState`] was created from a [`ReadOnlyQueryData`],
+    /// then it is *not* sound to call this with a mutable [`QueryData`],
+    /// since the resulting [`QueryState`] will not have performed conflict checks
+    /// and will not include mutable component access.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::query::ErasedQueryState;
+    /// # #[derive(Component)]
+    /// # struct C1;
+    /// # #[derive(Component)]
+    /// # struct C2;
+    /// # let mut world = World::new();
+    /// let query_state: QueryState<(&C1, &mut C2)> = world.query();
+    /// let mut erased: ErasedQueryState<(&C1, &C2)> = ErasedQueryState::new(query_state);
+    /// // SAFETY: `(&C1, &mut C2)` was the original `QueryData` type
+    /// let recovered_mutable = unsafe { erased.recover_query_data_type_mut::<(&C1, &mut C2)>() };
+    /// // SAFETY: `(&C1, &C2)` is the read-only version of `(&C1, &mut C2)`,
+    /// // and therefore equal to `R`
+    /// let recovered_readonly = unsafe { erased.recover_query_data_type_mut::<(&C1, &C2)>() };
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::query::ErasedQueryState;
+    /// # #[derive(Component)]
+    /// # struct C1;
+    /// # #[derive(Component)]
+    /// # struct C2;
+    /// # let mut world = World::new();
+    /// # let query_state: QueryState<(&C1, &mut C2)> = world.query();
+    /// # let mut erased: ErasedQueryState<(&C1, &C2)> = ErasedQueryState::new(query_state);
+    /// // This compiles, but is unsound because it is not the original `QueryData` type,
+    /// // so the `QueryState` does not have mutable access to `C1`.
+    /// let invalid = unsafe { erased.recover_query_data_type_mut::<(&mut C1, &mut C2)>() };
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// Either `D` is read-only (and therefore equal to `R`),
+    /// or `self` was created from a call to [`Self::new<D>`] with the *same* `D`.
+    pub unsafe fn recover_query_data_type_mut<D: QueryData<ReadOnly = R> + 'static>(
+        &mut self,
+    ) -> &mut QueryState<D, F> {
+        #[cfg(debug_assertions)]
+        if TypeId::of::<D>() != TypeId::of::<R>() {
+            assert_eq!(TypeId::of::<D>(), self.original_query_data_type);
+        }
+        // SAFETY: Caller ensures this is either a no-op,
+        // or that the contents were created as a valid `QueryState<D, F>`
+        unsafe {
+            ptr::from_mut(&mut self.query_state)
+                .cast::<QueryState<D, F>>()
+                .as_mut_unchecked()
+        }
     }
 }
 

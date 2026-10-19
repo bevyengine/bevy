@@ -7,7 +7,7 @@ use crate::{
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
     transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
-    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
+    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, LoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
 use alloc::{
@@ -197,12 +197,11 @@ where
         settings: &Self::Settings,
         writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
+        let pre_transformed_asset = TransformedAsset::from_loaded(
             context
                 .load_source_asset::<Loader>(&settings.loader_settings)
                 .await?,
-        )
-        .unwrap();
+        );
 
         let post_transformed_asset = self
             .transformer
@@ -348,7 +347,7 @@ impl<'a> ProcessContext<'a> {
     pub async fn load_source_asset<L: AssetLoader>(
         &mut self,
         settings: &L::Settings,
-    ) -> Result<ErasedLoadedAsset, AssetLoadError> {
+    ) -> Result<LoadedAsset<L::Asset>, AssetLoadError> {
         let server = &self.processor.server;
         let loader_name = L::type_path();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
@@ -370,6 +369,13 @@ impl<'a> ProcessContext<'a> {
                     path: path.to_owned(),
                 });
         }
+        // Note: we can't use unwrap because the error is the original asset (which doesn't impl
+        // Debug).
+        let Ok(loaded_asset) = loaded_asset.downcast() else {
+            // This should be impossible, since we looked up the loader by its type, and the loader
+            // type tells us its output type.
+            panic!("Loader of type L did not return asset of type L::Asset");
+        };
         Ok(loaded_asset)
     }
 

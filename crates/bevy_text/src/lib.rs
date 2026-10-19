@@ -126,6 +126,7 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<DefaultFontSource>()
             .add_systems(
                 PostUpdate,
                 (
@@ -135,7 +136,6 @@ impl Plugin for TextPlugin {
                     .chain()
                     .after(PropagateSet::<TextFont>::default()),
             )
-            .add_systems(Last, trim_source_cache)
             .add_systems(
                 PostUpdate,
                 apply_text_edits

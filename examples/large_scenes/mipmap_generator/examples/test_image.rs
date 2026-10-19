@@ -1,3 +1,5 @@
+//! Demonstrates generating mipmaps for an in-memory test image.
+
 use bevy::{
     prelude::*,
     render::render_resource::{

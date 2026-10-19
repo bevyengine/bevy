@@ -34,7 +34,7 @@ use bytemuck::{Pod, Zeroable};
 const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
 
 /// Size of the `ResolvedLightSamplePacked` shader struct in bytes.
-const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 24;
+const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 32;
 
 /// Size of the `Reservoir` shader struct in bytes.
 const RESERVOIR_STRUCT_SIZE: u64 = 48;

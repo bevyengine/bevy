@@ -1,13 +1,11 @@
 use bevy_asset::{io::Writer, saver::SavedAsset, AssetPath, AsyncWriteExt};
 use ctt::{
-    convert, ColorSpace, Container, ConvertSettings, Image as CttImage, MipmapFilter,
-    PipelineOutput, Quality, Surface, TextureKind,
+    convert, ColorSpace, Container, ConvertSettings, FormatDesc, ImageRef, MipmapFilter,
+    PipelineOutput, Quality, SurfaceRef, TextureKind,
 };
 
 use super::{
-    ctt_helpers::{
-        bevy_to_ctt_alpha_mode, choose_ctt_compressed_format, wgpu_to_ctt_texture_format,
-    },
+    ctt_helpers::{bevy_to_ctt_alpha_mode, choose_ctt_compressed_format, ctt_format},
     CompressedImageSaverError, CompressedImageSaverSettings,
 };
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings};
@@ -33,16 +31,19 @@ impl CompressedImageSaverCtt {
             ));
         }
 
-        let input_format = wgpu_to_ctt_texture_format(image.texture_descriptor.format)?;
-        let output_format =
-            choose_ctt_compressed_format(image.texture_descriptor.format, settings.is_normal_map)?;
-
         let is_srgb = image.texture_descriptor.format.is_srgb();
         let color_space = if is_srgb {
             ColorSpace::Srgb
         } else {
             ColorSpace::Linear
         };
+
+        let input_format = ctt_format(image.texture_descriptor.format)?;
+        let output_format = choose_ctt_compressed_format(
+            image.texture_descriptor.format,
+            color_space,
+            settings.is_normal_map,
+        )?;
 
         let is_cubemap = matches!(
             image.texture_view_descriptor,
@@ -60,25 +61,27 @@ impl CompressedImageSaverCtt {
         let surfaces = data
             .chunks_exact((image.width() * image.height() * bytes_per_pixel) as usize)
             .map(|layer_data| {
-                vec![Surface {
-                    data: layer_data.to_vec(),
+                vec![SurfaceRef {
+                    data: layer_data,
                     width: image.width(),
                     height: image.height(),
                     depth: 1,
                     stride: image.width() * bytes_per_pixel,
                     slice_stride: 0,
-                    format: input_format,
-                    color_space,
-                    alpha: bevy_to_ctt_alpha_mode(settings.input_alpha_mode),
                 }]
             })
             .collect();
-        let ctt_image = CttImage {
+        let ctt_image = ImageRef {
             surfaces,
             kind: if is_cubemap {
                 TextureKind::Cubemap
             } else {
                 TextureKind::Texture2D
+            },
+            desc: FormatDesc {
+                format: input_format,
+                color_space,
+                alpha: bevy_to_ctt_alpha_mode(settings.input_alpha_mode),
             },
         };
 
@@ -114,8 +117,7 @@ impl CompressedImageSaverCtt {
             is_srgb,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
-            texture_format: None,
-            array_layout: None,
+            ..Default::default()
         })
     }
 }

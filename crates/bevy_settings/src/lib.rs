@@ -17,6 +17,7 @@
 
 use core::any::TypeId;
 use core::time::Duration;
+use serde::ser::SerializeMap;
 use std::collections::HashMap;
 
 use bevy_app::{App, Plugin, PostUpdate};
@@ -30,8 +31,9 @@ use bevy_ecs::{
 pub use bevy_ecs_macros::SettingsGroup;
 use bevy_log::warn;
 use bevy_reflect::{
+    enums::DynamicEnum,
     prelude::ReflectDefault,
-    serde::{TypedReflectDeserializer, TypedReflectSerializer},
+    serde::{ReflectSerializerProcessor, TypedReflectDeserializer, TypedReflectSerializer},
     CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
     TypeRegistration, TypeRegistry,
 };
@@ -377,6 +379,41 @@ fn has_settings_changed(world: &World, manifest: &SettingsFileManifest) -> bool 
     })
 }
 
+struct SettingsSerializerProcessor;
+
+impl ReflectSerializerProcessor for SettingsSerializerProcessor {
+    fn try_serialize<S>(
+        &self,
+        value: &dyn PartialReflect,
+        _registry: &TypeRegistry,
+        serializer: S,
+    ) -> Result<Result<S::Ok, S>, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let Some(type_info) = value.get_represented_type_info() else {
+            return Ok(Err(serializer));
+        };
+
+        let is_option = type_info.type_path_table().module_path() == Some("core::option")
+            && type_info.type_path_table().ident() == Some("Option");
+
+        let is_none = is_option
+            && value
+                .reflect_ref()
+                .as_enum()
+                .is_ok_and(|enum_value| enum_value.variant_name() == "None");
+
+        // If the value is None, serialize as an empty map
+        if is_none {
+            let map = serializer.serialize_map(Some(0))?;
+            return Ok(Ok(SerializeMap::end(map)?));
+        }
+
+        Ok(Err(serializer))
+    }
+}
+
 fn resources_to_toml(
     world: &World,
     types: &TypeRegistry,
@@ -410,7 +447,11 @@ fn resources_to_toml(
             continue;
         };
 
-        let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
+        let serializer = TypedReflectSerializer::with_processor(
+            reflect.as_partial_reflect(),
+            types,
+            &SettingsSerializerProcessor,
+        );
 
         let toml_value = if let Some(settings_key) = settings_key {
             // convert toml value into a key value pair if settings_key is set. settings_key is only set for enums
@@ -592,6 +633,11 @@ fn apply_settings_to_world(
     }
 }
 
+fn is_option_type(type_info: &TypeInfo) -> bool {
+    type_info.type_path_table().module_path() == Some("core::option")
+        && type_info.type_path_table().ident() == Some("Option")
+}
+
 fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types: &TypeRegistry) {
     let Some(tinfo) = resource.get_represented_type_info() else {
         return;
@@ -608,11 +654,22 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                         && let Some(field_info) = stinfo.field_at(idx)
                         && let Some(field_type) = types.get(field_info.type_id())
                     {
-                        let deserializer = TypedReflectDeserializer::new(field_type, types);
-                        if let Ok(field_value) = deserializer.deserialize(toml_field_value.clone())
+                        let field = st_reflect.field_at_mut(idx).unwrap();
+                        if is_option_type(field_type.type_info())
+                            && toml_field_value
+                                .as_table()
+                                .is_some_and(toml::Table::is_empty)
                         {
-                            // Should be safe to unwrap here since we know the field exists (above).
-                            st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
+                            let mut none = DynamicEnum::new_with_index(0, "None", ());
+                            none.set_represented_type(Some(field_type.type_info()));
+                            field.apply(none.as_partial_reflect());
+                        } else {
+                            let deserializer = TypedReflectDeserializer::new(field_type, types);
+                            if let Ok(field_value) =
+                                deserializer.deserialize(toml_field_value.clone())
+                            {
+                                field.apply(&*field_value);
+                            }
                         }
                     }
                 }
@@ -714,6 +771,12 @@ mod tests {
     #[settings_group(file = "audio")]
     struct AudioSettings {
         volume: f32,
+    }
+
+    #[derive(Resource, SettingsGroup, Reflect, Default)]
+    #[reflect(Resource, SettingsGroup, Default)]
+    struct OptionalSettings {
+        value: Option<u32>,
     }
 
     #[test]
@@ -1164,5 +1227,28 @@ mod tests {
 
         let registry = world.resource::<SettingsFileRegistry>();
         assert!(registry.save_timer.just_finished());
+    }
+
+    #[test]
+    fn test_none_value_apply_settings() {
+        let mut world = World::new();
+        let mut other_world = World::new();
+        let mut types = TypeRegistry::default();
+
+        types.register::<OptionalSettings>();
+
+        let manifest = SettingsFileManifest {
+            last_save: Tick::new(0),
+            resource_types: vec![TypeId::of::<OptionalSettings>()],
+        };
+
+        world.insert_resource(OptionalSettings { value: None });
+        let table = resources_to_toml(&world, &types, &manifest);
+
+        other_world.insert_resource(OptionalSettings { value: Some(12) });
+        apply_settings_to_world(&mut other_world, Some(&table), &manifest, &types);
+
+        let settings = other_world.get_resource::<OptionalSettings>().unwrap();
+        assert_eq!(settings.value, None);
     }
 }

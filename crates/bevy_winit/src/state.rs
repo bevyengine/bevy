@@ -31,7 +31,7 @@ use winit::{
 };
 
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
+    AppLifecycle, CursorEntered, CursorLeft, FileDragAndDrop, Ime, RawCursorMoved, RequestRedraw,
     Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
@@ -301,27 +301,15 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                         }
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(position.x, position.y);
-
-                        let last_position = win.physical_cursor_position();
-                        let delta = last_position.map(|last_pos| {
-                            (physical_position.as_vec2() - last_pos) / win.resolution.scale_factor()
-                        });
-
-                        win.set_physical_cursor_position(Some(physical_position));
-                        let position =
-                            (physical_position / win.resolution.scale_factor() as f64).as_vec2();
-                        self.bevy_window_events.send(CursorMoved {
+                        self.bevy_window_events.send(RawCursorMoved {
                             window,
-                            position,
-                            delta,
+                            physical_position: DVec2::new(position.x, position.y),
                         });
                     }
                     WindowEvent::CursorEntered { .. } => {
                         self.bevy_window_events.send(CursorEntered { window });
                     }
                     WindowEvent::CursorLeft { .. } => {
-                        win.set_physical_cursor_position(None);
                         self.bevy_window_events.send(CursorLeft { window });
                     }
                     WindowEvent::MouseInput { state, button, .. } => {
@@ -928,92 +916,6 @@ impl WinitAppRunnerState {
             world
                 .resource_mut::<Messages<RawWinitWindowEvent>>()
                 .write_batch(raw_winit_events);
-        }
-
-        for window_event in window_events.iter() {
-            match window_event.clone() {
-                BevyWindowEvent::AppLifecycle(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::CursorEntered(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::CursorLeft(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::CursorMoved(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::Ime(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::RequestRedraw(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowCloseRequested(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowCreated(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowDestroyed(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowFocused(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowMoved(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowOccluded(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowResized(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowScaleFactorChanged(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::WindowThemeChanged(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::MouseButtonInput(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::MouseMotion(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::MouseWheel(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::PinchGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::RotationGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::DoubleTapGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::PanGesture(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::TouchInput(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::KeyboardInput(e) => {
-                    world.write_message(e);
-                }
-                BevyWindowEvent::KeyboardFocusLost(e) => {
-                    world.write_message(e);
-                }
-            }
         }
 
         if !window_events.is_empty() {

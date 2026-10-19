@@ -8,6 +8,7 @@ use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::prepass::{
     PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
+    MOTION_VECTOR_PREPASS_FORMAT,
 };
 use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
 use bevy_render::{
@@ -20,9 +21,9 @@ use bevy_render::{
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
         PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat,
-        TextureSampleType,
+        TextureFormatFeatureFlags, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice, ViewQuery},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, ViewQuery},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -402,7 +403,18 @@ pub fn init_solari_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     scene_bindings: Res<RaytracingSceneBindings>,
     asset_server: Res<AssetServer>,
+    render_adapter: Res<RenderAdapter>,
 ) {
+    let motion_vectors_storage_read_write = render_adapter
+        .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
+        .flags
+        .contains(TextureFormatFeatureFlags::STORAGE_READ_WRITE);
+    let motion_vectors_binding = if motion_vectors_storage_read_write {
+        texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite)
+    } else {
+        texture_2d(TextureSampleType::Float { filterable: false })
+    };
+
     let bind_group_layout = BindGroupLayoutDescriptor::new(
         "solari_lighting_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
@@ -413,7 +425,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
-                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite),
+                motion_vectors_binding,
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
@@ -432,7 +444,7 @@ pub fn init_solari_lighting_pipelines(
                 storage_buffer_sized(false, None),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
-                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite),
+                motion_vectors_binding,
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
@@ -492,6 +504,9 @@ pub fn init_solari_lighting_pipelines(
             "WORLD_CACHE_SIZE".into(),
             WORLD_CACHE_SIZE as u32,
         )];
+        if motion_vectors_storage_read_write {
+            shader_defs.push("MOTION_VECTORS_READ_WRITE".into());
+        }
         if restir {
             shader_defs.push("RESTIR".into());
         }

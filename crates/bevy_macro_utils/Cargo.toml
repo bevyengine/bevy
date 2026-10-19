@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-syn = "2.0"
+syn = "3"
 quote = "1.0"
 proc-macro2 = "1.0"
 toml_edit = { version = "0.25.1", default-features = false, features = [

@@ -1,4 +1,4 @@
-use bevy_macro_utils::fq_std::{FQClone, FQOption};
+use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
 use proc_macro2::Ident;
 use quote::quote;
 use syn::{Attribute, Fields, ImplGenerics, Member, Type, TypeGenerics, Visibility, WhereClause};
@@ -159,11 +159,10 @@ pub(crate) fn world_query_impl(
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: #FQOption<&str>,
                 _component_access_set: &mut #path::query::FilteredAccessSet,
-                _world: #path::world::unsafe_world_cell::UnsafeWorldCell,
-            ) {
-                #( <#field_types>::init_nested_access(&state.#field_aliases, _system_name, _component_access_set, _world); )*
+            ) -> #FQResult<(), #path::query::FilteredAccessSet> {
+                #( <#field_types>::init_nested_access(&state.#field_aliases, _component_access_set)?; )*
+                Ok(())
             }
 
             fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {

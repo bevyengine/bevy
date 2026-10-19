@@ -240,7 +240,7 @@ where
         let error_resource = world.register_component::<crate::error::FallbackErrorHandler>();
         let mut error_resource_access = FilteredAccess::default();
         error_resource_access.add_read(error_resource);
-        a_access.ensure_filtered_access(error_resource_access);
+        a_access.extend(SystemAccess::Shared(error_resource_access.into()));
 
         a_access
     }
@@ -342,39 +342,41 @@ impl<A, B> IntoPipeSystem<A, B> {
     /// When piping multiple systems, that may itself by another [`PipeSystem`]!
     ///
     /// ```
+    /// # use bevy_utils::prelude::DebugName;
     /// # use bevy_ecs::prelude::*;
     /// # let a = IntoSystem::into_system(|| {}).with_name("a");
     /// # let b = IntoSystem::into_system(|| {}).with_name("b");
     /// # let c = IntoSystem::into_system(|| {}).with_name("c");
     /// let system = a.pipe(b).pipe(c).with_first_name();
-    /// assert_eq!("Pipe(a, b)", &*IntoSystem::into_system(system).name());
+    /// assert_eq!(DebugName::borrowed("Pipe(a, b)"), IntoSystem::into_system(system).name());
     /// # let a = IntoSystem::into_system(|| {}).with_name("a");
     /// # let b = IntoSystem::into_system(|| {}).with_name("b");
     /// # let c = IntoSystem::into_system(|| {}).with_name("c");
     /// let system = a.pipe(b.pipe(c)).with_first_name();
-    /// assert_eq!("a", &*IntoSystem::into_system(system).name());
+    /// assert_eq!(DebugName::borrowed("a"), IntoSystem::into_system(system).name());
     /// ```
     pub fn with_first_name(self) -> IntoPipeSystem<A, B, impl PipeSystemName> {
         self.with_name_fn(|name_1, _name_2| name_1)
     }
 
     /// Set the name of the output [`PipeSystem`] to the name of the second system.
-    ///   
+    ///
     /// Note that the "second" system is the one passed as a parameter to [`IntoSystem::pipe`].
     /// When piping multiple systems, that may itself by another [`PipeSystem`]!
     ///
     /// ```
+    /// # use bevy_utils::prelude::DebugName;
     /// # use bevy_ecs::prelude::*;
     /// # let a = IntoSystem::into_system(|| {}).with_name("a");
     /// # let b = IntoSystem::into_system(|| {}).with_name("b");
     /// # let c = IntoSystem::into_system(|| {}).with_name("c");
     /// let system = a.pipe(b).pipe(c).with_second_name();
-    /// assert_eq!("c", &*IntoSystem::into_system(system).name());
+    /// assert_eq!(DebugName::borrowed("c"), IntoSystem::into_system(system).name());
     /// # let a = IntoSystem::into_system(|| {}).with_name("a");
     /// # let b = IntoSystem::into_system(|| {}).with_name("b");
     /// # let c = IntoSystem::into_system(|| {}).with_name("c");
     /// let system = a.pipe(b.pipe(c)).with_second_name();
-    /// assert_eq!("Pipe(b, c)", &*IntoSystem::into_system(system).name());
+    /// assert_eq!(DebugName::borrowed("Pipe(b, c)"), IntoSystem::into_system(system).name());
     /// ```
     pub fn with_second_name(self) -> IntoPipeSystem<A, B, impl PipeSystemName> {
         self.with_name_fn(|_name_1, name_2| name_2)

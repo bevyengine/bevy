@@ -256,12 +256,7 @@ impl Color {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
-        Self::Hsla(Hsla {
-            hue,
-            saturation,
-            lightness,
-            alpha,
-        })
+        Self::Hsla(Hsla::new(hue, saturation, lightness, alpha))
     }
 
     /// Creates a new [`Color`] object storing a [`Hsla`] color with an alpha of 1.0.
@@ -272,12 +267,7 @@ impl Color {
     /// * `saturation` - Saturation channel. [0.0, 1.0]
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
-        Self::Hsla(Hsla {
-            hue,
-            saturation,
-            lightness,
-            alpha: 1.0,
-        })
+        Self::Hsla(Hsla::new(hue, saturation, lightness, 1.0))
     }
 
     /// Creates a new [`Color`] object storing a [`Hsva`] color.

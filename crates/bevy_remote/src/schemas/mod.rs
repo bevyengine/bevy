@@ -47,12 +47,15 @@ impl SchemaTypesMetadata {
         self.type_data_map.insert(TypeId::of::<T>(), name.into());
     }
 
-    /// Build reflect types list for a given type registration
+    /// Build the sorted reflect types list for a given type registration
     pub fn get_registered_reflect_types(&self, reg: &TypeRegistration) -> Vec<String> {
-        self.type_data_map
+        let mut types: Vec<String> = self
+            .type_data_map
             .iter()
             .filter_map(|(id, name)| reg.data_by_id(*id).and(Some(name.clone())))
-            .collect()
+            .collect();
+        types.sort();
+        types
     }
 
     /// Checks if slice contains string value that matches checked `TypeData`

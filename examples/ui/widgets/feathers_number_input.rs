@@ -13,7 +13,7 @@ use bevy::{
     input_focus::tab_navigation::TabGroup,
     prelude::*,
     ui::InteractionDisabled,
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericRange, NumericValue, ValueChange},
 };
 
 fn main() {
@@ -52,16 +52,16 @@ fn demo_root() -> impl Scene {
             @demo_field_f32("none (bare)", 1.0, bsn! {})
             --
             @demo_field_f32("soft limit", 2.0, bsn! {
-                SoftLimit(NumberInputRange::F32(0.0..=10.0))
+                SoftLimit(NumericRange::F32(0.0..=10.0))
             })
             --
             @demo_field_f32("hard limit", 3.0, bsn! {
-                HardLimit(NumberInputRange::F32(-100.0..=100.0))
+                HardLimit(NumericRange::F32(-100.0..=100.0))
             })
             --
             @demo_field_f32("soft + hard", 4.0, bsn! {
-                SoftLimit(NumberInputRange::F32(0.0..=10.0))
-                HardLimit(NumberInputRange::F32(-100.0..=100.0))
+                SoftLimit(NumericRange::F32(0.0..=10.0))
+                HardLimit(NumericRange::F32(-100.0..=100.0))
             })
             --
             @demo_field_f32("precision(0)", 5.0, bsn! {
@@ -81,18 +81,18 @@ fn demo_root() -> impl Scene {
             })
             --
             @demo_field_f64("f64: soft limit", 1.0f64, bsn! {
-                SoftLimit(NumberInputRange::F64(0.0f64..=10.0f64))
+                SoftLimit(NumericRange::F64(0.0f64..=10.0f64))
             })
             --
             @demo_field_f64("f64: soft limit + precision(2)", 1.0f64, bsn! {
-                SoftLimit(NumberInputRange::F64(0.0f64..=10.0f64))
+                SoftLimit(NumericRange::F64(0.0f64..=10.0f64))
                 NumberInputPrecision(2)
             })
             --
             @demo_field_i32("i32: bare", 1, bsn! {})
             --
             @demo_field_i32("i32: soft limit", 1, bsn! {
-                SoftLimit(NumberInputRange::I32(0..=10))
+                SoftLimit(NumericRange::I32(0..=10))
             })
             --
             @demo_field_f32_with_sigil("precision(2) + sigil", 6.0, bsn! {
@@ -101,11 +101,11 @@ fn demo_root() -> impl Scene {
             --
             @demo_field_f32("soft limit + disabled", 2.0, bsn! {
                 InteractionDisabled
-                SoftLimit(NumberInputRange::F32(0.0..=10.0))
+                SoftLimit(NumericRange::F32(0.0..=10.0))
             })
             --
             @demo_field_f32("hard limit + wrap", 0.0, bsn! {
-                HardLimit(NumberInputRange::F32(-180.0..=180.0))
+                HardLimit(NumericRange::F32(-180.0..=180.0))
                 NumberInputWrap::Wrap
             })
             --
@@ -117,8 +117,23 @@ fn demo_root() -> impl Scene {
                 NumberInputUnits::new(&TimeSeconds)
             })
             --
-            @demo_field_f32("in degrees", PI, bsn! {
+            @demo_field_f32("in degrees, precision(1)", PI, bsn! {
                 NumberInputUnits::new(&AngleDegrees)
+                NumberInputPrecision(1)
+            })
+            --
+            @demo_field_f32("as percent, precision(0)", 0.5, bsn! {
+                NumberInputUnits::new(&RatioPercent)
+                NumberInputPrecision(0)
+            })
+            --
+            @demo_field_f32_with_interior_label("interior label + soft limit", "Roughness", 0.5, bsn! {
+                SoftLimit(NumericRange::F32(0.0..=1.0))
+                NumberInputPrecision(2)
+            })
+            --
+            @demo_field_f32_with_interior_label("interior label", "Size", 2.0, bsn! {
+                NumberInputPrecision(1)
             })
         ]
     }
@@ -145,7 +160,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
             }
             Children [
                 @FeathersNumberInput
-                NumberInputValue::F32(value)
+                NumericValue::F32(value)
                 @{options}
                 Node {
                     flex_grow: 1.0,
@@ -154,7 +169,7 @@ fn demo_field_f32(label_text: &str, value: f32, options: impl Scene) -> impl Sce
                 on(
                     |value_change: On<ValueChange<f32>>, mut commands: Commands| {
                     commands.entity(value_change.event_target())
-                        .insert(NumberInputValue::F32(value_change.value));
+                        .insert(NumericValue::F32(value_change.value));
                 })
                 --
                 #Output
@@ -187,7 +202,7 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                     @sigil_color: tokens::TEXT_INPUT_X_AXIS,
                     @label_text: "X",
                 }
-                NumberInputValue::F32(value)
+                NumericValue::F32(value)
                 @{options}
                 Node {
                     flex_grow: 1.0,
@@ -196,7 +211,54 @@ fn demo_field_f32_with_sigil(label_text: &str, value: f32, options: impl Scene) 
                 on(
                     |value_change: On<ValueChange<f32>>, mut commands: Commands| {
                     commands.entity(value_change.event_target())
-                        .insert(NumberInputValue::F32(value_change.value));
+                        .insert(NumericValue::F32(value_change.value));
+                })
+                --
+                #Output
+                @label("-")
+            ]
+        ]
+    }
+}
+
+fn demo_field_f32_with_interior_label(
+    label_text: &str,
+    interior_label_text: &'static str,
+    value: f32,
+    options: impl Scene,
+) -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Start,
+            width: px(200),
+            row_gap: px(4),
+        }
+        Children [
+            @label(label_text)
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Stretch,
+                justify_content: JustifyContent::SpaceBetween,
+            }
+            Children [
+                @FeathersNumberInput {
+                    @interior_label_text: interior_label_text,
+                }
+                NumericValue::F32(value)
+                @{options}
+                Node {
+                    flex_grow: 1.0,
+                    max_width: px(160),
+                }
+                on(
+                    |value_change: On<ValueChange<f32>>, mut commands: Commands| {
+                    commands.entity(value_change.event_target())
+                        .insert(NumericValue::F32(value_change.value));
                 })
                 --
                 #Output
@@ -226,7 +288,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
             }
             Children [
                 @FeathersNumberInput
-                NumberInputValue::F64(value)
+                NumericValue::F64(value)
                 @{options}
                 Node {
                     flex_grow: 1.0,
@@ -235,7 +297,7 @@ fn demo_field_f64(label_text: &str, value: f64, options: impl Scene) -> impl Sce
                 on(
                     |value_change: On<ValueChange<f64>>, mut commands: Commands| {
                     commands.entity(value_change.event_target())
-                        .insert(NumberInputValue::F64(value_change.value));
+                        .insert(NumericValue::F64(value_change.value));
                 })
                 --
                 #Output
@@ -265,7 +327,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
             }
             Children [
                 @FeathersNumberInput
-                NumberInputValue::I32(value)
+                NumericValue::I32(value)
                 @{options}
                 Node {
                     flex_grow: 1.0,
@@ -274,7 +336,7 @@ fn demo_field_i32(label_text: &str, value: i32, options: impl Scene) -> impl Sce
                 on(
                     |value_change: On<ValueChange<i32>>, mut commands: Commands| {
                     commands.entity(value_change.event_target())
-                        .insert(NumberInputValue::I32(value_change.value));
+                        .insert(NumericValue::I32(value_change.value));
                 })
                 --
                 #Output

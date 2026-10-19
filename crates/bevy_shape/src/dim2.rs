@@ -234,10 +234,10 @@ impl Arc2d {
     /// Equivalently, the [`radius`](Self::radius) minus the [`sagitta`](Self::sagitta).
     ///
     /// Note that for a [`major`](Self::is_major) arc, the apothem will be negative.
-    #[inline]
     // Naming note: Various sources are inconsistent as to whether the apothem is the segment between the center and the
     // midpoint of a chord, or the length of that segment. Given this confusion, we've opted for the definition
     // used by Wolfram MathWorld, which is the distance rather than the segment.
+    #[inline]
     pub fn apothem(&self) -> f32 {
         let sign = if self.is_minor() { 1.0 } else { -1.0 };
         sign * ops::sqrt(self.radius.squared() - self.half_chord_length().squared())
@@ -846,11 +846,11 @@ impl Ellipse {
         }
     }
 
-    #[inline]
     /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
     /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
     ///
     /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
+    #[inline]
     pub fn eccentricity(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
@@ -858,10 +858,10 @@ impl Ellipse {
         ops::sqrt(a * a - b * b) / a
     }
 
-    #[inline]
     /// Get the focal length of the ellipse. This corresponds to the distance between one of the foci and the center of the ellipse.
     ///
     /// The focal length of an ellipse is related to its eccentricity by `eccentricity = focal_length / semi_major`
+    #[inline]
     pub fn focal_length(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
@@ -889,10 +889,10 @@ impl Measured2d for Ellipse {
         PI * self.half_size.x * self.half_size.y
     }
 
-    #[inline]
     /// Get an approximation for the perimeter or circumference of the ellipse.
     ///
     /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
+    #[inline]
     fn perimeter(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
