@@ -3125,8 +3125,8 @@ impl BorderRadius {
     }
 
     /// Sets the radii for the top left and top right corners.
-    #[inline]
     /// Remaining corners will be right-angled.
+    #[inline]
     pub fn top(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
@@ -3136,9 +3136,9 @@ impl BorderRadius {
         }
     }
 
-    #[inline]
     /// Sets the radii for the bottom left and bottom right corners.
     /// Remaining corners will be right-angled.
+    #[inline]
     pub fn bottom(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
