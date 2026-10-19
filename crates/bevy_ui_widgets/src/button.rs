@@ -15,7 +15,7 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_picking::{
     events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::PointerButton,
+    pointer::PointerButtonFlag,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed};
@@ -26,7 +26,11 @@ use crate::Activate;
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
 #[derive(Component, Default, Debug, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::Button)), Focusable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::Button)),
+    Focusable,
+    PointerButtonFlag
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Button;
@@ -66,9 +70,12 @@ fn button_on_pointer_click(
         (Has<Pressed>, Has<InteractionDisabled>, Has<ActivateOnPress>),
         With<Button>,
     >,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if click.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(click.entity)
+        && !button_flag.allows(click.button)
+    {
         return;
     }
     if let Ok((pressed, disabled, activate_on_press)) = q_state.get_mut(click.entity) {
@@ -92,9 +99,12 @@ fn button_on_pointer_down(
         ),
         With<Button>,
     >,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if press.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(press.entity)
+        && !button_flag.allows(press.button)
+    {
         return;
     }
     if let Ok((button, disabled, pressed, activate_on_press)) = q_state.get_mut(press.entity) {
@@ -111,9 +121,12 @@ fn button_on_pointer_down(
 fn button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if release.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(release.entity)
+        && !button_flag.allows(release.button)
+    {
         return;
     }
     if let Ok((button, disabled, pressed)) = q_state.get_mut(release.entity) {

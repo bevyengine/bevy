@@ -54,7 +54,7 @@ use bevy_input_focus::{
 use bevy_log::warn;
 use bevy_picking::{
     events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::PointerButton,
+    pointer::PointerButtonFlag,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
@@ -133,7 +133,11 @@ pub struct MenuPopup {
 
 /// Component that defines a menu item.
 #[derive(Component, Debug, Clone, Default)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)), Focusable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::MenuItem)),
+    Focusable,
+    PointerButtonFlag
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct MenuItem;
@@ -342,9 +346,12 @@ fn menu_on_key_event(
 fn menu_item_on_pointer_click(
     mut ev: On<PointerClick>,
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if ev.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(ev.entity)
+        && !button_flag.allows(ev.button)
+    {
         return;
     }
     if let Ok((pressed, disabled)) = q_state.get_mut(ev.entity) {
@@ -369,9 +376,12 @@ fn menu_item_on_pointer_click(
 fn menu_item_on_pointer_down(
     mut ev: On<PointerPress>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if ev.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(ev.entity)
+        && !button_flag.allows(ev.button)
+    {
         return;
     }
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
@@ -385,9 +395,12 @@ fn menu_item_on_pointer_down(
 fn menu_item_on_pointer_up(
     mut ev: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if ev.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(ev.entity)
+        && !button_flag.allows(ev.button)
+    {
         return;
     }
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {

@@ -24,7 +24,7 @@ use bevy_picking::{
         PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
     },
     hover::PointerCaptureMap,
-    pointer::PointerButton,
+    pointer::PointerButtonFlag,
 };
 
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -112,7 +112,8 @@ pub enum TrackClick {
     SliderValue,
     SliderRange,
     SliderStep,
-    Focusable
+    Focusable,
+    PointerButtonFlag
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -282,10 +283,13 @@ pub(crate) fn slider_on_pointer_down(
     )>,
     q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if press.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(press.entity)
+        && !button_flag.allows(press.button)
+    {
         return;
     }
     if q_thumb.contains(press.entity) {
@@ -391,9 +395,12 @@ pub(crate) fn slider_on_drag_start(
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut capture_map: ResMut<PointerCaptureMap>,
 ) {
-    if drag_start.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(drag_start.entity)
+        && !button_flag.allows(drag_start.button)
+    {
         return;
     }
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
@@ -568,9 +575,12 @@ fn emit_slider_drag_value_change(
 fn slider_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if release.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(release.entity)
+        && !button_flag.allows(release.button)
+    {
         return;
     }
     if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {

@@ -15,7 +15,7 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_picking::{
     events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::PointerButton,
+    pointer::PointerButtonFlag,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
@@ -61,7 +61,11 @@ pub struct RadioGroup;
 /// If the [`RadioButton`] is focusable, it can also be checked using the `Enter` or `Space` keys,
 /// in which case the event will likewise be emitted.
 #[derive(Component, Debug, Clone, Default)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::RadioButton)),
+    Checkable,
+    PointerButtonFlag
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct RadioButton;
@@ -208,9 +212,12 @@ fn radio_button_on_click(
         (With<RadioButton>, Without<ActivateOnPress>),
     >,
     q_parents: Query<&ChildOf>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if click.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(click.entity)
+        && !button_flag.allows(click.button)
+    {
         return;
     }
     let Ok((disabled, checked)) = q_radio.get(click.entity) else {
@@ -247,9 +254,12 @@ fn radio_button_on_pointer_down(
         With<RadioButton>,
     >,
     q_parents: Query<&ChildOf>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if press.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(press.entity)
+        && !button_flag.allows(press.button)
+    {
         return;
     }
     if let Ok((radio, disabled, checked, pressed, activate_on_press)) =
@@ -273,9 +283,12 @@ fn radio_button_on_pointer_down(
 fn radio_button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
+    q_button_flag: Query<&PointerButtonFlag>,
     mut commands: Commands,
 ) {
-    if release.button != PointerButton::Primary {
+    if let Ok(button_flag) = q_button_flag.get(release.entity)
+        && !button_flag.allows(release.button)
+    {
         return;
     }
     if let Ok((radio, disabled, pressed)) = q_radio.get_mut(release.entity) {
