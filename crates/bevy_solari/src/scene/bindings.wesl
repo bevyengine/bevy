@@ -277,6 +277,13 @@ fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> ar
     );
 }
 
+fn normalize_or_zero(v: vec3<f32>) -> vec3<f32> {
+    if any(v != vec3(0.0)) {
+        return normalize(v);
+    }
+    return v;
+}
+
 fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
@@ -302,15 +309,25 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let determinant = dot(transform_3x3[0], cofactor[0]);
     let determinant_sign = select(sign(determinant), 1.0, determinant == 0.0);
 
-    let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
-    let world_tangent = vec4(normalize(transform_3x3 * local_tangent), vertices[0].tangent.w * determinant_sign);
+    // Normalize per vertex before interpolating, as the raster vertex shader does.
+    let world_tangents = mat3x3(
+        normalize_or_zero(transform_3x3 * vertices[0].tangent.xyz),
+        normalize_or_zero(transform_3x3 * vertices[1].tangent.xyz),
+        normalize_or_zero(transform_3x3 * vertices[2].tangent.xyz),
+    );
+    let world_tangent = vec4(world_tangents * barycentrics, vertices[0].tangent.w * determinant_sign);
 
-    let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
-    var world_normal = normalize(determinant_sign * (cofactor * local_normal));
+    let world_normals = mat3x3(
+        normalize_or_zero(determinant_sign * (cofactor * vertices[0].normal)),
+        normalize_or_zero(determinant_sign * (cofactor * vertices[1].normal)),
+        normalize_or_zero(determinant_sign * (cofactor * vertices[2].normal)),
+    );
+    let interpolated_world_normal = world_normals * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
+    var world_normal = normalize(interpolated_world_normal);
 
     let geometric_world_normal = world_normal;
     if material.normal_map_texture_id != TEXTURE_MAP_NONE {
-        let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
+        let TBN = calculate_tbn_mikktspace(interpolated_world_normal, world_tangent);
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
