@@ -173,6 +173,13 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
         self.0.clear();
     }
 
+    /// Get the given key’s corresponding entry in the map for insertion and/or in-place manipulation.
+    ///
+    /// Equivalent to [`IndexMap::entry`].
+    pub fn entry(&mut self, key: K) -> Entry<'_, K, V> {
+        self.0.entry(key)
+    }
+
     /// Creates an iterator which uses a closure to determine if an element should be removed,
     /// for all elements in the given range.
     ///
@@ -183,6 +190,84 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
         R: RangeBounds<usize>,
     {
         self.0.extract_if(range, pred)
+    }
+
+    /// Get the first entry in the map for in-place manipulation.
+    ///
+    /// Equivalent to [`IndexMap::first_entry`].
+    pub fn first_entry(&mut self) -> Option<map::IndexedEntry<'_, K, V>> {
+        self.0.first_entry()
+    }
+
+    /// Get the first key-value pair, with mutable access to the value
+    ///
+    /// Equivalent to [`IndexMap::first_mut`].
+    pub fn first_mut(&mut self) -> Option<(&K, &mut V)> {
+        self.0.first_mut()
+    }
+
+    /// Get an array of `N` key-value pairs by `N` indices
+    ///
+    /// Equivalent to [`IndexMap::get_disjoint_indices_mut`].
+    pub fn get_disjoint_indices_mut<const N: usize>(
+        &mut self,
+        indices: [usize; N],
+    ) -> Result<[(&K, &mut V); N], indexmap::GetDisjointMutError> {
+        self.0.get_disjoint_indices_mut(indices)
+    }
+
+    /// Return the values for `N` keys.
+    ///
+    /// Equivalent to [`IndexMap::get_disjoint_mut`].
+    pub fn get_disjoint_mut<Q, const N: usize>(&mut self, keys: [&Q; N]) -> [Option<&mut V>; N]
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.get_disjoint_mut(keys)
+    }
+
+    /// Return the index with a reference and mutable reference to the stored key-value pair for the lookup `key`, if it is present, else `None`.
+    ///
+    /// Equivalent to [`IndexMap::get_full_mut`].
+    pub fn get_full_mut<Q>(&mut self, key: &Q) -> Option<(usize, &K, &mut V)>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.get_full_mut(key)
+    }
+
+    /// Get an entry in the map by index for in-place manipulation.
+    ///
+    /// Equivalent to [`IndexMap::get_index_entry`].
+    pub fn get_index_entry(&mut self, index: usize) -> Option<map::IndexedEntry<'_, K, V>> {
+        self.0.get_index_entry(index)
+    }
+
+    /// Get a key-value pair by index
+    ///
+    /// Equivalent to [`IndexMap::get_index_mut`].
+    pub fn get_index_mut(&mut self, index: usize) -> Option<(&K, &mut V)> {
+        self.0.get_index_mut(index)
+    }
+
+    /// Return a reference and mutable references to the stored key-value pair for the lookup `key`, if it is present, else `None`.
+    ///
+    /// Equivalent to [`IndexMap::get_key_value_mut`].
+    pub fn get_key_value_mut<Q>(&mut self, key: &Q) -> Option<(&K, &mut V)>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.get_key_value_mut(key)
+    }
+
+    /// Return a mutable reference to the stored value for `key`, if it is present, else `None`.
+    ///
+    /// Equivalent to [`IndexMap::get_mut`].
+    pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        Q: ?Sized + Hash + indexmap::Equivalent<K>,
+    {
+        self.0.get_mut(key)
     }
 
     /// Insert a key-value pair in the map.
@@ -240,6 +325,20 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
         F: FnMut(&K, &V) -> B,
     {
         self.0.insert_sorted_by_key(key, value, sort_key)
+    }
+
+    /// Get the last entry in the map for in-place manipulation.
+    ///
+    /// Equivalent to [`IndexMap::last_entry`].
+    pub fn last_entry(&mut self) -> Option<map::IndexedEntry<'_, K, V>> {
+        self.0.last_entry()
+    }
+
+    /// Get the last key-value pair, with mutable access to the value
+    ///
+    /// Equivalent to [`IndexMap::last_mut`].
+    pub fn last_mut(&mut self) -> Option<(&K, &mut V)> {
+        self.0.last_mut()
     }
 
     /// Moves the position of a key-value pair from one index to another by shifting all other pairs in-between.
@@ -482,12 +581,19 @@ impl<K: EntityEquivalent + Hash, V> EntityEquivalentIndexMap<K, V> {
 
     /// Try to reserve capacity for `additional` more key-value pairs, without over-allocating.
     ///
-    /// Equivalent to [`IndexMap::try_reserve`].
+    /// Equivalent to [`IndexMap::try_reserve_exact`].
     pub fn try_reserve_exact(
         &mut self,
         additional: usize,
     ) -> Result<(), indexmap::TryReserveError> {
         self.0.try_reserve_exact(additional)
+    }
+
+    /// Return an iterator over mutable references to the values of the map, in their order
+    ///
+    /// Equivalent to [`IndexMap::values_mut`].
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
+        self.0.values_mut()
     }
 }
 
