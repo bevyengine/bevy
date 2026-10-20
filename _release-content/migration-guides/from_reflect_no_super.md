@@ -9,4 +9,4 @@ means trait bounds that used to only require `T: FromReflect` may *also* need to
 
 In many cases however, this additional trait bound is **not** needed. Check if you actually depend
 on any `Reflect` methods, and consider tightening trait bounds where possible (e.g., only add a
-`PartialReflect` bound if you only use `PartialReflect` methods).
+`PartialReflect` bound if you actually use `PartialReflect` methods).
