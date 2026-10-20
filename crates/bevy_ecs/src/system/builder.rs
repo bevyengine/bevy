@@ -460,6 +460,15 @@ where
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
+
+    #[inline]
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized { system, .. } => system.configure(config),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::Invalid => unreachable!(),
+        }
+    }
 }
 
 // SAFETY: if the wrapped system is read-only, so is this one

@@ -2269,6 +2269,12 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
             T::queue(state, system_meta, world.reborrow());
         }
     }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        for state in state {
+            T::configure(state, meta, config);
+        }
+    }
 }
 
 macro_rules! impl_system_param_tuple {
@@ -2801,6 +2807,9 @@ trait DynParamState: Sync + Send + Any {
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
+    /// Configures the inner [`SystemParam`] with the given config token.
+    fn configure(&mut self, system_meta: &mut SystemMeta, config: &mut dyn Any);
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     #[expect(
         clippy::result_large_err,
@@ -2834,6 +2843,10 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
 
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(&mut self.0, system_meta, world);
+    }
+
+    fn configure(&mut self, system_meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(&mut self.0, system_meta, config);
     }
 
     fn init_access(
@@ -2900,6 +2913,10 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.0.queue(system_meta, world);
+    }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        state.0.configure(meta, config);
     }
 }
 
@@ -3684,6 +3701,49 @@ mod tests {
 
         system.configure(&mut SetValue(7));
         assert_eq!(system.run((), &mut world).unwrap(), vec![7; 8]);
+    }
+
+    #[test]
+    fn configure_reaches_built_params() {
+        use crate::system::{DynParamBuilder, ParamBuilder, SystemParamBuilder};
+
+        fn collection_system(
+            vec: Vec<Configured>,
+            small_vec: SmallVec<[Configured; 2]>,
+        ) -> Vec<usize> {
+            vec.iter()
+                .chain(small_vec.iter())
+                .map(|param| param.0)
+                .collect()
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(
+            (
+                vec![ParamBuilder, ParamBuilder],
+                SmallVec::<[_; 2]>::from_iter([ParamBuilder, ParamBuilder]),
+            )
+                .build_system(collection_system),
+        );
+
+        // The `BuilderSystem` has no state to configure until it is initialized.
+        system.configure(&mut SetValue(1));
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), vec![0; 4]);
+
+        system.configure(&mut SetValue(7));
+        assert_eq!(system.run((), &mut world).unwrap(), vec![7; 4]);
+
+        let mut system = IntoSystem::into_system(
+            (DynParamBuilder::new::<Configured>(ParamBuilder),)
+                .build_state(&mut world)
+                .build_system(|mut param: DynSystemParam| {
+                    param.downcast_mut::<Configured>().unwrap().0
+                }),
+        );
+        system.initialize(&mut world);
+        system.configure(&mut SetValue(7));
+        assert_eq!(system.run((), &mut world).unwrap(), 7);
     }
 
     #[test]
