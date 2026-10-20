@@ -1,7 +1,7 @@
 use bevy_app::Propagate;
 use bevy_ecs::hierarchy::Children;
 use bevy_scene::{bsn, Scene};
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, AlignSelf, Display, FlexDirection, JustifyContent, Node, PositionType, UiRect,
 };
@@ -51,7 +51,7 @@ pub fn pane_header() -> impl Scene {
         InheritableThemeTextColor(tokens::PANE_HEADER_TEXT)
         Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Base))
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }

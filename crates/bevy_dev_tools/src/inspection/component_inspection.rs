@@ -24,19 +24,38 @@ use crate::inspection::{
 ///
 /// Pair this with [`ComponentTypeMetadata`] for full type information.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentInspection {
     /// The entity that owns the component.
     pub entity: Entity,
     /// The [`ComponentId`] of the component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::component_id")
+    )]
     pub component_id: ComponentId,
     /// The type name of the component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::debug_name")
+    )]
     pub name: DebugName,
+    /// The type path of the component, if it is reflected and registered.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub type_path: Option<String>,
     /// The shallow size of the component in memory, excluding heap allocations.
     pub memory_size: MemorySize,
     /// The value of the component as a string, gathered via reflection.
     pub value: Option<String>,
     /// The reflected value of the component.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub reflected_value: Option<Box<dyn PartialReflect>>,
+    /// The value of the component as structured JSON, gathered via reflection.
+    #[cfg(feature = "serialize")]
+    pub serialized_value: Option<serde_json::Value>,
 }
 
 impl Clone for ComponentInspection {
@@ -50,9 +69,12 @@ impl Clone for ComponentInspection {
             entity: self.entity,
             component_id: self.component_id,
             name: self.name.clone(),
+            type_path: self.type_path.clone(),
             memory_size: self.memory_size,
             value: self.value.clone(),
             reflected_value,
+            #[cfg(feature = "serialize")]
+            serialized_value: self.serialized_value.clone(),
         }
     }
 }
@@ -72,13 +94,29 @@ impl Display for ComponentInspection {
 ///
 /// For the value of a component on an entity, see [`ComponentInspection`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentTypeMetadata {
     /// The [`ComponentId`] of the component type.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::component_id")
+    )]
     pub component_id: ComponentId,
     /// The type name of the component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::debug_name")
+    )]
     pub name: DebugName,
     /// The [`TypeId`] of the component type, or `None` for dynamic types.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_id: Option<TypeId>,
+    /// The type path of the component type, if it is reflected and registered.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub type_path: Option<String>,
     /// The minimum size in bytes of the component type, computed via [`core::alloc::Layout`].
     pub memory_size: MemorySize,
     /// The label definition priority of the component type, if it defines labels.
@@ -86,12 +124,21 @@ pub struct ComponentTypeMetadata {
     /// Whether the component type is mutable while in the ECS.
     pub mutable: bool,
     /// The storage type of this component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::storage_type")
+    )]
     pub storage_type: StorageType,
     /// Whether the underlying component type can freely be shared across threads.
     pub is_send_and_sync: bool,
     /// The components that are automatically added alongside this component.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(with = "crate::inspection::serde_conversions::slice_component_id")
+    )]
     pub required_components: Vec<ComponentId>,
     /// The registered type information of the component, if it is reflected and registered.
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_registration: Option<TypeRegistration>,
 }
 
@@ -116,10 +163,15 @@ impl ComponentTypeMetadata {
                 .and_then(|registry| registry.get_priority_by_type_id(type_id))
         });
 
+        let type_path = type_registration
+            .as_ref()
+            .map(|registration| registration.type_info().type_path().to_string());
+
         Ok(Self {
             component_id,
             name: component_info.name(),
             type_id,
+            type_path,
             memory_size: MemorySize::new(component_info.layout().size()),
             label_definition_priority,
             mutable: component_info.mutable(),
@@ -146,6 +198,7 @@ impl Display for ComponentTypeMetadata {
 
 /// The result of inspecting a component type, rather than a component on an entity.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentTypeInspection {
     /// The number of entities that have a component of this type.
     pub entity_count: usize,
@@ -165,8 +218,15 @@ impl Display for ComponentTypeInspection {
 
 /// A cache of component type metadata, keyed by [`ComponentId`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentMetadataMap {
     /// The cached metadata.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            with = "crate::inspection::serde_conversions::hash_map_component_id_component_type_metadata"
+        )
+    )]
     pub map: HashMap<ComponentId, ComponentTypeMetadata>,
 }
 
@@ -252,13 +312,26 @@ impl FromWorld for ComponentMetadataMap {
 
 /// An error that can occur when attempting to inspect a component.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum ComponentInspectionError {
     /// The component was not found on the entity.
-    ComponentNotFound(ComponentId),
+    ComponentNotFound(
+        #[cfg_attr(
+            feature = "serialize",
+            serde(with = "crate::inspection::serde_conversions::component_id")
+        )]
+        ComponentId,
+    ),
     /// The component type was not registered in the world.
     ComponentNotRegistered(&'static str),
     /// The component ID provided was not registered in the world.
-    ComponentIdNotRegistered(ComponentId),
+    ComponentIdNotRegistered(
+        #[cfg_attr(
+            feature = "serialize",
+            serde(with = "crate::inspection::serde_conversions::component_id")
+        )]
+        ComponentId,
+    ),
 }
 
 impl Display for ComponentInspectionError {
@@ -282,6 +355,7 @@ impl core::error::Error for ComponentInspectionError {}
 /// Settings for inspecting a component.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct ComponentInspectionSettings {
     /// How much detail to include when inspecting component values.
     pub detail_level: ComponentDetailLevel,
@@ -290,6 +364,9 @@ pub struct ComponentInspectionSettings {
     pub full_type_names: bool,
     /// Whether the reflected value should be stored in [`ComponentInspection`].
     pub store_reflected_value: bool,
+    /// Whether the structured JSON value should be stored in [`ComponentInspection`].
+    #[cfg(feature = "serialize")]
+    pub include_serialized_value: bool,
 }
 
 impl Default for ComponentInspectionSettings {
@@ -298,6 +375,8 @@ impl Default for ComponentInspectionSettings {
             detail_level: ComponentDetailLevel::Values,
             full_type_names: true,
             store_reflected_value: false,
+            #[cfg(feature = "serialize")]
+            include_serialized_value: false,
         }
     }
 }
@@ -318,7 +397,7 @@ mod tests {
     use super::*;
     use crate::inspection::extension_methods::WorldInspectionExtensionTrait;
     use bevy_ecs::{component::Component, reflect::ReflectComponent};
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{Reflect, TypePath};
 
     #[derive(Component, Reflect, Debug, PartialEq)]
     #[reflect(Component)]
@@ -457,6 +536,83 @@ mod tests {
             result.unwrap_err(),
             ComponentInspectionError::ComponentIdNotRegistered(component_id)
         );
+    }
+
+    #[derive(Component)]
+    #[expect(dead_code, reason = "only its component id is used")]
+    struct Plain(u32);
+
+    #[test]
+    fn type_path_is_reported_for_reflected_components() {
+        let mut world = test_world();
+        let entity = world.spawn(Health(7)).id();
+        let component_id = world.components().valid_component_id::<Health>().unwrap();
+        let expected = Some(Health::type_path().to_string());
+
+        let metadata = ComponentTypeMetadata::new(&world, component_id).unwrap();
+        assert_eq!(metadata.type_path, expected);
+
+        let inspection = world
+            .inspect_component_by_id(
+                component_id,
+                entity,
+                &metadata,
+                ComponentInspectionSettings::default(),
+            )
+            .unwrap();
+        assert_eq!(inspection.type_path, expected);
+    }
+
+    #[test]
+    fn type_path_is_absent_for_unreflected_components() {
+        let mut world = test_world();
+        let entity = world.spawn(Plain(1)).id();
+        let component_id = world.components().valid_component_id::<Plain>().unwrap();
+
+        let metadata = ComponentTypeMetadata::new(&world, component_id).unwrap();
+        assert_eq!(metadata.type_path, None);
+
+        let inspection = world
+            .inspect_component_by_id(
+                component_id,
+                entity,
+                &metadata,
+                ComponentInspectionSettings::default(),
+            )
+            .unwrap();
+        assert_eq!(inspection.type_path, None);
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn type_path_serialization() {
+        let mut world = test_world();
+        let health = world.spawn(Health(7)).id();
+        let plain = world.spawn(Plain(1)).id();
+        let health_id = world.components().valid_component_id::<Health>().unwrap();
+        let plain_id = world.components().valid_component_id::<Plain>().unwrap();
+
+        for (entity, id, expected) in [
+            (health, health_id, Some(Health::type_path())),
+            (plain, plain_id, None),
+        ] {
+            let metadata = ComponentTypeMetadata::new(&world, id).unwrap();
+            let inspection = world
+                .inspect_component_by_id(
+                    id,
+                    entity,
+                    &metadata,
+                    ComponentInspectionSettings::default(),
+                )
+                .unwrap();
+
+            for json in [
+                serde_json::to_value(&metadata).unwrap(),
+                serde_json::to_value(&inspection).unwrap(),
+            ] {
+                assert_eq!(json.get("type_path").and_then(|v| v.as_str()), expected);
+            }
+        }
     }
 
     #[test]

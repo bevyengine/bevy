@@ -31,7 +31,7 @@ use winit::{
 };
 
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
+    AppLifecycle, CursorEntered, CursorLeft, FileDragAndDrop, Ime, RawCursorMoved, RequestRedraw,
     Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
@@ -301,27 +301,15 @@ impl ApplicationHandler<WinitUserEvent> for WinitAppRunnerState {
                         }
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(position.x, position.y);
-
-                        let last_position = win.physical_cursor_position();
-                        let delta = last_position.map(|last_pos| {
-                            (physical_position.as_vec2() - last_pos) / win.resolution.scale_factor()
-                        });
-
-                        win.set_physical_cursor_position(Some(physical_position));
-                        let position =
-                            (physical_position / win.resolution.scale_factor() as f64).as_vec2();
-                        self.bevy_window_events.send(CursorMoved {
+                        self.bevy_window_events.send(RawCursorMoved {
                             window,
-                            position,
-                            delta,
+                            physical_position: DVec2::new(position.x, position.y),
                         });
                     }
                     WindowEvent::CursorEntered { .. } => {
                         self.bevy_window_events.send(CursorEntered { window });
                     }
                     WindowEvent::CursorLeft { .. } => {
-                        win.set_physical_cursor_position(None);
                         self.bevy_window_events.send(CursorLeft { window });
                     }
                     WindowEvent::MouseInput { state, button, .. } => {

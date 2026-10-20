@@ -1,6 +1,6 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::any::TypeId;
 use std::sync::Mutex;
 
@@ -1754,7 +1754,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info, components);
+            let (id, schema) = export_type(type_reg, extra_info, components, &types);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1776,7 +1776,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
             }
             Some((id.to_string(), schema))
         })
-        .collect::<HashMap<String, JsonSchemaBevyType>>();
+        .collect::<BTreeMap<String, JsonSchemaBevyType>>();
 
     serde_json::to_value(schemas).map_err(BrpError::internal)
 }
@@ -2207,7 +2207,7 @@ mod tests {
         cache_schedule_build_metadata,
         schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
     };
-    use bevy_dev_tools::schedule_data::serde::ScheduleIndex;
+    use bevy_dev_tools::schedule_data::serde::{DependencyData, ScheduleIndex};
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -2426,6 +2426,43 @@ mod tests {
     }
 
     #[test]
+    fn export_registry_types_is_deterministic() {
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+        struct First {
+            z: u8,
+            y: u8,
+            x: u8,
+            w: u8,
+            v: u8,
+        }
+
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+        struct Second(u8);
+
+        fn export(register: impl FnOnce(&mut TypeRegistry)) -> String {
+            let atr = AppTypeRegistry::default();
+            register(&mut atr.write());
+            let mut world = World::new();
+            world.init_resource::<crate::schemas::SchemaTypesMetadata>();
+            world.insert_resource(atr);
+            let result = export_registry_types(In(None), &world).expect("Failed to export");
+            serde_json::to_string(&result).expect("Failed to serialize")
+        }
+
+        let one = export(|registry| {
+            registry.register::<First>();
+            registry.register::<Second>();
+        });
+        let two = export(|registry| {
+            registry.register::<Second>();
+            registry.register::<First>();
+        });
+        assert_eq!(one, two);
+    }
+
+    #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
@@ -2632,19 +2669,23 @@ mod tests {
         let f1_index = system_index(&response, "f1").unwrap();
         let f2_index = system_index(&response, "f2").unwrap();
         let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
+        let strict = DependencyData::from_is_strict(true);
+        let build_pass = DependencyData::from_build_pass();
         assert_eq!(response.schedule_data.dependency.len(), 3);
         assert!(response
             .schedule_data
             .dependency
-            .contains(&(f1_index, f2_index)));
-        assert!(response
-            .schedule_data
-            .dependency
-            .contains(&(f1_index, apply_deferred_index)));
-        assert!(response
-            .schedule_data
-            .dependency
-            .contains(&(apply_deferred_index, f2_index)));
+            .contains(&(f1_index, f2_index, strict)));
+        assert!(response.schedule_data.dependency.contains(&(
+            f1_index,
+            apply_deferred_index,
+            build_pass
+        )));
+        assert!(response.schedule_data.dependency.contains(&(
+            apply_deferred_index,
+            f2_index,
+            build_pass
+        )));
     }
 
     #[test]

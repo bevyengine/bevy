@@ -821,6 +821,12 @@ impl<'w> UnsafeEntityCell<'w> {
         self.entity
     }
 
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(self) -> WorldId {
+        self.world.id()
+    }
+
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(self) -> EntityLocation {
