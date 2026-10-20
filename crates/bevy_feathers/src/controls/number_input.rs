@@ -183,7 +183,7 @@ impl FeathersNumberInput {
                             Children [
                                 Text(text)
                                 TextFont {
-                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font: FontSourceTemplate::Families(fonts::SANS),
                                     font_size: size::COMPACT_FONT,
                                 }
                                 PropagateOver<TextFont>
@@ -260,7 +260,7 @@ impl FeathersNumberInput {
                                     left: px(INTERIOR_LABEL_INSET),
                                 }
                                 TextFont {
-                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font: FontSourceTemplate::Families(fonts::SANS),
                                     font_size: size::COMPACT_FONT,
                                 }
                                 ThemedText

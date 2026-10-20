@@ -122,7 +122,7 @@
 //! | `KHR_texture_basisu`              | ❌\*      |                                     |
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
-//! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
+//! | `EXT_mesh_gpu_instancing`         | ✅        |                                     |
 //! | `EXT_meshopt_compression`         | ✅        | `meshopt`                           |
 //! | `EXT_texture_webp`                | ❌\*      |                                     |
 //!

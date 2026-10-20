@@ -24,7 +24,7 @@ use bevy_feathers::{
 use bevy_log::warn;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, on, Scene};
-use bevy_text::{EditableText, FontWeight, TextEdit};
+use bevy_text::{EditableText, FontSourceTemplate, FontWeight, TextEdit};
 use bevy_ui::{px, widget::Text, AlignItems, FlexDirection, Node};
 use bevy_ui_widgets::Activate;
 
@@ -58,7 +58,7 @@ pub fn connection_panel() -> impl Scene {
             column_gap: px(8),
         }
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
