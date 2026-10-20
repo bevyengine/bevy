@@ -3,13 +3,11 @@ use bevy_derive::DerefMut;
 use bevy_ecs::define_label;
 use bevy_ecs::intern::Interned;
 use bevy_ecs::resource::Resource;
-use bevy_render::extract_resource::ExtractResource;
-use bevy_render::RenderApp;
 pub use bevy_ui_render_macros::UiSubZLayer;
 
 define_label!(UiSubZLayer);
 
-/// Sub layers used by Bevy UI's builtin renderable elements
+/// Sub Z layers used by Bevy UI's builtin renderable elements
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, UiSubZLayer)]
 pub enum UiSubZLayers {
     BoxShadow,
@@ -26,8 +24,11 @@ pub enum UiSubZLayers {
     InlineImage,
 }
 
-#[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
-#[extract_app(RenderApp)]
+/// List of the local Z layers for node.
+/// UI elements are drawn in the order of this list, back-to-front.
+/// If the label for a builtin renderable element from `UiSubZlayers` isn't present, that
+/// element won't be drawn.
+#[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct UiSubZLayerList(pub Vec<Interned<dyn UiSubZLayer>>);
 
 impl Default for UiSubZLayerList {
@@ -50,6 +51,9 @@ impl Default for UiSubZLayerList {
 }
 
 impl UiSubZLayerList {
+    /// Get the z-offset for a layer.
+    /// Returned offsets are between 0. (back) and 1. (front).
+    /// Returns an error if the layer label isn't present in the list.
     pub fn get_offset(&self, layer: impl UiSubZLayer) -> Result<f32, UiSubZLayerError> {
         let layer = layer.intern();
         self.iter()
@@ -58,6 +62,8 @@ impl UiSubZLayerList {
             .ok_or(UiSubZLayerError::NoSuchLayer)
     }
 
+    /// Insert a new layer immediately before the given layer.
+    /// Returns an error if the before label isn't present in the list.
     pub fn insert_before(
         &mut self,
         before: impl UiSubZLayer,
@@ -73,6 +79,8 @@ impl UiSubZLayerList {
         Ok(())
     }
 
+    /// Insert a new layer immediately after the given layer.
+    /// Returns an error if the after label isn't present in the list.
     pub fn insert_after(
         &mut self,
         after: impl UiSubZLayer,
