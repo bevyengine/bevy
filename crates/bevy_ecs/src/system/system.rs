@@ -92,7 +92,15 @@ pub trait System: Send + Sync + 'static {
     ) -> Result<Self::Out, RunSystemError>;
 
     /// Refresh the inner pointer based on the latest hot patch jump table
-    #[cfg(feature = "hotpatching")]
+    ///
+    /// This method will not be called and will do nothing
+    /// unless the `hotpatching` feature is enabled,
+    /// but it exists unconditionally so that implementations of
+    /// `System` do not need conditional compilation.
+    ///
+    /// Implementations that wrap other `System`s should call the
+    /// inner system's `refresh_hotpatch()`,
+    /// and other implementations may leave this empty.
     fn refresh_hotpatch(&mut self);
 
     /// Runs the system with the given input in the world.
