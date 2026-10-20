@@ -48,18 +48,18 @@ impl BitsetChunk {
     }
 
     #[inline(always)]
-    pub fn set(&self, row: TableRow) {
+    pub fn set(&self, row: TableRow) -> bool {
         let mask = 1 << BitsetChunk::index_in_chunk_for(row);
 
         #[cfg(feature = "multi_threaded")]
-        {
-            self.chunk.fetch_or(mask, Ordering::Relaxed);
-        }
+        let old = self.chunk.fetch_or(mask, Ordering::Relaxed);
 
         #[cfg(not(feature = "multi_threaded"))]
-        {
-            self.chunk.set(self.chunk.get() | mask)
-        }
+        let old = self.chunk.get();
+        #[cfg(not(feature = "multi_threaded"))]
+        self.chunk.set(self.chunk.get() | mask);
+
+        (old & mask) != 0
     }
 
     #[inline(always)]
@@ -145,14 +145,14 @@ impl BitsetStorage {
         bits.get(row)
     }
 
-    /// Sets the bit for the row `row` in the table `table` is set.
+    /// Sets the bit for the row `row` in the table `table`. Returns whether the bit was set before.
     ///
     /// # Safety
     ///
     /// `table` and `row` must be in bounds for this bitset storage.
-    pub unsafe fn set_unchecked(&self, table: TableId, row: TableRow) {
+    pub unsafe fn set_unchecked(&self, table: TableId, row: TableRow) -> bool {
         // SAFETY: The caller guarantees table and row are in bounds.
         let bits = unsafe { self.get_bits_unchecked(table, row) };
-        bits.set(row);
+        bits.set(row)
     }
 }

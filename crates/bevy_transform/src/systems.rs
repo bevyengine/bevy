@@ -1,3 +1,8 @@
+#![expect(
+    unsafe_code,
+    reason = "Transform propagation is very performance sensitive and unsafe code is needed to skip bound checks and access components in parallel"
+)]
+
 use core::cell::RefMut;
 
 use crate::{
@@ -174,8 +179,7 @@ pub struct PropagateTransformsParams<'w, 's> {
         ),
     >,
 
-    is_maybe_source: Local<'s, BitsetStorage>,
-    is_not_source: Local<'s, BitsetStorage>,
+    source_markers: SourceMarkers<'s>,
     propagation_candidates: Local<'s, Vec<Entity>>,
     propagation_sources: Local<'s, PropagationSources>,
 }
@@ -190,8 +194,7 @@ pub fn propagate_transforms(params: PropagateTransformsParams) {
     let PropagateTransformsParams {
         static_optimizations,
         mut shared_params,
-        mut is_maybe_source,
-        mut is_not_source,
+        mut source_markers,
         mut propagation_candidates,
         mut propagation_sources,
     } = params;
@@ -199,8 +202,7 @@ pub fn propagate_transforms(params: PropagateTransformsParams) {
     if static_optimizations.is_enabled() {
         mark_dirty_subtrees(
             shared_params.p0(),
-            &mut is_maybe_source,
-            &mut is_not_source,
+            &mut source_markers,
             &mut propagation_candidates,
             &mut propagation_sources,
         );
@@ -244,8 +246,7 @@ pub fn propagate_transforms(params: PropagateTransformsParams) {
 
     propagate_transform_dirty_subtrees(
         shared_params.p2(),
-        &is_maybe_source,
-        &is_not_source,
+        &source_markers,
         *static_optimizations,
         &mut propagation_sources,
     );
@@ -269,17 +270,67 @@ struct MarkDirtySubtreesParams<'w, 's> {
     param_set: ParamSet<'w, 's, TransformQueries<'static, 'static>>,
 }
 
-struct MarkDirtySubtreesTaskRunner<'w, 's, 'b, 'p> {
+struct MarkDirtySubtreesTaskRunner<'w, 's, 'p> {
     tables: Query<'w, 's, TablesQueryData, BaseQueryFilter>,
     parents: Query<'w, 's, &'static ChildOf, BaseQueryFilter>,
     transforms: TransformsQuery<'w, 's>,
 
-    is_maybe_source: &'b BitsetStorage,
-    is_not_source: &'b BitsetStorage,
+    source_markers: &'p SourceMarkers<'s>,
     propagation_sources: &'p PropagationSources,
 }
 
-impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
+#[derive(SystemParam)]
+struct SourceMarkers<'s> {
+    // Note: it might be tempting to make one of these a "seen" bitset, however it would be incorrect in
+    // multithreaded contexts due to using `Relaxed` ordering, because a reader could observe a bit set in `seen`
+    // but not in `is_maybe_source` (or the other bitset) even if the writer first wrote to that bitset and then to `seen`.
+    is_maybe_source: Local<'s, BitsetStorage>,
+    is_not_source: Local<'s, BitsetStorage>,
+}
+
+impl SourceMarkers<'_> {
+    fn reset_table(&mut self, table: TableId, len: usize) {
+        self.is_maybe_source.reset_table(table, len);
+        self.is_not_source.reset_table(table, len);
+    }
+
+    /// # Safety
+    ///
+    /// `table` and `row` must be in bounds for this bitset storage.
+    unsafe fn get_unchecked(&self, table: TableId, row: TableRow) -> Option<bool> {
+        // Check first `is_not_source` because that is more likely to be set.
+
+        // SAFETY: The caller guarantees `table` and `row` are in bounds.
+        let is_not_source = unsafe { self.is_not_source.get_unchecked(table, row) };
+        if is_not_source {
+            return Some(false);
+        }
+
+        // SAFETY: The caller guarantees `table` and `row` are in bounds.
+        let is_maybe_source = unsafe { self.is_maybe_source.get_unchecked(table, row) };
+        if is_maybe_source {
+            return Some(true);
+        }
+
+        None
+    }
+
+    /// # Safety
+    ///
+    /// `table` and `row` must be in bounds for this bitset storage.
+    unsafe fn set_unchecked(&self, table: TableId, row: TableRow, is_maybe_source: bool) -> bool {
+        let bitset = if is_maybe_source {
+            &self.is_maybe_source
+        } else {
+            &self.is_not_source
+        };
+
+        // SAFETY: The caller guarantees `table` and `row` are in bounds.
+        unsafe { bitset.set_unchecked(table, row) }
+    }
+}
+
+impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_> {
     type Task = Entity;
 
     type WorkerLocal<'w> = RefMut<'w, Vec<Entity>>;
@@ -288,7 +339,6 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
         self.propagation_sources.borrow_local_mut()
     }
 
-    #[expect(unsafe_code, reason = "To skip bound checks")]
     fn run(&self, task: Self::Task, mut scope: bevy_tasks::TaskScope<Self>) {
         let entity = task;
         let propagation_sources = scope.worker_local();
@@ -301,32 +351,19 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
                 continue;
             };
 
-            // Short circuit: we check the cached data for whether this parent was already determined to be a source or not.
+            // SAFETY: MarkDirtyTreesTaskRunner is only constructed after resetting `source_markers`'s tables,
+            // which make all accesses inbounds for entities in queries with `BaseQueryFilters` (including `parents`).
+            let is_maybe_source = unsafe { self.source_markers.get_unchecked(table_id, table_row) };
 
-            // SAFETY: MarkDirtyTreesTaskRunner is only constructed after syncing `is_not_source` with `tables`.
-            let is_not_source = unsafe { self.is_not_source.get_unchecked(table_id, table_row) };
-            if is_not_source {
-                has_ancestor_source = false;
-                break;
-            }
-
-            // SAFETY: MarkDirtyTreesTaskRunner is only constructed after syncing `is_maybe_source` with `tables`.
-            let is_maybe_source =
-                unsafe { self.is_maybe_source.get_unchecked(table_id, table_row) };
-            if is_maybe_source {
-                has_ancestor_source = true;
+            // Short circuit: we check the cached data to see whether this parent was already processed or not.
+            if let Some(is_maybe_source) = is_maybe_source {
+                has_ancestor_source = is_maybe_source;
                 break;
             }
 
             // If we reached this point there's at least one ancestor that is not marked yet, we'll want to mark them later.
             need_ancestor_marking = true;
         }
-
-        let bitset = if has_ancestor_source {
-            self.is_maybe_source
-        } else {
-            self.is_not_source
-        };
 
         // Second loop: mark the ancestors so future loops short-circuit earlier.
         if need_ancestor_marking {
@@ -335,20 +372,15 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
                     continue;
                 };
 
-                // SAFETY: MarkDirtyTreesTaskRunner is only constructed after syncing
-                // `is_maybe_source`/`is_not_source` with `tables`.
-                let marked = unsafe { bitset.get_unchecked(table_id, table_row) };
+                let was_already_marked = unsafe {
+                    self.source_markers
+                        .set_unchecked(table_id, table_row, has_ancestor_source)
+                };
 
-                // If the ancestor is already marked we can exit.
-                if marked {
+                // Short circuit: we don't need to update any more entities if we find an entity that was already updated.
+                if was_already_marked {
                     break;
                 }
-
-                // Otherwise let's mark it and continue.
-
-                // SAFETY: MarkDirtyTreesTaskRunner is only constructed after syncing
-                // `is_maybe_source`/`is_not_source` with `tables`.
-                unsafe { bitset.set_unchecked(table_id, table_row) }
             }
         }
 
@@ -376,14 +408,9 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_, '_> {
     }
 }
 
-#[expect(unsafe_code, reason = "To skip bound checks")]
 fn mark_dirty_subtrees(
-    mut param: MarkDirtySubtreesParams,
-    is_maybe_source: &mut BitsetStorage,
-    // Note: it might be tempting to make this a "seen" bitset, however it would be incorrect in
-    // multithreaded contexts due to using Relaxed, because a reader could observe a bit set in `seen`
-    // but not in `is_maybe_source` even if the writer first wrote to `is_maybe_source` and then to `seen`.
-    is_not_source: &mut BitsetStorage,
+    mut param: MarkDirtySubtreesParams<'_, '_>,
+    source_markers: &mut SourceMarkers<'_>,
     propagation_candidates: &mut Vec<Entity>,
     propagation_sources: &mut PropagationSources,
 ) {
@@ -393,8 +420,7 @@ fn mark_dirty_subtrees(
         .contiguous_iter()
         .expect("TableId, Table and Transform are dense");
     for (table_id, table, _) in contiguous_iter {
-        is_maybe_source.reset_table(table_id, table.entity_count() as usize);
-        is_not_source.reset_table(table_id, table.entity_count() as usize);
+        source_markers.reset_table(table_id, table.entity_count() as usize);
     }
 
     // If static optimizations are enabled we'll look for entities that directly need a transform update,
@@ -406,19 +432,20 @@ fn mark_dirty_subtrees(
     // First gather and mark the potential propagation sources.
     // TODO: Maybe make this parallel?
     for (table_id, table_row, entity) in changed {
-        // SAFETY: changed has Changed<Transform>, which required Transform, meaning we reset this table earlier.
-        unsafe { is_maybe_source.set_unchecked(table_id, table_row) }
+        // SAFETY: we just reset `source_markers` and `changed` requires `BaseQueryFilter`.
+        unsafe { source_markers.set_unchecked(table_id, table_row, true) };
         propagation_candidates.push(entity);
     }
     for entity in param.orphaned.read() {
         let Ok((table_id, _, table_row)) = param.tables.get(entity) else {
             continue;
         };
+
+        // SAFETY: we just reset `source_markers` and `changed` requires `BaseQueryFilter`.
+        let was_already_marked = unsafe { source_markers.set_unchecked(table_id, table_row, true) };
+
         // Only process this entity if we didn't process it already. We cannot have duplicates in `propagation_candidates`.
-        // SAFETY: we reset this table earlier.
-        if !unsafe { is_maybe_source.get_unchecked(table_id, table_row) } {
-            // SAFETY: we reset this table earlier.
-            unsafe { is_maybe_source.set_unchecked(table_id, table_row) }
+        if !was_already_marked {
             propagation_candidates.push(entity);
         }
     }
@@ -436,8 +463,7 @@ fn mark_dirty_subtrees(
             tables: param.tables,
             parents: param.parents,
             transforms: param.param_set.p1(),
-            is_maybe_source,
-            is_not_source,
+            source_markers,
             propagation_sources,
         },
     );
@@ -460,8 +486,7 @@ struct PropagateTransformParams<'w, 's> {
 
 struct PropagateTransformTaskRunner<'o, 'w, 's> {
     params: PropagateTransformParams<'w, 's>,
-    is_maybe_source: &'o BitsetStorage,
-    is_not_source: &'o BitsetStorage,
+    source_markers: &'o SourceMarkers<'s>,
     static_optimizations: StaticTransformOptimizations,
 }
 
@@ -472,7 +497,6 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
 
     fn init_local<'w>(&'w self) -> Self::WorkerLocal<'w> {}
 
-    #[expect(unsafe_code, reason = "Parallel transform propagation requires unsafe")]
     fn run(&self, task: Self::Task, mut scope: bevy_tasks::TaskScope<Self>) {
         let entity = task;
 
@@ -516,9 +540,7 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
                 let stop = self.static_optimizations.is_enabled()
                     && !parent_changed
                     // SAFETY: we reset the bitset at the start of the system for all entities matching `BaseQueryFilter`.
-                    && !unsafe { self.is_maybe_source.get_unchecked(table_id, table_row) }
-                    // SAFETY: we reset the bitset at the start of the system for all entities matching `BaseQueryFilter`.
-                    && !unsafe { self.is_not_source.get_unchecked(table_id, table_row) };
+                    && unsafe { self.source_markers.get_unchecked(table_id, table_row) }.is_none();
 
                 if stop {
                     continue;
@@ -553,8 +575,7 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
 
 fn propagate_transform_dirty_subtrees(
     params: PropagateTransformParams<'_, '_>,
-    is_maybe_source: &BitsetStorage,
-    is_not_source: &BitsetStorage,
+    source_markers: &SourceMarkers<'_>,
     static_optimizations: StaticTransformOptimizations,
     propagation_sources: &mut PropagationSources,
 ) {
@@ -569,8 +590,7 @@ fn propagate_transform_dirty_subtrees(
         },
         PropagateTransformTaskRunner {
             params,
-            is_maybe_source,
-            is_not_source,
+            source_markers,
             static_optimizations,
         },
     );
@@ -868,18 +888,10 @@ mod test {
 
         let mut grandchild_entity = temp.entity_mut(grandchild);
 
-        #[expect(
-            unsafe_code,
-            reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
-        )]
         // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
         // cannot happen
         let mut a = unsafe { child_entity.get_mut_assume_mutable::<ChildOf>().unwrap() };
 
-        #[expect(
-            unsafe_code,
-            reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
-        )]
         // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
         // cannot happen
         let mut b = unsafe {
