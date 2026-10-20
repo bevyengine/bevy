@@ -545,7 +545,7 @@ impl SchemaJsonType for OpaqueInfo {
 impl SchemaJsonReference for &bevy_reflect::Type {
     fn ref_type(self) -> Value {
         let path = self.path();
-        json!({"type": json!({ "$ref": format!("#/$defs/{path}") })})
+        json!({ "$ref": format!("#/{path}") }) // Reference to another schema according json schema specification.
     }
 }
 
@@ -553,7 +553,7 @@ impl SchemaJsonReference for &bevy_reflect::UnnamedField {
     fn ref_type(self) -> Value {
         let path = self.type_path();
         with_annotations(
-            json!({"type": json!({ "$ref": format!("#/$defs/{path}") })}),
+            json!({ "$ref": format!("#/{path}") }), // Reference to another schema according json schema specification.,
             self.custom_attributes(),
         )
     }
@@ -570,8 +570,8 @@ impl SchemaJsonProperty for &NamedField {
         let type_path = self.type_path();
         with_annotations(
             json!({
-                "type": { "$ref": format!("#/$defs/{type_path}") },
-                "fieldIndex": index,
+                "$ref": format!("#/{type_path}"), // Reference to another schema according json schema specification.
+                "fieldIndex": index, // Non-standard fields are ignored by schema validators
             }),
             self.custom_attributes(),
         )
@@ -846,9 +846,7 @@ mod tests {
           "additionalProperties": false,
           "properties": {
             "a": {
-              "type": {
-                "$ref": "#/$defs/f32"
-              },
+              "$ref": "#/f32",
               "fieldIndex": 0
             },
           },
@@ -903,7 +901,7 @@ mod tests {
         assert_eq!(schema.properties["a"]["fieldIndex"], 1);
         assert_eq!(schema.properties["b"]["fieldIndex"], 2);
         assert_eq!(
-            schema.properties["a"]["type"]["$ref"], "#/$defs/f32",
+            schema.properties["a"]["$ref"], "#/f32",
             "Properties should reference their field type"
         );
         assert!(schema.properties["a"].get("typePath").is_none());
@@ -912,7 +910,7 @@ mod tests {
         let properties = &schema.one_of[0]["properties"];
         assert_eq!(properties["y"]["fieldIndex"], 0);
         assert_eq!(properties["x"]["fieldIndex"], 1);
-        assert_eq!(properties["x"]["type"]["$ref"], "#/$defs/i32");
+        assert_eq!(properties["x"]["$ref"], "#/i32");
     }
 
     fn export_and_round_trip_default<T>(type_registry: &TypeRegistry) -> T
