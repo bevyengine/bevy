@@ -12,6 +12,7 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[cfg(feature = "bevy-support")]
 mod bitset_storage;
 
 #[cfg(feature = "bevy-support")]
