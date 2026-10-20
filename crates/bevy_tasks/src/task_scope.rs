@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "multi_threaded")]
 use concurrent_queue::{ConcurrentQueue, PopError};
 #[cfg(feature = "multi_threaded")]
-use core::mem::{replace, take};
+use core::mem::replace;
 #[cfg(feature = "multi_threaded")]
 use core::sync::atomic::{AtomicI32, Ordering};
 
