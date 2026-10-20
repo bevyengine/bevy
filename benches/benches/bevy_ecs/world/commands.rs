@@ -2,6 +2,8 @@ use core::hint::black_box;
 
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
+    query::With,
     system::{Command, Commands},
     world::{CommandQueue, World},
 };
@@ -9,7 +11,7 @@ use criterion::Criterion;
 
 use crate::world_builder::WorldBuilder;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 struct A;
 #[derive(Component)]
 struct B;
@@ -93,6 +95,56 @@ pub fn nonempty_spawn_commands(criterion: &mut Criterion) {
     }
 
     group.finish();
+}
+
+pub fn despawn_commands(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("despawn_commands");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for entity_count in [100, 1_000, 10_000] {
+        let input_setup = || {
+            let mut world = WorldBuilder::new()
+                .with_max_expected_entities(entity_count)
+                .warm_up_entity_allocator()
+                .build();
+            let command_queue = CommandQueue::default();
+            let query = world.query_filtered::<Entity, With<A>>();
+
+            // we must iterate the iterator to force the spawn.
+            world
+                .spawn_batch(core::iter::repeat_n(A, entity_count as usize))
+                .for_each(|_| {});
+
+            (world, command_queue, query)
+        };
+
+        group.bench_function(format!("despawn_{entity_count}"), |bencher| {
+            bencher.iter_batched(
+                input_setup,
+                |(mut world, mut command_queue, mut query)| {
+                    let mut commands = Commands::new(&mut command_queue, &world);
+                    for entity in query.iter(&world) {
+                        commands.entity(entity).despawn();
+                    }
+                    command_queue.apply(&mut world);
+                },
+                criterion::BatchSize::LargeInput,
+            );
+        });
+
+        group.bench_function(format!("despawn_all_{entity_count}"), |bencher| {
+            bencher.iter_batched(
+                input_setup,
+                |(mut world, mut command_queue, _)| {
+                    let mut commands = Commands::new(&mut command_queue, &world);
+                    commands.despawn_all::<With<A>>();
+                    command_queue.apply(&mut world);
+                },
+                criterion::BatchSize::LargeInput,
+            );
+        });
+    }
 }
 
 #[derive(Default, Component)]

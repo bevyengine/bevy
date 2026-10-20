@@ -22,7 +22,7 @@ pub struct ComponentIds {
 impl ComponentIds {
     /// Peeks the next [`ComponentId`] to be generated without generating it.
     pub fn peek(&self) -> ComponentId {
-        ComponentId(
+        ComponentId::new(
             self.next
                 .load(bevy_platform::sync::atomic::Ordering::Relaxed),
         )
@@ -30,7 +30,7 @@ impl ComponentIds {
 
     /// Generates and returns the next [`ComponentId`].
     pub fn next(&self) -> ComponentId {
-        ComponentId(
+        ComponentId::new(
             self.next
                 .fetch_add(1, bevy_platform::sync::atomic::Ordering::Relaxed),
         )
@@ -38,20 +38,20 @@ impl ComponentIds {
 
     /// Peeks the next [`ComponentId`] to be generated without generating it.
     pub fn peek_mut(&mut self) -> ComponentId {
-        ComponentId(*self.next.get_mut())
+        ComponentId::new(*self.next.get_mut())
     }
 
     /// Generates and returns the next [`ComponentId`].
     pub fn next_mut(&mut self) -> ComponentId {
         let id = self.next.get_mut();
-        let result = ComponentId(*id);
+        let result = ComponentId::new(*id);
         *id += 1;
         result
     }
 
     /// Returns the number of [`ComponentId`]s generated.
     pub fn len(&self) -> usize {
-        self.peek().0
+        self.peek().index()
     }
 
     /// Returns true if and only if no ids have been generated.
@@ -249,7 +249,7 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(id.0)
+                .get_mut(id.index())
                 .debug_checked_unwrap()
                 .as_mut()
                 .debug_checked_unwrap()

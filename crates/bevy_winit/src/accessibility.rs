@@ -7,8 +7,8 @@ use std::sync::Mutex;
 use winit::event_loop::ActiveEventLoop;
 
 use accesskit::{
-    ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
-    TreeId, TreeUpdate,
+    ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role,
+    TreeId, TreeInfo, TreeUpdate,
 };
 use accesskit_winit::Adapter;
 use bevy_a11y::{
@@ -81,7 +81,7 @@ impl AccessKitState {
     fn build_initial_tree(&mut self) -> TreeUpdate {
         let root = self.build_root();
         let accesskit_window_id = NodeId(self.entity.to_bits());
-        let mut tree = Tree::new(accesskit_window_id);
+        let mut tree = TreeInfo::new(accesskit_window_id);
         tree.toolkit_name = Some("Bevy".into());
         tree.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
         self.requested.set(true);

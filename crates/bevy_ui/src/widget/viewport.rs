@@ -8,6 +8,7 @@ use bevy_camera::RenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    prelude::FromTemplate,
     query::{Changed, Or},
     reflect::ReflectComponent,
     system::{Query, ResMut},
@@ -33,7 +34,7 @@ use bevy_reflect::Reflect;
 /// # See Also
 ///
 /// [`update_viewport_render_target_size`]
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Default, Debug, Clone, Copy, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(Node)]
 #[cfg_attr(
@@ -49,6 +50,7 @@ pub struct ViewportNode {
     /// Note: Despawning the camera entity will leave a viewport node with an
     /// invalid camera. It will automatically be set to none when
     /// [`update_viewport_render_target_size`] runs next.
+    #[template(built_in)]
     pub camera: Option<Entity>,
 }
 

@@ -1,9 +1,10 @@
 use crate::{
     resources::{
-        AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
-        AtmosphereTransformsOffset, GpuAtmosphere,
+        AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms, AtmosphereTransformsOffset,
+        GpuAtmosphere,
     },
-    ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
+    ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, LinearSampler,
+    ViewLightsUniformOffset,
 };
 use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
@@ -20,7 +21,7 @@ use bevy_image::Image;
 use bevy_light::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
 };
-use bevy_math::{Quat, UVec2};
+use bevy_math::UVec2;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
@@ -104,7 +105,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereProbeLayouts>,
-    atmosphere_sampler: Res<AtmosphereSampler>,
+    atmosphere_sampler: Res<LinearSampler>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -129,7 +130,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
                 (9, &textures.multiscattering_lut.default_view),
                 (10, &textures.sky_view_lut.default_view),
                 (11, &textures.aerial_view_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // output 2D array texture
                 (13, &textures.environment),
             )),
@@ -202,8 +203,7 @@ pub fn validate_environment_map_size(size: UVec2) -> UVec2 {
     new_size
 }
 
-/// When [`AtmosphereEnvironmentMapLight`] is added to an entity, setup
-/// [`AtmosphereEnvironmentMap`] and [`GeneratedEnvironmentMapLight`].
+/// Allocates a cubemap and inserts filtered or unfiltered environment lighting.
 pub fn on_insert_atmosphere_environment_map_light(
     insert: On<Insert<AtmosphereEnvironmentMapLight>>,
     lights: Query<(
@@ -221,7 +221,7 @@ pub fn on_insert_atmosphere_environment_map_light(
     };
 
     // Handle case where someone inserts a new AtmosphereEnvironmentMapLight component
-    // on an entity that already has a AtmosphereEnvironmentMapLight component
+    // on an entity that already has an AtmosphereEnvironmentMapLight component
     if already_added_env_map {
         entity.try_remove::<(
             AtmosphereEnvironmentMap,
@@ -251,22 +251,30 @@ pub fn on_insert_atmosphere_environment_map_light(
 
     let environment_handle = images.add(environment_image);
 
-    entity.insert((
-        AtmosphereEnvironmentMap {
-            environment_map: environment_handle.clone(),
-            size: new_size,
-        },
-        GeneratedEnvironmentMapLight {
+    entity.insert(AtmosphereEnvironmentMap {
+        environment_map: environment_handle.clone(),
+        size: new_size,
+    });
+
+    if env_map_light.filtered {
+        entity.insert(GeneratedEnvironmentMapLight {
             environment_map: environment_handle,
             intensity: env_map_light.intensity,
-            rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: env_map_light.affects_lightmapped_mesh_diffuse,
-        },
-    ));
+            ..default()
+        });
+    } else {
+        entity.insert(EnvironmentMapLight {
+            diffuse_map: environment_handle.clone(),
+            specular_map: environment_handle,
+            intensity: env_map_light.intensity,
+            affects_lightmapped_mesh_diffuse: env_map_light.affects_lightmapped_mesh_diffuse,
+            ..default()
+        });
+    }
 }
 
-/// When [`AtmosphereEnvironmentMapLight`] is removed from an entity,
-/// remove the related components.
+/// Removes the cubemap and environment lighting inserted with it.
 pub fn on_remove_atmosphere_environment_map_light(
     remove: On<Remove<AtmosphereEnvironmentMapLight>>,
     mut commands: Commands,
