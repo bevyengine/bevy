@@ -7,6 +7,8 @@
 
 //! Provides rendering functionality for `bevy_ui`.
 
+extern crate self as bevy_ui_render;
+
 pub mod box_shadow;
 pub mod clipping;
 mod gradient;

@@ -12,6 +12,9 @@ pub fn derive_ui_sub_z_layer(input: TokenStream) -> TokenStream {
     let mut trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_ui_render"));
     trait_path
         .segments
+        .push(format_ident!("sub_z_layers").into());
+    trait_path
+        .segments
         .push(format_ident!("UiSubZLayer").into());
     derive_label(input, "UiSubZLayer", &trait_path)
 }

@@ -1,5 +1,6 @@
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
+use bevy_ecs::define_label;
 use bevy_ecs::intern::Interned;
 use bevy_ecs::resource::Resource;
 use bevy_render::extract_resource::ExtractResource;
@@ -53,9 +54,8 @@ impl UiSubZLayerList {
         let layer = layer.intern();
         self.iter()
             .position(|&label| label == layer)
-            .map_err(UiSubZLayerError::NoSuchLayer, |index| {
-                index as f32 / self.len() as f32
-            })
+            .map(|index| index as f32 / self.len() as f32)
+            .ok_or(UiSubZLayerError::NoSuchLayer)
     }
 
     pub fn insert_before(
@@ -65,8 +65,11 @@ impl UiSubZLayerList {
     ) -> Result<(), UiSubZLayerError> {
         let before = before.intern();
         let new_layer = new_layer.intern();
-        self.iter().position(|&label| label == before);
-        self.insert(index, layer.intern());
+        let index = self
+            .iter()
+            .position(|&label| label == before)
+            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+        self.insert(index, new_layer.intern());
         Ok(())
     }
 
@@ -75,10 +78,13 @@ impl UiSubZLayerList {
         after: impl UiSubZLayer,
         new_layer: impl UiSubZLayer,
     ) -> Result<(), UiSubZLayerError> {
-        let before = before.intern();
+        let after = after.intern();
         let new_layer = new_layer.intern();
-        self.iter().position(|&label| label == after);
-        self.insert(index + 1, layer.intern());
+        let index = self
+            .iter()
+            .position(|&label| label == after)
+            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+        self.insert(index + 1, new_layer.intern());
         Ok(())
     }
 }
