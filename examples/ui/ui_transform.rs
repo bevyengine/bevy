@@ -118,11 +118,10 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct ForegroundLayer;
+    const FOREGROUND_LAYER: &str = "foreground";
 
     layers
-        .insert_after(DefaultGlobalZLayer, ForegroundLayer)
+        .insert_after(DEFAULT_GLOBAL_Z_LAYER, FOREGROUND_LAYER)
         .unwrap();
     // UI camera
     commands.spawn(Camera2d);
@@ -157,7 +156,7 @@ fn setup(
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
-                    GlobalZIndex::new(ForegroundLayer),
+                    GlobalZIndex::new(FOREGROUND_LAYER),
                     children![
                         (
                             Button,
@@ -296,7 +295,7 @@ fn setup(
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
-                    GlobalZIndex::new(ForegroundLayer),
+                    GlobalZIndex::new(FOREGROUND_LAYER),
                     children![
                         (
                             Button,

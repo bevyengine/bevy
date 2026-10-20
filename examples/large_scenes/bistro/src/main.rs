@@ -192,11 +192,10 @@ fn setup(
     asset_server: Res<AssetServer>,
     args: Res<Args>,
 ) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct TextShadowLayer;
+    const TEXT_SHADOW_LAYER: &str = "text_shadow";
 
     layers
-        .insert_before(DefaultGlobalZLayer, TextShadowLayer)
+        .insert_before(DEFAULT_GLOBAL_Z_LAYER, TEXT_SHADOW_LAYER)
         .unwrap();
     info!("Loading models, generating mipmaps");
 
@@ -329,7 +328,7 @@ fn setup(
                     top: px(1.5),
                     ..default()
                 },
-                GlobalZIndex::new(TextShadowLayer),
+                GlobalZIndex::new(TEXT_SHADOW_LAYER),
             ))
             .with_children(|parent| {
                 parent.spawn((Text::new(""), TextColor(Color::BLACK), FrameTimeText));

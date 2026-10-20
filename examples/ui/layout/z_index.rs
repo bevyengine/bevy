@@ -17,17 +17,14 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut layers: ResMut<GlobalZLayers>) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    enum ExampleLayer {
-        Below,
-        Above,
-    }
+    const BELOW_LAYER: &str = "below";
+    const ABOVE_LAYER: &str = "above";
 
     layers
-        .insert_before(DefaultGlobalZLayer, ExampleLayer::Below)
+        .insert_before(DEFAULT_GLOBAL_Z_LAYER, BELOW_LAYER)
         .unwrap();
     layers
-        .insert_after(DefaultGlobalZLayer, ExampleLayer::Above)
+        .insert_after(DEFAULT_GLOBAL_Z_LAYER, ABOVE_LAYER)
         .unwrap();
     commands.spawn(Camera2d);
 
@@ -109,7 +106,7 @@ fn setup(mut commands: Commands, mut layers: ResMut<GlobalZLayers>) {
                             ..default()
                         },
                         BackgroundColor(PURPLE.into()),
-                        GlobalZIndex::new(ExampleLayer::Above),
+                        GlobalZIndex::new(ABOVE_LAYER),
                     ));
 
                     // spawn a node with a negative global z-index of -1.
@@ -125,7 +122,7 @@ fn setup(mut commands: Commands, mut layers: ResMut<GlobalZLayers>) {
                             ..default()
                         },
                         BackgroundColor(YELLOW.into()),
-                        GlobalZIndex::new(ExampleLayer::Below),
+                        GlobalZIndex::new(BELOW_LAYER),
                     ));
                 });
         });

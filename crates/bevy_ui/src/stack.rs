@@ -1,6 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{DefaultGlobalZLayer, GlobalZIndex, GlobalZLayers, ZIndex};
+use crate::{GlobalZIndex, GlobalZLayers, ZIndex, DEFAULT_GLOBAL_Z_LAYER};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -63,7 +63,9 @@ pub fn ui_stack_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
-    let default_global_z = global_z_layers.get_index(DefaultGlobalZLayer).unwrap_or(0);
+    let default_global_z = global_z_layers
+        .get_index(DEFAULT_GLOBAL_Z_LAYER)
+        .unwrap_or(0);
     stack_root_order.clear();
     for (order, partition) in ui_stack.partition.iter().enumerate() {
         stack_root_order.insert(ui_stack.uinodes[partition.start], order);
@@ -80,7 +82,7 @@ pub fn ui_stack_system(
             id,
             StackRoot {
                 global_z: maybe_global_zindex
-                    .map(|g| global_z_layers.get_index(g.0).unwrap_or(default_global_z))
+                    .map(|g| global_z_layers.get_index(&g.0).unwrap_or(default_global_z))
                     .unwrap_or(default_global_z),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
@@ -102,7 +104,7 @@ pub fn ui_stack_system(
             id,
             StackRoot {
                 global_z: global_z_layers
-                    .get_index(global_zindex.0)
+                    .get_index(&global_zindex.0)
                     .unwrap_or(default_global_z),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
@@ -179,6 +181,7 @@ fn update_uistack_recursive(
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::Cow;
     use bevy_ecs::{
         component::Component,
         hierarchy::ChildOf,
@@ -187,17 +190,16 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use crate::{
-        DefaultGlobalZLayer, GlobalZIndex, GlobalZLayer, GlobalZLayers, Node, UiStack, ZIndex,
-    };
+    use crate::{GlobalZIndex, GlobalZLayers, Node, UiStack, ZIndex, DEFAULT_GLOBAL_Z_LAYER};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
 
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct TestLayer(i32);
+    fn test_layer(index: i32) -> Cow<'static, str> {
+        format!("TestLayer({index})").into()
+    }
 
     fn node_with_global_and_local_zindex(
         name: &'static str,
@@ -210,7 +212,7 @@ mod tests {
             if global_zindex == 0 {
                 GlobalZIndex::default()
             } else {
-                GlobalZIndex::new(TestLayer(global_zindex))
+                GlobalZIndex::new(test_layer(global_zindex))
             },
             ZIndex(local_zindex),
         )
@@ -226,7 +228,7 @@ mod tests {
             if global_zindex == 0 {
                 GlobalZIndex::default()
             } else {
-                GlobalZIndex::new(TestLayer(global_zindex))
+                GlobalZIndex::new(test_layer(global_zindex))
             },
         )
     }
@@ -253,9 +255,9 @@ mod tests {
             (-3..=2)
                 .map(|index| {
                     if index == 0 {
-                        DefaultGlobalZLayer.intern()
+                        DEFAULT_GLOBAL_Z_LAYER.into()
                     } else {
-                        TestLayer(index).intern()
+                        test_layer(index)
                     }
                 })
                 .collect(),
@@ -369,9 +371,9 @@ mod tests {
             (-3..=2)
                 .map(|index| {
                     if index == 0 {
-                        DefaultGlobalZLayer.intern()
+                        DEFAULT_GLOBAL_Z_LAYER.into()
                     } else {
-                        TestLayer(index).intern()
+                        test_layer(index)
                     }
                 })
                 .collect(),

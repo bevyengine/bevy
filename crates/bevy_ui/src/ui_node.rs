@@ -6,16 +6,15 @@ use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
 };
+use alloc::borrow::Cow;
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::define_label;
-use bevy_ecs::{intern::Interned, prelude::*, system::SystemParam};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
-pub use bevy_ui_macros::GlobalZLayer;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -2875,8 +2874,6 @@ sure it's recognized as a markdown link."
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ZIndex(pub i32);
 
-define_label!(GlobalZLayer);
-
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
 /// The order of nodes with the same `GlobalZIndex` is stable between frames.
@@ -2888,77 +2885,66 @@ define_label!(GlobalZLayer);
 /// * The node with a changed `GlobalZIndex` or `ZIndex`.
 ///
 /// Otherwise the order is preserved from the previous frame.
-#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
-#[reflect(opaque, Component, Default, Debug, PartialEq, Clone)]
-pub struct GlobalZIndex(pub(crate) Interned<dyn GlobalZLayer>);
+#[derive(Component, Clone, Debug, PartialEq, Eq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct GlobalZIndex(pub Cow<'static, str>);
 
 impl Default for GlobalZIndex {
     fn default() -> Self {
-        Self::new(DefaultGlobalZLayer)
-    }
-}
-
-impl<G: GlobalZLayer> From<G> for GlobalZIndex {
-    fn from(g: G) -> Self {
-        Self(g.intern())
+        Self::new(DEFAULT_GLOBAL_Z_LAYER)
     }
 }
 
 impl GlobalZIndex {
     /// Create a new `GlobalZIndex`, targeting the given layer.
-    pub fn new(layer: impl GlobalZLayer) -> Self {
-        Self(layer.intern())
+    pub fn new(layer: impl Into<Cow<'static, str>>) -> Self {
+        Self(layer.into())
     }
 }
 
 // Default global z layer nodes without a `GlobalZIndex` component are placed into.
-#[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct DefaultGlobalZLayer;
+pub const DEFAULT_GLOBAL_Z_LAYER: &str = "bevy_ui::default";
 
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct GlobalZLayers(pub Vec<Interned<dyn GlobalZLayer>>);
+pub struct GlobalZLayers(pub Vec<Cow<'static, str>>);
 
 impl Default for GlobalZLayers {
     fn default() -> Self {
-        let default_layer = DefaultGlobalZLayer;
-        Self(vec![default_layer.intern()])
+        Self(vec![DEFAULT_GLOBAL_Z_LAYER.into()])
     }
 }
 
 impl GlobalZLayers {
-    pub fn get_index(&self, layer: impl GlobalZLayer) -> Result<i32, GlobalZLayerError> {
-        let layer = layer.intern();
+    pub fn get_index(&self, layer: &str) -> Result<i32, GlobalZLayerError> {
         self.iter()
-            .position(|&label| label == layer)
+            .position(|label| label == layer)
             .map(|index| index as i32)
             .ok_or(GlobalZLayerError::NoSuchLayer)
     }
 
     pub fn insert_before(
         &mut self,
-        before: impl GlobalZLayer,
-        new_layer: impl GlobalZLayer,
+        before: &str,
+        new_layer: impl Into<Cow<'static, str>>,
     ) -> Result<(), GlobalZLayerError> {
-        let before = before.intern();
         let index = self
             .iter()
-            .position(|&label| label == before)
+            .position(|label| label == before)
             .ok_or(GlobalZLayerError::NoSuchLayer)?;
-        self.insert(index, new_layer.intern());
+        self.insert(index, new_layer.into());
         Ok(())
     }
 
     pub fn insert_after(
         &mut self,
-        after: impl GlobalZLayer,
-        new_layer: impl GlobalZLayer,
+        after: &str,
+        new_layer: impl Into<Cow<'static, str>>,
     ) -> Result<(), GlobalZLayerError> {
-        let after = after.intern();
         let index = self
             .iter()
-            .position(|&label| label == after)
+            .position(|label| label == after)
             .ok_or(GlobalZLayerError::NoSuchLayer)?;
-        self.insert(index + 1, new_layer.intern());
+        self.insert(index + 1, new_layer.into());
         Ok(())
     }
 }

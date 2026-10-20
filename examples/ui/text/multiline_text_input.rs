@@ -57,11 +57,10 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct PopupLayer;
+    const POPUP_LAYER: &str = "popup";
 
     layers
-        .insert_after(DefaultGlobalZLayer, PopupLayer)
+        .insert_after(DEFAULT_GLOBAL_Z_LAYER, POPUP_LAYER)
         .unwrap();
     commands.spawn(Camera2d);
 
@@ -511,7 +510,7 @@ fn setup(
                                         }],
                                         ..default()
                                     },
-                                    GlobalZIndex::new(PopupLayer),
+                                    GlobalZIndex::new(POPUP_LAYER),
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
                                 ))

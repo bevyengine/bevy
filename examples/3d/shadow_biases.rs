@@ -34,10 +34,9 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct OverlayLayer;
+    const OVERLAY_LAYER: &str = "overlay";
 
-    layers.push(OverlayLayer.intern());
+    layers.push(OVERLAY_LAYER.into());
     let spawn_plane_depth = 300.0f32;
     let spawn_height = 2.0;
     let sphere_radius = 0.25;
@@ -107,7 +106,7 @@ fn setup(
             ..default()
         },
         BackgroundColor(Color::BLACK.with_alpha(0.75)),
-        GlobalZIndex::new(OverlayLayer),
+        GlobalZIndex::new(OVERLAY_LAYER),
         children![(
             Text::default(),
             children![

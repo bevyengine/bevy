@@ -1,4 +1,5 @@
 use accesskit::Role;
+use alloc::{borrow::Cow, format};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
@@ -22,9 +23,7 @@ use bevy_picking::{
     pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
-use bevy_ui::{
-    DefaultGlobalZLayer, GlobalZIndex, GlobalZLayer, GlobalZLayers, UiScale, UiTransform, Val2,
-};
+use bevy_ui::{GlobalZIndex, GlobalZLayers, UiScale, UiTransform, Val2, DEFAULT_GLOBAL_Z_LAYER};
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::ModalDialog;
@@ -50,8 +49,9 @@ pub struct RequestClose {
     pub source: Entity,
 }
 
-#[derive(GlobalZLayer, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct FloatingDialogLayer(usize);
+fn floating_dialog_layer(index: usize) -> Cow<'static, str> {
+    format!("bevy_ui_widgets::floating_dialog_{index}").into()
+}
 
 /// Marks a region (e.g. a title bar) that drags its owning [`Dialog`].
 #[derive(Component, Debug, Reflect, Clone, Default)]
@@ -119,13 +119,16 @@ fn sync_dialog_z(
     mut commands: Commands,
 ) {
     for (index, &entity) in stack.0.iter().enumerate() {
-        let layer = FloatingDialogLayer(index.min(39));
-        if layers.get_index(layer).is_err() {
-            if layer.0 == 0 {
-                layers.insert_after(DefaultGlobalZLayer, layer).unwrap();
+        let layer_index = index.min(39);
+        let layer = floating_dialog_layer(layer_index);
+        if layers.get_index(&layer).is_err() {
+            if layer_index == 0 {
+                layers
+                    .insert_after(DEFAULT_GLOBAL_Z_LAYER, layer.clone())
+                    .unwrap();
             } else {
                 layers
-                    .insert_after(FloatingDialogLayer(layer.0 - 1), layer)
+                    .insert_after(&floating_dialog_layer(layer_index - 1), layer.clone())
                     .unwrap();
             }
         }

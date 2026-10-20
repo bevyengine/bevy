@@ -149,11 +149,10 @@ fn setup(
     args: Res<Args>,
     positions: Res<CameraPositions>,
 ) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct TextShadowLayer;
+    const TEXT_SHADOW_LAYER: &str = "text_shadow";
 
     layers
-        .insert_before(DefaultGlobalZLayer, TextShadowLayer)
+        .insert_before(DEFAULT_GLOBAL_Z_LAYER, TEXT_SHADOW_LAYER)
         .unwrap();
     let hotel_01 = asset_server.load("hotel_01.glb#Scene0");
     commands
@@ -261,7 +260,7 @@ fn setup(
                     top: px(1.5),
                     ..default()
                 },
-                GlobalZIndex::new(TextShadowLayer),
+                GlobalZIndex::new(TEXT_SHADOW_LAYER),
             ))
             .with_children(|parent| {
                 parent.spawn((Text::new(""), TextColor(Color::BLACK), FrameTimeText));

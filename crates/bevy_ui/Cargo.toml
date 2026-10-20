@@ -35,7 +35,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "std",
 ] }
-bevy_ui_macros = { path = "macros", version = "0.20.0-dev" }
 
 # other
 taffy = { version = "0.14", default-features = false, features = [

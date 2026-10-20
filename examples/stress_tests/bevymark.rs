@@ -229,10 +229,9 @@ fn setup(
     window: Single<&Window>,
     counter: ResMut<BevyCounter>,
 ) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct OverlayLayer;
+    const OVERLAY_LAYER: &str = "overlay";
 
-    layers.push(OverlayLayer.intern());
+    layers.push(OVERLAY_LAYER.into());
     warn!(include_str!("warning_string.txt"));
 
     let args = args.into_inner();
@@ -327,7 +326,7 @@ fn setup(
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
-            GlobalZIndex::new(OverlayLayer),
+            GlobalZIndex::new(OVERLAY_LAYER),
         ))
         .with_children(|p| {
             p.spawn((Text::default(), StatsText)).with_children(|p| {

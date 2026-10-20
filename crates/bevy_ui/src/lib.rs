@@ -11,7 +11,6 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 extern crate alloc;
-extern crate self as bevy_ui;
 
 pub mod auto_directional_navigation;
 pub mod interaction_states;

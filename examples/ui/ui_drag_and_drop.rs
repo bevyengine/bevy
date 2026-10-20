@@ -14,10 +14,11 @@ const ROWS: i16 = 10;
 const TILE_SIZE: f32 = 40.;
 
 fn setup(mut layers: ResMut<GlobalZLayers>, mut commands: Commands) {
-    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-    struct DragLayer;
+    const DRAG_LAYER: &str = "drag";
 
-    layers.insert_after(DefaultGlobalZLayer, DragLayer).unwrap();
+    layers
+        .insert_after(DEFAULT_GLOBAL_Z_LAYER, DRAG_LAYER)
+        .unwrap();
     commands.spawn(Camera2d);
     commands
         .spawn((Node {
@@ -76,7 +77,7 @@ fn setup(mut layers: ResMut<GlobalZLayers>, mut commands: Commands) {
                         .observe(|on_drag_start: On<PointerDragStart>, mut query: Query<(&mut Outline, &mut GlobalZIndex)>| {
                             if let Ok((mut outline, mut global_zindex, )) = query.get_mut(on_drag_start.event_target()) {
                                 outline.color = Color::WHITE;
-                                *global_zindex = GlobalZIndex::new(DragLayer);
+                                *global_zindex = GlobalZIndex::new(DRAG_LAYER);
                             }
                         })
                         .observe(|on_drag: On<PointerDrag>, mut query: Query<&mut UiTransform>| {

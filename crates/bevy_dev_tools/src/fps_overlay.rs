@@ -20,8 +20,8 @@ use bevy_text::{RemSize, TextColor, TextFont, TextSpan};
 use bevy_time::common_conditions::on_timer;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
-    ComputedUiRenderTargetInfo, FlexDirection, GlobalZIndex, GlobalZLayer, GlobalZLayers, Node,
-    PositionType, Val,
+    ComputedUiRenderTargetInfo, FlexDirection, GlobalZIndex, GlobalZLayers, Node, PositionType,
+    Val,
 };
 #[cfg(not(all(target_arch = "wasm32", not(feature = "webgpu"))))]
 use bevy_ui_render::prelude::MaterialNode;
@@ -33,12 +33,7 @@ use crate::frame_time_graph::FrameTimeGraphConfigUniform;
 use crate::frame_time_graph::{FrameTimeGraphPlugin, FrametimeGraphMaterial};
 
 /// [`GlobalZIndex`] used to render the fps overlay.
-///
-/// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
-pub const FPS_OVERLAY_ZINDEX: FpsOverlayLayer = FpsOverlayLayer;
-
-#[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct FpsOverlayLayer;
+pub const FPS_OVERLAY_ZINDEX: &str = "bevy_dev_tools::fps_overlay";
 
 // Warn the user if the interval is below this threshold.
 const MIN_SAFE_INTERVAL: Duration = Duration::from_millis(50);
@@ -74,9 +69,9 @@ impl Plugin for FpsOverlayPlugin {
         app.init_resource::<GlobalZLayers>();
         let mut layers = app.world_mut().resource_mut::<GlobalZLayers>();
         let index = layers
-            .get_index(crate::picking_debug::DebugPickingPlugin)
+            .get_index(crate::picking_debug::DEBUG_PICKING_LAYER)
             .map_or(layers.len(), |index| index as usize);
-        layers.insert(index, FpsOverlayLayer.intern());
+        layers.insert(index, FPS_OVERLAY_ZINDEX.into());
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
             app.add_plugins(FrameTimeDiagnosticsPlugin::default());
