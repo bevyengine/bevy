@@ -585,4 +585,74 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn descendants_of_nested_ghosts_are_stack_roots() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((
+            GhostNode,
+            Label("ghost_root"),
+            children![(
+                GhostNode,
+                Label("ghost_1"),
+                children![
+                    (Node::default(), Label("g1"), ZIndex(1)),
+                    (Node::default(), Label("g2"), ZIndex(2)),
+                    (
+                        GhostNode,
+                        Label("ghost_2"),
+                        children![
+                            (Node::default(), Label("g3"), ZIndex(3)),
+                            (Node::default(), Label("g4"), ZIndex(4)),
+                        ]
+                    ),
+                    (
+                        GhostNode,
+                        Label("ghost_3"),
+                        children![
+                            (
+                                GhostNode,
+                                Label("ghost_4"),
+                                children![(Node::default(), Label("g5"), ZIndex(5))]
+                            ),
+                            (Node::default(), Label("g6"), ZIndex(6)),
+                        ]
+                    ),
+                    (Node::default(), Label("g7"), ZIndex(7)),
+                ]
+            )],
+        ));
+
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            result,
+            vec![
+                Label("g1"),
+                Label("g2"),
+                Label("g3"),
+                Label("g4"),
+                Label("g5"),
+                Label("g6"),
+                Label("g7"),
+            ]
+        );
+        assert_eq!(
+            world.resource::<UiStack>().partition,
+            (0..7).map(|i| i..i + 1).collect::<Vec<_>>()
+        );
+    }
 }
