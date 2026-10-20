@@ -2879,9 +2879,6 @@ define_label!(GlobalZLayer);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
-/// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
-/// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
-/// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
 /// The order of nodes with the same `GlobalZIndex` is stable between frames.
 ///
 /// If two Nodes have the same `GlobalZIndex`, ties are decided in order by:
@@ -2891,9 +2888,15 @@ define_label!(GlobalZLayer);
 /// * The node with a changed `GlobalZIndex` or `ZIndex`.
 ///
 /// Otherwise the order is preserved from the previous frame.
-#[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
-#[reflect(Component, Default, Debug, PartialEq, Clone)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
+#[reflect(opaque, Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub(crate) Interned<dyn GlobalZLayer>);
+
+impl Default for GlobalZIndex {
+    fn default() -> Self {
+        Self::new(DefaultGlobalZLayer)
+    }
+}
 
 impl<G: GlobalZLayer> From<G> for GlobalZIndex {
     fn from(g: G) -> Self {
@@ -2909,8 +2912,7 @@ impl GlobalZIndex {
 }
 
 // Default global z layer nodes without a `GlobalZIndex` component are placed into.
-// Given a zindex of 0. Other layers should be arranged relative to this one in `GlobalZLayers`.
-#[derive(GlobalZLayer)]
+#[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DefaultGlobalZLayer;
 
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
@@ -2963,6 +2965,7 @@ impl GlobalZLayers {
     }
 }
 
+#[derive(Debug)]
 pub enum GlobalZLayerError {
     NoSuchLayer,
 }

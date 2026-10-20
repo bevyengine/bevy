@@ -9,7 +9,8 @@ use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
-    FlexDirection, GlobalZIndex, JustifyContent, Node, OverrideClip, PositionType, UiRect, Val,
+    FlexDirection, GlobalZIndex, GlobalZLayer, JustifyContent, Node, OverrideClip, PositionType,
+    UiRect, Val,
 };
 use bevy_ui_widgets::{
     Activate, Dialog, DialogDragHandle, ModalDialog, ModalDialogBarrier, RequestClose,
@@ -45,7 +46,7 @@ impl Default for FeathersDialogProps {
 }
 
 /// A modal dialog box
-#[derive(SceneComponent, Default, Clone, Reflect)]
+#[derive(SceneComponent, Default, Clone, Reflect, GlobalZLayer, Debug, PartialEq, Eq, Hash)]
 #[scene(FeathersDialogProps)]
 #[reflect(Component, Clone, Default)]
 pub struct FeathersDialog;
@@ -68,7 +69,7 @@ impl FeathersDialog {
             ModalDialogBarrier
             FixedNode
             OverrideClip
-            GlobalZIndex(99) // One less than menu layer
+            GlobalZIndex::new(FeathersDialog) // One less than menu layer
             Children [
                 Node {
                     display: Display::Flex,

@@ -11,6 +11,7 @@
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 extern crate alloc;
+extern crate self as bevy_ui;
 
 pub mod auto_directional_navigation;
 pub mod interaction_states;
@@ -150,6 +151,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<GlobalZLayers>()
             .init_resource::<UiRoots>()
             .register_required_components::<
                 bevy_text::EditableText,

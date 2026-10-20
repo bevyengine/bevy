@@ -143,11 +143,18 @@ struct FrameTimeText;
 struct PostProcScene;
 
 fn setup(
+    mut layers: ResMut<GlobalZLayers>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     args: Res<Args>,
     positions: Res<CameraPositions>,
 ) {
+    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
+    struct TextShadowLayer;
+
+    layers
+        .insert_before(DefaultGlobalZLayer, TextShadowLayer)
+        .unwrap();
     let hotel_01 = asset_server.load("hotel_01.glb#Scene0");
     commands
         .spawn((
@@ -254,7 +261,7 @@ fn setup(
                     top: px(1.5),
                     ..default()
                 },
-                GlobalZIndex(-1),
+                GlobalZIndex::new(TextShadowLayer),
             ))
             .with_children(|parent| {
                 parent.spawn((Text::new(""), TextColor(Color::BLACK), FrameTimeText));

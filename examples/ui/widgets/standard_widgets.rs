@@ -24,6 +24,9 @@ use bevy::{
     },
 };
 
+#[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
+struct PopupLayer;
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, TabNavigationPlugin))
@@ -132,7 +135,10 @@ fn update_widget_values(
     }
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(mut layers: ResMut<GlobalZLayers>, mut commands: Commands, assets: Res<AssetServer>) {
+    layers
+        .insert_after(DefaultGlobalZLayer, PopupLayer)
+        .unwrap();
     // ui camera
     commands.spawn(Camera2d);
     commands.spawn(demo_root(&assets));
@@ -838,7 +844,7 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
                 px(1),
                 px(4),
             ),
-            GlobalZIndex(100),
+            GlobalZIndex::new(PopupLayer),
             Popover {
                 positions: vec![
                     PopoverPlacement {

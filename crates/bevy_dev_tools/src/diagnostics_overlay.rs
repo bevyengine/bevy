@@ -26,7 +26,8 @@ const ROW_COLUMN_GAP: Val = Val::Px(4.);
 /// Padding for cels of the diagnostics overlay
 const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 /// Initial Z-index for the [`DiagnosticsOverlayPlane`]
-pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
+pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: DiagnosticsOverlayPlane =
+    DiagnosticsOverlayPlane;
 /// Alias to shorten the name
 type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMaterial>;
 
@@ -182,7 +183,7 @@ impl Default for DiagnosticsOverlayStyle {
 /// [`GlobalZIndex`] of [`INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX`].
 /// You are free to edit the z index of the plane or have your UI hierarchies
 /// be relative to it.
-#[derive(Component)]
+#[derive(Component, GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DiagnosticsOverlayPlane;
 
 /// An item to be displayed on the overlay.
@@ -249,6 +250,13 @@ pub struct DiagnosticsOverlayPlugin;
 
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<GlobalZLayers>();
+        let mut layers = app.world_mut().resource_mut::<GlobalZLayers>();
+        let index = layers
+            .get_index(crate::fps_overlay::FpsOverlayLayer)
+            .or_else(|_| layers.get_index(crate::picking_debug::DebugPickingPlugin))
+            .map_or(layers.len(), |index| index as usize);
+        layers.insert(index, DiagnosticsOverlayPlane.intern());
         app.init_resource::<DiagnosticsOverlayStyle>();
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
         app.add_systems(PreStartup, build_plane);
@@ -280,7 +288,7 @@ fn build_plane(mut commands: Commands) {
             should_block_lower: false,
             ..Default::default()
         },
-        INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX,
+        GlobalZIndex::new(INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX),
     ));
 }
 

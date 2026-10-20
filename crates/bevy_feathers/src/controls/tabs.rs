@@ -26,9 +26,9 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_text::{FontSourceTemplate, FontWeight, LineBreak, TextLayout};
 use bevy_ui::{
-    px, AlignItems, BorderRadius, BoxShadow, ComputedNode, Display, FlexDirection, GlobalZIndex,
-    InlineDirection, InteractionDisabled, Node, OuterColor, Outline, Overflow, PositionType,
-    Selected, UiRect, UiSystems, Val,
+    px, AlignItems, BorderRadius, BoxShadow, ComputedNode, DefaultGlobalZLayer, Display,
+    FlexDirection, GlobalZIndex, GlobalZLayer, GlobalZLayers, InlineDirection, InteractionDisabled,
+    Node, OuterColor, Outline, Overflow, PositionType, Selected, UiRect, UiSystems, Val,
 };
 use bevy_ui_widgets::{
     ControlOrientation, DragOverlayRoot, DragProxy, SelectedTab, Tab, TabActivation, TabDragMode,
@@ -47,6 +47,9 @@ use crate::{
     tokens,
 };
 
+#[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
+struct TabDragLayer;
+
 const TAB_PADDING: f32 = 10.0;
 const TAB_GAP: f32 = 6.0;
 const TAB_MIN_WIDTH: f32 = TAB_PADDING * 2.0 + 24.0;
@@ -57,7 +60,6 @@ const STRIP_INSET: f32 = 3.0;
 const STRIP_BORDER: f32 = 1.0;
 const INDICATOR_SIZE: f32 = 2.0;
 const DRAG_PROXY_OFFSET: Vec2 = Vec2::new(10.0, 10.0);
-const DRAG_PROXY_Z: i32 = 200;
 
 /// A themed strip of [`FeathersTab`]s.
 ///
@@ -946,7 +948,7 @@ fn spawn_tab_drag_proxy(
             border_radius: tab_node.border_radius,
             ..Default::default()
         },
-        GlobalZIndex(DRAG_PROXY_Z),
+        GlobalZIndex::new(TabDragLayer),
         Outline::new(
             px(1),
             px(0),
@@ -976,6 +978,14 @@ pub struct FeathersTabsPlugin;
 
 impl Plugin for FeathersTabsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        app.init_resource::<GlobalZLayers>();
+        let mut layers = app.world_mut().resource_mut::<GlobalZLayers>();
+        let index = layers
+            .get_index(super::FeathersMenuPopup)
+            .or_else(|_| layers.get_index(DefaultGlobalZLayer))
+            .unwrap() as usize
+            + 1;
+        layers.insert(index, TabDragLayer.intern());
         app.add_observer(spawn_tab_drag_proxy).add_systems(
             PostUpdate,
             (

@@ -16,7 +16,19 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, mut layers: ResMut<GlobalZLayers>) {
+    #[derive(GlobalZLayer, Clone, Debug, PartialEq, Eq, Hash)]
+    enum ExampleLayer {
+        Below,
+        Above,
+    }
+
+    layers
+        .insert_before(DefaultGlobalZLayer, ExampleLayer::Below)
+        .unwrap();
+    layers
+        .insert_after(DefaultGlobalZLayer, ExampleLayer::Above)
+        .unwrap();
     commands.spawn(Camera2d);
 
     // spawn the container with default z-index.
@@ -97,7 +109,7 @@ fn setup(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundColor(PURPLE.into()),
-                        GlobalZIndex(1),
+                        GlobalZIndex::new(ExampleLayer::Above),
                     ));
 
                     // spawn a node with a negative global z-index of -1.
@@ -113,7 +125,7 @@ fn setup(mut commands: Commands) {
                             ..default()
                         },
                         BackgroundColor(YELLOW.into()),
-                        GlobalZIndex(-1),
+                        GlobalZIndex::new(ExampleLayer::Below),
                     ));
                 });
         });

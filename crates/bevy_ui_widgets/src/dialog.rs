@@ -22,7 +22,9 @@ use bevy_picking::{
     pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
-use bevy_ui::{GlobalZIndex, UiScale, UiTransform, Val2};
+use bevy_ui::{
+    DefaultGlobalZLayer, GlobalZIndex, GlobalZLayer, GlobalZLayers, UiScale, UiTransform, Val2,
+};
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::ModalDialog;
@@ -48,8 +50,8 @@ pub struct RequestClose {
     pub source: Entity,
 }
 
-const FLOATING_Z_BASE: i32 = 50;
-const FLOATING_Z_MAX: i32 = 89;
+#[derive(GlobalZLayer, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct FloatingDialogLayer(usize);
 
 /// Marks a region (e.g. a title bar) that drags its owning [`Dialog`].
 #[derive(Component, Debug, Reflect, Clone, Default)]
@@ -111,10 +113,23 @@ fn deregister_dialog(
 
 /// Give each floating dialog a `GlobalZIndex` from its stack position, so order
 /// drives both draw order and pointer-pick order.
-fn sync_dialog_z(stack: Res<DialogStack>, mut commands: Commands) {
+fn sync_dialog_z(
+    stack: Res<DialogStack>,
+    mut layers: ResMut<GlobalZLayers>,
+    mut commands: Commands,
+) {
     for (index, &entity) in stack.0.iter().enumerate() {
-        let z = (FLOATING_Z_BASE + index as i32).min(FLOATING_Z_MAX);
-        commands.entity(entity).insert(GlobalZIndex(z));
+        let layer = FloatingDialogLayer(index.min(39));
+        if layers.get_index(layer).is_err() {
+            if layer.0 == 0 {
+                layers.insert_after(DefaultGlobalZLayer, layer).unwrap();
+            } else {
+                layers
+                    .insert_after(FloatingDialogLayer(layer.0 - 1), layer)
+                    .unwrap();
+            }
+        }
+        commands.entity(entity).insert(GlobalZIndex::new(layer));
     }
 }
 
