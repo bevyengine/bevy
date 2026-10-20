@@ -533,7 +533,7 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
                 // Soundness check: we are iterating over `Children`, but the source of truth of whether
                 // an entity is actually a child if `ChildOf`. We double check this to avoid processing
                 // the same entity twice if the
-                assert_eq!(entity, parent.get());
+                assert_eq!(entity, parent.get(), "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle");
 
                 // If static optimizations are enabled we only process an entity as long as either the
                 // transform of the parent changed or any entity in its subtree might have their transform changed.
