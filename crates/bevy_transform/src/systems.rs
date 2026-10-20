@@ -184,12 +184,12 @@ pub struct PropagateTransformsParams<'w, 's> {
     propagation_sources: Local<'s, PropagationSources>,
 }
 
-/// Optimization for static scenes.
+/// Update [`GlobalTransform`]` component of entities based on entity hierarchy and [`Transform`] component.
 ///
-/// Propagates a "dirty bit" up the hierarchy towards ancestors. Transform propagation can ignore
-/// entire subtrees of the hierarchy if it encounters an entity without the dirty bit.
-///
+/// This system supports optimizations for when a large number of entities is static.
 /// Configure behavior with [`StaticTransformOptimizations`].
+///
+/// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(params: PropagateTransformsParams) {
     let PropagateTransformsParams {
         static_optimizations,
