@@ -2940,7 +2940,6 @@ impl GlobalZLayers {
         new_layer: impl GlobalZLayer,
     ) -> Result<(), GlobalZLayerError> {
         let before = before.intern();
-        let new_layer = new_layer.intern();
         let index = self
             .iter()
             .position(|&label| label == before)
@@ -2955,7 +2954,6 @@ impl GlobalZLayers {
         new_layer: impl GlobalZLayer,
     ) -> Result<(), GlobalZLayerError> {
         let after = after.intern();
-        let new_layer = new_layer.intern();
         let index = self
             .iter()
             .position(|&label| label == after)
