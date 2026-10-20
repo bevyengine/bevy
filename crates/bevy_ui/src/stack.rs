@@ -61,7 +61,7 @@ pub fn ui_stack_system(
         ),
     >,
     ui_root_ghost_nodes: Query<
-        Entity,
+        (Entity, Option<&Children>),
         (With<ComputedStackIndex>, Without<ChildOf>, With<GhostNode>),
     >,
     root_node_query: Query<(Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>)>,
@@ -88,8 +88,15 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     visited_stack_roots.clear();
 
-    for entity in ui_root_ghost_nodes.iter() {
-        update_uistack_recursive(&mut cache, entity, &ui_children, &mut ui_stack.uinodes);
+    for (entity, children) in ui_root_ghost_nodes.iter() {
+        update_uistack_recursive(
+            &mut cache,
+            entity,
+            children,
+            true,
+            &ui_children,
+            &mut ui_stack.uinodes,
+        );
     }
 
     for (id, maybe_global_zindex, maybe_zindex) in root_node_query
@@ -140,8 +147,18 @@ pub fn ui_stack_system(
     stack_roots.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
 
     for (root_entity, _) in stack_roots.drain(..) {
+        let Ok((children, is_ghost, _, _)) = ui_children.get(root_entity) else {
+            continue;
+        };
         let start = ui_stack.uinodes.len();
-        update_uistack_recursive(&mut cache, root_entity, &ui_children, &mut ui_stack.uinodes);
+        update_uistack_recursive(
+            &mut cache,
+            root_entity,
+            children,
+            is_ghost,
+            &ui_children,
+            &mut ui_stack.uinodes,
+        );
         let end = ui_stack.uinodes.len();
         ui_stack.partition.push(start..end);
     }
@@ -156,6 +173,8 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     child_buffer: &mut Vec<(Entity, i32)>,
     node_entity: Entity,
+    children: Option<&Children>,
+    is_ghost: bool,
     ui_children: &Query<
         (
             Option<&Children>,
@@ -167,20 +186,25 @@ fn update_uistack_recursive(
     >,
     ui_stack: &mut Vec<Entity>,
 ) {
-    let Ok((children, is_ghost, _, _)) = ui_children.get(node_entity) else {
-        return;
-    };
     if !is_ghost {
         ui_stack.push(node_entity);
     }
 
     let start = child_buffer.len();
     for &child_entity in children.into_iter().flatten() {
-        let Ok((_, is_ghost, has_global_zindex, zindex)) = ui_children.get(child_entity) else {
+        let Ok((children, is_ghost, has_global_zindex, zindex)) = ui_children.get(child_entity)
+        else {
             continue;
         };
         if is_ghost {
-            update_uistack_recursive(child_buffer, child_entity, ui_children, ui_stack);
+            update_uistack_recursive(
+                child_buffer,
+                child_entity,
+                children,
+                is_ghost,
+                ui_children,
+                ui_stack,
+            );
         } else if !has_global_zindex {
             child_buffer.push((child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)));
         }
@@ -194,7 +218,17 @@ fn update_uistack_recursive(
 
     for index in start..end {
         let child_entity = child_buffer[index].0;
-        update_uistack_recursive(child_buffer, child_entity, ui_children, ui_stack);
+        let Ok((children, is_ghost, _, _)) = ui_children.get(child_entity) else {
+            continue;
+        };
+        update_uistack_recursive(
+            child_buffer,
+            child_entity,
+            children,
+            is_ghost,
+            ui_children,
+            ui_stack,
+        );
     }
 
     child_buffer.truncate(start);
