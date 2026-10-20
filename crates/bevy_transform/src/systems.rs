@@ -184,7 +184,7 @@ pub struct PropagateTransformsParams<'w, 's> {
     propagation_sources: Local<'s, PropagationSources>,
 }
 
-/// Update [`GlobalTransform`]` component of entities based on entity hierarchy and [`Transform`] component.
+/// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`] component.
 ///
 /// This system supports optimizations for when a large number of entities is static.
 /// Configure behavior with [`StaticTransformOptimizations`].
@@ -376,6 +376,8 @@ impl TaskRunner for MarkDirtySubtreesTaskRunner<'_, '_, '_> {
                     continue;
                 };
 
+                // SAFETY: MarkDirtyTreesTaskRunner is only constructed after resetting `source_markers`'s tables,
+                // which make all accesses inbounds for entities in queries with `BaseQueryFilters` (including `parents`).
                 let was_already_marked = unsafe {
                     self.source_markers
                         .set_unchecked(table_id, table_row, has_ancestor_source)
@@ -571,6 +573,10 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
                     } else {
                         // Adding `child` to `scope` could lead to its `GlobalTransform` being immediately accessed
                         // as the initial `parent_transform`. Be sure that we no longer access it here before that happens.
+                        #[expect(
+                            clippy::drop_non_drop,
+                            reason = "This still prevents the non-Copy value from being used again"
+                        )]
                         drop(global_transform);
 
                         scope.add(child);
