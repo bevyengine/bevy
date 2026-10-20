@@ -193,7 +193,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn take_owned<T: TypePath + 'static>(&mut self) -> Result<T, ArgError> {
+    pub fn take_owned<T: TypePath>(&mut self) -> Result<T, ArgError> {
         self.take_arg()?.take_owned()
     }
 
@@ -212,7 +212,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_ref<T: TypePath + 'static>(&mut self) -> Result<&'a T, ArgError> {
+    pub fn take_ref<T: TypePath>(&mut self) -> Result<&'a T, ArgError> {
         self.take_arg()?.take_ref()
     }
 
@@ -231,7 +231,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn take_mut<T: TypePath + 'static>(&mut self) -> Result<&'a mut T, ArgError> {
+    pub fn take_mut<T: TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.take_arg()?.take_mut()
     }
 
@@ -284,7 +284,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.pop_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn pop_owned<T: TypePath + 'static>(&mut self) -> Result<T, ArgError> {
+    pub fn pop_owned<T: TypePath>(&mut self) -> Result<T, ArgError> {
         self.pop_arg()?.take_owned()
     }
 
@@ -303,7 +303,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.pop_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn pop_ref<T: TypePath + 'static>(&mut self) -> Result<&'a T, ArgError> {
+    pub fn pop_ref<T: TypePath>(&mut self) -> Result<&'a T, ArgError> {
         self.pop_arg()?.take_ref()
     }
 
@@ -322,7 +322,7 @@ impl<'a> ArgList<'a> {
     /// let value = args.pop_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn pop_mut<T: TypePath + 'static>(&mut self) -> Result<&'a mut T, ArgError> {
+    pub fn pop_mut<T: TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.pop_arg()?.take_mut()
     }
 
