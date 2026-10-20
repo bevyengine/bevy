@@ -12,7 +12,7 @@ use crate::{
     view::{
         ColorGrading, ExtractedRenderLayersMeta, ExtractedView, ExtractedWindow, Msaa,
         NoIndirectDrawing, RenderExtractedVisibleEntities, RenderVisibleEntities,
-        RenderVisibleEntitiesClass, ResolvedCompositingSpace, RetainedViewEntity, Tonemapping, 
+        RenderVisibleEntitiesClass, ResolvedCompositingSpace, RetainedViewEntity, Tonemapping,
         ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
