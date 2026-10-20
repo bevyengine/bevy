@@ -38,6 +38,11 @@ struct AtmosphereSettings {
     cloud_shadow_map_strength: f32,
     cloud_shadow_map_spatial_filter_iterations: u32,
     cloud_shadow_map_update_interleave: u32,
+    cloud_shadow_temporal_enabled: u32,
+    cloud_shadow_temporal_alpha: f32,
+    cloud_shadow_temporal_light_rotation_cut_deg: f32,
+    cloud_shadow_anchor_max_radius: f32,
+    cloud_thin_shadow_max_radius: f32,
 }
 
 /// "Atmosphere space" uses local up for the zenith so the horizon-detail

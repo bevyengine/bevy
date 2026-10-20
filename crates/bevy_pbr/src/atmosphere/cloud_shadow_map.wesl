@@ -62,14 +62,10 @@ fn clamp_to_surface(position: vec3<f32>) -> vec3<f32> {
     return position;
 }
 
-/// Centre of the cloud shadow map: the camera, lowered to the cumulus tops when above them. The
-/// map is an orthographic volume along the light centred on this point; centred on a camera tens
-/// of km up, the ground below it lay ~h cos(sun elevation) off-centre (60 km from 68 km at 30 deg
-/// sun), at the map's edge, and the view from space showed the map's edge as a seam between the
-/// mapped and the far-marched shadows.
+/// Centre of the cloud shadow map (see `cloud_shadow_anchor_origin_at` in functions.wesl).
 fn cloud_shadow_anchor_origin() -> vec3<f32> {
     let p = get_view_position();
-    return normalize(p) * min(length(p), cloud_layer.cloud_layer_end);
+    return normalize(p) * min(length(p), settings.cloud_shadow_anchor_max_radius);
 }
 
 fn get_view_position() -> vec3<f32> {

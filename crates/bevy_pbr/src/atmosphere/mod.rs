@@ -369,14 +369,16 @@ pub fn extract_atmosphere(
             atmosphere_to_world,
         };
         commands.entity(render_entity).insert(extracted);
-        commands
-            .entity(render_entity)
-            .insert(GpuAtmosphereSettings::from(settings.clone()));
+        let mut gpu_settings = GpuAtmosphereSettings::from(settings.clone());
         if cloud_layer.is_some() || cirrus_layer.is_some() {
-            commands
-                .entity(render_entity)
-                .insert(GpuCloudLayers::new(cloud_layer, cirrus_layer, wind, atmo.inner_radius));
-        } else {
+            let layers = GpuCloudLayers::new(cloud_layer, cirrus_layer, wind, atmo.inner_radius);
+            gpu_settings.cloud_shadow_anchor_max_radius = layers.cloud_layer_end;
+            gpu_settings.cloud_thin_shadow_max_radius =
+                layers.cirrus_top - 0.5 * layers.cirrus_thickness;
+            commands.entity(render_entity).insert(layers);
+        }
+        commands.entity(render_entity).insert(gpu_settings);
+        if cloud_layer.is_none() && cirrus_layer.is_none() {
             commands.entity(render_entity).remove::<GpuCloudLayers>();
         }
     }
@@ -577,6 +579,13 @@ pub struct GpuAtmosphereSettings {
     pub cloud_shadow_temporal_enabled: u32,
     pub cloud_shadow_temporal_alpha: f32,
     pub cloud_shadow_temporal_light_rotation_cut_deg: f32,
+    /// Radius (from the planet centre) the cloud shadow map's anchor is lowered to when the
+    /// camera is higher: the cumulus tops. Set at extraction from [`GpuCloudLayers`]; shared by
+    /// the map's producer, the CPU reprojection and every consumer (atmosphere and PBR).
+    pub cloud_shadow_anchor_max_radius: f32,
+    /// Radius below which the thin layer's shadow (the map's alpha) applies: the cirrus mid
+    /// level.
+    pub cloud_thin_shadow_max_radius: f32,
 }
 
 impl GpuAtmosphereSettings {
@@ -624,6 +633,9 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             cloud_shadow_temporal_alpha: s.cloud_shadow_temporal_alpha,
             cloud_shadow_temporal_light_rotation_cut_deg: s
                 .cloud_shadow_temporal_light_rotation_cut_deg,
+            // No cloud layers: no lowering, no thin shadow (set at extraction otherwise).
+            cloud_shadow_anchor_max_radius: f32::MAX,
+            cloud_thin_shadow_max_radius: 0.0,
         }
     }
 }

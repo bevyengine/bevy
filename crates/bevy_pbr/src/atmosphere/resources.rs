@@ -1544,11 +1544,9 @@ pub(super) fn prepare_cloud_shadow_temporal_params(
     } else {
         world_pos
     };
-    // Lowered to the cumulus tops when above them (`cloud_shadow_anchor_origin` in the shaders).
-    let anchor = match cloud_layer {
-        Some(c) if anchor.length() > c.cloud_layer_end => anchor.normalize_or_zero() * c.cloud_layer_end,
-        _ => anchor,
-    };
+    // Lowered to the cumulus tops when above them (`cloud_shadow_anchor_origin_at` in the
+    // shaders).
+    let anchor = anchor.normalize_or_zero() * anchor.length().min(settings.cloud_shadow_anchor_max_radius);
 
     let trace_dir = (-light_dir).normalize_or_zero();
     let world_up = Vec3::Y;
@@ -2323,6 +2321,8 @@ fn cloud_reference_def() -> Vec<bevy_shader::ShaderDefVal> {
 /// (`ATMOSPHERE_DBG=ATM_DBG_NOMS,ATM_DBG_TAP_ONE`). Supported debug defs:
 /// - `ATM_DBG_NOSHADOW`: no cloud shadow on the atmosphere in-scatter.
 /// - `ATM_DBG_NOMS`: no atmosphere multiple scattering (single scatter only).
+/// - `ATM_DBG_GROUND_SKY_FIXED`: one fixed set of ground-skylight directions (no per-pixel/frame
+///   jitter), to measure the jitter's temporal noise.
 /// - `ATM_DBG_AP_BAL`: ballistic (non-similarity) aerial-perspective transmittance.
 /// - `ATM_DBG_TAP_ONE`: no aerial-perspective transmittance on cloud luminance (term split).
 /// - `ATM_DBG_NO_FAR_SHADOW`: drop the cloud shadow map beyond the local light march.

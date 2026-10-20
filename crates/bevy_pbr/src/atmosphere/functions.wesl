@@ -263,13 +263,13 @@ fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
 
-@if(CLOUDS_ENABLED)
+// No bindings: shared with PBR's mesh cloud shadows.
 struct LightBasis {
     x: vec3<f32>,
     y: vec3<f32>,
 };
 
-@if(CLOUDS_ENABLED)
+// No bindings: shared with PBR's mesh cloud shadows.
 fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     let l2 = dot(v, v);
     if (l2 <= 1e-12) {
@@ -278,7 +278,7 @@ fn safe_normalize(v: vec3<f32>) -> vec3<f32> {
     return v * inverseSqrt(l2);
 }
 
-@if(CLOUDS_ENABLED)
+// No bindings: shared with PBR's mesh cloud shadows.
 fn build_light_basis(light_dir: vec3<f32>) -> LightBasis {
     // Pick a vector not parallel to `light_dir`, then build an orthonormal basis.
     // IMPORTANT: keep this selection stable; switching too early causes the basis to “flip”
@@ -305,7 +305,7 @@ fn cloud_shadow_transmittance(data: vec3<f32>, d_sample: f32) -> f32 {
 /// 1 below the thin (cirrus) layer's mid level, where its shadow (the map's alpha) applies.
 @if(CLOUDS_ENABLED)
 fn cloud_thin_shadow_weight(world_pos: vec3<f32>) -> f32 {
-    return f32(length(world_pos) < cloud_layer.cirrus_top - 0.5 * cloud_layer.cirrus_thickness);
+    return f32(length(world_pos) < settings.cloud_thin_shadow_max_radius);
 }
 
 /// Ground illuminance variant: uses only the stored optical depth (B channel), ignoring front depth.
@@ -315,7 +315,7 @@ fn cloud_shadow_optical_depth(data: vec3<f32>) -> f32 {
     return exp(-optical_depth);
 }
 
-@if(CLOUDS_ENABLED)
+// No bindings: shared with PBR's mesh cloud shadows.
 fn snap_anchor_to_texel_grid(anchor: vec3<f32>, basis: LightBasis, extent: f32, size: vec2<u32>) -> vec3<f32> {
     // Keep producer/consumer aligned by snapping the anchor to the shadow-map texel grid.
     let res = vec2<f32>(size);
@@ -695,12 +695,18 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 }
 
 /// Returns the observer's position in the atmosphere
-/// Centre of the cloud shadow map: the camera, lowered to the cumulus tops when above them
-/// (must match `cloud_shadow_anchor_origin` in cloud_shadow_map.wesl, which explains why).
+/// Centre of the cloud shadow map before snapping: the camera position `p` (atmosphere space),
+/// lowered to `max_radius` (`settings.cloud_shadow_anchor_max_radius`, the cumulus tops) when
+/// higher. No bindings: shared by the producer, the atmosphere consumers and PBR's mesh shadows.
+/// Centred on a camera tens of km up, the ground below it lay ~h cos(sun elevation) off-centre
+/// (60 km from 68 km at 30 deg sun), at the map's edge.
+fn cloud_shadow_anchor_origin_at(p: vec3<f32>, max_radius: f32) -> vec3<f32> {
+    return normalize(p) * min(length(p), max_radius);
+}
+
 @if(CLOUDS_ENABLED)
 fn cloud_shadow_anchor_origin() -> vec3<f32> {
-    let p = get_view_position();
-    return normalize(p) * min(length(p), cloud_layer.cloud_layer_end);
+    return cloud_shadow_anchor_origin_at(get_view_position(), settings.cloud_shadow_anchor_max_radius);
 }
 
 fn get_view_position() -> vec3<f32> {
@@ -1113,7 +1119,8 @@ fn ground_sky_irradiance_clouds(p: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f
     // A fixed set of 6 gave 6 shifted hard-edged copies of each cloud's occlusion, stacked into
     // plateaus of constant brightness inside the shadows; each direction stands for a cone of
     // the hemisphere, and the jitter integrates over it.
-    let j = interleaved_gradient_noise(pixel_coords, 3000u + view.frame_count % 64u);
+    var j = interleaved_gradient_noise(pixel_coords, 3000u + view.frame_count % 64u);
+    @if(ATM_DBG_GROUND_SKY_FIXED) { j = 0.5; }
     let phi0 = j * 6.2831853;
     var sky = vec3(0.0);
     for (var k = 0u; k < GROUND_SKY_DIRS; k++) {
