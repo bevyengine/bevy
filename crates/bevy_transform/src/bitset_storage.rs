@@ -1,4 +1,4 @@
-#![expect(unsafe_code, reason = "Implementing an atomic bitset is ")]
+#![expect(unsafe_code, reason = "Exposing unchecked operations requires unsafe")]
 
 #[cfg(feature = "multi_threaded")]
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -81,13 +81,6 @@ pub struct BitsetStorage {
 }
 
 impl BitsetStorage {
-    /// Creates a new bitset storage.
-    pub fn new() -> Self {
-        Self {
-            bitsets: Vec::new(),
-        }
-    }
-
     /// Resets the storage for the table `table` for `len` entities.
     ///
     /// After this method has returned all rows less than `len` for the table `table` will be in bounds.
