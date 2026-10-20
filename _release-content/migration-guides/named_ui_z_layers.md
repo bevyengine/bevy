@@ -1,6 +1,6 @@
 ---
 title: "Named UiSubZLayers"
-pull_requests: []
+pull_requests: [26260]
 ---
 
 Instead of using explicit `f32` z-offsets, `bevy_ui_render` now has named sub z layers.
