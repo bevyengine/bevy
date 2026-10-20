@@ -1,5 +1,4 @@
 use accesskit::Role;
-use alloc::{borrow::Cow, format};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::{
@@ -23,7 +22,9 @@ use bevy_picking::{
     pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
-use bevy_ui::{GlobalZIndex, GlobalZLayers, UiScale, UiTransform, Val2, DEFAULT_GLOBAL_Z_LAYER};
+use bevy_ui::{
+    GlobalZIndex, GlobalZLayers, UiScale, UiTransform, Val2, ZIndex, DEFAULT_GLOBAL_Z_LAYER,
+};
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::ModalDialog;
@@ -49,9 +50,7 @@ pub struct RequestClose {
     pub source: Entity,
 }
 
-fn floating_dialog_layer(index: usize) -> Cow<'static, str> {
-    format!("bevy_ui_widgets::floating_dialog_{index}").into()
-}
+const FLOATING_DIALOG_LAYER: &str = "bevy_ui_widgets::floating_dialog";
 
 /// Marks a region (e.g. a title bar) that drags its owning [`Dialog`].
 #[derive(Component, Debug, Reflect, Clone, Default)]
@@ -111,28 +110,21 @@ fn deregister_dialog(
     }
 }
 
-/// Give each floating dialog a `GlobalZIndex` from its stack position, so order
-/// drives both draw order and pointer-pick order.
 fn sync_dialog_z(
     stack: Res<DialogStack>,
     mut layers: ResMut<GlobalZLayers>,
     mut commands: Commands,
 ) {
+    if !stack.0.is_empty() && layers.get_index(FLOATING_DIALOG_LAYER).is_err() {
+        layers
+            .insert_after(DEFAULT_GLOBAL_Z_LAYER, FLOATING_DIALOG_LAYER)
+            .unwrap();
+    }
     for (index, &entity) in stack.0.iter().enumerate() {
-        let layer_index = index.min(39);
-        let layer = floating_dialog_layer(layer_index);
-        if layers.get_index(&layer).is_err() {
-            if layer_index == 0 {
-                layers
-                    .insert_after(DEFAULT_GLOBAL_Z_LAYER, layer.clone())
-                    .unwrap();
-            } else {
-                layers
-                    .insert_after(&floating_dialog_layer(layer_index - 1), layer.clone())
-                    .unwrap();
-            }
-        }
-        commands.entity(entity).insert(GlobalZIndex::new(layer));
+        commands.entity(entity).insert((
+            GlobalZIndex::new(FLOATING_DIALOG_LAYER),
+            ZIndex(index as i32),
+        ));
     }
 }
 
