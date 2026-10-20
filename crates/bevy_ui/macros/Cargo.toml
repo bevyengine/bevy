@@ -1,5 +1,5 @@
 [package]
-name = "bevy_ui_render_macros"
+name = "bevy_ui_macros"
 version = "0.20.0-dev"
 edition = "2024"
 description = "Derive implementations for bevy_ui"
