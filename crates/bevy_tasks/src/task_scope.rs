@@ -140,17 +140,6 @@ impl<'s, 'l, R: TaskRunner> TaskScope<'s, 'l, R> {
     }
 }
 
-impl<'s, 'l, R: TaskRunner + 'l> Drop for TaskScope<'s, 'l, R> {
-    fn drop(&mut self) {
-        #[cfg(feature = "multi_threaded")]
-        {
-            if !self.outbox.is_empty() {
-                self.queue.push(take(self.outbox)).ok();
-            }
-        }
-    }
-}
-
 #[cfg(feature = "multi_threaded")]
 struct BusyWorkersGuard<'a>(&'a AtomicI32);
 #[cfg(feature = "multi_threaded")]
