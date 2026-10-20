@@ -298,6 +298,10 @@ impl SourceMarkers<'_> {
     ///
     /// `table` and `row` must be in bounds for this bitset storage.
     unsafe fn get_unchecked(&self, table: TableId, row: TableRow) -> Option<bool> {
+        // TODO: For the propagation step checking `is_not_source` should always return `false`.
+        // TODO: Give better names to `is_not_source`/`is_maybe_source` and avoid the double check
+        // in the propagation step.
+
         // Check first `is_not_source` because that is more likely to be set.
 
         // SAFETY: The caller guarantees `table` and `row` are in bounds.
