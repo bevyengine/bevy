@@ -1910,8 +1910,22 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .tables
                 .get(location.table_id)
                 .debug_checked_unwrap();
-            D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
-            F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
+            D::set_archetype(
+                &mut fetch,
+                &self.state.fetch_state,
+                location.archetype_id,
+                archetype,
+                location.table_id,
+                table,
+            );
+            F::set_archetype(
+                &mut filter,
+                &self.state.filter_state,
+                location.archetype_id,
+                archetype,
+                location.table_id,
+                table,
+            );
 
             if F::filter_fetch(
                 &self.state.filter_state,
