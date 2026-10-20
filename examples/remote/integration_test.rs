@@ -204,7 +204,7 @@ fn find_button(client: &BrpClient) -> AnyhowResult<(serde_json::Value, (f64, f64
             strict: false,
             filter: BrpQueryFilter {
                 with: vec![type_name::<FeathersButton>().to_string()],
-                without: Vec::default(),
+                ..Default::default()
             },
         },
     )?;
