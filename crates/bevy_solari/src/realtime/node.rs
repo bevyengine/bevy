@@ -53,8 +53,7 @@ pub struct SolariLightingPipelines {
     no_restir: NoRestirPipelines,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
-    /// Bound in place of a view's atmosphere uniform while it has none. Zeroed, so `outer_radius`
-    /// is 0.
+    /// Zeroed atmosphere uniform for views without an atmosphere.
     atmosphere_fallback: Buffer,
 }
 

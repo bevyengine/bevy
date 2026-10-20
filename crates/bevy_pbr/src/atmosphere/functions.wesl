@@ -269,10 +269,6 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
     return clamp(visible_ratio, 0.0, 1.0);
 }
 
-/// Fraction of a directional light that reaches `world_position`: the transmittance toward the
-/// light times the fraction of its disk above the horizon.
-///
-/// Takes the LUT and sampler as arguments so callers can bind them in any group.
 fn directional_light_transmittance(
     atmosphere: Atmosphere,
     transmittance_texture: texture_2d<f32>,

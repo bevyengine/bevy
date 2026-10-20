@@ -4,12 +4,6 @@ import package::realtime::bindings::{atmosphere, atmosphere_transmittance_lut, a
 
 enable wgpu_ray_query;
 
-/// `calculate_resolved_light_contribution`, with directional lights dimmed by the view's
-/// atmosphere as in raster's `directional_light`.
-///
-/// Each directional light sample is a point on the sun's disk, so an angular size of 0 tests each
-/// sample against the horizon, and the samples average to the visible fraction of the disk.
-/// Without soft shadows every sample is the disk's center, so the light cuts off at the horizon.
 fn calculate_light_contribution(resolved_light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
     var light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, origin_world_normal);
     // Skip views without an atmosphere and lights behind the surface.
@@ -20,6 +14,7 @@ fn calculate_light_contribution(resolved_light_sample: ResolvedLightSample, ray_
             atmosphere_transmittance_sampler,
             ray_origin,
             light_contribution.wi,
+            // Light samples are points on the sun's disk, so they average to its visible fraction.
             0.0,
         );
     }
