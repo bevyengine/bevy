@@ -3,9 +3,8 @@ title: Redundant mesh view samplers merged
 pull_requests: [25836]
 ---
 
-Several `@group(0)` mesh view bindings each owned an identical `Linear`/`ClampToEdge` sampler.
-These are now one shared `linear_sampler`, and the point and directional shadow comparison
-samplers are now one. This renumbers the view binding indices.
+Several sampler bindings in mesh/view `@group(0)` are concretely bound to an identical sampler with `Linear`/`ClampToEdge` parameters. These bindings are now merged into a single one. Similarly the comparison samplers used by point and directional shadows are merged into a single binding.
+The reduced number of sampler slots gives some headroom to implementations with a limit of 16.
 
 Rust API:
 
