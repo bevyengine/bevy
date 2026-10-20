@@ -1,58 +1,50 @@
 use core::fmt::Write;
 
-use taffy::{NodeId, TraversePartialTree};
+use bevy_ecs::{entity::Entity, world::World};
 
-use bevy_ecs::prelude::Entity;
-use bevy_platform::collections::HashMap;
+use crate::{layout::layout_tree::ComputedLayout, ContentSize, Display, Node, UiRoots};
 
-use crate::layout::ui_surface::UiSurface;
-
-/// Prints a debug representation of the computed layout of the UI layout tree for each window.
-pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
-    let taffy_to_entity: HashMap<NodeId, Entity> = ui_surface
-        .entity_to_taffy
-        .iter()
-        .map(|(entity, node)| (node.id, *entity))
-        .collect();
-    for (&entity, &viewport_node) in &ui_surface.root_entity_to_viewport_node {
+/// Prints the latest computed UI layout tree for each root node.
+pub fn print_ui_layout_tree(world: &World) {
+    let Some(ui_roots) = world.get_resource::<UiRoots>() else {
+        return;
+    };
+    for entity in ui_roots.layout_roots() {
         let mut out = String::new();
-        print_node(
-            ui_surface,
-            &taffy_to_entity,
-            entity,
-            viewport_node,
-            false,
-            String::new(),
-            &mut out,
-        );
+        print_node(world, entity, false, String::new(), &mut out);
 
-        tracing::info!("Layout tree for camera entity: {entity}\n{out}");
+        tracing::info!("Layout tree for root entity: {entity}\n{out}");
     }
 }
 
 /// Recursively navigates the layout tree printing each node's information.
 fn print_node(
-    ui_surface: &UiSurface,
-    taffy_to_entity: &HashMap<NodeId, Entity>,
+    world: &World,
     entity: Entity,
-    node: NodeId,
     has_sibling: bool,
     lines_string: String,
     acc: &mut String,
 ) {
-    let tree = &ui_surface.taffy;
-    let layout = tree.layout(node).unwrap();
-    let style = tree.style(node).unwrap();
+    let Ok(entity_ref) = world.get_entity(entity) else {
+        return;
+    };
+    let Ok((node, computed_layout, content_size)) =
+        entity_ref.get_components::<(&Node, &ComputedLayout, &ContentSize)>()
+    else {
+        return;
+    };
+    let Some((layout, _)) = computed_layout.get_layout(true) else {
+        return;
+    };
 
-    let num_children = tree.child_count(node);
+    let num_children = computed_layout.child_nodes().len();
 
-    let display_variant = match (num_children, style.display) {
-        (_, taffy::style::Display::None) => "NONE",
+    let display_variant = match (num_children, node.display) {
+        (_, Display::None) => "NONE",
         (0, _) => "LEAF",
-        (_, taffy::style::Display::Flex) => "FLEX",
-        (_, taffy::style::Display::Grid) => "GRID",
-        (_, taffy::style::Display::Block) => "BLOCK",
-        (_, taffy::style::Display::FlowRoot) => "FLOWROOT",
+        (_, Display::Flex) => "FLEX",
+        (_, Display::Grid) => "GRID",
+        (_, Display::Block) => "BLOCK",
     };
 
     let fork_string = if has_sibling {
@@ -70,23 +62,19 @@ fn print_node(
         y = layout.location.y,
         width = layout.size.width,
         height = layout.size.height,
-        measured = if tree.get_node_context(node).is_some() { "measured" } else { "" }
-    ).ok();
+        measured = if content_size.measure.is_some() {
+            "measured"
+        } else {
+            ""
+        }
+    )
+    .ok();
     let bar = if has_sibling { "│   " } else { "    " };
     let new_string = lines_string + bar;
 
     // Recurse into children
-    for (index, child_node) in tree.children(node).unwrap().iter().enumerate() {
+    for (index, child_entity) in computed_layout.child_entities().enumerate() {
         let has_sibling = index < num_children - 1;
-        let child_entity = taffy_to_entity.get(child_node).unwrap();
-        print_node(
-            ui_surface,
-            taffy_to_entity,
-            *child_entity,
-            *child_node,
-            has_sibling,
-            new_string.clone(),
-            acc,
-        );
+        print_node(world, child_entity, has_sibling, new_string.clone(), acc);
     }
 }

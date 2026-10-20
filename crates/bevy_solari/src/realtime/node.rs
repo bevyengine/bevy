@@ -11,7 +11,10 @@ use bevy_core_pipeline::prepass::{
     MOTION_VECTOR_PREPASS_FORMAT,
 };
 use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
-use bevy_pbr::resources::{AtmosphereSampler, AtmosphereTextures, GpuAtmosphere};
+use bevy_pbr::{
+    resources::{AtmosphereTextures, GpuAtmosphere},
+    LinearSampler,
+};
 use bevy_render::{
     diagnostic::RecordDiagnostics as _,
     render_resource::{
@@ -101,7 +104,7 @@ pub fn solari_lighting(
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     atmosphere_uniforms: Option<Res<ComponentUniforms<GpuAtmosphere>>>,
-    atmosphere_sampler: Option<Res<AtmosphereSampler>>,
+    linear_sampler: Res<LinearSampler>,
     fallback_image: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
     mut ctx: RenderContext,
@@ -202,21 +205,18 @@ pub fn solari_lighting(
         return;
     };
 
-    let (atmosphere_transmittance_lut, atmosphere_sampler, atmosphere, atmosphere_offset) = match (
+    let (atmosphere_transmittance_lut, atmosphere, atmosphere_offset) = match (
         atmosphere_textures,
         atmosphere_uniform_index,
-        atmosphere_sampler.as_deref(),
         atmosphere_uniforms.as_ref().and_then(|u| u.binding()),
     ) {
-        (Some(textures), Some(uniform_index), Some(sampler), Some(atmosphere)) => (
+        (Some(textures), Some(uniform_index), Some(atmosphere)) => (
             &textures.transmittance_lut.default_view,
-            &**sampler,
             atmosphere,
             uniform_index.index(),
         ),
         _ => (
             &fallback_image.d2.texture_view,
-            &fallback_image.d2.sampler,
             pipelines.atmosphere_fallback.as_entire_binding(),
             0,
         ),
@@ -260,7 +260,7 @@ pub fn solari_lighting(
             s.world_cache.as_entire_binding(),
             s.constants.as_entire_binding(),
             atmosphere_transmittance_lut,
-            atmosphere_sampler,
+            &linear_sampler.0,
             atmosphere.clone(),
         )),
     );
@@ -282,7 +282,7 @@ pub fn solari_lighting(
                     s.world_cache.as_entire_binding(),
                     s.constants.as_entire_binding(),
                     atmosphere_transmittance_lut,
-                    atmosphere_sampler,
+                    &linear_sampler.0,
                     atmosphere,
                     previous_gbuffer,
                     previous_depth_buffer,
