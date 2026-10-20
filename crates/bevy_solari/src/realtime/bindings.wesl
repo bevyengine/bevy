@@ -17,12 +17,14 @@ enable wgpu_ray_query;
 @group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
 @group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
+@group(1) @binding(10) var gbuffer_specular_tint: texture_2d<u32>;
 
 @if(RESTIR) {
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(13) var<storage, read_write> reservoirs_b: array<Reservoir>;
+@group(1) @binding(11) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(12) var previous_gbuffer_specular_tint: texture_2d<u32>;
+@group(1) @binding(13) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(14) var<storage, read_write> reservoirs_a: array<Reservoir>;
+@group(1) @binding(15) var<storage, read_write> reservoirs_b: array<Reservoir>;
 }
 
 @if(DLSS_RR_GUIDE_BUFFERS) {

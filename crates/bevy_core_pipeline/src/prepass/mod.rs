@@ -36,7 +36,9 @@ use bevy_render::texture::DepthStencilAttachment;
 
 use core::ops::Range;
 
-use crate::deferred::{DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT};
+use crate::deferred::{
+    DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT, DEFERRED_SPECULAR_TINT_FORMAT,
+};
 use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
@@ -139,6 +141,11 @@ pub struct ViewPrepassTextures {
     /// A texture that specifies the deferred lighting pass id for a material.
     /// Exists only if [`DeferredPrepass`] is added to the `ViewTarget`
     pub deferred_lighting_pass_id: Option<ColorAttachment>,
+    /// The specular tint written by the deferred pass, in [`DEFERRED_SPECULAR_TINT_FORMAT`].
+    /// Exists only if [`DeferredPrepass`] is added to the `ViewTarget` and
+    /// [`DeferredSpecularTintSupport::is_supported`](crate::deferred::DeferredSpecularTintSupport::is_supported)
+    /// returns `true`.
+    pub deferred_specular_tint: Option<ColorAttachment>,
     /// The size of the textures.
     pub size: Extent3d,
 }
@@ -174,6 +181,18 @@ impl ViewPrepassTextures {
 
     pub fn previous_deferred_view(&self) -> Option<&TextureView> {
         self.deferred
+            .as_ref()
+            .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
+    }
+
+    pub fn deferred_specular_tint_view(&self) -> Option<&TextureView> {
+        self.deferred_specular_tint
+            .as_ref()
+            .map(|t| &t.texture.default_view)
+    }
+
+    pub fn previous_deferred_specular_tint_view(&self) -> Option<&TextureView> {
+        self.deferred_specular_tint
             .as_ref()
             .and_then(|t| t.previous_frame_texture.as_ref().map(|t| &t.default_view))
     }
@@ -393,8 +412,9 @@ pub fn prepass_target_descriptors(
     normal_prepass: bool,
     motion_vector_prepass: bool,
     deferred_prepass: bool,
+    deferred_specular_tint: bool,
 ) -> Vec<Option<ColorTargetState>> {
-    vec![
+    let mut targets = vec![
         normal_prepass.then_some(ColorTargetState {
             format: NORMAL_PREPASS_FORMAT,
             blend: None,
@@ -415,5 +435,14 @@ pub fn prepass_target_descriptors(
             blend: None,
             write_mask: ColorWrites::ALL,
         }),
-    ]
+    ];
+    // Only the deferred pass has the specular tint target, so other passes keep 4 entries.
+    if deferred_prepass && deferred_specular_tint {
+        targets.push(Some(ColorTargetState {
+            format: DEFERRED_SPECULAR_TINT_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }));
+    }
+    targets
 }
