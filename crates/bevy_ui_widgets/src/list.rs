@@ -100,6 +100,7 @@ fn listbox_on_key_input(
                     | KeyCode::End
                     | KeyCode::Space
                     | KeyCode::Enter
+                    | KeyCode::NumpadEnter
             )
         {
             let key_code = event.key_code;
@@ -157,7 +158,7 @@ fn listbox_on_key_input(
                     list_items.len() - 1
                 }
 
-                KeyCode::Space | KeyCode::Enter => {
+                KeyCode::Space | KeyCode::Enter | KeyCode::NumpadEnter => {
                     // Toggle selected state of active row
                     if prev_active < list_items.len() {
                         let (active_id, selected, disabled) = list_items[prev_active];

@@ -3,17 +3,13 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_image::ToExtents;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
-    render_resource::{
-        FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
-        TextureUsages, TextureView,
-    },
+    render_resource::{Texture, TextureDescriptor, TextureDimension, TextureUsages, TextureView},
     renderer::RenderDevice,
     texture::TextureCache,
     view::ExtractedView,
@@ -21,33 +17,16 @@ use bevy_render::{
 
 use crate::{ScreenSpaceTransmission, Transmissive3d};
 
-#[derive(bevy_ecs::resource::Resource)]
-pub(crate) struct TransmissionSampler(Sampler);
-
-impl FromWorld for TransmissionSampler {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        TransmissionSampler(render_device.create_sampler(&SamplerDescriptor {
-            label: Some("view_transmission_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..Default::default()
-        }))
-    }
-}
-
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
     pub texture: Texture,
     pub view: TextureView,
-    pub sampler: Sampler,
 }
 
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    transmission_sampler: Res<TransmissionSampler>,
     opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
@@ -111,7 +90,6 @@ pub fn prepare_core_3d_transmission_textures(
         commands.entity(entity).insert(ViewTransmissionTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
-            sampler: transmission_sampler.0.clone(),
         });
     }
 }

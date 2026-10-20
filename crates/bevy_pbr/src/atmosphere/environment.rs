@@ -1,10 +1,10 @@
 use crate::{
     resources::{
-        AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
-        AtmosphereTransformsOffset, GpuAtmosphere,
+        AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms, AtmosphereTransformsOffset,
+        GpuAtmosphere,
     },
     GpuCloudLayers, ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta,
-    ScatteringMediumSampler, ViewLightsUniformOffset,
+    LinearSampler, ScatteringMediumSampler, ViewLightsUniformOffset,
 };
 use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
@@ -183,7 +183,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereProbeLayouts>,
-    atmosphere_sampler: Res<AtmosphereSampler>,
+    atmosphere_sampler: Res<LinearSampler>,
     (
         medium_sampler,
         view_uniforms,
@@ -263,7 +263,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
                 (9, &textures.multiscattering_lut.default_view),
                 (10, &textures.sky_view_lut.default_view),
                 (11, &textures.aerial_view_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // output 2D array texture
                 (13, &textures.environment),
             )),
@@ -293,7 +293,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
                     (9, &textures.multiscattering_lut.default_view),
                     (10, &textures.sky_view_lut.default_view),
                     (11, &textures.aerial_view_lut.default_view),
-                    (12, &**atmosphere_sampler),
+                    (12, &atmosphere_sampler.0),
                     // cloud bindings
                     (20, cloud_layer_binding.clone()),
                     (21, &fbm_noise_texture.texture.default_view),

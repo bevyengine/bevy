@@ -1,7 +1,7 @@
 use crate::{
     curl_noise::CurlNoiseTexture, detail_noise::DetailNoiseTexture, fbm_noise::FbmNoiseTexture, perlin_worley_noise::PerlinWorleyNoiseTexture, Bluenoise,
     GpuCloudLayers, ExtractedAtmosphere, ExtractedDirectionalLight, GpuLights, GpuScatteringMedium,
-    LightMeta, ScatteringMediumSampler, ShadowSamplers, ViewShadowBindings,
+    LightMeta, LinearSampler, ScatteringMediumSampler, ShadowSamplers, ViewShadowBindings,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_platform::collections::HashMap;
@@ -688,24 +688,6 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
             fragment_shader: load_embedded_asset!(world, "render_sky.wesl"),
         }
-    }
-}
-
-#[derive(Resource, Deref)]
-pub struct AtmosphereSampler(Sampler);
-
-impl FromWorld for AtmosphereSampler {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: MipmapFilterMode::Nearest,
-            ..Default::default()
-        });
-
-        Self(sampler)
     }
 }
 
@@ -1654,7 +1636,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     layouts: Res<AtmosphereBindGroupLayouts>,
     render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
     (atmosphere_sampler, cloud_noise_sampler, shadow_samplers): (
-        Res<AtmosphereSampler>,
+        Res<LinearSampler>,
         Res<CloudNoiseSampler>,
         Res<ShadowSamplers>,
     ),
@@ -1775,7 +1757,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (7, medium_sampler.sampler()),
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // multiscattering lut storage texture
                 (13, &textures.multiscattering_lut.default_view),
             )),
@@ -1798,14 +1780,14 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
                 (9, &textures.multiscattering_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // sky view lut storage texture
                 (13, &textures.sky_view_lut.default_view),
                 // shadow maps
                 (14, &shadow_bindings.point_light_depth_texture_view),
-                (15, &shadow_samplers.point_light_comparison_sampler),
+                (15, &shadow_samplers.shadow_comparison_sampler),
                 (16, &shadow_bindings.directional_light_depth_texture_view),
-                (17, &shadow_samplers.directional_light_comparison_sampler),
+                (17, &shadow_samplers.shadow_comparison_sampler),
             )),
         );
 
@@ -1825,14 +1807,14 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
                 (9, &textures.multiscattering_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // aerial view lut storage texture
                 (13, &textures.aerial_view_lut.default_view),
                 // shadow maps
                 (14, &shadow_bindings.point_light_depth_texture_view),
-                (15, &shadow_samplers.point_light_comparison_sampler),
+                (15, &shadow_samplers.shadow_comparison_sampler),
                 (16, &shadow_bindings.directional_light_depth_texture_view),
-                (17, &shadow_samplers.directional_light_comparison_sampler),
+                (17, &shadow_samplers.shadow_comparison_sampler),
             )),
         );
 
@@ -1898,7 +1880,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
                 &BindGroupEntries::with_indices((
                     (1, settings_binding.clone()),
-                    (12, &**atmosphere_sampler),
+                    (12, &atmosphere_sampler.0),
                     (23, filter_read_a),
                     (13, filter_write_a),
                 )),
@@ -1911,7 +1893,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 &pipeline_cache.get_bind_group_layout(&layouts.cloud_shadow_filter),
                 &BindGroupEntries::with_indices((
                     (1, settings_binding.clone()),
-                    (12, &**atmosphere_sampler),
+                    (12, &atmosphere_sampler.0),
                     (23, filter_read_b),
                     (13, filter_write_b),
                 )),
@@ -1932,7 +1914,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                                 (0, temporal_params_binding),
                                 (1, &textures.cloud_shadow_map_tmp.default_view),
                                 (2, &textures.cloud_shadow_map_history.default_view),
-                                (3, &**atmosphere_sampler),
+                                (3, &atmosphere_sampler.0),
                                 (4, &textures.cloud_shadow_map.default_view),
                             )),
                         )
@@ -1963,14 +1945,14 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (9, &textures.multiscattering_lut.default_view),
                 (10, &textures.sky_view_lut.default_view),
                 (11, &textures.aerial_view_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // view depth texture
                 (13, depth_view),
                 // shadow maps
                 (14, &shadow_bindings.point_light_depth_texture_view),
-                (15, &shadow_samplers.point_light_comparison_sampler),
+                (15, &shadow_samplers.shadow_comparison_sampler),
                 (16, &shadow_bindings.directional_light_depth_texture_view),
-                (17, &shadow_samplers.directional_light_comparison_sampler),
+                (17, &shadow_samplers.shadow_comparison_sampler),
             )),
         );
 
@@ -2008,14 +1990,14 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (9, &textures.multiscattering_lut.default_view),
                         (10, &textures.sky_view_lut.default_view),
                         (11, &textures.aerial_view_lut.default_view),
-                        (12, &**atmosphere_sampler),
+                        (12, &atmosphere_sampler.0),
                         // view depth texture
                         (13, depth_view),
                         // shadow maps
                         (14, &shadow_bindings.point_light_depth_texture_view),
-                        (15, &shadow_samplers.point_light_comparison_sampler),
+                        (15, &shadow_samplers.shadow_comparison_sampler),
                         (16, &shadow_bindings.directional_light_depth_texture_view),
-                        (17, &shadow_samplers.directional_light_comparison_sampler),
+                        (17, &shadow_samplers.shadow_comparison_sampler),
                         // clouds
                         (20, cloud_layer_binding.clone()),
                         (21, &fbm_noise_texture.texture.default_view),
@@ -2068,7 +2050,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (9, &textures.multiscattering_lut.default_view),
                         (10, &textures.sky_view_lut.default_view),
                         (11, &textures.aerial_view_lut.default_view),
-                        (12, &**atmosphere_sampler),
+                        (12, &atmosphere_sampler.0),
                         (13, depth_view),
                         (20, cloud_layer_binding.clone()),
                         (21, &fbm_noise_texture.texture.default_view),
@@ -2097,7 +2079,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                     &BindGroupEntries::with_indices((
                         (0, atmosphere_binding.clone()),
                         (3, view_binding.clone()),
-                        (12, &**atmosphere_sampler),
+                        (12, &atmosphere_sampler.0),
                         (26, &textures.clouds_trace.default_view),
                         (27, &textures.clouds_trace_depth.default_view),
                         (28, &textures.clouds_history.default_view),
@@ -2158,12 +2140,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (7, medium_sampler.sampler()),
                         (8, &textures.transmittance_lut.default_view),
                         (9, &textures.multiscattering_lut.default_view),
-                        (12, &**atmosphere_sampler),
+                        (12, &atmosphere_sampler.0),
                         (13, &textures.sky_view_lut.default_view),
                         (14, &shadow_bindings.point_light_depth_texture_view),
-                        (15, &shadow_samplers.point_light_comparison_sampler),
+                        (15, &shadow_samplers.shadow_comparison_sampler),
                         (16, &shadow_bindings.directional_light_depth_texture_view),
-                        (17, &shadow_samplers.directional_light_comparison_sampler),
+                        (17, &shadow_samplers.shadow_comparison_sampler),
                         (20, cloud_layer_binding.clone()),
                         (21, &fbm_noise_texture.texture.default_view),
                         (22, &**cloud_noise_sampler),
@@ -2192,12 +2174,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
                         (7, medium_sampler.sampler()),
                         (8, &textures.transmittance_lut.default_view),
                         (9, &textures.multiscattering_lut.default_view),
-                        (12, &**atmosphere_sampler),
+                        (12, &atmosphere_sampler.0),
                         (13, &textures.aerial_view_lut.default_view),
                         (14, &shadow_bindings.point_light_depth_texture_view),
-                        (15, &shadow_samplers.point_light_comparison_sampler),
+                        (15, &shadow_samplers.shadow_comparison_sampler),
                         (16, &shadow_bindings.directional_light_depth_texture_view),
-                        (17, &shadow_samplers.directional_light_comparison_sampler),
+                        (17, &shadow_samplers.shadow_comparison_sampler),
                         (20, cloud_layer_binding.clone()),
                         (21, &fbm_noise_texture.texture.default_view),
                         (22, &**cloud_noise_sampler),

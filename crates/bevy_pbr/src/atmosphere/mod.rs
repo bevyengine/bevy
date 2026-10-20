@@ -120,7 +120,7 @@ use crate::resources::prepare_atmosphere_buffers;
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
     prepare_cloud_shadow_temporal_params, prepare_clouds_temporal_params, AtmosphereBindGroupLayouts, AtmosphereBindGroups,
-    AtmosphereLutPipelines, AtmosphereSampler, AtmosphereTextures, AtmosphereTransformsOffset,
+    AtmosphereLutPipelines, AtmosphereTextures, AtmosphereTransformsOffset,
     CloudNoiseSampler, CloudShadowTemporalParamsBuffer, CloudShadowTemporalState,
     RenderSkyPipelineId,
 };
@@ -212,7 +212,6 @@ impl Plugin for AtmospherePlugin {
         render_app
             .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSampler>()
             .init_resource::<CloudNoiseSampler>()
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
