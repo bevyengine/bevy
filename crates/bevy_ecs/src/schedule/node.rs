@@ -24,7 +24,8 @@ use crate::{
         BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
     system::{
-        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemAccess, SystemStateFlags,
+        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemAccess, SystemInitContext,
+        SystemStateFlags,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
@@ -109,8 +110,8 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
-        self.system.initialize(world)
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
+        self.system.initialize(world, context)
     }
 
     #[inline]
@@ -199,8 +200,8 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
-        self.condition.initialize(world)
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
+        self.condition.initialize(world, context)
     }
 
     #[inline]
@@ -571,17 +572,37 @@ impl Systems {
 
     /// Initializes all systems and their conditions that have not been
     /// initialized yet.
-    pub fn initialize(&mut self, world: &mut World) {
+    ///
+    /// Each system is passed the system sets it belongs to, either directly or
+    /// through nested sets, in its [`SystemInitContext`]. These are found in
+    /// `graph`, the schedule graph these systems belong to, which must have been
+    /// taken out of it for this call. A system's conditions are passed the same
+    /// context.
+    pub fn initialize(&mut self, world: &mut World, graph: &ScheduleGraph) {
+        // Reused for each system.
+        let mut sets = Vec::new();
+        let mut visited = HashSet::new();
         for key in self.uninit.drain(..) {
             let Some(system) = self.nodes.get_mut(key).and_then(|node| node.get_mut()) else {
                 continue;
             };
-            system.access = system.system.initialize(world);
+
+            sets.clear();
+            visited.clear();
+            graph.traverse_sets_containing_node(NodeId::System(key), &mut |set_key| {
+                let unvisited = visited.insert(set_key);
+                if unvisited {
+                    sets.push(graph.system_sets.sets[set_key]);
+                }
+                unvisited
+            });
+            let context = SystemInitContext::default().with_system_sets(&sets);
+            system.access = system.system.initialize(world, &context);
             let Some(conditions) = self.conditions.get_mut(key) else {
                 continue;
             };
             for condition in conditions {
-                condition.access = condition.condition.initialize(world);
+                condition.access = condition.condition.initialize(world, &context);
             }
         }
     }
@@ -852,13 +873,34 @@ impl SystemSets {
     /// initialized yet. Because a system set's conditions may be appended to
     /// multiple times, we track which conditions were added since the last
     /// initialization and only initialize those.
-    pub fn initialize(&mut self, world: &mut World) {
+    ///
+    /// Each condition is passed its set, and the sets that its set is in, either
+    /// directly or through nested sets, in its [`SystemInitContext`]. These are found
+    /// in `graph`, the schedule graph these sets belong to, which must have been taken
+    /// out of it for this call.
+    pub fn initialize(&mut self, world: &mut World, graph: &ScheduleGraph) {
+        // Reused for each set.
+        let mut sets = Vec::new();
+        let mut visited = HashSet::new();
         for uninit in self.uninit.drain(..) {
             let Some(conditions) = self.conditions.get_mut(uninit.key) else {
                 continue;
             };
+
+            sets.clear();
+            visited.clear();
+            sets.push(self.sets[uninit.key]);
+            visited.insert(uninit.key);
+            graph.traverse_sets_containing_node(NodeId::Set(uninit.key), &mut |set_key| {
+                let unvisited = visited.insert(set_key);
+                if unvisited {
+                    sets.push(self.sets[set_key]);
+                }
+                unvisited
+            });
+            let context = SystemInitContext::default().with_system_sets(&sets);
             for condition in &mut conditions[uninit.uninitialized_conditions] {
-                condition.access = condition.initialize(world);
+                condition.access = condition.initialize(world, &context);
             }
         }
     }
@@ -913,7 +955,7 @@ mod tests {
 
     use crate::{
         prelude::SystemSet,
-        schedule::{SystemSets, Systems},
+        schedule::{ScheduleGraph, SystemSets, Systems},
         system::IntoSystem,
         world::World,
     };
@@ -942,7 +984,7 @@ mod tests {
         assert!(systems.iter().next().is_some());
 
         let mut world = World::new();
-        systems.initialize(&mut world);
+        systems.initialize(&mut world, &ScheduleGraph::new());
         assert!(systems.is_initialized());
     }
 
@@ -968,7 +1010,7 @@ mod tests {
         assert!(sets.iter().next().is_some());
 
         let mut world = World::new();
-        sets.initialize(&mut world);
+        sets.initialize(&mut world, &ScheduleGraph::new());
         assert!(sets.is_initialized());
     }
 }

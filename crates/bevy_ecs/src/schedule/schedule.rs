@@ -1262,8 +1262,14 @@ impl ScheduleGraph {
     /// Initializes any newly-added systems and conditions by calling
     /// [`System::initialize`](crate::system::System).
     pub fn initialize(&mut self, world: &mut World) {
-        self.systems.initialize(world);
-        self.system_sets.initialize(world);
+        // The systems and sets are taken out of the graph while they are initialized, so
+        // that the rest of the graph can be borrowed to find the sets containing them.
+        let mut systems = core::mem::take(&mut self.systems);
+        systems.initialize(world, self);
+        self.systems = systems;
+        let mut system_sets = core::mem::take(&mut self.system_sets);
+        system_sets.initialize(world, self);
+        self.system_sets = system_sets;
     }
 
     /// Builds an execution-optimized [`SystemSchedule`] from the current state
@@ -1850,7 +1856,11 @@ impl ScheduleGraph {
         )
     }
 
-    fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(SystemSetKey) -> bool) {
+    pub(crate) fn traverse_sets_containing_node(
+        &self,
+        id: NodeId,
+        f: &mut impl FnMut(SystemSetKey) -> bool,
+    ) {
         for (set_id, _) in self.hierarchy.edges_directed(id, Incoming) {
             let NodeId::Set(set_key) = set_id else {
                 continue;
@@ -2018,6 +2028,76 @@ mod tests {
 
     #[derive(Resource)]
     struct Resource2;
+
+    #[test]
+    fn system_params_see_system_sets() {
+        use crate::{
+            change_detection::Tick,
+            schedule::InternedSystemSet,
+            system::{
+                RunSystemOnce, SystemAccess, SystemMeta, SystemParam, SystemParamAccessConflict,
+                SystemParamValidationError,
+            },
+            world::unsafe_world_cell::UnsafeWorldCell,
+        };
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+        struct Outer;
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+        struct Inner;
+
+        #[derive(Resource, Default)]
+        struct SeenSets(Vec<InternedSystemSet>);
+
+        /// The system sets of the system this param is in.
+        struct SystemSets(Vec<InternedSystemSet>);
+
+        // SAFETY: This param does not access the world.
+        unsafe impl SystemParam for SystemSets {
+            type State = ();
+            type Item<'w, 's> = SystemSets;
+
+            fn init_state(_world: &mut World) {}
+
+            fn init_access(
+                _state: &(),
+                _system_meta: &mut SystemMeta,
+                _system_access: &mut SystemAccess,
+            ) -> Result<(), SystemParamAccessConflict> {
+                Ok(())
+            }
+
+            unsafe fn get_param<'w, 's>(
+                _state: &'s mut (),
+                system_meta: &SystemMeta,
+                _world: UnsafeWorldCell<'w>,
+                _change_tick: Tick,
+            ) -> Result<SystemSets, SystemParamValidationError> {
+                Ok(SystemSets(system_meta.system_sets().to_vec()))
+            }
+        }
+
+        fn record_system_sets(sets: SystemSets, mut seen: ResMut<SeenSets>) {
+            seen.0 = sets.0;
+        }
+
+        let mut world = World::new();
+        world.init_resource::<SeenSets>();
+
+        let mut schedule = Schedule::default();
+        schedule.configure_sets(Inner.in_set(Outer));
+        schedule.add_systems(record_system_sets.in_set(Inner));
+        schedule.run(&mut world);
+
+        let seen = &world.resource::<SeenSets>().0;
+        assert!(seen.contains(&Inner.intern()));
+        assert!(seen.contains(&Outer.intern()));
+
+        // Systems run outside a schedule are initialized with the default context.
+        world.run_system_once(record_system_sets).unwrap();
+        assert!(world.resource::<SeenSets>().0.is_empty());
+    }
 
     #[test]
     fn unchanged_auto_insert_apply_deferred_has_no_effect() {

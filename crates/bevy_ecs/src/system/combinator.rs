@@ -8,7 +8,7 @@ use crate::{
     prelude::World,
     query::FilteredAccess,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemAccess, SystemIn},
+    system::{input::SystemInput, SystemAccess, SystemIn, SystemInitContext},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -229,9 +229,9 @@ where
         self.b.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
-        let mut a_access = self.a.initialize(world);
-        let b_access = self.b.initialize(world);
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
+        let mut a_access = self.a.initialize(world, context);
+        let b_access = self.b.initialize(world, context);
         a_access.extend(b_access);
 
         // We might need to read the fallback error handler after the component
@@ -443,6 +443,7 @@ where
 /// # Examples
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
@@ -453,7 +454,7 @@ where
 ///
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(parse_message_system.pipe(filter_system));
-///     piped_system.initialize(&mut world);
+///     piped_system.initialize(&mut world, &SystemInitContext::default());
 ///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
@@ -532,9 +533,9 @@ where
         self.b.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
-        let mut a_access = self.a.initialize(world);
-        let b_access = self.b.initialize(world);
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
+        let mut a_access = self.a.initialize(world, context);
+        let b_access = self.b.initialize(world, context);
         a_access.extend(b_access);
         a_access
     }

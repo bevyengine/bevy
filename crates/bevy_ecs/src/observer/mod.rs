@@ -1941,7 +1941,7 @@ mod tests {
         world.add_observer(DespawnObserversOnInit(0));
 
         use crate::change_detection::{CheckChangeTicks, Tick};
-        use crate::system::{RunSystemError, SystemAccess, SystemStateFlags};
+        use crate::system::{RunSystemError, SystemAccess, SystemInitContext, SystemStateFlags};
         use crate::world::unsafe_world_cell::UnsafeWorldCell;
         use bevy_utils::prelude::DebugName;
 
@@ -1976,7 +1976,11 @@ mod tests {
                 todo!()
             }
 
-            fn initialize(&mut self, world: &mut World) -> SystemAccess {
+            fn initialize(
+                &mut self,
+                world: &mut World,
+                _context: &SystemInitContext,
+            ) -> SystemAccess {
                 let observers: Vec<_> = world
                     .query_filtered::<Entity, With<Observer>>()
                     .query(world)

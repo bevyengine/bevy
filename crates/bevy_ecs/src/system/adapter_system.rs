@@ -13,6 +13,7 @@ use crate::{
 /// # Examples
 ///
 /// ```
+/// # use bevy_ecs::system::SystemInitContext;
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{Adapt, AdapterSystem, RunSystemError};
 ///
@@ -42,7 +43,7 @@ use crate::{
 /// }
 /// # let mut world = World::new();
 /// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false), "".into());
-/// # system.initialize(&mut world);
+/// # system.initialize(&mut world, &SystemInitContext::default());
 /// # assert!(system.run((), &mut world).unwrap());
 /// ```
 #[diagnostic::on_unimplemented(
@@ -161,8 +162,12 @@ where
         self.system.queue_deferred(world);
     }
 
-    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::system::SystemAccess {
-        self.system.initialize(world)
+    fn initialize(
+        &mut self,
+        world: &mut crate::prelude::World,
+        context: &crate::system::SystemInitContext,
+    ) -> crate::system::SystemAccess {
+        self.system.initialize(world, context)
     }
 
     fn check_change_tick(&mut self, check: crate::change_detection::CheckChangeTicks) {

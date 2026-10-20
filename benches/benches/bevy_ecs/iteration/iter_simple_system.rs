@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemInitContext};
 use glam::*;
 
 #[derive(Component, Copy, Clone)]
@@ -36,7 +36,7 @@ impl Benchmark {
         }
 
         let mut system = IntoSystem::into_system(query_system);
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
         Self(world, Box::new(system))
     }
 

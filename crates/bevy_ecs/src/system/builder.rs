@@ -20,7 +20,7 @@ use crate::{
 
 use core::{fmt::Debug, marker::PhantomData, mem};
 
-use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
+use super::{Res, ResMut, RunSystemError, SystemInitContext, SystemState, SystemStateFlags};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -416,17 +416,17 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> SystemAccess {
+    fn initialize(&mut self, world: &mut World, context: &SystemInitContext) -> SystemAccess {
         let inner = mem::replace(&mut self.inner, BuilderSystemInner::Invalid);
         match inner {
             BuilderSystemInner::Initialized { mut system } => {
-                let access = system.initialize(world);
+                let access = system.initialize(world, context);
                 self.inner = BuilderSystemInner::Initialized { system };
                 access
             }
             BuilderSystemInner::Uninitialized { builder, func, .. } => {
                 let mut system = builder.build_state(world).build_any_system(func);
-                let access = system.initialize(world);
+                let access = system.initialize(world, context);
                 self.inner = BuilderSystemInner::Initialized { system };
                 access
             }

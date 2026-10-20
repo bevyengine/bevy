@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemInitContext};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use criterion::Criterion;
 use glam::*;
@@ -44,7 +44,7 @@ pub fn heavy_compute(c: &mut Criterion) {
         }
 
         let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
 
         b.iter(move || system.run((), &mut world));
     });

@@ -96,8 +96,8 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Single, SkipIfAny, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            Res, ResMut, SetLocal, SetLocalMut, Single, SkipIfAny, System, SystemIn, SystemInput,
+            SystemParamBuilder, SystemParamFunction,
         },
         template::{template, FromTemplate, Template},
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},

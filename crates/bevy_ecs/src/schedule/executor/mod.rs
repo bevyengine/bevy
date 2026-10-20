@@ -21,7 +21,7 @@ use crate::{
         ConditionWithAccess, InternedSystemSet, SystemKey, SystemSetKey, SystemTypeSet,
         SystemWithAccess,
     },
-    system::{RunSystemError, System, SystemAccess, SystemIn, SystemStateFlags},
+    system::{RunSystemError, System, SystemAccess, SystemIn, SystemInitContext, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -203,7 +203,7 @@ impl System for ApplyDeferred {
 
     fn queue_deferred(&mut self, _world: DeferredWorld) {}
 
-    fn initialize(&mut self, _world: &mut World) -> SystemAccess {
+    fn initialize(&mut self, _world: &mut World, _context: &SystemInitContext) -> SystemAccess {
         // The executor will apply deferred commands from other systems instead
         // of running this system, which cannot happen in parallel with other systems.
         SystemAccess::Exclusive

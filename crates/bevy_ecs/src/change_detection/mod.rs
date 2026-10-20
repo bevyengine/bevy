@@ -27,6 +27,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
 #[cfg(test)]
 mod tests {
+    use crate::system::SystemInitContext;
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{CreateTypeData, ReflectFromPtr};
@@ -83,8 +84,8 @@ mod tests {
 
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         let mut change_expired_system = IntoSystem::into_system(change_expired);
-        change_detected_system.initialize(&mut world);
-        change_expired_system.initialize(&mut world);
+        change_detected_system.initialize(&mut world, &SystemInitContext::default());
+        change_expired_system.initialize(&mut world, &SystemInitContext::default());
 
         // world: 1, system last ran: 0, component changed: 1
         // The spawn will be detected since it happened after the system "last ran".

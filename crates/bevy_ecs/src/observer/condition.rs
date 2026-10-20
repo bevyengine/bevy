@@ -30,7 +30,8 @@ impl ObserverCondition {
     }
 
     pub(crate) fn initialize(&mut self, world: &mut World) {
-        self.condition.initialize(world);
+        self.condition
+            .initialize(world, &crate::system::SystemInitContext::default());
     }
 
     /// # Safety

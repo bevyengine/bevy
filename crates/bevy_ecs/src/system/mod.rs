@@ -127,6 +127,7 @@ mod input;
 mod observer_system;
 mod query;
 mod schedule_system;
+mod set_local;
 mod system;
 mod system_name;
 mod system_param;
@@ -144,6 +145,7 @@ pub use input::*;
 pub use observer_system::*;
 pub use query::*;
 pub use schedule_system::*;
+pub use set_local::*;
 pub use system::*;
 pub use system_name::*;
 pub use system_param::*;
@@ -350,7 +352,7 @@ pub fn assert_is_system<In: SystemInput, Out: 'static, Marker>(
 
     // Initialize the system, which will panic if the system has access conflicts.
     let mut world = World::new();
-    system.initialize(&mut world);
+    system.initialize(&mut world, &SystemInitContext::default());
 }
 
 /// Ensure that a given function is a [read-only system](ReadOnlySystem).
@@ -394,13 +396,14 @@ where
 pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Params>>(sys: S) {
     let mut world = World::new();
     let mut system = IntoSystem::into_system(sys);
-    system.initialize(&mut world);
+    system.initialize(&mut world, &SystemInitContext::default());
     system.run((), &mut world).unwrap();
 }
 
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
+    use crate::system::SystemInitContext;
     use alloc::{vec, vec::Vec};
     use bevy_utils::default;
     use core::any::TypeId;
@@ -478,7 +481,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(A);
 
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
         system.run((), &mut world).unwrap();
     }
 
@@ -1235,8 +1238,8 @@ mod tests {
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);
         let mut y = IntoSystem::into_system(sys_y);
-        let x_access = x.initialize(&mut world);
-        let y_access = y.initialize(&mut world);
+        let x_access = x.initialize(&mut world, &SystemInitContext::default());
+        let y_access = y.initialize(&mut world, &SystemInitContext::default());
 
         let conflicts = x_access.get_conflicts(&y_access);
         let b_id = world.components().get_id(TypeId::of::<ResB>()).unwrap();
@@ -1260,11 +1263,11 @@ mod tests {
         world.spawn(A).insert(C);
 
         let mut without_filter = IntoSystem::into_system(without_filter);
-        without_filter.initialize(&mut world);
+        without_filter.initialize(&mut world, &SystemInitContext::default());
         without_filter.run((), &mut world).unwrap();
 
         let mut with_filter = IntoSystem::into_system(with_filter);
-        with_filter.initialize(&mut world);
+        with_filter.initialize(&mut world, &SystemInitContext::default());
         with_filter.run((), &mut world).unwrap();
     }
 
@@ -1311,8 +1314,8 @@ mod tests {
         let mut world = World::default();
         let mut x = IntoSystem::into_system(sys_x);
         let mut y = IntoSystem::into_system(sys_y);
-        x.initialize(&mut world);
-        y.initialize(&mut world);
+        x.initialize(&mut world, &SystemInitContext::default());
+        y.initialize(&mut world, &SystemInitContext::default());
     }
 
     #[test]
@@ -1536,7 +1539,7 @@ mod tests {
             fn immutable_query(_: Query<&A>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1551,7 +1554,7 @@ mod tests {
             fn immutable_query(_: Query<Option<&A>>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1566,7 +1569,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B)>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1581,7 +1584,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B)>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1596,7 +1599,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B), With<C>>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1611,7 +1614,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1626,7 +1629,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B), Added<C>>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1641,7 +1644,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
 
         {
@@ -1656,7 +1659,7 @@ mod tests {
             fn immutable_query(_: Query<(&A, &B, SpawnDetails), Spawned>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
-            sys.initialize(&mut world);
+            sys.initialize(&mut world, &SystemInitContext::default());
         }
     }
 
@@ -1858,7 +1861,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Flag>();
         let mut sys = IntoSystem::into_system(first.pipe(second));
-        sys.initialize(&mut world);
+        sys.initialize(&mut world, &SystemInitContext::default());
 
         sys.run(default(), &mut world).unwrap();
 
@@ -2012,7 +2015,7 @@ mod tests {
 
         let mut world = World::new();
         let mut system = IntoSystem::into_system(sys.with_input(42));
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
         system.run((), &mut world).unwrap();
         assert_eq!(*system.value(), 43);
     }
@@ -2034,7 +2037,7 @@ mod tests {
         let mut world = World::new();
         let mut system = IntoSystem::into_system(sys.with_input_from::<TestData>());
         assert!(system.value().is_none());
-        system.initialize(&mut world);
+        system.initialize(&mut world, &SystemInitContext::default());
         assert!(system.value().is_some());
         system.run((), &mut world).unwrap();
         assert_eq!(system.value().unwrap().0, 6);
