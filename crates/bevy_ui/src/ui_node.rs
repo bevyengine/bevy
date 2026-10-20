@@ -15,7 +15,7 @@ use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
-use bevy_ui_render_macros::GlobalZLayer;
+pub use bevy_ui_macros::GlobalZLayer;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -2875,7 +2875,7 @@ sure it's recognized as a markdown link."
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ZIndex(pub i32);
 
-derive_label!(GlobalZLayer);
+define_label!(GlobalZLayer);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
@@ -2908,44 +2908,56 @@ impl GlobalZIndex {
     }
 }
 
+// Default global z layer nodes without a `GlobalZIndex` component are placed into.
+// Given a zindex of 0. Other layers should be arranged relative to this one in `GlobalZLayers`.
+#[derive(GlobalZLayer)]
+pub struct DefaultGlobalZLayer;
+
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct GlobalZLayers(pub Vec<Interned<dyn GlobalZLayer>>);
 
+impl Default for GlobalZLayers {
+    fn default() -> Self {
+        let default_layer = DefaultGlobalZLayer;
+        Self(vec![default_layer.intern()])
+    }
+}
+
 impl GlobalZLayers {
-    pub fn get_index(&self, layer: impl GlobalZLayer) -> Result<u32, GlobalZLayerError> {
+    pub fn get_index(&self, layer: impl GlobalZLayer) -> Result<i32, GlobalZLayerError> {
         let layer = layer.intern();
         self.iter()
             .position(|&label| label == layer)
-            .map(|index| index as f32 / self.len() as f32)
-            .ok_or(UiSubZLayerError::NoSuchLayer)
+            .map(|index| index as i32)
+            .ok_or(GlobalZLayerError::NoSuchLayer)
     }
 
     pub fn insert_before(
-        &self,
+        &mut self,
         before: impl GlobalZLayer,
-        layer: impl GlobalZLayer,
+        new_layer: impl GlobalZLayer,
     ) -> Result<(), GlobalZLayerError> {
         let before = before.intern();
         let new_layer = new_layer.intern();
         let index = self
             .iter()
             .position(|&label| label == before)
-            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+            .ok_or(GlobalZLayerError::NoSuchLayer)?;
         self.insert(index, new_layer.intern());
         Ok(())
     }
 
     pub fn insert_after(
-        &self,
+        &mut self,
         after: impl GlobalZLayer,
-        layer: impl GlobalZLayer,
+        new_layer: impl GlobalZLayer,
     ) -> Result<(), GlobalZLayerError> {
         let after = after.intern();
         let new_layer = new_layer.intern();
         let index = self
             .iter()
             .position(|&label| label == after)
-            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+            .ok_or(GlobalZLayerError::NoSuchLayer)?;
         self.insert(index + 1, new_layer.intern());
         Ok(())
     }
