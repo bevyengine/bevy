@@ -1,6 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{GlobalZIndex, ZIndex};
+use crate::{GlobalZIndex, GlobalZLayers, ZIndex};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -35,7 +35,7 @@ pub struct UiStack {
 /// The stack root and its descendants, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
-    global_z: i32,
+    global_z: u32,
     local_z: i32,
     new_or_changed: bool,
     previous_index: usize,
@@ -47,6 +47,7 @@ pub(crate) struct StackRoot {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
+    global_z_layers: Res<GlobalZLayers>,
     mut cache: Local<Vec<(Entity, i32)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
@@ -77,7 +78,9 @@ pub fn ui_stack_system(
         stack_roots.push((
             id,
             StackRoot {
-                global_z: maybe_global_zindex.map(|z| z.0).unwrap_or(0),
+                global_z: maybe_global_zindex
+                    .map(|g| global_z_layers.get_index(g.0).ok_or(0))
+                    .unwrap_or(0),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
                     || maybe_global_zindex.as_ref().is_some_and(Ref::is_changed)
@@ -97,7 +100,7 @@ pub fn ui_stack_system(
         stack_roots.push((
             id,
             StackRoot {
-                global_z: global_zindex.0,
+                global_z: global_z_layers.get_index(global_zindex.0).ok_or(0),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
                     || global_zindex.is_changed()

@@ -9,11 +9,13 @@ use crate::{
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::define_label;
+use bevy_ecs::{intern::Interned, prelude::*, system::SystemParam};
 use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
+use bevy_ui_render_macros::GlobalZLayer;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -2873,6 +2875,8 @@ sure it's recognized as a markdown link."
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ZIndex(pub i32);
 
+derive_label!(GlobalZLayer);
+
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
 /// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
@@ -2889,7 +2893,67 @@ pub struct ZIndex(pub i32);
 /// Otherwise the order is preserved from the previous frame.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct GlobalZIndex(pub i32);
+pub struct GlobalZIndex(pub(crate) Interned<dyn GlobalZLayer>);
+
+impl<G: GlobalZLayer> From<G> for GlobalZIndex {
+    fn from(g: G) -> Self {
+        Self(g.intern())
+    }
+}
+
+impl GlobalZIndex {
+    /// Create a new `GlobalZIndex`, targeting the given layer.
+    pub fn new(layer: impl GlobalZLayer) -> Self {
+        Self(layer.intern())
+    }
+}
+
+#[derive(Resource, Clone, Debug, Deref, DerefMut)]
+pub struct GlobalZLayers(pub Vec<Interned<dyn GlobalZLayer>>);
+
+impl GlobalZLayers {
+    pub fn get_index(&self, layer: impl GlobalZLayer) -> Result<u32, GlobalZLayerError> {
+        let layer = layer.intern();
+        self.iter()
+            .position(|&label| label == layer)
+            .map(|index| index as f32 / self.len() as f32)
+            .ok_or(UiSubZLayerError::NoSuchLayer)
+    }
+
+    pub fn insert_before(
+        &self,
+        before: impl GlobalZLayer,
+        layer: impl GlobalZLayer,
+    ) -> Result<(), GlobalZLayerError> {
+        let before = before.intern();
+        let new_layer = new_layer.intern();
+        let index = self
+            .iter()
+            .position(|&label| label == before)
+            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+        self.insert(index, new_layer.intern());
+        Ok(())
+    }
+
+    pub fn insert_after(
+        &self,
+        after: impl GlobalZLayer,
+        layer: impl GlobalZLayer,
+    ) -> Result<(), GlobalZLayerError> {
+        let after = after.intern();
+        let new_layer = new_layer.intern();
+        let index = self
+            .iter()
+            .position(|&label| label == after)
+            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+        self.insert(index + 1, new_layer.intern());
+        Ok(())
+    }
+}
+
+pub enum GlobalZLayerError {
+    NoSuchLayer,
+}
 
 /// Sets a color to fill the regions outside the Node's border created when a border radius is set.
 ///

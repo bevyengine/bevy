@@ -35,6 +35,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
   "std",
 ] }
+bevy_ui_macros = { path = "macros", version = "0.20.0-dev" }
 
 # other
 taffy = { version = "0.14", default-features = false, features = [
@@ -53,6 +54,7 @@ accesskit = "0.25"
 parley = { version = "0.11.0", default-features = false, features = ["std"] }
 swash = { version = "0.2.6" }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
 
 [dev-dependencies]
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.20.0-dev" }
