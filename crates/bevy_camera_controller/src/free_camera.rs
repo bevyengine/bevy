@@ -246,7 +246,7 @@ impl Default for FreeCameraState {
             initialized: false,
             pitch: 0.0,
             yaw: 0.0,
-            speed_multiplier: 100.0,
+            speed_multiplier: 1.0,
             velocity: Vec3::ZERO,
             rotation_curve: None,
         }

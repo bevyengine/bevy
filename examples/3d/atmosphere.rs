@@ -16,7 +16,7 @@
 //! - Read by `bevy_pbr`: `ATMOSPHERE_DBG` (comma-separated `ATM_DBG_*` shader defs, see
 //!   `atmosphere/resources.rs`), `ATMOSPHERE_GPU_TIMING` (per-pass CSV).
 #[cfg(feature = "free_camera")]
-use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState};
 use std::f32::consts::PI;
 
 use bevy::{
@@ -583,22 +583,11 @@ fn setup_camera_fog(
             } else {
                 AtmosphereMode::Raymarched
             },
-            // Profiling override: `ATMOSPHERE_SHADOW_INTERLEAVE=1` traces the whole cloud shadow
-            // map every frame instead of time-slicing it.
-            cloud_shadow_map_update_interleave: std::env::var("ATMOSPHERE_SHADOW_INTERLEAVE")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(AtmosphereSettings::default().cloud_shadow_map_update_interleave),
             // Profiling override: `ATMOSPHERE_SHADOW_SAMPLES=<n>` density samples per shadow ray.
             cloud_shadow_map_samples: std::env::var("ATMOSPHERE_SHADOW_SAMPLES")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(AtmosphereSettings::default().cloud_shadow_map_samples),
-            cloud_shadow_temporal_enabled: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA").is_ok(),
-            cloud_shadow_temporal_alpha: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(AtmosphereSettings::default().cloud_shadow_temporal_alpha),
             ..default()
         },
         // The directional light illuminance used in this scene
@@ -619,12 +608,33 @@ fn setup_camera_fog(
             mouse_key_cursor_grab: MouseButton::Left,
             ..default()
         },
+        // Planet-scale flight: 100x the default walk/run speed.
+        #[cfg(feature = "free_camera")]
+        FreeCameraState {
+            speed_multiplier: 100.0,
+            ..default()
+        },
         VolumetricFog {
             ambient_intensity: 0.0,
             ..default()
         },
         Msaa::Off,
-        VolumetricCloudSettings::MEDIUM,
+        // `VolumetricCloudSettings` owns the shadow update/temporal settings (it overwrites
+        // `AtmosphereSettings` every frame), so the profiling overrides go here:
+        // `ATMOSPHERE_SHADOW_INTERLEAVE=1` traces the whole shadow map every frame instead of
+        // time-slicing it, `ATMOSPHERE_SHADOW_TEMPORAL_ALPHA=<a>` sets the history blend
+        // (1 = no history).
+        VolumetricCloudSettings {
+            shadow_update_interleave: std::env::var("ATMOSPHERE_SHADOW_INTERLEAVE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(VolumetricCloudSettings::MEDIUM.shadow_update_interleave),
+            shadow_temporal_alpha: std::env::var("ATMOSPHERE_SHADOW_TEMPORAL_ALPHA")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(VolumetricCloudSettings::MEDIUM.shadow_temporal_alpha),
+            ..VolumetricCloudSettings::MEDIUM
+        },
         TemporalAntiAliasing::default(),
         ScreenSpaceReflections {
             min_perceptual_roughness: 0.0..0.0,
@@ -676,6 +686,7 @@ fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
+    mut std_materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     // Sun
@@ -712,6 +723,22 @@ fn setup_terrain_scene(
     //     FogVolume::default(),
     //     Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     // ));
+
+    // `ATMOSPHERE_MESH_PLANE=1`: a 40 km grey mesh plane over x < 0, 2 m above the ground, to
+    // compare mesh (PBR) cloud shadows with the planet ground's across its edge at x = 0.
+    if std::env::var("ATMOSPHERE_MESH_PLANE").is_ok() {
+        commands.spawn((
+            Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(20_000.0)))),
+            MeshMaterial3d(std_materials.add(StandardMaterial {
+                base_color: Color::srgb(0.3, 0.3, 0.3),
+                perceptual_roughness: 1.0,
+                // The example's default is deferred; the camera has no deferred prepass.
+                opaque_render_method: bevy::material::OpaqueRendererMethod::Forward,
+                ..default()
+            })),
+            Transform::from_xyz(-20_000.0, 2.0, 0.0),
+        ));
+    }
 
     // Terrain: temporarily off by default while tuning clouds + atmosphere (the planet ground
     // sphere still renders); `ATMOSPHERE_TERRAIN=1` brings it back.
