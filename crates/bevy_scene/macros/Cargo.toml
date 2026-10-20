@@ -3,7 +3,7 @@ name = "bevy_scene_macros"
 version = "0.20.0-dev"
 edition = "2024"
 description = "Derive implementations for bevy_scene"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -17,7 +17,15 @@ bevy_ecs_macro_logic = { path = "../../bevy_ecs/macro_logic", version = "0.20.0-
 
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0", features = ["full", "extra-traits"] }
+syn = { version = "3", features = ["full", "extra-traits"] }
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
+all-features = true

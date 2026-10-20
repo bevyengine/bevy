@@ -3,6 +3,8 @@
 mod khr_materials_anisotropy;
 mod khr_materials_clearcoat;
 mod khr_materials_specular;
+#[cfg(feature = "meshopt")]
+pub mod khr_meshopt_compression;
 
 use alloc::sync::Arc;
 use async_lock::RwLock;

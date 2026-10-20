@@ -154,9 +154,8 @@ pub fn check_views_need_specialization(
                 resolved_space,
             ));
 
-        if !camera.hdr
+        if camera.tonemap_in_shader
             && let Some(tonemapping) = tonemapping
-            && tonemapping.is_enabled()
         {
             view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
             view_key |= tonemapping_pipeline_key(*tonemapping);
@@ -183,7 +182,10 @@ pub fn init_batched_instance_buffer(mut commands: Commands, render_device: Res<R
     ));
 }
 
-fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<AssetServer>) {
+pub(crate) fn load_mesh2d_bindings(
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
     let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
     if let Some(per_object_buffer_batch_size) =
@@ -324,7 +326,7 @@ pub fn extract_2d_meshes(
     mem::swap(&mut *reextract_entities, &mut *reextract_entities_temp);
 
     // First, process meshes that we recorded as potentially needing to be
-    // reextracted on the previous frame frame.
+    // reextracted on the previous frame.
 
     for reextract_entity in reextract_entities_temp.drain().chain(
         removed_no_automatic_batching_components

@@ -37,12 +37,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/install-rust
+      - uses: $/.github/actions/install-rust
         with:
           channel: nightly
 
       - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
+        uses: $/.github/actions/install-linux-deps
         with:
           wayland: true
           xkb: true

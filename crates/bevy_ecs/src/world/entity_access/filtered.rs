@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
     query::Access,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref, WorldId},
 };
 
 use bevy_ptr::Ptr;
@@ -77,6 +77,12 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity.id()
+    }
+
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
@@ -442,6 +448,12 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         self.entity.id()
     }
 
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.entity.world_id()
+    }
+
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
@@ -613,6 +625,26 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             // - We have write access
             // - Caller ensures `T` is a mutable component
             .then(|| unsafe { self.entity.get_mut_assume_mutable() })
+            .flatten()
+    }
+
+    /// Consumes self and gets mutable access to the [`MutUntyped`] of `component_id` from the
+    /// entity, with the world `'w` lifetime for the current entity.
+    ///
+    /// Returns [`None`] if the entity does not have a component with `component_id`, or this
+    /// [`FilteredEntityMut`] does not have access to that component.
+    ///
+    /// **You should prefer to use the typed API [`Self::into_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn into_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+        self.access
+            .has_write(component_id)
+            // SAFETY: We check above that we have permission to access the component mutably and
+            // we consume this instance, so no more references can be created (so it's impossible to
+            // alias this component).
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
 

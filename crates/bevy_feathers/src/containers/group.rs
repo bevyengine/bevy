@@ -1,6 +1,6 @@
 use bevy_app::Propagate;
 use bevy_scene::{bsn, Scene};
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect};
 
 use crate::{
@@ -43,7 +43,7 @@ pub fn group_header() -> impl Scene {
         }
         InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
@@ -61,7 +61,7 @@ pub fn group_body() -> impl Scene {
         }
         InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }

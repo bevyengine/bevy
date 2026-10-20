@@ -1,5 +1,7 @@
 mod contiguous_par_iter_simple;
 mod heavy_compute;
+mod iter_changed_frag;
+mod iter_changed_simple;
 mod iter_frag;
 mod iter_frag_foreach;
 mod iter_frag_foreach_sparse;
@@ -38,6 +40,7 @@ criterion_group!(
     iter_simple,
     heavy_compute,
     par_iter_simple,
+    iter_changed,
 );
 
 fn iter_simple(c: &mut Criterion) {
@@ -194,4 +197,27 @@ fn contiguous_par_iter_simple(c: &mut Criterion) {
         let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
         b.iter(move || bench.run());
     });
+}
+
+fn iter_changed(c: &mut Criterion) {
+    let mut group = c.benchmark_group("iter_changed");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    group.bench_function("simple_unchanged".to_string(), |b| {
+        let mut bench = iter_changed_simple::Benchmark::new(false);
+        b.iter(move || bench.run());
+    });
+
+    group.bench_function("simple_changed".to_string(), |b| {
+        let mut bench = iter_changed_simple::Benchmark::new(true);
+        b.iter(move || bench.run());
+    });
+
+    for f in [10, 100, 1000] {
+        group.bench_function(format!("with_{f}_fragment"), |b| {
+            let mut bench = iter_changed_frag::Benchmark::new(f);
+            b.iter(move || bench.run());
+        });
+    }
 }

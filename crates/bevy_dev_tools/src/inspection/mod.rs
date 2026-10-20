@@ -5,9 +5,13 @@
 //! and presenting that data to the user in a number of convenient, often interactive ways.
 
 pub mod component_inspection;
+pub mod entity_grouping;
 pub mod entity_inspection;
 pub mod extension_methods;
+pub mod fuzzy_name_matching;
 pub mod label_resolution;
 pub mod reflection_tools;
 pub mod resource_inspection;
+#[cfg(feature = "serialize")]
+pub mod serde_conversions;
 pub mod world_summary;

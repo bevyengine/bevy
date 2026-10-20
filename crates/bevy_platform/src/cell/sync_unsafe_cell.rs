@@ -78,8 +78,8 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
         (this as *const T).cast_mut()
     }
 
-    #[inline]
     /// Returns a `&mut SyncUnsafeCell<T>` from a `&mut T`.
+    #[inline]
     pub fn from_mut(t: &mut T) -> &mut SyncUnsafeCell<T> {
         let ptr = ptr::from_mut(t) as *mut SyncUnsafeCell<T>;
         // SAFETY: `ptr` must be safe to mutably dereference, since it was originally

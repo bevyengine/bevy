@@ -32,7 +32,8 @@ use bevy_mesh::UvChannel;
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshVertexAttribute, PrimitiveTopology,
+    Indices, Mesh, Mesh3d, MeshCompressionArgs, MeshRaytracingFlags, MeshVertexAttribute,
+    PrimitiveTopology,
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
@@ -43,6 +44,7 @@ use bevy_world_serialization::WorldAsset;
 use gltf::{
     accessor::Iter,
     image::Source,
+    material::AlphaMode,
     mesh::{util::ReadIndices, Mode},
     Material, Node, Semantic,
 };
@@ -55,9 +57,11 @@ use tracing::{error, info_span, warn};
 use wgpu_types::Face;
 
 use crate::{
-    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin, GltfSkinnedMeshBoundsPolicy,
+    convert_coordinates::ConvertCoordinates as _,
+    vertex_attributes::{convert_attribute, morph_targets, position_bounds},
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
+    GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -137,6 +141,47 @@ pub enum GltfError {
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] Error),
+    /// A buffer view's meshopt compression data is malformed.
+    #[error("invalid meshopt compression data on buffer view {buffer_view}: {message}")]
+    InvalidMeshoptCompression {
+        /// The buffer view index.
+        buffer_view: usize,
+        /// What is malformed.
+        message: String,
+    },
+}
+
+const KHR_MESH_QUANTIZATION: &str = "KHR_mesh_quantization";
+const KHR_MESHOPT_COMPRESSION: &str = "KHR_meshopt_compression";
+const EXT_MESHOPT_COMPRESSION: &str = "EXT_meshopt_compression";
+const MESHOPT_COMPRESSION_EXTENSIONS: [&str; 2] =
+    [KHR_MESHOPT_COMPRESSION, EXT_MESHOPT_COMPRESSION];
+
+/// Required extensions the loader decodes but the `gltf` crate rejects as
+/// unsupported.
+const LOADER_DECODED_EXTENSIONS: &[&str] = if cfg!(feature = "meshopt") {
+    &[
+        KHR_MESH_QUANTIZATION,
+        KHR_MESHOPT_COMPRESSION,
+        EXT_MESHOPT_COMPRESSION,
+    ]
+} else {
+    &[KHR_MESH_QUANTIZATION]
+};
+
+/// Runs the `gltf` crate's validation with [`LOADER_DECODED_EXTENSIONS`]
+/// hidden from `extensionsRequired`.
+fn validate_document(document: gltf::Document) -> Result<gltf::Document, GltfError> {
+    let mut root = document.into_json();
+    let required = core::mem::take(&mut root.extensions_required);
+    root.extensions_required = required
+        .iter()
+        .filter(|name| !LOADER_DECODED_EXTENSIONS.contains(&name.as_str()))
+        .cloned()
+        .collect();
+    let mut root = gltf::Document::from_json(root)?.into_json();
+    root.extensions_required = required;
+    Ok(gltf::Document::from_json_without_validation(root))
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -250,11 +295,20 @@ impl GltfLoader {
         load_context: &'b mut LoadContext<'c>,
         settings: &'b GltfLoaderSettings,
     ) -> Result<Gltf, GltfError> {
-        let gltf = if settings.validate {
-            gltf::Gltf::from_slice(bytes)?
-        } else {
-            gltf::Gltf::from_slice_without_validation(bytes)?
-        };
+        let mut gltf = gltf::Gltf::from_slice_without_validation(bytes)?;
+        if !cfg!(feature = "meshopt")
+            && let Some(name) = MESHOPT_COMPRESSION_EXTENSIONS
+                .into_iter()
+                .find(|&name| gltf.extensions_required().any(|required| required == name))
+        {
+            warn!(
+                "{} requires {name}; enable the `meshopt` feature of bevy_gltf (`gltf_meshopt` on bevy) to load it",
+                load_context.path()
+            );
+        }
+        if settings.validate {
+            gltf.document = validate_document(gltf.document)?;
+        }
 
         // clone extensions to start with a fresh processing state
         let mut extensions = loader.extensions.read().await.clone();
@@ -796,25 +850,24 @@ impl GltfLoader {
                         });
                     };
 
-                    {
-                        let morph_target_reader = reader.read_morph_targets();
-                        if morph_target_reader.len() != 0 {
-                            mesh.set_morph_targets(
-                                morph_target_reader
-                                    .flat_map(|i| PrimitiveMorphAttributesIter {
-                                        convert_coordinates: convert_coordinates.rotate_meshes,
-                                        positions: i.0,
-                                        normals: i.1,
-                                        tangents: i.2,
-                                    })
-                                    .collect(),
-                            );
+                    if primitive.morph_targets().len() != 0 {
+                        match morph_targets(
+                            &primitive,
+                            &buffer_data,
+                            convert_coordinates.rotate_meshes,
+                        ) {
+                            Ok(targets) => {
+                                mesh.set_morph_targets(targets);
 
-                            let extras = gltf_mesh.extras().as_ref();
-                            if let Some(names) = extras.and_then(|extras| {
-                                serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
-                            }) {
-                                mesh.set_morph_target_names(names.target_names);
+                                let extras = gltf_mesh.extras().as_ref();
+                                if let Some(names) = extras.and_then(|extras| {
+                                    serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
+                                }) {
+                                    mesh.set_morph_target_names(names.target_names);
+                                }
+                            }
+                            Err(err) => {
+                                warn!("Ignoring morph targets of {primitive_label}: {err}");
                             }
                         }
                     }
@@ -866,6 +919,14 @@ impl GltfLoader {
                 {
                     warn!("Failed to generate skinned mesh bounds: {err}");
                 }
+
+                mesh.raytracing = match primitive.material().alpha_mode() {
+                    AlphaMode::Opaque => MeshRaytracingFlags::OPAQUE,
+                    AlphaMode::Mask => MeshRaytracingFlags::NON_OPAQUE,
+                    // TODO: Solari doesn't support transparency yet, so this is treated as opaque for now
+                    #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
+                    AlphaMode::Blend => MeshRaytracingFlags::OPAQUE,
+                };
 
                 let mesh_handle = load_context.add_labeled_asset(
                     primitive_label.to_string(),
@@ -1669,7 +1730,6 @@ fn load_node(
                     mesh: mesh.index(),
                     primitive: primitive.index(),
                 };
-                let bounds = primitive.bounding_box();
                 let parent_entity = parent.target_entity();
 
                 // Apply the inverse of the conversion transform that's been
@@ -1702,8 +1762,7 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::Reference(parent_entity));
                 }
 
-                let mut bounds_min = Vec3::from_slice(&bounds.min);
-                let mut bounds_max = Vec3::from_slice(&bounds.max);
+                let (mut bounds_min, mut bounds_max) = position_bounds(&primitive);
 
                 if convert_coordinates.rotate_meshes {
                     let converted_min = bounds_min.convert_coordinates();
@@ -1922,6 +1981,17 @@ async fn load_buffers(
 
     let mut buffer_data = Vec::new();
     for buffer in gltf.buffers() {
+        #[cfg(feature = "meshopt")]
+        if extensions::khr_meshopt_compression::is_fallback_buffer(&buffer) {
+            // `decode_buffer_views` fills it in below, so any URI goes unread.
+            let mut fallback = Vec::new();
+            fallback
+                .try_reserve_exact(buffer.length())
+                .map_err(|_| Error::from(std::io::ErrorKind::OutOfMemory))?;
+            fallback.resize(buffer.length(), 0);
+            buffer_data.push(fallback);
+            continue;
+        }
         match buffer.source() {
             gltf::buffer::Source::Uri(uri) => {
                 let uri = percent_encoding::percent_decode_str(uri)
@@ -1953,6 +2023,9 @@ async fn load_buffers(
             }
         }
     }
+
+    #[cfg(feature = "meshopt")]
+    extensions::khr_meshopt_compression::decode_buffer_views(&gltf.document, &mut buffer_data)?;
 
     Ok(buffer_data)
 }
@@ -2168,6 +2241,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
+        load_gltf_bytes_into_app(gltf_path, gltf.as_bytes().to_vec())
+    }
+
+    fn load_gltf_bytes_into_app(gltf_path: &str, gltf: Vec<u8>) -> App {
         #[expect(
             dead_code,
             reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
@@ -2176,7 +2253,7 @@ mod test {
         struct GltfHandle(Handle<Gltf>);
 
         let dir = Dir::default();
-        dir.insert_asset_text(Path::new(gltf_path), gltf);
+        dir.insert_asset(Path::new(gltf_path), gltf);
         let mut app = test_app(dir);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -2790,5 +2867,229 @@ mod test {
         assert_eq!(settings.default_sampler, default.default_sampler);
         assert_eq!(settings.override_sampler, default.override_sampler);
         assert_eq!(settings.validate, default.validate);
+    }
+
+    fn requires_meshopt(extension: &str) -> String {
+        serde_json::json!({
+            "asset": { "version": "2.0" },
+            "extensionsRequired": [extension],
+            "extensionsUsed": [extension]
+        })
+        .to_string()
+    }
+
+    #[cfg(feature = "meshopt")]
+    #[test]
+    fn required_meshopt_extension_passes_validation() {
+        for extension in super::MESHOPT_COMPRESSION_EXTENSIONS {
+            // Panics on any load error.
+            let _app = load_gltf_into_app("meshopt.gltf", &requires_meshopt(extension));
+        }
+    }
+
+    /// Compressed data in the BIN chunk as buffer 0, URI-less fallback buffer
+    /// at index 1, as gltfpack writes a GLB.
+    #[cfg(feature = "meshopt")]
+    #[test]
+    fn loads_meshopt_glb() {
+        for extension in super::MESHOPT_COMPRESSION_EXTENSIONS {
+            load_meshopt_glb(extension);
+        }
+    }
+
+    #[cfg(feature = "meshopt")]
+    fn load_meshopt_glb(extension: &str) {
+        use super::extensions::khr_meshopt_compression::fixture::{
+            fixture, indices, positions, triangles,
+        };
+        use bevy_mesh::{Mesh, VertexAttributeValues};
+
+        let positions = positions(97);
+        let indices = indices(3 * 61, positions.len());
+        let (mut json, compressed) = fixture(extension, &positions, &indices);
+        json["buffers"][0].as_object_mut().unwrap().remove("uri");
+        let glb = gltf::binary::Glb {
+            header: gltf::binary::Header {
+                magic: *b"glTF",
+                version: 2,
+                length: 0,
+            },
+            json: serde_json::to_vec(&json).unwrap().into(),
+            bin: Some(compressed.into()),
+        }
+        .to_vec()
+        .unwrap();
+
+        let app = load_gltf_bytes_into_app("mesh.glb", glb);
+        let (_, mesh) = app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .iter()
+            .next()
+            .unwrap();
+        let Some(VertexAttributeValues::Float32x3(loaded)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        else {
+            panic!("positions missing");
+        };
+        // The fixture carries no normals, so the loader de-indexes the mesh
+        // to compute flat ones; recover each vertex's original index from
+        // its unique x coordinate and compare triangles.
+        assert_eq!(loaded.len(), indices.len());
+        let loaded: Vec<u32> = loaded
+            .iter()
+            .map(|p| {
+                let index = (p[0] * 2.0) as usize;
+                assert_eq!(positions.get(index), Some(p), "unknown vertex {p:?}");
+                index as u32
+            })
+            .collect();
+        assert_eq!(triangles(&loaded), triangles(&indices));
+    }
+
+    #[cfg(not(feature = "meshopt"))]
+    #[test]
+    fn required_meshopt_extension_fails_to_load() {
+        for extension in super::MESHOPT_COMPRESSION_EXTENSIONS {
+            let (mut app, dir) = test_app_custom_asset_source();
+            dir.insert_asset_text(Path::new("meshopt.gltf"), &requires_meshopt(extension));
+
+            let asset_server = app.world().resource::<AssetServer>().clone();
+            let handle: Handle<Gltf> = asset_server.load("custom://meshopt.gltf");
+            run_app_until(&mut app, |_| match asset_server.load_state(&handle) {
+                LoadState::Failed(_) => Some(()),
+                LoadState::Loading => None,
+                state => panic!("Unexpected load state: {state:?}"),
+            });
+        }
+    }
+
+    #[test]
+    fn dequantizes_khr_mesh_quantization() {
+        use bevy_mesh::{Mesh, VertexAttributeValues};
+
+        let mut bin = Vec::new();
+        // POSITION: i16 VEC3, padded to a 4-byte stride.
+        for p in [[0i16, 0, 0], [2, 0, 0], [0, 3, 0]] {
+            p.iter().for_each(|c| bin.extend(c.to_le_bytes()));
+            bin.extend([0; 2]);
+        }
+        // NORMAL: normalized i8 VEC3, padded.
+        for _ in 0..3 {
+            bin.extend([0, 0, 127, 0]);
+        }
+        // TANGENT: normalized i16 VEC4; -32768 clamps to -1.
+        for _ in 0..3 {
+            [i16::MAX, 0, 0, i16::MIN]
+                .iter()
+                .for_each(|c| bin.extend(c.to_le_bytes()));
+        }
+        // TEXCOORD_0: normalized i8 VEC2, padded.
+        for uv in [[0i8, 0], [127, 0], [0, 127]] {
+            bin.extend([uv[0] as u8, uv[1] as u8, 0, 0]);
+        }
+        [0u16, 1, 2]
+            .iter()
+            .for_each(|i| bin.extend(i.to_le_bytes()));
+        bin.extend([0; 2]);
+        // Morph POSITION: i16 VEC3, padded.
+        for p in [[1i16, 0, 0], [0, -2, 0], [0, 0, 3]] {
+            p.iter().for_each(|c| bin.extend(c.to_le_bytes()));
+            bin.extend([0; 2]);
+        }
+        // Morph NORMAL: normalized i8 VEC3, padded.
+        for _ in 0..3 {
+            bin.extend([0, (-127i8) as u8, 0, 0]);
+        }
+
+        let uri = format!(
+            "data:application/octet-stream;base64,{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bin)
+        );
+        let gltf = r#"
+{
+    "asset": { "version": "2.0" },
+    "extensionsUsed": ["KHR_mesh_quantization"],
+    "extensionsRequired": ["KHR_mesh_quantization"],
+    "buffers": [{ "uri": "BIN_URI", "byteLength": 116 }],
+    "bufferViews": [
+        { "buffer": 0, "byteOffset": 0, "byteLength": 24, "byteStride": 8, "target": 34962 },
+        { "buffer": 0, "byteOffset": 24, "byteLength": 12, "byteStride": 4, "target": 34962 },
+        { "buffer": 0, "byteOffset": 36, "byteLength": 24, "target": 34962 },
+        { "buffer": 0, "byteOffset": 60, "byteLength": 12, "byteStride": 4, "target": 34962 },
+        { "buffer": 0, "byteOffset": 72, "byteLength": 6, "target": 34963 },
+        { "buffer": 0, "byteOffset": 80, "byteLength": 24, "byteStride": 8, "target": 34962 },
+        { "buffer": 0, "byteOffset": 104, "byteLength": 12, "byteStride": 4, "target": 34962 }
+    ],
+    "accessors": [
+        { "bufferView": 0, "componentType": 5122, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [2, 3, 0] },
+        { "bufferView": 1, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC3" },
+        { "bufferView": 2, "componentType": 5122, "normalized": true, "count": 3, "type": "VEC4" },
+        { "bufferView": 3, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC2" },
+        { "bufferView": 4, "componentType": 5123, "count": 3, "type": "SCALAR" },
+        { "bufferView": 5, "componentType": 5122, "count": 3, "type": "VEC3", "min": [0, -2, 0], "max": [1, 0, 3] },
+        { "bufferView": 6, "componentType": 5120, "normalized": true, "count": 3, "type": "VEC3" }
+    ],
+    "meshes": [{ "primitives": [{
+        "attributes": { "POSITION": 0, "NORMAL": 1, "TANGENT": 2, "TEXCOORD_0": 3 },
+        "indices": 4,
+        "targets": [{ "POSITION": 5, "NORMAL": 6 }]
+    }] }],
+    "nodes": [{ "mesh": 0 }],
+    "scenes": [{ "nodes": [0] }]
+}
+"#
+        .replace("BIN_URI", &uri);
+
+        let app = load_gltf_into_app("quantized.gltf", &gltf);
+        let (_, mesh) = app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .iter()
+            .next()
+            .unwrap();
+        let attribute = |id| mesh.attribute(id).cloned();
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_POSITION),
+            Some(VertexAttributeValues::Float32x3(vec![
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0]
+            ]))
+        );
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_NORMAL),
+            Some(VertexAttributeValues::Float32x3(vec![[0.0, 0.0, 1.0]; 3]))
+        );
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_TANGENT),
+            Some(VertexAttributeValues::Float32x4(vec![
+                [1.0, 0.0, 0.0, -1.0];
+                3
+            ]))
+        );
+        assert_eq!(
+            attribute(Mesh::ATTRIBUTE_UV_0),
+            Some(VertexAttributeValues::Float32x2(vec![
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0]
+            ]))
+        );
+        let morph = |position: [f32; 3]| {
+            bevy_mesh::morph::MorphAttributes::from([
+                position.into(),
+                bevy_math::Vec3::NEG_Y,
+                bevy_math::Vec3::ZERO,
+            ])
+        };
+        assert_eq!(
+            mesh.morph_targets(),
+            Some(&vec![
+                morph([1.0, 0.0, 0.0]),
+                morph([0.0, -2.0, 0.0]),
+                morph([0.0, 0.0, 3.0])
+            ])
+        );
     }
 }

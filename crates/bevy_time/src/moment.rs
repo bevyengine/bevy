@@ -6,8 +6,6 @@ use core::{
     time::Duration,
 };
 
-use bevy_reflect::Reflect;
-
 use crate::Time;
 
 /// A measurement of a point in time from some [`Time<C>`](crate::Time).
@@ -16,7 +14,7 @@ use crate::Time;
 /// resource instead of the platform's monotonic clock.
 ///
 /// `Moments` are captured from clocks, see [`Time::capture`].
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct Moment<C = ()> {
     // How much time has elapsed since the source clock has been added to the world.
     elapsed: Duration,
