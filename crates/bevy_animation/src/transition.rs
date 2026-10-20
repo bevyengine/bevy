@@ -85,7 +85,7 @@ impl AnimationTransitions {
             && let Some(old_animation) = player.animation_mut(old_animation_index)
             && !old_animation.is_paused()
         {
-            // FIX: Handled zero duration to prevent division by zero / infinity.
+            // Handle zero duration to prevent division by zero / infinity.
             let weight_decline_per_sec = if transition_duration.is_zero() {
                 f32::INFINITY
             } else {
@@ -106,6 +106,11 @@ impl AnimationTransitions {
 
         player.start(new_animation)
     }
+
+    /// Obtain the currently playing main animation.
+    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
+        self.main_animation
+    }
 }
 
 /// A system that alters the weight of currently-playing transitions based on
@@ -122,7 +127,6 @@ pub fn advance_transitions(
     for (mut animation_transitions, mut player) in query.iter_mut() {
         let mut remaining_weight = 1.0;
 
-        // FIX: Removed incorrect leading `&mut` reference to avoid compilation errors.
         for transition in animation_transitions.transitions.iter_mut().rev() {
             // Decrease weight.
             transition.current_weight = (transition.current_weight
