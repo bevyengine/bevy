@@ -2915,13 +2915,15 @@ impl Default for GlobalZLayers {
 }
 
 impl GlobalZLayers {
-    pub fn get_index(&self, layer: &str) -> Result<i32, GlobalZLayerError> {
+    /// Get the underlying corresponding to a layer name.
+    pub fn get_index(&self, layer: &str) -> Result<u32, GlobalZLayerError> {
         self.iter()
             .position(|label| label == layer)
-            .map(|index| index as i32)
+            .map(|index| index as u32)
             .ok_or(GlobalZLayerError::NoSuchLayer)
     }
 
+    /// Insert a new z-layer immediately before the given layer.
     pub fn insert_before(
         &mut self,
         before: &str,
@@ -2935,6 +2937,7 @@ impl GlobalZLayers {
         Ok(())
     }
 
+    /// Insert a new z-layer immediately after the given layer.
     pub fn insert_after(
         &mut self,
         after: &str,

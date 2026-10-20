@@ -35,7 +35,7 @@ pub struct UiStack {
 /// The stack root and its descendants, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
-    global_z: i32,
+    global_z: u32,
     local_z: i32,
     new_or_changed: bool,
     previous_index: usize,
