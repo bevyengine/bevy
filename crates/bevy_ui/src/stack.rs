@@ -529,4 +529,60 @@ mod tests {
 
         assert_eq!(result, vec![Label("root")]);
     }
+
+    #[test]
+    fn non_ghost_descendants_are_promoted_to_stack_roots() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((Node::default(), Label("n_Z_2"), ZIndex(2)));
+        world.spawn((Node::default(), Label("n_0")));
+        world.spawn((
+            GhostNode,
+            Label("ghost_0"),
+            children![(Node::default(), Label("g_Z_-1"), ZIndex(-1))],
+        ));
+        world.spawn((Node::default(), Label("n_G_-1"), GlobalZIndex(-1)));
+
+        world.spawn((
+            GhostNode,
+            Label("ghost_1"),
+            children![(Node::default(), Label("g_G_1"), GlobalZIndex(1))],
+        ));
+
+        world.spawn((
+            GhostNode,
+            Label("ghost_2"),
+            children![
+                (Node::default(), Label("g_Z_1"), ZIndex(1)),
+                (Node::default(), Label("g_Z_-2"), ZIndex(-2))
+            ],
+        ));
+
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            result,
+            vec![
+                Label("n_G_-1"),
+                Label("g_Z_-2"),
+                Label("g_Z_-1"),
+                Label("n_0"),
+                Label("g_Z_1"),
+                Label("n_Z_2"),
+                Label("g_G_1"),
+            ]
+        );
+    }
 }
