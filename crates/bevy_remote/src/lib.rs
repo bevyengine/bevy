@@ -143,6 +143,14 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
+//!   - `name_path` (optional): An array of names (strings) and child indices (numbers) that
+//!     entities must match, from an ancestor down to the entity itself. A name matches an entity
+//!     whose `Name` is exactly that string; the segment before it may match any ancestor, so
+//!     `["Settings", "Jump", "Rebind"]` is an entity named `Rebind` somewhere below `Jump`,
+//!     somewhere below `Settings`. An index `N` matches the `N`th child (counting from zero) of
+//!     the entity the segment before it matches, so `["List", 2, "Label"]` is a `Label` inside
+//!     the third child of `List`. A path may not start with an index. See
+//!     [`BrpQueryFilter::name_path`](builtin_methods::BrpQueryFilter::name_path) for details.
 //! - `strict` (optional): A flag to enable strict mode which will fail if any one of the components
 //!   is not present or can not be reflected. Defaults to false.
 //!
