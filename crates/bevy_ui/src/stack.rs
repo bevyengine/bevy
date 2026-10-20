@@ -61,7 +61,7 @@ pub fn ui_stack_system(
         ),
     >,
     ui_root_ghost_nodes: Query<
-        (Entity, Option<&Children>),
+        (Entity, &Children),
         (With<ComputedStackIndex>, Without<ChildOf>, With<GhostNode>),
     >,
     root_node_query: Query<(Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>)>,
@@ -92,7 +92,7 @@ pub fn ui_stack_system(
         update_uistack_recursive(
             &mut cache,
             entity,
-            children,
+            Some(children),
             true,
             &ui_children,
             &mut ui_stack.uinodes,
