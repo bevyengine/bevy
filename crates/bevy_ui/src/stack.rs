@@ -31,7 +31,8 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
-/// A `StackRoot` can be either a root UI node, or a parented UI node with a `GlobalZIndex` component.
+/// A `StackRoot` is a non-ghost UI node that is either parentless, has a `GlobalZIndex` component,
+/// or has only `GhostNode` ancestors.
 /// The stack root and its descendants, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
