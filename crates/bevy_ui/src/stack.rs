@@ -174,6 +174,7 @@ fn update_uistack_recursive(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
+        children,
         component::Component,
         hierarchy::ChildOf,
         schedule::Schedule,
@@ -181,7 +182,7 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use crate::{GlobalZIndex, Node, UiStack, ZIndex};
+    use crate::{GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
@@ -465,5 +466,42 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(uinodes, world.resource::<UiStack>().uinodes);
+    }
+
+    #[test]
+    fn ghost_nodes_flatten_z_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((
+            Node::default(),
+            Label("root"),
+            children![
+                (Node::default(), Label("node")),
+                (
+                    GhostNode,
+                    Label("ghost"),
+                    children![(Node::default(), Label("ghost child"), ZIndex(-1))]
+                )
+            ],
+        ));
+
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            result,
+            vec![Label("root"), Label("ghost_child"), Label("node")]
+        );
     }
 }
