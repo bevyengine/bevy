@@ -1,6 +1,6 @@
 ---
 title: "`BrpQueryFilter` has a `name_path` field"
-pull_requests: [TODO]
+pull_requests: [26250]
 ---
 
 `BrpQueryFilter` has a new field, `name_path`, which filters a `world.query` by a path of entity names and child indices.
