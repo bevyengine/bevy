@@ -3,6 +3,7 @@ use bevy_derive::DerefMut;
 use bevy_ecs::define_label;
 use bevy_ecs::intern::Interned;
 use bevy_ecs::resource::Resource;
+use bevy_render::{extract_resource::ExtractResource, RenderApp};
 pub use bevy_ui_render_macros::UiSubZLayer;
 
 define_label!(UiSubZLayer);
@@ -28,7 +29,8 @@ pub enum UiSubZLayers {
 /// UI elements are drawn in the order of this list, back-to-front.
 /// If the label for a builtin renderable element from `UiSubZlayers` isn't present, that
 /// element won't be drawn.
-#[derive(Resource, Clone, Debug, Deref, DerefMut)]
+#[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
+#[extract_app(RenderApp)]
 pub struct UiSubZLayerList(pub Vec<Interned<dyn UiSubZLayer>>);
 
 impl Default for UiSubZLayerList {
