@@ -48,7 +48,7 @@ pub(crate) struct StackRoot {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
-    mut cache: Local<Vec<(Entity, i32)>>,
+    mut local_cache: Local<Vec<(Entity, i32, Option<&'static Children>)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
@@ -81,6 +81,11 @@ pub fn ui_stack_system(
     >,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
+    let mut child_buffer = core::mem::take(&mut *local_cache)
+        .into_iter()
+        .map(|_| unreachable!())
+        .collect();
+
     stack_root_order.clear();
     for (order, partition) in ui_stack.partition.iter().enumerate() {
         stack_root_order.insert(ui_stack.uinodes[partition.start], order);
@@ -91,7 +96,7 @@ pub fn ui_stack_system(
 
     for children in ui_root_ghost_nodes.iter() {
         update_uistack_recursive(
-            &mut cache,
+            &mut child_buffer,
             children,
             true,
             &ui_children,
@@ -103,7 +108,7 @@ pub fn ui_stack_system(
         .iter_many(
             ui_root_nodes
                 .iter()
-                .chain(cache.iter().map(|&(entity, _)| entity)),
+                .chain(child_buffer.iter().map(|&(entity, _, _)| entity)),
         )
         .matched()
     {
@@ -121,7 +126,7 @@ pub fn ui_stack_system(
         ));
         visited_stack_roots.insert(id);
     }
-    cache.clear();
+    child_buffer.clear();
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
         if visited_stack_roots.contains(&id) {
@@ -154,7 +159,7 @@ pub fn ui_stack_system(
         ui_stack.uinodes.push(root_entity);
         if let Some(children) = children {
             update_uistack_recursive(
-                &mut cache,
+                &mut child_buffer,
                 children,
                 false,
                 &ui_children,
@@ -170,13 +175,16 @@ pub fn ui_stack_system(
             stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
     }
+
+    child_buffer.clear();
+    *local_cache = child_buffer.into_iter().map(|_| unreachable!()).collect();
 }
 
-fn update_uistack_recursive(
-    child_buffer: &mut Vec<(Entity, i32)>,
-    children: &Children,
+fn update_uistack_recursive<'a>(
+    child_buffer: &mut Vec<(Entity, i32, Option<&'a Children>)>,
+    children: &'a Children,
     is_ghost: bool,
-    ui_children: &Query<
+    ui_children: &'a Query<
         (
             Option<&Children>,
             Has<GhostNode>,
@@ -198,7 +206,11 @@ fn update_uistack_recursive(
                 update_uistack_recursive(child_buffer, children, true, ui_children, ui_stack);
             }
         } else if !has_global_zindex {
-            child_buffer.push((child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)));
+            child_buffer.push((
+                child_entity,
+                zindex.map(|zindex| zindex.0).unwrap_or(0),
+                children,
+            ));
         }
     }
     if is_ghost {
@@ -209,12 +221,9 @@ fn update_uistack_recursive(
     child_buffer[start..end].sort_by_key(|child| child.1);
 
     for index in start..end {
-        let child_entity = child_buffer[index].0;
-        let Ok((children, _, _, _)) = ui_children.get(child_entity) else {
-            continue;
-        };
+        let (child_entity, _, maybe_children) = child_buffer[index];
         ui_stack.push(child_entity);
-        if let Some(children) = children {
+        if let Some(children) = maybe_children {
             update_uistack_recursive(child_buffer, children, false, ui_children, ui_stack);
         }
     }
