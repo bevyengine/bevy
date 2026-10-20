@@ -3,7 +3,7 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     batching::BatchingStrategy,
     change_detection::Tick,
-    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
+    entity::{Entity, EntityEquivalent, EntitySet, EntitySetIterator, UniqueEntityArray},
     query::{
         ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
         QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryData,
@@ -1434,7 +1434,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state.as_readonly(),
-            entity_list: entities.into_iter().collect(),
+            entity_list: entities.into_iter().collect_set(),
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
@@ -1467,7 +1467,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state,
-            entity_list: entities.into_iter().collect(),
+            entity_list: entities.into_iter().collect_set(),
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
