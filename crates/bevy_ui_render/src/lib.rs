@@ -11,6 +11,7 @@ pub mod box_shadow;
 pub mod clipping;
 mod gradient;
 mod image;
+pub mod sub_z_layers;
 pub use image::ImageNodeAssetChangedSystems;
 mod pipeline;
 pub mod render_pass;
