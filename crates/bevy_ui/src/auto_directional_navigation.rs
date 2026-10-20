@@ -16,18 +16,22 @@
 //! If any resulting navigation behavior is undesired, [`AutoNavigationConfig`] can be tweaked or
 //! manual overrides can be specified using the
 //! [`DirectionalNavigationMap`](bevy_input_focus::directional_navigation::DirectionalNavigationMap).
+//!
+//! If nothing is focused when a navigation is requested (for example, because a stray mouse
+//! click cleared the focus), [`AutoDirectionalNavigator::navigate`] picks a starting entity
+//! instead of getting stuck. See its documentation for details.
 
 use crate::{ComputedNode, ComputedUiTargetCamera, UiGlobalTransform};
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{ops, CompassOctant, Vec2};
+use bevy_math::{ops, CompassOctant, Dir2, Vec2};
 
 use bevy_input_focus::{
     directional_navigation::{
         AutoNavigationConfig, DirectionalNavigation, DirectionalNavigationError, FocusableArea,
     },
     navigator::find_best_candidate,
-    FocusCause, Focusable,
+    AutoFocus, FocusCause, Focusable,
 };
 
 use bevy_reflect::{prelude::*, Reflect};
@@ -133,6 +137,7 @@ pub struct AutoDirectionalNavigator<'w, 's> {
             &'static ComputedNode,
             &'static UiGlobalTransform,
             &'static InheritedVisibility,
+            Has<AutoFocus>,
         ),
         (With<AutoDirectionalNavigation>, With<Focusable>),
     >,
@@ -156,10 +161,27 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
         self.manual_directional_navigation.focus.get()
     }
 
-    /// Tries to find the neighbor in a given direction from the given entity. Assumes the entity is valid.
+    /// Tries to move the input focus in the given direction.
     ///
-    /// Returns a neighbor if successful.
-    /// Returns None if there is no neighbor in the requested direction.
+    /// If an entity is focused, manual edges from the
+    /// [`DirectionalNavigationMap`](bevy_input_focus::directional_navigation::DirectionalNavigationMap)
+    /// are followed first, then automatic navigation is used to find the best neighbor.
+    ///
+    /// If nothing is focused, a starting entity is picked from the visible entities with
+    /// [`AutoDirectionalNavigation`], so that directional input can always recover focus:
+    ///
+    /// 1. If any of them have [`AutoFocus`], only those are considered.
+    /// 2. The entity farthest in the requested direction is chosen.
+    ///    For example, [`CompassOctant::North`] picks the top-most entity.
+    /// 3. Ties are broken in reading order: top-most first, then left-most.
+    ///
+    /// Positions are compared within each entity's own render target, so with several
+    /// UI cameras the choice may be made between entities on different targets.
+    ///
+    /// Returns the new focus if successful, and updates the [`InputFocus`](bevy_input_focus::InputFocus)
+    /// resource to match.
+    /// Returns [`DirectionalNavigationError::NoFocus`] if nothing is focused and there is no
+    /// visible entity to focus, or another error if there is no neighbor in the requested direction.
     pub fn navigate(
         &mut self,
         direction: CompassOctant,
@@ -197,8 +219,54 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
                 err => err,
             }
         } else {
-            Err(DirectionalNavigationError::NoFocus)
+            self.focus_starting_entity(direction)
         }
+    }
+
+    /// Picks and focuses an entity when navigation is requested while nothing is focused.
+    ///
+    /// See [`Self::navigate`] for how the entity is chosen.
+    fn focus_starting_entity(
+        &mut self,
+        direction: CompassOctant,
+    ) -> Result<Entity, DirectionalNavigationError> {
+        let mut autofocus_areas = Vec::new();
+        let mut other_areas = Vec::new();
+        for (
+            entity,
+            computed_target_camera,
+            computed,
+            transform,
+            inherited_visibility,
+            has_autofocus,
+        ) in &self.navigable_entities_query
+        {
+            // Skip hidden or zero-size nodes, and nodes that are not rendered by any camera
+            if computed.is_empty()
+                || !inherited_visibility.get()
+                || computed_target_camera.get().is_none()
+            {
+                continue;
+            }
+            let area = focusable_area(entity, computed, transform);
+            if has_autofocus {
+                autofocus_areas.push(area);
+            } else {
+                other_areas.push(area);
+            }
+        }
+
+        let candidates = if autofocus_areas.is_empty() {
+            &other_areas
+        } else {
+            &autofocus_areas
+        };
+        let new_focus = farthest_in_direction(candidates, direction)
+            .ok_or(DirectionalNavigationError::NoFocus)?;
+        self.manual_directional_navigation
+            .focus
+            .set(new_focus, FocusCause::Navigated);
+        Ok(new_focus)
     }
 
     /// Returns a vec of [`FocusableArea`] representing nodes that are eligible to be automatically navigated to.
@@ -207,7 +275,7 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
         self.navigable_entities_query
             .iter()
             .filter_map(
-                |(entity, computed_target_camera, computed, transform, inherited_visibility)| {
+                |(entity, computed_target_camera, computed, transform, inherited_visibility, _)| {
                     // Skip hidden or zero-size nodes
                     if computed.is_empty() || !inherited_visibility.get() {
                         return None;
@@ -216,14 +284,7 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
                     if let Some(tc) = computed_target_camera.get()
                         && tc == target_camera
                     {
-                        let (scale, rotation, translation) = transform.to_scale_angle_translation();
-                        let scaled_size = computed.size() * computed.inverse_scale_factor() * scale;
-                        let rotated_size = get_rotated_bounds(scaled_size, rotation);
-                        Some(FocusableArea {
-                            entity,
-                            position: translation * computed.inverse_scale_factor(),
-                            size: rotated_size,
-                        })
+                        Some(focusable_area(entity, computed, transform))
                     } else {
                         // The node either does not have a target camera or it is not the same as the desired one.
                         None
@@ -244,24 +305,47 @@ impl<'w, 's> AutoDirectionalNavigator<'w, 's> {
         self.camera_and_focusable_area_query.get(entity).map_or(
             None,
             |(entity, computed_target_camera, computed, transform)| {
-                if let Some(target_camera) = computed_target_camera.get() {
-                    let (scale, rotation, translation) = transform.to_scale_angle_translation();
-                    let scaled_size = computed.size() * computed.inverse_scale_factor() * scale;
-                    let rotated_size = get_rotated_bounds(scaled_size, rotation);
-                    Some((
-                        target_camera,
-                        FocusableArea {
-                            entity,
-                            position: translation * computed.inverse_scale_factor(),
-                            size: rotated_size,
-                        },
-                    ))
-                } else {
-                    None
-                }
+                computed_target_camera.get().map(|target_camera| {
+                    (target_camera, focusable_area(entity, computed, transform))
+                })
             },
         )
     }
+}
+
+/// Builds the [`FocusableArea`] of a UI node, in logical pixels.
+fn focusable_area(
+    entity: Entity,
+    computed: &ComputedNode,
+    transform: &UiGlobalTransform,
+) -> FocusableArea {
+    let (scale, rotation, translation) = transform.to_scale_angle_translation();
+    let scaled_size = computed.size() * computed.inverse_scale_factor() * scale;
+    FocusableArea {
+        entity,
+        position: translation * computed.inverse_scale_factor(),
+        size: get_rotated_bounds(scaled_size, rotation),
+    }
+}
+
+/// Returns the entity whose center is farthest in `direction`.
+///
+/// Ties are broken in reading order: top-most first, then left-most, then by [`Entity`]
+/// so that the result does not depend on query iteration order.
+fn farthest_in_direction(areas: &[FocusableArea], direction: CompassOctant) -> Option<Entity> {
+    // UI coordinates have Y+ pointing down, so flip the mathematical direction
+    let dir = Dir2::from(direction).as_vec2() * Vec2::new(1.0, -1.0);
+    areas
+        .iter()
+        .max_by(|a, b| {
+            a.position
+                .dot(dir)
+                .total_cmp(&b.position.dot(dir))
+                .then_with(|| b.position.y.total_cmp(&a.position.y))
+                .then_with(|| b.position.x.total_cmp(&a.position.x))
+                .then_with(|| b.entity.cmp(&a.entity))
+        })
+        .map(|area| area.entity)
 }
 
 /// Util used to get the resulting bounds of a UI entity after applying its rotation.
@@ -285,8 +369,139 @@ fn get_rotated_bounds(size: Vec2, rotation: f32) -> Vec2 {
 mod tests {
     use super::*;
     use bevy_app::App;
-    use bevy_input_focus::{AcquireFocus, InputFocus, InputFocusPlugin};
+    use bevy_ecs::system::RunSystemOnce;
+    use bevy_input_focus::{
+        directional_navigation::DirectionalNavigationPlugin, AcquireFocus, InputFocus,
+        InputFocusPlugin,
+    };
     use bevy_window::Window;
+
+    /// Creates an app with directional navigation set up, and returns it with a camera entity.
+    fn setup_nav_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.add_plugins((InputFocusPlugin, DirectionalNavigationPlugin));
+        let camera = app.world_mut().spawn_empty().id();
+        (app, camera)
+    }
+
+    /// Spawns a visible 50x50 navigable node centered on `position`.
+    fn spawn_nav_node(app: &mut App, camera: Entity, position: Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                AutoDirectionalNavigation::default(),
+                ComputedNode {
+                    size: Vec2::splat(50.0),
+                    ..Default::default()
+                },
+                UiGlobalTransform::from_translation(position),
+                ComputedUiTargetCamera {
+                    camera: Some(camera),
+                },
+                InheritedVisibility::VISIBLE,
+            ))
+            .id()
+    }
+
+    fn navigate(
+        app: &mut App,
+        direction: CompassOctant,
+    ) -> Result<Entity, DirectionalNavigationError> {
+        app.world_mut()
+            .run_system_once(move |mut navigator: AutoDirectionalNavigator| {
+                navigator.navigate(direction)
+            })
+            .unwrap()
+    }
+
+    fn clear_focus(app: &mut App) {
+        app.world_mut().resource_mut::<InputFocus>().clear();
+    }
+
+    fn focus(app: &App) -> Option<Entity> {
+        app.world().resource::<InputFocus>().get()
+    }
+
+    #[test]
+    fn navigate_without_focus_picks_farthest_in_direction() {
+        let (mut app, camera) = setup_nav_app();
+        // A 2x2 grid
+        let top_left = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 0.0));
+        let top_right = spawn_nav_node(&mut app, camera, Vec2::new(100.0, 0.0));
+        let bottom_left = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 100.0));
+        let bottom_right = spawn_nav_node(&mut app, camera, Vec2::new(100.0, 100.0));
+
+        for (direction, expected) in [
+            // Ties are broken in reading order: top-most first, then left-most
+            (CompassOctant::North, top_left),
+            (CompassOctant::South, bottom_left),
+            (CompassOctant::East, top_right),
+            (CompassOctant::West, top_left),
+            (CompassOctant::NorthEast, top_right),
+            (CompassOctant::SouthEast, bottom_right),
+            (CompassOctant::SouthWest, bottom_left),
+            (CompassOctant::NorthWest, top_left),
+        ] {
+            clear_focus(&mut app);
+            assert_eq!(navigate(&mut app, direction), Ok(expected), "{direction:?}");
+            assert_eq!(focus(&app), Some(expected), "{direction:?}");
+        }
+    }
+
+    #[test]
+    fn navigate_without_focus_prefers_autofocus() {
+        let (mut app, camera) = setup_nav_app();
+        spawn_nav_node(&mut app, camera, Vec2::new(0.0, 0.0));
+        let autofocus = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 100.0));
+        spawn_nav_node(&mut app, camera, Vec2::new(0.0, 200.0));
+        // Adding `AutoFocus` focuses the entity, so clear the focus afterwards
+        app.world_mut().entity_mut(autofocus).insert(AutoFocus);
+        clear_focus(&mut app);
+
+        assert_eq!(navigate(&mut app, CompassOctant::North), Ok(autofocus));
+        assert_eq!(focus(&app), Some(autofocus));
+    }
+
+    #[test]
+    fn navigate_without_focus_skips_hidden_nodes() {
+        let (mut app, camera) = setup_nav_app();
+        let hidden_autofocus = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 100.0));
+        app.world_mut()
+            .entity_mut(hidden_autofocus)
+            .insert((AutoFocus, InheritedVisibility::HIDDEN));
+        let hidden_top = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 0.0));
+        app.world_mut()
+            .entity_mut(hidden_top)
+            .insert(InheritedVisibility::HIDDEN);
+        let visible = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 200.0));
+        clear_focus(&mut app);
+
+        assert_eq!(navigate(&mut app, CompassOctant::North), Ok(visible));
+    }
+
+    #[test]
+    fn navigate_without_focus_or_candidates_returns_no_focus() {
+        let (mut app, camera) = setup_nav_app();
+        let hidden = spawn_nav_node(&mut app, camera, Vec2::ZERO);
+        app.world_mut()
+            .entity_mut(hidden)
+            .insert(InheritedVisibility::HIDDEN);
+
+        assert_eq!(
+            navigate(&mut app, CompassOctant::North),
+            Err(DirectionalNavigationError::NoFocus)
+        );
+        assert_eq!(focus(&app), None);
+    }
+
+    #[test]
+    fn navigate_continues_normally_after_recovering_focus() {
+        let (mut app, camera) = setup_nav_app();
+        let top = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 0.0));
+        let bottom = spawn_nav_node(&mut app, camera, Vec2::new(0.0, 100.0));
+
+        assert_eq!(navigate(&mut app, CompassOctant::North), Ok(top));
+        assert_eq!(navigate(&mut app, CompassOctant::South), Ok(bottom));
+    }
 
     #[test]
     fn auto_directional_navigation_is_focusable_without_tab_index() {
