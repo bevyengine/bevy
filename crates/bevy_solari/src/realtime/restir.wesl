@@ -152,7 +152,7 @@ struct NeighborInfo {
 }
 
 fn empty_material() -> ResolvedMaterial {
-    return ResolvedMaterial(vec3(0.0), vec3(0.0), 0.0, 0.0, 0.0, 0.0);
+    return ResolvedMaterial(vec3(0.0), vec3(0.0), 0.0, 0.0, 0.0, 0.0, false);
 }
 
 fn jacobian(

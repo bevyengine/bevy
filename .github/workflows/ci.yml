@@ -361,7 +361,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check for typos
-        uses: crate-ci/typos@00f422f3b19c57bc6338715ebfe3316d38768461 # v1.50.3
+        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
       - name: Typos info
         if: failure()
         run: |
@@ -441,7 +441,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-examples/missing-update
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-examples
@@ -478,7 +478,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-features/missing-update
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-features
@@ -525,7 +525,7 @@ jobs:
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
           name: msrv
@@ -574,3 +574,41 @@ jobs:
           if [ -d release-content ]; then
             exit 1
           fi
+
+  bevy_ecs-fuzz-prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List fuzz targets
+        id: list
+        run: |
+          targets=$(ls crates/bevy_ecs/fuzz/fuzz_targets/*.rs | xargs -n1 basename -s .rs | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "targets=$targets" >> $GITHUB_OUTPUT
+
+  bevy_ecs-fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: bevy_ecs-fuzz-prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.bevy_ecs-fuzz-prepare.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/install-rust
+        with:
+          channel: nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      - name: Run fuzz target
+        working-directory: crates/bevy_ecs/fuzz
+        env:
+          FUZZ_TARGET: ${{ matrix.target }}
+        run: cargo fuzz run "$FUZZ_TARGET" -- -runs=100000
