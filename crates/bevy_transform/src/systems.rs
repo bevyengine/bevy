@@ -545,7 +545,8 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
                 // transform of the parent changed or any entity in its subtree might have their transform changed.
                 let stop = self.static_optimizations.is_enabled()
                     && !parent_changed
-                    // SAFETY: we reset the bitset at the start of the system for all entities matching `BaseQueryFilter`.
+                    // SAFETY: when we `static_optimizations` is enabled we reset the bitset at the start
+                    // of the system for all entities matching `BaseQueryFilter` (which `child_query` requires).
                     && unsafe { self.source_markers.get_unchecked(table_id, table_row) }.is_none();
 
                 if stop {
