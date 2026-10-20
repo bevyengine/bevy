@@ -5,11 +5,12 @@ use crate::{
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, visibility_ranges_min_binding_size,
     DeferredAlphaMaskDrawFunction, DeferredFragmentShader, DeferredOpaqueDrawFunction,
-    DeferredVertexShader, DfgLut, DrawMesh, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
+    DeferredVertexShader, DfgLut, DrawMesh, LinearSampler, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
     MeshPipeline, MeshPipelineKey, PreparedMaterial, PrepassAlphaMaskDrawFunction,
     PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
     RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    LINEAR_SAMPLER_BINDING_INDEX,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -36,7 +37,10 @@ use bevy_render::{
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::{binding_types::uniform_buffer, *},
+    render_resource::{
+        binding_types::{sampler, uniform_buffer},
+        *,
+    },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::{MainEntityHashSet, RenderEntity},
     view::{
@@ -290,10 +294,16 @@ pub fn init_prepass_pipeline(
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
     // The deferred prepass weights lightmap light with `F_AB`, as forward shading does, so it
-    // binds the DFG LUT at the mesh view binding indices.
+    // binds the DFG LUT and its sampler at the mesh view binding indices.
     let with_dfg_lut = |entries: DynamicBindGroupLayoutEntries| {
         if cfg!(feature = "dfg_lut") {
-            entries.extend_with_indices(DfgLut::bind_group_layout_entries())
+            entries.extend_with_indices((
+                DfgLut::bind_group_layout_entry(),
+                (
+                    LINEAR_SAMPLER_BINDING_INDEX,
+                    sampler(SamplerBindingType::Filtering).visibility(ShaderStages::FRAGMENT),
+                ),
+            ))
         } else {
             entries
         }
@@ -900,10 +910,11 @@ pub fn prepare_prepass_view_bind_group(
     globals_buffer: Res<GlobalsBuffer>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     visibility_ranges: Res<RenderVisibilityRanges>,
-    (images, fallback_image, dfg_lut): (
+    (images, fallback_image, dfg_lut, linear_sampler): (
         Res<RenderAssets<GpuImage>>,
         Res<FallbackImage>,
         Res<DfgLut>,
+        Res<LinearSampler>,
     ),
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
@@ -912,7 +923,10 @@ pub fn prepare_prepass_view_bind_group(
         globals_buffer.buffer.binding(),
         visibility_ranges.buffer().buffer(),
     ) {
-        let dfg_lut_entries = dfg_lut.bind_group_entries(&images, &fallback_image);
+        let dfg_lut_entries = (
+            dfg_lut.bind_group_entry(&images, &fallback_image),
+            (LINEAR_SAMPLER_BINDING_INDEX, &linear_sampler.0),
+        );
         let create_bind_group =
             |label, layout: &BindGroupLayoutDescriptor, entries: DynamicBindGroupEntries| {
                 let entries = if cfg!(feature = "dfg_lut") {

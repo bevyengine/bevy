@@ -854,14 +854,16 @@ where
         IntoResult::into_result(out)
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
-        let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
-        if new != self.current_ptr {
-            log::debug!("system {} hotpatched", self.name());
+        #[cfg(feature = "hotpatching")]
+        {
+            let new = subsecond::HotFn::current(F::run).ptr_address();
+            if new != self.current_ptr {
+                log::debug!("system {} hotpatched", self.name());
+            }
+            self.current_ptr = new;
         }
-        self.current_ptr = new;
     }
 
     #[inline]
@@ -889,6 +891,15 @@ where
             param: F::Param::init_state(world),
             world_id: world.id(),
         });
+        #[cfg(feature = "trace")]
+        {
+            // Only a schedule's own span becomes the parent, never e.g. the "plugin build" span.
+            let parent = Span::current();
+            if parent.metadata().is_some_and(|m| m.name() == "schedule") {
+                let name = self.system_meta.name.clone().to_string();
+                self.system_meta.system_span = info_span!(parent: &parent, "system", name = name);
+            }
+        }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let access =
             init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into());

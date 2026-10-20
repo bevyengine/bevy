@@ -29,11 +29,23 @@ fn main() {
             .disable::<PipelinedRenderingPlugin>(),
     );
 
-    let main_app = app.main_mut();
-    configure_ambiguity_detection(main_app);
-
-    let sub_app = app.sub_app_mut(bevy_render::RenderApp);
-    configure_ambiguity_detection(sub_app);
+    let schedule_build_settings = ScheduleBuildSettings {
+        // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of ambiguities.
+        ambiguity_detection: LogLevel::Warn,
+        // With auto-inserted apply_deferred stages, these can cause two ambiguous systems to
+        // become accidentally ordered by one of the apply_deferred stages. Disabling requires
+        // us to meet a higher bar. We don't just want no ambiguities - we also don't want
+        // changes to systems or the auto-insert code from "creating" new ambiguities (by
+        // reordering the graph). However, the cost is that the graph is no longer runnable,
+        // since Bevy crates often rely on auto-insert apply_deferred to not panic (e.g.,
+        // because a resource wasn't inserted).
+        auto_insert_apply_deferred: false,
+        use_shortnames: false,
+        ..default()
+    };
+    app.configure_schedules(schedule_build_settings.clone());
+    app.sub_app_mut(bevy_render::RenderApp)
+        .configure_schedules(schedule_build_settings);
 
     // Make sure all the system stuff is added.
     app.finish();
@@ -64,26 +76,6 @@ struct AmbiguitiesCount(pub HashMap<InternedScheduleLabel, usize>);
 impl AmbiguitiesCount {
     fn total(&self) -> usize {
         self.values().sum()
-    }
-}
-
-fn configure_ambiguity_detection(sub_app: &mut SubApp) {
-    let mut schedules = sub_app.world_mut().resource_mut::<Schedules>();
-    for (_, schedule) in schedules.iter_mut() {
-        schedule.set_build_settings(ScheduleBuildSettings {
-            // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of ambiguities.
-            ambiguity_detection: LogLevel::Warn,
-            // With auto-inserted apply_deferred stages, these can cause two ambiguous systems to
-            // become accidentally ordered by one of the apply_deferred stages. Disabling requires
-            // us to meet a higher bar. We don't just want no ambiguities - we also don't want
-            // changes to systems or the auto-insert code from "creating" new ambiguities (by
-            // reordering the graph). However, the cost is that the graph is no longer runnable,
-            // since Bevy crates often rely on auto-insert apply_deferred to not panic (e.g.,
-            // because a resource wasn't inserted).
-            auto_insert_apply_deferred: false,
-            use_shortnames: false,
-            ..default()
-        });
     }
 }
 

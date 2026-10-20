@@ -14,14 +14,14 @@ use bevy_ecs::{
     query::{Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Commands, ParamSet, Query, Res},
+    system::{Commands, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
 use bevy_feathers::{theme::ThemeBackgroundColor, tokens};
 use bevy_picking::{
     cursor::EntityCursor,
     events::{PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart},
-    hover::Hovered,
+    hover::{Hovered, PointerCaptureMap},
     pointer::PointerButton,
     Pickable,
 };
@@ -254,6 +254,7 @@ fn column_split_on_drag_start(
     mut drag_start: On<PointerDragStart>,
     q_handles: Query<&ChildOf, With<ColumnSplitHandle>>,
     mut q_splits: Query<Splits>,
+    mut capture_map: ResMut<PointerCaptureMap>,
 ) {
     if drag_start.button == PointerButton::Primary
         && let Ok(child_of) = q_handles.get(drag_start.entity)
@@ -265,6 +266,11 @@ fn column_split_on_drag_start(
             start: split.clamped(),
             width: computed.content_box().width() * computed.inverse_scale_factor,
         };
+        capture_map.capture(
+            drag_start.pointer.id,
+            drag_start.entity,
+            drag_start.hit.clone(),
+        );
     }
 }
 
@@ -376,18 +382,24 @@ impl Plugin for ColumnSplitPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_app::PreUpdate;
     use bevy_camera::NormalizedRenderTarget;
     use bevy_math::Vec2;
     use bevy_picking::{
-        backend::HitData,
+        backend::{HitData, PointerHits},
+        cursor::CursorIconPlugin,
         events::Pointer,
-        pointer::{Location, PointerId},
+        hover::{generate_hovermap, HoverMap, PreviousHoverMap},
+        pointer::{Location, PointerAction, PointerId, PointerInput, PointerMap},
+        PickingSystems,
     };
     use bevy_ui::{prelude::BorderRect, UiRect};
+    use bevy_window::{CursorIcon, Window};
 
     fn split_app() -> App {
         let mut app = App::new();
         app.add_plugins(ColumnSplitPlugin)
+            .init_resource::<PointerCaptureMap>()
             .init_resource::<UiScale>();
         app.update();
         app
@@ -518,6 +530,74 @@ mod tests {
         drag_end(&mut app, handle);
         assert!((fraction(&app, split) - 0.3).abs() < 1e-5);
         assert!(!dragging(&app, split));
+    }
+
+    fn pointer_input(app: &mut App, action: PointerAction) {
+        let pointer = pointer();
+        let location = Location {
+            target: pointer.target,
+            position: pointer.position,
+        };
+        app.world_mut()
+            .write_message(PointerInput::new(PointerId::Mouse, location, action));
+    }
+
+    fn hover_row(app: &mut App, row: Entity) -> Option<CursorIcon> {
+        app.world_mut()
+            .write_message(PointerHits::new(PointerId::Mouse, vec![(row, hit())], 0.0));
+        app.update();
+        let mut windows = app
+            .world_mut()
+            .query_filtered::<&CursorIcon, With<Window>>();
+        windows.single(app.world()).ok().cloned()
+    }
+
+    #[test]
+    fn drag_keeps_the_resize_cursor() {
+        let mut app = split_app();
+        app.add_plugins(CursorIconPlugin)
+            .add_message::<PointerHits>()
+            .add_message::<PointerInput>()
+            .init_resource::<HoverMap>()
+            .init_resource::<PreviousHoverMap>()
+            .init_resource::<PointerMap>()
+            .add_systems(PreUpdate, generate_hovermap.before(PickingSystems::Last));
+        app.world_mut().spawn(PointerId::Mouse);
+        app.world_mut().spawn(Window::default());
+        let (split, handle) = spawn_split(&mut app);
+        let row = app
+            .world_mut()
+            .spawn((
+                EntityCursor::System(SystemCursorIcon::NotAllowed),
+                ChildOf(split),
+            ))
+            .id();
+        let not_allowed = Some(CursorIcon::from(SystemCursorIcon::NotAllowed));
+        let col_resize = Some(CursorIcon::from(SystemCursorIcon::ColResize));
+        assert_eq!(hover_row(&mut app, row), not_allowed);
+
+        drag_start(&mut app, handle, PointerButton::Primary);
+        drag_to(&mut app, handle, PointerButton::Primary, 20.0);
+        assert_eq!(hover_row(&mut app, row), col_resize);
+
+        drag_end(&mut app, handle);
+        pointer_input(&mut app, PointerAction::Release(PointerButton::Primary));
+        assert_eq!(hover_row(&mut app, row), not_allowed);
+
+        drag_start(&mut app, handle, PointerButton::Primary);
+        assert_eq!(hover_row(&mut app, row), col_resize);
+        app.world_mut().trigger(PointerCancel {
+            entity: handle,
+            pointer: pointer(),
+            hit: hit(),
+        });
+        pointer_input(&mut app, PointerAction::Cancel);
+        hover_row(&mut app, row);
+        assert!(!app
+            .world()
+            .resource::<PointerCaptureMap>()
+            .is_captured(&PointerId::Mouse));
+        assert_eq!(hover_row(&mut app, row), not_allowed);
     }
 
     #[test]
