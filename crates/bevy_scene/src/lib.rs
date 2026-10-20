@@ -3630,6 +3630,7 @@ mod tests {
         assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
     }
 
+    // Tests the usage of `..Default::default()` in bsn.
     #[test]
     fn struct_default_construction() {
         #[derive(Clone, Copy, Component, Default)]
@@ -3675,5 +3676,23 @@ mod tests {
                 a: 255
             })
         );
+
+        #[derive(Clone, Copy, Component, Default)]
+        struct Outer {
+            inner: Inner,
+        }
+
+        #[derive(Clone, Copy, Debug, Default, PartialEq)]
+        struct Inner {
+            a: u32,
+        }
+
+        // validates a niche interaction
+        let _entity2 = world
+            .spawn_scene(bsn! {
+                Outer { inner: Inner { a: 2, ..Inner { a: 1 } } }
+            })
+            .unwrap()
+            .id();
     }
 }
