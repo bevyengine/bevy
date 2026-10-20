@@ -565,6 +565,10 @@ impl TaskRunner for PropagateTransformTaskRunner<'_, '_, '_> {
                         let global_transform = Ref::from(global_transform).into_inner();
                         curr = Some((child, global_transform, changed, child_children));
                     } else {
+                        // Adding `child` to `scope` could lead to its `GlobalTransform` being immediately accessed
+                        // as the initial `parent_transform`. Be sure that we no longer access it here before that happens.
+                        drop(global_transform);
+
                         scope.add(child);
                     }
                 }
