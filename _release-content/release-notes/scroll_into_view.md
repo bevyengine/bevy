@@ -1,7 +1,7 @@
 ---
 title: Scrolling any UI node into view
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [26262]
 ---
 
 `ScrollIntoView` now lives in `bevy_ui` and works on any scrolled node, not just headless `ScrollArea` widgets.

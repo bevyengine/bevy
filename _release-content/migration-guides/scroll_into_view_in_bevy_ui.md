@@ -1,6 +1,6 @@
 ---
 title: "`ScrollIntoView` moved to `bevy_ui`"
-pull_requests: []
+pull_requests: [26262]
 ---
 
 `ScrollIntoView` has moved from `bevy_ui_widgets` to `bevy_ui`, and gained a `container` field.
