@@ -10,9 +10,10 @@ use bevy_diagnostic::{DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
-    hierarchy::ChildOf,
+    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
+    name::Name,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
     resource::Resource,
@@ -430,6 +431,51 @@ pub struct BrpQueryFilter {
     /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub with: Vec<String>,
+
+    /// A path that each entity in the results must match, from its ancestors
+    /// down to the entity itself.
+    ///
+    /// The last segment matches the entity. A [`NamePathSegment::Name`] matches
+    /// an entity whose [`Name`] is equal to it; the segment before it may match
+    /// any ancestor of that entity, at any depth, so unnamed entities in between
+    /// are skipped. A [`NamePathSegment::Index`] matches the child at that
+    /// position in its parent's [`Children`]; the segment before it must match
+    /// that parent.
+    ///
+    /// For example, `["Settings", "Jump", "Rebind"]` matches an entity named
+    /// `Rebind` with an ancestor `Jump`, which itself has an ancestor `Settings`.
+    /// `["List", 2, "Label"]` matches an entity named `Label` inside the third
+    /// child of an entity named `List`.
+    ///
+    /// The path may match any number of entities. An empty path matches every
+    /// entity. A path may not start with an index.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub name_path: Vec<NamePathSegment>,
+}
+
+/// One segment of [`BrpQueryFilter::name_path`].
+///
+/// In JSON, a name is a string and an index is a number.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum NamePathSegment {
+    /// Matches an entity whose [`Name`] is exactly this string.
+    Name(String),
+    /// Matches the child at this position in its parent's
+    /// [`Children`], counting from zero.
+    Index(usize),
+}
+
+impl From<&str> for NamePathSegment {
+    fn from(name: &str) -> Self {
+        Self::Name(name.into())
+    }
+}
+
+impl From<usize> for NamePathSegment {
+    fn from(index: usize) -> Self {
+        Self::Index(index)
+    }
 }
 
 /// Constraints that can be placed on a query to include or exclude
@@ -977,6 +1023,14 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         return serde_json::to_value(BrpQueryResponse::default()).map_err(BrpError::internal);
     }
 
+    if let Some(NamePathSegment::Index(_)) = filter.name_path.first() {
+        return Err(BrpError {
+            code: error_codes::INVALID_PARAMS,
+            message: "`name_path` may not start with an index".into(),
+            data: None,
+        });
+    }
+
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &required {
         query.ref_id(*component);
@@ -997,6 +1051,9 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     for (_, with) in with {
         query.with_id(with);
     }
+    if let Some(NamePathSegment::Name(_)) = filter.name_path.last() {
+        query.with::<Name>();
+    }
 
     // Prepare has reflect info
     let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has_ids
@@ -1010,6 +1067,9 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
 
     for row in query.iter(world) {
         let entity_id = row.id();
+        if !matches_name_path(world, entity_id, &filter.name_path) {
+            continue;
+        }
         let entity_ref = world.get_entity(entity_id).expect("Entity should exist");
 
         // Required components
@@ -1078,6 +1138,66 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     }
 
     serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Whether `entity` and its ancestors match `path`, as described on
+/// [`BrpQueryFilter::name_path`].
+///
+/// `path` runs down from the root and `chain` runs up from the entity, so
+/// `path[0]` is the highest segment and `chain[0]` is the entity itself.
+///
+/// Each segment is checked against every entity in the chain, highest segment
+/// first. For each segment, `matched` records every entity it can fit with all
+/// the higher segments fitting above it. Recording all of them, not just the
+/// lowest, matters for indices: the lowest ancestor at the right index may have
+/// the wrong parent while a higher one does not.
+fn matches_name_path(world: &World, entity: Entity, path: &[NamePathSegment]) -> bool {
+    if path.is_empty() {
+        return true;
+    }
+    // The entity, then its parent, and so on up to the root.
+    let chain: Vec<Entity> = core::iter::successors(Some(entity), |&e| {
+        world.get::<ChildOf>(e).map(ChildOf::parent)
+    })
+    .collect();
+    // Whether `segment` fits `chain[i]` on its own, ignoring the higher segments.
+    let segment_matches = |segment: &NamePathSegment, i: usize| match segment {
+        NamePathSegment::Name(name) => world
+            .get::<Name>(chain[i])
+            .is_some_and(|n| n.as_str() == name),
+        NamePathSegment::Index(index) => chain.get(i + 1).is_some_and(|&parent| {
+            world
+                .get::<Children>(parent)
+                .and_then(|children| children.get(*index))
+                == Some(&chain[i])
+        }),
+    };
+    // `matched[i]`: the current segment fits `chain[i]`, and every higher segment fits
+    // above it.
+    let mut matched: Vec<bool> = (0..chain.len())
+        .map(|i| segment_matches(&path[0], i))
+        .collect();
+    for segment in &path[1..] {
+        // `matched` for the segment just above this one.
+        let higher = matched;
+        // `above[i]`: `higher` holds at some ancestor of `chain[i]`.
+        let mut above = vec![false; chain.len()];
+        for i in (0..chain.len() - 1).rev() {
+            above[i] = above[i + 1] || higher[i + 1];
+        }
+        // An index needs the higher segments to fit its parent; a name, any ancestor.
+        matched = (0..chain.len())
+            .map(|i| {
+                let higher_fits = match segment {
+                    NamePathSegment::Index(_) => higher.get(i + 1).copied().unwrap_or(false),
+                    NamePathSegment::Name(_) => above[i],
+                };
+                higher_fits && segment_matches(segment, i)
+            })
+            .collect();
+    }
+    // The lowest segment must fit the entity itself.
+    matched[0]
 }
 
 /// Serializes the specified components for an entity.
@@ -2363,7 +2483,7 @@ mod tests {
     fn export_registry_types_with_reliationship() {
         #[derive(Component, Debug, Reflect)]
         #[reflect(Component, Debug)]
-        #[require(bevy_ecs::name::Name)]
+        #[require(Name)]
         #[relationship(relationship_target = FollowedBy)]
         struct Following(Entity);
 
@@ -2804,5 +2924,149 @@ mod tests {
 
         assert_eq!(response.diagnostics.len(), 1);
         assert_eq!(response.diagnostics[0].path, "a/b");
+    }
+
+    fn query_name_path(world: &mut World, path: Value) -> BrpResult<Vec<Entity>> {
+        let params = serde_json::json!({ "data": {}, "filter": { "name_path": path } });
+        let response = process_remote_query_request(In(Some(params)), world)?;
+        let response: BrpQueryResponse = serde_json::from_value(response).unwrap();
+        let mut entities: Vec<Entity> = response.into_iter().map(|row| row.entity).collect();
+        entities.sort();
+        Ok(entities)
+    }
+
+    struct SettingsScreen {
+        jump_rebind: Entity,
+        move_rebind: Entity,
+        row: Entity,
+    }
+
+    // Settings
+    // ├── (unnamed row)
+    // │   └── Jump
+    // │       └── Rebind
+    // └── Move
+    //     └── Rebind
+    fn settings_screen(world: &mut World) -> SettingsScreen {
+        world.init_resource::<AppTypeRegistry>();
+        let settings = world.spawn(Name::new("Settings")).id();
+        let row = world.spawn(ChildOf(settings)).id();
+        let jump = world.spawn((Name::new("Jump"), ChildOf(row))).id();
+        let jump_rebind = world.spawn((Name::new("Rebind"), ChildOf(jump))).id();
+        let walk = world.spawn((Name::new("Move"), ChildOf(settings))).id();
+        let move_rebind = world.spawn((Name::new("Rebind"), ChildOf(walk))).id();
+        SettingsScreen {
+            jump_rebind,
+            move_rebind,
+            row,
+        }
+    }
+
+    #[test]
+    fn name_path_skips_unnamed_entities() {
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+
+        let found = query_name_path(
+            &mut world,
+            serde_json::json!(["Settings", "Jump", "Rebind"]),
+        );
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Jump", "Rebind"]));
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+    }
+
+    #[test]
+    fn name_path_matches_every_entity_it_fits() {
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+        let mut both = [screen.jump_rebind, screen.move_rebind];
+        both.sort();
+
+        let found = query_name_path(&mut world, serde_json::json!(["Rebind"]));
+        assert_eq!(found.unwrap(), both);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", "Rebind"]));
+        assert_eq!(found.unwrap(), both);
+    }
+
+    #[test]
+    fn name_path_ancestors_must_appear_in_order() {
+        let mut world = World::new();
+        settings_screen(&mut world);
+
+        let found = query_name_path(
+            &mut world,
+            serde_json::json!(["Jump", "Settings", "Rebind"]),
+        );
+        assert!(found.unwrap().is_empty());
+        let found = query_name_path(&mut world, serde_json::json!(["Pause", "Rebind"]));
+        assert!(found.unwrap().is_empty());
+    }
+
+    #[test]
+    fn name_path_index_selects_a_direct_child() {
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 0]));
+        assert_eq!(found.unwrap(), [screen.row]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 0, "Rebind"]));
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 1, "Rebind"]));
+        assert_eq!(found.unwrap(), [screen.move_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 0, 0, 0]));
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 2]));
+        assert!(found.unwrap().is_empty());
+    }
+
+    #[test]
+    fn name_path_index_tries_every_ancestor() {
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+        // A > X > Y > B, each an only child. Y is the nearest ancestor of B that is
+        // child 0, but only X is child 0 of A.
+        let a = world.spawn(Name::new("A")).id();
+        let x = world.spawn(ChildOf(a)).id();
+        let y = world.spawn(ChildOf(x)).id();
+        let b = world.spawn((Name::new("B"), ChildOf(y))).id();
+
+        let found = query_name_path(&mut world, serde_json::json!(["A", 0, "B"]));
+        assert_eq!(found.unwrap(), [b]);
+    }
+
+    #[test]
+    fn name_path_combines_with_other_filters() {
+        #[derive(Component, Reflect)]
+        struct Marker;
+
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+        world
+            .resource_mut::<AppTypeRegistry>()
+            .write()
+            .register::<Marker>();
+        world.entity_mut(screen.move_rebind).insert(Marker);
+
+        let params = serde_json::json!({
+            "data": {},
+            "filter": {
+                "with": [<Marker as bevy_reflect::TypePath>::type_path()],
+                "name_path": ["Rebind"],
+            }
+        });
+        let response = process_remote_query_request(In(Some(params)), &mut world).unwrap();
+        let response: BrpQueryResponse = serde_json::from_value(response).unwrap();
+        assert_eq!(response.len(), 1);
+        assert_eq!(response[0].entity, screen.move_rebind);
+    }
+
+    #[test]
+    fn name_path_may_not_start_with_an_index() {
+        let mut world = World::new();
+        settings_screen(&mut world);
+
+        let err = query_name_path(&mut world, serde_json::json!([0, "Rebind"])).unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
     }
 }
