@@ -146,7 +146,15 @@ impl PropagationSources {
     }
 }
 
-type BaseQueryFilter = (With<Transform>, With<GlobalTransform>);
+/// Base query filters for all entities in [`propagate_transforms`].
+/// This requires both [`Transform`] and [`GlobalTransform`] because otherwise there's nothing to propagate from or to.
+/// Additionally this requires at least [`ChildOf`] or [`Children`], because otherwise the entity would be handled by
+/// [`sync_simple_transforms`] in a more efficient way.
+type BaseQueryFilter = (
+    With<Transform>,
+    With<GlobalTransform>,
+    Or<(With<ChildOf>, With<Children>)>,
+);
 
 #[derive(SystemParam)]
 struct NonStaticRootParams<'w, 's> {
@@ -255,7 +263,7 @@ pub fn propagate_transforms(params: PropagateTransformsParams) {
 type TablesQueryData = (TableId, &'static Table, TableRow);
 
 type ChangedQueryData = (TableId, TableRow, Entity);
-type ChangedQueryFilter = Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>;
+type ChangedQueryFilter = (Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,);
 type ChangedQuery<'w, 's> = Query<'w, 's, ChangedQueryData, (ChangedQueryFilter, BaseQueryFilter)>;
 
 type TransformsQuery<'w, 's> =
