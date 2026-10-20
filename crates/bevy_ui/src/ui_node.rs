@@ -2965,8 +2965,9 @@ impl GlobalZLayers {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum GlobalZLayerError {
+    #[error("The given global z-layer wasn't found in GlobalZLayers")]
     NoSuchLayer,
 }
 
