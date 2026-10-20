@@ -254,6 +254,9 @@ pub fn task_scope<TS, TP, W, R>(
 {
     #[cfg(feature = "multi_threaded")]
     {
+        // Have chunk size be at least 1.
+        let chunk_size = chunk_size.max(1);
+
         let queue = ConcurrentQueue::unbounded();
         let busy_workers = AtomicI32::new(0);
 
