@@ -62,13 +62,13 @@ fn setup(
     commands.spawn((
         Text::new("Perceptual Roughness"),
         TextFont {
-            font_size: 30.0,
+            font_size: FontSize::Px(30.0),
             ..default()
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            left: Val::Px(100.0),
+            top: px(20),
+            left: px(100),
             ..default()
         },
     ));
@@ -76,12 +76,12 @@ fn setup(
     commands.spawn((
         Text::new("Metallic"),
         TextFont {
-            font_size: 30.0,
+            font_size: FontSize::Px(30.0),
             ..default()
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
+            top: px(130),
             right: Val::ZERO,
             ..default()
         },
@@ -94,13 +94,13 @@ fn setup(
     commands.spawn((
         Text::new("Loading Environment Map..."),
         TextFont {
-            font_size: 30.0,
+            font_size: FontSize::Px(30.0),
             ..default()
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            right: Val::Px(20.0),
+            bottom: px(20),
+            right: px(20),
             ..default()
         },
         EnvironmentMapLabel,

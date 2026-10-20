@@ -1,0 +1,14 @@
+error[E0509]: cannot move out of type `DropBundle`, which implements the `Drop` trait
+ --> tests/ui/bundle_on_drop_impl.rs:7:10
+  |
+7 | #[derive(Bundle, Debug)]
+  |          ^^^^^^
+  |          |
+  |          cannot move out of here
+  |          move occurs because value has type `A`, which does not implement the `Copy` trait
+  |
+  = note: this error originates in the macro `bevy_ecs::ptr::deconstruct_moving_ptr` which comes from the expansion of the derive macro `Bundle` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0509`.

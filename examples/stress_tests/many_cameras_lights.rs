@@ -4,21 +4,28 @@ use std::f32::consts::PI;
 
 use bevy::{
     camera::Viewport,
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::ops::{cos, sin},
     prelude::*,
     window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FrameTimeDiagnosticsPlugin::default(),
+            LogDiagnosticsPlugin::default(),
+        ))
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cameras)
         .run();
@@ -35,6 +42,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     window: Query<&Window>,
 ) -> Result {
+    warn!(include_str!("warning_string.txt"));
+
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
@@ -56,7 +65,7 @@ fn setup(
             PointLight {
                 color: Color::hsv(angle.to_degrees(), 1.0, 1.0),
                 intensity: 2_000_000.0 / NUM_LIGHTS as f32,
-                shadows_enabled: true,
+                shadow_maps_enabled: true,
                 ..default()
             },
             Transform::from_xyz(sin(angle) * 4.0, 2.0, cos(angle) * 4.0),

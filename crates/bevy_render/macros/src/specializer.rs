@@ -1,6 +1,6 @@
 use bevy_macro_utils::{
     fq_std::{FQDefault, FQResult},
-    get_struct_fields,
+    get_struct_fields, require_named,
 };
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -44,7 +44,7 @@ enum Key {
     Whole,
     Default,
     Index(Index),
-    Custom(Expr),
+    Custom(Box<Expr>),
 }
 
 impl Key {
@@ -56,7 +56,7 @@ impl Key {
                 let member = Member::Unnamed(index.clone());
                 parse_quote!(key.#member)
             }
-            Key::Custom(expr) => expr.clone(),
+            Key::Custom(expr) => *expr.clone(),
         }
     }
 }
@@ -72,10 +72,14 @@ impl Parse for Key {
                 Err(syn::Error::new_spanned(ident, KEY_ERROR_MSG))
             }
         } else {
-            input.parse::<Expr>().map(Key::Custom).map_err(|mut err| {
-                err.extend(syn::Error::new(err.span(), KEY_ERROR_MSG));
-                err
-            })
+            input
+                .parse::<Expr>()
+                .map(Box::new)
+                .map(Key::Custom)
+                .map_err(|mut err| {
+                    err.extend(syn::Error::new(err.span(), KEY_ERROR_MSG));
+                    err
+                })
         }
     }
 }
@@ -227,6 +231,7 @@ pub fn impl_specializer(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let targets = guard!(get_specialize_targets(&ast, "Specializer"));
     let fields = guard!(get_struct_fields(&ast.data, "Specializer"));
+    let fields = guard!(require_named(fields));
     let field_info = guard!(get_field_info(fields, &targets));
 
     let key_idents: Vec<Option<Ident>> = field_info

@@ -1,4 +1,4 @@
-use std::{env, fs, io::Write, path};
+use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
 use ratatui::{
@@ -16,7 +16,7 @@ enum Mode {
 }
 
 pub struct App {
-    content_dir: path::PathBuf,
+    content_dir: PathBuf,
     release_notes: Vec<Entry>,
     release_notes_state: ListState,
     migration_guides: Vec<Entry>,
@@ -26,8 +26,14 @@ pub struct App {
     exit: bool,
 }
 
-impl App {
-    pub fn new() -> Result<App> {
+pub struct Content {
+    content_dir: PathBuf,
+    migration_guides: Vec<Entry>,
+    release_notes: Vec<Entry>,
+}
+
+impl Content {
+    pub fn load() -> Result<Self> {
         let exe_dir = env::current_exe()
             .into_diagnostic()
             .wrap_err("failed to determine path to binary")?;
@@ -36,13 +42,28 @@ impl App {
             .ancestors()
             .nth(3)
             .ok_or(diagnostic!("failed to determine path to repo root"))?
-            .join("release-content");
+            .join("_release-content");
 
         let release_notes_dir = content_dir.join("release-notes");
         let release_notes = load_content(release_notes_dir, "release note")?;
 
         let migration_guides_dir = content_dir.join("migration-guides");
         let migration_guides = load_content(migration_guides_dir, "migration guide")?;
+        Ok(Content {
+            content_dir,
+            migration_guides,
+            release_notes,
+        })
+    }
+}
+
+impl App {
+    pub fn new() -> Result<App> {
+        let Content {
+            content_dir,
+            release_notes,
+            migration_guides,
+        } = Content::load()?;
 
         Ok(App {
             content_dir,
@@ -56,7 +77,10 @@ impl App {
         })
     }
 
-    pub fn run<B: Backend>(mut self, terminal: &mut Terminal<B>) -> Result<()> {
+    pub fn run<B: Backend>(mut self, terminal: &mut Terminal<B>) -> Result<()>
+    where
+        B::Error: 'static + Send + Sync,
+    {
         while !self.exit {
             terminal
                 .draw(|frame| self.render(frame))
@@ -224,7 +248,7 @@ impl App {
 
                     write!(
                         file,
-                        "## {title}\n{{% heading_metadata(authors=[{authors}] prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "## {title}\n\n{{{{ heading_metadata(authors=[{authors}] prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -250,7 +274,7 @@ impl App {
 
                     write!(
                         file,
-                        "### {title}\n{{% heading_metadata(prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "### {title}\n\n{{{{ heading_metadata(prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -284,7 +308,7 @@ impl Entry {
 }
 
 /// Loads release content from files in the specified directory
-fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
+fn load_content(dir: PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
     let re = Regex::new(r"(?s)^---\s*\n(?<frontmatter>.*?)\s*\n---\s*\n(?<content>.*)").unwrap();
 
     let mut entries = vec![];
@@ -321,14 +345,16 @@ fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
         ))?;
 
         let frontmatter = caps.name("frontmatter").unwrap().as_str();
-        let metadata = serde_yml::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
+        let metadata = serde_saphyr::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
             src: NamedSource::new(
                 format!("{}", dir_entry.path().display()),
                 frontmatter.to_owned(),
             ),
             kind,
             file_name,
-            err_span: e.location().map(|l| l.index()),
+            err_span: e
+                .location()
+                .and_then(|l| l.span().byte_offset().map(|offset| offset as usize)),
             error: e,
         })?;
         let content = caps.name("content").unwrap().as_str().to_owned();
@@ -348,5 +374,5 @@ pub struct ParseError {
     file_name: String,
     #[label("{error}")]
     err_span: Option<usize>,
-    error: serde_yml::Error,
+    error: serde_saphyr::Error,
 }

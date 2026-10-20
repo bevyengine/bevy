@@ -149,16 +149,11 @@ use core::{num::NonZero, ops::Deref};
 use bevy_asset::AssetId;
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,
-    MAX_VIEW_LIGHT_PROBES,
+    add_cubemap_texture_view, binding_arrays_are_usable, RenderLightProbeFlags,
+    RenderViewLightProbes, MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::LightProbeComponent;
-
-/// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
-/// overflow the number of texture bindings when deferred rendering is in use
-/// (see issue #11885).
-pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "wasm32"));
 
 /// All the bind group entries necessary for PBR shaders to access the
 /// irradiance volumes exposed to a view.
@@ -300,6 +295,8 @@ impl LightProbeComponent for IrradianceVolume {
     // here.
     type ViewLightProbeInfo = ();
 
+    type QueryData = ();
+
     fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.voxels).is_none() {
             None
@@ -312,8 +309,12 @@ impl LightProbeComponent for IrradianceVolume {
         self.intensity
     }
 
-    fn affects_lightmapped_mesh_diffuse(&self) -> bool {
-        self.affects_lightmapped_meshes
+    fn flags(&self, _: &Self::QueryData) -> RenderLightProbeFlags {
+        if self.affects_lightmapped_meshes {
+            RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE
+        } else {
+            RenderLightProbeFlags::empty()
+        }
     }
 
     fn create_render_view_light_probes(

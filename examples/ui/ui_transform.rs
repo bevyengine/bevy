@@ -2,7 +2,11 @@
 use bevy::color::palettes::css::DARK_GRAY;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::YELLOW;
+use bevy::picking::hover::Hovered;
+use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
+use bevy::ui_widgets::Button;
 use core::f32::consts::FRAC_PI_8;
 
 fn main() {
@@ -32,39 +36,49 @@ pub struct TargetNode;
 
 /// Handles button interactions
 fn button_system(
-    mut interaction_query: Query<
+    mut button_query: Query<
         (
-            &Interaction,
+            Entity,
             &mut BackgroundColor,
+            Ref<Hovered>,
+            Option<Ref<Pressed>>,
             Option<&RotateButton>,
             Option<&ScaleButton>,
         ),
-        (Changed<Interaction>, With<Button>),
+        With<Button>,
     >,
+    mut removed_pressed: RemovedComponents<Pressed>,
     mut rotator_query: Query<&mut UiTransform, With<TargetNode>>,
 ) {
-    for (interaction, mut color, maybe_rotate, maybe_scale) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                if let Some(step) = maybe_rotate {
-                    for mut transform in rotator_query.iter_mut() {
-                        transform.rotation *= step.0;
+    // Buttons that had `Pressed` removed this frame; change detection does not report removals.
+    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
+    for (entity, mut color, hovered, pressed, maybe_rotate, maybe_scale) in &mut button_query {
+        let changed = hovered.is_changed()
+            || pressed.as_ref().is_some_and(Ref::is_changed)
+            || just_unpressed.contains(&entity);
+        if changed {
+            match (pressed, hovered.get()) {
+                (Some(_), _) => {
+                    *color = PRESSED_BUTTON.into();
+                    if let Some(step) = maybe_rotate {
+                        for mut transform in rotator_query.iter_mut() {
+                            transform.rotation *= step.0;
+                        }
+                    }
+                    if let Some(step) = maybe_scale {
+                        for mut transform in rotator_query.iter_mut() {
+                            transform.scale += step.0;
+                            transform.scale =
+                                transform.scale.clamp(Vec2::splat(0.25), Vec2::splat(3.0));
+                        }
                     }
                 }
-                if let Some(step) = maybe_scale {
-                    for mut transform in rotator_query.iter_mut() {
-                        transform.scale += step.0;
-                        transform.scale =
-                            transform.scale.clamp(Vec2::splat(0.25), Vec2::splat(3.0));
-                    }
+                (_, true) => {
+                    *color = HOVERED_BUTTON.into();
                 }
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
+                _ => {
+                    *color = NORMAL_BUTTON.into();
+                }
             }
         }
     }
@@ -106,8 +120,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Root node filling the whole screen
     commands.spawn((
         Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -117,8 +131,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
-                column_gap: Val::Px(25.0),
-                row_gap: Val::Px(25.0),
+                column_gap: px(25),
+                row_gap: px(25),
                 ..default()
             },
             BackgroundColor(Color::BLACK),
@@ -127,9 +141,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        row_gap: Val::Px(10.0),
-                        column_gap: Val::Px(10.0),
-                        padding: UiRect::all(Val::Px(10.0)),
+                        row_gap: px(10),
+                        column_gap: px(10),
+                        padding: UiRect::all(px(10)),
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
@@ -137,9 +151,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     children![
                         (
                             Button,
+                            Hovered::default(),
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -150,9 +165,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ),
                         (
                             Button,
+                            Hovered::default(),
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -169,8 +185,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
-                        width: Val::Px(300.0),
-                        height: Val::Px(300.0),
+                        width: px(300),
+                        height: px(300),
                         ..default()
                     },
                     BackgroundColor(DARK_GRAY.into()),
@@ -178,9 +194,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     children![
                         (
                             Button,
+                            Hovered::default(),
                             Node {
-                                width: Val::Px(80.0),
-                                height: Val::Px(80.0),
+                                width: px(80),
+                                height: px(80),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -198,9 +215,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             children![
                                 (
                                     Button,
+                                    Hovered::default(),
                                     Node {
-                                        width: Val::Px(80.0),
-                                        height: Val::Px(80.0),
+                                        width: px(80),
+                                        height: px(80),
                                         align_items: AlignItems::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
@@ -213,8 +231,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ),
                                 (
                                     Node {
-                                        width: Val::Px(100.),
-                                        height: Val::Px(100.),
+                                        width: px(100),
+                                        height: px(100),
                                         ..Default::default()
                                     },
                                     ImageNode {
@@ -225,9 +243,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ),
                                 (
                                     Button,
+                                    Hovered::default(),
                                     Node {
-                                        width: Val::Px(80.0),
-                                        height: Val::Px(80.0),
+                                        width: px(80),
+                                        height: px(80),
                                         align_items: AlignItems::Center,
                                         justify_content: JustifyContent::Center,
                                         ..default()
@@ -242,9 +261,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ),
                         (
                             Button,
+                            Hovered::default(),
                             Node {
-                                width: Val::Px(80.0),
-                                height: Val::Px(80.0),
+                                width: px(80),
+                                height: px(80),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -260,9 +280,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        row_gap: Val::Px(10.0),
-                        column_gap: Val::Px(10.0),
-                        padding: UiRect::all(Val::Px(10.0)),
+                        row_gap: px(10),
+                        column_gap: px(10),
+                        padding: UiRect::all(px(10)),
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
@@ -270,9 +290,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     children![
                         (
                             Button,
+                            Hovered::default(),
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()
@@ -283,9 +304,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ),
                         (
                             Button,
+                            Hovered::default(),
                             Node {
-                                height: Val::Px(50.0),
-                                width: Val::Px(50.0),
+                                height: px(50),
+                                width: px(50),
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..default()

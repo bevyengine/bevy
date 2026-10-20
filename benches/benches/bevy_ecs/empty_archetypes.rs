@@ -1,6 +1,11 @@
 use core::hint::black_box;
 
-use bevy_ecs::{component::Component, prelude::*, schedule::ExecutorKind, world::World};
+use bevy_ecs::{
+    component::Component,
+    prelude::*,
+    schedule::{MultiThreadedExecutor, SingleThreadedExecutor},
+    world::World,
+};
 use criterion::{criterion_group, BenchmarkId, Criterion};
 
 criterion_group!(benches, empty_archetypes);
@@ -78,10 +83,11 @@ fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule)
     let world = World::new();
     let mut schedule = Schedule::default();
 
-    schedule.set_executor_kind(match parallel {
-        true => ExecutorKind::MultiThreaded,
-        false => ExecutorKind::SingleThreaded,
-    });
+    if parallel {
+        schedule.set_executor(MultiThreadedExecutor::new());
+    } else {
+        schedule.set_executor(SingleThreadedExecutor::new());
+    }
 
     setup(&mut schedule);
 

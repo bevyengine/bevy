@@ -4,7 +4,8 @@ use core::any::Any;
 
 use crate::{
     error::ErrorContext,
-    observer::ObserverTrigger,
+    event::{EventPattern, EventTriggerState, Trigger},
+    observer::TriggerContext,
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{ObserverSystem, RunSystemError},
@@ -16,21 +17,32 @@ use bevy_ptr::PtrMut;
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behavior.
-pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
+///
+/// See `observer_system_runner` for safety considerations.
+pub type ObserverRunner =
+    unsafe fn(DeferredWorld, observer: Entity, &TriggerContext, event: PtrMut, trigger: PtrMut);
 
-pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+/// # Safety
+///
+/// - `world` must be the [`DeferredWorld`] that the `entity` is defined in
+/// - `event_ptr` must match the `E` [`Event`] type.
+/// - `trigger_ptr` must match the [`Event::Trigger`] type for `E`.
+/// - `trigger_context`'s [`TriggerContext::event_key`] must match the `E` event type.
+///
+// NOTE: The way `Trigger` and `On` interact in this implementation is _subtle_ and _easily invalidated_
+// from a soundness perspective. Please read and understand the safety comments before making any changes,
+// either here or in `On`.
+pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E>>(
     mut world: DeferredWorld,
-    observer_trigger: ObserverTrigger,
-    ptr: PtrMut,
-    propagate: &mut bool,
+    observer: Entity,
+    trigger_context: &TriggerContext,
+    event_ptr: PtrMut,
+    trigger_ptr: PtrMut,
 ) {
     let world = world.as_unsafe_world_cell();
+
     // SAFETY: Observer was triggered so must still exist in world
-    let observer_cell = unsafe {
-        world
-            .get_entity(observer_trigger.observer)
-            .debug_checked_unwrap()
-    };
+    let observer_cell = unsafe { world.get_entity(observer).debug_checked_unwrap() };
     // SAFETY: Observer was triggered so must have an `Observer`
     let mut state = unsafe { observer_cell.get_mut::<Observer>().debug_checked_unwrap() };
 
@@ -41,18 +53,38 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     }
     state.last_trigger_id = last_trigger;
 
-    let on: On<E, B> = On::new(
-        // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-        unsafe { ptr.deref_mut() },
-        propagate,
-        observer_trigger,
+    // SAFETY:
+    // - Conditions are initialized during observer registration (hook_on_add)
+    // - Conditions are ReadOnlySystem (enforced by SystemCondition trait)
+    // - No aliasing: we hold &mut Observer, but conditions only read world state
+    let mut should_run = true;
+    for condition in state.conditions.iter_mut() {
+        // SAFETY: See the safety comment above.
+        should_run &= unsafe { condition.check(world) };
+    }
+
+    if !should_run {
+        return;
+    }
+
+    // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Event::Trigger::State<'_>`.
+    // Because the `PtrMut` might contain arbitrary lifetimes, we must use `Trigger::reborrow`
+    // to ensure that the observer only witnesses the shortest lifetime of the trigger state.
+    let trigger: &mut EventTriggerState<'_, E::Event> = unsafe { trigger_ptr.deref_mut() };
+
+    let on: On<E> = On::new(
+        // SAFETY: Caller ensures `ptr` is castable to `&mut E`
+        unsafe { event_ptr.deref_mut() },
+        observer,
+        <E::Event as Event>::Trigger::reborrow(trigger),
+        trigger_context,
     );
 
     // SAFETY:
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
-    let system: *mut dyn ObserverSystem<E, B> = unsafe {
-        let system: &mut dyn Any = state.system.as_mut();
+    let system: *mut dyn ObserverSystem<E> = unsafe {
+        let system: &mut dyn Any = state.system.as_deref_mut().debug_checked_unwrap();
         let system = system.downcast_mut::<S>().debug_checked_unwrap();
         &mut *system
     };
@@ -66,23 +98,15 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
         #[cfg(feature = "hotpatching")]
         if world
             .get_resource_ref::<crate::HotPatchChanges>()
-            .map(|r| {
-                r.last_changed()
-                    .is_newer_than((*system).get_last_run(), world.change_tick())
-            })
-            .unwrap_or(true)
+            .is_none_or(|r| r.is_changed_after((*system).get_last_run()))
         {
             (*system).refresh_hotpatch();
         };
 
-        if let Err(RunSystemError::Failed(err)) = (*system)
-            .validate_param_unsafe(world)
-            .map_err(From::from)
-            .and_then(|()| (*system).run_unsafe(on, world))
-        {
+        if let Err(RunSystemError::Failed(err)) = (*system).run_unsafe(on, world) {
             let handler = state
                 .error_handler
-                .unwrap_or_else(|| world.default_error_handler());
+                .unwrap_or_else(|| world.fallback_error_handler());
             handler(
                 err,
                 ErrorContext::Observer {
@@ -99,7 +123,7 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
 mod tests {
     use super::*;
     use crate::{
-        error::{ignore, DefaultErrorHandler},
+        error::{ignore, FallbackErrorHandler},
         event::Event,
         observer::On,
     };
@@ -142,8 +166,8 @@ mod tests {
         world.init_resource::<Ran>();
         world.spawn(Observer::new(system));
         // Test that the correct handler is used when the observer was added
-        // before the default handler
-        world.insert_resource(DefaultErrorHandler(ignore));
+        // before the fallback handler
+        world.insert_resource(FallbackErrorHandler(ignore));
         world.trigger(TriggerEvent);
         assert!(world.resource::<Ran>().0);
     }

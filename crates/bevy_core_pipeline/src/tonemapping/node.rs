@@ -1,148 +1,135 @@
-use std::sync::Mutex;
-
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureViewId,
+        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureViewId,
     },
-    renderer::RenderContext,
+    renderer::{RenderContext, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
 use super::{get_lut_bindings, Tonemapping};
 
-#[derive(Default)]
-pub struct TonemappingNode {
-    cached_bind_group: Mutex<Option<(BufferId, TextureViewId, TextureViewId, BindGroup)>>,
-    last_tonemapping: Mutex<Option<Tonemapping>>,
+/// A view's cached tonemapping bind group and the inputs it was created from.
+pub struct CachedTonemappingBindGroup {
+    view_uniforms: BufferId,
+    source: TextureViewId,
+    lut: TextureViewId,
+    tonemapping: Tonemapping,
+    bind_group: BindGroup,
 }
 
-impl ViewNode for TonemappingNode {
-    type ViewQuery = (
-        &'static ViewUniformOffset,
-        &'static ViewTarget,
-        &'static ViewTonemappingPipeline,
-        &'static Tonemapping,
-    );
+pub fn tonemapping(
+    view: ViewQuery<(
+        Entity,
+        &ViewUniformOffset,
+        &ViewTarget,
+        &ViewTonemappingPipeline,
+    )>,
+    pipeline_cache: Res<PipelineCache>,
+    tonemapping_pipeline: Res<TonemappingPipeline>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
+    view_uniforms: Res<ViewUniforms>,
+    tonemapping_luts: Res<TonemappingLuts>,
+    pass_views: Query<(), With<ViewTonemappingPipeline>>,
+    mut cache: Local<EntityHashMap<CachedTonemappingBindGroup>>,
+    mut ctx: RenderContext,
+) {
+    let (view_entity, view_uniform_offset, target, view_tonemapping_pipeline) = view.into_inner();
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
-            Self::ViewQuery,
-        >,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
-        let gpu_images = world.get_resource::<RenderAssets<GpuImage>>().unwrap();
-        let fallback_image = world.resource::<FallbackImage>();
-        let view_uniforms_resource = world.resource::<ViewUniforms>();
-        let view_uniforms = &view_uniforms_resource.uniforms;
-        let view_uniforms_id = view_uniforms.buffer().unwrap().id();
+    // Views that run this pass always have an `Rgba16Float` main texture.
+    debug_assert_eq!(target.main_texture_format(), TextureFormat::Rgba16Float);
 
-        if *tonemapping == Tonemapping::None {
-            return Ok(());
-        }
+    // Drop the bind groups of views that no longer run the pass, so their main
+    // textures can be freed.
+    cache.retain(|entity, _| pass_views.contains(*entity));
 
-        if !target.is_hdr() {
-            return Ok(());
-        }
+    let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.pipeline_id)
+    else {
+        return;
+    };
 
-        let Some(pipeline) = pipeline_cache.get_render_pipeline(view_tonemapping_pipeline.0) else {
-            return Ok(());
-        };
+    let view_uniforms_buffer = &view_uniforms.uniforms;
+    let view_uniforms_id = view_uniforms_buffer.buffer().unwrap().id();
 
-        let diagnostics = render_context.diagnostic_recorder();
+    let post_process = target.post_process_write();
+    let source = post_process.source;
+    let destination = post_process.destination;
 
-        let post_process = target.post_process_write();
-        let source = post_process.source;
-        let destination = post_process.destination;
+    let tonemapping = view_tonemapping_pipeline.method;
+    let valid = cache.get(&view_entity).is_some_and(|cached| {
+        view_uniforms_id == cached.view_uniforms
+            && source.id() == cached.source
+            && cached.lut != fallback_image.d3.texture_view.id()
+            && cached.tonemapping == tonemapping
+    });
+    if !valid {
+        let lut_bindings = get_lut_bindings(
+            &gpu_images,
+            &tonemapping_luts,
+            &tonemapping,
+            &fallback_image,
+        );
 
-        let mut last_tonemapping = self.last_tonemapping.lock().unwrap();
+        let bind_group = ctx.render_device().create_bind_group(
+            None,
+            &pipeline_cache.get_bind_group_layout(&tonemapping_pipeline.texture_bind_group),
+            &BindGroupEntries::sequential((
+                view_uniforms_buffer,
+                source,
+                &tonemapping_pipeline.sampler,
+                lut_bindings.0,
+                lut_bindings.1,
+            )),
+        );
 
-        let tonemapping_changed = if let Some(last_tonemapping) = &*last_tonemapping {
-            tonemapping != last_tonemapping
-        } else {
-            true
-        };
-        if tonemapping_changed {
-            *last_tonemapping = Some(*tonemapping);
-        }
+        cache.insert(
+            view_entity,
+            CachedTonemappingBindGroup {
+                view_uniforms: view_uniforms_id,
+                source: source.id(),
+                lut: lut_bindings.0.id(),
+                tonemapping,
+                bind_group,
+            },
+        );
+    }
+    let bind_group = &cache[&view_entity].bind_group;
 
-        let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
-        let bind_group = match &mut *cached_bind_group {
-            Some((buffer_id, texture_id, lut_id, bind_group))
-                if view_uniforms_id == *buffer_id
-                    && source.id() == *texture_id
-                    && *lut_id != fallback_image.d3.texture_view.id()
-                    && !tonemapping_changed =>
-            {
-                bind_group
-            }
-            cached_bind_group => {
-                let tonemapping_luts = world.resource::<TonemappingLuts>();
+    let pass_descriptor = RenderPassDescriptor {
+        label: Some("tonemapping"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: destination,
+            depth_slice: None,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
+                store: StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+        multiview_mask: None,
+    };
 
-                let lut_bindings =
-                    get_lut_bindings(gpu_images, tonemapping_luts, tonemapping, fallback_image);
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "tonemapping");
 
-                let bind_group = render_context.render_device().create_bind_group(
-                    None,
-                    &tonemapping_pipeline.texture_bind_group,
-                    &BindGroupEntries::sequential((
-                        view_uniforms,
-                        source,
-                        &tonemapping_pipeline.sampler,
-                        lut_bindings.0,
-                        lut_bindings.1,
-                    )),
-                );
-
-                let (_, _, _, bind_group) = cached_bind_group.insert((
-                    view_uniforms_id,
-                    source.id(),
-                    lut_bindings.0.id(),
-                    bind_group,
-                ));
-                bind_group
-            }
-        };
-
-        let pass_descriptor = RenderPassDescriptor {
-            label: Some("tonemapping"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: destination,
-                depth_slice: None,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
-                    store: StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        let mut render_pass = render_context
-            .command_encoder()
-            .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "tonemapping");
+    {
+        let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[view_uniform_offset.offset]);
         render_pass.draw(0..3, 0..1);
-
-        pass_span.end(&mut render_pass);
-
-        Ok(())
     }
+
+    time_span.end(ctx.command_encoder());
 }

@@ -14,10 +14,10 @@
 //!
 //! ```json
 //! {
-//!     "method": world.get_components",
+//!     "method": "world.get_components",
 //!     "id": 0,
 //!     "params": {
-//!         "entity": 4294967298,
+//!         "entity": "5v0",
 //!         "components": [
 //!             "bevy_transform::components::transform::Transform"
 //!         ]
@@ -153,22 +153,22 @@
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
-//! ### Example
+//! #### Example
 //! To use the query API and retrieve Transform data for all entities that have a Transform
 //! use this query:
 //!
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
 //!             "components": ["bevy_transform::components::transform::Transform"]
 //!             "option": [],
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!           "with": [],
 //!           "without": []
 //!         },
@@ -182,15 +182,15 @@
 //! ```json
 //! {
 //!     "jsonrpc": "2.0",
-//!     "method": "bevy/query",
+//!     "method": "world.query",
 //!     "id": 0,
 //!     "params": {
 //!         "data": {
 //!             "components": []
 //!             "option": "all",
 //!             "has": []
-//!        },
-//!        "filter": {
+//!         },
+//!         "filter": {
 //!            "with": [],
 //!           "without": []
 //!         },
@@ -202,90 +202,88 @@
 //! This should return you something like the below (in a larger list):
 //! ```json
 //! {
-//!      "components": {
-//!        "bevy_camera::Camera3d": {
-//!          "depth_load_op": {
-//!            "Clear": 0.0
-//!          },
-//!          "depth_texture_usages": 16,
-//!          "screen_space_specular_transmission_quality": "Medium",
-//!          "screen_space_specular_transmission_steps": 1
-//!        },
-//!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
-//!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
-//!        "bevy_light::cluster::ClusterConfig": {
-//!          "FixedZ": {
-//!         "dynamic_resizing": true,
-//!            "total": 4096,
-//!            "z_config": {
-//!              "far_z_mode": "MaxClusterableObjectRange",
-//!              "first_slice_depth": 5.0
-//!            },
-//!            "z_slices": 24
-//!          }
-//!        },
-//!        "bevy_camera::Camera": {
-//!          "clear_color": "Default",
-//!          "is_active": true,
-//!          "msaa_writeback": true,
-//!          "order": 0,
-//!          "sub_camera_view": null,
-//!          "target": {
-//!            "Window": "Primary"
-//!          },
-//!       "viewport": null
-//!        },
-//!        "bevy_camera::Projection": {
-//!          "Perspective": {
-//!            "aspect_ratio": 1.7777777910232544,
-//!            "far": 1000.0,
-//!            "fov": 0.7853981852531433,
-//!            "near": 0.10000000149011612
-//!          }
-//!        },
-//!        "bevy_camera::primitives::Frustum": {},
-//!     "bevy_render::sync_world::RenderEntity": 4294967291,
-//!        "bevy_render::sync_world::SyncToRenderWorld": {},
-//!        "bevy_render::view::Msaa": "Sample4",
-//!        "bevy_camera::visibility::InheritedVisibility": true,
-//!        "bevy_camera::visibility::ViewVisibility": false,
-//!        "bevy_camera::visibility::Visibility": "Inherited",
-//!        "bevy_camera::visibility::VisibleEntities": {},
-//!        "bevy_transform::components::global_transform::GlobalTransform": [
-//!          0.9635179042816162,
-//!          -3.725290298461914e-9,
-//!          0.26764383912086487,
-//!          0.11616238951683044,
-//!          0.9009039402008056,
-//!          -0.4181846082210541,
-//!          -0.24112138152122495,
-//!          0.4340185225009918,
-//!          0.8680371046066284,
-//!          -2.5,
-//!          4.5,
-//!          9.0
-//!        ],
-//!        "bevy_transform::components::transform::Transform": {
-//!       "rotation": [
-//!            -0.22055435180664065,
-//!            -0.13167093694210052,
-//!            -0.03006339818239212,
-//!            0.9659786224365234
-//!          ],
-//!          "scale": [
-//!            1.0,
-//!            1.0,
-//!            1.0
+//!   "components": {
+//!     "bevy_camera::Camera3d": {
+//!       "depth_load_op": {
+//!         "Clear": 0.0
+//!       },
+//!       "depth_texture_usages": 16,
+//!     },
+//!     "bevy_render::view::DebandDither": "Enabled",
+//!     "bevy_render::view::Tonemapping": "TonyMcMapface",
+//!     "bevy_light::cluster::ClusterConfig": {
+//!       "FixedZ": {
+//!      "dynamic_resizing": true,
+//!         "total": 4096,
+//!         "z_config": {
+//!           "far_z_mode": "MaxClusterableObjectRange",
+//!           "first_slice_depth": 5.0
+//!         },
+//!         "z_slices": 24
+//!       }
+//!     },
+//!     "bevy_camera::Camera": {
+//!       "clear_color": "Default",
+//!       "is_active": true,
+//!       "msaa_writeback": true,
+//!       "order": 0,
+//!       "sub_camera_view": null,
+//!       "target": {
+//!         "Window": "Primary"
+//!       },
+//!    "viewport": null
+//!     },
+//!     "bevy_camera::Projection": {
+//!       "Perspective": {
+//!         "aspect_ratio": 1.7777777910232544,
+//!         "far": 1000.0,
+//!         "fov": 0.7853981852531433,
+//!         "near": 0.10000000149011612
+//!       }
+//!     },
+//!     "bevy_camera::primitives::Frustum": {},
+//!  "bevy_render::sync_world::RenderEntity": "4v0",
+//!     "bevy_render::sync_world::SyncToRenderWorld": {},
+//!     "bevy_render::view::Msaa": "Sample4",
+//!     "bevy_camera::visibility::InheritedVisibility": true,
+//!     "bevy_camera::visibility::ViewVisibility": false,
+//!     "bevy_camera::visibility::Visibility": "Inherited",
+//!     "bevy_camera::visibility::VisibleEntities": {},
+//!     "bevy_transform::components::global_transform::GlobalTransform": [
+//!       0.9635179042816162,
+//!       -3.725290298461914e-9,
+//!       0.26764383912086487,
+//!       0.11616238951683044,
+//!       0.9009039402008056,
+//!       -0.4181846082210541,
+//!       -0.24112138152122495,
+//!       0.4340185225009918,
+//!       0.8680371046066284,
+//!       -2.5,
+//!       4.5,
+//!       9.0
+//!     ],
+//!     "bevy_transform::components::transform::Transform": {
+//!    "rotation": [
+//!         -0.22055435180664065,
+//!         -0.13167093694210052,
+//!         -0.03006339818239212,
+//!         0.9659786224365234
 //!       ],
-//!          "translation": [
-//!            -2.5,
-//!          4.5,
-//!            9.0
-//!          ]
-//!        },
-//!        "bevy_transform::components::transform::TransformTreeChanged": null
-//!      },
-//!      "entity": 4294967261
+//!       "scale": [
+//!         1.0,
+//!         1.0,
+//!         1.0
+//!    ],
+//!       "translation": [
+//!         -2.5,
+//!       4.5,
+//!         9.0
+//!       ]
+//!     },
+//!     "bevy_transform::components::transform::TransformTreeChanged": null
+//!   },
+//!   "entity": "34v0"
 //!},
 //! ```
 //!
@@ -455,6 +453,140 @@
 //!
 //! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
+//! ### `world.trigger_event`
+//!
+//! Triggers an event.
+//!
+//! `params`:
+//! - `event`: The [fully-qualified type name] of the event to trigger.
+//! - `value`: The value of the event to trigger.
+//!
+//! `result`: null.
+//!
+//! ### `registry.schema`
+//!
+//! Retrieve schema information about registered types in the Bevy app's type registry.
+//!
+//! `params` (optional):
+//! - `with_crates`: An array of crate names to include in the results. When empty or omitted, types from all crates will be included.
+//! - `without_crates`: An array of crate names to exclude from the results. When empty or omitted, no crates will be excluded.
+//! - `type_limit`: Additional type constraints:
+//!   - `with`: An array of [fully-qualified type names] that must be present for a type to be included
+//!   - `without`: An array of [fully-qualified type names] that must not be present for a type to be excluded
+//!
+//! `result`: A map associating each type's [fully-qualified type name] to a [`JsonSchemaBevyType`](crate::schemas::json_schema::JsonSchemaBevyType).
+//! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
+//! helpful for understanding the structure of the type.
+//!
+//! ### `app.info`
+//!
+//! Retrieve the name of the running application and the Bevy version it was built against. This method has no parameters.
+//!
+//! `result`: An object with `app_name`, `bevy_version`, and `sub_app` string fields. `sub_app` is either
+//! `"main"` or `"render"`, depending on which `SubApp` handled the request.
+//!
+//! ### `diagnostics.list`
+//!
+//! List the paths of all diagnostics registered in the app. This method has no parameters.
+//!
+//! `result`: An object with a `diagnostics` field containing a sorted array of diagnostic paths.
+//!
+//! ### `diagnostics.get`
+//!
+//! Retrieve the current values of diagnostics, skipping any path that is not registered.
+//!
+//! `params` (optional):
+//! - `paths`: An array of diagnostic paths to retrieve. When omitted, all diagnostics are returned.
+//!
+//! `result`: An object with a `diagnostics` field containing an array of objects with `path`, `value`, `average`, `smoothed`, `suffix` and `history_len` fields.
+//!
+//! ### `world.inspect`
+//!
+//! Inspect an entity, returning its label, memory size, spawn details and the inspection of every
+//! component on it.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to inspect.
+//! - `settings` (optional): Entity inspection settings. Defaults are used when omitted, and
+//!   structured component values are always included.
+//!
+//! `result`: An entity inspection object with `entity`, `label`, `total_memory_size`, `components`
+//! and `spawn_details` fields.
+//!
+//! ### `world.inspect_component`
+//!
+//! Inspect a single component on an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity that owns the component.
+//! - `component`: The [fully-qualified type name] of the component.
+//! - `settings` (optional): Component inspection settings. Defaults are used when omitted, and the
+//!   structured value is always included.
+//!
+//! `result`: A component inspection object with `entity`, `component_id`, `name`, `memory_size`,
+//! `value` and `serialized_value` fields.
+//!
+//! ### `world.inspect_component_type`
+//!
+//! Inspect a component type itself, rather than a component on a specific entity.
+//!
+//! `params`:
+//! - `component`: The [fully-qualified type name] of the component type.
+//!
+//! `result`: An object with an `entity_count` field and a `metadata` field describing the type.
+//!
+//! ### `world.inspect_resource`
+//!
+//! Inspect a resource.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource.
+//! - `settings` (optional): Resource inspection settings. Defaults are used when omitted, and the
+//!   structured value is always included.
+//!
+//! `result`: A resource inspection object with `component_id`, `name`, `value`, `memory_size` and
+//! `serialized_value` fields.
+//!
+//! ### `world.inspect_all_resources`
+//!
+//! Inspect every resource present in the world.
+//!
+//! `params` (optional):
+//! - `settings`: Resource inspection settings, applied to every resource.
+//!
+//! `result`: An array of resource inspection objects.
+//!
+//! ### `world.summarize`
+//!
+//! Summarize the world, reporting entity, archetype and resource counts along with per-archetype
+//! data.
+//!
+//! `params` (optional):
+//! - `settings`: Summary settings controlling component names, empty archetypes and row limits.
+//!
+//! `result`: An object with `total_entities`, `total_archetypes`, `empty_archetypes`,
+//! `total_send_resources`, `total_non_send_resources` and `archetype_summaries` fields.
+//!
+//! ### `registry.component_metadata`
+//!
+//! Retrieve metadata for every component type registered in the world. This method has no
+//! parameters.
+//!
+//! `result`: An object with a `map` field associating component IDs with their type metadata.
+//! Clients are expected to fetch this map once and cache it, which is why the server-side
+//! `inspect_cached` method has no remote counterpart.
+//!
+//! ### `rpc.discover`
+//!
+//! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
+//!
+//! This method takes no parameters.
+//!
+//! `result`: An `OpenRPC` document containing:
+//! - Information about all available remote methods
+//! - Server connection information (when using HTTP transport)
+//! - `OpenRPC` specification version
+//!
 //! ## Custom methods
 //!
 //! In addition to the provided methods, the Bevy Remote Protocol can be extended to include custom
@@ -505,21 +637,32 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    observer::On,
     resource::Resource,
-    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
+    schedule::{
+        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
+        ScheduleLabel, SystemSet,
+    },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
 use bevy_platform::collections::HashMap;
+#[cfg(feature = "bevy_render")]
+use bevy_render::{Render, RenderApp, RenderScheduleOrder, RenderStartup};
 use bevy_utils::prelude::default;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
 
 pub mod builtin_methods;
+#[cfg(all(feature = "client", not(target_family = "wasm")))]
+pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod inspection_methods;
 pub mod schemas;
+#[cfg(feature = "bevy_debug_stepping")]
+pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -530,8 +673,10 @@ const CHANNEL_SIZE: usize = 16;
 ///
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
-    /// The verbs that the server will recognize and respond to.
+    /// The verbs that the server will recognize and respond to for the main app.
     methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
+    /// The verbs that the server will recognize and respond to for the render subapp.
+    render_methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
 }
 
 impl RemotePlugin {
@@ -540,113 +685,321 @@ impl RemotePlugin {
     fn empty() -> Self {
         Self {
             methods: RwLock::new(vec![]),
+            render_methods: RwLock::new(vec![]),
         }
     }
 
-    /// Add a remote method to the plugin using the given `name` and `handler`.
-    #[must_use]
-    pub fn with_method<M>(
-        mut self,
+    /// Add a remote method to the plugin using the given `name` and `handler` to main app.
+    #[inline]
+    pub fn with_method_main<M>(
+        self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.with_method(name, handler, true)
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler` to render app.
+    #[inline]
+    pub fn with_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
+    ) -> Self {
+        self.with_method(name, handler, false)
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler` to given app.
+    #[must_use]
+    fn with_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
+        to_main: bool,
+    ) -> Self {
+        (if to_main {
+            self.methods.get_mut()
+        } else {
+            self.render_methods.get_mut()
+        })
+        .unwrap()
+        .push((
             name.into(),
             RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
         ));
         self
     }
 
-    /// Add a remote method with a watching handler to the plugin using the given `name`.
-    #[must_use]
-    pub fn with_watching_method<M>(
-        mut self,
+    /// Add a remote method with a watching handler to the plugin using the given `name` to main app.
+    #[inline]
+    pub fn with_watching_method_main<M>(
+        self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.with_watching_method(name, handler, true)
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name` to render app.
+    #[inline]
+    pub fn with_watching_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+    ) -> Self {
+        self.with_watching_method(name, handler, false)
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name` to given app.
+    #[must_use]
+    fn with_watching_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+        to_main: bool,
+    ) -> Self {
+        (if to_main {
+            self.methods.get_mut()
+        } else {
+            self.render_methods.get_mut()
+        })
+        .unwrap()
+        .push((
             name.into(),
             RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
         ));
+        self
+    }
+
+    /// Create the default list of BRP methods
+    fn add_default_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            builtin_methods::BRP_GET_COMPONENTS_METHOD,
+            builtin_methods::process_remote_get_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_QUERY_METHOD,
+            builtin_methods::process_remote_query_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SPAWN_ENTITY_METHOD,
+            builtin_methods::process_remote_spawn_entity_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_INSERT_COMPONENTS_METHOD,
+            builtin_methods::process_remote_insert_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REMOVE_COMPONENTS_METHOD,
+            builtin_methods::process_remote_remove_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD,
+            builtin_methods::process_remote_despawn_entity_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REPARENT_ENTITIES_METHOD,
+            builtin_methods::process_remote_reparent_entities_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_LIST_COMPONENTS_METHOD,
+            builtin_methods::process_remote_list_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_MUTATE_COMPONENTS_METHOD,
+            builtin_methods::process_remote_mutate_components_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::RPC_DISCOVER_METHOD,
+            builtin_methods::process_remote_list_methods_request,
+            to_main,
+        )
+        .with_watching_method(
+            builtin_methods::BRP_GET_COMPONENTS_AND_WATCH_METHOD,
+            builtin_methods::process_remote_get_components_watching_request,
+            to_main,
+        )
+        .with_watching_method(
+            builtin_methods::BRP_LIST_COMPONENTS_AND_WATCH_METHOD,
+            builtin_methods::process_remote_list_components_watching_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_GET_RESOURCE_METHOD,
+            builtin_methods::process_remote_get_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_INSERT_RESOURCE_METHOD,
+            builtin_methods::process_remote_insert_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
+            builtin_methods::process_remote_remove_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
+            builtin_methods::process_remote_mutate_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_LIST_RESOURCES_METHOD,
+            builtin_methods::process_remote_list_resources_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_TRIGGER_EVENT_METHOD,
+            builtin_methods::process_remote_trigger_event_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_WRITE_MESSAGE_METHOD,
+            builtin_methods::process_remote_write_message_request,
+            to_main,
+        )
+        .with_watching_method(
+            builtin_methods::BRP_OBSERVE_METHOD,
+            builtin_methods::process_remote_observe_watching_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+            builtin_methods::export_registry_types,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SCHEDULE_LIST,
+            builtin_methods::schedule_list,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_APP_INFO_METHOD,
+            if to_main {
+                builtin_methods::process_remote_app_info_request_main
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            } else {
+                builtin_methods::process_remote_app_info_request_render
+                    as fn(In<Option<Value>>, &World) -> BrpResult
+            },
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_SCHEDULE_GRAPH,
+            builtin_methods::schedule_graph,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_LIST_METHOD,
+            builtin_methods::process_remote_diagnostics_list_request,
+            to_main,
+        )
+        .with_method(
+            builtin_methods::BRP_DIAGNOSTICS_GET_METHOD,
+            builtin_methods::process_remote_diagnostics_get_request,
+            to_main,
+        )
+        .add_stepping_methods(to_main)
+        .add_inspection_methods(to_main)
+    }
+
+    /// Add the inspection BRP methods.
+    fn add_inspection_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            inspection_methods::BRP_INSPECT_METHOD,
+            inspection_methods::process_remote_inspect_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_COMPONENT_METHOD,
+            inspection_methods::process_remote_inspect_component_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_COMPONENT_TYPE_METHOD,
+            inspection_methods::process_remote_inspect_component_type_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_RESOURCE_METHOD,
+            inspection_methods::process_remote_inspect_resource_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_INSPECT_ALL_RESOURCES_METHOD,
+            inspection_methods::process_remote_inspect_all_resources_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_SUMMARIZE_METHOD,
+            inspection_methods::process_remote_summarize_request,
+            to_main,
+        )
+        .with_method(
+            inspection_methods::BRP_COMPONENT_METADATA_METHOD,
+            inspection_methods::process_remote_component_metadata_request,
+            to_main,
+        )
+    }
+
+    /// Add the `stepping.*` BRP methods.
+    #[cfg(feature = "bevy_debug_stepping")]
+    fn add_stepping_methods(self, to_main: bool) -> Self {
+        self.with_method(
+            stepping_methods::BRP_STEPPING_STATUS,
+            stepping_methods::stepping_status,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_ENABLE,
+            stepping_methods::stepping_enable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_DISABLE,
+            stepping_methods::stepping_disable,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_STEP_FRAME,
+            stepping_methods::stepping_step_frame,
+            to_main,
+        )
+        .with_method(
+            stepping_methods::BRP_STEPPING_CONTINUE_FRAME,
+            stepping_methods::stepping_continue_frame,
+            to_main,
+        )
+    }
+
+    /// Leaves the method list untouched without the `bevy_debug_stepping` feature.
+    #[cfg(not(feature = "bevy_debug_stepping"))]
+    fn add_stepping_methods(self, _to_main: bool) -> Self {
         self
     }
 }
 
 impl Default for RemotePlugin {
     fn default() -> Self {
-        Self::empty()
-            .with_method(
-                builtin_methods::BRP_GET_COMPONENTS_METHOD,
-                builtin_methods::process_remote_get_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_QUERY_METHOD,
-                builtin_methods::process_remote_query_request,
-            )
-            .with_method(
-                builtin_methods::BRP_SPAWN_ENTITY_METHOD,
-                builtin_methods::process_remote_spawn_entity_request,
-            )
-            .with_method(
-                builtin_methods::BRP_INSERT_COMPONENTS_METHOD,
-                builtin_methods::process_remote_insert_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REMOVE_COMPONENTS_METHOD,
-                builtin_methods::process_remote_remove_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_DESPAWN_COMPONENTS_METHOD,
-                builtin_methods::process_remote_despawn_entity_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REPARENT_ENTITIES_METHOD,
-                builtin_methods::process_remote_reparent_entities_request,
-            )
-            .with_method(
-                builtin_methods::BRP_LIST_COMPONENTS_METHOD,
-                builtin_methods::process_remote_list_components_request,
-            )
-            .with_method(
-                builtin_methods::BRP_MUTATE_COMPONENTS_METHOD,
-                builtin_methods::process_remote_mutate_components_request,
-            )
-            .with_method(
-                builtin_methods::RPC_DISCOVER_METHOD,
-                builtin_methods::process_remote_list_methods_request,
-            )
-            .with_watching_method(
-                builtin_methods::BRP_GET_COMPONENTS_AND_WATCH_METHOD,
-                builtin_methods::process_remote_get_components_watching_request,
-            )
-            .with_watching_method(
-                builtin_methods::BRP_LIST_COMPONENTS_AND_WATCH_METHOD,
-                builtin_methods::process_remote_list_components_watching_request,
-            )
-            .with_method(
-                builtin_methods::BRP_GET_RESOURCE_METHOD,
-                builtin_methods::process_remote_get_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_INSERT_RESOURCE_METHOD,
-                builtin_methods::process_remote_insert_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
-                builtin_methods::process_remote_remove_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
-                builtin_methods::process_remote_mutate_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_LIST_RESOURCES_METHOD,
-                builtin_methods::process_remote_list_resources_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
-                builtin_methods::export_registry_types,
-            )
+        let mut t = Self::empty();
+        t = t.add_default_methods(true);
+
+        #[cfg(feature = "bevy_render")]
+        {
+            t = t.add_default_methods(false);
+        }
+
+        t
     }
 }
 
@@ -657,7 +1010,7 @@ impl Plugin for RemotePlugin {
         let plugin_methods = &mut *self.methods.write().unwrap();
         for (name, handler) in plugin_methods.drain(..) {
             remote_methods.insert(
-                name,
+                name.clone(),
                 match handler {
                     RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
                         app.main_mut().world_mut().register_boxed_system(system),
@@ -669,6 +1022,14 @@ impl Plugin for RemotePlugin {
             );
         }
 
+        if remote_methods
+            .0
+            .contains_key(builtin_methods::BRP_SCHEDULE_GRAPH)
+        {
+            app.init_resource::<PreviousScheduleBuildMetadata>()
+                .add_observer(cache_schedule_build_metadata);
+        }
+
         app.init_schedule(RemoteLast)
             .world_mut()
             .resource_mut::<MainScheduleOrder>()
@@ -677,6 +1038,7 @@ impl Plugin for RemotePlugin {
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
+            .init_resource::<builtin_methods::BrpEventObservers>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
@@ -691,6 +1053,57 @@ impl Plugin for RemotePlugin {
                     remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
+
+        #[cfg(feature = "bevy_render")]
+        {
+            use bevy_ecs::schedule::common_conditions::run_once;
+
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+
+            let mut render_remote_methods = RemoteMethods::new();
+
+            let render_plugin_methods = &mut *self.render_methods.write().unwrap();
+            for (name, handler) in render_plugin_methods.drain(..) {
+                render_remote_methods.insert(
+                    name,
+                    match handler {
+                        RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
+                        RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
+                    },
+                );
+            }
+
+            render_app
+                .init_schedule(RemoteLast)
+                .world_mut()
+                .resource_mut::<RenderScheduleOrder>()
+                .insert_after(Render, RemoteLast);
+
+            render_app
+                .insert_resource(render_remote_methods)
+                .init_resource::<schemas::SchemaTypesMetadata>()
+                .init_resource::<RemoteWatchingRequests>()
+                .add_systems(RenderStartup, setup_mailbox_channel.run_if(run_once))
+                .configure_sets(
+                    RemoteLast,
+                    (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
+                )
+                .add_systems(
+                    RemoteLast,
+                    (
+                        (process_remote_requests, process_ongoing_watching_requests)
+                            .chain()
+                            .in_set(RemoteSystems::ProcessRequests),
+                        remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
+                    ),
+                );
+        }
     }
 }
 
@@ -708,10 +1121,6 @@ pub enum RemoteSystems {
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
-
-/// Deprecated alias for [`RemoteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
-pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -799,7 +1208,7 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///     "method": "world.get_components",
 ///     "id": 0,
 ///     "params": {
-///         "entity": 4294967298,
+///         "entity": "5v0",
 ///         "components": [
 ///             "bevy_transform::components::transform::Transform"
 ///         ]
@@ -818,47 +1227,247 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///```
 ///
 /// In Rust:
-/// ```ignore
-///    let req = BrpRequest {
-///         jsonrpc: "2.0".to_string(),
-///         method: BRP_LIST_METHOD.to_string(), // All the methods have consts
-///         id: Some(ureq::json!(0)),
-///         params: None,
-///     };
 /// ```
-#[derive(Debug, Serialize, Deserialize, Clone)]
+/// # use bevy_remote::builtin_methods::BRP_LIST_COMPONENTS_METHOD;
+/// # use bevy_remote::BrpRequest;
+/// # use serde_json::Value;
+/// let req = BrpRequest {
+///     method: BRP_LIST_COMPONENTS_METHOD.to_string(), // All the methods are consts
+///     id: Some(Value::from(1)),
+///     params: None,
+/// };
+/// ```
+#[derive(Debug, Clone)]
 pub struct BrpRequest {
-    /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
-    pub jsonrpc: String,
-
     /// The action to be performed.
     pub method: String,
 
     /// Arbitrary data that will be returned verbatim to the client as part of
     /// the response.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Value>,
 
     /// The parameters, specific to each method.
     ///
     /// These are passed as the first argument to the method handler.
     /// Sometimes params can be omitted.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
 }
 
-/// A response according to BRP.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BrpResponse {
-    /// This field is mandatory and must be set to `"2.0"`.
-    pub jsonrpc: &'static str,
+// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
+// and check for its presence in the input.
+// This is similar to the inverse of `#[serde(skip)]`, but serde doesn't provide
+// an attribute for this behavior so we need a manual ser/de implementation.
+impl Serialize for BrpRequest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("jsonrpc", "2.0")?;
+        map.serialize_entry("method", &self.method)?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
+        if self.params.is_some() {
+            map.serialize_entry("params", &self.params)?;
+        }
+        map.end()
+    }
+}
 
+impl<'de> Deserialize<'de> for BrpRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use serde::de;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            JsonRpc,
+            Method,
+            Id,
+            Params,
+        }
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = BrpRequest;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("struct BrpRequest")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut jsonrpc = false;
+                let mut method = None;
+                let mut id = None;
+                let mut params = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::JsonRpc => {
+                            let value = map.next_value::<String>()?;
+                            if value != "2.0" {
+                                return Err(de::Error::invalid_value(
+                                    de::Unexpected::Str(&value),
+                                    &"2.0",
+                                ));
+                            }
+                            if jsonrpc {
+                                return Err(de::Error::duplicate_field("jsonrpc"));
+                            }
+                            jsonrpc = true;
+                        }
+                        Field::Method => {
+                            if method.is_some() {
+                                return Err(de::Error::duplicate_field("method"));
+                            }
+                            method = Some(map.next_value()?);
+                        }
+                        Field::Id => {
+                            if id.is_some() {
+                                return Err(de::Error::duplicate_field("id"));
+                            }
+                            id = Some(map.next_value()?);
+                        }
+                        Field::Params => {
+                            if params.is_some() {
+                                return Err(de::Error::duplicate_field("params"));
+                            }
+                            params = Some(map.next_value()?);
+                        }
+                    }
+                }
+                if !jsonrpc {
+                    return Err(de::Error::missing_field("jsonrpc"));
+                }
+                let method = method.ok_or_else(|| de::Error::missing_field("method"))?;
+                let id = id.flatten();
+                let params = params.flatten();
+                Ok(BrpRequest { method, id, params })
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
+}
+
+/// A response according to BRP.
+#[derive(Debug, Clone)]
+pub struct BrpResponse {
     /// The id of the original request.
     pub id: Option<Value>,
 
     /// The actual response payload.
-    #[serde(flatten)]
     pub payload: BrpPayload,
+}
+
+// BRP uses json-rpc 2.0, so we need to include `"jsonrpc":"2.0"` in the json output
+// and check for its presence in the input.
+impl Serialize for BrpResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        map.serialize_entry("jsonrpc", "2.0")?;
+        if self.id.is_some() {
+            map.serialize_entry("id", &self.id)?;
+        }
+        match &self.payload {
+            BrpPayload::Result(value) => {
+                map.serialize_entry("result", value)?;
+            }
+            BrpPayload::Error(error) => {
+                map.serialize_entry("error", error)?;
+            }
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BrpResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use serde::de;
+
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            JsonRpc,
+            Id,
+            Result,
+            Error,
+        }
+
+        struct Visitor;
+
+        impl<'de> de::Visitor<'de> for Visitor {
+            type Value = BrpResponse;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("struct BrpResponse")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut jsonrpc = false;
+                let mut id = None;
+                let mut payload = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::JsonRpc => {
+                            let value = map.next_value::<String>()?;
+                            if value != "2.0" {
+                                return Err(de::Error::invalid_value(
+                                    de::Unexpected::Str(&value),
+                                    &"2.0",
+                                ));
+                            }
+                            if jsonrpc {
+                                return Err(de::Error::duplicate_field("jsonrpc"));
+                            }
+                            jsonrpc = true;
+                        }
+                        Field::Id => {
+                            if id.is_some() {
+                                return Err(de::Error::duplicate_field("id"));
+                            }
+                            id = Some(map.next_value()?);
+                        }
+                        Field::Result => {
+                            if payload.is_some() {
+                                return Err(de::Error::duplicate_field("payload"));
+                            }
+                            payload = Some(BrpPayload::Result(map.next_value()?));
+                        }
+                        Field::Error => {
+                            if payload.is_some() {
+                                return Err(de::Error::duplicate_field("payload"));
+                            }
+                            payload = Some(BrpPayload::Error(map.next_value()?));
+                        }
+                    }
+                }
+                if !jsonrpc {
+                    return Err(de::Error::missing_field("jsonrpc"));
+                }
+                let payload = payload.ok_or_else(|| de::Error::missing_field("payload"))?;
+                Ok(BrpResponse { id, payload })
+            }
+        }
+
+        deserializer.deserialize_map(Visitor)
+    }
 }
 
 impl BrpResponse {
@@ -866,7 +1475,6 @@ impl BrpResponse {
     #[must_use]
     pub fn new(id: Option<Value>, result: BrpResult) -> Self {
         Self {
-            jsonrpc: "2.0",
             id,
             payload: BrpPayload::from(result),
         }
@@ -893,7 +1501,7 @@ impl From<BrpResult> for BrpPayload {
 }
 
 /// An error a request might return.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpError {
     /// Defines the general type of the error.
     pub code: i16,
@@ -1015,6 +1623,9 @@ pub mod error_codes {
 
     /// Could not find resource in the world.
     pub const RESOURCE_NOT_PRESENT: i16 = -23502;
+
+    /// The component metadata map does not contain the requested type name.
+    pub const COMPONENT_NAME_NOT_IN_METADATA: i16 = -23405;
 }
 
 /// The result of a request.
@@ -1158,5 +1769,62 @@ fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>)
         if message.sender.is_closed() {
             requests.0.swap_remove(i);
         }
+    }
+}
+
+/// Resource tracking the last [`ScheduleBuildMetadata`] of each schedule as it is built.
+///
+/// This allows the `schedule.graph` endpoint to return better results for schedules.
+#[derive(Resource, Default)]
+struct PreviousScheduleBuildMetadata(HashMap<InternedScheduleLabel, ScheduleBuildMetadata>);
+
+fn cache_schedule_build_metadata(
+    event: On<ScheduleBuilt>,
+    mut metadata: ResMut<PreviousScheduleBuildMetadata>,
+) {
+    let new_metadata = ScheduleBuildMetadata {
+        // We intentionally don't bother cloning the warnings, since they aren't used by the
+        // `ScheduleData`.
+        warnings: vec![],
+        edges_added_by_build_passes: event.build_metadata.edges_added_by_build_passes.clone(),
+    };
+    metadata.0.insert(event.label, new_metadata);
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::BrpRequest;
+    use serde_json::json;
+
+    #[test]
+    fn deserialize_brp_request_params_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "id": 1
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, Some(json!(1)));
+        assert_eq!(request.params, None);
+    }
+
+    #[test]
+    fn deserialize_brp_request_id_optional() {
+        let request_json: &str = r#"{
+            "jsonrpc": "2.0",
+            "method": "world.list_components",
+            "params": {
+                "number": 5
+            }
+        }"#;
+
+        let request: BrpRequest = serde_json::from_str(request_json).unwrap();
+
+        assert_eq!(request.method, "world.list_components");
+        assert_eq!(request.id, None);
+        assert_eq!(request.params, Some(json!({ "number": 5 })));
     }
 }

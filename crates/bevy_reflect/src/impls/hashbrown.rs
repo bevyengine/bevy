@@ -1,7 +1,7 @@
 use crate::impls::macros::{impl_reflect_for_hashmap, impl_reflect_for_hashset};
 #[cfg(feature = "functions")]
 use crate::{
-    from_reflect::FromReflect, type_info::MaybeTyped, type_path::TypePath,
+    from_reflect::FromReflect, info::MaybeTyped, type_path::TypePath,
     type_registry::GetTypeRegistration,
 };
 use bevy_reflect_derive::impl_type_path;

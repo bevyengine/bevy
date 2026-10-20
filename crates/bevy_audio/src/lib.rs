@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -52,7 +52,7 @@ pub use audio_source::*;
 pub use pitch::*;
 pub use volume::*;
 
-pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
+pub use rodio::{cpal::Sample as CpalSample, source::Source, ChannelCount, Sample, SampleRate};
 pub use sinks::*;
 
 use bevy_app::prelude::*;
@@ -108,7 +108,7 @@ impl AddAudioSource for App {
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
         T: Decodable + Asset,
-        f32: rodio::cpal::FromSample<T::DecoderItem>,
+        f32: rodio::cpal::FromSample<Sample>,
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,

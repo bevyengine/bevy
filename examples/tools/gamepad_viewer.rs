@@ -270,7 +270,7 @@ fn setup_sticks(
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
         let style = TextFont {
-            font_size: 13.,
+            font_size: FontSize::Px(13.),
             ..default()
         };
         commands.spawn((
@@ -346,7 +346,7 @@ fn setup_triggers(
                 Transform::from_xyz(0., 0., 1.),
                 Text(format!("{:.3}", 0.)),
                 TextFont {
-                    font_size: 13.,
+                    font_size: FontSize::Px(13.),
                     ..default()
                 },
                 TextWithButtonValue(button_type),
@@ -364,8 +364,8 @@ fn setup_connected(mut commands: Commands) {
         Text::new("Connected Gamepads:\n"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ConnectedGamepadsText,
@@ -390,7 +390,7 @@ fn update_buttons(
     }
 }
 fn update_button_values(
-    mut events: EventReader<GamepadButtonChangedEvent>,
+    mut events: MessageReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text2d, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
@@ -403,7 +403,7 @@ fn update_button_values(
 }
 
 fn update_axes(
-    mut axis_events: EventReader<GamepadAxisChangedEvent>,
+    mut axis_events: MessageReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
     mut writer: Text2dWriter,
@@ -431,7 +431,7 @@ fn update_axes(
 }
 
 fn update_connected(
-    mut connected: EventReader<GamepadConnectionEvent>,
+    mut connected: MessageReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Name), With<Gamepad>>,
     text: Single<Entity, With<ConnectedGamepadsText>>,
     mut writer: TextUiWriter,

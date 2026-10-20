@@ -1,17 +1,14 @@
-//! A module for rendering each of the 2D [`bevy_math::primitives`] with [`GizmoBuffer`].
+//! A module for rendering each of the 2D [`bevy_shape`] primitives with [`GizmoBuffer`].
 
 use core::f32::consts::{FRAC_PI_2, PI};
 
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::{
-    primitives::{
-        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
-        Triangle2d,
-    },
-    Dir2, Isometry2d, Rot2, Vec2,
+use bevy_math::{Dir2, Isometry2d, Rot2, Vec2};
+use bevy_shape::{
+    Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d, Plane2d,
+    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
@@ -358,8 +355,8 @@ where
                     primitive.half_diagonals.y * sign_y,
                 )
             });
-        let positions = [a, b, c, d, a].map(|vec2| isometry * vec2);
-        self.linestrip_2d(positions, color);
+        let positions = [a, b, c, d].map(|vec2| isometry * vec2);
+        self.lineloop_2d(positions, color);
     }
 }
 
@@ -550,7 +547,8 @@ where
         .draw_arrow(true);
 
         // draw the plane line
-        let direction = Dir2::new_unchecked(-normal.perp());
+        let direction = -normal.perpendicular();
+
         self.primitive_2d(&Line2d { direction }, isometry, polymorphic_color)
             .draw_arrow(false);
 
@@ -706,8 +704,8 @@ where
         let isometry = isometry.into();
 
         let [a, b, c] = primitive.vertices;
-        let positions = [a, b, c, a].map(|vec2| isometry * vec2);
-        self.linestrip_2d(positions, color);
+        let positions = [a, b, c].map(|vec2| isometry * vec2);
+        self.lineloop_2d(positions, color);
     }
 }
 
@@ -742,8 +740,8 @@ where
                     primitive.half_size.y * sign_y,
                 )
             });
-        let positions = [a, b, c, d, a].map(|vec2| isometry * vec2);
-        self.linestrip_2d(positions, color);
+        let positions = [a, b, c, d].map(|vec2| isometry * vec2);
+        self.lineloop_2d(positions, color);
     }
 }
 
@@ -771,24 +769,14 @@ where
 
         let isometry = isometry.into();
 
-        // Check if the polygon needs a closing point
-        let closing_point = {
-            let first = primitive.vertices.first();
-            (primitive.vertices.last() != first)
-                .then_some(first)
-                .flatten()
-                .cloned()
+        let vertices = if primitive.vertices.first() == primitive.vertices.last() {
+            // Strip closing point if there is one
+            &primitive.vertices[..primitive.vertices.len() - 1]
+        } else {
+            &primitive.vertices[..]
         };
 
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .chain(closing_point)
-                .map(|vec2| isometry * vec2),
-            color,
-        );
+        self.lineloop_2d(vertices.iter().map(|&vec2| isometry * vec2), color);
     }
 }
 
@@ -816,9 +804,9 @@ where
 
         let isometry = isometry.into();
 
-        let points = (0..=primitive.sides)
+        let points = (0..primitive.sides)
             .map(|n| single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, n))
             .map(|vec2| isometry * vec2);
-        self.linestrip_2d(points, color);
+        self.lineloop_2d(points, color);
     }
 }

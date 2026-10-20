@@ -7,11 +7,10 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
-use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
-    alpha::AlphaMode,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
@@ -21,13 +20,14 @@ use bevy_render::{
     RenderDebugFlags,
 };
 use bevy_shader::load_shader_library;
+use bevy_shape::Rectangle;
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
 
 impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "forward_decal.wgsl");
+        load_shader_library!(app, "forward.wesl");
 
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
@@ -41,15 +41,13 @@ impl Plugin for ForwardDecalPlugin {
         app.insert_resource(ForwardDecalMesh(mesh));
 
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
-            prepass_enabled: false,
-            shadows_enabled: false,
             debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
     }
 }
 
-/// A decal that renders via a 1x1 transparent quad mesh, smoothly alpha-blending with the underlying
+/// A decal that renders via a 1x1 quad mesh, smoothly alpha-blending with the underlying
 /// geometry towards the edges.
 ///
 /// Because forward decals are meshes, you can use arbitrary materials to control their appearance.
@@ -60,6 +58,7 @@ impl Plugin for ForwardDecalPlugin {
 /// * Any camera rendering a forward decal must have the [`bevy_core_pipeline::prepass::DepthPrepass`] component.
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
+/// * On Wasm, requires using WebGPU and disabling `Msaa` on your camera.
 #[derive(Component, Reflect)]
 #[require(Mesh3d)]
 #[component(on_add=forward_decal_set_mesh)]
@@ -92,6 +91,7 @@ pub struct ForwardDecalMaterialExt {
     /// blending with more distant surfaces.
     ///
     /// Units are in meters.
+    /// This has no effect if alpha mode is `Opaque`.
     pub depth_fade_factor: f32,
 }
 
@@ -112,8 +112,19 @@ impl AsBindGroupShaderType<ForwardDecalMaterialExtUniform> for ForwardDecalMater
 }
 
 impl MaterialExtension for ForwardDecalMaterialExt {
-    fn alpha_mode() -> Option<AlphaMode> {
-        Some(AlphaMode::Blend)
+    // Forward decal is incompatible with OIT as it needs to be rendered
+    // even it's occluded by opaque objects.
+    fn enable_oit() -> bool {
+        false
+    }
+
+    // Don't write forward decal's own depth if it is opaque.
+    fn enable_prepass() -> bool {
+        false
+    }
+
+    fn enable_shadows() -> bool {
+        false
     }
 
     fn specialize(
@@ -122,7 +133,7 @@ impl MaterialExtension for ForwardDecalMaterialExt {
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.depth_stencil.as_mut().unwrap().depth_compare = CompareFunction::Always;
+        descriptor.depth_stencil.as_mut().unwrap().depth_compare = Some(CompareFunction::Always);
 
         descriptor.vertex.shader_defs.push("FORWARD_DECAL".into());
 

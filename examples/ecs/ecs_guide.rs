@@ -16,7 +16,7 @@
 //!               Entity2 { Name("Bill"), Position(10, 5) }
 //!
 //! Resource: a shared global piece of data
-//!     Examples: asset storage, events, system state
+//!     Examples: asset storage, messages, system state
 //!
 //! System: runs logic on entities, components, and resources
 //!     Examples: move system, damage system
@@ -158,20 +158,20 @@ fn score_check_system(
     }
 }
 
-// This system ends the game if we meet the right conditions. This fires an AppExit event, which
-// tells our App to quit. Check out the "event.rs" example if you want to learn more about using
-// events.
+// This system ends the game if we meet the right conditions. This fires an AppExit message, which
+// tells our App to quit. Check out the "message.rs" example if you want to learn more about using
+// messages.
 fn game_over_system(
     game_rules: Res<GameRules>,
     game_state: Res<GameState>,
-    mut app_exit_events: EventWriter<AppExit>,
+    mut app_exit_writer: MessageWriter<AppExit>,
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
-        app_exit_events.write(AppExit::Success);
+        app_exit_writer.write(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.write(AppExit::Success);
+        app_exit_writer.write(AppExit::Success);
     }
 }
 

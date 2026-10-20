@@ -5,11 +5,15 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::{
+    picking::hover::Hovered,
+    prelude::*,
+    ui_widgets::{Activate, ActivateOnPress, Button},
+};
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         .init_state::<AppState>() // Alternatively we could use .insert_state(AppState::Menu)
         .add_systems(Startup, setup)
         // This system runs when we enter `AppState::Menu`, during the `StateTransition` schedule.
@@ -18,15 +22,21 @@ fn main() {
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, hover_style.run_if(in_state(AppState::Menu)))
+        .add_observer(on_activate_start_game.run_if(in_state(AppState::Menu)))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
-        )
-        .add_systems(Update, log_transitions::<AppState>)
-        .run();
+        );
+
+    #[cfg(feature = "bevy_dev_tools")]
+    app.add_systems(Update, bevy::dev_tools::states::log_transitions::<AppState>);
+    #[cfg(not(feature = "bevy_dev_tools"))]
+    warn!("Enable feature bevy_dev_tools to log state transitions");
+
+    app.run();
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
@@ -43,7 +53,6 @@ struct MenuData {
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
@@ -54,17 +63,19 @@ fn setup_menu(mut commands: Commands) {
         .spawn((
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
             children![(
                 Button,
+                ActivateOnPress,
+                Hovered::default(),
                 Node {
-                    width: Val::Px(150.),
-                    height: Val::Px(65.),
+                    width: px(150),
+                    height: px(65),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text
@@ -75,7 +86,7 @@ fn setup_menu(mut commands: Commands) {
                 children![(
                     Text::new("Play"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -86,25 +97,18 @@ fn setup_menu(mut commands: Commands) {
     commands.insert_resource(MenuData { button_entity });
 }
 
-fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn on_activate_start_game(_: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::InGame);
+}
+
+fn hover_style(
+    mut button_query: Query<(&Hovered, &mut BackgroundColor), (Changed<Hovered>, With<Button>)>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                next_state.set(AppState::InGame);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+    for (hovered, mut color) in &mut button_query {
+        if hovered.get() {
+            *color = HOVERED_BUTTON.into();
+        } else {
+            *color = NORMAL_BUTTON.into();
         }
     }
 }

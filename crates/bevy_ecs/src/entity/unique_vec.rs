@@ -7,6 +7,7 @@ use core::{
         Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
         RangeInclusive, RangeTo, RangeToInclusive,
     },
+    ptr,
 };
 
 use alloc::{
@@ -37,6 +38,7 @@ use super::{
 /// and not recommended.
 ///
 /// When `T` is [`Entity`], use the [`UniqueEntityVec`] alias.
+#[repr(transparent)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniqueEntityEquivalentVec<T: EntityEquivalent>(Vec<T>);
 
@@ -50,14 +52,16 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::new`].
     pub const fn new() -> Self {
-        Self(Vec::new())
+        // SAFETY: Any empty Vec cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::new()) }
     }
 
     /// Constructs a new, empty `UniqueEntityEquivalentVec<T>` with at least the specified capacity.
     ///
-    /// Equivalent to [`Vec::with_capacity`]
+    /// Equivalent to [`Vec::with_capacity`].
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(Vec::with_capacity(capacity))
+        // SAFETY: Any empty Vec cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::with_capacity(capacity)) }
     }
 
     /// Creates a `UniqueEntityEquivalentVec<T>` directly from a pointer, a length, and a capacity.
@@ -69,8 +73,9 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// It must be safe to call [`Vec::from_raw_parts`] with these inputs,
     /// and the resulting [`Vec`] must only contain unique elements.
     pub unsafe fn from_raw_parts(ptr: *mut T, length: usize, capacity: usize) -> Self {
-        // SAFETY: Caller ensures it's safe to call `Vec::from_raw_parts`
-        Self(unsafe { Vec::from_raw_parts(ptr, length, capacity) })
+        // SAFETY: Caller ensures it is safe to call `Vec::from_raw_parts`, and that
+        // the resulting `Vec` only contains unique elements.
+        unsafe { Self::from_vec_unchecked(Vec::from_raw_parts(ptr, length, capacity)) }
     }
 
     /// Constructs a `UniqueEntityEquivalentVec` from a [`Vec<T>`] unsafely.
@@ -78,8 +83,28 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// # Safety
     ///
     /// `vec` must contain only unique elements.
-    pub unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
+    pub const unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
         Self(vec)
+    }
+
+    /// Constructs a `UniqueEntityEquivalentVec` from a [`&Vec<T>`](Vec) unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `vec` must contain only unique elements.
+    pub const unsafe fn from_vec_ref_unchecked(vec: &Vec<T>) -> &Self {
+        // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
+        unsafe { &*ptr::from_ref(vec).cast() }
+    }
+
+    /// Constructs a `UniqueEntityEquivalentVec` from a [`&mut Vec<T>`](Vec) unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `vec` must contain only unique elements.
+    pub const unsafe fn from_vec_mut_unchecked(vec: &mut Vec<T>) -> &mut Self {
+        // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
+        unsafe { &mut *ptr::from_mut(vec).cast() }
     }
 
     /// Returns the inner [`Vec<T>`].
@@ -88,7 +113,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     }
 
     /// Returns a reference to the inner [`Vec<T>`].
-    pub fn as_vec(&self) -> &Vec<T> {
+    pub const fn as_vec(&self) -> &Vec<T> {
         &self.0
     }
 
@@ -98,7 +123,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// The elements of this `Vec` must always remain unique, even while
     /// this mutable reference is live.
-    pub unsafe fn as_mut_vec(&mut self) -> &mut Vec<T> {
+    pub const unsafe fn as_mut_vec(&mut self) -> &mut Vec<T> {
         &mut self.0
     }
 
@@ -106,7 +131,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// reallocating.
     ///
     /// Equivalent to [`Vec::capacity`].
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.0.capacity()
     }
 
@@ -165,13 +190,15 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     }
 
     /// Extracts a slice containing the entire vector.
-    pub fn as_slice(&self) -> &UniqueEntityEquivalentSlice<T> {
-        self
+    pub const fn as_slice(&self) -> &UniqueEntityEquivalentSlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.as_slice()) }
     }
 
     /// Extracts a mutable slice of the entire vector.
-    pub fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
-        self
+    pub const fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.0.as_mut_slice()) }
     }
 
     /// Shortens the vector, keeping the first `len` elements and dropping
@@ -186,14 +213,14 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// valid for zero sized reads if the vector didn't allocate.
     ///
     /// Equivalent to [`Vec::as_ptr`].
-    pub fn as_ptr(&self) -> *const T {
+    pub const fn as_ptr(&self) -> *const T {
         self.0.as_ptr()
     }
     /// Returns a raw mutable pointer to the vector's buffer, or a dangling
     /// raw pointer valid for zero sized reads if the vector didn't allocate.
     ///
     /// Equivalent to [`Vec::as_mut_ptr`].
-    pub fn as_mut_ptr(&mut self) -> *mut T {
+    pub const fn as_mut_ptr(&mut self) -> *mut T {
         self.0.as_mut_ptr()
     }
 
@@ -331,7 +358,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         R: RangeBounds<usize>,
     {
         // SAFETY: `self` and thus `range` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.drain(range)) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.drain(range)) }
     }
 
     /// Clears the vector, removing all values.
@@ -345,14 +372,14 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// as its 'length'.
     ///
     /// Equivalent to [`Vec::len`].
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Returns `true` if the vector contains no elements.
     ///
     /// Equivalent to [`Vec::is_empty`].
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
@@ -360,7 +387,8 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::split_off`].
     pub fn split_off(&mut self, at: usize) -> Self {
-        Self(self.0.split_off(at))
+        // SAFETY: Any subslice/subsection of a `UniqueEntityVec` is also unique.
+        unsafe { Self::from_vec_unchecked(self.0.split_off(at)) }
     }
 
     /// Resizes the `Vec` in-place so that `len` is equal to `new_len`.
@@ -410,13 +438,14 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         I: EntitySet<Item = T>,
     {
         // SAFETY: `self` and thus `range` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.splice(range, replace_with)) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.splice(range, replace_with)) }
     }
 }
 
 impl<T: EntityEquivalent> Default for UniqueEntityEquivalentVec<T> {
     fn default() -> Self {
-        Self(Vec::default())
+        // SAFETY: An empty `Vec` cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::default()) }
     }
 }
 
@@ -424,15 +453,13 @@ impl<T: EntityEquivalent> Deref for UniqueEntityEquivalentVec<T> {
     type Target = UniqueEntityEquivalentSlice<T>;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(&self.0) }
+        self.as_slice()
     }
 }
 
 impl<T: EntityEquivalent> DerefMut for UniqueEntityEquivalentVec<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(&mut self.0) }
+        self.as_mut_slice()
     }
 }
 
@@ -446,7 +473,7 @@ where
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: `self` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.iter()) }
     }
 }
 
@@ -457,7 +484,7 @@ impl<T: EntityEquivalent> IntoIterator for UniqueEntityEquivalentVec<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: `self` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.into_iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.into_iter()) }
     }
 }
 
@@ -695,37 +722,43 @@ where
 
 impl<T: EntityEquivalent + Clone> From<&[T; 1]> for UniqueEntityEquivalentVec<T> {
     fn from(value: &[T; 1]) -> Self {
-        Self(Vec::from(value))
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::from(value)) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&[T; 0]> for UniqueEntityEquivalentVec<T> {
     fn from(value: &[T; 0]) -> Self {
-        Self(Vec::from(value))
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::from(value)) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&mut [T; 1]> for UniqueEntityEquivalentVec<T> {
     fn from(value: &mut [T; 1]) -> Self {
-        Self(Vec::from(value))
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::from(value)) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&mut [T; 0]> for UniqueEntityEquivalentVec<T> {
     fn from(value: &mut [T; 0]) -> Self {
-        Self(Vec::from(value))
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::from(value)) }
     }
 }
 
 impl<T: EntityEquivalent> From<[T; 1]> for UniqueEntityEquivalentVec<T> {
     fn from(value: [T; 1]) -> Self {
-        Self(Vec::from(value))
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::from(value)) }
     }
 }
 
 impl<T: EntityEquivalent> From<[T; 0]> for UniqueEntityEquivalentVec<T> {
     fn from(value: [T; 0]) -> Self {
-        Self(Vec::from(value))
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_vec_unchecked(Vec::from(value)) }
     }
 }
 
@@ -733,7 +766,8 @@ impl<T: EntityEquivalent + Clone, const N: usize> From<&UniqueEntityEquivalentAr
     for UniqueEntityEquivalentVec<T>
 {
     fn from(value: &UniqueEntityEquivalentArray<T, N>) -> Self {
-        Self(Vec::from(value.as_inner().clone()))
+        // SAFETY: `UniqueEntityEquivalentArray` only contains unique elements.
+        unsafe { Self::from_vec_unchecked(Vec::from(value.as_inner().clone())) }
     }
 }
 
@@ -741,7 +775,8 @@ impl<T: EntityEquivalent + Clone, const N: usize> From<&mut UniqueEntityEquivale
     for UniqueEntityEquivalentVec<T>
 {
     fn from(value: &mut UniqueEntityEquivalentArray<T, N>) -> Self {
-        Self(Vec::from(value.as_inner().clone()))
+        // SAFETY: `UniqueEntityEquivalentArray` only contains unique elements.
+        unsafe { Self::from_vec_unchecked(Vec::from(value.as_inner().clone())) }
     }
 }
 
@@ -749,7 +784,8 @@ impl<T: EntityEquivalent, const N: usize> From<UniqueEntityEquivalentArray<T, N>
     for UniqueEntityEquivalentVec<T>
 {
     fn from(value: UniqueEntityEquivalentArray<T, N>) -> Self {
-        Self(Vec::from(value.into_inner()))
+        // SAFETY: `UniqueEntityEquivalentArray` only contains unique elements.
+        unsafe { Self::from_vec_unchecked(Vec::from(value.into_inner())) }
     }
 }
 
@@ -867,7 +903,8 @@ impl<T: EntityEquivalent, const N: usize> TryFrom<UniqueEntityEquivalentVec<T>>
 
 impl<T: EntityEquivalent> From<BTreeSet<T>> for UniqueEntityEquivalentVec<T> {
     fn from(value: BTreeSet<T>) -> Self {
-        Self(value.into_iter().collect::<Vec<T>>())
+        // SAFETY: A `BTreeSet` over an `EntityEquivalent` T only contains unique elements.
+        unsafe { Self::from_vec_unchecked(value.into_iter().collect::<Vec<T>>()) }
     }
 }
 
@@ -953,6 +990,7 @@ impl<'a, T: EntityEquivalent + Copy + 'a> Extend<&'a T> for UniqueEntityEquivale
 
 impl<T: EntityEquivalent> Index<(Bound<usize>, Bound<usize>)> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -961,6 +999,7 @@ impl<T: EntityEquivalent> Index<(Bound<usize>, Bound<usize>)> for UniqueEntityEq
 
 impl<T: EntityEquivalent> Index<Range<usize>> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: Range<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -969,6 +1008,7 @@ impl<T: EntityEquivalent> Index<Range<usize>> for UniqueEntityEquivalentVec<T> {
 
 impl<T: EntityEquivalent> Index<RangeFrom<usize>> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeFrom<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -977,6 +1017,7 @@ impl<T: EntityEquivalent> Index<RangeFrom<usize>> for UniqueEntityEquivalentVec<
 
 impl<T: EntityEquivalent> Index<RangeFull> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeFull) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -985,6 +1026,7 @@ impl<T: EntityEquivalent> Index<RangeFull> for UniqueEntityEquivalentVec<T> {
 
 impl<T: EntityEquivalent> Index<RangeInclusive<usize>> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeInclusive<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -993,6 +1035,7 @@ impl<T: EntityEquivalent> Index<RangeInclusive<usize>> for UniqueEntityEquivalen
 
 impl<T: EntityEquivalent> Index<RangeTo<usize>> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeTo<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -1001,6 +1044,7 @@ impl<T: EntityEquivalent> Index<RangeTo<usize>> for UniqueEntityEquivalentVec<T>
 
 impl<T: EntityEquivalent> Index<RangeToInclusive<usize>> for UniqueEntityEquivalentVec<T> {
     type Output = UniqueEntityEquivalentSlice<T>;
+
     fn index(&self, key: RangeToInclusive<usize>) -> &Self::Output {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.index(key)) }
@@ -1009,6 +1053,7 @@ impl<T: EntityEquivalent> Index<RangeToInclusive<usize>> for UniqueEntityEquival
 
 impl<T: EntityEquivalent> Index<usize> for UniqueEntityEquivalentVec<T> {
     type Output = T;
+
     fn index(&self, key: usize) -> &T {
         self.0.index(key)
     }

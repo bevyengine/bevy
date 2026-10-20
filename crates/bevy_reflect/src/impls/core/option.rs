@@ -3,10 +3,12 @@
     reason = "the macro uses `MyEnum::Variant` which is generally unnecessary for `Option`"
 )]
 
+use crate::std_traits::ReflectDefault;
 use bevy_reflect_derive::impl_reflect;
 
 impl_reflect! {
     #[type_path = "core::option"]
+    #[reflect(Default)]
     enum Option<T> {
         None,
         Some(T),
@@ -15,7 +17,10 @@ impl_reflect! {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Enum, FromReflect, PartialReflect, TypeInfo, Typed, VariantInfo, VariantType};
+    use crate::{
+        enums::{Enum, VariantInfo, VariantType},
+        FromReflect, PartialReflect, TypeInfo, Typed,
+    };
     use bevy_reflect_derive::Reflect;
     use static_assertions::assert_impl_all;
 

@@ -1,10 +1,11 @@
-use core::any::TypeId;
+use core::{any::TypeId, iter};
 
-use bevy_ptr::OwningPtr;
-use variadics_please::all_tuples;
+use bevy_ptr::{MovingPtr, OwningPtr};
+use core::mem::MaybeUninit;
+use variadics_please::all_tuples_enumerated;
 
 use crate::{
-    bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
+    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     world::EntityWorldMut,
 };
@@ -13,12 +14,14 @@ use crate::{
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
-        ids(components.register_component::<C>());
+    fn component_ids(
+        components: &mut ComponentsRegistrator,
+    ) -> impl Iterator<Item = ComponentId> + use<C> {
+        iter::once(components.register_component::<C>())
     }
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
+    fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+        iter::once(components.get_id(TypeId::of::<C>()))
     }
 }
 
@@ -40,13 +43,19 @@ unsafe impl<C: Component> BundleFromComponents for C {
 impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) -> Self::Effect {
+        func(C::STORAGE_TYPE, OwningPtr::from(ptr));
     }
+
+    #[inline]
+    unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($index:tt, $name: ident, $alias: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -64,12 +73,12 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+            fn component_ids<'a>(components: &'a mut ComponentsRegistrator) -> impl Iterator<Item = ComponentId> + use<$($name,)*> {
+                iter::empty()$(.chain(<$name as Bundle>::component_ids(components)))*
             }
 
-            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+            fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+                iter::empty()$(.chain(<$name as Bundle>::get_component_ids(components)))*
             }
         }
 
@@ -125,51 +134,50 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+            unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+                bevy_ptr::deconstruct_moving_ptr!({
+                    let tuple { $($index: $alias,)* } = ptr;
+                });
                 #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
+                    unused_unsafe,
+                    reason = "Zero-length tuples will generate a function body equivalatent to (); however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
                 )]
-                let ($(mut $name,)*) = self;
-                ($(
-                    $name.get_components(&mut *func),
-                )*)
+                // SAFETY: Caller ensures requirements for calling `get_components` are met.
+                unsafe {
+                    $( $name::get_components($alias, func); )*
+                }
+            }
+
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
+            #[inline(always)]
+            unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+                bevy_ptr::deconstruct_moving_ptr!({
+                    let MaybeUninit::<tuple> { $($index: $alias,)* } = ptr;
+                });
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+                )]
+                // SAFETY: Caller ensures requirements for calling `apply_effect` are met.
+                unsafe {
+                    $( $name::apply_effect($alias, entity); )*
+                }
             }
         }
+
+        $(#[$meta])*
+        impl<$($name: NoBundleEffect),*> NoBundleEffect for ($($name,)*) {}
     }
 }
 
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     tuple_impl,
     0,
     15,
-    B
+    B,
+    field_
 );
-
-macro_rules! after_effect_impl {
-    ($($after_effect: ident),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
-        )]
-        impl<$($after_effect: BundleEffect),*> BundleEffect for ($($after_effect,)*) {
-            #[allow(
-                clippy::unused_unit,
-                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case.")
-            ]
-            fn apply(self, _entity: &mut EntityWorldMut) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($after_effect,)*) = self;
-                $($after_effect.apply(_entity);)*
-            }
-        }
-
-        impl<$($after_effect: NoBundleEffect),*> NoBundleEffect for ($($after_effect,)*) { }
-    }
-}
-
-all_tuples!(after_effect_impl, 0, 15, P);

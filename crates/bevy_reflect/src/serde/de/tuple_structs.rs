@@ -1,6 +1,7 @@
 use crate::{
     serde::{de::tuple_utils::visit_tuple, SerializationData},
-    DynamicTupleStruct, TupleStructInfo, TypeRegistration, TypeRegistry,
+    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
@@ -11,7 +12,7 @@ use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`TupleStruct`] values.
 ///
-/// [`TupleStruct`]: crate::TupleStruct
+/// [`TupleStruct`]: crate::tuple_struct::TupleStruct
 pub(super) struct TupleStructVisitor<'a, P> {
     pub tuple_struct_info: &'static TupleStructInfo,
     pub registration: &'a TypeRegistration,

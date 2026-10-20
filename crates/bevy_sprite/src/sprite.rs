@@ -1,8 +1,8 @@
-use bevy_asset::{Assets, Handle};
-use bevy_camera::visibility::{self, Visibility, VisibilityClass};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
+use bevy_camera::visibility::{Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -11,14 +11,14 @@ use bevy_transform::components::Transform;
 use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect, PartialEq, FromTemplate)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
-#[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the sprite
+    #[template(built_in)]
     pub texture_atlas: Option<TextureAtlas>,
     /// The sprite's color tint
     pub color: Color,
@@ -37,7 +37,11 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// How the sprite's image will be scaled.
     pub image_mode: SpriteImageMode,
+    /// The sprite's alpha mode, defaulting to `Blend`.
+    pub alpha_mode: SpriteAlphaMode,
 }
+
+// NOTE: The SpriteImageMode, SpriteScalingMode and Anchor are imported from the sprite module.
 
 impl Sprite {
     /// Create a Sprite with a custom size
@@ -152,6 +156,46 @@ impl From<Handle<Image>> for Sprite {
     }
 }
 
+impl AsAssetId for Sprite {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
+// This is different from AlphaMode2d in bevy_sprite_render because that crate depends on this one,
+// so using it would've been caused a circular dependency. An option would be to move the Enum here
+// but it uses a bevy_render dependency in its documentation, and I wanted to avoid bringing that
+// dependency to this crate.
+
+// NOTE: If this is ever replaced by AlphaMode2d, make a custom Default impl for Sprite,
+// because AlphaMode2d defaults to Opaque, but the sprite's alpha mode is most commonly Mask(0.5)
+
+/// An enum describing how a sprite's alpha channel will be handled.
+/// The base color being modified is that of the texture after tinting.
+/// The default is `Blend`.
+#[derive(Debug, Reflect, Copy, Clone, PartialEq, Default)]
+#[reflect(Default, Debug, Clone)]
+pub enum SpriteAlphaMode {
+    /// Base color alpha values are overridden to be fully opaque (1.0).
+    Opaque,
+    /// Reduce transparency to fully opaque or fully transparent
+    /// based on a threshold.
+    ///
+    /// Compares the base color alpha value to the specified threshold.
+    /// If the value is below the threshold,
+    /// considers the color to be fully transparent (alpha is set to 0.0).
+    /// If it is equal to or above the threshold,
+    /// considers the color to be fully opaque (alpha is set to 1.0).
+    Mask(f32),
+    /// The base color alpha value defines the opacity of the color.
+    /// Standard alpha-blending is used to blend the fragment's color
+    /// with the color behind it.
+    #[default]
+    Blend,
+}
+
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
@@ -161,7 +205,7 @@ pub enum SpriteImageMode {
     Auto,
     /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
     /// Otherwise no scaling will be applied.
-    Scale(ScalingMode),
+    Scale(SpriteScalingMode),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -186,14 +230,26 @@ impl SpriteImageMode {
         )
     }
 
-    /// Returns [`ScalingMode`] if scale is presented or [`Option::None`] otherwise.
+    /// Returns [`SpriteScalingMode`] if scale is presented or [`Option::None`] otherwise.
     #[inline]
     #[must_use]
-    pub const fn scale(&self) -> Option<ScalingMode> {
+    pub const fn scale(&self) -> Option<SpriteScalingMode> {
         if let SpriteImageMode::Scale(scale) = self {
             Some(*scale)
         } else {
             None
+        }
+    }
+
+    /// Returns true if this mode is [`SpriteImageMode::Sliced`] and the slicer's borders
+    /// don't fit within an image of the given size, in which case no slicing can be applied.
+    pub fn slice_border_out_of_bounds(&self, image_size: Vec2) -> bool {
+        if let SpriteImageMode::Sliced(slicer) = self {
+            (slicer.border.min_inset + slicer.border.max_inset)
+                .cmpge(image_size)
+                .any()
+        } else {
+            false
         }
     }
 }
@@ -203,7 +259,7 @@ impl SpriteImageMode {
 /// Can be used in [`SpriteImageMode::Scale`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Debug, Default, Clone)]
-pub enum ScalingMode {
+pub enum SpriteScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal
     /// to or larger than the corresponding dimension of the target rectangle.
@@ -246,6 +302,7 @@ pub enum ScalingMode {
 #[doc(alias = "pivot")]
 pub struct Anchor(pub Vec2);
 
+#[expect(missing_docs, reason = "the associated constants are self-documenting")]
 impl Anchor {
     pub const BOTTOM_LEFT: Self = Self(Vec2::new(-0.5, -0.5));
     pub const BOTTOM_CENTER: Self = Self(Vec2::new(0.0, -0.5));
@@ -257,6 +314,7 @@ impl Anchor {
     pub const TOP_CENTER: Self = Self(Vec2::new(0.0, 0.5));
     pub const TOP_RIGHT: Self = Self(Vec2::new(0.5, 0.5));
 
+    /// Returns the Anchor's offset as a [`Vec2`].
     pub fn as_vec(&self) -> Vec2 {
         self.0
     }

@@ -3,7 +3,7 @@
 
 use bevy_ecs::world::World;
 
-use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
+use crate::{Asset, AssetPath, AssetServer, Assets, Handle, LoadBuilder};
 
 /// An extension trait for methods for working with assets directly from a [`World`].
 pub trait DirectAssetAccessExt {
@@ -13,12 +13,8 @@ pub trait DirectAssetAccessExt {
     /// Load an asset similarly to [`AssetServer::load`].
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A>;
 
-    /// Load an asset with settings, similarly to [`AssetServer::load_with_settings`].
-    fn load_asset_with_settings<'a, A: Asset, S: Settings>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> Handle<A>;
+    /// Creates a new [`LoadBuilder`] similar to [`AssetServer::load_builder`].
+    fn load_builder(&self) -> LoadBuilder<'_>;
 }
 
 impl DirectAssetAccessExt for World {
@@ -37,16 +33,12 @@ impl DirectAssetAccessExt for World {
     fn load_asset<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.resource::<AssetServer>().load(path)
     }
-    /// Load an asset with settings, similarly to [`AssetServer::load_with_settings`].
+
+    /// Creates a new [`LoadBuilder`] similar to [`AssetServer::load_builder`].
     ///
     /// # Panics
     /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
-    fn load_asset_with_settings<'a, A: Asset, S: Settings>(
-        &self,
-        path: impl Into<AssetPath<'a>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> Handle<A> {
-        self.resource::<AssetServer>()
-            .load_with_settings(path, settings)
+    fn load_builder(&self) -> LoadBuilder<'_> {
+        self.resource::<AssetServer>().load_builder()
     }
 }

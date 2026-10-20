@@ -1,19 +1,17 @@
 use bevy_asset::Handle;
 use bevy_camera::{
-    primitives::{CubeMapFace, CubemapFrusta, CubemapLayout, Frustum, CUBE_MAP_FACES},
-    visibility::{self, CubemapVisibleEntities, Visibility, VisibilityClass},
+    primitives::{CubeMapFace, CubemapFrusta, CubemapLayout, Frustum, Sphere, CUBE_MAP_FACES},
+    visibility::{self, CubemapVisibleEntities, ViewVisibility, Visibility, VisibilityClass},
 };
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::Mat4;
+use bevy_math::proj;
 use bevy_reflect::prelude::*;
+use bevy_shape::ViewFrustum;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::{
-    cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects},
-    light_consts,
-};
+use crate::{cluster::ClusterVisibilityClass, light_consts};
 
 /// A light that emits light in all directions from a central point.
 ///
@@ -35,7 +33,7 @@ use crate::{
 ///
 /// ## Shadows
 ///
-/// To enable shadows, set the `shadows_enabled` property to `true`.
+/// To enable shadows, set the `shadow_maps_enabled` property to `true`.
 ///
 /// To control the resolution of the shadow maps, use the [`PointLightShadowMap`] resource.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -70,7 +68,10 @@ pub struct PointLight {
     pub radius: f32,
 
     /// Whether this light casts shadows.
-    pub shadows_enabled: bool,
+    pub shadow_maps_enabled: bool,
+
+    /// Whether this light casts contact shadows.
+    pub contact_shadows_enabled: bool,
 
     /// Whether soft shadows are enabled.
     ///
@@ -132,7 +133,8 @@ impl Default for PointLight {
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 20.0,
             radius: 0.0,
-            shadows_enabled: false,
+            shadow_maps_enabled: false,
+            contact_shadows_enabled: false,
             affects_lightmapped_mesh_diffuse: true,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
@@ -144,15 +146,18 @@ impl Default for PointLight {
 }
 
 impl PointLight {
+    /// The default value of [`PointLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.08;
+    /// The default value of [`PointLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+    /// The default value of [`PointLight::shadow_map_near_z`].
     pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
 }
 
 /// Add to a [`PointLight`] to add a light texture effect.
 /// A texture mask is applied to the light source to modulate its intensity,  
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(PointLight)]
 pub struct PointLightTexture {
@@ -185,16 +190,39 @@ impl Default for PointLightShadowMap {
     }
 }
 
+/// A system that updates the bounding [`Sphere`] for changed point lights.
+///
+/// The [`Sphere`] component is used for frustum culling.
+pub fn update_point_light_bounding_spheres(
+    mut commands: Commands,
+    point_lights_query: Query<
+        (Entity, &PointLight, &GlobalTransform),
+        Or<(Changed<PointLight>, Changed<GlobalTransform>)>,
+    >,
+) {
+    for (point_light_entity, point_light, global_transform) in &point_lights_query {
+        commands.entity(point_light_entity).insert(Sphere {
+            center: global_transform.translation_vec3a(),
+            radius: point_light.range,
+        });
+    }
+}
+
 // NOTE: Run this after assign_lights_to_clusters!
+/// Updates the frusta for all visible shadow mapped [`PointLight`]s.
 pub fn update_point_light_frusta(
-    global_lights: Res<GlobalVisibleClusterableObjects>,
-    mut views: Query<(Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta)>,
-    changed_lights: Query<
-        Entity,
+    mut views: Query<
         (
-            With<PointLight>,
-            Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
+            &GlobalTransform,
+            &PointLight,
+            &mut CubemapFrusta,
+            &ViewVisibility,
         ),
+        Or<(
+            Changed<GlobalTransform>,
+            Changed<PointLight>,
+            Changed<ViewVisibility>,
+        )>,
     >,
 ) {
     let view_rotations = CUBE_MAP_FACES
@@ -202,23 +230,17 @@ pub fn update_point_light_frusta(
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
-        // If this light hasn't changed, and neither has the set of global_lights,
-        // then we can skip this calculation.
-        if !global_lights.is_changed() && !changed_lights.contains(entity) {
-            continue;
-        }
-
+    for (transform, point_light, mut cubemap_frusta, view_visibility) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+        if !point_light.shadow_maps_enabled || !view_visibility.get() {
             continue;
         }
 
-        let clip_from_view = Mat4::perspective_infinite_reverse_rh(
+        let clip_from_view = proj::perspective_infinite_reverse(
             core::f32::consts::FRAC_PI_2,
             1.0,
             point_light.shadow_map_near_z,
@@ -234,12 +256,12 @@ pub fn update_point_light_frusta(
             let world_from_view = view_translation * *view_rotation;
             let clip_from_world = clip_from_view * world_from_view.compute_affine().inverse();
 
-            *frustum = Frustum::from_clip_from_world_custom_far(
+            *frustum = Frustum(ViewFrustum::from_clip_from_world_custom_far(
                 &clip_from_world,
                 &transform.translation(),
                 &view_backward,
                 point_light.range,
-            );
+            ));
         }
     }
 }

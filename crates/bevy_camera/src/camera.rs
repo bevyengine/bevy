@@ -2,14 +2,17 @@ use crate::primitives::Frustum;
 
 use super::{
     visibility::{Visibility, VisibleEntities},
-    ClearColorConfig,
+    ClearColorConfig, MsaaWriteback,
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component, entity::Entity, reflect::ReflectComponent, template::FromTemplate,
+};
 use bevy_image::Image;
-use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
+use bevy_math::{ops, Dir3, FloatOrd, Mat4, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
+use bevy_shape::Ray3d;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
@@ -22,6 +25,39 @@ use wgpu_types::{BlendState, TextureUsages};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
+///
+/// <div class="warning">
+///
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
+/// Please see the example code (which assumes a single camera and window)
+///
+/// ```no_run
+/// # use bevy_camera::{Camera, Projection, Viewport};
+/// # use bevy_transform::prelude::Transform;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_math::UVec2;
+/// # use bevy_window::Window;
+/// # use bevy_utils::default;
+///
+/// fn update_viewport(
+///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>,
+///    windows: Query<&Window>
+/// ) {
+///     let Ok((mut camera, _, _)) = camera_query.single_mut() else { return; };
+///
+///     let window = windows.single().expect("Window not found");
+///     let scale = window.resolution.scale_factor();
+///
+///     camera.viewport = Some(Viewport {
+///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(),
+///         physical_size: (UVec2::new(100, 100).as_vec2() * scale).as_uvec2(),
+///         ..default()
+///     });
+/// }
+/// ```
+///
+/// </div>
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Clone)]
 pub struct Viewport {
@@ -84,17 +120,13 @@ impl Viewport {
         viewport: Option<&Self>,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
-        let mut viewport = viewport.cloned();
-
         if let Some(override_size) = main_pass_resolution_override {
-            if viewport.is_none() {
-                viewport = Some(Viewport::default());
-            }
-
-            viewport.as_mut().unwrap().physical_size = **override_size;
+            let mut vp = viewport.map_or_else(Self::default, Self::clone);
+            vp.physical_size = **override_size;
+            Some(vp)
+        } else {
+            viewport.cloned()
         }
-
-        viewport
     }
 }
 
@@ -162,7 +194,7 @@ impl Default for SubCameraView {
 }
 
 /// Information about the current [`RenderTarget`].
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Reflect, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
@@ -173,8 +205,17 @@ pub struct RenderTargetInfo {
     pub scale_factor: f32,
 }
 
+impl Default for RenderTargetInfo {
+    fn default() -> Self {
+        Self {
+            physical_size: Default::default(),
+            scale_factor: 1.,
+        }
+    }
+}
+
 /// Holds internally computed [`Camera`] values.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Reflect, Clone)]
 pub struct ComputedCameraValues {
     pub clip_from_view: Mat4,
     pub target_info: Option<RenderTargetInfo>,
@@ -338,7 +379,8 @@ pub enum ViewportConversionError {
     CameraMainTextureUsages,
     VisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+    RenderTarget
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -349,21 +391,24 @@ pub struct Camera {
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
-    #[reflect(ignore, clone)]
     pub computed: ComputedCameraValues,
-    /// The "target" that this camera will render to.
-    pub target: RenderTarget,
     // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
-    #[reflect(ignore, clone)]
     pub output_mode: CameraOutputMode,
-    /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
-    /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
-    /// "write their results on top" of previous camera results, and include them as a part of their render results. This is enabled by default to ensure
-    /// cameras with MSAA enabled layer their results in the same way as cameras without MSAA enabled by default.
-    pub msaa_writeback: bool,
+    /// Controls when MSAA writeback occurs for this camera.
+    /// See [`MsaaWriteback`] for available options.
+    pub msaa_writeback: MsaaWriteback,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+    /// Whether to switch culling mode so that materials that request backface
+    /// culling cull front faces, and vice versa.
+    ///
+    /// This is typically used for cameras that mirror the world that they
+    /// render across a plane, because doing that flips the winding of each
+    /// polygon.
+    ///
+    /// This setting doesn't affect materials that disable backface culling.
+    pub invert_culling: bool,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
 }
@@ -375,10 +420,10 @@ impl Default for Camera {
             order: 0,
             viewport: None,
             computed: Default::default(),
-            target: Default::default(),
             output_mode: Default::default(),
-            msaa_writeback: true,
+            msaa_writeback: MsaaWriteback::default(),
             clear_color: Default::default(),
+            invert_culling: false,
             sub_camera_view: None,
         }
     }
@@ -486,6 +531,42 @@ impl Camera {
         self.computed.clip_from_view
     }
 
+    /// Core conversion logic to compute viewport coordinates
+    ///
+    /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
+    /// to avoid code duplication.
+    ///
+    /// Returns a tuple `(viewport_position, depth)`.
+    fn world_to_viewport_core(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Result<(Vec2, f32), ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut ndc_space_coords = self
+            .world_to_ndc(camera_transform, world_position)
+            .ok_or(ViewportConversionError::InvalidData)?;
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        if ndc_space_coords.z < 0.0 {
+            return Err(ViewportConversionError::PastFarPlane);
+        }
+        if ndc_space_coords.z > 1.0 {
+            return Err(ViewportConversionError::PastNearPlane);
+        }
+
+        let depth = ndc_space_coords.z;
+
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        ndc_space_coords.y = -ndc_space_coords.y;
+
+        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
+        let viewport_position =
+            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
+        Ok((viewport_position, depth))
+    }
+
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
@@ -501,27 +582,9 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position)
+        Ok(self
+            .world_to_viewport_core(camera_transform, world_position)?
+            .0)
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
@@ -539,30 +602,10 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
+        let result = self.world_to_viewport_core(camera_transform, world_position)?;
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
-        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position.extend(depth))
+        let depth = -self.depth_ndc_to_view_z(result.1);
+        Ok(result.0.extend(depth))
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -607,31 +650,24 @@ impl Camera {
         camera_transform: &GlobalTransform,
         viewport_position: Vec2,
     ) -> Result<Ray3d, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-        // Flip the Y co-ordinate origin from the top to the bottom.
-        rect_relative.y = 1.0 - rect_relative.y;
+        let ndc_xy = self.viewport_to_ndc(viewport_position)?;
 
-        let ndc_point_near = (rect_relative * 2. - Vec2::ONE).extend(1.0).into();
+        let ndc_point_near = ndc_xy.extend(1.0).into();
+        // Using EPSILON because an ndc with Z = 0 returns NaNs.
+        let ndc_point_far = ndc_xy.extend(f32::EPSILON).into();
+        let view_from_clip = self.computed.clip_from_view.inverse();
+        let world_from_view = camera_transform.affine();
         // We multiply the point by `view_from_clip` and then `world_from_view` in sequence to avoid the precision loss
         // (and performance penalty) incurred by pre-composing an affine transform with a projective transform.
         // Additionally, we avoid adding and subtracting translation to the direction component to maintain precision.
-        let view_point_near = self
-            .computed
-            .clip_from_view
-            .inverse()
-            .project_point3a(ndc_point_near);
-        let world_dir_near = camera_transform
-            .affine()
-            .transform_vector3a(view_point_near);
-        let origin: Vec3 = (world_dir_near + camera_transform.affine().translation).into();
-        if origin.is_nan() {
-            return Err(ViewportConversionError::InvalidData);
-        }
+        let view_point_near = view_from_clip.project_point3a(ndc_point_near);
+        let view_point_far = view_from_clip.project_point3a(ndc_point_far);
+        let view_dir = view_point_far - view_point_near;
+        let origin = world_from_view.transform_point3a(view_point_near).into();
+        let direction = world_from_view.transform_vector3a(view_dir).into();
 
-        Dir3::new(world_dir_near.into())
+        // The fallible direction constructor ensures that direction isn't NaN.
+        Dir3::new(direction)
             .map_err(|_| ViewportConversionError::InvalidData)
             .map(|direction| Ray3d { origin, direction })
     }
@@ -676,15 +712,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         viewport_position: Vec2,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-
-        // Flip the Y co-ordinate origin from the top to the bottom.
-        rect_relative.y = 1.0 - rect_relative.y;
-
-        let ndc = rect_relative * 2. - Vec2::ONE;
+        let ndc = self.viewport_to_ndc(viewport_position)?;
 
         let world_near_plane = self
             .ndc_to_world(camera_transform, ndc.extend(1.))
@@ -721,12 +749,13 @@ impl Camera {
     /// Given a position in Normalized Device Coordinates,
     /// use the camera's viewport to compute the world space position.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
-    /// To get the world space coordinates with the viewport position, you should use
-    /// [`world_to_viewport`](Self::world_to_viewport).
+    /// The input is expected to be in NDC: `x` and `y` in the range `[-1.0, 1.0]`, and `z` in `[0.0, 1.0]`
+    /// (with `z = 0.0` at the far plane and `z = 1.0` at the near plane).
+    /// The returned value is a position in world space (your game's world units) and is not limited to `[-1.0, 1.0]`.
+    /// To convert from a viewport position to world space, you should use
+    /// [`viewport_to_world`](Self::viewport_to_world).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by
+    /// Returns `None` if the `camera_transform`, the `ndc_point`, or the projection matrix defined by
     /// [`Projection`](super::projection::Projection) contain `NAN`.
     ///
     /// # Panics
@@ -766,10 +795,70 @@ impl Camera {
         -(self.clip_from_view().w_axis.z - ndc_depth) / self.clip_from_view().z_axis.z
         //                       [3][2]                                         [2][2]
     }
+
+    /// Converts a position in viewport coordinates to NDC.
+    pub fn viewport_to_ndc(
+        &self,
+        viewport_position: Vec2,
+    ) -> Result<Vec2, ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+        let mut ndc = rect_relative * 2. - Vec2::ONE;
+        // Flip the Y co-ordinate from the top to the bottom to enter NDC.
+        ndc.y = -ndc.y;
+        Ok(ndc)
+    }
 }
 
+/// The entity that Bevy uses to resolve visibility ranges when no specific
+/// camera is applicable.
+///
+/// For efficiency, Bevy currently renders point and spot light shadow maps only
+/// once per frame, regardless of the number of cameras in use, rather than
+/// rendering the shadow maps anew for each camera each frame. Most of the time,
+/// this optimization doesn't change the result relative to a rendering that
+/// rendered such shadow maps separately for each camera. However, there's one
+/// exception: visibility ranges. Visibility ranges cause meshes to be visible
+/// or invisible depending on the distance from the mesh to the camera. When
+/// rendering a shadow map for a point or spot light, Bevy must therefore select
+/// an entity to use as the reference point for the purposes of visibility
+/// ranges. This entity is called the *LOD origin*.
+///
+/// Placing this component on an entity makes that entity the origin from which
+/// LOD distances are computed for the purposes of shadow mapping of point and
+/// spot lights. Typically, you place this component on a camera, but you may
+/// place it on another entity if you wish.
+///
+/// The exact algorithm that Bevy uses to determine the LOD origin is as
+/// follows. Once the LOD origin is determined, all further steps are skipped.
+///
+/// 1. If an entity has this [`ShadowLodOrigin`] component, then it's the LOD
+///    origin. If there's more than one entity with the [`ShadowLodOrigin`]
+///    component, one is chosen arbitrarily in a manner that's stable from frame to
+///    frame.
+///
+/// 2. If a camera renders to a window (that is, the camera's [`RenderTarget`]
+///    is [`RenderTarget::Window`]), then that camera is the shadow LOD origin. If
+///    there's more than one such camera that renders to a window, then one is
+///    chosen arbitrarily in a manner that's stable from frame to frame.
+///
+/// 3. A camera is chosen to be the LOD origin arbitrarily from all cameras in
+///    the scene in a manner that's stable from frame to frame.
+///
+/// This algorithm means that, in most cases, you don't need to add this
+/// [`ShadowLodOrigin`] component explicitly to the scene; usually, Bevy chooses
+/// the right origin automatically. You only need to use this component
+/// explicitly if you have multiple cameras rendering to the window: e.g. in a
+/// split-screen game.
+#[derive(Clone, Copy, Default, Component, Debug, Reflect)]
+#[reflect(Clone, Default, Component)]
+#[require(Transform)]
+pub struct ShadowLodOrigin;
+
 /// Control how this [`Camera`] outputs once rendering is completed.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
@@ -799,16 +888,25 @@ impl Default for CameraOutputMode {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a `Window`
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, From)]
-#[reflect(Clone)]
+#[derive(Component, FromTemplate, Debug, Clone, Reflect, From)]
+#[reflect(Clone, Component)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
+    #[default]
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
     Image(ImageRenderTarget),
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// The camera won't render to any color target.
+    ///
+    /// This is useful when you want a camera that *only* renders prepasses, for
+    /// example a depth prepass. See the `render_depth_to_texture` example.
+    None {
+        /// The physical size of the viewport.
+        size: UVec2,
+    },
 }
 
 impl RenderTarget {
@@ -821,9 +919,7 @@ impl RenderTarget {
             None
         }
     }
-}
 
-impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
@@ -832,6 +928,10 @@ impl RenderTarget {
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+            RenderTarget::None { size } => Some(NormalizedRenderTarget::None {
+                width: size.x,
+                height: size.y,
+            }),
         }
     }
 }
@@ -849,22 +949,76 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// The camera won't render to any color target.
+    ///
+    /// This is useful when you want a camera that *only* renders prepasses, for
+    /// example a depth prepass. See the `render_depth_to_texture` example.
+    None {
+        /// The physical width of the viewport.
+        width: u32,
+        /// The physical height of the viewport.
+        height: u32,
+    },
 }
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
+///
+/// See `ManualTextureViews` in `bevy_camera` for more details.
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Component,
+    Reflect,
+    FromTemplate,
+)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A render target that renders to an [`Image`].
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(FromTemplate, Debug, Clone, Reflect)]
 #[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
     pub handle: Handle<Image>,
     /// The scale factor of the render target image, corresponding to the scale
     /// factor for a window target. This should almost always be 1.0.
-    pub scale_factor: FloatOrd,
+    pub scale_factor: f32,
+}
+
+impl Eq for ImageRenderTarget {}
+
+impl PartialEq for ImageRenderTarget {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle && FloatOrd(self.scale_factor) == FloatOrd(other.scale_factor)
+    }
+}
+
+impl core::hash::Hash for ImageRenderTarget {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+        FloatOrd(self.scale_factor).hash(state);
+    }
+}
+
+impl PartialOrd for ImageRenderTarget {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ImageRenderTarget {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.handle
+            .cmp(&other.handle)
+            .then_with(|| FloatOrd(self.scale_factor).cmp(&FloatOrd(other.scale_factor)))
+    }
 }
 
 impl From<Handle<Image>> for RenderTarget {
@@ -877,7 +1031,7 @@ impl From<Handle<Image>> for ImageRenderTarget {
     fn from(handle: Handle<Image>) -> Self {
         Self {
             handle,
-            scale_factor: FloatOrd(1.0),
+            scale_factor: 1.0,
         }
     }
 }
@@ -908,5 +1062,99 @@ impl CameraMainTextureUsages {
     pub fn with(mut self, usages: TextureUsages) -> Self {
         self.0 |= usages;
         self
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy_math::{Vec2, Vec3};
+    use bevy_scene::bsn;
+    use bevy_transform::components::GlobalTransform;
+    use bevy_window::WindowRef;
+
+    use crate::{
+        Camera, OrthographicProjection, PerspectiveProjection, Projection, RenderTarget,
+        RenderTargetInfo, Viewport,
+    };
+
+    fn make_camera(mut projection: Projection, physical_size: Vec2) -> Camera {
+        let viewport = Viewport {
+            physical_size: physical_size.as_uvec2(),
+            ..Default::default()
+        };
+        let mut camera = Camera {
+            viewport: Some(viewport.clone()),
+            ..Default::default()
+        };
+        camera.computed.target_info = Some(RenderTargetInfo {
+            physical_size: viewport.physical_size,
+            scale_factor: 1.0,
+        });
+        projection.update(
+            viewport.physical_size.x as f32,
+            viewport.physical_size.y as f32,
+        );
+        camera.computed.clip_from_view = projection.get_clip_from_view();
+        camera
+    }
+
+    #[test]
+    fn viewport_to_world_orthographic_3d_returns_forward() {
+        let transform = GlobalTransform::default();
+        let size = Vec2::new(1600.0, 900.0);
+        let camera = make_camera(
+            Projection::Orthographic(OrthographicProjection::default_3d()),
+            size,
+        );
+        let ray = camera.viewport_to_world(&transform, Vec2::ZERO).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(-size.x * 0.5, size.y * 0.5, 0.0), 1e-4));
+        let ray = camera.viewport_to_world(&transform, size).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(size.x * 0.5, -size.y * 0.5, 0.0), 1e-4));
+    }
+
+    #[test]
+    fn viewport_to_world_orthographic_2d_returns_forward() {
+        let transform = GlobalTransform::default();
+        let size = Vec2::new(1600.0, 900.0);
+        let camera = make_camera(
+            Projection::Orthographic(OrthographicProjection::default_2d()),
+            size,
+        );
+        let ray = camera.viewport_to_world(&transform, Vec2::ZERO).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(-size.x * 0.5, size.y * 0.5, 1000.0), 1e-4));
+        let ray = camera.viewport_to_world(&transform, size).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(size.x * 0.5, -size.y * 0.5, 1000.0), 1e-4));
+    }
+
+    #[test]
+    fn viewport_to_world_perspective_center_returns_forward() {
+        let transform = GlobalTransform::default();
+        let size = Vec2::new(1600.0, 900.0);
+        let camera = make_camera(
+            Projection::Perspective(PerspectiveProjection::default()),
+            size,
+        );
+        let ray = camera.viewport_to_world(&transform, size * 0.5).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert_eq!(ray.origin, transform.forward() * 0.1);
+    }
+
+    #[test]
+    fn render_target_in_bsn() {
+        let _ = bsn! {
+            RenderTarget::Window(WindowRef::default())
+        };
     }
 }

@@ -1,6 +1,7 @@
 use crate::{
+    enums::{Enum, VariantInfo, VariantType},
     serde::{ser::error_utils::make_custom_error, TypedReflectSerializer},
-    Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    TypeInfo, TypeRegistry,
 };
 use serde::{
     ser::{SerializeStructVariant, SerializeTupleVariant},

@@ -1,5 +1,6 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
+use bevy_ecs::template::FromTemplate;
 use bevy_math::{Rect, URect, UVec2};
 use bevy_platform::collections::HashMap;
 #[cfg(not(feature = "bevy_reflect"))]
@@ -186,6 +187,7 @@ impl TextureAtlasLayout {
         self.textures.len()
     }
 
+    /// Returns `true` if the atlas contains no textures.
     pub fn is_empty(&self) -> bool {
         self.textures.is_empty()
     }
@@ -203,7 +205,7 @@ impl TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, FromTemplate)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

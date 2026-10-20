@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -86,10 +86,6 @@ pub struct GilrsPlugin;
 /// Updates the running gamepad rumble effects.
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct RumbleSystems;
-
-/// Deprecated alias for [`RumbleSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RumbleSystems`.")]
-pub type RumbleSystem = RumbleSystems;
 
 impl Plugin for GilrsPlugin {
     fn build(&self, app: &mut App) {

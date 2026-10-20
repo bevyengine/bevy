@@ -1,9 +1,10 @@
+use crate::generics::generate_generics;
 use crate::{
     impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
     where_clause_options::WhereClauseOptions,
     ReflectMeta,
 };
-use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQClone, FQInto, FQOption, FQResult};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
@@ -11,26 +12,34 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     let with_docs = {
         let doc = quote::ToTokens::to_token_stream(meta.doc());
         Some(quote!(.with_docs(#doc)))
     };
-    #[cfg(not(feature = "documentation"))]
+    #[cfg(not(feature = "reflect_documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
     let where_clause_options = WhereClauseOptions::new(meta);
+    let mut info = quote! {
+        #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs
+    };
+    if let Some(generics) = generate_generics(meta) {
+        info.extend(quote! {
+            .with_generics(#generics)
+        });
+    }
     let typed_impl = impl_typed(
         &where_clause_options,
         quote! {
-            let info = #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs;
-            #bevy_reflect_path::TypeInfo::Opaque(info)
+            let info = #info;
+            #bevy_reflect_path::TypeInfo::Opaque(#info)
         },
     );
 
     let type_path_impl = impl_type_path(meta);
     let full_reflect_impl = impl_full_reflect(&where_clause_options);
-    let common_methods = common_partial_reflect_methods(meta, || None, || None);
+    let common_methods = common_partial_reflect_methods(meta, || None, || None, || None);
     let clone_fn = meta.attrs().get_clone_impl(bevy_reflect_path);
 
     let apply_impl = if let Some(remote_ty) = meta.remote_ty() {
@@ -84,8 +93,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn to_dynamic(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self))
+            fn to_dynamic(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect>, #bevy_reflect_path::ReflectCloneError> {
+                #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#FQClone::clone(self)))
             }
 
              #[inline]
@@ -97,8 +106,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
                 #FQResult::Err(
                     #bevy_reflect_path::ApplyError::MismatchedTypes {
-                        from_type: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
-                        to_type: ::core::convert::Into::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                        from_type: #FQInto::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
+                        to_type: #FQInto::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }
                 )
             }

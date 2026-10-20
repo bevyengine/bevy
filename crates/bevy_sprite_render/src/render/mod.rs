@@ -1,8 +1,7 @@
 use core::ops::Range;
 
-use crate::ComputedTextureSlices;
-use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_camera::visibility::ViewVisibility;
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Handle};
+use bevy_camera::CompositingSpace;
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -17,11 +16,14 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
+use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
-use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
+use bevy_render::{
+    camera::ExtractedCamera,
+    view::{RenderVisibleEntities, ResolvedCompositingSpace, RetainedViewEntity},
+};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -33,13 +35,15 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
-    texture::{DefaultImageSampler, FallbackImage, GpuImage},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    texture::{FallbackImage, GpuImage},
+    view::{
+        texture_format_from_code, texture_format_to_code, ExtractedView, Msaa, ViewUniform,
+        ViewUniformOffset, ViewUniforms,
+    },
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
-use bevy_sprite::{Anchor, ScalingMode, Sprite};
+use bevy_sprite::Sprite;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -47,21 +51,14 @@ use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]
 pub struct SpritePipeline {
-    view_layout: BindGroupLayout,
-    material_layout: BindGroupLayout,
+    view_layout: BindGroupLayoutDescriptor,
+    material_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
-    pub dummy_white_gpu_image: GpuImage,
 }
 
-pub fn init_sprite_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    default_sampler: Res<DefaultImageSampler>,
-    render_queue: Res<RenderQueue>,
-    asset_server: Res<AssetServer>,
-) {
+pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "sprite_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -73,7 +70,7 @@ pub fn init_sprite_pipeline(
         ),
     );
 
-    let material_layout = render_device.create_bind_group_layout(
+    let material_layout = BindGroupLayoutDescriptor::new(
         "sprite_material_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -83,44 +80,11 @@ pub fn init_sprite_pipeline(
             ),
         ),
     );
-    let dummy_white_gpu_image = {
-        let image = Image::default();
-        let texture = render_device.create_texture(&image.texture_descriptor);
-        let sampler = match image.sampler {
-            ImageSampler::Default => (**default_sampler).clone(),
-            ImageSampler::Descriptor(ref descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
-            }
-        };
-
-        if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image has no data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-        }
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
-        GpuImage {
-            texture,
-            texture_view,
-            texture_format: image.texture_descriptor.format,
-            sampler,
-            size: image.texture_descriptor.size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
-        }
-    };
 
     commands.insert_resource(SpritePipeline {
         view_layout,
         material_layout,
-        dummy_white_gpu_image,
-        shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wesl"),
     });
 }
 
@@ -131,12 +95,14 @@ bitflags::bitflags! {
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct SpritePipelineKey: u32 {
         const NONE                              = 0;
-        const HDR                               = 1 << 0;
-        const TONEMAP_IN_SHADER                 = 1 << 1;
-        const DEBAND_DITHER                     = 1 << 2;
+        const TONEMAP_IN_SHADER                 = 1 << 0;
+        const DEBAND_DITHER                     = 1 << 1;
+        const SRGB_COMPOSITING                  = 1 << 2;
+        const OKLAB_COMPOSITING                 = 1 << 3;
+        const COLOR_TARGET_FORMAT_RESERVED_BITS = Self::COLOR_TARGET_FORMAT_MASK_BITS << Self::COLOR_TARGET_FORMAT_SHIFT_BITS;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
-        const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_LINEAR             = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -144,13 +110,17 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const TONEMAP_METHOD_PBR_NEUTRAL        = 8 << Self::TONEMAP_METHOD_SHIFT_BITS;
+
     }
 }
 
 impl SpritePipelineKey {
+    const COLOR_TARGET_FORMAT_MASK_BITS: u32 = bevy_render::view::COLOR_TARGET_FORMAT_MASK_BITS;
+    const COLOR_TARGET_FORMAT_SHIFT_BITS: u32 = 4;
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
-    const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
+    const TONEMAP_METHOD_MASK_BITS: u32 = 0b1111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
 
@@ -166,12 +136,49 @@ impl SpritePipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
+    /// Create a pipeline key from the view's color target format.
     #[inline]
-    pub const fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            SpritePipelineKey::HDR
-        } else {
-            SpritePipelineKey::NONE
+    pub fn from_target_format(format: TextureFormat) -> Self {
+        let code = texture_format_to_code(format)
+            .expect("Texture format is not supported by the pipeline") as u32;
+        Self::from_bits_retain(
+            (code & Self::COLOR_TARGET_FORMAT_MASK_BITS) << Self::COLOR_TARGET_FORMAT_SHIFT_BITS,
+        )
+    }
+
+    /// Color target format of the main pass for this pipeline key.
+    #[inline]
+    pub fn target_format(&self) -> TextureFormat {
+        let code = ((self.bits() >> Self::COLOR_TARGET_FORMAT_SHIFT_BITS)
+            & Self::COLOR_TARGET_FORMAT_MASK_BITS) as u8;
+        texture_format_from_code(code)
+            .expect("Unknown bits in `COLOR_TARGET_FORMAT_MASK_BITS` of the pipeline key")
+    }
+
+    /// Key bits for a view's resolved [`CompositingSpace`].
+    #[inline]
+    pub fn from_compositing_space(space: Option<CompositingSpace>) -> Self {
+        match space {
+            Some(CompositingSpace::Srgb) => Self::SRGB_COMPOSITING,
+            Some(CompositingSpace::Oklab) => Self::OKLAB_COMPOSITING,
+            Some(CompositingSpace::Linear) | None => Self::NONE,
+        }
+    }
+
+    /// The `TONEMAP_METHOD_*` bits for a tonemapping method.
+    const fn from_tonemapping(tonemapping: Tonemapping) -> Self {
+        match tonemapping {
+            Tonemapping::None | Tonemapping::Linear => Self::TONEMAP_METHOD_LINEAR,
+            Tonemapping::Reinhard => Self::TONEMAP_METHOD_REINHARD,
+            Tonemapping::ReinhardLuminance => Self::TONEMAP_METHOD_REINHARD_LUMINANCE,
+            Tonemapping::AcesFitted => Self::TONEMAP_METHOD_ACES_FITTED,
+            Tonemapping::AgX => Self::TONEMAP_METHOD_AGX,
+            Tonemapping::SomewhatBoringDisplayTransform => {
+                Self::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+            }
+            Tonemapping::TonyMcMapface => Self::TONEMAP_METHOD_TONY_MC_MAPFACE,
+            Tonemapping::BlenderFilmic => Self::TONEMAP_METHOD_BLENDER_FILMIC,
+            Tonemapping::KhronosPbrNeutral => Self::TONEMAP_METHOD_PBR_NEUTRAL,
         }
     }
 }
@@ -194,8 +201,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
             let method = key.intersection(SpritePipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == SpritePipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == SpritePipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
@@ -211,6 +218,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             } else if method == SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else if method == SpritePipelineKey::TONEMAP_METHOD_PBR_NEUTRAL {
+                shader_defs.push("TONEMAP_METHOD_PBR_NEUTRAL".into());
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
@@ -219,10 +228,14 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        if key.contains(SpritePipelineKey::SRGB_COMPOSITING) {
+            shader_defs.push("SRGB_OUTPUT".into());
+        }
+        if key.contains(SpritePipelineKey::OKLAB_COMPOSITING) {
+            shader_defs.push("OKLAB_OUTPUT".into());
+        }
+
+        let format = key.target_format();
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
@@ -284,8 +297,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
             // that wrote to depth is present.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::GreaterEqual),
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -324,19 +337,13 @@ pub struct ExtractedSprite {
     /// Asset ID of the [`Image`] of this sprite
     /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
     pub image_handle_id: AssetId<Image>,
-    pub flip_x: bool,
     pub flip_y: bool,
     pub kind: ExtractedSpriteKind,
 }
 
 pub enum ExtractedSpriteKind {
-    /// A single sprite with custom sizing and scaling options
-    Single {
-        anchor: Vec2,
-        rect: Option<Rect>,
-        scaling_mode: Option<ScalingMode>,
-        custom_size: Option<Vec2>,
-    },
+    /// A single sprite with a custom size
+    Single { custom_size: Vec2 },
     /// Indexes into the list of [`ExtractedSlice`]s stored in the [`ExtractedSlices`] resource
     /// Used for elements composed from multiple sprites such as text or nine-patched borders
     Slices { indices: Range<usize> },
@@ -359,93 +366,13 @@ pub struct SpriteAssetEvents {
 
 pub fn extract_sprite_events(
     mut events: ResMut<SpriteAssetEvents>,
-    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
+    mut image_events: Extract<MessageReader<AssetEvent<Image>>>,
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
     for event in image_events.read() {
         images.push(*event);
-    }
-}
-
-pub fn extract_sprites(
-    mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    sprite_query: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &ViewVisibility,
-            &Sprite,
-            &GlobalTransform,
-            &Anchor,
-            Option<&ComputedTextureSlices>,
-        )>,
-    >,
-) {
-    extracted_sprites.sprites.clear();
-    extracted_slices.slices.clear();
-    for (main_entity, render_entity, view_visibility, sprite, transform, anchor, slices) in
-        sprite_query.iter()
-    {
-        if !view_visibility.get() {
-            continue;
-        }
-
-        if let Some(slices) = slices {
-            let start = extracted_slices.slices.len();
-            extracted_slices
-                .slices
-                .extend(slices.extract_slices(sprite, anchor.as_vec()));
-            let end = extracted_slices.slices.len();
-            extracted_sprites.sprites.push(ExtractedSprite {
-                main_entity,
-                render_entity,
-                color: sprite.color.into(),
-                transform: *transform,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: sprite.image.id(),
-                kind: ExtractedSpriteKind::Slices {
-                    indices: start..end,
-                },
-            });
-        } else {
-            let atlas_rect = sprite
-                .texture_atlas
-                .as_ref()
-                .and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
-            let rect = match (atlas_rect, sprite.rect) {
-                (None, None) => None,
-                (None, Some(sprite_rect)) => Some(sprite_rect),
-                (Some(atlas_rect), None) => Some(atlas_rect),
-                (Some(atlas_rect), Some(mut sprite_rect)) => {
-                    sprite_rect.min += atlas_rect.min;
-                    sprite_rect.max += atlas_rect.min;
-                    Some(sprite_rect)
-                }
-            };
-
-            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-            extracted_sprites.sprites.push(ExtractedSprite {
-                main_entity,
-                render_entity,
-                color: sprite.color.into(),
-                transform: *transform,
-                flip_x: sprite.flip_x,
-                flip_y: sprite.flip_y,
-                image_handle_id: sprite.image.id(),
-                kind: ExtractedSpriteKind::Single {
-                    anchor: anchor.as_vec(),
-                    rect,
-                    scaling_mode: sprite.image_mode.scale(),
-                    // Pass the custom size
-                    custom_size: sprite.custom_size,
-                },
-            });
-        }
     }
 }
 
@@ -516,43 +443,36 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(
+    mut cameras: Query<(
         &RenderVisibleEntities,
+        &ExtractedCamera,
         &ExtractedView,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
+        Option<&ResolvedCompositingSpace>,
     )>,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (visible_entities, view, msaa, tonemapping, dither) in &mut views {
+    for (visible_entities, camera, view, msaa, tonemapping, dither, resolved_space) in &mut cameras
+    {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
 
-        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        let mut view_key = SpritePipelineKey::from_target_format(view.target_format)
+            | SpritePipelineKey::from_msaa_samples(msaa.samples())
+            | SpritePipelineKey::from_compositing_space(ResolvedCompositingSpace::space(
+                resolved_space,
+            ));
 
-        if !view.hdr {
-            if let Some(tonemapping) = tonemapping {
-                view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
-                view_key |= match tonemapping {
-                    Tonemapping::None => SpritePipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => SpritePipelineKey::TONEMAP_METHOD_REINHARD,
-                    Tonemapping::ReinhardLuminance => {
-                        SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                    }
-                    Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
-                    Tonemapping::SomewhatBoringDisplayTransform => {
-                        SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                    }
-                    Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                };
-            }
+        if camera.tonemap_in_shader
+            && let Some(tonemapping) = tonemapping
+        {
+            view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+            view_key |= SpritePipelineKey::from_tonemapping(*tonemapping);
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= SpritePipelineKey::DEBAND_DITHER;
             }
@@ -561,18 +481,20 @@ pub fn queue_sprites(
         let pipeline = pipelines.specialize(&pipeline_cache, &sprite_pipeline, view_key);
 
         view_entities.clear();
-        view_entities.extend(
-            visible_entities
-                .iter::<Sprite>()
-                .map(|(_, e)| e.index() as usize),
-        );
+        if let Some(visible_entities) = visible_entities.get::<Sprite>() {
+            view_entities.extend(
+                visible_entities
+                    .iter_visible()
+                    .map(|(_, e)| e.index_u32() as usize),
+            );
+        }
 
         transparent_phase
             .items
             .reserve(extracted_sprites.sprites.len());
 
         for (index, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
-            let view_index = extracted_sprite.main_entity.index();
+            let view_index = extracted_sprite.main_entity.index_u32();
 
             if !view_entities.contains(view_index as usize) {
                 continue;
@@ -582,7 +504,7 @@ pub fn queue_sprites(
             let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
             // Add the item to the render phase
-            transparent_phase.add(Transparent2d {
+            transparent_phase.add_transient(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
                 entity: (
@@ -603,6 +525,7 @@ pub fn queue_sprites(
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
@@ -619,7 +542,7 @@ pub fn prepare_sprite_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &sprite_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&sprite_pipeline.view_layout),
             &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
@@ -632,6 +555,7 @@ pub fn prepare_sprite_view_bind_groups(
 pub fn prepare_sprite_image_bind_groups(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut sprite_meta: ResMut<SpriteMeta>,
     sprite_pipeline: Res<SpritePipeline>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
@@ -668,7 +592,7 @@ pub fn prepare_sprite_image_bind_groups(
         let mut current_batch = None;
         let mut batch_item_index = 0;
         let mut batch_image_size = Vec2::ZERO;
-        let mut batch_image_handle = AssetId::invalid();
+        let mut batch_image_handle = None;
 
         // Iterate through the phase items and detect when successive sprites that can be batched.
         // Spawn an entity with a `SpriteBatch` component for each possible batch.
@@ -684,24 +608,25 @@ pub fn prepare_sprite_image_bind_groups(
                 // If there is a phase item that is not a sprite, then we must start a new
                 // batch to draw the other phase item(s) and to respect draw order. This can be
                 // done by invalidating the batch_image_handle
-                batch_image_handle = AssetId::invalid();
+                batch_image_handle = None;
                 continue;
             };
 
-            if batch_image_handle != extracted_sprite.image_handle_id {
+            if batch_image_handle != Some(extracted_sprite.image_handle_id) {
                 let Some(gpu_image) = gpu_images.get(extracted_sprite.image_handle_id) else {
                     continue;
                 };
 
                 batch_image_size = gpu_image.size_2d().as_vec2();
-                batch_image_handle = extracted_sprite.image_handle_id;
+                let image_handle = extracted_sprite.image_handle_id;
+                batch_image_handle = Some(image_handle);
                 image_bind_groups
                     .values
-                    .entry(batch_image_handle)
+                    .entry(image_handle)
                     .or_insert_with(|| {
                         render_device.create_bind_group(
                             "sprite_material_bind_group",
-                            &sprite_pipeline.material_layout,
+                            &pipeline_cache.get_bind_group_layout(&sprite_pipeline.material_layout),
                             &BindGroupEntries::sequential((
                                 &gpu_image.texture_view,
                                 &gpu_image.sampler,
@@ -712,72 +637,25 @@ pub fn prepare_sprite_image_bind_groups(
                 batch_item_index = item_index;
                 current_batch = Some(batches.entry((*retained_view, item.entity())).insert(
                     SpriteBatch {
-                        image_handle_id: batch_image_handle,
+                        image_handle_id: image_handle,
                         range: index..index,
                     },
                 ));
             }
             match extracted_sprite.kind {
-                ExtractedSpriteKind::Single {
-                    anchor,
-                    rect,
-                    scaling_mode,
-                    custom_size,
-                } => {
-                    // By default, the size of the quad is the size of the texture
-                    let mut quad_size = batch_image_size;
-                    let mut texture_size = batch_image_size;
+                ExtractedSpriteKind::Single { custom_size } => {
+                    let mut uv_offset_scale = Vec4::new(0.0, 1.0, 1.0, -1.0);
 
-                    // Calculate vertex data for this item
-                    // If a rect is specified, adjust UVs and the size of the quad
-                    let mut uv_offset_scale = if let Some(rect) = rect {
-                        let rect_size = rect.size();
-                        quad_size = rect_size;
-                        // Update texture size to the rect size
-                        // It will help scale properly only portion of the image
-                        texture_size = rect_size;
-                        Vec4::new(
-                            rect.min.x / batch_image_size.x,
-                            rect.max.y / batch_image_size.y,
-                            rect_size.x / batch_image_size.x,
-                            -rect_size.y / batch_image_size.y,
-                        )
-                    } else {
-                        Vec4::new(0.0, 1.0, 1.0, -1.0)
-                    };
-
-                    if extracted_sprite.flip_x {
-                        uv_offset_scale.x += uv_offset_scale.z;
-                        uv_offset_scale.z *= -1.0;
-                    }
                     if extracted_sprite.flip_y {
                         uv_offset_scale.y += uv_offset_scale.w;
                         uv_offset_scale.w *= -1.0;
                     }
 
-                    // Override the size if a custom one is specified
-                    quad_size = custom_size.unwrap_or(quad_size);
-
-                    // Used for translation of the quad if `TextureScale::Fit...` is specified.
-                    let mut quad_translation = Vec2::ZERO;
-
-                    // Scales the texture based on the `texture_scale` field.
-                    if let Some(scaling_mode) = scaling_mode {
-                        apply_scaling(
-                            scaling_mode,
-                            texture_size,
-                            &mut quad_size,
-                            &mut quad_translation,
-                            &mut uv_offset_scale,
-                        );
-                    }
-
                     let transform = extracted_sprite.transform.affine()
                         * Affine3A::from_scale_rotation_translation(
-                            quad_size.extend(1.0),
+                            custom_size.extend(1.0),
                             Quat::IDENTITY,
-                            ((quad_size + quad_translation) * (-anchor - Vec2::splat(0.5)))
-                                .extend(0.0),
+                            (custom_size * -Vec2::splat(0.5)).extend(0.0),
                         );
 
                     // Store the vertex data and add the item to the render phase
@@ -809,10 +687,6 @@ pub fn prepare_sprite_image_bind_groups(
                             -rect_size.y / batch_image_size.y,
                         );
 
-                        if extracted_sprite.flip_x {
-                            uv_offset_scale.x += uv_offset_scale.z;
-                            uv_offset_scale.z *= -1.0;
-                        }
                         if extracted_sprite.flip_y {
                             uv_offset_scale.y += uv_offset_scale.w;
                             uv_offset_scale.w *= -1.0;
@@ -858,7 +732,7 @@ pub fn prepare_sprite_image_bind_groups(
             // The sprite shader can then use the two least significant bits as the vertex index.
             // The rest of the properties to transform the vertex positions and UVs (which are
             // implicit) are baked into the instance transform, and UV offset and scale.
-            // See bevy_sprite_render/src/render/sprite.wgsl for the details.
+            // See bevy_sprite_render/src/render/sprite.wesl for the details.
             sprite_meta.sprite_index_buffer.push(2);
             sprite_meta.sprite_index_buffer.push(0);
             sprite_meta.sprite_index_buffer.push(1);
@@ -947,7 +821,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
-            0,
             IndexFormat::Uint32,
         );
         pass.set_vertex_buffer(
@@ -960,91 +833,5 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         );
         pass.draw_indexed(0..6, 0, batch.range.clone());
         RenderCommandResult::Success
-    }
-}
-
-/// Scales a texture to fit within a given quad size with keeping the aspect ratio.
-fn apply_scaling(
-    scaling_mode: ScalingMode,
-    texture_size: Vec2,
-    quad_size: &mut Vec2,
-    quad_translation: &mut Vec2,
-    uv_offset_scale: &mut Vec4,
-) {
-    let quad_ratio = quad_size.x / quad_size.y;
-    let texture_ratio = texture_size.x / texture_size.y;
-    let tex_quad_scale = texture_ratio / quad_ratio;
-    let quad_tex_scale = quad_ratio / texture_ratio;
-
-    match scaling_mode {
-        ScalingMode::FillCenter => {
-            if quad_ratio > texture_ratio {
-                // offset texture to center by y coordinate
-                uv_offset_scale.y += (uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale) * 0.5;
-                // sum up scales
-                uv_offset_scale.w *= tex_quad_scale;
-            } else {
-                // offset texture to center by x coordinate
-                uv_offset_scale.x += (uv_offset_scale.z - uv_offset_scale.z * quad_tex_scale) * 0.5;
-                uv_offset_scale.z *= quad_tex_scale;
-            };
-        }
-        ScalingMode::FillStart => {
-            if quad_ratio > texture_ratio {
-                uv_offset_scale.y += uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale;
-                uv_offset_scale.w *= tex_quad_scale;
-            } else {
-                uv_offset_scale.z *= quad_tex_scale;
-            }
-        }
-        ScalingMode::FillEnd => {
-            if quad_ratio > texture_ratio {
-                uv_offset_scale.w *= tex_quad_scale;
-            } else {
-                uv_offset_scale.x += uv_offset_scale.z - uv_offset_scale.z * quad_tex_scale;
-                uv_offset_scale.z *= quad_tex_scale;
-            }
-        }
-        ScalingMode::FitCenter => {
-            if texture_ratio > quad_ratio {
-                // Scale based on width
-                quad_size.y *= quad_tex_scale;
-            } else {
-                // Scale based on height
-                quad_size.x *= tex_quad_scale;
-            }
-        }
-        ScalingMode::FitStart => {
-            if texture_ratio > quad_ratio {
-                // The quad is scaled to match the image ratio, and the quad translation is adjusted
-                // to start of the quad within the original quad size.
-                let scale = Vec2::new(1.0, quad_tex_scale);
-                let new_quad = *quad_size * scale;
-                let offset = *quad_size - new_quad;
-                *quad_translation = Vec2::new(0.0, -offset.y);
-                *quad_size = new_quad;
-            } else {
-                let scale = Vec2::new(tex_quad_scale, 1.0);
-                let new_quad = *quad_size * scale;
-                let offset = *quad_size - new_quad;
-                *quad_translation = Vec2::new(offset.x, 0.0);
-                *quad_size = new_quad;
-            }
-        }
-        ScalingMode::FitEnd => {
-            if texture_ratio > quad_ratio {
-                let scale = Vec2::new(1.0, quad_tex_scale);
-                let new_quad = *quad_size * scale;
-                let offset = *quad_size - new_quad;
-                *quad_translation = Vec2::new(0.0, offset.y);
-                *quad_size = new_quad;
-            } else {
-                let scale = Vec2::new(tex_quad_scale, 1.0);
-                let new_quad = *quad_size * scale;
-                let offset = *quad_size - new_quad;
-                *quad_translation = Vec2::new(-offset.x, 0.0);
-                *quad_size = new_quad;
-            }
-        }
     }
 }

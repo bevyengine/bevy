@@ -277,22 +277,22 @@ world.spawn(PlayerBundle {
 });
 ```
 
-### Buffered Events
+### Messages
 
-Buffered events offer a communication channel between one or more systems.
-They can be sent using the `EventWriter` system parameter and received with `EventReader`.
+Messages offer a communication channel between one or more systems.
+They can be sent using the `MessageWriter` system parameter and received with `MessageReader`.
 
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(BufferedEvent)]
+#[derive(Message)]
 struct Message(String);
 
-fn writer(mut writer: EventWriter<Message>) {
+fn writer(mut writer: MessageWriter<Message>) {
     writer.write(Message("Hello!".to_string()));
 }
 
-fn reader(mut reader: EventReader<Message>) {
+fn reader(mut reader: MessageReader<Message>) {
     for Message(message) in reader.read() {
         println!("{}", message);
     }
@@ -301,7 +301,7 @@ fn reader(mut reader: EventReader<Message>) {
 
 ### Observers
 
-Observers are systems that listen for a "trigger" of a specific `Event`:
+Observers are systems that watch for a "trigger" of a specific `Event`:
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -317,14 +317,12 @@ world.add_observer(|event: On<Speak>| {
     println!("{}", event.message);
 });
 
-world.flush();
-
 world.trigger(Speak {
     message: "Hello!".to_string(),
 });
 ```
 
-These differ from `EventReader` and `EventWriter` in that they are "reactive".
+These differ from `MessageReader` and `MessageWriter` in that they are "reactive".
 Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens.
 Triggers can trigger other triggers, and they all will be evaluated at the same time!
 
@@ -334,19 +332,19 @@ If the event is an `EntityEvent`, it can also be triggered to target specific en
 use bevy_ecs::prelude::*;
 
 #[derive(EntityEvent)]
-struct Explode;
+struct Explode {
+    entity: Entity,
+}
 
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.add_observer(|event: On<Explode>, mut commands: Commands| {
-    println!("Entity {} goes BOOM!", event.entity());
-    commands.entity(event.entity()).despawn();
+world.add_observer(|explode: On<Explode>, mut commands: Commands| {
+    println!("Entity {} goes BOOM!", explode.entity);
+    commands.entity(explode.entity).despawn();
 });
 
-world.flush();
-
-world.trigger_targets(Explode, entity);
+world.trigger(Explode { entity });
 ```
 
 [bevy]: https://bevy.org/

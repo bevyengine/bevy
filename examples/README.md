@@ -15,7 +15,7 @@ cargo run --features wayland --example hello_world
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
 
-If you are using a released version of bevy, you need to make sure you are viewing the correct version of the examples!
+If you are using a released version of Bevy, you need to make sure you are viewing the correct version of the examples!
 
 - Latest release: [https://github.com/bevyengine/bevy/tree/latest/examples](https://github.com/bevyengine/bevy/tree/latest/examples)
 - Specific version, such as `0.4`: [https://github.com/bevyengine/bevy/tree/v0.4.0/examples](https://github.com/bevyengine/bevy/tree/v0.4.0/examples)
@@ -52,7 +52,6 @@ git checkout v0.4.0
   - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
-  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -61,6 +60,7 @@ git checkout v0.4.0
   - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
   - [Stress Tests](#stress-tests)
   - [Time](#time)
@@ -69,15 +69,17 @@ git checkout v0.4.0
   - [UI (User Interface)](#ui-user-interface)
   - [Usage](#usage)
   - [Window](#window)
+  - [glTF](#gltf)
 
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
-    - [About `libc++_shared.so`](#about-libc_sharedso)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
-    - [About `cargo-apk`](#about-cargo-apk)
+      - [`GameActivity` vs `NativeActivity`](#gameactivity-vs-nativeactivity)
+      - [Migrating from `GameActivity` to `NativeActivity`](#migrating-from-gameactivity-to-nativeactivity)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -106,13 +108,14 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
+[2D Rotation to Cursor](../examples/2d/rotate_to_cursor.rs) | Demonstrates rotating entities in 2D to follow the cursor
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
-[Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
+[Dynamic Mipmap Generation](../examples/2d/dynamic_mip_generation.rs) | Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture
+[Generic 2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
@@ -131,6 +134,7 @@ Example | Description
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
+[Tilemap Chunk with Orientations](../examples/2d/tilemap_chunk_orientation.rs) | Renders a tilemap chunk using tile orientations (mirrored, rotated)
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ### 3D Rendering
@@ -151,35 +155,36 @@ Example | Description
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
+[Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals
 [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
+[Contact Shadows](../examples/3d/contact_shadows.rs) | Showcases how contact shadows add shadow detail
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
-[Edit Gltf Material](../examples/3d/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
+[Light Probe Blending](../examples/3d/light_probe_blending.rs) | Demonstrates blending between multiple reflection probes
 [Light Textures](../examples/3d/light_textures.rs) | Demonstrates light textures
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
-[Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
-[Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
-[Manual Material Implementation](../examples/3d/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
+[Mirror](../examples/3d/mirror.rs) | Demonstrates how to create a mirror with a second camera
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
+[Parallax-Corrected Cubemaps](../examples/3d/pccm.rs) | Demonstrates parallax-corrected cubemap reflections
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 [Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
-[Query glTF primitives](../examples/3d/query_gltf_primitives.rs) | Query primitives in a glTF scene
+[Rectangular Area Light](../examples/3d/rect_light.rs) | Simple 3D scene demonstrating rectangular area lights.
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
@@ -199,7 +204,6 @@ Example | Description
 [Transmission](../examples/3d/transmission.rs) | Showcases light transmission in the PBR material
 [Transparency in 3D](../examples/3d/transparency_3d.rs) | Demonstrates transparency in 3d
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
-[Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
 [Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting
@@ -222,7 +226,6 @@ Example | Description
 [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
 [Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
-[glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
 
 ### Application
 
@@ -233,6 +236,7 @@ Example | Description
 [Drag and Drop](../examples/app/drag_and_drop.rs) | An example that shows how to handle drag and drop in an app
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
+[Externally Driven Headless Renderer](../examples/app/externally_driven_headless_renderer.rs) | Using bevy with manually driven update to render images
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
 [Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers
@@ -240,7 +244,10 @@ Example | Description
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
+[Render Recovery](../examples/app/render_recovery.rs) | Demonstrates how bevy can recover from rendering failures.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
+[Save Window Position](../examples/window/persisting_window_settings.rs) | Demonstrates saving window position settings
+[Settings](../examples/app/settings.rs) | Demonstrates persistence of settings
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
 
@@ -253,19 +260,26 @@ Example | Description
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
+[Asset Saving](../examples/asset/asset_saving.rs) | Demonstrates how to save an asset
+[Asset Saving with Subassets](../examples/asset/asset_saving_with_subassets.rs) | Demonstrates how to save an asset with subassets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
-[Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
+[Compressed Image Saver](../examples/asset/compressed_image_saver.rs) | Demonstrates compressing textures and generating mipmaps using CompressedImageSaver
+[Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset, with a default loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
+[Custom Asset Loader](../examples/asset/custom_asset_loader.rs) | Implements a custom asset loader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
-[Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
+[Extra Asset Source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
+[Generated Assets](../examples/asset/generated_assets.rs) | Shows how to generate and store assets at runtime
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 [Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
+[Web Asset](../examples/asset/web_asset.rs) | Load an asset from the web
 
 ### Async Tasks
 
 Example | Description
 --- | ---
+[Async Channel Pattern](../examples/async_tasks/async_channel_pattern.rs) | An example showing how to offload work to background async tasks using channels for communication.
 [Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
 [External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
@@ -277,6 +291,7 @@ Example | Description
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
 [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
+[Play Sound Effect](../examples/audio/play_sound_effect.rs) | Shows how to play a sound effect in response to an event
 [Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
@@ -290,6 +305,11 @@ Example | Description
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
+[Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Minimal Pan Orbit Camera](../examples/camera/pan_orbit_camera_minimal.rs) | Minimum setup for working PanOrbitCamera
+[Orthographic Pan Orbit Camera](../examples/camera/pan_orbit_camera_ortho.rs) | Using Pan Orbit Camera in orthographic-only projection
+[Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
+[Pan Orbit Camera](../examples/camera/pan_orbit_camera_cad.rs) | CAD-like controls and setup for PanOrbitCamera
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
@@ -297,7 +317,12 @@ Example | Description
 
 Example | Description
 --- | ---
+[Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
+[Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
+[Infinite grid 2D](../examples/dev_tools/infinite_grid_2d.rs) | Demonstrates Bevy's infinite grid in a 2D scene
+[Local Inspector](../examples/inspector/local_inspector.rs) | Inspects the app's own world with the bevy_inspector entity tree panel
+[Remote Inspector](../examples/inspector/remote_inspector.rs) | Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol
 
 ### Diagnostics
 
@@ -311,15 +336,19 @@ Example | Description
 
 Example | Description
 --- | ---
+[Callbacks](../examples/ecs/callbacks.rs) | Store arbitrary systems in components and run them on demand
 [Change Detection](../examples/ecs/change_detection.rs) | Change detection on components and resources
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
+[Contiguous Query](../examples/ecs/contiguous_query.rs) | Demonstrates contiguous queries
+[Custom Executor](../examples/ecs/custom_executor.rs) | Demonstrates how to make a custom SystemExecutor
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
+[Delayed Commands](../examples/ecs/delayed_commands.rs) | Demonstrates how to schedule ECS commands with a delay
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
-[Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
+[Extraction](../examples/ecs/extraction.rs) | Demonstrates different ways of extracting components, copying them from the main world to the render world
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
@@ -327,6 +356,7 @@ Example | Description
 [Hotpatching Systems](../examples/ecs/hotpatching_systems.rs) | Demonstrates how to hotpatch systems
 [Immutable Components](../examples/ecs/immutable_components.rs) | Demonstrates the creation and utility of immutable components
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[Message](../examples/ecs/message.rs) | Illustrates message creation, activation, and reception
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
 [Observer Propagation](../examples/ecs/observer_propagation.rs) | Demonstrates event propagation with observers
 [Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events)
@@ -335,7 +365,6 @@ Example | Description
 [Relationships](../examples/ecs/relationships.rs) | Define and work with custom relationships between entities
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
-[Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
@@ -353,12 +382,13 @@ Example | Description
 
 Example | Description
 --- | ---
-[Alien Cake Addict](../examples/games/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
-[Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".
-[Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
-[Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
-[Game Menu](../examples/games/game_menu.rs) | A simple game menu
-[Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Alien Cake Addict](../examples/showcase/alien_cake_addict.rs) | Eat the cakes. Eat them all. An example 3D game
+[Breakout](../examples/showcase/breakout.rs) | An implementation of the classic game "Breakout".
+[Contributors](../examples/showcase/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
+[Desk Toy](../examples/showcase/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
+[Game Menu](../examples/showcase/game_menu.rs) | A simple game menu
+[Loading Screen](../examples/showcase/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
+[Mines](../examples/showcase/mines.rs) | A simple minesweeper-style game in Bevy UI
 
 ### Gizmos
 
@@ -366,15 +396,13 @@ Example | Description
 --- | ---
 [2D Gizmos](../examples/gizmos/2d_gizmos.rs) | A scene showcasing 2D gizmos
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
+[Anchored Text Gizmos](../examples/gizmos/anchored_text_gizmos.rs) | Demonstrates anchored text gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
-
-### Helpers
-
-Example | Description
---- | ---
-[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
-[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
+[Text Gizmos 2d](../examples/gizmos/2d_text_gizmos.rs) | A scene showcasing 2d text gizmos
+[Text Gizmos 3d](../examples/gizmos/3d_text_gizmos.rs) | A scene showcasing 3d text gizmos
+[Text Gizmos Font](../examples/gizmos/text_gizmos_font.rs) | Example displaying the font used by text gizmos
+[Transform Gizmo](../examples/gizmos/transform_gizmo.rs) | Interactive transform gizmo for translating, rotating, and scaling entities
 
 ### Input
 
@@ -390,7 +418,6 @@ Example | Description
 [Mouse Grab](../examples/input/mouse_grab.rs) | Demonstrates how to grab the mouse, locking the cursor to the app's screen
 [Mouse Input](../examples/input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 [Mouse Input Events](../examples/input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
-[Text Input](../examples/input/text_input.rs) | Simple text input with IME support
 [Touch Input](../examples/input/touch_input.rs) | Displays touch presses, releases, and cancels
 [Touch Input Events](../examples/input/touch_input_events.rs) | Prints out all touch inputs
 
@@ -403,7 +430,6 @@ Example | Description
 [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
-[Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
 [Smooth Follow](../examples/movement/smooth_follow.rs) | Demonstrates how to make an entity smoothly follow another using interpolation
 
 ### Movement
@@ -416,6 +442,9 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Hit Data](../examples/picking/custom_hit_data.rs) | Demonstrates a custom picking backend with custom hit data.
+[Drag and Drop](../examples/picking/dragdrop_picking.rs) | Demonstrates drag and drop using picking events
+[Draggable Slider](../examples/picking/draggable_slider.rs) | Demonstrates pointer capture using a draggable slider
 [Mesh Picking](../examples/picking/mesh_picking.rs) | Demonstrates picking meshes
 [Picking Debug Tools](../examples/picking/debug_picking.rs) | Demonstrates picking debug overlay
 [Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
@@ -425,19 +454,24 @@ Example | Description
 
 Example | Description
 --- | ---
+[Annotations](../examples/reflection/annotations.rs) | Annotating reflected types with tooltips, ranges and units for tools
 [Automatic types registration](../examples/reflection/auto_register_static/src/lib.rs) | Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support
 [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
+[Mutation by Reflection](../examples/reflection/mutation_by_reflection.rs) | Demonstrates how to mutate abstract or non-Rust data at runtime using reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
+[Serialization](../examples/reflection/serialization.rs) | Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits
 [Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data
 
 ### Remote Protocol
 
 Example | Description
 --- | ---
+[App Under Test](../examples/remote/app_under_test.rs) | A Bevy app that you can connect to with the BRP and control
+[Integration Test](../examples/remote/integration_test.rs) | Connects to a running Bevy app via BRP, finds a button, and clicks it
 [client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
 [server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
 
@@ -445,7 +479,8 @@ Example | Description
 
 Example | Description
 --- | ---
-[Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+[BSN example](../examples/scene/bsn.rs) | Demonstrates how to use BSN to compose scenes
+[World Serialization](../examples/scene/world_serialization.rs) | Demonstrates loading from and saving world to files
 
 ### Shaders
 
@@ -460,26 +495,39 @@ Example | Description
 [Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
+[Compute Shader Mesh](../examples/shader_advanced/compute_mesh.rs) | A compute shader that generates a mesh that is controlled by a Handle
 [Custom Render Phase](../examples/shader_advanced/custom_render_phase.rs) | Shows how to make a complete render phase
 [Custom Vertex Attribute](../examples/shader_advanced/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Custom phase item](../examples/shader_advanced/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
+[GPU Component Array Buffer](../examples/shader/gpu_component_array_buffer.rs) | Shows how to expose per-mesh-instance data to the GPU
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call
 [Instancing](../examples/shader_advanced/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
+[Material - 2D Bindless](../examples/shader/shader_material_2d_bindless.rs) | Demonstrates bindless materials in 2D
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
-[Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
-[Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
+[Pipeline Constants](../examples/shader/pipeline_constants.rs) | Demonstrates pipeline-overridable constants (WGSL `override`) by compiling the same shader into multiple variants with different posterization levels
 [Post Processing - Custom Render Pass](../examples/shader_advanced/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
+[Render Depth to Texture](../examples/shader_advanced/render_depth_to_texture.rs) | Demonstrates how to use depth-only cameras
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 [Specialized Mesh Pipeline](../examples/shader_advanced/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
+[Sprite Material](../examples/shader/sprite_material.rs) | A custom shader for sprites
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
+
+### Shaders Advanced
+
+Example | Description
+--- | ---
+[Deferred Gbuffer Raymarching](../examples/shader_advanced/deferred_raymarch.rs) | Writes a raymarched SDF into the deferred gbuffer so it is lit by the standard PBR deferred lighting pass
+[Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
+[Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
+[Mesh Shader Introduction](../examples/shader_advanced/mesh_shader_intro.rs) | Demonstrates how to use Task/Amplification/Mesh Shaders
 
 ### State
 
@@ -503,6 +551,7 @@ cargo run --release --example <example name>
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Bevymark 3D](../examples/stress_tests/bevymark_3d.rs) | A heavy 3D cube rendering workload to benchmark your system with Bevy
 [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
@@ -514,7 +563,10 @@ Example | Description
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
 [Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
+[Many Meshlet Materials](../examples/stress_tests/many_meshlet_materials.rs) | Benchmark to test rendering many meshlet materials (experimental)
+[Many Morph Targets](../examples/stress_tests/many_morph_targets.rs) | Simple benchmark to test rendering many meshes with animated morph targets.
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
+[Many Text](../examples/stress_tests/many_text.rs) | Displays many UI Text nodes. Used for performance testing.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
 [Text Pipeline](../examples/stress_tests/text_pipeline.rs) | Text Pipeline benchmark
 [Transform Hierarchy](../examples/stress_tests/transform_hierarchy.rs) | Various test cases for hierarchy and transform propagation performance
@@ -548,54 +600,82 @@ Example | Description
 
 Example | Description
 --- | ---
-[Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
-[Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
-[Button](../examples/ui/button.rs) | Illustrates creating and updating a button
-[CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
-[Core Widgets](../examples/ui/core_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
-[Core Widgets (w/Observers)](../examples/ui/core_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
-[Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
-[Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
-[Drag to Scroll](../examples/ui/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
-[Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
-[Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
-[Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
-[Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
-[Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
-[Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
+[Anchor Layout](../examples/ui/layout/anchor_layout.rs) | Shows an 'anchor layout' style of ui layout
+[Borders](../examples/ui/styling/borders.rs) | Demonstrates how to create a node with a border
+[Box Shadow](../examples/ui/styling/box_shadow.rs) | Demonstrates how to create a node with a shadow
+[Button](../examples/ui/widgets/button.rs) | Illustrates creating and updating a button
+[CSS Grid](../examples/ui/layout/grid.rs) | An example for CSS Grid layout
+[Directional Navigation](../examples/ui/navigation/directional_navigation.rs) | Demonstration of automatic directional navigation based on UI element positions
+[Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
+[Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
+[Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
+[Editable Text Filter](../examples/ui/text/editable_text_filter.rs) | Demonstrates an 8-character hex input using EditableTextFilter
+[Feathers Counter](../examples/ui/widgets/feathers_counter.rs) | Simple counter using feathers
+[Feathers Number Input](../examples/ui/widgets/feathers_number_input.rs) | Feathers Number Input Options
+[Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
+[Fixed Node](../examples/ui/layout/fixed_node.rs) | Demonstrates how to use FixedNode to lay out a UI node as a root node
+[Flex Layout](../examples/ui/layout/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
+[Font Atlas Debug](../examples/ui/text/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
+[Font Variations](../examples/ui/text/font_variations.rs) | Demonstrates how to use OpenType font variations.
+[Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
+[Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
+[Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
+[Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
+[Headless Split Pane](../examples/ui/widgets/headless_split_pane.rs) | Demonstrates nested headless split panes with draggable handles
+[Headless Tabs](../examples/ui/widgets/headless_tabs.rs) | Demonstrates controlled and self-updating headless tab lists
+[Headless Tree](../examples/ui/widgets/headless_tree.rs) | Demonstrates the headless tree view with lazy population and keyboard navigation
+[IME Support](../examples/ui/text/ime_support.rs) | Demonstrates IME (Input Method Editor) support for text input
+[Image Node](../examples/ui/images/image_node.rs) | Demonstrates how to create an image node
+[Image Node Resizing](../examples/ui/images/image_node_resizing.rs) | Demonstrates how to resize an image node
+[Inline Images](../examples/ui/text/inline_image.rs) | Demonstrates how to display images inline with text
+[Letter Spacing](../examples/ui/text/letter_spacing.rs) | Demonstrates the letter spacing feature
+[Multiline Text Input](../examples/ui/text/multiline_text_input.rs) | Demonstrates a single multiline EditableText widget
+[Multiple Text Inputs](../examples/ui/text/multiple_text_inputs.rs) | Demonstrates multiple text inputs
+[Overflow](../examples/ui/scroll_and_overflow/overflow.rs) | Simple example demonstrating overflow behavior
+[Overflow Clip Margin](../examples/ui/scroll_and_overflow/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
+[Overflow Transform](../examples/ui/scroll_and_overflow/overflow_transform.rs) | Demonstrates nested transformed UI clipping
+[Overflow and Clipping Debug](../examples/ui/scroll_and_overflow/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
-[Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
-[Scrollbars](../examples/ui/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
-[Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
-[Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
-[Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
-[Text](../examples/ui/text.rs) | Illustrates creating and updating text
-[Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
-[Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
-[Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
-[Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
+[Scroll](../examples/ui/scroll_and_overflow/scroll.rs) | Demonstrates scrolling UI containers
+[Scrollbars](../examples/ui/scroll_and_overflow/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
+[Size Constraints](../examples/ui/layout/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
+[Stacked Gradients](../examples/ui/styling/stacked_gradients.rs) | An example demonstrating stacked gradients
+[Standard Widgets](../examples/ui/widgets/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
+[Standard Widgets (w/Observers)](../examples/ui/widgets/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
+[Strikethrough and Underline](../examples/ui/text/strikethrough_and_underline.rs) | Demonstrates how to display text with strikethrough and underline.
+[System Fonts](../examples/ui/text/system_fonts.rs) | Demonstrates how to use system fonts
+[Tab Navigation](../examples/ui/widgets/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
+[Text](../examples/ui/text/text.rs) | Illustrates creating and updating text
+[Text Background Colors](../examples/ui/text/text_background_colors.rs) | Demonstrates text background colors
+[Text Debug](../examples/ui/text/text_debug.rs) | An example for debugging text layout
+[Text Input](../examples/ui/text/text_input.rs) | Demonstrates a simple, unstyled text input widget
+[Text Wrap Debug](../examples/ui/text/text_wrap_debug.rs) | Demonstrates text wrapping
+[Transparency UI](../examples/ui/styling/transparency_ui.rs) | Demonstrates transparency for UI
 [UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
-[UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
-[UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
-[UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
-[UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
+[UI Target Camera](../examples/ui/ui_target_camera.rs) | Demonstrates how to use `UiTargetCamera` and camera ordering.
+[UI Texture Atlas](../examples/ui/images/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
+[UI Texture Atlas Slice](../examples/ui/images/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
+[UI Texture Slice](../examples/ui/images/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
+[UI Texture Slice Flipping and Tiling](../examples/ui/images/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
-[UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
-[Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
-[Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
-[Virtual Keyboard](../examples/ui/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
+[UI Z-Index](../examples/ui/layout/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[Vertical Slider](../examples/ui/widgets/vertical_slider.rs) | Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
+[Viewport Node](../examples/ui/widgets/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
+[Virtual Keyboard](../examples/ui/widgets/virtual_keyboard.rs) | Example demonstrating a virtual keyboard widget
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
 ### Usage
 
 Example | Description
 --- | ---
+[Character Creation with UI Widgets](../examples/usage/character_creation.rs) | Demonstrates how to use headless widgets to power a Character Creation Menu
 [Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
+[Debug Frustum Culling](../examples/usage/debug_frustum_culling.rs) | Example demonstrating how to debug frustum culling
 
 ### Window
 
@@ -603,7 +683,6 @@ Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
 [Custom Cursor Image](../examples/window/custom_cursor_image.rs) | Demonstrates creating an animated custom cursor from an image
-[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Monitor info](../examples/window/monitor_info.rs) | Displays information about available monitors (displays).
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
@@ -614,6 +693,20 @@ Example | Description
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
 
+### glTF
+
+Example | Description
+--- | ---
+[Custom glTF vertex attribute 2D](../examples/gltf/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
+[Edit glTF Material](../examples/gltf/edit_material_on_gltf.rs) | Showcases changing materials of a glTF after Scene spawn
+[Load glTF](../examples/gltf/load_gltf.rs) | Loads and renders a glTF file as a scene
+[Load glTF extras](../examples/gltf/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
+[Query glTF primitives](../examples/gltf/query_gltf_primitives.rs) | Query primitives in a glTF scene
+[Update glTF Scene](../examples/gltf/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
+[glTF Skinned Mesh](../examples/gltf/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
+[glTF extension AnimationGraph](../examples/gltf/gltf_extension_animation_graph.rs) | Uses glTF data to build an AnimationGraph via extension processing
+[glTF extension processing to build Mesh2ds from glTF data](../examples/gltf/gltf_extension_mesh_2d.rs) | Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d
+
 ## Tests
 
 Example | Description
@@ -623,7 +716,13 @@ Example | Description
 
 ## Platform-Specific Examples
 
+`bevy_mobile_example` sets `strip = true` in the workspace `Cargo.toml` to keep app bundles reasonable. Remove the `strip` override if you need native debug symbols.
+
 ### Android
+
+Example | File | Description
+--- | --- | ---
+`mobile` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 #### Setup
 
@@ -632,47 +731,83 @@ rustup target add aarch64-linux-android
 cargo install cargo-ndk
 ```
 
-The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
+The Android SDK must be installed, and the environment variable `ANDROID_HOME` set to the root Android `sdk` folder.
+
+A JDK 21 must be installed and discoverable by Gradle.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
-Alternatively, you can install Android Studio.
+Alternatively, you can install Android Studio, which bundles the Android SDK and a JDK.
 
 #### Build & Run
 
-To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
+The following commands are run from the `examples/mobile` directory.
 
-```sh
-cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
-```
+**⚠️ Note:** In order to run this example on `x86_64`, you may need to use the `--release` flag.
 
-For example, to compile to a 64-bit ARM platform:
+**⚠️ Note:** The `-P 26` flag is currently required for building the example. It sets the correct API level required by `bevy_audio`.
 
-```sh
-cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
-```
+1. Build shared object files for the target architecture with `cargo-ndk`:
 
-Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
+    ```sh
+    cargo ndk build -t <target_name> -P 26 -o <project_path>/app/src/main/jniLibs
+    ```
 
-See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+    *Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them. See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for additional options.*
 
-After this you can build it with `gradlew`:
+    **Additional Info:**
 
-```sh
-./gradlew build
-```
+    <details>
+    <summary>Example for arm64-v8a target_name</summary>
 
-Or build it with Android Studio.
+    Build for `arm64-v8a`/`aarch64-linux-android` via:
 
-Then you can test it in your Android project.
+    ```sh
+    cargo ndk build -t arm64-v8a -P 26 -o ./android/app/src/main/jniLibs
+    ```
 
-##### About `libc++_shared.so`
+    </details>
 
-Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
+    <details>
+    <summary>Get target_name from adb</summary>
 
-To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+    Print the required `target_name` for a device connected via `adb` via:
 
-Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
+    ```sh
+    adb shell getprop ro.product.cpu.abi
+    ```
+
+    </details>
+
+2. Run Gradle via `./gradlew` (macOS, Linux, or BSD) or `gradlew.bat` (Windows) to install the app:
+
+    Install the app via:
+
+    ```sh
+    cd ./android
+    ./gradlew installDebug
+    ```
+
+    *This step installs the app to a device connected via `adb`. Afterwards you can open the app on the device. You can also use Android Studio for this step.*
+
+    **Additional Info:**
+
+    <details>
+    <summary>Additional Gradle tasks</summary>
+
+    Only build the app via:
+
+    ```sh
+    ./gradlew build
+    ```
+
+    Print additional tasks via:
+
+    ```sh
+    ./gradlew tasks
+    ```
+
+    </details>
 
 #### Debugging
 
@@ -692,31 +827,119 @@ adb uninstall org.bevyengine.example
 
 #### Old phones
 
-In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
-[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
+**⚠️ Note:** If you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
 
-To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
+In its example, Bevy uses Android API 37 as `targetSdk` to be able to benefit from security and performance improvements. For backwards compatibility, the example specifies Android API 26 as `minSdk`. This approach is recommended in the [Android Developers documentation](https://developer.android.com/google/play/requirements/target-sdk#why-target).
 
-```toml
-bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
-```
+If you want to support older APIs, you can set a lower `minSdk`. You should however make sure that dependencies in `android/gradle/libs.versions.toml` support your API. You might also have to migrate to `NativeActivity`.
 
-Then build it as the [Build & Run](#build--run) section stated above.
+##### [`GameActivity`](https://developer.android.com/games/agdk/game-activity) vs [`NativeActivity`](https://developer.android.com/reference/android/app/NativeActivity)
 
-##### About `cargo-apk`
+Bevy uses `GameActivity`, which only works for Android API 23 and higher.
 
-You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
+Quoting from [Android Developers](https://developer.android.com/games/agdk/game-activity), the major differences are as follows:
 
-Example | File | Description
---- | --- | ---
-`android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+> If you are already familiar with `NativeActivity`, the major differences between `GameActivity` and `NativeActivity` are as follows:
+>
+> - `GameActivity` renders into a [`SurfaceView`](https://developer.android.com/reference/android/view/SurfaceView), making it much easier for games to interact with other UI components.
+> - For touch and key input events, `GameActivity` has a completely new implementation with the [`android_input_buffer`](https://developer.android.com/reference/games/game-activity/structandroid/input-buffer) interface, separate from the [`InputQueue`](https://developer.android.com/reference/android/view/InputQueue) that NativeActivity uses.
+> - `GameActivity` is a derived class of `AppCompatActivity`, which lets you seamlessly use other Jetpack components. [`ActionBar`](https://developer.android.com/reference/android/app/ActionBar), [`Fragment`](https://developer.android.com/guide/fragments), and others are all available.
+> - `GameActivity` adds text input functionality by integrating [`the GameTextInput library`](https://developer.android.com/games/agdk/add-support-for-text-input).
+> - Apps derived from `GameActivity` are expected to build all three parts of C/C++ code into one library. On the other hand, `NativeActivity`'s JNI functions are a part of the framework (always loaded by OS). Hence, only the `native_app_glue` and application’s C/C++ code are expected to be built into one library.
+> - `NativeActivity` is a part of Android framework and follows its release cycle (typically yearly). GameActivity is a part of the Jetpack library, which has a much more frequent release cycle (typically biweekly); new features and bug fixes can arrive much more quickly.
+>
+> **Note:** We strongly recommend using **GameActivity** for new games and other C/C++ intensive applications. If you have an existing **NativeActivity** application, we recommend migrating to **GameActivity**.
+
+If you still want to use `NativeActivity`, please see the next section.
+
+##### Migrating from `GameActivity` to `NativeActivity`
+
+1. Replace `android-game-activity` feature with `android-native-activity` in `Cargo.toml`.
+    <details>
+    <summary>Required Changes (Example)</summary>
+
+    ```diff
+    --- a/examples/mobile/Cargo.toml
+    +++ b/examples/mobile/Cargo.toml
+    [dependencies]
+    -bevy = { version = "0.19", features = ["android-game-activity"] }
+    +bevy = { version = "0.19", features = ["android-native-activity"] }
+    ```
+
+    </details>
+2. Remove unnecessary dependencies in `android/gradle/libs.versions.toml`.
+    <details>
+    <summary>Required Changes (Example)</summary>
+
+    ```diff
+    --- a/examples/mobile/android/gradle/libs.versions.toml
+    +++ b/examples/mobile/android/gradle/libs.versions.toml
+    [versions]
+    ...
+    -gamesActivity = "..." # Note: This must be compatible with `android-activity` crate used by bevy.
+    ...
+
+    [libraries]
+    ...
+    -games-activity = { group = "androidx.games", name = "games-activity", version.ref = "gamesActivity" }
+    ...
+    ```
+
+    </details>
+3. Remove unnecessary dependencies in `android/app/build.gradle.kts`.
+    <details>
+    <summary>Required Changes (Example)</summary>
+
+    ```diff
+    --- a/examples/mobile/android/app/build.gradle.kts
+    +++ b/examples/mobile/android/app/build.gradle.kts
+    dependencies {
+        implementation(libs.appcompat)
+        implementation(libs.core)
+        implementation(libs.material)
+    -    implementation(libs.games.activity)
+        implementation(libs.core.ktx)
+    }
+    ```
+
+    </details>
+4. Use `NativeActivity` in `MainActivity.kt`.
+    <details>
+    <summary>Required Changes (Example)</summary>
+
+    ```diff
+    --- a/examples/mobile/android/app/src/main/kotlin/org/bevyengine/example/MainActivity.kt
+    +++ b/examples/mobile/android/app/src/main/kotlin/org/bevyengine/example/MainActivity.kt
+    package org.bevyengine.example
+
+    +import android.app.NativeActivity
+    import android.os.Bundle
+    import androidx.core.view.WindowCompat
+    import androidx.core.view.WindowInsetsCompat
+    import androidx.core.view.WindowInsetsControllerCompat
+    -import com.google.androidgamesdk.GameActivity
+
+    /**
+    * Load rust library and handle android specifics to integrate with it.
+    *
+    *
+    * The library is loaded at class initialization and provided by jniLibs.
+    */
+    -class MainActivity : GameActivity() {
+    +class MainActivity : NativeActivity() {
+    ```
+
+    </details>
 
 ### iOS
 
+Example | File | Description
+--- | --- | ---
+`mobile` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+
 #### Setup
 
-You need to install the correct rust targets:
+You need to install the correct Rust targets:
 
 - `aarch64-apple-ios`: iOS devices
 - `x86_64-apple-ios`: iOS simulator on x86 processors
@@ -751,10 +974,6 @@ open bevy_mobile_example.xcodeproj/
 
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
-
-Example | File | Description
---- | --- | ---
-`ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
 ### Wasm
 
@@ -813,12 +1032,12 @@ This helper will log the command used to build the examples.
 
 For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
 
-In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interacts with your game.
 
 #### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
-With rust, there are many ways to improve your executable sizes, starting with
+With Rust, there are many ways to improve your executable sizes, starting with
 the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:

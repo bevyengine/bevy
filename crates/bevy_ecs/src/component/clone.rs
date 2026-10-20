@@ -110,20 +110,18 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
     // Try to clone using ReflectFromReflect
     if let Some(reflect_from_reflect) =
         registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
-    {
-        if let Some(mut component) =
+        && let Some(mut component) =
             reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+    {
+        if let Some(reflect_component) =
+            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
         {
-            if let Some(reflect_component) =
-                registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-            {
-                reflect_component.map_entities(&mut *component, ctx.entity_mapper());
-            }
-            drop(registry);
-
-            ctx.write_target_component_reflect(component);
-            return;
+            reflect_component.map_entities(&mut *component, ctx.entity_mapper());
         }
+        drop(registry);
+
+        ctx.write_target_component_reflect(component);
+        return;
     }
     // Else, try to clone using ReflectDefault
     if let Some(reflect_default) =
@@ -142,7 +140,15 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         use crate::{entity::EntityMapper, world::World};
 
         let reflect_from_world = reflect_from_world.clone();
-        let source_component_cloned = source_component_reflect.to_dynamic();
+        let Ok(source_component_cloned) = source_component_reflect.to_dynamic() else {
+            let component_info = ctx.component_info();
+
+            log::error!(
+                "Failed to clone source component ({}) because to_dynamic call failed. Does your component contain an opaque type that does not implement Reflect?",
+                component_info.name()
+            );
+            return;
+        };
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();

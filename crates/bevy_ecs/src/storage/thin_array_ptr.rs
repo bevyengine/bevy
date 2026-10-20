@@ -1,8 +1,5 @@
 use crate::query::DebugCheckedUnwrap;
-use alloc::{
-    alloc::{alloc, handle_alloc_error, realloc},
-    boxed::Box,
-};
+use alloc::alloc::{alloc, handle_alloc_error, realloc};
 use core::{
     alloc::Layout,
     mem::{needs_drop, size_of},
@@ -16,6 +13,7 @@ use core::{
 /// memory leaks, [`drop`](Self::drop) must be called when no longer in use.
 ///
 /// [`Vec<T>`]: alloc::vec::Vec
+#[derive(Debug)]
 pub struct ThinArrayPtr<T> {
     data: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -24,18 +22,10 @@ pub struct ThinArrayPtr<T> {
 
 impl<T> ThinArrayPtr<T> {
     fn empty() -> Self {
-        #[cfg(debug_assertions)]
-        {
-            Self {
-                data: NonNull::dangling(),
-                capacity: 0,
-            }
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            Self {
-                data: NonNull::dangling(),
-            }
+        Self {
+            data: NonNull::dangling(),
+            #[cfg(debug_assertions)]
+            capacity: 0,
         }
     }
 
@@ -48,6 +38,10 @@ impl<T> ThinArrayPtr<T> {
     }
 
     /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memory.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
@@ -61,6 +55,10 @@ impl<T> ThinArrayPtr<T> {
 
     /// Allocate memory for the array, this should only be used if not previous allocation has been made (capacity = 0)
     /// The caller should update their saved `capacity` value to reflect the fact that it was changed
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Panics
     /// - Panics if the new capacity overflows `usize`
@@ -80,7 +78,8 @@ impl<T> ThinArrayPtr<T> {
     /// Reallocate memory for the array, this should only be used if a previous allocation for this array has been made (capacity > 0).
     ///
     /// # Panics
-    /// - Panics if the new capacity overflows `usize`
+    /// - Panics if the new capacity overflows `isize::MAX` bytes
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Safety
     /// - The current capacity is indeed greater than 0
@@ -119,22 +118,57 @@ impl<T> ThinArrayPtr<T> {
     /// if `index` = `len` the caller should update their saved `len` value to reflect the fact that it was changed
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: T) {
-        // SAFETY: `index` is in bounds
-        let ptr = unsafe { self.get_unchecked_raw(index) };
+        // SAFETY:
+        // - `self.data` and the resulting pointer are in the same allocated object
+        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
+        let ptr = unsafe { self.data.as_ptr().add(index) };
         // SAFETY: `index` is in bounds, therefore the pointer to that location in the array is valid, and aligned.
         unsafe { ptr::write(ptr, value) };
     }
 
-    /// Get a raw pointer to the element at `index`. This method doesn't do any bounds checking.
+    /// Initializes the value at `dst_index` by swap-removing an element from `src`.
+    /// Thus the previous last element of `src` is now at `src_index` (if still in bounds).
     ///
     /// # Safety
-    /// - `index` must be safe to access.
+    /// - `src_index` & `dst_index` must be in bounds of their [`ThinArrayPtr`]
+    /// - `src_last_element_index` must be the last element in `src`
+    /// - The value [`Layout`] and drop function of `src` and `self` must match
     #[inline]
-    pub unsafe fn get_unchecked_raw(&mut self, index: usize) -> *mut T {
+    pub unsafe fn initialize_from_swap_remove_unchecked(
+        &mut self,
+        src: &mut Self,
+        src_last_element_index: usize,
+        src_index: usize,
+        dst_index: usize,
+    ) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(src.capacity > src_last_element_index);
+            debug_assert!(src.capacity > src_index);
+            debug_assert!(self.capacity > dst_index);
+        }
         // SAFETY:
-        // - `self.data` and the resulting pointer are in the same allocated object
-        // - the memory address of the last element doesn't overflow `isize`, so if `index` is in bounds, it won't overflow either
-        unsafe { self.data.as_ptr().add(index) }
+        // - exclusive references guarantee disjointness
+        // - in bounds per precondition
+        unsafe {
+            ptr::copy_nonoverlapping(
+                src.data.as_ptr().add(src_index),
+                self.data.as_ptr().add(dst_index),
+                1,
+            );
+        }
+        if src_index != src_last_element_index {
+            // SAFETY:
+            // - indices disjoint
+            // - in bounds per precondition
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    src.data.as_ptr().add(src_last_element_index),
+                    src.data.as_ptr().add(src_index),
+                    1,
+                );
+            }
+        }
     }
 
     /// Get a reference to the element at `index`. This method doesn't do any bounds checking.
@@ -154,7 +188,7 @@ impl<T> ThinArrayPtr<T> {
         // - We have a reference to self, so no other mutable accesses to the element can occur
         unsafe {
             ptr.as_ref()
-                // SAFETY: We can use `unwarp_unchecked` because the pointer isn't null)
+                // SAFETY: We can use `unwrap_unchecked` because the pointer isn't null)
                 .debug_checked_unwrap()
         }
     }
@@ -233,25 +267,6 @@ impl<T> ThinArrayPtr<T> {
         ptr::read(self.data.as_ptr().add(index_to_remove))
     }
 
-    /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and drop the removed value.
-    ///
-    /// # Safety
-    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
-    ///     1) initialize a different value in `index_to_keep`
-    ///     2) update the saved length of the array if `index_to_keep` was the last element.
-    #[inline]
-    pub unsafe fn swap_remove_and_drop_unchecked(
-        &mut self,
-        index_to_remove: usize,
-        index_to_keep: usize,
-    ) {
-        let val = &mut self.swap_remove_unchecked(index_to_remove, index_to_keep);
-        ptr::drop_in_place(ptr::from_mut(val));
-    }
-
     /// Get a raw pointer to the last element of the array, return `None` if the length is 0
     ///
     /// # Safety
@@ -303,20 +318,5 @@ impl<T> ThinArrayPtr<T> {
         // - non-null and well-aligned
         // - we have a shared reference to self - the data will not be mutated during 'a
         unsafe { core::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
-    }
-}
-
-impl<T> From<Box<[T]>> for ThinArrayPtr<T> {
-    fn from(value: Box<[T]>) -> Self {
-        let _len = value.len();
-        let slice_ptr = Box::<[T]>::into_raw(value);
-        // SAFETY: We just got the pointer from a reference
-        let first_element_ptr = unsafe { (*slice_ptr).as_mut_ptr() };
-        Self {
-            // SAFETY: The pointer can't be null, it came from a reference
-            data: unsafe { NonNull::new_unchecked(first_element_ptr) },
-            #[cfg(debug_assertions)]
-            capacity: _len,
-        }
     }
 }

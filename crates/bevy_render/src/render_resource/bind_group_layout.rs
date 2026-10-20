@@ -1,9 +1,13 @@
-use crate::{define_atomic_id, renderer::RenderDevice, WgpuWrapper};
-use bevy_ecs::system::Res;
-use bevy_platform::sync::OnceLock;
+use crate::renderer::wgpu_wrapper;
+use bevy_utils::define_atomic_id;
 use core::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
+
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuBindGroupLayout(wgpu::BindGroupLayout);
+}
 
 /// Bind group layouts define the interface of resources (e.g. buffers, textures, samplers)
 /// for a shader. The actual resource binding is done via a [`BindGroup`](super::BindGroup).
@@ -16,7 +20,7 @@ define_atomic_id!(BindGroupLayoutId);
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
-    value: WgpuWrapper<wgpu::BindGroupLayout>,
+    value: WgpuBindGroupLayout,
 }
 
 impl PartialEq for BindGroupLayout {
@@ -50,7 +54,7 @@ impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
             id: BindGroupLayoutId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuBindGroupLayout::new(value),
         }
     }
 }
@@ -62,20 +66,4 @@ impl Deref for BindGroupLayout {
     fn deref(&self) -> &Self::Target {
         &self.value
     }
-}
-
-static EMPTY_BIND_GROUP_LAYOUT: OnceLock<BindGroupLayout> = OnceLock::new();
-
-pub(crate) fn init_empty_bind_group_layout(render_device: Res<RenderDevice>) {
-    let layout = render_device.create_bind_group_layout(Some("empty_bind_group_layout"), &[]);
-    EMPTY_BIND_GROUP_LAYOUT
-        .set(layout)
-        .expect("init_empty_bind_group_layout was called more than once");
-}
-
-pub fn empty_bind_group_layout() -> BindGroupLayout {
-    EMPTY_BIND_GROUP_LAYOUT
-        .get()
-        .expect("init_empty_bind_group_layout was not called")
-        .clone()
 }

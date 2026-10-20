@@ -2,20 +2,30 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugins;
-use bevy_app::{App, Plugin};
+use crate::{scene::RaytracingSceneBindings, SolariPlugins};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
+use bevy_camera::Hdr;
+use bevy_core_pipeline::{
+    schedule::{Core3d, Core3dSystems},
+    tonemapping::tonemapping,
+};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    query::With,
+    reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query},
+};
+use bevy_light::AtmosphereEnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    render_graph::{RenderGraphExt, ViewNodeRunner},
-    renderer::RenderDevice,
-    view::Hdr,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    init_gpu_resource, renderer::RenderDevice, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 use extract::extract_pathtracer;
-use node::PathtracerNode;
+use node::{init_pathtracer_pipelines, pathtracer};
 use prepare::prepare_pathtracer_accumulation_texture;
 use tracing::warn;
 
@@ -27,7 +37,7 @@ pub struct PathtracingPlugin;
 
 impl Plugin for PathtracingPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "pathtracer.wgsl");
+        embedded_asset!(app, "pathtracer.wesl");
     }
 
     fn finish(&self, app: &mut App) {
@@ -44,16 +54,23 @@ impl Plugin for PathtracingPlugin {
         }
 
         render_app
+            .add_systems(
+                RenderStartup,
+                init_pathtracer_pipelines.after(init_gpu_resource::<RaytracingSceneBindings>),
+            )
             .add_systems(ExtractSchedule, extract_pathtracer)
             .add_systems(
                 Render,
                 prepare_pathtracer_accumulation_texture.in_set(RenderSystems::PrepareResources),
             )
-            .add_render_graph_node::<ViewNodeRunner<PathtracerNode>>(
+            .add_systems(
                 Core3d,
-                node::graph::PathtracerNode,
-            )
-            .add_render_graph_edges(Core3d, (Node3d::EndMainPass, node::graph::PathtracerNode));
+                pathtracer
+                    .after(Core3dSystems::MainPass)
+                    .before(tonemapping),
+            );
+
+        app.add_systems(PostUpdate, disable_atmosphere_env_map_filtering);
     }
 }
 
@@ -62,4 +79,24 @@ impl Plugin for PathtracingPlugin {
 #[require(Hdr)]
 pub struct Pathtracer {
     pub reset: bool,
+}
+
+/// Turn off atmosphere cubemap filtering for pathtracer cameras to save performance, since the pathtracer does not require it.
+fn disable_atmosphere_env_map_filtering(
+    mut commands: Commands,
+    lights: Query<(Entity, &AtmosphereEnvironmentMapLight), With<Pathtracer>>,
+) {
+    for (entity, light) in &lights {
+        if !light.filtered {
+            continue;
+        }
+
+        // Re-insert so the insert observer rebuilds the env map without filtering.
+        commands
+            .entity(entity)
+            .insert(AtmosphereEnvironmentMapLight {
+                filtered: false,
+                ..light.clone()
+            });
+    }
 }

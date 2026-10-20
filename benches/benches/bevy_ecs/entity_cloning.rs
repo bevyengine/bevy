@@ -159,7 +159,7 @@ fn single(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmarks cloning an an entity and its 50 descendents, each with only 1 component.
+/// Benchmarks cloning an entity and its 50 descendents, each with only 1 component.
 fn hierarchy_tall(c: &mut Criterion) {
     let mut group = c.benchmark_group(bench!("hierarchy_tall"));
 
@@ -175,7 +175,7 @@ fn hierarchy_tall(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmarks cloning an an entity and its 50 direct children, each with only 1 component.
+/// Benchmarks cloning an entity and its 50 direct children, each with only 1 component.
 fn hierarchy_wide(c: &mut Criterion) {
     let mut group = c.benchmark_group(bench!("hierarchy_wide"));
 

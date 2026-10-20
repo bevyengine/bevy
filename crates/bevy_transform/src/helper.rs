@@ -1,6 +1,7 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
+    entity::EntityNotSpawnedError,
     hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
@@ -52,11 +53,11 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::EntityDoesNotExist(error) => {
+        QueryEntityError::NotSpawned(error) => {
             if ancestor {
-                MalformedHierarchy(error.entity)
+                MalformedHierarchy(error)
             } else {
-                NoSuchEntity(error.entity)
+                NoSuchEntity(error)
             }
         }
         QueryEntityError::AliasedMutability(_) => unreachable!(),
@@ -70,12 +71,12 @@ pub enum ComputeGlobalTransformError {
     #[error("The entity {0:?} or one of its ancestors is missing the `Transform` component")]
     MissingTransform(Entity),
     /// The entity does not exist.
-    #[error("The entity {0:?} does not exist")]
-    NoSuchEntity(Entity),
+    #[error("The entity does not exist: {0}")]
+    NoSuchEntity(EntityNotSpawnedError),
     /// An ancestor is missing.
     /// This probably means that your hierarchy has been improperly maintained.
-    #[error("The ancestor {0:?} is missing")]
-    MalformedHierarchy(Entity),
+    #[error("The ancestor is missing: {0}")]
+    MalformedHierarchy(EntityNotSpawnedError),
 }
 
 #[cfg(test)]
@@ -137,7 +138,7 @@ mod tests {
         let transform = *app.world().get::<GlobalTransform>(leaf_entity).unwrap();
 
         let mut state = SystemState::<TransformHelper>::new(app.world_mut());
-        let helper = state.get(app.world());
+        let helper = state.get(app.world()).unwrap();
 
         let computed_transform = helper.compute_global_transform(leaf_entity).unwrap();
 

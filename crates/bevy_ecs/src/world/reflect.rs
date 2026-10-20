@@ -1,10 +1,11 @@
 //! Provides additional functionality for [`World`] when the `bevy_reflect` feature is enabled.
 
+use alloc::boxed::Box;
 use core::any::TypeId;
 
 use thiserror::Error;
 
-use bevy_reflect::{Reflect, ReflectFromPtr};
+use bevy_reflect::{PartialReflect, Reflect, ReflectFromPtr};
 use bevy_utils::prelude::DebugName;
 
 use crate::{prelude::*, world::ComponentId};
@@ -109,7 +110,7 @@ impl World {
                 "Mismatch between Ptr's type_id and ReflectFromPtr's type_id",
             );
 
-            Ok(reflect_from_ptr.as_reflect(comp_ptr))
+            Ok(reflect_from_ptr.ptr_as_reflect(comp_ptr))
         }
     }
 
@@ -185,10 +186,24 @@ impl World {
                 "Mismatch between PtrMut's type_id and ReflectFromPtr's type_id",
             );
 
-            reflect_from_ptr.as_reflect_mut(ptr_mut)
+            reflect_from_ptr.ptr_as_reflect_mut(ptr_mut)
         });
 
         Ok(comp_mut_typed)
+    }
+
+    /// Inserts a reflected resource into the world. If the resource already exists, it is overwritten.
+    #[inline]
+    pub fn insert_reflect_resource(
+        &mut self,
+        resource_id: ComponentId,
+        reflected_resource: Box<dyn PartialReflect>,
+    ) {
+        if let Some(entity) = self.resource_entities().get(resource_id) {
+            self.entity_mut(entity).insert_reflect(reflected_resource);
+        } else {
+            self.spawn_empty().insert_reflect(reflected_resource);
+        }
     }
 }
 

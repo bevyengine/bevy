@@ -12,9 +12,9 @@ use bevy::{
     prelude::*,
     render::{Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 
 fn main() {
     App::new()
@@ -32,10 +32,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();
@@ -170,15 +167,19 @@ fn print_visible_light_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
-    global_light_meta: Res<GlobalClusterableObjectMeta>,
+    global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
 ) {
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
+        // Note that it's not generally a safe assumption that the number of
+        // lights equals the number of clusterable objects, since some objects
+        // other than lights are clusterable. However, in this specific example,
+        // the only clusterable objects are lights.
         info!(
             "Visible Lights: {}, Rendered Lights: {}",
             visible.iter().len(),
-            global_light_meta.entity_to_index.len()
+            global_clusterable_object_meta.entity_to_index.len()
         );
     }
 }

@@ -10,7 +10,7 @@ use bevy_ecs::{
     resource::Resource,
     system::SystemParam,
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_platform::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
@@ -134,10 +134,10 @@ fn fallback_image_new(
     GpuImage {
         texture,
         texture_view,
-        texture_format: image.texture_descriptor.format,
         sampler,
-        size: image.texture_descriptor.size,
-        mip_level_count: image.texture_descriptor.mip_level_count,
+        texture_descriptor: image.texture_descriptor,
+        texture_view_descriptor: image.texture_view_descriptor,
+        had_data: true,
     }
 }
 
@@ -151,7 +151,7 @@ impl FromWorld for FallbackImage {
                 render_device,
                 render_queue,
                 default_sampler,
-                TextureFormat::bevy_default(),
+                TextureFormat::Rgba8UnormSrgb,
                 TextureViewDimension::D1,
                 1,
                 255,
@@ -160,7 +160,7 @@ impl FromWorld for FallbackImage {
                 render_device,
                 render_queue,
                 default_sampler,
-                TextureFormat::bevy_default(),
+                TextureFormat::Rgba8UnormSrgb,
                 TextureViewDimension::D2,
                 1,
                 255,
@@ -169,7 +169,7 @@ impl FromWorld for FallbackImage {
                 render_device,
                 render_queue,
                 default_sampler,
-                TextureFormat::bevy_default(),
+                TextureFormat::Rgba8UnormSrgb,
                 TextureViewDimension::D2Array,
                 1,
                 255,
@@ -178,7 +178,7 @@ impl FromWorld for FallbackImage {
                 render_device,
                 render_queue,
                 default_sampler,
-                TextureFormat::bevy_default(),
+                TextureFormat::Rgba8UnormSrgb,
                 TextureViewDimension::Cube,
                 1,
                 255,
@@ -187,7 +187,7 @@ impl FromWorld for FallbackImage {
                 render_device,
                 render_queue,
                 default_sampler,
-                TextureFormat::bevy_default(),
+                TextureFormat::Rgba8UnormSrgb,
                 TextureViewDimension::CubeArray,
                 1,
                 255,
@@ -196,7 +196,7 @@ impl FromWorld for FallbackImage {
                 render_device,
                 render_queue,
                 default_sampler,
-                TextureFormat::bevy_default(),
+                TextureFormat::Rgba8UnormSrgb,
                 TextureViewDimension::D3,
                 1,
                 255,
@@ -214,7 +214,7 @@ impl FromWorld for FallbackImageZero {
             render_device,
             render_queue,
             default_sampler,
-            TextureFormat::bevy_default(),
+            TextureFormat::Rgba8UnormSrgb,
             TextureViewDimension::D2,
             1,
             0,
@@ -231,7 +231,7 @@ impl FromWorld for FallbackImageCubemap {
             render_device,
             render_queue,
             default_sampler,
-            TextureFormat::bevy_default(),
+            TextureFormat::Rgba8UnormSrgb,
             TextureViewDimension::Cube,
             1,
             255,

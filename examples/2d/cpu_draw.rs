@@ -9,8 +9,8 @@ use bevy::asset::RenderAssetUsages;
 use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 
 const IMAGE_WIDTH: u32 = 256;
 const IMAGE_HEIGHT: u32 = 256;
@@ -107,7 +107,7 @@ fn draw(
     }
 
     // Get the image from Bevy's asset storage.
-    let image = images.get_mut(&my_handle.0).expect("Image not found");
+    let mut image = images.get_mut(&my_handle.0).expect("Image not found");
 
     // Compute the position of the pixel to draw.
 

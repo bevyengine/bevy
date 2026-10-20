@@ -11,15 +11,17 @@
 
 use core::any::Any;
 
+use core::marker::PhantomData;
+
 use crate::{
-    component::{
-        ComponentCloneBehavior, ComponentId, Mutable, RequiredComponentsRegistrator, StorageType,
-    },
-    entity::Entity,
-    entity_disabling::Internal,
+    component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
+    event::{EventKey, EventPattern},
     lifecycle::{ComponentHook, HookContext},
-    observer::{observer_system_runner, ObserverRunner},
+    observer::{
+        condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
+        observer_system_runner, ObserverRunner,
+    },
     prelude::*,
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
@@ -33,12 +35,10 @@ use crate::prelude::ReflectComponent;
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
-/// Observers listen for a "trigger" of a specific [`Event`]. An event can be triggered on the [`World`]
-/// by calling [`World::trigger`], or if the event is an [`EntityEvent`], it can also be triggered for specific
-/// entity targets using [`World::trigger_targets`].
+/// Observers watch for a "trigger" of a specific [`Event`]. An event can be triggered on the [`World`]
+/// by calling [`World::trigger`]. It can also be queued up as a [`Command`] using [`Commands::trigger`].
 ///
-/// Note that [`BufferedEvent`]s sent using [`EventReader`] and [`EventWriter`] are _not_ automatically triggered.
-/// They must be triggered at a specific point in the schedule.
+/// When a [`World`] triggers an [`Event`], it will immediately run every [`Observer`] that watches for that [`Event`].
 ///
 /// # Usage
 ///
@@ -56,16 +56,12 @@ use crate::prelude::ReflectComponent;
 ///     println!("{}", event.message);
 /// });
 ///
-/// // Observers currently require a flush() to be registered. In the context of schedules,
-/// // this will generally be done for you.
-/// world.flush();
-///
 /// world.trigger(Speak {
 ///     message: "Hello!".into(),
 /// });
 /// ```
 ///
-/// Notice that we used [`World::add_observer`]. This is just a shorthand for spawning an [`Observer`] manually:
+/// Notice that we used [`World::add_observer`]. This is just a shorthand for spawning an [`Entity`] with an [`Observer`] manually:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -77,7 +73,10 @@ use crate::prelude::ReflectComponent;
 /// world.spawn(Observer::new(|event: On<Speak>| {}));
 /// ```
 ///
-/// Observers are systems. They can access arbitrary [`World`] data by adding [`SystemParam`]s:
+/// Observers are a specialized [`System`] called an [`ObserverSystem`]. The first parameter must be [`On`], which provides access
+/// to the [`Event`], the [`Trigger`], and some additional execution context.
+///
+/// Because they are systems, they can access arbitrary [`World`] data by adding [`SystemParam`]s:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -92,8 +91,6 @@ use crate::prelude::ReflectComponent;
 ///     }
 /// });
 /// ```
-///
-/// Note that [`On`] must always be the first parameter.
 ///
 /// You can also add [`Commands`], which means you can spawn new entities, insert new components, etc:
 ///
@@ -127,148 +124,157 @@ use crate::prelude::ReflectComponent;
 /// recursively evaluated until there are no commands left, meaning nested triggers all
 /// evaluate at the same time!
 ///
-/// If the event is an [`EntityEvent`], it can be triggered for specific entities,
-/// which will be passed to the [`Observer`]:
+/// ## Event [`Trigger`] behavior
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # let mut world = World::default();
-/// # let entity = world.spawn_empty().id();
-/// #[derive(EntityEvent)]
-/// struct Explode;
+/// Each [`Event`] defines a [`Trigger`] behavior, which determines _which_ observers will run for the given [`Event`] and _how_ they will be run.
 ///
-/// world.add_observer(|event: On<Explode>, mut commands: Commands| {
-///     println!("Entity {} goes BOOM!", event.entity());
-///     commands.entity(event.entity()).despawn();
-/// });
+/// [`Event`] by default (when derived) uses [`GlobalTrigger`](crate::event::GlobalTrigger). When it is triggered any [`Observer`] watching for it will be run.
 ///
-/// world.flush();
+/// ## Event sub-types
 ///
-/// world.trigger_targets(Explode, entity);
-/// ```
+/// There are some built-in specialized [`Event`] types with custom [`Trigger`] logic:
 ///
-/// You can trigger multiple entities at once:
+/// - [`EntityEvent`] / [`EntityTrigger`](crate::event::EntityTrigger): An [`Event`] that targets a _specific_ entity. This also has opt-in support for
+///   "event bubbling" behavior. See [`EntityEvent`] for details.
+/// - [`EntityComponentsTrigger`](crate::event::EntityComponentsTrigger): An [`Event`] that targets an entity _and_ one or more components on that entity.
+///   This is used for [component lifecycle events](crate::lifecycle).
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # let mut world = World::default();
-/// # let e1 = world.spawn_empty().id();
-/// # let e2 = world.spawn_empty().id();
-/// # #[derive(EntityEvent)]
-/// # struct Explode;
-/// world.trigger_targets(Explode, [e1, e2]);
-/// ```
+/// You can also define your own!
 ///
-/// Observers can also watch _specific_ entities, which enables you to assign entity-specific logic:
+/// ## Observer execution timing
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # #[derive(Component, Debug)]
-/// # struct Name(String);
-/// # let mut world = World::default();
-/// # let e1 = world.spawn_empty().id();
-/// # let e2 = world.spawn_empty().id();
-/// # #[derive(EntityEvent)]
-/// # struct Explode;
-/// world.entity_mut(e1).observe(|event: On<Explode>, mut commands: Commands| {
-///     println!("Boom!");
-///     commands.entity(event.entity()).despawn();
-/// });
+/// Observers triggered via [`World::trigger`] are evaluated immediately, as are all commands they queue up.
 ///
-/// world.entity_mut(e2).observe(|event: On<Explode>, mut commands: Commands| {
-///     println!("The explosion fizzles! This entity is immune!");
-/// });
-/// ```
+/// Observers triggered via [`Commands::trigger`] are evaluated at the next sync point in the ECS schedule, just like any other [`Command`].
 ///
-/// If all entities watched by a given [`Observer`] are despawned, the [`Observer`] entity will also be despawned.
+/// To control the relative ordering of observer trigger commands sent from different systems,
+/// order the systems in the schedule relative to each other.
+///
+/// Currently, Bevy does not provide [a way to specify the relative ordering of observers](https://github.com/bevyengine/bevy/issues/14890)
+/// watching for the same event. Their ordering is considered to be arbitrary. It is recommended to make no
+/// assumptions about their execution order.
+///
+/// Commands sent by observers are [currently not immediately applied](https://github.com/bevyengine/bevy/issues/19569).
+/// Instead, all queued observers will run, and then all of the commands from those observers will be applied.
+///
+/// ## [`ObservedBy`]
+///
+/// When entities are observed, they will receive an [`ObservedBy`] component,
+/// which will be updated to track the observers that are currently observing them.
+///
+/// ## Manual [`Observer`] target configuration
+///
+/// You can manually control the targets that an observer is watching by calling builder methods like [`Observer::with_entity`]
+/// _before_ inserting the [`Observer`] component.
+///
+/// In general, it is better to use the [`EntityWorldMut::observe`] or [`EntityCommands::observe`] methods,
+/// which spawns a new observer, and configures it to watch the entity it is called on.
+///
+/// ## Cleaning up observers
+///
+/// If an [`EntityEvent`] [`Observer`] targets specific entities, and all of those entities are despawned, the [`Observer`] entity will also be despawned.
 /// This protects against observer "garbage" building up over time.
 ///
-/// The examples above calling [`EntityWorldMut::observe`] to add entity-specific observer logic are (once again)
-/// just shorthand for spawning an [`Observer`] directly:
+/// ## Component lifecycle events: Observers vs Hooks
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # let mut world = World::default();
-/// # let entity = world.spawn_empty().id();
-/// # #[derive(EntityEvent)]
-/// # struct Explode;
-/// let mut observer = Observer::new(|event: On<Explode>| {});
-/// observer.watch_entity(entity);
-/// world.spawn(observer);
-/// ```
+/// It is important to note that observers, just like [hooks](crate::lifecycle::ComponentHooks),
+/// can watch for and respond to [lifecycle](crate::lifecycle) events.
+/// Unlike hooks, observers are not treated as an "innate" part of component behavior:
+/// they can be added or removed at runtime, and multiple observers
+/// can be registered for the same lifecycle event for the same component.
 ///
-/// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities!
+/// The ordering of hooks versus observers differs based on the lifecycle event in question:
 ///
-/// You can call [`Observer::watch_entity`] more than once or [`Observer::watch_entities`] to watch multiple entities with the same [`Observer`].
+/// - when adding components, hooks are evaluated first, then observers
+/// - when removing components, observers are evaluated first, then hooks
+///
+/// This allows hooks to act as constructors and destructors for components,
+/// as they always have the first and final say in the component's lifecycle.
+///
+/// ## Observer re-targeting
+///
+/// Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
+/// despawn and respawn an observer as a workaround.
+///
+/// ## Internal observer cache
+///
+/// For more efficient observer triggering, Observers make use of the internal [`CachedObservers`](crate::observer::CachedObservers) storage.
+/// In general, this is an implementation detail developers don't need to worry about, but it can be used when implementing custom [`Trigger`](crate::event::Trigger)
+/// types, or to add "dynamic" observers for cases like scripting / modding.
 ///
 /// [`SystemParam`]: crate::system::SystemParam
+/// [`Trigger`]: crate::event::Trigger
 pub struct Observer {
     hook_on_add: ComponentHook,
     pub(crate) error_handler: Option<ErrorHandler>,
-    pub(crate) system: Box<dyn AnyNamedSystem>,
+    pub(crate) system: Option<Box<dyn AnyNamedSystem>>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
     pub(crate) despawned_watched_entities: u32,
     pub(crate) runner: ObserverRunner,
+    pub(crate) conditions: Vec<ObserverCondition>,
 }
 
 impl Observer {
-    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
-    /// for _any_ entity (or no entity).
+    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run _whenever_ an event of type `E` is triggered.
     ///
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
+    pub fn new<E: EventPattern, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
-        assert!(
-            !system.is_exclusive(),
-            concat!(
-                "Exclusive system `{}` may not be used as observer.\n",
-                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
-            ),
-            system.name()
-        );
         Self {
-            system,
+            system: Some(system),
             descriptor: Default::default(),
-            hook_on_add: hook_on_add::<E, B, I::System>,
+            hook_on_add: hook_on_add::<E, I::System>,
             error_handler: None,
-            runner: observer_system_runner::<E, B, I::System>,
+            runner: observer_system_runner::<E, I::System>,
             despawned_watched_entities: 0,
             last_trigger_id: 0,
+            conditions: Vec::new(),
         }
     }
 
-    /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observer
+    /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observers
     pub fn with_dynamic_runner(runner: ObserverRunner) -> Self {
         Self {
-            system: Box::new(IntoSystem::into_system(|| {})),
+            system: Some(Box::new(IntoSystem::into_system(|| {}))),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
-                let default_error_handler = world.default_error_handler();
+                let default_error_handler = world.fallback_error_handler();
                 world.commands().queue(move |world: &mut World| {
                     let entity = hook_context.entity;
-                    if let Some(mut observe) = world.get_mut::<Observer>(entity) {
+                    let mut conditions = {
+                        let Some(mut observe) = world.get_mut::<Observer>(entity) else {
+                            return;
+                        };
                         if observe.descriptor.event_keys.is_empty() {
                             return;
                         }
                         if observe.error_handler.is_none() {
                             observe.error_handler = Some(default_error_handler);
                         }
-                        world.register_observer(entity);
+                        core::mem::take(&mut observe.conditions)
+                    };
+                    for condition in &mut conditions {
+                        condition.initialize(world);
                     }
+                    if let Some(mut observe) = world.get_mut::<Observer>(entity) {
+                        observe.conditions = conditions;
+                    }
+                    world.register_observer(entity);
                 });
             },
             error_handler: None,
             runner,
             despawned_watched_entities: 0,
             last_trigger_id: 0,
+            conditions: Vec::new(),
         }
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is the given `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entity(mut self, entity: Entity) -> Self {
         self.watch_entity(entity);
@@ -276,7 +282,7 @@ impl Observer {
     }
 
     /// Observes the given `entities` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is any of the `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
         self.watch_entities(entities);
@@ -284,23 +290,30 @@ impl Observer {
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is the given `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// This will cause the [`Observer`] to run whenever an [`EntityEvent::event_target`] is any of the `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
         self.descriptor.entities.extend(entities);
     }
 
-    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// with the given component target.
+    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] has
+    /// an [`EntityComponentsTrigger`](crate::event::EntityComponentsTrigger) that targets the given `component`.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
+        self
+    }
+
+    /// Observes the given `components`. This will cause the [`Observer`] to run whenever the [`Event`] has
+    /// an [`EntityComponentsTrigger`](crate::event::EntityComponentsTrigger) that targets any of the `components`.
+    pub fn with_components<I: IntoIterator<Item = ComponentId>>(mut self, components: I) -> Self {
+        self.descriptor.components.extend(components);
         self
     }
 
@@ -322,6 +335,15 @@ impl Observer {
         self
     }
 
+    /// Adds a run condition to this observer.
+    ///
+    /// The observer will only run if all conditions return `true` (AND semantics).
+    /// Multiple conditions can be added by chaining `run_if` calls.
+    pub fn run_if<M>(mut self, condition: impl SystemCondition<M>) -> Self {
+        self.conditions.push(ObserverCondition::new(condition));
+        self
+    }
+
     /// Returns the [`ObserverDescriptor`] for this [`Observer`].
     pub fn descriptor(&self) -> &ObserverDescriptor {
         &self.descriptor
@@ -329,7 +351,10 @@ impl Observer {
 
     /// Returns the name of the [`Observer`]'s system .
     pub fn system_name(&self) -> DebugName {
-        self.system.system_name()
+        self.system.as_deref().map_or(
+            DebugName::borrowed("<system is initializing>"),
+            AnyNamedSystem::system_name,
+        )
     }
 }
 
@@ -359,13 +384,6 @@ impl Component for Observer {
                 world.unregister_observer(entity, descriptor);
             });
         })
-    }
-
-    fn register_required_components(
-        _component_id: ComponentId,
-        required_components: &mut RequiredComponentsRegistrator,
-    ) {
-        required_components.register_required(Internal::default);
     }
 }
 
@@ -430,28 +448,48 @@ impl ObserverDescriptor {
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
 /// ensure type parameters match.
-fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+fn hook_on_add<E: EventPattern, S: ObserverSystem<E>>(
     mut world: DeferredWorld<'_>,
     HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_key = E::register_event_key(world);
-        let mut components = alloc::vec![];
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
-            components.push(id);
-        });
-        if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.descriptor.event_keys.push(event_key);
-            observer.descriptor.components.extend(components);
+        let event_key = world.register_event_key::<E::Event>();
+        let components = E::Components::component_ids(&mut world.components_registrator());
 
-            let system: &mut dyn Any = observer.system.as_mut();
-            let system: *mut dyn ObserverSystem<E, B> = system.downcast_mut::<S>().unwrap();
-            // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
-            unsafe {
-                (*system).initialize(world);
-            }
-            world.register_observer(entity);
+        let Some(mut observer) = world.get_mut::<Observer>(entity) else {
+            return;
+        };
+        observer.descriptor.event_keys.push(event_key);
+        observer.descriptor.components.extend(components);
+
+        let mut boxed_system = core::mem::take(&mut observer.system).unwrap();
+        let mut conditions = core::mem::take(&mut observer.conditions);
+
+        let system: &mut dyn Any = boxed_system.as_mut();
+        let system = system.downcast_mut::<S>().unwrap();
+        let access = system.initialize(world);
+        assert!(
+            !access.is_exclusive(),
+            concat!(
+                "Exclusive system `{}` may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
+            system.name(),
+        );
+
+        for condition in &mut conditions {
+            condition.initialize(world);
         }
+
+        // If the observer was despawned during `initialize`, don't register it.
+        let Some(mut observer) = world.get_mut::<Observer>(entity) else {
+            return;
+        };
+
+        observer.system = Some(boxed_system);
+        observer.conditions = conditions;
+
+        world.register_observer(entity);
     });
 }
 
@@ -495,7 +533,7 @@ impl Component for ObservedBy {
 
                 // Despawn Observer if it has no more active sources.
                 if total_entities == despawned_watched_entities {
-                    world.commands().entity(e).despawn();
+                    world.commands().entity(e).try_despawn();
                 }
             }
         })
@@ -515,3 +553,83 @@ impl<T: Any + System> AnyNamedSystem for T {
         self.name()
     }
 }
+
+/// Trait for types that can be converted into an [`Observer`].
+pub trait IntoObserver<Marker>: Send + 'static {
+    /// Converts this type into an [`Observer`].
+    fn into_observer(self) -> Observer;
+}
+
+impl IntoObserver<()> for Observer {
+    fn into_observer(self) -> Observer {
+        self
+    }
+}
+
+impl<E: EventPattern, M, T: IntoObserverSystem<E, M>> IntoObserver<(E, M)> for T {
+    fn into_observer(self) -> Observer {
+        Observer::new(self)
+    }
+}
+
+impl<E: EventPattern, M: 'static, S: IntoObserverSystem<E, M>>
+    IntoObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
+{
+    fn into_observer(self) -> Observer {
+        let (system, conditions) = self.take_conditions();
+        let mut observer = Observer::new(system);
+        observer.conditions = conditions;
+        observer
+    }
+}
+
+/// Trait for types that can be converted into an entity-targeting [`Observer`].
+///
+/// This trait enforces that the event type implements [`EntityEvent`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be used as an entity observer",
+    note = "entity observers require the event type to implement `EntityEvent`"
+)]
+pub trait IntoEntityObserver<Marker>: Send + 'static {
+    /// Converts this type into an [`Observer`] that watches the given entity.
+    fn into_observer_for_entity(self, entity: Entity) -> Observer;
+}
+
+impl<E: EventPattern<Event: EntityEvent>, M, T: IntoObserverSystem<E, M>> IntoEntityObserver<(E, M)>
+    for T
+{
+    fn into_observer_for_entity(self, entity: Entity) -> Observer {
+        Observer::new(self).with_entity(entity)
+    }
+}
+
+impl<E: EventPattern<Event: EntityEvent>, M: 'static, S: IntoObserverSystem<E, M>>
+    IntoEntityObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
+{
+    fn into_observer_for_entity(self, entity: Entity) -> Observer {
+        let (system, conditions) = self.take_conditions();
+        let mut observer = Observer::new(system);
+        observer.conditions = conditions;
+        observer.with_entity(entity)
+    }
+}
+
+/// Extension trait for adding run conditions to observer systems.
+pub trait ObserverSystemExt<E: EventPattern, M>: IntoObserverSystem<E, M> + Sized {
+    /// Adds a run condition to this observer system.
+    ///
+    /// The observer will only run if the condition returns `true`.
+    /// Multiple conditions can be chained (AND semantics).
+    fn run_if<C, CM>(self, condition: C) -> ObserverWithCondition<E, M, Self>
+    where
+        C: SystemCondition<CM>,
+    {
+        ObserverWithCondition {
+            system: self,
+            conditions: alloc::vec![Box::new(IntoSystem::into_system(condition))],
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<E: EventPattern, M, T: IntoObserverSystem<E, M>> ObserverSystemExt<E, M> for T {}

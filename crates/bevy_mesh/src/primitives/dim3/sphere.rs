@@ -1,7 +1,8 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{ops, primitives::Sphere};
+use bevy_math::ops;
 use bevy_reflect::prelude::*;
+use bevy_shape::Sphere;
 use core::f32::consts::PI;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
@@ -165,6 +166,10 @@ impl SphereMeshBuilder {
     /// longitudinal sectors and latitudinal stacks, aka horizontal and vertical resolution.
     ///
     /// A good default is `32` sectors and `18` stacks.
+    #[expect(
+        clippy::explicit_counter_loop,
+        reason = "Clippy suggestion was much less clear."
+    )]
     pub fn uv(&self, sectors: u32, stacks: u32) -> Mesh {
         // Largely inspired from http://www.songho.ca/opengl/gl_sphere.html
 

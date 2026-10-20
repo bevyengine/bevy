@@ -1,3 +1,5 @@
+use bevy_material::labels::DrawFunctionId;
+
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
@@ -7,8 +9,8 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::TypeIdMap;
-use core::{any::TypeId, fmt::Debug, hash::Hash};
+use bevy_utils::TypeIdHashMap;
+use core::{any::TypeId, fmt::Debug};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 use variadics_please::all_tuples;
@@ -49,17 +51,12 @@ pub enum DrawError {
     ViewEntityNotFound,
 }
 
-// TODO: make this generic?
-/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct DrawFunctionId(u32);
-
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
 ///
 /// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.
 pub struct DrawFunctionsInternal<P: PhaseItem> {
     pub draw_functions: Vec<Box<dyn Draw<P>>>,
-    pub indices: TypeIdMap<DrawFunctionId>,
+    pub indices: TypeIdHashMap<DrawFunctionId>,
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
@@ -329,13 +326,11 @@ where
         view: Entity,
         item: &P,
     ) -> Result<(), DrawError> {
-        let param = self.state.get(world);
+        let param = self.state.get(world).unwrap();
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::EntityDoesNotExist(_) => {
-                    return Err(DrawError::ViewEntityNotFound)
-                }
+                QueryEntityError::NotSpawned(_) => return Err(DrawError::ViewEntityNotFound),
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

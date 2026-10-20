@@ -4,8 +4,9 @@ use std::fmt::Display;
 
 use bevy::{
     color::palettes::{self, css::WHITE},
-    core_pipeline::Skybox,
+    light::Skybox,
     math::vec3,
+    pbr::ScreenSpaceTransmission,
     prelude::*,
     time::Stopwatch,
 };
@@ -100,13 +101,16 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
     commands.spawn((
         Camera3d::default(),
+        ScreenSpaceTransmission::default(),
         Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     spawn_directional_light(&mut commands);
 
     commands.spawn((
-        SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
+        WorldAssetRoot(
+            asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
+        ),
         Transform::from_xyz(0.0, 0.07, -0.13),
         Scene::BarnLamp,
     ));
@@ -138,8 +142,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         app_status.create_help_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -303,7 +307,7 @@ fn add_skybox_and_environment_map(
         .entity(entity)
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             ..default()
         })
         .insert(EnvironmentMapLight {

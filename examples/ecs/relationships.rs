@@ -5,10 +5,10 @@
 //!
 //! We can define a custom relationship by creating two components:
 //! one to store the relationship itself, and another to keep track of the reverse relationship.
-//! Bevy's [`ChildOf`] component implements the [`Relationship`] trait, serving as the source of truth,
+//! Bevy's [`ChildOf`] component implements the [`Relationship`](bevy::ecs::relationship::Relationship) trait, serving as the source of truth,
 //! while the [`Children`] component implements the [`RelationshipTarget`] trait and is used to accelerate traversals down the hierarchy.
 //!
-//! In this example we're creating a [`Targeting`]/[`TargetedBy`] relationship,
+//! In this example we're creating a `Targeting`/`TargetedBy` relationship,
 //! demonstrating how you might model units which target a single unit in combat.
 
 use bevy::ecs::entity::EntityHashSet;

@@ -1,6 +1,6 @@
 use crate::{
     bundle::Bundle,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::{Entity, EntityIndexSet},
     prelude::Children,
     relationship::{
         Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
@@ -14,7 +14,7 @@ use core::{marker::PhantomData, mem};
 use super::OrderedRelationshipSourceCollection;
 
 impl<'w> EntityWorldMut<'w> {
-    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    /// Spawns an entity related to this entity (with the `R` relationship) by taking a bundle
     pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
@@ -54,7 +54,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes the relation `R` between this entity and all its related entities.
-    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+    pub fn detach_all_related<R: Relationship>(&mut self) -> &mut Self {
         self.remove::<R::RelationshipTarget>()
     }
 
@@ -139,6 +139,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related entities with a new set of entities.
+    ///
+    /// Duplicated entities are removed, leaving only their first occurrence.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =
             <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
@@ -164,17 +166,18 @@ impl<'w> EntityWorldMut<'w> {
 
         let collection = relations.collection_mut_risky();
 
-        let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
+        let existing_relations = EntityIndexSet::from_iter(collection.iter());
+        let final_relations = EntityIndexSet::from_iter(related.iter().copied());
 
         let id = self.id();
         self.world_scope(|world| {
-            for related in collection.iter() {
-                if !potential_relations.remove(related) {
-                    world.entity_mut(related).remove::<R>();
-                }
+            // Remove the existing relations that we won't keep
+            for &related in existing_relations.difference(&final_relations) {
+                world.entity_mut(related).remove::<R>();
             }
 
-            for related in potential_relations {
+            // Add the final relations that don't exist yet.
+            for &related in final_relations.difference(&existing_relations) {
                 // SAFETY: We'll manually be adjusting the contents of the `RelationshipTarget` to fit the final state.
                 world
                     .entity_mut(related)
@@ -187,7 +190,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
         collection.clear();
-        collection.extend_from_iter(related.iter().copied());
+        collection.extend_from_iter(final_relations);
         self.insert(relations);
 
         self
@@ -221,6 +224,7 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         #[cfg(debug_assertions)]
         {
+            use crate::entity::hash_set::EntityHashSet;
             let entities_to_relate = EntityHashSet::from_iter(entities_to_relate.iter().copied());
             let entities_to_unrelate =
                 EntityHashSet::from_iter(entities_to_unrelate.iter().copied());
@@ -408,7 +412,7 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 impl<'a> EntityCommands<'a> {
-    /// Spawns a entity related to this entity (with the `R` relationship) by taking a bundle
+    /// Spawns an entity related to this entity (with the `R` relationship) by taking a bundle
     pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.commands.spawn((bundle, R::from(parent)));
@@ -437,9 +441,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Removes the relation `R` between this entity and all its related entities.
-    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+    pub fn detach_all_related<R: Relationship>(&mut self) -> &mut Self {
         self.queue(|mut entity: EntityWorldMut| {
-            entity.clear_related::<R>();
+            entity.detach_all_related::<R>();
         })
     }
 
@@ -477,6 +481,8 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces all the related entities with the given set of new related entities.
+    ///
+    /// Duplicated entities are removed, leaving only their first occurrence.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let related: Box<[Entity]> = related.into();
 
@@ -624,6 +630,17 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
         }
     }
 
+    /// Returns a [`RelatedSpawnerCommands`] with a smaller lifetime.
+    ///
+    /// This is useful if you have `&mut RelatedSpawnerCommands` but need `RelatedSpawnerCommands`.
+    pub fn reborrow(&mut self) -> RelatedSpawnerCommands<'_, R> {
+        RelatedSpawnerCommands {
+            target: self.target,
+            commands: self.commands.reborrow(),
+            _marker: PhantomData,
+        }
+    }
+
     /// Spawns an entity with the given `bundle` and an `R` relationship targeting the `target`
     /// entity this spawner was initialized with.
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
@@ -707,7 +724,7 @@ mod tests {
         let b = world.spawn(ChildOf(a)).id();
         let c = world.spawn(ChildOf(a)).id();
 
-        world.entity_mut(a).clear_related::<ChildOf>();
+        world.entity_mut(a).detach_all_related::<ChildOf>();
 
         assert_eq!(world.entity(a).get::<Children>(), None);
         assert_eq!(world.entity(b).get::<ChildOf>(), None);
@@ -888,7 +905,7 @@ mod tests {
 
     #[test]
     fn despawn_related_observers_can_access_relationship_data() {
-        use crate::lifecycle::Replace;
+        use crate::lifecycle::Discard;
         use crate::observer::On;
         use crate::prelude::Has;
         use crate::system::Query;
@@ -905,11 +922,10 @@ mod tests {
         let result_entity = world.spawn(ObserverResult::default()).id();
 
         world.add_observer(
-            move |event: On<Replace, MyComponent>,
+            move |replace: On<Discard<MyComponent>>,
                   has_relationship: Query<Has<ChildOf>>,
                   mut results: Query<&mut ObserverResult>| {
-                let entity = event.entity();
-                if has_relationship.get(entity).unwrap_or(false) {
+                if has_relationship.get(replace.entity).unwrap_or(false) {
                     results.get_mut(result_entity).unwrap().success = true;
                 }
             },

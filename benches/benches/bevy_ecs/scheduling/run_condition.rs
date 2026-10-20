@@ -55,7 +55,7 @@ pub fn run_condition_no(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Component, Resource)]
+#[derive(Component)]
 struct TestBool(pub bool);
 
 pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
@@ -86,14 +86,17 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     group.finish();
 }
 
+#[derive(Resource)]
+struct TestResource(pub bool);
+
 pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     let mut world = World::new();
-    world.insert_resource(TestBool(true));
+    world.insert_resource(TestResource(true));
     let mut group = criterion.benchmark_group("run_condition/yes_using_resource");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    fn yes_with_resource(res: Res<TestBool>) -> bool {
+    fn yes_with_resource(res: Res<TestResource>) -> bool {
         res.0
     }
     for amount in [10, 100, 1_000] {

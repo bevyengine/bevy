@@ -13,10 +13,7 @@ pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use crate::{
     define_label,
     intern::Interned,
-    system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem, IntoResult,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
-    },
+    system::{FromInput, IntoResult, IsFunctionSystem, SystemParamFunction},
 };
 
 define_label!(
@@ -57,7 +54,6 @@ define_label!(
         note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
     )]
     ScheduleLabel,
-    SCHEDULE_LABEL_INTERNER
 );
 
 define_label!(
@@ -152,7 +148,6 @@ define_label!(
         note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
     )]
     SystemSet,
-    SYSTEM_SET_INTERNER,
     extra_methods: {
         /// Returns `Some` if this system set is a [`SystemTypeSet`].
         fn system_type(&self) -> Option<TypeId> {
@@ -196,9 +191,7 @@ impl<T: 'static> SystemTypeSet<T> {
 
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("SystemTypeSet")
-            .field(&format_args!("fn {}()", DebugName::type_name::<T>()))
-            .finish()
+        write!(f, "SystemTypeSet:{}", DebugName::type_name::<T>())
     }
 }
 
@@ -291,29 +284,13 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    F::Out: IntoResult<()>,
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<Marker, In: FromInput<()>, Out: IntoResult<()>>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, (), F>>;
+    type Set = SystemTypeSet<F>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, (), F>>::new()
-    }
-}
-
-// exclusive systems
-impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
-where
-    Marker: 'static,
-    F::Out: IntoResult<()>,
-    F: ExclusiveSystemParamFunction<Marker>,
-{
-    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, (), F>>;
-
-    #[inline]
-    fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<ExclusiveFunctionSystem<Marker, (), F>>::new()
+        SystemTypeSet::<F>::new()
     }
 }
 

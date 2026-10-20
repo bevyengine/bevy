@@ -1,12 +1,16 @@
 use crate::{
-    archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId},
+    lifecycle::HookContext,
+    prelude::*,
+    world::DeferredWorld,
 };
+use alloc::{vec, vec::Vec};
 
 #[derive(Component)]
 struct A;
 
 #[derive(Component)]
-#[component(on_add = a_on_add, on_insert = a_on_insert, on_replace = a_on_replace, on_remove = a_on_remove)]
+#[component(on_add = a_on_add, on_insert = a_on_insert, on_discard = a_on_discard, on_remove = a_on_remove)]
 struct AMacroHooks;
 
 fn a_on_add(mut world: DeferredWorld, _: HookContext) {
@@ -17,7 +21,7 @@ fn a_on_insert(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(1);
 }
 
-fn a_on_replace(mut world: DeferredWorld, _: HookContext) {
+fn a_on_discard(mut world: DeferredWorld, _: HookContext) {
     world.resource_mut::<R>().assert_order(2);
 }
 
@@ -68,6 +72,18 @@ fn can_spawn_bundle_without_extract() {
     assert!(world.entity(id).get::<Children>().is_some());
 }
 
+#[derive(Bundle)]
+#[bundle(ignore_from_components)]
+struct BundleWithChildren(crate::spawn::SpawnOneRelated<ChildOf, A>);
+
+#[test]
+fn can_spawn_bundle_with_children() {
+    let mut world = World::new();
+    let parent = world.spawn(BundleWithChildren(Children::spawn_one(A)));
+    let children = parent.get::<Children>();
+    assert_eq!(children.map(Children::len), Some(1));
+}
+
 #[test]
 fn component_hook_order_spawn_despawn() {
     let mut world = World::new();
@@ -76,7 +92,7 @@ fn component_hook_order_spawn_despawn() {
         .register_component_hooks::<A>()
         .on_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
         .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(1))
-        .on_replace(|mut world, _| world.resource_mut::<R>().assert_order(2))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(2))
         .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(3));
 
     let entity = world.spawn(A).id();
@@ -103,7 +119,7 @@ fn component_hook_order_insert_remove() {
         .register_component_hooks::<A>()
         .on_add(|mut world, _| world.resource_mut::<R>().assert_order(0))
         .on_insert(|mut world, _| world.resource_mut::<R>().assert_order(1))
-        .on_replace(|mut world, _| world.resource_mut::<R>().assert_order(2))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(2))
         .on_remove(|mut world, _| world.resource_mut::<R>().assert_order(3));
 
     let mut entity = world.spawn_empty();
@@ -118,7 +134,7 @@ fn component_hook_order_replace() {
     let mut world = World::new();
     world
         .register_component_hooks::<A>()
-        .on_replace(|mut world, _| world.resource_mut::<R>().assert_order(0))
+        .on_discard(|mut world, _| world.resource_mut::<R>().assert_order(0))
         .on_insert(|mut world, _| {
             if let Some(mut r) = world.get_resource_mut::<R>() {
                 r.assert_order(1);
@@ -129,7 +145,7 @@ fn component_hook_order_replace() {
     world.init_resource::<R>();
     let mut entity = world.entity_mut(entity);
     entity.insert(A);
-    entity.insert_if_new(A); // this will not trigger on_replace or on_insert
+    entity.insert_if_new(A); // this will not trigger on_discard or on_insert
     entity.flush();
     assert_eq!(2, world.resource::<R>().0);
 }
@@ -255,6 +271,32 @@ fn new_archetype_created() {
     assert_eq!(world.resource::<Count>().0, 3);
 }
 
+#[test]
+fn new_archetype_created_triggered_first() {
+    let mut world = World::new();
+    #[derive(Resource, Default)]
+    struct Log(Vec<(Option<ArchetypeId>, &'static str)>);
+    world.init_resource::<Log>();
+    world.add_observer(|t: On<ArchetypeCreated>, mut log: ResMut<Log>| {
+        log.0.push((Some(t.event().0), "Archetype created"));
+    });
+    world.add_observer(|t: On<Insert<A>>, mut log: ResMut<Log>| {
+        log.0.push((
+            t.trigger().new_archetype.map(Archetype::id),
+            "Bundle inserted",
+        ));
+    });
+
+    let archetype = world.spawn(A).archetype().id();
+    assert_eq!(
+        world.resource::<Log>().0,
+        vec![
+            (Some(archetype), "Archetype created"),
+            (Some(archetype), "Bundle inserted")
+        ]
+    );
+}
+
 #[derive(Bundle)]
 #[expect(unused, reason = "tests the output of the derive macro is valid")]
 struct Ignore {
@@ -263,3 +305,7 @@ struct Ignore {
     #[bundle(ignore)]
     bar: i32,
 }
+
+#[derive(Bundle)]
+#[expect(unused, reason = "tests the derive macro does not leak private type")]
+pub struct Exported(A);

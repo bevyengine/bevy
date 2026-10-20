@@ -7,13 +7,13 @@ struct Enemy {
     score_value: u32,
 }
 
-#[derive(BufferedEvent)]
+#[derive(Message)]
 struct EnemyDied(u32);
 
 #[derive(Resource)]
 struct Score(u32);
 
-fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {
+fn update_score(mut dead_enemies: MessageReader<EnemyDied>, mut score: ResMut<Score>) {
     for value in dead_enemies.read() {
         score.0 += value.0;
     }
@@ -21,7 +21,7 @@ fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Scor
 
 fn despawn_dead_enemies(
     mut commands: Commands,
-    mut dead_enemies: EventWriter<EnemyDied>,
+    mut dead_enemies: MessageWriter<EnemyDied>,
     enemies: Query<(Entity, &Enemy)>,
 ) {
     for (entity, enemy) in &enemies {
@@ -56,7 +56,7 @@ fn did_hurt_enemy() {
     app.insert_resource(Score(0));
 
     // Add `EnemyDied` event
-    app.add_event::<EnemyDied>();
+    app.add_message::<EnemyDied>();
 
     // Add our two systems
     app.add_systems(Update, (hurt_enemies, despawn_dead_enemies).chain());
@@ -87,7 +87,7 @@ fn did_despawn_enemy() {
     app.insert_resource(Score(0));
 
     // Add `EnemyDied` event
-    app.add_event::<EnemyDied>();
+    app.add_message::<EnemyDied>();
 
     // Add our two systems
     app.add_systems(Update, (hurt_enemies, despawn_dead_enemies).chain());
@@ -107,10 +107,10 @@ fn did_despawn_enemy() {
     // Check enemy was despawned
     assert!(app.world().get::<Enemy>(enemy_id).is_none());
 
-    // Get `EnemyDied` event reader
-    let enemy_died_events = app.world().resource::<Events<EnemyDied>>();
-    let mut enemy_died_reader = enemy_died_events.get_cursor();
-    let enemy_died = enemy_died_reader.read(enemy_died_events).next().unwrap();
+    // Get `EnemyDied` message reader
+    let enemy_died_messages = app.world().resource::<Messages<EnemyDied>>();
+    let mut enemy_died_cursor = enemy_died_messages.get_cursor();
+    let enemy_died = enemy_died_cursor.read(enemy_died_messages).next().unwrap();
 
     // Check the event has been sent
     assert_eq!(enemy_died.0, 1);
@@ -155,15 +155,15 @@ fn update_score_on_event() {
     // Add Score resource
     app.insert_resource(Score(0));
 
-    // Add `EnemyDied` event
-    app.add_event::<EnemyDied>();
+    // Add `EnemyDied` message
+    app.add_message::<EnemyDied>();
 
     // Add our systems
     app.add_systems(Update, update_score);
 
     // Write an `EnemyDied` event
     app.world_mut()
-        .resource_mut::<Events<EnemyDied>>()
+        .resource_mut::<Messages<EnemyDied>>()
         .write(EnemyDied(3));
 
     // Run systems

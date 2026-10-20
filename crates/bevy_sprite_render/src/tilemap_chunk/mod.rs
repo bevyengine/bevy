@@ -11,19 +11,26 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Query, ResMut},
+    template::FromTemplate,
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{primitives::Rectangle, UVec2};
+use bevy_math::UVec2;
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
+use bevy_shape::Rectangle;
+use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::warn;
 
 mod tilemap_chunk_material;
 
 pub use tilemap_chunk_material::*;
+
+mod tile_orientation;
+
+pub use tile_orientation::*;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks and updating their indices.
@@ -43,7 +50,7 @@ pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
@@ -58,6 +65,32 @@ pub struct TilemapChunk {
     pub alpha_mode: AlphaMode2d,
 }
 
+impl TilemapChunk {
+    pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
+        Transform::from_xyz(
+            // tile position
+            position.x as f32
+            // times display size for a tile
+            * self.tile_display_size.x as f32
+            // plus 1/2 the tile_display_size to correct the center
+            + self.tile_display_size.x as f32 / 2.
+            // minus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at left of tilemapchunk
+            - self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
+            // tile position
+            position.y as f32
+            // times display size for a tile
+            * self.tile_display_size.y as f32
+            // minus 1/2 the tile_display_size to correct the center
+            + self.tile_display_size.y as f32 / 2.
+            // plus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at bottom of tilemapchunk
+            - self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+            0.,
+        )
+    }
+}
+
 /// Data for a single tile in the tilemap chunk.
 #[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Clone, Debug, Default)]
@@ -68,6 +101,8 @@ pub struct TileData {
     pub color: Color,
     /// The visibility of the tile.
     pub visible: bool,
+    /// The orientation of the tile.
+    pub orientation: TileOrientation,
 }
 
 impl TileData {
@@ -86,14 +121,17 @@ impl Default for TileData {
             tileset_index: 0,
             color: Color::WHITE,
             visible: true,
+            orientation: TileOrientation::Default,
         }
     }
 }
 
 /// Component storing the data of tiles within a chunk.
 /// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Clone, Debug)]
+///
+/// Data is interpreted in Y-up format. Use [`TilemapChunkTileData::from_y_down_tiles`] to convert from Y-down formatted data.
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, Default)]
+#[reflect(Component, Clone, Debug, Default)]
 pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
 
 fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -128,15 +166,18 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
 
     let tile_data_image = make_chunk_tile_data_image(&chunk_size, &packed_tile_data);
 
-    let tilemap_chunk_mesh_cache = world.resource::<TilemapChunkMeshCache>();
-
     let mesh_size = chunk_size * tilemap_chunk.tile_display_size;
 
-    let mesh = if let Some(mesh) = tilemap_chunk_mesh_cache.get(&mesh_size) {
+    let mesh = if let Some(mesh) = world.resource::<TilemapChunkMeshCache>().get(&mesh_size) {
         mesh.clone()
     } else {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
-        meshes.add(Rectangle::from_size(mesh_size.as_vec2()))
+        let mesh = world
+            .resource_mut::<Assets<Mesh>>()
+            .add(Rectangle::from_size(mesh_size.as_vec2()));
+        world
+            .resource_mut::<TilemapChunkMeshCache>()
+            .insert(mesh_size, mesh.clone());
+        mesh
     };
 
     let mut images = world.resource_mut::<Assets<Image>>();
@@ -155,7 +196,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         .insert((Mesh2d(mesh), MeshMaterial2d(material)));
 }
 
-fn update_tilemap_chunk_indices(
+pub fn update_tilemap_chunk_indices(
     query: Query<
         (
             Entity,
@@ -192,7 +233,7 @@ fn update_tilemap_chunk_indices(
             );
             continue;
         };
-        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+        let Some(mut tile_data_image) = images.get_mut(&material.tile_data) else {
             warn!(
                 "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
                 chunk_entity
@@ -208,5 +249,101 @@ fn update_tilemap_chunk_indices(
         };
         data.clear();
         data.extend_from_slice(bytemuck::cast_slice(&packed_tile_data));
+    }
+}
+
+impl TilemapChunkTileData {
+    pub fn tile_data_from_tile_pos(
+        &self,
+        tilemap_size: UVec2,
+        position: UVec2,
+    ) -> Option<&TileData> {
+        self.0
+            .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
+            .and_then(|opt| opt.as_ref())
+    }
+
+    /// Creates a [`TilemapChunkTileData`] by converting tile data from Y-down format to Y-up format.
+    pub fn from_y_down_tiles(chunk_size: UVec2, mut data: Vec<Option<TileData>>) -> Self {
+        for y in 0..chunk_size.y / 2 {
+            // reverse the order of rows to convert from Y-down to Y-up format
+            // a row from the top is swapped with the row mirrored around the middle, which is from the bottom
+            let row_start = y * chunk_size.x;
+            let mirrored_row_start = (chunk_size.y - 1 - y) * chunk_size.x;
+
+            let (top_portion, bottom_portion) = data.split_at_mut(mirrored_row_start as usize);
+
+            top_portion[row_start as usize..(row_start + chunk_size.x) as usize]
+                .swap_with_slice(&mut bottom_portion[..chunk_size.x as usize]);
+        }
+
+        Self(data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_y_down_tiles_with_odd_chunk_height() {
+        let chunk_size = UVec2::new(2, 3);
+        let data = vec![
+            1, 2, //
+            3, 4, //
+            5, 6,
+        ]
+        .into_iter()
+        .map(|tileset_index: u16| Some(TileData::from_tileset_index(tileset_index)))
+        .collect();
+
+        let TilemapChunkTileData(data) = TilemapChunkTileData::from_y_down_tiles(chunk_size, data);
+        let data = data
+            .into_iter()
+            .map(|opt| opt.map(|tile| tile.tileset_index))
+            .collect::<Vec<_>>();
+
+        let expected_data = vec![
+            5, 6, //
+            3, 4, //
+            1, 2,
+        ]
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
+
+        assert_eq!(data, expected_data);
+    }
+
+    #[test]
+    fn test_from_y_down_tiles_with_even_chunk_height() {
+        let chunk_size = UVec2::new(2, 4);
+        let data = vec![
+            1, 2, //
+            3, 4, //
+            5, 6, //
+            7, 8,
+        ]
+        .into_iter()
+        .map(|tileset_index| Some(TileData::from_tileset_index(tileset_index)))
+        .collect();
+
+        let TilemapChunkTileData(data) = TilemapChunkTileData::from_y_down_tiles(chunk_size, data);
+        let data = data
+            .into_iter()
+            .map(|opt| opt.map(|tile| tile.tileset_index))
+            .collect::<Vec<_>>();
+
+        let expected_data = vec![
+            7, 8, //
+            5, 6, //
+            3, 4, //
+            1, 2,
+        ]
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
+
+        assert_eq!(data, expected_data);
     }
 }

@@ -1,530 +1,670 @@
-use super::{
-    prepare::{SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_SIZE},
-    SolariLighting,
+use super::prepare::{
+    SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET,
+    WORLD_CACHE_SIZE,
 };
 use crate::scene::RaytracingSceneBindings;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_anti_aliasing::dlss::ViewDlssRayReconstructionTextures;
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::prepass::{
     PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
+    MOTION_VECTOR_PREPASS_FORMAT,
 };
-use bevy_diagnostic::FrameCount;
-use bevy_ecs::{
-    query::QueryItem,
-    world::{FromWorld, World},
-};
-use bevy_image::ToExtents;
+use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
 use bevy_render::{
-    diagnostic::RecordDiagnostics,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    diagnostic::RecordDiagnostics as _,
     render_resource::{
         binding_types::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
+            uniform_buffer_sized,
         },
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
-        ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
+        PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat,
+        TextureFormatFeatureFlags, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, ViewQuery},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
-pub mod graph {
-    use bevy_render::render_graph::RenderLabel;
-
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    pub struct SolariLightingNode;
-}
-
-pub struct SolariLightingNode {
-    bind_group_layout: BindGroupLayout,
-    bind_group_layout_world_cache_active_cells_dispatch: BindGroupLayout,
+/// Resource holding the Solari lighting pipeline configuration.
+#[derive(Resource)]
+pub struct SolariLightingPipelines {
+    bind_group_layout: BindGroupLayoutDescriptor,
+    bind_group_layout_restir: BindGroupLayoutDescriptor,
+    bind_group_layout_world_cache_active_cells_dispatch: BindGroupLayoutDescriptor,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    bind_group_layout_resolve_dlss_rr_textures: BindGroupLayout,
+    bind_group_layout_resolve_dlss_rr_textures: BindGroupLayoutDescriptor,
     decay_world_cache_pipeline: CachedComputePipelineId,
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
-    sample_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_di_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
-    di_initial_and_temporal_pipeline: CachedComputePipelineId,
-    di_spatial_and_shade_pipeline: CachedComputePipelineId,
-    gi_initial_and_temporal_pipeline: CachedComputePipelineId,
-    gi_spatial_and_shade_pipeline: CachedComputePipelineId,
+    restir: RestirPipelines,
+    no_restir: NoRestirPipelines,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
 }
 
-impl ViewNode for SolariLightingNode {
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    type ViewQuery = (
-        &'static SolariLighting,
-        &'static SolariLightingResources,
-        &'static ViewTarget,
-        &'static ViewPrepassTextures,
-        &'static ViewUniformOffset,
-        &'static PreviousViewUniformOffset,
-    );
+struct RestirPipelines {
+    initial_and_temporal: CachedComputePipelineId,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    type ViewQuery = (
-        &'static SolariLighting,
-        &'static SolariLightingResources,
-        &'static ViewTarget,
-        &'static ViewPrepassTextures,
-        &'static ViewUniformOffset,
-        &'static PreviousViewUniformOffset,
-        Option<&'static ViewDlssRayReconstructionTextures>,
+    initial_and_temporal_with_psr: CachedComputePipelineId,
+    spatial_and_shade: CachedComputePipelineId,
+}
+
+struct NoRestirPipelines {
+    initial_and_shade: CachedComputePipelineId,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    initial_and_shade_with_psr: CachedComputePipelineId,
+}
+
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+type SolariLightingViewQuery = (
+    &'static SolariLightingResources,
+    &'static ViewTarget,
+    &'static ViewPrepassTextures,
+    &'static ViewUniformOffset,
+    &'static PreviousViewUniformOffset,
+);
+
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+type SolariLightingViewQuery = (
+    &'static SolariLightingResources,
+    &'static ViewTarget,
+    &'static ViewPrepassTextures,
+    &'static ViewUniformOffset,
+    &'static PreviousViewUniformOffset,
+    Option<&'static ViewDlssRayReconstructionTextures>,
+);
+
+pub fn solari_lighting(
+    view: ViewQuery<SolariLightingViewQuery>,
+    solari_pipelines: Option<Res<SolariLightingPipelines>>,
+    pipeline_cache: Res<PipelineCache>,
+    scene_bindings: Res<RaytracingSceneBindings>,
+    view_uniforms: Res<ViewUniforms>,
+    previous_view_uniforms: Res<PreviousViewUniforms>,
+    render_device: Res<RenderDevice>,
+    mut ctx: RenderContext,
+) {
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+    let (
+        solari_lighting_resources,
+        view_target,
+        view_prepass_textures,
+        view_uniform_offset,
+        previous_view_uniform_offset,
+    ) = view.into_inner();
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    let (
+        solari_lighting_resources,
+        view_target,
+        view_prepass_textures,
+        view_uniform_offset,
+        previous_view_uniform_offset,
+        view_dlss_rr_textures,
+    ) = view.into_inner();
+
+    let Some(pipelines) = solari_pipelines else {
+        return;
+    };
+
+    let restir = solari_lighting_resources.reservoirs.as_ref().zip(
+        view_prepass_textures
+            .previous_deferred_view()
+            .zip(view_prepass_textures.previous_depth_only_view()),
     );
 
-    fn run(
-        &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] (
-            solari_lighting,
-            solari_lighting_resources,
-            view_target,
-            view_prepass_textures,
-            view_uniform_offset,
-            previous_view_uniform_offset,
-        ): QueryItem<Self::ViewQuery>,
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] (
-            solari_lighting,
-            solari_lighting_resources,
-            view_target,
-            view_prepass_textures,
-            view_uniform_offset,
-            previous_view_uniform_offset,
-            view_dlss_rr_textures,
-        ): QueryItem<Self::ViewQuery>,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let scene_bindings = world.resource::<RaytracingSceneBindings>();
-        let view_uniforms = world.resource::<ViewUniforms>();
-        let previous_view_uniforms = world.resource::<PreviousViewUniforms>();
-        let frame_count = world.resource::<FrameCount>();
-        let (
-            Some(decay_world_cache_pipeline),
-            Some(compact_world_cache_single_block_pipeline),
-            Some(compact_world_cache_blocks_pipeline),
-            Some(compact_world_cache_write_active_cells_pipeline),
-            Some(sample_for_world_cache_pipeline),
-            Some(blend_new_world_cache_samples_pipeline),
-            Some(presample_light_tiles_pipeline),
-            Some(di_initial_and_temporal_pipeline),
-            Some(di_spatial_and_shade_pipeline),
-            Some(gi_initial_and_temporal_pipeline),
-            Some(gi_spatial_and_shade_pipeline),
-            Some(scene_bindings),
-            Some(gbuffer),
-            Some(depth_buffer),
-            Some(motion_vectors),
-            Some(view_uniforms),
-            Some(previous_view_uniforms),
-        ) = (
-            pipeline_cache.get_compute_pipeline(self.decay_world_cache_pipeline),
-            pipeline_cache.get_compute_pipeline(self.compact_world_cache_single_block_pipeline),
-            pipeline_cache.get_compute_pipeline(self.compact_world_cache_blocks_pipeline),
-            pipeline_cache
-                .get_compute_pipeline(self.compact_world_cache_write_active_cells_pipeline),
-            pipeline_cache.get_compute_pipeline(self.sample_for_world_cache_pipeline),
-            pipeline_cache.get_compute_pipeline(self.blend_new_world_cache_samples_pipeline),
-            pipeline_cache.get_compute_pipeline(self.presample_light_tiles_pipeline),
-            pipeline_cache.get_compute_pipeline(self.di_initial_and_temporal_pipeline),
-            pipeline_cache.get_compute_pipeline(self.di_spatial_and_shade_pipeline),
-            pipeline_cache.get_compute_pipeline(self.gi_initial_and_temporal_pipeline),
-            pipeline_cache.get_compute_pipeline(self.gi_spatial_and_shade_pipeline),
-            &scene_bindings.bind_group,
-            view_prepass_textures.deferred_view(),
-            view_prepass_textures.depth_view(),
-            view_prepass_textures.motion_vectors_view(),
-            view_uniforms.uniforms.binding(),
-            previous_view_uniforms.uniforms.binding(),
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+    let (initial_pipeline_id, spatial_pipeline_id) = if restir.is_some() {
+        (
+            pipelines.restir.initial_and_temporal,
+            Some(pipelines.restir.spatial_and_shade),
         )
-        else {
-            return Ok(());
-        };
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let Some(resolve_dlss_rr_textures_pipeline) =
-            pipeline_cache.get_compute_pipeline(self.resolve_dlss_rr_textures_pipeline)
-        else {
-            return Ok(());
+    } else {
+        (pipelines.no_restir.initial_and_shade, None)
+    };
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    let (initial_pipeline_id, spatial_pipeline_id) =
+        match (restir.is_some(), view_dlss_rr_textures.is_some()) {
+            (true, true) => (
+                pipelines.restir.initial_and_temporal_with_psr,
+                Some(pipelines.restir.spatial_and_shade),
+            ),
+            (true, false) => (
+                pipelines.restir.initial_and_temporal,
+                Some(pipelines.restir.spatial_and_shade),
+            ),
+            (false, true) => (pipelines.no_restir.initial_and_shade_with_psr, None),
+            (false, false) => (pipelines.no_restir.initial_and_shade, None),
         };
 
-        let s = solari_lighting_resources;
-        let bind_group = render_context.render_device().create_bind_group(
-            "solari_lighting_bind_group",
-            &self.bind_group_layout,
-            &BindGroupEntries::sequential((
-                view_target.get_unsampled_color_attachment().view,
-                s.light_tile_samples.as_entire_binding(),
-                s.light_tile_resolved_samples.as_entire_binding(),
-                &s.di_reservoirs_a.1,
-                &s.di_reservoirs_b.1,
-                s.gi_reservoirs_a.as_entire_binding(),
-                s.gi_reservoirs_b.as_entire_binding(),
-                gbuffer,
-                depth_buffer,
-                motion_vectors,
-                &s.previous_gbuffer.1,
-                &s.previous_depth.1,
-                view_uniforms,
-                previous_view_uniforms,
-                s.world_cache_checksums.as_entire_binding(),
-                s.world_cache_life.as_entire_binding(),
-                s.world_cache_radiance.as_entire_binding(),
-                s.world_cache_geometry_data.as_entire_binding(),
-                s.world_cache_active_cells_new_radiance.as_entire_binding(),
-                s.world_cache_a.as_entire_binding(),
-                s.world_cache_b.as_entire_binding(),
-                s.world_cache_active_cell_indices.as_entire_binding(),
-                s.world_cache_active_cells_count.as_entire_binding(),
-            )),
-        );
-        let bind_group_world_cache_active_cells_dispatch =
-            render_context.render_device().create_bind_group(
-                "solari_lighting_bind_group_world_cache_active_cells_dispatch",
-                &self.bind_group_layout_world_cache_active_cells_dispatch,
-                &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
-            );
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let bind_group_resolve_dlss_rr_textures = view_dlss_rr_textures.map(|d| {
-            render_context.render_device().create_bind_group(
-                "solari_lighting_bind_group_resolve_dlss_rr_textures",
-                &self.bind_group_layout_resolve_dlss_rr_textures,
+    let (
+        Some(decay_world_cache_pipeline),
+        Some(compact_world_cache_single_block_pipeline),
+        Some(compact_world_cache_blocks_pipeline),
+        Some(compact_world_cache_write_active_cells_pipeline),
+        Some(sample_di_for_world_cache_pipeline),
+        Some(sample_gi_for_world_cache_pipeline),
+        Some(blend_new_world_cache_samples_pipeline),
+        Some(presample_light_tiles_pipeline),
+        Some(initial_pipeline),
+        Some(scene_bind_group),
+        Some(gbuffer),
+        Some(depth_buffer),
+        Some(motion_vectors),
+        Some(view_uniforms_binding),
+        Some(previous_view_uniforms_binding),
+    ) = (
+        pipeline_cache.get_compute_pipeline(pipelines.decay_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_single_block_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
+        pipeline_cache
+            .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.sample_di_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.sample_gi_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
+        pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
+        pipeline_cache.get_compute_pipeline(initial_pipeline_id),
+        &scene_bindings.bind_group,
+        view_prepass_textures.deferred_view(),
+        view_prepass_textures.depth_only_view(),
+        view_prepass_textures.motion_vectors_view(),
+        view_uniforms.uniforms.binding(),
+        previous_view_uniforms.uniforms.binding(),
+    )
+    else {
+        return;
+    };
+
+    let spatial_and_shade_pipeline = match spatial_pipeline_id {
+        Some(id) => match pipeline_cache.get_compute_pipeline(id) {
+            None => return,
+            pipeline => pipeline,
+        },
+        None => None,
+    };
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    let Some(resolve_dlss_rr_textures_pipeline) =
+        pipeline_cache.get_compute_pipeline(pipelines.resolve_dlss_rr_textures_pipeline)
+    else {
+        return;
+    };
+
+    // Past every bail-out, so this view's reservoirs will be brought up to this frame's light ids
+    if restir.is_some() {
+        scene_bindings.note_light_translations_consumed();
+    }
+
+    let view_target_attachment = view_target.get_unsampled_color_attachment();
+
+    let s = solari_lighting_resources;
+    let bind_group = render_device.create_bind_group(
+        "solari_lighting_bind_group",
+        &pipeline_cache.get_bind_group_layout(&pipelines.bind_group_layout),
+        &BindGroupEntries::sequential((
+            view_target_attachment.view,
+            s.light_tile_samples.as_entire_binding(),
+            s.light_tile_resolved_samples.as_entire_binding(),
+            gbuffer,
+            depth_buffer,
+            motion_vectors,
+            view_uniforms_binding.clone(),
+            previous_view_uniforms_binding.clone(),
+            s.world_cache.as_entire_binding(),
+            s.constants.as_entire_binding(),
+        )),
+    );
+
+    let bind_group_restir =
+        restir.map(|(reservoirs, (previous_gbuffer, previous_depth_buffer))| {
+            render_device.create_bind_group(
+                "solari_lighting_bind_group_restir",
+                &pipeline_cache.get_bind_group_layout(&pipelines.bind_group_layout_restir),
                 &BindGroupEntries::sequential((
-                    &d.diffuse_albedo.default_view,
-                    &d.specular_albedo.default_view,
-                    &d.normal_roughness.default_view,
-                    &d.specular_motion_vectors.default_view,
+                    view_target_attachment.view,
+                    s.light_tile_samples.as_entire_binding(),
+                    s.light_tile_resolved_samples.as_entire_binding(),
+                    gbuffer,
+                    depth_buffer,
+                    motion_vectors,
+                    view_uniforms_binding,
+                    previous_view_uniforms_binding,
+                    s.world_cache.as_entire_binding(),
+                    s.constants.as_entire_binding(),
+                    previous_gbuffer,
+                    previous_depth_buffer,
+                    reservoirs.a.as_entire_binding(),
+                    reservoirs.b.as_entire_binding(),
                 )),
             )
         });
 
-        // Choice of number here is arbitrary
-        let frame_index = frame_count.0.wrapping_mul(5782582);
+    let bind_group_world_cache_active_cells_dispatch = render_device.create_bind_group(
+        "solari_lighting_bind_group_world_cache_active_cells_dispatch",
+        &pipeline_cache
+            .get_bind_group_layout(&pipelines.bind_group_layout_world_cache_active_cells_dispatch),
+        &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
+    );
 
-        let diagnostics = render_context.diagnostic_recorder();
-        let command_encoder = render_context.command_encoder();
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    let bind_group_resolve_dlss_rr_textures = view_dlss_rr_textures.map(|d| {
+        render_device.create_bind_group(
+            "solari_lighting_bind_group_resolve_dlss_rr_textures",
+            &pipeline_cache
+                .get_bind_group_layout(&pipelines.bind_group_layout_resolve_dlss_rr_textures),
+            &BindGroupEntries::sequential((
+                &d.diffuse_albedo.default_view,
+                &d.specular_albedo.default_view,
+                &d.normal_roughness.default_view,
+                &d.depth.default_view,
+                &d.specular_motion_vectors.default_view,
+            )),
+        )
+    });
 
-        let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("solari_lighting"),
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
+    let command_encoder = ctx.command_encoder();
+
+    // Clear the view target if we're the first node to write to it
+    if matches!(view_target_attachment.ops.load, LoadOp::Clear(_)) {
+        command_encoder.begin_render_pass(&RenderPassDescriptor {
+            label: Some("solari_lighting_clear"),
+            color_attachments: &[Some(view_target_attachment)],
+            depth_stencil_attachment: None,
             timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
         });
-        let pass_span = diagnostics.pass_span(&mut pass, "solari_lighting");
+    }
 
-        let dx = solari_lighting_resources.view_size.x.div_ceil(8);
-        let dy = solari_lighting_resources.view_size.y.div_ceil(8);
+    let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
+        label: Some("solari_lighting"),
+        timestamp_writes: None,
+    });
 
-        pass.set_bind_group(0, scene_bindings, &[]);
+    let dx = solari_lighting_resources.view_size.x.div_ceil(8);
+    let dy = solari_lighting_resources.view_size.y.div_ceil(8);
+
+    pass.set_bind_group(0, scene_bind_group, &[]);
+    pass.set_bind_group(
+        1,
+        &bind_group,
+        &[
+            view_uniform_offset.offset,
+            previous_view_uniform_offset.offset,
+        ],
+    );
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if let Some(bind_group_resolve_dlss_rr_textures) = &bind_group_resolve_dlss_rr_textures {
+        pass.set_bind_group(2, bind_group_resolve_dlss_rr_textures, &[]);
+        pass.set_pipeline(resolve_dlss_rr_textures_pipeline);
+        pass.dispatch_workgroups(dx, dy, 1);
+    }
+
+    let d = diagnostics.time_span(&mut pass, "solari_lighting/presample_light_tiles");
+    pass.set_pipeline(presample_light_tiles_pipeline);
+    pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
+    d.end(&mut pass);
+
+    let d = diagnostics.time_span(&mut pass, "solari_lighting/world_cache");
+
+    pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
+
+    pass.set_pipeline(decay_world_cache_pipeline);
+    pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
+
+    pass.set_pipeline(compact_world_cache_single_block_pipeline);
+    pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
+
+    pass.set_pipeline(compact_world_cache_blocks_pipeline);
+    pass.dispatch_workgroups(1, 1, 1);
+
+    pass.set_pipeline(compact_world_cache_write_active_cells_pipeline);
+    pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
+
+    pass.set_bind_group(2, None, &[]);
+
+    pass.set_pipeline(sample_di_for_world_cache_pipeline);
+    pass.dispatch_workgroups_indirect(
+        &solari_lighting_resources.world_cache_active_cells_dispatch,
+        0,
+    );
+
+    pass.set_pipeline(sample_gi_for_world_cache_pipeline);
+    pass.dispatch_workgroups_indirect(
+        &solari_lighting_resources.world_cache_active_cells_dispatch,
+        0,
+    );
+
+    pass.set_pipeline(blend_new_world_cache_samples_pipeline);
+    pass.dispatch_workgroups_indirect(
+        &solari_lighting_resources.world_cache_active_cells_dispatch,
+        0,
+    );
+
+    d.end(&mut pass);
+
+    let d = diagnostics.time_span(&mut pass, "solari_lighting/lighting");
+
+    if let Some(bind_group_restir) = &bind_group_restir {
         pass.set_bind_group(
             1,
-            &bind_group,
+            bind_group_restir,
             &[
                 view_uniform_offset.offset,
                 previous_view_uniform_offset.offset,
             ],
         );
-
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        if let Some(bind_group_resolve_dlss_rr_textures) = bind_group_resolve_dlss_rr_textures {
-            pass.set_bind_group(2, &bind_group_resolve_dlss_rr_textures, &[]);
-            pass.set_pipeline(resolve_dlss_rr_textures_pipeline);
-            pass.dispatch_workgroups(dx, dy, 1);
-        }
-
-        pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
-
-        pass.set_pipeline(decay_world_cache_pipeline);
-        pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
-
-        pass.set_pipeline(compact_world_cache_single_block_pipeline);
-        pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
-
-        pass.set_pipeline(compact_world_cache_blocks_pipeline);
-        pass.dispatch_workgroups(1, 1, 1);
-
-        pass.set_pipeline(compact_world_cache_write_active_cells_pipeline);
-        pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
-
-        pass.set_bind_group(2, None, &[]);
-
-        pass.set_pipeline(sample_for_world_cache_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups_indirect(
-            &solari_lighting_resources.world_cache_active_cells_dispatch,
-            0,
-        );
-
-        pass.set_pipeline(blend_new_world_cache_samples_pipeline);
-        pass.dispatch_workgroups_indirect(
-            &solari_lighting_resources.world_cache_active_cells_dispatch,
-            0,
-        );
-
-        pass.set_pipeline(presample_light_tiles_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
-
-        pass.set_pipeline(di_initial_and_temporal_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(dx, dy, 1);
-
-        pass.set_pipeline(di_spatial_and_shade_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(dx, dy, 1);
-
-        pass.set_pipeline(gi_initial_and_temporal_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(dx, dy, 1);
-
-        pass.set_pipeline(gi_spatial_and_shade_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(dx, dy, 1);
-
-        pass_span.end(&mut pass);
-        drop(pass);
-
-        // TODO: Remove these copies, and double buffer instead
-        command_encoder.copy_texture_to_texture(
-            view_prepass_textures
-                .deferred
-                .clone()
-                .unwrap()
-                .texture
-                .texture
-                .as_image_copy(),
-            solari_lighting_resources.previous_gbuffer.0.as_image_copy(),
-            solari_lighting_resources.view_size.to_extents(),
-        );
-        command_encoder.copy_texture_to_texture(
-            view_prepass_textures
-                .depth
-                .clone()
-                .unwrap()
-                .texture
-                .texture
-                .as_image_copy(),
-            solari_lighting_resources.previous_depth.0.as_image_copy(),
-            solari_lighting_resources.view_size.to_extents(),
-        );
-
-        Ok(())
     }
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if let Some(bind_group_resolve_dlss_rr_textures) = &bind_group_resolve_dlss_rr_textures {
+        pass.set_bind_group(2, bind_group_resolve_dlss_rr_textures, &[]);
+    }
+    pass.set_pipeline(initial_pipeline);
+    pass.dispatch_workgroups(dx, dy, 1);
+
+    if let Some(spatial_and_shade_pipeline) = spatial_and_shade_pipeline {
+        pass.set_pipeline(spatial_and_shade_pipeline);
+        pass.dispatch_workgroups(dx, dy, 1);
+    }
+
+    d.end(&mut pass);
+
+    drop(pass);
+
+    // Active cell count readback.
+    diagnostics.record_u32(
+        ctx.command_encoder(),
+        &s.world_cache.slice(
+            WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET
+                ..WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64,
+        ),
+        "solari_lighting/world_cache_active_cells_count",
+    );
 }
 
-impl FromWorld for SolariLightingNode {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let scene_bindings = world.resource::<RaytracingSceneBindings>();
+/// Initializes the Solari lighting pipelines at render startup.
+pub fn init_solari_lighting_pipelines(
+    mut commands: Commands,
+    pipeline_cache: Res<PipelineCache>,
+    scene_bindings: Res<RaytracingSceneBindings>,
+    asset_server: Res<AssetServer>,
+    render_adapter: Res<RenderAdapter>,
+) {
+    let motion_vectors_storage_read_write = render_adapter
+        .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
+        .flags
+        .contains(TextureFormatFeatureFlags::STORAGE_READ_WRITE);
+    let motion_vectors_binding = if motion_vectors_storage_read_write {
+        texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::ReadWrite)
+    } else {
+        texture_2d(TextureSampleType::Float { filterable: false })
+    };
 
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "solari_lighting_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    texture_storage_2d(
-                        ViewTarget::TEXTURE_FORMAT_HDR,
-                        StorageTextureAccess::ReadWrite,
-                    ),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
-                    texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    texture_2d(TextureSampleType::Uint),
-                    texture_depth_2d(),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    texture_2d(TextureSampleType::Uint),
-                    texture_depth_2d(),
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<PreviousViewData>(true),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                ),
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Uint),
+                texture_depth_2d(),
+                motion_vectors_binding,
+                uniform_buffer::<ViewUniform>(true),
+                uniform_buffer::<PreviousViewData>(true),
+                storage_buffer_sized(false, None),
+                uniform_buffer_sized(false, None),
             ),
-        );
+        ),
+    );
 
-        let bind_group_layout_world_cache_active_cells_dispatch = render_device
-            .create_bind_group_layout(
-                "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
-                &BindGroupLayoutEntries::single(
-                    ShaderStages::COMPUTE,
-                    storage_buffer_sized(false, None),
-                ),
-            );
-
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let bind_group_layout_resolve_dlss_rr_textures = render_device.create_bind_group_layout(
-            "solari_lighting_bind_group_layout_resolve_dlss_rr_textures",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
-                ),
+    let bind_group_layout_restir = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout_restir",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::ReadWrite),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Uint),
+                texture_depth_2d(),
+                motion_vectors_binding,
+                uniform_buffer::<ViewUniform>(true),
+                uniform_buffer::<PreviousViewData>(true),
+                storage_buffer_sized(false, None),
+                uniform_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Uint),
+                texture_depth_2d(),
+                storage_buffer_sized(false, None),
+                storage_buffer_sized(false, None),
             ),
-        );
+        ),
+    );
 
-        let create_pipeline = |label: &'static str,
-                               entry_point: &'static str,
-                               shader: Handle<Shader>,
-                               extra_bind_group_layout: Option<&BindGroupLayout>,
-                               extra_shader_defs: Vec<ShaderDefVal>| {
-            let mut layout = vec![
-                scene_bindings.bind_group_layout.clone(),
-                bind_group_layout.clone(),
-            ];
-            if let Some(extra_bind_group_layout) = extra_bind_group_layout {
-                layout.push(extra_bind_group_layout.clone());
-            }
+    let bind_group_layout_world_cache_active_cells_dispatch = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
+        &BindGroupLayoutEntries::single(ShaderStages::COMPUTE, storage_buffer_sized(false, None)),
+    );
 
-            let mut shader_defs = vec![ShaderDefVal::UInt(
-                "WORLD_CACHE_SIZE".into(),
-                WORLD_CACHE_SIZE as u32,
-            )];
-            shader_defs.extend_from_slice(&extra_shader_defs);
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    let bind_group_layout_resolve_dlss_rr_textures = BindGroupLayoutDescriptor::new(
+        "solari_lighting_bind_group_layout_resolve_dlss_rr_textures",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
+            ),
+        ),
+    );
 
-            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some(label.into()),
-                layout,
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::COMPUTE,
-                    range: 0..8,
-                }],
-                shader,
-                shader_defs,
-                entry_point: Some(entry_point.into()),
-                ..default()
-            })
+    let create_pipeline = |label: &'static str,
+                           entry_point: &'static str,
+                           shader: Handle<Shader>,
+                           restir: bool,
+                           extra_bind_group: ExtraBindGroup,
+                           extra_shader_defs: Vec<ShaderDefVal>| {
+        let group_1 = if restir {
+            &bind_group_layout_restir
+        } else {
+            &bind_group_layout
         };
-
-        Self {
-            bind_group_layout: bind_group_layout.clone(),
-            bind_group_layout_world_cache_active_cells_dispatch:
-                bind_group_layout_world_cache_active_cells_dispatch.clone(),
+        let mut layout = vec![scene_bindings.bind_group_layout.clone(), group_1.clone()];
+        match extra_bind_group {
+            ExtraBindGroup::None => {}
+            ExtraBindGroup::WorldCacheDispatch => {
+                layout.push(bind_group_layout_world_cache_active_cells_dispatch.clone());
+            }
             #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            bind_group_layout_resolve_dlss_rr_textures: bind_group_layout_resolve_dlss_rr_textures
-                .clone(),
-            decay_world_cache_pipeline: create_pipeline(
-                "solari_lighting_decay_world_cache_pipeline",
-                "decay_world_cache",
-                load_embedded_asset!(world, "world_cache_compact.wgsl"),
-                Some(&bind_group_layout_world_cache_active_cells_dispatch),
-                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
-            ),
-            compact_world_cache_single_block_pipeline: create_pipeline(
-                "solari_lighting_compact_world_cache_single_block_pipeline",
-                "compact_world_cache_single_block",
-                load_embedded_asset!(world, "world_cache_compact.wgsl"),
-                Some(&bind_group_layout_world_cache_active_cells_dispatch),
-                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
-            ),
-            compact_world_cache_blocks_pipeline: create_pipeline(
-                "solari_lighting_compact_world_cache_blocks_pipeline",
-                "compact_world_cache_blocks",
-                load_embedded_asset!(world, "world_cache_compact.wgsl"),
-                Some(&bind_group_layout_world_cache_active_cells_dispatch),
-                vec![],
-            ),
-            compact_world_cache_write_active_cells_pipeline: create_pipeline(
-                "solari_lighting_compact_world_cache_write_active_cells_pipeline",
-                "compact_world_cache_write_active_cells",
-                load_embedded_asset!(world, "world_cache_compact.wgsl"),
-                Some(&bind_group_layout_world_cache_active_cells_dispatch),
-                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
-            ),
-            sample_for_world_cache_pipeline: create_pipeline(
-                "solari_lighting_sample_for_world_cache_pipeline",
-                "sample_radiance",
-                load_embedded_asset!(world, "world_cache_update.wgsl"),
-                None,
-                vec![],
-            ),
-            blend_new_world_cache_samples_pipeline: create_pipeline(
-                "solari_lighting_blend_new_world_cache_samples_pipeline",
-                "blend_new_samples",
-                load_embedded_asset!(world, "world_cache_update.wgsl"),
-                None,
-                vec![],
-            ),
-            presample_light_tiles_pipeline: create_pipeline(
-                "solari_lighting_presample_light_tiles_pipeline",
-                "presample_light_tiles",
-                load_embedded_asset!(world, "presample_light_tiles.wgsl"),
-                None,
-                vec![],
-            ),
-            di_initial_and_temporal_pipeline: create_pipeline(
-                "solari_lighting_di_initial_and_temporal_pipeline",
-                "initial_and_temporal",
-                load_embedded_asset!(world, "restir_di.wgsl"),
-                None,
-                vec![],
-            ),
-            di_spatial_and_shade_pipeline: create_pipeline(
-                "solari_lighting_di_spatial_and_shade_pipeline",
-                "spatial_and_shade",
-                load_embedded_asset!(world, "restir_di.wgsl"),
-                None,
-                vec![],
-            ),
-            gi_initial_and_temporal_pipeline: create_pipeline(
-                "solari_lighting_gi_initial_and_temporal_pipeline",
-                "initial_and_temporal",
-                load_embedded_asset!(world, "restir_gi.wgsl"),
-                None,
-                vec![],
-            ),
-            gi_spatial_and_shade_pipeline: create_pipeline(
-                "solari_lighting_gi_spatial_and_shade_pipeline",
-                "spatial_and_shade",
-                load_embedded_asset!(world, "restir_gi.wgsl"),
-                None,
-                vec![],
-            ),
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            resolve_dlss_rr_textures_pipeline: create_pipeline(
-                "solari_lighting_resolve_dlss_rr_textures_pipeline",
-                "resolve_dlss_rr_textures",
-                load_embedded_asset!(world, "resolve_dlss_rr_textures.wgsl"),
-                Some(&bind_group_layout_resolve_dlss_rr_textures),
-                vec![],
-            ),
+            ExtraBindGroup::DlssRrGuideBuffers => {
+                layout.push(bind_group_layout_resolve_dlss_rr_textures.clone());
+            }
         }
-    }
+
+        let mut shader_defs = vec![ShaderDefVal::UInt(
+            "WORLD_CACHE_SIZE".into(),
+            WORLD_CACHE_SIZE as u32,
+        )];
+        if motion_vectors_storage_read_write {
+            shader_defs.push("MOTION_VECTORS_READ_WRITE".into());
+        }
+        if restir {
+            shader_defs.push("RESTIR".into());
+        }
+        match extra_bind_group {
+            ExtraBindGroup::None => {}
+            ExtraBindGroup::WorldCacheDispatch => {
+                shader_defs.push("WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into());
+            }
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+            ExtraBindGroup::DlssRrGuideBuffers => {
+                shader_defs.push("DLSS_RR_GUIDE_BUFFERS".into());
+            }
+        }
+        shader_defs.extend_from_slice(&extra_shader_defs);
+
+        pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some(label.into()),
+            layout,
+            shader,
+            shader_defs,
+            entry_point: Some(entry_point.into()),
+            ..default()
+        })
+    };
+
+    commands.insert_resource(SolariLightingPipelines {
+        bind_group_layout: bind_group_layout.clone(),
+        bind_group_layout_restir: bind_group_layout_restir.clone(),
+        bind_group_layout_world_cache_active_cells_dispatch:
+            bind_group_layout_world_cache_active_cells_dispatch.clone(),
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        bind_group_layout_resolve_dlss_rr_textures: bind_group_layout_resolve_dlss_rr_textures
+            .clone(),
+        decay_world_cache_pipeline: create_pipeline(
+            "solari_lighting_decay_world_cache_pipeline",
+            "decay_world_cache",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wesl"),
+            false,
+            ExtraBindGroup::WorldCacheDispatch,
+            vec![],
+        ),
+        compact_world_cache_single_block_pipeline: create_pipeline(
+            "solari_lighting_compact_world_cache_single_block_pipeline",
+            "compact_world_cache_single_block",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wesl"),
+            false,
+            ExtraBindGroup::WorldCacheDispatch,
+            vec![],
+        ),
+        compact_world_cache_blocks_pipeline: create_pipeline(
+            "solari_lighting_compact_world_cache_blocks_pipeline",
+            "compact_world_cache_blocks",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wesl"),
+            false,
+            ExtraBindGroup::WorldCacheDispatch,
+            vec![],
+        ),
+        compact_world_cache_write_active_cells_pipeline: create_pipeline(
+            "solari_lighting_compact_world_cache_write_active_cells_pipeline",
+            "compact_world_cache_write_active_cells",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_compact.wesl"),
+            false,
+            ExtraBindGroup::WorldCacheDispatch,
+            vec![],
+        ),
+        sample_di_for_world_cache_pipeline: create_pipeline(
+            "solari_lighting_sample_di_for_world_cache_pipeline",
+            "sample_di",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
+            false,
+            ExtraBindGroup::None,
+            vec![],
+        ),
+        sample_gi_for_world_cache_pipeline: create_pipeline(
+            "solari_lighting_sample_gi_for_world_cache_pipeline",
+            "sample_gi",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
+            false,
+            ExtraBindGroup::None,
+            vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
+        ),
+        blend_new_world_cache_samples_pipeline: create_pipeline(
+            "solari_lighting_blend_new_world_cache_samples_pipeline",
+            "blend_new_samples",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
+            false,
+            ExtraBindGroup::None,
+            vec![],
+        ),
+        presample_light_tiles_pipeline: create_pipeline(
+            "solari_lighting_presample_light_tiles_pipeline",
+            "presample_light_tiles",
+            load_embedded_asset!(asset_server.as_ref(), "presample_light_tiles.wesl"),
+            false,
+            ExtraBindGroup::None,
+            vec![],
+        ),
+        restir: RestirPipelines {
+            initial_and_temporal: create_pipeline(
+                "solari_lighting_initial_and_temporal_pipeline",
+                "initial_and_temporal",
+                load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
+                true,
+                ExtraBindGroup::None,
+                vec![],
+            ),
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+            initial_and_temporal_with_psr: create_pipeline(
+                "solari_lighting_initial_and_temporal_with_psr_pipeline",
+                "initial_and_temporal",
+                load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
+                true,
+                ExtraBindGroup::DlssRrGuideBuffers,
+                vec![],
+            ),
+            spatial_and_shade: create_pipeline(
+                "solari_lighting_spatial_and_shade_pipeline",
+                "spatial_and_shade",
+                load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
+                true,
+                ExtraBindGroup::None,
+                vec!["SPATIAL_MERGE".into()],
+            ),
+        },
+        no_restir: NoRestirPipelines {
+            initial_and_shade: create_pipeline(
+                "solari_lighting_initial_and_shade_pipeline",
+                "initial_and_shade",
+                load_embedded_asset!(asset_server.as_ref(), "no_restir.wesl"),
+                false,
+                ExtraBindGroup::None,
+                vec![],
+            ),
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+            initial_and_shade_with_psr: create_pipeline(
+                "solari_lighting_initial_and_shade_with_psr_pipeline",
+                "initial_and_shade",
+                load_embedded_asset!(asset_server.as_ref(), "no_restir.wesl"),
+                false,
+                ExtraBindGroup::DlssRrGuideBuffers,
+                vec![],
+            ),
+        },
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        resolve_dlss_rr_textures_pipeline: create_pipeline(
+            "solari_lighting_resolve_dlss_rr_textures_pipeline",
+            "resolve_dlss_rr_textures",
+            load_embedded_asset!(asset_server.as_ref(), "resolve_dlss_rr_textures.wesl"),
+            false,
+            ExtraBindGroup::DlssRrGuideBuffers,
+            vec![],
+        ),
+    });
+}
+
+enum ExtraBindGroup {
+    None,
+    WorldCacheDispatch,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    DlssRrGuideBuffers,
 }

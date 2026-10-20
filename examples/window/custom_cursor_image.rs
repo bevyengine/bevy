@@ -77,8 +77,8 @@ Press C to cycle through the sections of the cursor's image using `rect`.",
         ),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

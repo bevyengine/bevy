@@ -1,11 +1,17 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
+use crate::radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
-    color::palettes::css::{LIGHT_GRAY, WHITE},
+    animation::{AnimatedBy, AnimationTargetId},
+    color::palettes::css::WHITE,
+    feathers::{dark_theme::create_dark_theme, display::label, theme::UiTheme, FeathersPlugins},
     prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
 };
 use std::collections::HashSet;
+
+#[path = "../helpers/radio.rs"]
+mod radio;
 
 // IDs of the mask groups we define for the running fox model.
 //
@@ -17,10 +23,6 @@ const MASK_GROUP_RIGHT_FRONT_LEG: u32 = 2;
 const MASK_GROUP_LEFT_HIND_LEG: u32 = 3;
 const MASK_GROUP_RIGHT_HIND_LEG: u32 = 4;
 const MASK_GROUP_TAIL: u32 = 5;
-
-// The width in pixels of the small buttons that allow the user to toggle a mask
-// group on or off.
-const MASK_GROUP_BUTTON_WIDTH: f32 = 250.0;
 
 // The names of the bones that each mask group consists of. Each mask group is
 // defined as a (prefix, suffix) tuple. The mask group consists of a single
@@ -65,52 +67,68 @@ const MASK_GROUP_PATHS: [(&str, &str); 6] = [
     ),
 ];
 
-#[derive(Clone, Copy, Component)]
+/// Identifies an animation for a specific mask group that the user
+/// can select.
+#[derive(Clone, Copy, Component, Default)]
 struct AnimationControl {
     // The ID of the mask group that this button controls.
     group_id: u32,
     label: AnimationLabel,
 }
 
-#[derive(Clone, Copy, Component, PartialEq, Debug)]
+impl AnimationControl {
+    fn new(group_id: u32, label: AnimationLabel) -> Self {
+        Self { group_id, label }
+    }
+}
+
+/// The four types of animations per mask group
+#[derive(Clone, Copy, Component, PartialEq, Debug, Default)]
 enum AnimationLabel {
+    #[default]
     Idle = 0,
     Walk = 1,
     Run = 2,
     Off = 3,
 }
 
+impl AnimationLabel {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Idle => "Idle",
+            Self::Walk => "Walk",
+            Self::Run => "Run",
+            Self::Off => "Off",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Resource)]
 struct AnimationNodes([AnimationNodeIndex; 3]);
-
-#[derive(Clone, Copy, Debug, Resource)]
-struct AppState([MaskGroupState; 6]);
-
-#[derive(Clone, Copy, Debug)]
-struct MaskGroupState {
-    clip: u8,
-}
 
 // The application entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Animation Masks Example".into(),
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Animation Masks Example".into(),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
+            FeathersPlugins,
+        ))
+        .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (setup_scene, setup_ui))
         .add_systems(Update, setup_animation_graph_once_loaded)
-        .add_systems(Update, handle_button_toggles)
-        .add_systems(Update, update_ui)
-        .insert_resource(AmbientLight {
+        .add_observer(handle_animation_control_change)
+        .add_observer(radio_self_update)
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()
         })
-        .init_resource::<AppState>()
         .run();
 }
 
@@ -132,7 +150,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             intensity: 10_000_000.0,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
@@ -140,7 +158,7 @@ fn setup_scene(
 
     // Spawn the fox.
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ),
         Transform::from_scale(Vec3::splat(0.07)),
@@ -157,193 +175,65 @@ fn setup_scene(
 // Creates the UI.
 fn setup_ui(mut commands: Commands) {
     // Add help text.
-    commands.spawn((
-        Text::new("Click on a button to toggle animations for its associated bones"),
+    commands.spawn_scene(bsn! {
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
-            ..default()
-        },
-    ));
+            left: px(12),
+            top: px(12),
+        }
+        Children [
+            Text("Click on a button to toggle animations for its associated bones")
+        ]
+    });
 
     // Add the buttons that allow the user to toggle mask groups on and off.
-    commands
-        .spawn(Node {
-            flex_direction: FlexDirection::Column,
-            position_type: PositionType::Absolute,
-            row_gap: Val::Px(6.0),
-            left: Val::Px(12.0),
-            bottom: Val::Px(12.0),
-            ..default()
-        })
-        .with_children(|parent| {
-            let row_node = Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(6.0),
-                ..default()
-            };
-
-            add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
-
-            parent.spawn(row_node.clone()).with_children(|parent| {
-                add_mask_group_control(
-                    parent,
-                    "Left Front Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_LEFT_FRONT_LEG,
-                );
-                add_mask_group_control(
-                    parent,
-                    "Right Front Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_RIGHT_FRONT_LEG,
-                );
-            });
-
-            parent.spawn(row_node).with_children(|parent| {
-                add_mask_group_control(
-                    parent,
-                    "Left Hind Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_LEFT_HIND_LEG,
-                );
-                add_mask_group_control(
-                    parent,
-                    "Right Hind Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_RIGHT_HIND_LEG,
-                );
-            });
-
-            add_mask_group_control(parent, "Tail", Val::Auto, MASK_GROUP_TAIL);
-        });
+    commands.spawn_scene(bsn! {
+        @main_ui_node_scene()
+        Node {
+            align_items: AlignItems::Start,
+        }
+        Children [
+            @feathers_option_buttons("Head", &make_animation_controls(MASK_GROUP_HEAD), 2)
+            --
+            @label("--")
+            --
+            @feathers_option_buttons("Front Left Leg", &make_animation_controls(MASK_GROUP_LEFT_FRONT_LEG), 2)
+            --
+            @feathers_option_buttons("Front Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_FRONT_LEG), 2)
+            --
+            @label("--")
+            --
+            @feathers_option_buttons("Hind Left Leg", &make_animation_controls(MASK_GROUP_LEFT_HIND_LEG), 2)
+            --
+            @feathers_option_buttons("Hind Right Leg", &make_animation_controls(MASK_GROUP_RIGHT_HIND_LEG), 2)
+            --
+            @label("--")
+            --
+            @feathers_option_buttons("Tail", &make_animation_controls(MASK_GROUP_TAIL), 2)
+        ]
+    });
 }
 
-// Adds a button that allows the user to toggle a mask group on and off.
-//
-// The button will automatically become a child of the parent that owns the
-// given `ChildSpawnerCommands`.
-fn add_mask_group_control(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    width: Val,
-    mask_group_id: u32,
-) {
-    let button_text_style = (
-        TextFont {
-            font_size: 14.0,
-            ..default()
-        },
-        TextColor::WHITE,
-    );
-    let selected_button_text_style = (button_text_style.0.clone(), TextColor::BLACK);
-    let label_text_style = (
-        button_text_style.0.clone(),
-        TextColor(Color::Srgba(LIGHT_GRAY)),
-    );
-
-    parent
-        .spawn((
-            Node {
-                border: UiRect::all(Val::Px(1.0)),
-                width,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::ZERO,
-                margin: UiRect::ZERO,
-                ..default()
-            },
-            BorderColor::all(Color::WHITE),
-            BorderRadius::all(Val::Px(3.0)),
-            BackgroundColor(Color::BLACK),
-        ))
-        .with_children(|builder| {
-            builder
-                .spawn((
-                    Node {
-                        border: UiRect::ZERO,
-                        width: Val::Percent(100.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::ZERO,
-                        margin: UiRect::ZERO,
-                        ..default()
-                    },
-                    BackgroundColor(Color::BLACK),
-                ))
-                .with_child((
-                    Text::new(label),
-                    label_text_style.clone(),
-                    Node {
-                        margin: UiRect::vertical(Val::Px(3.0)),
-                        ..default()
-                    },
-                ));
-
-            builder
-                .spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border: UiRect::top(Val::Px(1.0)),
-                        ..default()
-                    },
-                    BorderColor::all(Color::WHITE),
-                ))
-                .with_children(|builder| {
-                    for (index, label) in [
-                        AnimationLabel::Run,
-                        AnimationLabel::Walk,
-                        AnimationLabel::Idle,
-                        AnimationLabel::Off,
-                    ]
-                    .iter()
-                    .enumerate()
-                    {
-                        builder
-                            .spawn((
-                                Button,
-                                BackgroundColor(if index > 0 {
-                                    Color::BLACK
-                                } else {
-                                    Color::WHITE
-                                }),
-                                Node {
-                                    flex_grow: 1.0,
-                                    border: if index > 0 {
-                                        UiRect::left(Val::Px(1.0))
-                                    } else {
-                                        UiRect::ZERO
-                                    },
-                                    ..default()
-                                },
-                                BorderColor::all(Color::WHITE),
-                                AnimationControl {
-                                    group_id: mask_group_id,
-                                    label: *label,
-                                },
-                            ))
-                            .with_child((
-                                Text(format!("{label:?}")),
-                                if index > 0 {
-                                    button_text_style.clone()
-                                } else {
-                                    selected_button_text_style.clone()
-                                },
-                                TextLayout::new_with_justify(Justify::Center),
-                                Node {
-                                    flex_grow: 1.0,
-                                    margin: UiRect::vertical(Val::Px(3.0)),
-                                    ..default()
-                                },
-                            ));
-                    }
-                });
-        });
+// Makes the Radio Button Options for a given animation group.
+fn make_animation_controls(group_id: u32) -> [(AnimationControl, &'static str); 4] {
+    [
+        (
+            AnimationControl::new(group_id, AnimationLabel::Run),
+            AnimationLabel::Run.label(),
+        ),
+        (
+            AnimationControl::new(group_id, AnimationLabel::Walk),
+            AnimationLabel::Walk.label(),
+        ),
+        (
+            AnimationControl::new(group_id, AnimationLabel::Idle),
+            AnimationLabel::Idle.label(),
+        ),
+        (
+            AnimationControl::new(group_id, AnimationLabel::Off),
+            AnimationLabel::Off.label(),
+        ),
+    ]
 }
 
 // Builds up the animation graph, including the mask groups, and adds it to the
@@ -353,7 +243,7 @@ fn setup_animation_graph_once_loaded(
     asset_server: Res<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(Entity, &AnimationTargetId)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
@@ -400,8 +290,11 @@ fn setup_animation_graph_once_loaded(
         // don't do that, those bones will play all animations at once, which is
         // ugly.
         for (target_entity, target) in &targets {
-            if !all_animation_target_ids.contains(&target.id) {
-                commands.entity(target_entity).remove::<AnimationTarget>();
+            if !all_animation_target_ids.contains(target) {
+                commands
+                    .entity(target_entity)
+                    .remove::<AnimationTargetId>()
+                    .remove::<AnimatedBy>();
             }
         }
 
@@ -415,82 +308,41 @@ fn setup_animation_graph_once_loaded(
     }
 }
 
-// A system that handles requests from the user to toggle mask groups on and
+// An observer that handles requests from the user to toggle mask groups on and
 // off.
-fn handle_button_toggles(
-    mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
+fn handle_animation_control_change(
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<AnimationControl>>,
     mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut animation_nodes: Option<ResMut<AnimationNodes>>,
-    mut app_state: ResMut<AppState>,
 ) {
     let Some(ref mut animation_nodes) = animation_nodes else {
         return;
     };
 
-    for (interaction, animation_control) in interactions.iter_mut() {
-        // We only care about press events.
-        if *interaction != Interaction::Pressed {
+    let Ok(RadioButtonOptionValue(animation_control)) = new_value_query.get(event.value) else {
+        return;
+    };
+
+    // Grab the animation player. (There's only one in our case, but we
+    // iterate just for clarity's sake.)
+    for animation_graph_handle in animation_players.iter_mut() {
+        // The animation graph needs to have loaded.
+        let Some(mut animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
             continue;
-        }
-
-        // Toggle the state of the clip.
-        app_state.0[animation_control.group_id as usize].clip = animation_control.label as u8;
-
-        // Now grab the animation player. (There's only one in our case, but we
-        // iterate just for clarity's sake.)
-        for animation_graph_handle in animation_players.iter_mut() {
-            // The animation graph needs to have loaded.
-            let Some(animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
-                continue;
-            };
-
-            for (clip_index, &animation_node_index) in animation_nodes.0.iter().enumerate() {
-                let Some(animation_node) = animation_graph.get_mut(animation_node_index) else {
-                    continue;
-                };
-
-                if animation_control.label as usize == clip_index {
-                    animation_node.mask &= !(1 << animation_control.group_id);
-                } else {
-                    animation_node.mask |= 1 << animation_control.group_id;
-                }
-            }
-        }
-    }
-}
-
-// A system that updates the UI based on the current app state.
-fn update_ui(
-    mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
-    texts: Query<Entity, With<Text>>,
-    mut writer: TextUiWriter,
-    app_state: Res<AppState>,
-) {
-    for (animation_control, mut background_color, kids) in animation_controls.iter_mut() {
-        let enabled =
-            app_state.0[animation_control.group_id as usize].clip == animation_control.label as u8;
-
-        *background_color = if enabled {
-            BackgroundColor(Color::WHITE)
-        } else {
-            BackgroundColor(Color::BLACK)
         };
 
-        for &kid in kids {
-            let Ok(text) = texts.get(kid) else {
+        for (clip_index, &animation_node_index) in animation_nodes.0.iter().enumerate() {
+            let Some(animation_node) = animation_graph.get_mut(animation_node_index) else {
                 continue;
             };
 
-            writer.for_each_color(text, |mut color| {
-                color.0 = if enabled { Color::BLACK } else { Color::WHITE };
-            });
+            if animation_control.label as usize == clip_index {
+                animation_node.mask &= !(1 << animation_control.group_id);
+            } else {
+                animation_node.mask |= 1 << animation_control.group_id;
+            }
         }
-    }
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        AppState([MaskGroupState { clip: 0 }; 6])
     }
 }

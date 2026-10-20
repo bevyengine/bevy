@@ -110,7 +110,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a rotation and a translation.
     #[inline]
-    pub fn new(translation: Vec2, rotation: Rot2) -> Self {
+    pub const fn new(translation: Vec2, rotation: Rot2) -> Self {
         Isometry2d {
             rotation,
             translation,
@@ -119,7 +119,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a rotation.
     #[inline]
-    pub fn from_rotation(rotation: Rot2) -> Self {
+    pub const fn from_rotation(rotation: Rot2) -> Self {
         Isometry2d {
             rotation,
             translation: Vec2::ZERO,
@@ -128,7 +128,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a translation.
     #[inline]
-    pub fn from_translation(translation: Vec2) -> Self {
+    pub const fn from_translation(translation: Vec2) -> Self {
         Isometry2d {
             rotation: Rot2::IDENTITY,
             translation,
@@ -137,7 +137,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a translation with the given `x` and `y` components.
     #[inline]
-    pub fn from_xy(x: f32, y: f32) -> Self {
+    pub const fn from_xy(x: f32, y: f32) -> Self {
         Isometry2d {
             rotation: Rot2::IDENTITY,
             translation: Vec2::new(x, y),
@@ -397,7 +397,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a rotation.
     #[inline]
-    pub fn from_rotation(rotation: Quat) -> Self {
+    pub const fn from_rotation(rotation: Quat) -> Self {
         Isometry3d {
             rotation,
             translation: Vec3A::ZERO,
@@ -415,7 +415,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z` components.
     #[inline]
-    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+    pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Isometry3d {
             rotation: Quat::IDENTITY,
             translation: Vec3A::new(x, y, z),

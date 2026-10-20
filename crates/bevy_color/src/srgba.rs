@@ -10,6 +10,8 @@ use bevy_reflect::prelude::*;
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
+///
+/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -26,11 +28,11 @@ use thiserror::Error;
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
-    /// The red channel. [0.0, 1.0]
+    /// The red channel. [0.0, 1.0] for SDR colors.
     pub red: f32,
-    /// The green channel. [0.0, 1.0]
+    /// The green channel. [0.0, 1.0] for SDR colors.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0]
+    /// The blue channel. [0.0, 1.0] for SDR colors.
     pub blue: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
@@ -44,37 +46,25 @@ impl Srgba {
     // The standard VGA colors, with alpha set to 1.0.
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 
-    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully black color with full alpha.
     pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
-    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully transparent color with no alpha (alpha = 0.0).
     #[doc(alias = "transparent")]
     pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
-    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
+    /// A fully white color with full alpha.
     pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
-
+    /// <div style="background-color:rgb(100%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully red color with full alpha.
-    pub const RED: Self = Self {
-        red: 1.0,
-        green: 0.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const RED: Srgba = Srgba::new(1.0, 0.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 100%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully green color with full alpha.
-    pub const GREEN: Self = Self {
-        red: 0.0,
-        green: 1.0,
-        blue: 0.0,
-        alpha: 1.0,
-    };
-
+    pub const GREEN: Srgba = Srgba::new(0.0, 1.0, 0.0, 1.0);
+    /// <div style="background-color:rgb(0%, 0%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div><br />
     /// A fully blue color with full alpha.
-    pub const BLUE: Self = Self {
-        red: 0.0,
-        green: 0.0,
-        blue: 1.0,
-        alpha: 1.0,
-    };
+    pub const BLUE: Srgba = Srgba::new(0.0, 0.0, 1.0, 1.0);
 
     /// Construct a new [`Srgba`] color from components.
     ///
@@ -101,12 +91,39 @@ impl Srgba {
     /// * `green` - Green channel. [0.0, 1.0]
     /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn rgb(red: f32, green: f32, blue: f32) -> Self {
-        Self {
-            red,
-            green,
-            blue,
-            alpha: 1.0,
-        }
+        Self::new(red, green, blue, 1.)
+    }
+
+    /// New `Srgba` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    /// * `alpha` - Alpha channel. [0, 255]
+    ///
+    /// See also [`Srgba::new`], [`Srgba::rgb`], [`Srgba::rgb_u8`], [`Srgba::hex`].
+    pub const fn rgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+        Self::new(
+            red as f32 / 255.,
+            green as f32 / 255.,
+            blue as f32 / 255.,
+            alpha as f32 / 255.,
+        )
+    }
+
+    /// New `Srgba` from sRGB colorspace, with the default alpha (255).
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    ///
+    /// See also [`Srgba::new`],  [`Srgba::rgb`], [`Srgba::rgba_u8`], [`Srgba::hex`].
+    pub const fn rgb_u8(red: u8, green: u8, blue: u8) -> Self {
+        Self::rgba_u8(red, green, blue, 255)
     }
 
     /// Return a copy of this color with the red channel set to the given value.
@@ -180,35 +197,6 @@ impl Srgba {
             255 => format!("#{r:02X}{g:02X}{b:02X}"),
             _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
-    }
-
-    /// New `Srgba` from sRGB colorspace.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Red channel. [0, 255]
-    /// * `g` - Green channel. [0, 255]
-    /// * `b` - Blue channel. [0, 255]
-    ///
-    /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
-    pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
-        Self::from_u8_array_no_alpha([r, g, b])
-    }
-
-    // Float operations in const fn are not stable yet
-    // see https://github.com/rust-lang/rust/issues/57241
-    /// New `Srgba` from sRGB colorspace.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Red channel. [0, 255]
-    /// * `g` - Green channel. [0, 255]
-    /// * `b` - Blue channel. [0, 255]
-    /// * `a` - Alpha channel. [0, 255]
-    ///
-    /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
-    pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::from_u8_array([r, g, b, a])
     }
 
     /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
@@ -424,6 +412,18 @@ impl From<Xyza> for Srgba {
 impl From<Srgba> for Xyza {
     fn from(value: Srgba) -> Self {
         LinearRgba::from(value).into()
+    }
+}
+
+#[cfg(feature = "wgpu-types")]
+impl From<Srgba> for wgpu_types::Color {
+    fn from(color: Srgba) -> Self {
+        wgpu_types::Color {
+            r: color.red as f64,
+            g: color.green as f64,
+            b: color.blue as f64,
+            a: color.alpha as f64,
+        }
     }
 }
 

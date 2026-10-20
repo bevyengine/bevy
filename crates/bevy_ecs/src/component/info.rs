@@ -3,7 +3,7 @@ use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{prelude::DebugName, TypeIdMap};
+use bevy_utils::{prelude::DebugName, TypeIdHashMap};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -20,14 +20,15 @@ use crate::{
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
-    resource::Resource,
+    relationship::{
+        MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
+    },
     storage::SparseSetIndex,
 };
 
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
-    pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
@@ -37,12 +38,6 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    /// Returns a value uniquely identifying the current component.
-    #[inline]
-    pub fn id(&self) -> ComponentId {
-        self.id
-    }
-
     /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> DebugName {
@@ -53,6 +48,14 @@ impl ComponentInfo {
     #[inline]
     pub fn mutable(&self) -> bool {
         self.descriptor.mutable
+    }
+
+    /// Returns `true` if this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for table components.
+    #[inline]
+    pub fn summary_tick(&self) -> bool {
+        self.descriptor.summary_tick
     }
 
     /// Returns [`ComponentCloneBehavior`] of the current component.
@@ -74,13 +77,13 @@ impl ComponentInfo {
         self.descriptor.layout
     }
 
-    #[inline]
     /// Get the function which should be called to clean up values of
     /// the underlying component type. This maps to the
     /// [`Drop`] implementation for 'normal' Rust components
     ///
     /// Returns `None` if values of the underlying component type don't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
+    #[inline]
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
@@ -100,9 +103,8 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    pub(crate) fn new(descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
-            id,
             descriptor,
             hooks: Default::default(),
             required_components: Default::default(),
@@ -119,8 +121,8 @@ impl ComponentInfo {
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
         }
-        if self.hooks().on_replace.is_some() {
-            flags.insert(ArchetypeFlags::ON_REPLACE_HOOK);
+        if self.hooks().on_discard.is_some() {
+            flags.insert(ArchetypeFlags::ON_DISCARD_HOOK);
         }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
@@ -140,9 +142,15 @@ impl ComponentInfo {
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
     }
+
+    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+    /// This will also return `None` if the relationship isn't fully initialized yet, which requires both components to be registered and won't work for components queued for registration.
+    pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
+        self.descriptor.relationship_accessor.accessor()
+    }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`](crate::resource::Resource) within a
 /// [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -161,16 +169,15 @@ impl ComponentInfo {
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
 ///
-/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
+/// Given a type `T` which implements [`Component`] (including [`Resource`](crate::resource::Resource)), the `ComponentId` for `T` can be retrieved
 /// from a `World` using [`World::component_id()`](crate::world::World::component_id) or via [`Components::component_id()`].
-/// Access to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(usize);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`].
@@ -212,13 +219,17 @@ pub struct ComponentDescriptor {
     // actually Send + Sync
     is_send_and_sync: bool,
     type_id: Option<TypeId>,
+    // SAFETY: This must always have `size()` that is a multiple of `align()`.
+    // `BlobArray` relies on that to calculate byte offsets as a multiple of `size()`.
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
+    summary_tick: bool,
     clone_behavior: ComponentCloneBehavior,
+    relationship_accessor: MaybeRelationshipAccessor,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -231,7 +242,9 @@ impl Debug for ComponentDescriptor {
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
+            .field("summary_tick", &self.summary_tick)
             .field("clone_behavior", &self.clone_behavior)
+            .field("relationship_accessor", &self.relationship_accessor)
             .finish()
     }
 }
@@ -249,31 +262,57 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
+        let summary_tick = T::HAS_SUMMARY_TICK;
+        assert!(
+            !summary_tick || matches!(T::STORAGE_TYPE, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: DebugName::type_name::<T>(),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
+            summary_tick,
             clone_behavior: T::clone_behavior(),
+            relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
     }
 
     /// Create a new `ComponentDescriptor`.
     ///
+    /// # Panics
+    ///
+    /// Panics if `layout` does not have a `size()` that is a multiple of its `alignment()`.
+    ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    /// - `relationship_accessor` must be valid for this component type if not `None`
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
+        summary_tick: bool,
         clone_behavior: ComponentCloneBehavior,
+        relationship_accessor: Option<RelationshipAccessorInitializer>,
     ) -> Self {
+        assert_eq!(
+            layout.pad_to_align(),
+            layout,
+            "Layout size must be a multiple of its alignment.  Consider calling `pad_to_align()`."
+        );
+        assert!(
+            !summary_tick || matches!(storage_type, StorageType::Table),
+            "Summary ticks are only supported for table components"
+        );
+
         Self {
             name: name.into().into(),
             storage_type,
@@ -282,25 +321,9 @@ impl ComponentDescriptor {
             layout,
             drop,
             mutable,
+            summary_tick,
             clone_behavior,
-        }
-    }
-
-    /// Create a new `ComponentDescriptor` for a resource.
-    ///
-    /// The [`StorageType`] for resources is always [`StorageType::Table`].
-    pub fn new_resource<T: Resource>() -> Self {
-        Self {
-            name: DebugName::type_name::<T>(),
-            // PERF: `SparseStorage` may actually be a more
-            // reasonable choice as `storage_type` for resources.
-            storage_type: StorageType::Table,
-            is_send_and_sync: true,
-            type_id: Some(TypeId::of::<T>()),
-            layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            mutable: true,
-            clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: relationship_accessor.into(),
         }
     }
 
@@ -310,10 +333,13 @@ impl ComponentDescriptor {
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
+            // `T` is a rust type, so the layout will have `size()` as a multiple of `align()`
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            summary_tick: false,
             clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: None.into(),
         }
     }
 
@@ -341,15 +367,26 @@ impl ComponentDescriptor {
     pub fn mutable(&self) -> bool {
         self.mutable
     }
+
+    /// Returns whether this component tracks a summary tick.
+    ///
+    /// Summary ticks are only supported for table components.
+    #[inline]
+    pub fn summary_tick(&self) -> bool {
+        self.summary_tick
+    }
+
+    fn initialize(&mut self, id: ComponentId, components: &mut Components) {
+        self.relationship_accessor.initialize(id, components);
+    }
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`](crate::world::World).
 #[derive(Debug, Default)]
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
-    pub(super) indices: TypeIdMap<ComponentId>,
-    pub(super) resource_indices: TypeIdMap<ComponentId>,
-    // This is kept internal and local to verify that no deadlocks can occor.
+    pub(super) indices: TypeIdHashMap<ComponentId>,
+    // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
 
@@ -363,9 +400,10 @@ impl Components {
     pub(super) unsafe fn register_component_inner(
         &mut self,
         id: ComponentId,
-        descriptor: ComponentDescriptor,
+        mut descriptor: ComponentDescriptor,
     ) {
-        let info = ComponentInfo::new(id, descriptor);
+        descriptor.initialize(id, self);
+        let info = ComponentInfo::new(descriptor);
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
             self.components.resize_with(least_len, || None);
@@ -393,7 +431,7 @@ impl Components {
     #[inline]
     pub fn num_queued(&self) -> usize {
         let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
-        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
+        queued.components.len() + queued.dynamic_registrations.len()
     }
 
     /// Returns `true` if there are any components registered with this instance. Otherwise, this returns `false`.
@@ -409,7 +447,7 @@ impl Components {
             .queued
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner);
-        queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
+        queued.components.len() + queued.dynamic_registrations.len()
     }
 
     /// A faster version of [`Self::any_queued`].
@@ -456,7 +494,6 @@ impl Components {
                 queued
                     .components
                     .values()
-                    .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| Cow::Owned(queued.descriptor.clone()))
@@ -478,7 +515,6 @@ impl Components {
                 queued
                     .components
                     .values()
-                    .chain(queued.resources.values())
                     .chain(queued.dynamic_registrations.iter())
                     .find(|queued| queued.id == id)
                     .map(|queued| queued.descriptor.name.clone())
@@ -578,42 +614,10 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::get_valid_id()`]
-    /// * [`Components::valid_resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_valid_id(TypeId::of::<T>())
-    }
-
-    /// Type-erased equivalent of [`Components::valid_resource_id()`].
-    #[inline]
-    pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
-    /// If you want to include queued registration, see [`Components::resource_id()`].
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Resource, Default)]
-    /// struct ResourceA;
-    ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
-    ///
-    /// assert_eq!(resource_a_id, world.components().valid_resource_id::<ResourceA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::valid_component_id()`]
-    /// * [`Components::get_resource_id()`]
-    #[inline]
-    pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_resource_id(TypeId::of::<T>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -656,56 +660,10 @@ impl Components {
     ///
     /// * [`ComponentIdFor`](super::ComponentIdFor)
     /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
-    }
-
-    /// Type-erased equivalent of [`Components::resource_id()`].
-    #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied().or_else(|| {
-            self.queued
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .resources
-                .get(&type_id)
-                .map(|queued| queued.id)
-        })
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
-    /// instance.
-    ///
-    /// Returns [`None`] if the `Resource` type has not yet been initialized using
-    /// [`ComponentsRegistrator::register_resource()`](super::ComponentsRegistrator::register_resource) or
-    /// [`ComponentsQueuedRegistrator::queue_register_resource()`](super::ComponentsQueuedRegistrator::queue_register_resource).
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Resource, Default)]
-    /// struct ResourceA;
-    ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
-    ///
-    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::get_resource_id()`]
-    #[inline]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
     }
 
     /// # Safety
@@ -714,7 +672,7 @@ impl Components {
     /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
-    pub(super) unsafe fn register_resource_unchecked(
+    pub(super) unsafe fn register_non_send_unchecked(
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,
@@ -724,12 +682,27 @@ impl Components {
         unsafe {
             self.register_component_inner(component_id, descriptor);
         }
-        let prev = self.resource_indices.insert(type_id, component_id);
+        let prev = self.indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
 
     /// Gets an iterator over all components fully registered with this instance.
-    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+    pub fn iter_registered(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo)> + '_ {
+        self.components
+            .iter()
+            .enumerate()
+            .filter_map(|(index, info)| info.as_ref().map(|info| (ComponentId::new(index), info)))
+    }
+
+    pub(crate) fn get_relationship_accessor_mut(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut MaybeRelationshipAccessor> {
+        self.components
+            .get_mut(component_id.index())
+            .and_then(|info| {
+                info.as_mut()
+                    .map(|info| &mut info.descriptor.relationship_accessor)
+            })
     }
 }

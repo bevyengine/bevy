@@ -1,17 +1,18 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
+    anti_alias::taa::TemporalAntiAliasing,
+    camera::Hdr,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
-    render::{camera::TemporalJitter, view::Hdr},
+    render::camera::TemporalJitter,
 };
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 1000.,
             ..default()
         })
@@ -69,7 +70,7 @@ fn setup(
 
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
@@ -79,8 +80,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -150,6 +151,20 @@ fn update(
                 ..current_ssao
             },
             || keycode.just_pressed(KeyCode::ArrowDown),
+        )
+        .insert_if(
+            ScreenSpaceAmbientOcclusion {
+                radius: (current_ssao.radius * 1.25).min(8.0),
+                ..current_ssao
+            },
+            || keycode.just_pressed(KeyCode::ArrowRight),
+        )
+        .insert_if(
+            ScreenSpaceAmbientOcclusion {
+                radius: (current_ssao.radius * 0.8).max(0.1),
+                ..current_ssao
+            },
+            || keycode.just_pressed(KeyCode::ArrowLeft),
         );
     if keycode.just_pressed(KeyCode::Digit1) {
         commands.remove::<ScreenSpaceAmbientOcclusion>();
@@ -172,6 +187,10 @@ fn update(
         Some(ScreenSpaceAmbientOcclusionQualityLevel::Ultra) => ("", "", "", "", "*"),
         _ => unreachable!(),
     };
+
+    if let Some(radius) = ssao.map(|s| s.radius) {
+        text.push_str(&format!("Radius: {radius} (Left/Right)\n"));
+    }
 
     if let Some(thickness) = ssao.map(|s| s.constant_object_thickness) {
         text.push_str(&format!(

@@ -1,16 +1,31 @@
 //! Demonstrates specular tints and maps.
 
-use std::f32::consts::PI;
+use std::{
+    f32::consts::PI,
+    fmt::{self, Formatter},
+};
 
-use bevy::{color::palettes::css::WHITE, core_pipeline::Skybox, prelude::*, render::view::Hdr};
+use bevy::{
+    camera::Hdr,
+    color::palettes::css::WHITE,
+    feathers::{theme::UiTheme, FeathersPlugins},
+    light::Skybox,
+    prelude::*,
+    ui_widgets::{radio_self_update, ValueChange},
+};
+
+use radio::{feathers_option_buttons, main_ui_node_scene, RadioButtonOptionValue};
+
+#[path = "../helpers/radio.rs"]
+mod radio;
+
+#[path = "../helpers/theme.rs"]
+mod theme;
 
 /// The camera rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.005;
 /// The rate at which the specular tint hue changes in degrees per frame.
 const HUE_SHIFT_SPEED: f32 = 0.2;
-
-static SWITCH_TO_MAP_HELP_TEXT: &str = "Press Space to switch to a specular map";
-static SWITCH_TO_SOLID_TINT_HELP_TEXT: &str = "Press Space to switch to a solid specular tint";
 
 /// The current settings the user has chosen.
 #[derive(Resource, Default)]
@@ -38,13 +53,22 @@ impl FromWorld for AppAssets {
 }
 
 /// The type of specular tint that the user has selected.
-#[derive(Clone, Copy, PartialEq, Default)]
+#[derive(Clone, Copy, PartialEq, Default, Debug)]
 enum TintType {
     /// A solid color.
     #[default]
     Solid,
     /// A Perlin noise texture.
     Map,
+}
+
+impl fmt::Display for TintType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            TintType::Map => f.write_str("MAP"),
+            TintType::Solid => f.write_str("SOLID"),
+        }
+    }
 }
 
 /// The entry point.
@@ -57,17 +81,19 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(FeathersPlugins)
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .init_resource::<AppAssets>()
         .init_resource::<AppStatus>()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::BLACK,
             brightness: 0.0,
             ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
-        .add_systems(Update, (toggle_specular_map, update_text).chain())
-        .add_systems(Update, shift_hue.after(toggle_specular_map))
+        .add_observer(toggle_specular_map)
+        .add_observer(radio_self_update)
         .run();
 }
 
@@ -85,7 +111,7 @@ fn setup(
         Hdr,
         Camera3d::default(),
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: Some(asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2")),
             brightness: 3000.0,
             ..default()
         },
@@ -112,23 +138,14 @@ fn setup(
             // The object must not be metallic, or else the reflectance is
             // ignored per the Filament spec:
             //
-            // <https://google.github.io/filament/Filament.html#listing_fnormal>
+            // <https://google.github.io/filament/Filament.md.html#listing_fnormal>
             metallic: 0.0,
             perceptual_roughness: 0.0,
             ..default()
         })),
     ));
 
-    // Spawn the help text.
-    commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-        app_status.create_text(),
-    ));
+    spawn_buttons(&mut commands);
 }
 
 /// Rotates the camera a bit every frame.
@@ -153,46 +170,49 @@ fn shift_hue(
     app_status.hue += HUE_SHIFT_SPEED;
 
     for material_handle in objects_with_materials.iter() {
-        let Some(material) = standard_materials.get_mut(material_handle) else {
+        let Some(mut material) = standard_materials.get_mut(material_handle) else {
             continue;
         };
         material.specular_tint = Color::hsva(app_status.hue, 1.0, 1.0, 1.0);
     }
 }
 
-impl AppStatus {
-    /// Returns appropriate help text that reflects the current app status.
-    fn create_text(&self) -> Text {
-        let tint_map_help_text = match self.tint_type {
-            TintType::Solid => SWITCH_TO_MAP_HELP_TEXT,
-            TintType::Map => SWITCH_TO_SOLID_TINT_HELP_TEXT,
-        };
-
-        Text::new(tint_map_help_text)
-    }
+/// Spawns the radio buttons in the bottom left corner of the screen.
+fn spawn_buttons(commands: &mut Commands) {
+    commands.spawn_scene(bsn! {
+        @main_ui_node_scene()
+        Children [
+            @feathers_option_buttons(
+                "Toggle specular tint",
+                &[
+                    (TintType::Solid, "SOLID"),
+                    (TintType::Map,   "MAP"),
+                ],
+                0,
+            )
+        ]
+    });
 }
 
-/// Changes the specular tint to a solid color or map when the user presses
-/// Space.
+/// Changes the specular tint to a solid color or map when the user checks
+/// a radio button.
 fn toggle_specular_map(
-    keyboard: Res<ButtonInput<KeyCode>>,
+    event: On<ValueChange<Entity>>,
+    new_value_query: Query<&RadioButtonOptionValue<TintType>>,
     mut app_status: ResMut<AppStatus>,
     app_assets: Res<AppAssets>,
     objects_with_materials: Query<&MeshMaterial3d<StandardMaterial>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Space) {
+    let Ok(RadioButtonOptionValue(selection)) = new_value_query.get(event.value) else {
         return;
-    }
-
-    // Swap tint type.
-    app_status.tint_type = match app_status.tint_type {
-        TintType::Solid => TintType::Map,
-        TintType::Map => TintType::Solid,
     };
 
+    // Set the specular map value in `AppStatus`.
+    app_status.tint_type = *selection;
+
     for material_handle in objects_with_materials.iter() {
-        let Some(material) = standard_materials.get_mut(material_handle) else {
+        let Some(mut material) = standard_materials.get_mut(material_handle) else {
             continue;
         };
 
@@ -213,12 +233,6 @@ fn toggle_specular_map(
             }
         };
     }
-}
 
-/// Updates the help text at the bottom of the screen to reflect the current app
-/// status.
-fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
-    for mut text in text_query.iter_mut() {
-        *text = app_status.create_text();
-    }
+    shift_hue(app_status, objects_with_materials, standard_materials);
 }
