@@ -696,4 +696,40 @@ mod tests {
             (0..7).map(|i| i..i + 1).collect::<Vec<_>>()
         );
     }
+
+    #[test]
+    fn nested_ghosts_preserve_stacking_contexts() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let root = world.spawn(Node::default()).id();
+        let before = world.spawn((Node::default(), ChildOf(root))).id();
+        let ghost = world
+            .spawn((GhostNode, ZIndex(10), GlobalZIndex(10), ChildOf(root)))
+            .id();
+        let nested_ghost = world.spawn((GhostNode, ChildOf(ghost))).id();
+        let child = world.spawn((Node::default(), ChildOf(nested_ghost))).id();
+        let grandchild = world
+            .spawn((Node::default(), ZIndex(-1), ChildOf(child)))
+            .id();
+        let global = world
+            .spawn((Node::default(), GlobalZIndex(1), ChildOf(nested_ghost)))
+            .id();
+        let global_child = world.spawn((Node::default(), ChildOf(global))).id();
+        let after = world.spawn((Node::default(), ChildOf(root))).id();
+
+        for _ in 0..2 {
+            schedule.run(&mut world);
+
+            let ui_stack = world.resource::<UiStack>();
+            assert_eq!(
+                ui_stack.uinodes,
+                vec![root, before, child, grandchild, after, global, global_child]
+            );
+            assert_eq!(ui_stack.partition, vec![0..5, 5..7]);
+        }
+    }
 }
