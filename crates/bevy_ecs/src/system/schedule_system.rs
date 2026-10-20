@@ -98,8 +98,8 @@ where
         self.system.set_last_run(last_run);
     }
 
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.system.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configure(config);
     }
 }
 
@@ -195,8 +195,8 @@ where
         self.system.set_last_run(last_run);
     }
 
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.system.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configure(config);
     }
 }
 

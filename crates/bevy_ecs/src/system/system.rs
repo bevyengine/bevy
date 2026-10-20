@@ -151,7 +151,7 @@ pub trait System: Send + Sync + 'static {
     ///
     /// Implementations **must** ensure that if the provided `config` argument cannot be downcasted to the
     /// expected type, the function behaves as a no-op.
-    fn configurate(&mut self, _config: &mut dyn Any) {}
+    fn configure(&mut self, _config: &mut dyn Any) {}
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///

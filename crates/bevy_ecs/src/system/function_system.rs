@@ -930,9 +930,9 @@ where
     }
 
     #[inline]
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
         let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
-        F::Param::configurate(param_state, &mut self.system_meta, config);
+        F::Param::configure(param_state, &mut self.system_meta, config);
     }
 }
 

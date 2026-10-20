@@ -245,9 +245,9 @@ where
     }
 
     #[inline]
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.a.configurate(config);
-        self.b.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configure(config);
+        self.b.configure(config);
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
@@ -545,9 +545,9 @@ where
         a_access
     }
 
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.a.configurate(config);
-        self.b.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configure(config);
+        self.b.configure(config);
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {

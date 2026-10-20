@@ -286,10 +286,10 @@ pub unsafe trait SystemParam: Sized {
         system_access: &mut SystemAccess,
     ) -> Result<(), SystemParamAccessConflict>;
 
-    /// Configurate the system param.
-    /// This method will be called by [`System::configurate`](super::System::configurate) in order for all [`SystemParam`]s of a system.
+    /// Configure the system param.
+    /// This method will be called by [`System::configure`](super::System::configure) in order for all [`SystemParam`]s of a system.
     /// Implementations should respond to configs that they recognize by calling `downcast_mut`
-    fn configurate(_state: &mut Self::State, _meta: &mut SystemMeta, _config: &mut dyn Any) {}
+    fn configure(_state: &mut Self::State, _meta: &mut SystemMeta, _config: &mut dyn Any) {}
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
@@ -820,8 +820,8 @@ macro_rules! impl_param_set {
                 non_snake_case,
                 reason = "Certain variable names are provided by the caller, not by us."
             )]
-            fn configurate(($($param,)*): &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
-                ($($param::configurate($param, meta, config),)*);
+            fn configure(($($param,)*): &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+                ($($param::configure($param, meta, config),)*);
             }
 
             fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1899,8 +1899,8 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
         T::queue(state, system_meta, world);
     }
 
-    fn configurate(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
-        T::configurate(state, meta, config);
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(state, meta, config);
     }
 }
 
@@ -1943,8 +1943,8 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
     }
-    fn configurate(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
-        T::configurate(state, meta, config);
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(state, meta, config);
     }
 }
 
@@ -2045,8 +2045,8 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
     }
-    fn configurate(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
-        T::configurate(state, meta, config);
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(state, meta, config);
     }
 }
 
@@ -2103,9 +2103,9 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         }
     }
 
-    fn configurate(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
         for state in state {
-            T::configurate(state, meta, config);
+            T::configure(state, meta, config);
         }
     }
 }
@@ -2179,9 +2179,9 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         }
     }
 
-    fn configurate(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
         for state in state {
-            T::configurate(state, meta, config);
+            T::configure(state, meta, config);
         }
     }
 }
@@ -2310,8 +2310,8 @@ macro_rules! impl_system_param_tuple {
 
 
             #[inline]
-            fn configurate(($($param,)*): &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
-                (($($param::configurate($param, meta, config),)*));
+            fn configure(($($param,)*): &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+                (($($param::configure($param, meta, config),)*));
             }
 
             #[inline]
@@ -2487,8 +2487,8 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         P::init_access(state, system_meta, system_access)
     }
 
-    fn configurate(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
-        P::configurate(state, meta, config);
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        P::configure(state, meta, config);
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2995,11 +2995,14 @@ mod tests {
     use bevy_ecs_macros::Component;
 
     use super::*;
+    use crate::change_detection::Mut;
+    use crate::entity::Entity;
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::schedule::Schedule;
-    use crate::system::{assert_is_system, Commands, IntoSystem, System};
+    use crate::system::{assert_is_system, Commands, In, IntoSystem, System};
     use crate::world::EntityMut;
+    use alloc::vec;
     use core::cell::RefCell;
 
     #[test]

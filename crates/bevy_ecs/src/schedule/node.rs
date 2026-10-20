@@ -134,8 +134,8 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.system.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configure(config);
     }
 }
 
@@ -229,8 +229,8 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.condition.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.condition.configure(config);
     }
 }
 

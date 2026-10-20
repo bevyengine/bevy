@@ -166,8 +166,8 @@ where
     }
 
     #[inline]
-    fn configurate(&mut self, config: &mut dyn core::any::Any) {
-        self.system.configurate(config);
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configure(config);
     }
 
     fn check_change_tick(&mut self, check: crate::change_detection::CheckChangeTicks) {
