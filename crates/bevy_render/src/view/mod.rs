@@ -740,7 +740,7 @@ pub struct ViewUniform {
     pub exposure: f32,
     /// Output viewport (x origin, y origin, width, height), in physical pixels.
     pub viewport: Vec4,
-    /// Prepass and main-pass viewport, before upscaling, in physical pixels.
+    /// Prepass and main pass viewport, before upscaling, in physical pixels.
     pub main_pass_viewport: Vec4,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
