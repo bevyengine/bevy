@@ -748,9 +748,31 @@ mod tests {
             let ui_stack = world.resource::<UiStack>();
             assert_eq!(
                 ui_stack.uinodes,
-                vec![root, before, child, grandchild, after, global, global_child]
+                vec![root, before, after, global, global_child, child, grandchild]
             );
-            assert_eq!(ui_stack.partition, vec![0..5, 5..7]);
+            assert_eq!(ui_stack.partition, vec![0..3, 3..5, 5..7]);
         }
+    }
+
+    #[test]
+    fn ghost_zindex_overrides_the_hoisted_ordering_but_not_the_local_ordering() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r), ZIndex(2))).id();
+        let b = world.spawn((Node::default(), ChildOf(r), ZIndex(0))).id();
+        let g = world.spawn((GhostNode, ChildOf(r), ZIndex(1))).id();
+        let c = world.spawn((Node::default(), ChildOf(g), ZIndex(10))).id();
+        let d = world.spawn((Node::default(), ChildOf(g))).id();
+        let h = world.spawn((GhostNode, ChildOf(g), ZIndex(0))).id();
+        let e = world.spawn((Node::default(), ChildOf(h), ZIndex(100))).id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, b, d, e, c, a]);
     }
 }
