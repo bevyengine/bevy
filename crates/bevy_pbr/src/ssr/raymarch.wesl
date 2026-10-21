@@ -45,6 +45,7 @@ fn clamp_depth_uv(uv: vec2<f32>, tex_size: vec2<f32>) -> vec2<f32> {
 /// Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
 @if(!USE_DEPTH_SAMPLERS)
 fn depth_texel_clamped(texel: vec2<i32>) -> f32 {
+    // `texel` is already in texture pixels, so clamp to the main-pass viewport.
     let min_coord = vec2<i32>(view.main_pass_viewport.xy);
     let max_coord = min_coord + vec2<i32>(view.main_pass_viewport.zw) - vec2(1);
     let clamped = clamp(texel, min_coord, max_coord);
