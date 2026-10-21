@@ -131,13 +131,14 @@ pub fn ui_picking(
         {
             let mut pointer_pos =
                 pointer_location.position * camera.target_scaling_factor().unwrap_or(1.);
-            if let Some(viewport) = camera.physical_viewport_rect() {
-                if !viewport.as_rect().contains(pointer_pos) {
-                    // The pointer is outside the viewport, skip it
-                    continue;
-                }
-                pointer_pos -= viewport.min.as_vec2();
-            }
+            let Some(viewport) = camera
+                .physical_viewport_rect()
+                .filter(|r| r.as_rect().contains(pointer_pos))
+            else {
+                // The camera has no viewport or the pointer is outside the viewport, skip it
+                continue;
+            };
+            pointer_pos -= viewport.min.as_vec2();
             pointer_pos_by_camera
                 .entry(entity)
                 .or_default()

@@ -97,6 +97,17 @@ impl NumericValue {
         }
     }
 
+    /// Converts an `f64` into a value of the given format. Integer formats round to the nearest
+    /// integer, saturating at the bounds of the type.
+    pub fn from_f64(value: f64, fmt: NumericFormat) -> Self {
+        match fmt {
+            NumericFormat::F32 => NumericValue::F32(value as f32),
+            NumericFormat::F64 => NumericValue::F64(value),
+            NumericFormat::I32 => NumericValue::I32(value.round() as i32),
+            NumericFormat::I64 => NumericValue::I64(value.round() as i64),
+        }
+    }
+
     /// Returns this value as an `f64` for calculations that are format-independent.
     pub fn as_f64(&self) -> f64 {
         match *self {
