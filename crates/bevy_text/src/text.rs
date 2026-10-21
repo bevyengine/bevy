@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
 use tracing::warn;
+use bevy_ecs::template::VecTemplate;
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
@@ -303,6 +304,21 @@ pub enum FontSource {
     /// Use the default font source from the [`DefaultFontSource`] resource.
     #[default]
     Default,
+}
+impl From<FontSource> for FontSourceTemplate {
+    fn from(source: FontSource) -> Self {
+        match source {
+            FontSource::Handle(handle) => Self::Handle(handle.into()),
+            FontSource::Family(family) => Self::Family(family),
+            FontSource::Families(source) => Self::Families(source),
+            FontSource::List(list) => Self::List(VecTemplate(
+                list.into_iter()
+                    .map(FontSourceTemplate::from)
+                    .collect())),
+            FontSource::Generic(generic_family) => Self::Generic(generic_family),
+            FontSource::Default => Self::Default,
+        }
+    }
 }
 
 impl FontSource {
