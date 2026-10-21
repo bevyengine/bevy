@@ -202,7 +202,7 @@ impl ScatteringMedium {
     /// - Ozone absorption: a 30 km wide layer peaking at 25 km altitude
     ///
     /// [Bruneton 2017]: https://ebruneton.github.io/precomputed_atmospheric_scattering/
-    /// [Hillaire 2020]: https://doi.org/10.1111/cgf.14050
+    /// [Hillaire 2020]: https://sebh.github.io/publications/egsr2020.pdf
     pub fn earth(falloff_resolution: u32, phase_resolution: u32) -> Self {
         const RAYLEIGH_SCALE_HEIGHT: f32 = 8_000.0;
         const MIE_SCALE_HEIGHT: f32 = 1_200.0;
