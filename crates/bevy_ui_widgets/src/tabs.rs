@@ -1599,8 +1599,12 @@ mod tests {
             }]
         );
         assert_eq!(
-            app.world().entity(list).get::<Children>().unwrap().as_ref(),
-            order
+            app.world()
+                .entity(list)
+                .get::<Children>()
+                .unwrap()
+                .as_slice(),
+            &order
         );
         assert_eq!(preview(&app, list), None);
         assert_eq!(dragging(&app, first), None);
@@ -2180,8 +2184,8 @@ mod tests {
                 .entity(destination)
                 .get::<Children>()
                 .unwrap()
-                .as_ref(),
-            [dragged, resident]
+                .as_slice(),
+            &[dragged, resident]
         );
         assert!(!app.world().entity(dragged).contains::<Selected>());
 
@@ -2195,8 +2199,8 @@ mod tests {
                 .entity(source)
                 .get::<Children>()
                 .unwrap()
-                .as_ref(),
-            [dragged]
+                .as_slice(),
+            &[dragged]
         );
     }
 }
