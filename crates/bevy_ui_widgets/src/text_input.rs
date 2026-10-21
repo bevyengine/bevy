@@ -1154,14 +1154,10 @@ impl Plugin for TextInputPlugin {
                     .ambiguous_with(bevy_ui::AccessibilityUiSystems)
                     // update_placeholders writes Visibility/Node only on the
                     // overlay labels it spawns and owns; the gizmo step
-                    // writes gizmo meshes, update_clipping_system reads Node
-                    // across UI (and overlay Node writes take layout effect
-                    // NEXT frame regardless of ordering). Entity-disjoint by
-                    // construction. Declared here rather than in
-                    // DefaultPlugins so no feature gating is needed; the
-                    // gizmo anchor set lives in bevy_app for exactly this.
-                    .ambiguous_with(bevy_app::TransformGizmoRenderStep)
-                    .ambiguous_with(bevy_ui::update::update_clipping_system),
+                    // writes gizmo meshes. Entity-disjoint by construction.
+                    // Declared here instead of DefaultPlugins so no feature
+                    // gating is needed.
+                    .ambiguous_with(bevy_app::TransformGizmoRenderStep),
             );
 
         // These components cannot be registered in `bevy_text` where `EditableText` is defined,
