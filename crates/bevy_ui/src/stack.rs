@@ -798,4 +798,30 @@ mod tests {
 
         assert_eq!(world.resource::<UiStack>().uinodes, vec![r, b, d, e, c, a]);
     }
+
+    #[test]
+    fn ghost_global_zindex_preserves_local_ordering_within_the_same_global_layer() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let g = world.spawn((GhostNode, ChildOf(r), GlobalZIndex(1))).id();
+        let a = world.spawn((Node::default(), ChildOf(g))).id();
+        let h = world.spawn((GhostNode, ChildOf(g), ZIndex(1))).id();
+        let b = world.spawn((Node::default(), ChildOf(h), GlobalZIndex(1))).id();
+        let c = world.spawn((Node::default(), ChildOf(g), ZIndex(2))).id();
+        let d = world.spawn((Node::default(), ChildOf(r), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b, c, d]);
+
+        world.entity_mut(b).insert(GlobalZIndex(2));
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, c, d, b]);
+    }
 }
