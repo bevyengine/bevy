@@ -19,12 +19,12 @@ use bevy_platform::hash::FixedHasher;
 use bevy_text::{
     add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
     DefaultFontSource, EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet,
-    FontCx, FontHinting, FontSize, GlyphCacheKey, LayoutCx, LineBreak, LineHeight, PositionedGlyph,
-    RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout, TextLayoutInfo,
-    TextLineYBounds,
+    FontCx, FontHinting, FontSize, FontSmoothing, GlyphCacheKey, LayoutCx, LineBreak, LineHeight,
+    Placeholder, PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
+    TextLayoutInfo, TextLineYBounds,
 };
 use bevy_time::{Real, Time};
-use parley::{BoundingBox, PositionedLayoutItem, StyleProperty};
+use parley::{BoundingBox, GlyphRun, PositionedLayoutItem, StyleProperty};
 use smallvec::SmallVec;
 use swash::FontRef;
 use taffy::MaybeMath;
@@ -322,6 +322,7 @@ pub fn update_editable_text_layout(
         &mut EditableText,
         &mut TextLayoutInfo,
         &mut EditableTextGeneration,
+        Option<Ref<Placeholder>>,
     )>,
     rem_size: Res<RemSize>,
     input_focus: Option<Res<InputFocus>>,
@@ -344,6 +345,7 @@ pub fn update_editable_text_layout(
         mut editable_text,
         mut info,
         mut generation,
+        placeholder,
     ) in input_field_query.iter_mut()
     {
         let cursor_width = editable_text.cursor_width;
@@ -386,63 +388,16 @@ pub fn update_editable_text_layout(
 
                             let run = glyph_run.run();
 
-                            let font_data = run.font();
-                            let font_size = run.font_size();
-                            let coords = run.normalized_coords();
-
-                            let font_atlas_key = FontAtlasKey {
-                                id: font_data.data.id() as u32,
-                                index: font_data.index,
-                                font_size_bits: font_size.to_bits(),
-                                variations_hash: FixedHasher.hash_one(coords),
-                                hinting: *hinting,
-                                font_smoothing: brush.font_smoothing,
-                            };
-
-                            for glyph in glyph_run.positioned_glyphs() {
-                                let font_atlases =
-                                    font_atlas_set.entry(font_atlas_key).or_default();
-                                let Ok(atlas_info) = get_glyph_atlas_info(
-                                    font_atlases,
-                                    GlyphCacheKey {
-                                        glyph_id: glyph.id as u16,
-                                    },
-                                )
-                                .map(Ok)
-                                .unwrap_or_else(|| {
-                                    let font_ref = FontRef::from_index(
-                                        font_data.data.as_ref(),
-                                        font_data.index as usize,
-                                    )
-                                    .unwrap();
-                                    let font_id = [font_data.data.id(), font_data.index.into()];
-
-                                    let mut scaler = scale_cx
-                                        .builder_with_id(font_ref, font_id)
-                                        .size(font_size)
-                                        .hint(matches!(*hinting, FontHinting::Enabled))
-                                        .normalized_coords(coords)
-                                        .build();
-                                    add_glyph_to_atlas(
-                                        font_atlases,
-                                        textures.as_mut(),
-                                        &mut scaler,
-                                        text_font.font_smoothing,
-                                        glyph.id as u16,
-                                    )
-                                }) else {
-                                    continue;
-                                };
-
-                                info.glyphs.push(PositionedGlyph {
-                                    position: Vec2::new(glyph.x, glyph.y)
-                                        + atlas_info.rect.size() / 2.
-                                        + atlas_info.offset,
-                                    atlas_info,
-                                    section_index: brush.section_index,
-                                    line_index: line_index as u32,
-                                });
-                            }
+                            push_run_glyphs(
+                                &glyph_run,
+                                line_index,
+                                *hinting,
+                                text_font.font_smoothing,
+                                &mut font_atlas_set,
+                                &mut textures,
+                                &mut scale_cx,
+                                &mut info.glyphs,
+                            );
 
                             let metrics = run.metrics();
                             let underline_y = glyph_run.baseline() - metrics.underline_offset;
@@ -572,9 +527,118 @@ pub fn update_editable_text_layout(
         if layout_changed || *viewport != viewport_before {
             editable_text.set_changed();
         }
+
+        // The placeholder is laid out by a copy of the field's own editor, so
+        // font, scale, width, wrapping and alignment match the editor's text
+        // and caret exactly.
+        match placeholder {
+            Some(placeholder)
+                if layout_changed
+                    || hinting.is_changed()
+                    || placeholder.is_changed()
+                    || focus_changed =>
+            {
+                info.placeholder_glyphs.clear();
+                if placeholder.is_shown(&editable_text, is_focused) {
+                    let mut editor = editable_text.editor.clone();
+                    editor.set_text(&placeholder.text);
+                    let mut driver = editor.driver(font_cx.as_mut(), layout_cx.as_mut());
+                    for (line_index, line) in driver.layout().lines().enumerate() {
+                        for item in line.items() {
+                            if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
+                                push_run_glyphs(
+                                    &glyph_run,
+                                    line_index,
+                                    *hinting,
+                                    text_font.font_smoothing,
+                                    &mut font_atlas_set,
+                                    &mut textures,
+                                    &mut scale_cx,
+                                    &mut info.placeholder_glyphs,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            None if !info.placeholder_glyphs.is_empty() => info.placeholder_glyphs.clear(),
+            _ => {}
+        }
     }
 
     *previous_focus = current_focus;
+}
+
+/// Positions a glyph run's glyphs for rendering, adding any missing ones to
+/// the font atlas.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the atlas resources are separate system params"
+)]
+fn push_run_glyphs(
+    glyph_run: &GlyphRun<'_, TextBrush>,
+    line_index: usize,
+    hinting: FontHinting,
+    font_smoothing: FontSmoothing,
+    font_atlas_set: &mut FontAtlasSet,
+    textures: &mut Assets<Image>,
+    scale_cx: &mut ScaleCx,
+    glyphs: &mut Vec<PositionedGlyph>,
+) {
+    let brush = glyph_run.style().brush;
+    let run = glyph_run.run();
+
+    let font_data = run.font();
+    let font_size = run.font_size();
+    let coords = run.normalized_coords();
+
+    let font_atlas_key = FontAtlasKey {
+        id: font_data.data.id() as u32,
+        index: font_data.index,
+        font_size_bits: font_size.to_bits(),
+        variations_hash: FixedHasher.hash_one(coords),
+        hinting,
+        font_smoothing: brush.font_smoothing,
+    };
+
+    for glyph in glyph_run.positioned_glyphs() {
+        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
+        let Ok(atlas_info) = get_glyph_atlas_info(
+            font_atlases,
+            GlyphCacheKey {
+                glyph_id: glyph.id as u16,
+            },
+        )
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let font_ref =
+                FontRef::from_index(font_data.data.as_ref(), font_data.index as usize).unwrap();
+            let font_id = [font_data.data.id(), font_data.index.into()];
+
+            let mut scaler = scale_cx
+                .builder_with_id(font_ref, font_id)
+                .size(font_size)
+                .hint(matches!(hinting, FontHinting::Enabled))
+                .normalized_coords(coords)
+                .build();
+            add_glyph_to_atlas(
+                font_atlases,
+                textures,
+                &mut scaler,
+                font_smoothing,
+                glyph.id as u16,
+            )
+        }) else {
+            continue;
+        };
+
+        glyphs.push(PositionedGlyph {
+            position: Vec2::new(glyph.x, glyph.y) + atlas_info.rect.size() / 2. + atlas_info.offset,
+            atlas_info,
+            section_index: brush.section_index,
+            line_index: line_index as u32,
+        });
+    }
 }
 
 fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
@@ -587,5 +651,128 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
             x: geom.x1 as f32,
             y: geom.y1 as f32,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::borrow::Cow;
+    use bevy_app::{App, Update};
+    use bevy_text::{PlaceholderMode, TextColor};
+
+    fn app_with_field(placeholder: Placeholder) -> (App, Entity) {
+        let mut app = App::new();
+        app.init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
+            .init_resource::<FontAtlasSet>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<RemSize>()
+            .init_resource::<Time<Real>>()
+            .add_systems(Update, update_editable_text_layout);
+        let font = Font::from_bytes(bevy_text::DEFAULT_FONT_DATA.to_vec());
+        app.world_mut()
+            .resource_mut::<FontCx>()
+            .collection
+            .register_fonts(font.data, None);
+
+        let mut text = EditableText::default();
+        text.editor
+            .edit_styles()
+            .insert(parley::FontFamilyName::Named(Cow::Borrowed("Fira Mono")).into());
+        text.editor.set_width(Some(400.));
+        let entity = app
+            .world_mut()
+            .spawn((
+                text,
+                placeholder,
+                ComputedUiRenderTargetInfo::default(),
+                TextLayoutInfo::default(),
+            ))
+            .id();
+        app.update();
+        (app, entity)
+    }
+
+    fn info(app: &App, entity: Entity) -> &TextLayoutInfo {
+        app.world().get::<TextLayoutInfo>(entity).unwrap()
+    }
+
+    fn set_text(app: &mut App, entity: Entity, text: &str) {
+        app.world_mut()
+            .get_mut::<EditableText>(entity)
+            .unwrap()
+            .editor
+            .set_text(text);
+        app.update();
+    }
+
+    #[test]
+    fn placeholder_shows_while_empty() {
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 6);
+        assert!(info(&app, entity).glyphs.is_empty());
+
+        set_text(&mut app, entity, "x");
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+        assert_eq!(info(&app, entity).glyphs.len(), 1);
+
+        set_text(&mut app, entity, "");
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 6);
+    }
+
+    #[test]
+    fn placeholder_follows_the_editor_alignment() {
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        let left = info(&app, entity).placeholder_glyphs[0].position.x;
+        // "Search" is ~360px at the editor's default 100px font size
+        let mut text = app.world_mut().get_mut::<EditableText>(entity).unwrap();
+        text.editor.set_width(Some(2000.));
+        text.editor.set_alignment(parley::Alignment::Center);
+        app.update();
+        let centered = info(&app, entity).placeholder_glyphs[0].position.x;
+        assert!(centered > left + 500., "{left} -> {centered}");
+    }
+
+    #[test]
+    fn unless_focused_hides_on_focus() {
+        let (mut app, entity) = app_with_field(Placeholder {
+            mode: PlaceholderMode::UnlessFocused,
+            ..Placeholder::new("Search")
+        });
+        assert!(!info(&app, entity).placeholder_glyphs.is_empty());
+        app.insert_resource(InputFocus::from_entity(entity));
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+        app.insert_resource(InputFocus::default());
+        app.update();
+        assert!(!info(&app, entity).placeholder_glyphs.is_empty());
+    }
+
+    #[test]
+    fn changing_or_removing_the_placeholder() {
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        app.world_mut().get_mut::<Placeholder>(entity).unwrap().text = "Go".into();
+        app.update();
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 2);
+        app.world_mut().entity_mut(entity).remove::<Placeholder>();
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+    }
+
+    #[test]
+    fn placeholder_color() {
+        let field = TextColor(bevy_color::Color::srgba(1., 1., 1., 0.5)).0;
+        let derived = Placeholder::new("x").resolve_color(field);
+        assert_eq!(
+            bevy_color::Alpha::alpha(&derived),
+            0.5 * Placeholder::DEFAULT_ALPHA
+        );
+        let explicit = Placeholder {
+            color: Some(bevy_color::Color::BLACK),
+            ..Placeholder::new("x")
+        };
+        assert_eq!(explicit.resolve_color(field), bevy_color::Color::BLACK);
     }
 }

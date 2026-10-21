@@ -32,8 +32,8 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, TextCursorStyle};
-use bevy::ui_widgets::{Placeholder, TextInput};
+use bevy::text::{EditableText, Placeholder, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
