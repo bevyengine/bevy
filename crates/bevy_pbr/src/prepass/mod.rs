@@ -846,7 +846,7 @@ pub fn prepare_previous_view_uniforms(
     }
 }
 
-/// Render-world history of the main-pass viewport, normalized to its full render target.
+/// Render-world history of the main pass viewport, normalized to its full render target.
 #[derive(Component, Clone)]
 pub struct PreviousViewViewport {
     pub main_pass_viewport_uv: Vec4,
