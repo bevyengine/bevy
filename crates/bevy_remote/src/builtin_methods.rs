@@ -1180,7 +1180,7 @@ fn matches_name_path(world: &World, entity: Entity, path: &[NamePathSegment]) ->
         NamePathSegment::Index(index) => chain.get(i + 1).is_some_and(|&parent| {
             world
                 .get::<Children>(parent)
-                .and_then(|children| children.get(*index))
+                .and_then(|children| children.get_index(*index))
                 == Some(&chain[i])
         }),
     };
