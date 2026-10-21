@@ -529,6 +529,29 @@ mod tests {
     }
 
     #[test]
+    fn equal_global_zindex_preserves_sibling_stacking_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r), GlobalZIndex(1))).id();
+        let b = world.spawn((Node::default(), ChildOf(r), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b]);
+
+        world.entity_mut(a).insert(GlobalZIndex(1));
+
+        for _ in 0..2 {
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b]);
+        }
+    }
+
+    #[test]
     fn ghost_nodes_flatten_z_order() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
