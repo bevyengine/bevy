@@ -77,13 +77,13 @@ impl ComponentInfo {
         self.descriptor.layout
     }
 
-    #[inline]
     /// Get the function which should be called to clean up values of
     /// the underlying component type. This maps to the
     /// [`Drop`] implementation for 'normal' Rust components
     ///
     /// Returns `None` if values of the underlying component type don't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
+    #[inline]
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
@@ -687,8 +687,11 @@ impl Components {
     }
 
     /// Gets an iterator over all components fully registered with this instance.
-    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+    pub fn iter_registered(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo)> + '_ {
+        self.components
+            .iter()
+            .enumerate()
+            .filter_map(|(index, info)| info.as_ref().map(|info| (ComponentId::new(index), info)))
     }
 
     pub(crate) fn get_relationship_accessor_mut(

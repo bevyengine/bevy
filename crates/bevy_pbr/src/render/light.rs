@@ -247,12 +247,7 @@ pub const MAX_RECT_LIGHTS: usize = 8;
 
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
-    pub point_light_comparison_sampler: Sampler,
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub point_light_linear_sampler: Sampler,
-    pub directional_light_comparison_sampler: Sampler,
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub directional_light_linear_sampler: Sampler,
+    pub shadow_comparison_sampler: Sampler,
 }
 
 pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDevice>) {
@@ -267,18 +262,10 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
     };
 
     commands.insert_resource(ShadowSamplers {
-        point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+        shadow_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
             compare: Some(CompareFunction::GreaterEqual),
             ..base_sampler_descriptor
         }),
-        #[cfg(feature = "experimental_pbr_pcss")]
-        point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
-        directional_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-            compare: Some(CompareFunction::GreaterEqual),
-            ..base_sampler_descriptor
-        }),
-        #[cfg(feature = "experimental_pbr_pcss")]
-        directional_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
     });
 }
 
@@ -901,7 +888,7 @@ pub fn extract_lights(
     {
         if !cfg!(feature = "area_light_luts") && !*rect_light_missing_luts_warning_emitted {
             warn!(
-                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled."
+                "RectLight will not work properly because the `area_light_luts` cargo feature is not enabled. Ignore this warning if you are using bevy_solari."
             );
             *rect_light_missing_luts_warning_emitted = true;
         }
@@ -1481,12 +1468,17 @@ pub fn prepare_lights(
     let mut directional_light_depth_attachments =
         HashMap::<u32, DepthStencilViewAttachment>::default();
 
+    let point_shadow_map_size = if point_light_shadow_maps_count == 0 {
+        1
+    } else {
+        point_light_shadow_map.size as u32
+    };
     let point_light_depth_texture = texture_cache.get(
         &render_device,
         TextureDescriptor {
             size: Extent3d {
-                width: point_light_shadow_map.size as u32,
-                height: point_light_shadow_map.size as u32,
+                width: point_shadow_map_size,
+                height: point_shadow_map_size,
                 depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32 * 6,
             },
             mip_level_count: 1,
@@ -1529,17 +1521,21 @@ pub fn prepare_lights(
                 array_layer_count: None,
             });
 
+    let directional_and_spot_count =
+        num_directional_cascades_enabled + spot_light_shadow_maps_count;
+    let directional_shadow_map_size = if directional_and_spot_count == 0 {
+        1
+    } else {
+        (directional_light_shadow_map.size as u32)
+            .min(render_device.limits().max_texture_dimension_2d)
+    };
     let directional_light_depth_texture = texture_cache.get(
         &render_device,
         TextureDescriptor {
             size: Extent3d {
-                width: (directional_light_shadow_map.size as u32)
-                    .min(render_device.limits().max_texture_dimension_2d),
-                height: (directional_light_shadow_map.size as u32)
-                    .min(render_device.limits().max_texture_dimension_2d),
-                depth_or_array_layers: (num_directional_cascades_enabled
-                    + spot_light_shadow_maps_count)
-                    .max(1) as u32,
+                width: directional_shadow_map_size,
+                height: directional_shadow_map_size,
+                depth_or_array_layers: directional_and_spot_count.max(1) as u32,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -2564,6 +2560,10 @@ pub(crate) fn specialize_shadows(
                     continue;
                 }
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_shadow_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 

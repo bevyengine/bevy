@@ -6,7 +6,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
-    event::{EntityComponentsTrigger, EntityEvent},
+    event::{EntityComponentsTrigger, EntityEvent, EventTriggerState},
     lifecycle::{DespawnEvent, DiscardEvent, RemoveEvent, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
     query::{
@@ -1698,6 +1698,11 @@ impl<'w> EntityWorldMut<'w> {
 
     /// This despawns this entity if it is currently spawned, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`] but not freeing it.
     pub(crate) fn despawn_no_free_with_caller(&mut self, caller: MaybeLocation) {
+        self.despawn_no_free_no_flush_with_caller(caller);
+        self.world.flush();
+    }
+
+    pub(crate) fn despawn_no_free_no_flush_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {
             // If there is no location, we are already despawned
@@ -1861,7 +1866,6 @@ impl<'w> EntityWorldMut<'w> {
         // finish
         // SAFETY: We just despawned it.
         self.entity = unsafe { self.world.entities.mark_free(self.entity.index(), 1) };
-        self.world.flush();
     }
 
     /// Despawns the current entity.
@@ -2353,16 +2357,16 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// [`EntityCommands::trigger`]: crate::system::EntityCommands::trigger
     #[track_caller]
-    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
-        &mut self,
-        event_fn: impl FnOnce(Entity) -> E,
-    ) -> &mut Self {
+    pub fn trigger<E: EntityEvent>(&mut self, event_fn: impl FnOnce(Entity) -> E) -> &mut Self
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         let mut event = (event_fn)(self.entity);
         let caller = MaybeLocation::caller();
         self.world_scope(|world| {
             world.trigger_ref_with_caller(
                 &mut event,
-                &mut <E::Trigger<'_> as Default>::default(),
+                &mut EventTriggerState::<E>::default(),
                 caller,
             );
         });
