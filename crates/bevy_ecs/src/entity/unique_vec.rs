@@ -944,18 +944,18 @@ impl<T: EntityEquivalent> FromIterator<T> for UniqueEntityEquivalentVec<T> {
         // Matches the `HashSet::from_iter` reservation logic.
         let iter = iter.into_iter();
         let size = iter.size_hint().0;
-        let unique_vec = Self::with_capacity(size);
+        let mut unique_vec = Self::with_capacity(size);
         let mut entities = EntityHashSet::with_capacity(size);
         // Internal iteration (fold/for_each) is known to result in better code generation
         // over a for loop.
-        iter.fold(unique_vec, |mut unique_vec, item| {
+        iter.for_each(|item| {
             if entities.insert(item.entity()) {
                 // `EntityEquivalent` ensures that item equality is consistent with `Entity` equality,
                 // so the `EntityHashSet` check ensures that this item is unique.
                 unique_vec.0.push(item);
             }
-            unique_vec
-        })
+        });
+        unique_vec
     }
 }
 
