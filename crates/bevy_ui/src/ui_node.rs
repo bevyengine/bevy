@@ -2905,6 +2905,7 @@ impl GlobalZIndex {
 // Default global z layer nodes without a `GlobalZIndex` component are placed into.
 pub const DEFAULT_GLOBAL_Z_LAYER: &str = "bevy_ui::default";
 
+/// Ordered list of global Z layer names in back-to-front order.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct GlobalZLayers(pub Vec<Cow<'static, str>>);
 
