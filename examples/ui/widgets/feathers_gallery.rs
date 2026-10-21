@@ -1275,7 +1275,7 @@ fn apply_tab_move(
 ) {
     let siblings = children
         .get(moved.to_strip)
-        .map(|children| children.to_vec())
+        .map(|children| children.iter().copied().collect::<Vec<_>>())
         .unwrap_or_default();
     let index = FeathersTabList::child_index(
         &siblings,
