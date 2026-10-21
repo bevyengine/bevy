@@ -1478,7 +1478,14 @@ mod tests {
             })
             .unwrap()
             .id();
-        let tabs = app.world().entity(list).get::<Children>().unwrap().to_vec();
+        let tabs = app
+            .world()
+            .entity(list)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>();
         let flare = app
             .world()
             .resource::<UiTheme>()
