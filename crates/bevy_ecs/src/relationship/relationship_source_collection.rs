@@ -509,7 +509,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        self.deref_mut().insert(entity)
+        self.insert(entity)
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
@@ -539,31 +539,29 @@ impl RelationshipSourceCollection for EntityIndexSet {
 
 impl OrderedRelationshipSourceCollection for EntityIndexSet {
     fn insert(&mut self, index: usize, entity: Entity) {
-        let entity_set = &mut **self;
-
         // Add to end, then move to position
-        entity_set.insert(entity);
-        let len = entity_set.len();
+        self.insert(entity);
+        let len = self.len();
         if index < len {
-            entity_set.swap_indices(len - 1, index);
+            self.swap_indices(len - 1, index);
         }
     }
 
     fn remove_at(&mut self, index: usize) -> Option<Entity> {
-        self.deref_mut().swap_remove_index(index)
+        self.swap_remove_index(index)
     }
 
     fn insert_stable(&mut self, index: usize, entity: Entity) {
         let safe_index = index.min(self.len());
-        self.deref_mut().insert_before(safe_index, entity);
+        self.insert_before(safe_index, entity);
     }
 
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
-        self.deref_mut().shift_remove_index(index)
+        self.shift_remove_index(index)
     }
 
     fn sort(&mut self) {
-        self.deref_mut().sort_unstable();
+        self.sort_unstable();
     }
 
     fn insert_sorted(&mut self, entity: Entity) {
@@ -574,14 +572,14 @@ impl OrderedRelationshipSourceCollection for EntityIndexSet {
     fn place_most_recent(&mut self, index: usize) {
         if !self.is_empty() {
             let last = self.len() - 1;
-            self.deref_mut().move_index(last, index.min(last));
+            self.move_index(last, index.min(last));
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = self.get_index_of(&entity) {
             let target = index.min(self.len() - 1);
-            self.deref_mut().move_index(current, target);
+            self.move_index(current, target);
         }
     }
 }

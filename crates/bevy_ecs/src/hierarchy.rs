@@ -1060,7 +1060,7 @@ mod tests {
             .add_children(&[child_a])
             .replace_children(&[child_a, child_a]);
 
-        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, [child_a]);
+        assert_eq!(children_vec(&world, parent), [child_a]);
 
         world.entity_mut(parent).clear();
 
@@ -1071,10 +1071,7 @@ mod tests {
             .add_children(&[child_b])
             .replace_children(&[child_a, child_b, child_a]);
 
-        assert_eq!(
-            world.entity(parent).get::<Children>().unwrap().0,
-            [child_a, child_b]
-        );
+        assert_eq!(children_vec(&world, parent), [child_a, child_b]);
 
         world.entity_mut(parent).clear();
 
@@ -1083,10 +1080,7 @@ mod tests {
             .add_children(&[child_a])
             .replace_children(&[child_a, child_b, child_a]);
 
-        assert_eq!(
-            world.entity(parent).get::<Children>().unwrap().0,
-            [child_a, child_b]
-        );
+        assert_eq!(children_vec(&world, parent), [child_a, child_b]);
     }
 
     #[test]
