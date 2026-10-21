@@ -4,7 +4,7 @@ pull_requests: []
 ---
 
 The `Extend` impl for `UniqueEntityEquivalentVec`has been removed
-because it performed an O(N<sup>2</sup>) check for duplicates.
+because it performed an O(N^2) check for duplicates.
 This could easily cause performance problems for large collections,
 but would be hidden behind an innocent-looking `extend()` call.
 
