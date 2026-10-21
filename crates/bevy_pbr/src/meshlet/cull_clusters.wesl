@@ -46,7 +46,7 @@ fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     if !is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
 
     // If we pass, try occlusion culling
-    // If this node was occluded, push it's children to the second pass to check against this frame's HZB
+    // If this node was occluded, push its children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
 @if(MESHLET_FIRST_CULLING_PASS) {
         let id = atomicAdd(&meshlet_meshlet_cull_count_write, 1u);

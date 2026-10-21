@@ -11,12 +11,11 @@ use bevy_ecs::{
     system::{Commands, Query},
     template::FromTemplate,
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent, Node,
     PositionType, Pressed, UiRect, UiTransform,
@@ -58,7 +57,7 @@ pub struct FeathersCheckboxProps {
 impl Default for FeathersCheckboxProps {
     fn default() -> Self {
         Self {
-            caption: Box::new(bsn! {}),
+            caption: Box::new(bsn_list! {}),
         }
     }
 }
@@ -77,10 +76,9 @@ impl FeathersCheckbox {
             CheckboxFrame
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             InheritableThemeTextColor(tokens::CHECKBOX_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }

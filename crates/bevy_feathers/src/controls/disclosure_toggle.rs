@@ -8,7 +8,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{cursor::EntityCursor, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
@@ -51,7 +50,6 @@ impl FeathersDisclosureToggle {
             EntityCursor::System(SystemCursorIcon::Pointer)
             FocusIndicator
             InheritableThemeTextColor(tokens::BUTTON_TEXT)
-            TabIndex(0)
             Children [
                 @icon(icons::CHEVRON_RIGHT)
             ]

@@ -5,8 +5,8 @@ use bevy_ecs::{
     system::Commands,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_scene::{bsn, on, Scene, SceneComponent, SceneList};
-use bevy_text::FontWeight;
+use bevy_scene::{bsn, bsn_list, on, Scene, SceneComponent, SceneList};
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, vh, vw, widget::Text, AlignItems, BorderRadius, BoxShadow, Display, FixedNode,
     FlexDirection, GlobalZIndex, JustifyContent, Node, OverrideClip, PositionType, UiRect, Val,
@@ -38,7 +38,7 @@ pub struct FeathersDialogProps {
 impl Default for FeathersDialogProps {
     fn default() -> Self {
         Self {
-            contents: Box::new(bsn! {}),
+            contents: Box::new(bsn_list! {}),
             width: Val::Auto,
         }
     }
@@ -117,7 +117,7 @@ impl Default for FeathersFloatingDialogProps {
     fn default() -> Self {
         Self {
             title: String::new(),
-            contents: Box::new(bsn! {}),
+            contents: Box::new(bsn_list! {}),
             width: Val::Auto,
             left: px(120),
             top: px(120),
@@ -175,7 +175,7 @@ impl FeathersFloatingDialog {
                 ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
                 Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
                 InheritableFont {
-                    font: fonts::REGULAR,
+                    font: FontSourceTemplate::Families(fonts::SANS),
                     font_size: size::HEADER_FONT,
                     weight: FontWeight::BOLD,
                 }
@@ -213,7 +213,7 @@ impl FeathersDialogHeader {
             Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
             ThemeBackgroundColor(tokens::DIALOG_HEADER_BG)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::HEADER_FONT,
                 weight: FontWeight::BOLD,
             }
@@ -258,7 +258,7 @@ impl FeathersDialogBody {
             }
             Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
@@ -285,7 +285,7 @@ impl FeathersDialogFooter {
             }
             Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Floating))
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }

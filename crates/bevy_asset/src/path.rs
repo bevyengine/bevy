@@ -317,7 +317,7 @@ impl<'a> AssetPath<'a> {
         let path = match &self.path {
             CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
             CowArc::Static(path) => CowArc::Static(path.parent()?),
-            CowArc::Owned(path) => path.parent()?.to_path_buf().into(),
+            CowArc::Owned(path) => CowArc::Owned(path.parent()?.into()),
         };
         Some(AssetPath {
             source: self.source.clone(),
@@ -568,17 +568,16 @@ impl<'a> AssetPath<'a> {
     /// ```
     pub fn is_unapproved(&self) -> bool {
         use std::path::Component;
-        let mut simplified = PathBuf::new();
+
+        let mut component_count: usize = 0;
+
         for component in self.path.components() {
             match component {
                 Component::Prefix(_) | Component::RootDir => return true,
                 Component::CurDir => {}
-                Component::ParentDir => {
-                    if !simplified.pop() {
-                        return true;
-                    }
-                }
-                Component::Normal(os_str) => simplified.push(os_str),
+                Component::ParentDir if component_count == 0 => return true,
+                Component::ParentDir => component_count -= 1,
+                Component::Normal(_) => component_count += 1,
             }
         }
 

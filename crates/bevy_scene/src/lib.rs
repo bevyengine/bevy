@@ -112,7 +112,7 @@
 //! ## Entity Hierarchies and Relationships
 //!
 //! Use `Children [scene1 -- scene2]` inside [`bsn!`] to spawn child entities.
-//! [`Children`] (and a list of entities at the root of [`bsn!`]) are separated by `--`;
+//! [`Children`] (and entities within [`bsn_list!`]) are separated by `--`;
 //! add multiple components to the same entity by listing them without a `--`:
 //!
 //! ```ignore
@@ -154,12 +154,15 @@
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`] which ultimately resolves to an [`Entity`]:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
+//! which is a [`Template`] that resolves to an [`Entity`].
+//!
+//! Note that a "child entity" can reference its ancestors using the #Name declared in the "root entity".
 //!
 //! ```ignore
 //! bsn! {
 //!     #Name
-//!     my_scene(#Name)
+//!     @my_scene(#Name)
 //!     ComponentA(#Name)
 //!     ComponentB { entity: #Name }
 //!     Children [
@@ -168,20 +171,49 @@
 //! }
 //! ```
 //!
-//! Notice that the "child entity" was able to access the parent entity via `#Name`. It is also possible for ancestors to access
-//! their descendants:
+//! It is also possible for ancestors to access their descendants:
 //!
 //! ```ignore
 //! bsn! {
-//!     #Root
+//!     Reference(#Child)
 //!     Children [
-//!         Reference(#Root)
+//!         #Child
 //!     ]
 //! }
 //! ```
 //!
-//! Using `#Name` as a value in [`bsn!`] will result in an [`EntityTemplate`], which is a [`Template`] that resolves to an [`Entity`]
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(FromTemplate, Component)]
+//! struct Reference(Entity);
+//! ```
+//!
+//! You can pass it to functions by accepting a [`EntityTemplate`] argument:
+//!
+//! ```rust
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_ecs::template::EntityTemplate;
+//! #[derive(FromTemplate, Component)]
+//! # struct Reference(Entity);
+//! fn outer_scene() -> impl Scene {
+//!     bsn! {
+//!         #Outer
+//!         @inner_scene(#Outer)
+//!     }
+//!
+//! }
+//! fn inner_scene(entity: EntityTemplate) -> impl Scene {
+//!     bsn! {
+//!         #Inner
+//!         Reference(entity)
+//!     }
+//!
+//! }
+//! ```
+//!
 //!
 //! ### Scope rules
 //!
@@ -200,14 +232,14 @@
 //! If both a parent and a composed child define the same name (e.g. both use `#X`),
 //! each scope's `#X` resolves to its own entity, avoiding conflicts or potentially unintuitive shadowing.
 //!
-//! In a list defined in [`bsn!`], all root entities share a single name scope, so sibling scenes
+//! In a [`bsn_list!`], all root entities share a single name scope, so sibling scenes
 //! can reference each other by name. This is useful for wiring up relationships between
 //! entities that are spawned together. For example, a group of UI panels where each
 //! panel needs a relationship to its neighbor:
 //!
 //! ```ignore
 //! fn linked_pair() -> impl SceneList {
-//!     bsn! {
+//!     bsn_list! {
 //!         #Left Link(#Right)
 //!         --
 //!         #Right Link(#Left)
@@ -464,7 +496,7 @@
 //! fn enemy(hp: u32, name: &str) -> impl Scene {
 //!     let name_string = name.to_string();
 //!     bsn! {
-//!         #{name}
+//!         Name({name.to_string()})
 //!         Health { current: {hp / 2}, max: hp }
 //!         Sprite { image: {name_string + ".png"} }
 //!     }
@@ -520,7 +552,7 @@
 //!     }
 //! }
 //!
-//! let items = bsn!{ #A -- #B -- #C};
+//! let items = bsn_list! { #A -- #B -- #C }; // or bsn! if container takes a `impl Scene`
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -539,7 +571,7 @@
 //!     }
 //! }
 //!
-//! let items = bsn! { #A -- #B -- #C }; // or bsn! if container takes a `impl Scene`
+//! let items = bsn_list! { #A -- #B -- #C }; // or bsn! if container takes a `impl Scene`
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -1417,7 +1449,7 @@ mod tests {
         }
 
         fn a() -> impl SceneList {
-            bsn! {
+            bsn_list! {
                 #X
                 Reference(#Y)
                 Children [
@@ -1649,7 +1681,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entities = world
-            .spawn_scene_list(bsn! {
+            .spawn_scene_list(bsn_list! {
                 #A
                 --
                 target(#A)
@@ -1953,7 +1985,7 @@ mod tests {
         }
         let mut app = test_app();
         let world = app.world_mut();
-        let items = bsn! {
+        let items = bsn_list! {
             #Second
             --
             #Third
@@ -1982,10 +2014,10 @@ mod tests {
         }
         let mut app = test_app();
         let world = app.world_mut();
-        let items = bsn![
+        let item = bsn! {
             #Second
-        ];
-        let id = world.spawn_scene(container(items)).unwrap().id();
+        };
+        let id = world.spawn_scene(container(item)).unwrap().id();
         let children = world.entity(id).get::<Children>().unwrap();
         let names: Vec<_> = children
             .iter()
@@ -2198,7 +2230,7 @@ mod tests {
         let mut app = test_app();
         let world = app.world_mut();
         let entities = world
-            .spawn_scene_list(bsn! {
+            .spawn_scene_list(bsn_list! {
                 #A
                 --
                 Foo::Entity(#A)
@@ -2354,7 +2386,7 @@ mod tests {
         let world = app.world_mut();
 
         fn scene(root: Entity) -> impl SceneList {
-            bsn! {
+            bsn_list! {
                 #Child1 ChildOf(root)
                 --
                 #Child2 ChildOf(#Child1)
@@ -2393,7 +2425,7 @@ mod tests {
             }
         }
 
-        let children = bsn! {
+        let children = bsn_list! {
             #B
             --
             #C
@@ -3067,7 +3099,7 @@ mod tests {
         impl Default for Props2 {
             fn default() -> Self {
                 Self {
-                    items: Box::new(bsn! {}),
+                    items: Box::new(bsn_list! {}),
                 }
             }
         }
@@ -3104,7 +3136,7 @@ mod tests {
                 }
                 ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
                 @Container {
-                    @items: bsn! {                // sometimes you may need to nest macro calls
+                    @items: bsn_list! {               // sometimes you may need to nest macro calls
                         #Item1 SomeComponent          // note: the name #item1 here is in its own scope
                         --
                         #Item2 @some_scene()
@@ -3373,8 +3405,8 @@ mod tests {
             ]
         };
 
-        let root = bsn! {
-            #Root @{patch}
+        let root = bsn_list! {
+            #root @{patch}
         };
 
         let expected_id = Some(world.spawn_scene_list(root).unwrap()[0]);
@@ -3533,5 +3565,100 @@ mod tests {
         ) -> Result<Self::Asset, Self::Error> {
             Ok(ScenePatch::load_with(load_context, (self.0)()))
         }
+    }
+
+    #[test]
+    fn arrays_in_bsn() {
+        #[derive(Component)]
+        struct Foo(Vec<Entity>);
+
+        impl FromTemplate for Foo {
+            type Template = FooTemplate;
+        }
+
+        struct FooTemplate(Vec<bevy_ecs::template::EntityTemplate>);
+
+        impl Template for FooTemplate {
+            type Output = Foo;
+
+            fn build_template(
+                &self,
+                context: &mut bevy_ecs::template::TemplateContext,
+            ) -> Result<Self::Output> {
+                self.0
+                    .iter()
+                    .map(|template| template.build_template(context))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Foo)
+            }
+
+            fn clone_template(&self) -> Self {
+                FooTemplate(self.0.clone())
+            }
+        }
+
+        impl FooTemplate {
+            fn new<const N: usize>(
+                entities: [bevy_ecs::template::EntityTemplate; N],
+            ) -> FooTemplate {
+                FooTemplate(entities.to_vec())
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                Foo::new([#A, #B])
+                --
+                #A
+                --
+                #B
+            })
+            .unwrap();
+        let foo = world.entity(entities[0]).get::<Foo>().unwrap();
+        assert_eq!(foo.0, entities[1..]);
+    }
+
+    #[test]
+    fn array_argument_allows_trailing_tokens() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(usize);
+
+        fn count_scene(len: usize) -> impl Scene {
+            bsn! { Marker({ len }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @count_scene([1, 2, 3].len()) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn array_argument_preserves_plain_rust_struct_literal() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(u32);
+
+        #[derive(Clone, Copy)]
+        struct Pair {
+            a: u32,
+            b: u32,
+        }
+
+        fn pair_scene(pairs: [Pair; 1]) -> impl Scene {
+            bsn! { Marker({ pairs[0].a + pairs[0].b }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @pair_scene([Pair { a: 7, b: 8 }]) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
     }
 }

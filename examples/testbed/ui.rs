@@ -63,6 +63,7 @@ fn main() {
     .add_systems(OnEnter(Scene::EditableText), editable_text::setup)
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(OnEnter(Scene::Block), block::setup)
+    .add_systems(OnEnter(Scene::InlineImage), inline_image::scene.spawn())
     .add_systems(
         OnEnter(Scene::FontRelativeUnits),
         font_relative_units::setup,
@@ -92,7 +93,6 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
 enum Scene {
     #[default]
     Image,
@@ -122,6 +122,7 @@ enum Scene {
     FontRelativeUnits,
     ChangeDetection,
     Block,
+    InlineImage,
 }
 
 impl Scene {
@@ -153,6 +154,7 @@ impl Scene {
         Scene::FontRelativeUnits,
         Scene::ChangeDetection,
         Scene::Block,
+        Scene::InlineImage,
     ];
 }
 
@@ -4149,5 +4151,32 @@ mod block {
                 ),
             ],
         ));
+    }
+}
+
+mod inline_image {
+    use super::Scene;
+    use bevy::prelude::*;
+
+    pub fn scene() -> impl SceneList {
+        bsn_list! {
+            Camera2d
+            DespawnOnExit<Scene>(Scene::InlineImage)
+            --
+            Text::new("head ")
+            DespawnOnExit<Scene>(Scene::InlineImage)
+            Children [
+                TextSpan::new("before image ")
+                --
+                InlineImage {
+                    color: Color::WHITE,
+                    image: "branding/bevy_logo_dark.png",
+                    flip_x: true,
+                    height: {Some(20.)},
+                }
+                --
+                TextSpan::new(" after image")
+            ]
+        }
     }
 }
