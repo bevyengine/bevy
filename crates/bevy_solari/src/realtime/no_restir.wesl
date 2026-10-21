@@ -20,9 +20,9 @@ fn initial_and_shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(gl
 
     let path = generate_initial_path(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
 
-    var pixel_color = path.radiance;
+    // Emissive is exposure-independent (like rasterization's default), so add it after exposure.
+    var pixel_color = path.radiance * view.exposure;
     pixel_color += surface.material.emissive;
-    pixel_color *= view.exposure;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)

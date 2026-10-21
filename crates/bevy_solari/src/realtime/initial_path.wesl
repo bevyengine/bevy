@@ -342,32 +342,36 @@ fn generate_emissive_candidate(
     let p_nee = nee_probability((*path).material);
     let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(di_samples));
 
+    // Pre-divide by exposure to cancel the shade pass's trailing `* view.exposure`, keeping
+    // emissive exposure-independent. Used in every term so ReSTIR statistics stay consistent.
+    let emissive = ray_hit.material.emissive / view.exposure;
+
     @if(RESTIR) {
         if !(*path).x2_reusable {
             // x1 -> x2 not reuse-safe (mirror/sharp lobe or failed gate): shade directly at this pixel
             // instead of publishing, since a reuse shift would waste it or make a firefly. Mirror lobes
             // always land here (p_brdf = INF, footprint 0), where emissive_mis_weight is 1.
-            (*path).radiance += (*path).x1_brdf * (*path).throughput_past_first_hit * ray_hit.material.emissive * emissive_mis_weight;
+            (*path).radiance += (*path).x1_brdf * (*path).throughput_past_first_hit * emissive * emissive_mis_weight;
         } else if bounce == 0u {
             // Bounce 0: Candidate is the emissive hit
-            let target_function = luminance((*path).x1_brdf * ray_hit.material.emissive) * emissive_mis_weight;
-            let resampling_weight = luminance((*path).x1_brdf * (*path).throughput_past_first_hit * ray_hit.material.emissive) * emissive_mis_weight;
+            let target_function = luminance((*path).x1_brdf * emissive) * emissive_mis_weight;
+            let resampling_weight = luminance((*path).x1_brdf * (*path).throughput_past_first_hit * emissive) * emissive_mis_weight;
 
             (*path).weight_sum += resampling_weight;
             if rand_f(rng) * (*path).weight_sum < resampling_weight {
                 (*path).reservoir.light_sample = LightSample(NULL_LIGHT_ID, bitcast<u32>(area_pdf));
                 (*path).reservoir.sample_point_world_position = (*path).x2_position;
                 (*path).reservoir.sample_point_world_normal = octahedral_encode((*path).x2_normal);
-                (*path).reservoir.radiance = ray_hit.material.emissive;
+                (*path).reservoir.radiance = emissive;
                 (*path).selected_target_function = target_function;
             }
         } else {
             // Deeper bounces: Candidate is the reconnection radiance at x2
-            let emissive_L_at_reconnection = (*path).throughput_past_first_hit * ray_hit.material.emissive * emissive_mis_weight;
+            let emissive_L_at_reconnection = (*path).throughput_past_first_hit * emissive * emissive_mis_weight;
             resample_reconnection_candidate(path, emissive_L_at_reconnection, rng);
         }
     } @else {
-        (*path).radiance += (*path).throughput_past_first_hit * ray_hit.material.emissive * emissive_mis_weight;
+        (*path).radiance += (*path).throughput_past_first_hit * emissive * emissive_mis_weight;
     }
 }
 
