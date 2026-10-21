@@ -107,7 +107,7 @@ pub struct PreviousViewData {
     pub clip_from_view: Mat4,
     pub world_from_clip: Mat4,
     pub view_from_clip: Mat4,
-    /// Previous frame's main-pass viewport origin and size, normalized to the full render target.
+    /// Previous frame's main pass viewport origin and size, normalized to the full render target.
     pub main_pass_viewport_uv: Vec4,
 }
 

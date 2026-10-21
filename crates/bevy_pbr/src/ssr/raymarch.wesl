@@ -22,7 +22,7 @@ import package::render::view_transformations::{
     position_world_to_ndc,
 };
 
-// The depth texture can be larger than the main-pass viewport.
+// The depth texture can be larger than the main pass viewport.
 fn ndc_to_depth_uv(ndc: vec2<f32>) -> vec2<f32> {
     let pixel = ndc_to_uv(ndc) * view.main_pass_viewport.zw + view.main_pass_viewport.xy;
     return pixel / vec2<f32>(textureDimensions(depth_prepass_texture));
@@ -45,7 +45,7 @@ fn clamp_depth_uv(uv: vec2<f32>, tex_size: vec2<f32>) -> vec2<f32> {
 /// Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
 @if(!USE_DEPTH_SAMPLERS)
 fn depth_texel_clamped(texel: vec2<i32>) -> f32 {
-    // `texel` is already in texture pixels, so clamp to the main-pass viewport.
+    // Only texels inside the main pass viewport hold this view's depth.
     let min_coord = vec2<i32>(view.main_pass_viewport.xy);
     let max_coord = min_coord + vec2<i32>(view.main_pass_viewport.zw) - vec2(1);
     let clamped = clamp(texel, min_coord, max_coord);

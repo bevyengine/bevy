@@ -139,7 +139,7 @@ impl Viewport {
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-/// * In shaders, use `View::main_pass_viewport` to map main-pass fragment coordinates
+/// * In shaders, use `View::main_pass_viewport` to map main pass fragment coordinates
 ///   to view coordinates. Use `View::viewport` for coordinates after upscaling.
 /// * Textures may still have the full target size; use their dimensions
 ///   when converting pixel coordinates to texture UVs.
