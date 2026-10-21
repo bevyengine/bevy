@@ -880,7 +880,7 @@ pub(crate) mod tests {
         assert_eq!(
             inspected
                 .get::<Children>(parent)
-                .map(|children| children.to_vec()),
+                .map(|children| children.iter().copied().collect::<Vec<_>>()),
             Some(alloc::vec![child])
         );
         assert!(world.get_entity(parent).is_err());

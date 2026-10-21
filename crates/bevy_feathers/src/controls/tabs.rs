@@ -543,7 +543,7 @@ fn arrange_tab_lists(
                 1
             }
         };
-        let mut arranged = children.to_vec();
+        let mut arranged = children.iter().copied().collect::<Vec<_>>();
         arranged.sort_by_key(rank);
         if arranged[..] != children[..] {
             commands.entity(list).insert_children(0, &arranged);
@@ -894,7 +894,7 @@ fn spawn_tab_drag_proxy(
         .copied()
         .filter(|child| !skipped.contains(*child))
         .flat_map(|child| match caption_nodes.get(child) {
-            Ok(caption) => caption.to_vec(),
+            Ok(caption) => caption.iter().copied().collect(),
             Err(_) => vec![child],
         })
         .collect::<Vec<_>>();
@@ -1315,7 +1315,13 @@ mod tests {
             .world_mut()
             .query_filtered::<(Entity, &DragProxy, &Children), With<FeathersTabDragProxy>>()
             .single(app.world())
-            .map(|(proxy, drag_proxy, children)| (proxy, *drag_proxy, children.to_vec()))
+            .map(|(proxy, drag_proxy, children)| {
+                (
+                    proxy,
+                    *drag_proxy,
+                    children.iter().copied().collect::<Vec<_>>(),
+                )
+            })
             .unwrap();
         assert_eq!(drag_proxy.pointer_id, PointerId::Touch(4));
         let ghost = app.world().entity(proxy);
@@ -1564,7 +1570,7 @@ mod tests {
         ) {
             let siblings = children
                 .get(moved.to_strip)
-                .map(|children| children.to_vec())
+                .map(|children| children.iter().copied().collect::<Vec<_>>())
                 .unwrap_or_default();
             let index = FeathersTabList::child_index(
                 &siblings,
@@ -1673,7 +1679,7 @@ mod tests {
             world
                 .entity(list)
                 .get::<Children>()
-                .map(|children| children.to_vec())
+                .map(|children| children.iter().copied().collect::<Vec<_>>())
                 .unwrap_or_default()
                 .into_iter()
                 .map(|child| {

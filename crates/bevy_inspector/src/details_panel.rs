@@ -3396,7 +3396,7 @@ mod tests {
         let body = find_body(app.world_mut()).unwrap();
         app.world()
             .get::<Children>(body)
-            .map(|children| children.to_vec())
+            .map(|children| children.iter().copied().collect::<Vec<_>>())
             .unwrap_or_default()
     }
 
