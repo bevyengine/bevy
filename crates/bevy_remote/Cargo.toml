@@ -31,6 +31,7 @@ bevy_render = ["dep:bevy_render", "bevy_dev_tools/render"]
 
 [dependencies]
 # bevy
+bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }

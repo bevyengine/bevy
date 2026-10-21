@@ -205,14 +205,14 @@ impl EditableText {
         &mut self.editor
     }
 
-    /// The current text.
+    /// Get the current text input as a [`Cow<str>`].
     ///
     /// This is always the *entered* text: a
     /// [`CharacterMask`](crate::CharacterMask) affects display only. IME
     /// preedit (in-progress composition) is excluded.
     ///
-    /// Normally borrowed, an owned copy is only made for split text
-    /// (e.g. IME preedit)
+    /// Borrowed as default, owned copy returned when there is a split
+    /// (e.g. IME preedit).
     pub fn value(&self) -> Cow<'_, str> {
         if let Some(shadow) = &self.shadow_value.0 {
             return Cow::Borrowed(shadow);

@@ -3,7 +3,7 @@ macro_rules! impl_reflect_for_hashset {
         const _: () = {
             impl<V, S> $crate::set::Set for $ty
             where
-                V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn get(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<&dyn $crate::reflect::PartialReflect> {
@@ -67,7 +67,7 @@ macro_rules! impl_reflect_for_hashset {
 
             impl<V, S> $crate::reflect::PartialReflect for $ty
             where
-                V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
@@ -143,7 +143,7 @@ macro_rules! impl_reflect_for_hashset {
 
             impl<V, S> $crate::info::Typed for $ty
             where
-                V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn type_info() -> &'static $crate::info::TypeInfo {
@@ -160,7 +160,7 @@ macro_rules! impl_reflect_for_hashset {
 
             impl<V, S> $crate::type_registry::GetTypeRegistration for $ty
             where
-                V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync + Default,
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
@@ -178,7 +178,7 @@ macro_rules! impl_reflect_for_hashset {
             $crate::impl_full_reflect!(
                 <V, S> for $ty
                 where
-                    V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                    V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                     S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             );
 
