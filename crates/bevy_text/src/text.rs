@@ -3,7 +3,7 @@ use alloc::borrow::Cow;
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent, template::VecTemplate};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
 use tracing::warn;
-use bevy_ecs::template::VecTemplate;
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
@@ -312,9 +311,8 @@ impl From<FontSource> for FontSourceTemplate {
             FontSource::Family(family) => Self::Family(family),
             FontSource::Families(source) => Self::Families(source),
             FontSource::List(list) => Self::List(VecTemplate(
-                list.into_iter()
-                    .map(FontSourceTemplate::from)
-                    .collect())),
+                list.into_iter().map(FontSourceTemplate::from).collect(),
+            )),
             FontSource::Generic(generic_family) => Self::Generic(generic_family),
             FontSource::Default => Self::Default,
         }
@@ -596,10 +594,20 @@ impl From<Handle<Font>> for FontSource {
         Self::Handle(handle)
     }
 }
+impl From<Handle<Font>> for FontSourceTemplate {
+    fn from(handle: Handle<Font>) -> Self {
+        Into::<FontSource>::into(handle).into()
+    }
+}
 
 impl From<&Handle<Font>> for FontSource {
     fn from(handle: &Handle<Font>) -> Self {
         Self::Handle(handle.clone())
+    }
+}
+impl From<&Handle<Font>> for FontSourceTemplate {
+    fn from(handle: &Handle<Font>) -> Self {
+        Into::<FontSource>::into(handle).into()
     }
 }
 
@@ -608,10 +616,20 @@ impl From<SmolStr> for FontSource {
         FontSource::Families(families)
     }
 }
+impl From<SmolStr> for FontSourceTemplate {
+    fn from(families: SmolStr) -> Self {
+        Into::<FontSource>::into(families).into()
+    }
+}
 
 impl From<&str> for FontSource {
     fn from(families: &str) -> Self {
         FontSource::Families(families.into())
+    }
+}
+impl From<&str> for FontSourceTemplate {
+    fn from(families: &str) -> Self {
+        Into::<FontSource>::into(families).into()
     }
 }
 
@@ -620,16 +638,31 @@ impl From<GenericFontFamily> for FontSource {
         Self::Generic(generic)
     }
 }
+impl From<GenericFontFamily> for FontSourceTemplate {
+    fn from(generic: GenericFontFamily) -> Self {
+        Into::<FontSource>::into(generic).into()
+    }
+}
 
 impl From<Vec<FontSource>> for FontSource {
     fn from(list: Vec<FontSource>) -> Self {
         Self::List(list)
     }
 }
+impl From<Vec<FontSource>> for FontSourceTemplate {
+    fn from(list: Vec<FontSource>) -> Self {
+        Into::<FontSource>::into(list).into()
+    }
+}
 
 impl<const N: usize> From<[FontSource; N]> for FontSource {
     fn from(list: [FontSource; N]) -> Self {
         Self::List(list.into())
+    }
+}
+impl<const N: usize> From<[FontSource; N]> for FontSourceTemplate {
+    fn from(list: [FontSource; N]) -> Self {
+        Into::<FontSource>::into(list).into()
     }
 }
 
