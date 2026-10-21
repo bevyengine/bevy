@@ -129,7 +129,7 @@ impl Plugin for WinitPlugin {
         #[cfg(target_os = "android")]
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
-            event_loop_builder.with_android_app(bevy_android::ANDROID_APP.get().clone());
+            event_loop_builder.with_android_app(bevy_android::ANDROID_APP.read().clone());
         }
 
         let event_loop = event_loop_builder

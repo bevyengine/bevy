@@ -13,10 +13,10 @@ use std::{
 /// Global storage for the current Android application handle.
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events
 /// (for example lifecycle and input events).
+/// The handle can change when Android destroys/recreates the activity.
 pub static ANDROID_APP: AndroidAppStorage = AndroidAppStorage::empty();
 
 /// Thread-safe storage for the Android application handle.
-/// The handle can change when Android recreates the activity.
 pub struct AndroidAppStorage {
     app: RwLock<Option<AndroidApp>>,
 }
@@ -34,8 +34,8 @@ impl AndroidAppStorage {
     /// # Panics
     ///
     /// Panics if the internal lock is poisoned.
-    pub fn set(&self, app: AndroidApp) {
-        *self.app.write().unwrap() = Some(app);
+    pub fn write(&self, app: Option<AndroidApp>) {
+        *self.app.write().unwrap() = app;
     }
 
     /// Returns a read guard for the current Android application handle.
@@ -43,7 +43,7 @@ impl AndroidAppStorage {
     /// # Panics
     ///
     /// Panics if the internal lock is poisoned or if the Android app has not been initialized yet.
-    pub fn get(&self) -> AndroidAppReadGuard<'_> {
+    pub fn read(&self) -> AndroidAppReadGuard<'_> {
         let guard = self.app.read().unwrap();
         AndroidAppReadGuard { guard }
     }
