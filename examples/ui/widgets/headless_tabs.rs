@@ -276,7 +276,7 @@ fn show_insertion_points(
     for (preview, children) in &lists {
         for entry in &preview.entries {
             if let Some(mut border) = children
-                .get(entry.slot)
+                .get_index(entry.slot)
                 .and_then(|tab| borders.get_mut(*tab).ok())
             {
                 border.left = color;
