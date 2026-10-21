@@ -26,6 +26,7 @@
 
 import package::render::mesh_view_bindings as view_bindings;
 import package::prepass::bindings as prepass_bindings;
+import package::render::utils::coords_to_viewport_uv;
 
 // -----------------
 // TO WORLD --------
@@ -219,7 +220,7 @@ fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
 
 /// Converts fragment coordinates to UVs within the main-pass viewport.
 fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
-    return (frag_coord - view_bindings::view.main_pass_viewport.xy) / view_bindings::view.main_pass_viewport.zw;
+    return coords_to_viewport_uv(frag_coord, view_bindings::view.main_pass_viewport);
 }
 
 /// Convert frag coord to ndc
