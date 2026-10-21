@@ -82,8 +82,15 @@ impl DebugPickingMode {
 #[derive(Debug, Default, Clone)]
 pub struct DebugPickingPlugin;
 
+/// [`GlobalZIndex`] used to render the picking debug overlay.
+pub const DEBUG_PICKING_LAYER: &str = "bevy_dev_tools::picking_debug";
+
 impl Plugin for DebugPickingPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<GlobalZLayers>();
+        app.world_mut()
+            .resource_mut::<GlobalZLayers>()
+            .push(DEBUG_PICKING_LAYER.into());
         app.register_type::<PointerDebugOverlayOf>()
             .register_type::<PointerDebugOverlay>()
             .init_resource::<DebugPickingMode>()
@@ -299,7 +306,7 @@ pub fn debug_draw(
                         ..Default::default()
                     },
                     BackgroundColor(Color::BLACK.with_alpha(0.75)),
-                    GlobalZIndex(i32::MAX),
+                    GlobalZIndex::new(DEBUG_PICKING_LAYER),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
                     children![(Text::new(text.clone()), TextFont::from_font_size(12.0))],

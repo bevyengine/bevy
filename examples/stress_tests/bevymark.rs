@@ -218,6 +218,7 @@ struct BirdResources {
 struct StatsText;
 
 fn setup(
+    mut layers: ResMut<GlobalZLayers>,
     mut commands: Commands,
     args: Res<Args>,
     asset_server: Res<AssetServer>,
@@ -228,6 +229,9 @@ fn setup(
     window: Single<&Window>,
     counter: ResMut<BevyCounter>,
 ) {
+    const OVERLAY_LAYER: &str = "overlay";
+
+    layers.push(OVERLAY_LAYER.into());
     warn!(include_str!("warning_string.txt"));
 
     let args = args.into_inner();
@@ -322,7 +326,7 @@ fn setup(
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
-            GlobalZIndex(i32::MAX),
+            GlobalZIndex::new(OVERLAY_LAYER),
         ))
         .with_children(|p| {
             p.spawn((Text::default(), StatsText)).with_children(|p| {

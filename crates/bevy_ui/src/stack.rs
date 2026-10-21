@@ -1,6 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{GlobalZIndex, ZIndex};
+use crate::{GlobalZIndex, GlobalZLayers, ZIndex, DEFAULT_GLOBAL_Z_LAYER};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -35,7 +35,7 @@ pub struct UiStack {
 /// The stack root and its descendants, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
-    global_z: i32,
+    global_z: u32,
     local_z: i32,
     new_or_changed: bool,
     previous_index: usize,
@@ -47,6 +47,7 @@ pub(crate) struct StackRoot {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
+    global_z_layers: Res<GlobalZLayers>,
     mut cache: Local<Vec<(Entity, i32)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
@@ -62,6 +63,9 @@ pub fn ui_stack_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
+    let default_global_z = global_z_layers
+        .get_index(DEFAULT_GLOBAL_Z_LAYER)
+        .unwrap_or(0);
     stack_root_order.clear();
     for (order, partition) in ui_stack.partition.iter().enumerate() {
         stack_root_order.insert(ui_stack.uinodes[partition.start], order);
@@ -77,7 +81,9 @@ pub fn ui_stack_system(
         stack_roots.push((
             id,
             StackRoot {
-                global_z: maybe_global_zindex.map(|z| z.0).unwrap_or(0),
+                global_z: maybe_global_zindex
+                    .map(|g| global_z_layers.get_index(&g.0).unwrap_or(default_global_z))
+                    .unwrap_or(default_global_z),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
                     || maybe_global_zindex.as_ref().is_some_and(Ref::is_changed)
@@ -97,7 +103,9 @@ pub fn ui_stack_system(
         stack_roots.push((
             id,
             StackRoot {
-                global_z: global_zindex.0,
+                global_z: global_z_layers
+                    .get_index(&global_zindex.0)
+                    .unwrap_or(default_global_z),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
                     || global_zindex.is_changed()
@@ -173,6 +181,7 @@ fn update_uistack_recursive(
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::Cow;
     use bevy_ecs::{
         component::Component,
         hierarchy::ChildOf,
@@ -181,12 +190,16 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use crate::{GlobalZIndex, Node, UiStack, ZIndex};
+    use crate::{GlobalZIndex, GlobalZLayers, Node, UiStack, ZIndex, DEFAULT_GLOBAL_Z_LAYER};
 
     use super::ui_stack_system;
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
+
+    fn test_layer(index: i32) -> Cow<'static, str> {
+        format!("TestLayer({index})").into()
+    }
 
     fn node_with_global_and_local_zindex(
         name: &'static str,
@@ -196,7 +209,11 @@ mod tests {
         (
             Label(name),
             Node::default(),
-            GlobalZIndex(global_zindex),
+            if global_zindex == 0 {
+                GlobalZIndex::default()
+            } else {
+                GlobalZIndex::new(test_layer(global_zindex))
+            },
             ZIndex(local_zindex),
         )
     }
@@ -205,7 +222,15 @@ mod tests {
         name: &'static str,
         global_zindex: i32,
     ) -> (Label, Node, GlobalZIndex) {
-        (Label(name), Node::default(), GlobalZIndex(global_zindex))
+        (
+            Label(name),
+            Node::default(),
+            if global_zindex == 0 {
+                GlobalZIndex::default()
+            } else {
+                GlobalZIndex::new(test_layer(global_zindex))
+            },
+        )
     }
 
     fn node_with_zindex(name: &'static str, zindex: i32) -> (Label, Node, ZIndex) {
@@ -226,6 +251,17 @@ mod tests {
     fn test_ui_stack_system() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
+        world.insert_resource(GlobalZLayers(
+            (-3..=2)
+                .map(|index| {
+                    if index == 0 {
+                        DEFAULT_GLOBAL_Z_LAYER.into()
+                    } else {
+                        test_layer(index)
+                    }
+                })
+                .collect(),
+        ));
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
@@ -331,6 +367,17 @@ mod tests {
     fn test_with_equal_global_zindex_zindex_decides_order() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
+        world.insert_resource(GlobalZLayers(
+            (-3..=2)
+                .map(|index| {
+                    if index == 0 {
+                        DEFAULT_GLOBAL_Z_LAYER.into()
+                    } else {
+                        test_layer(index)
+                    }
+                })
+                .collect(),
+        ));
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
@@ -387,12 +434,13 @@ mod tests {
         struct Marker;
         let mut world = World::default();
         world.init_resource::<UiStack>();
+        world.init_resource::<GlobalZLayers>();
 
         let mut schedule = Schedule::default();
         schedule.add_systems(ui_stack_system);
 
         for _ in 0..10 {
-            world.spawn((Node::default(), GlobalZIndex(0)));
+            world.spawn((Node::default(), GlobalZIndex::default()));
         }
 
         schedule.run(&mut world);
@@ -412,19 +460,20 @@ mod tests {
     fn last_updated_stack_root_should_be_on_top() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
+        world.init_resource::<GlobalZLayers>();
 
         let mut schedule = Schedule::default();
         schedule.add_systems(ui_stack_system);
 
         for _ in 0..10 {
-            world.spawn((Node::default(), GlobalZIndex(0)));
+            world.spawn((Node::default(), GlobalZIndex::default()));
         }
 
         schedule.run(&mut world);
 
         let first = world.resource::<UiStack>().uinodes[0];
 
-        world.entity_mut(first).insert(GlobalZIndex(0));
+        world.entity_mut(first).insert(GlobalZIndex::default());
 
         schedule.run(&mut world);
 
@@ -445,13 +494,14 @@ mod tests {
         struct Marker;
         let mut world = World::default();
         world.init_resource::<UiStack>();
+        world.init_resource::<GlobalZLayers>();
 
         let mut schedule = Schedule::default();
         schedule.add_systems(ui_stack_system);
 
         let parent = world.spawn(Node::default()).id();
         for _ in 0..10 {
-            world.spawn((Node::default(), GlobalZIndex(0), ChildOf(parent)));
+            world.spawn((Node::default(), GlobalZIndex::default(), ChildOf(parent)));
         }
 
         schedule.run(&mut world);

@@ -113,7 +113,16 @@ fn translation_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut layers: ResMut<GlobalZLayers>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    const FOREGROUND_LAYER: &str = "foreground";
+
+    layers
+        .insert_after(DEFAULT_GLOBAL_Z_LAYER, FOREGROUND_LAYER)
+        .unwrap();
     // UI camera
     commands.spawn(Camera2d);
 
@@ -147,7 +156,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
-                    GlobalZIndex(1),
+                    GlobalZIndex::new(FOREGROUND_LAYER),
                     children![
                         (
                             Button,
@@ -286,7 +295,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     BackgroundColor(Color::BLACK),
-                    GlobalZIndex(1),
+                    GlobalZIndex::new(FOREGROUND_LAYER),
                     children![
                         (
                             Button,

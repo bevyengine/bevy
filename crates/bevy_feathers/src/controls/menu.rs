@@ -20,8 +20,9 @@ use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
 use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
-    px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
+    px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex, GlobalZLayers,
     InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect,
+    DEFAULT_GLOBAL_Z_LAYER,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
@@ -339,6 +340,9 @@ impl FeathersMenuToolButton {
     }
 }
 
+/// [`GlobalZIndex`] layer used by [`FeathersMenuPopup`].
+pub const FEATHERS_MENU_LAYER: &str = "bevy_feathers::menu";
+
 /// A menu popup widget.
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
@@ -370,7 +374,7 @@ impl FeathersMenuPopup {
                 px(1),
                 px(4),
             )
-            GlobalZIndex(100)
+            GlobalZIndex::new(FEATHERS_MENU_LAYER)
             Popover {
                 positions: vec![
                     PopoverPlacement {
@@ -607,6 +611,16 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        app.init_resource::<GlobalZLayers>();
+        let mut layers = app.world_mut().resource_mut::<GlobalZLayers>();
+        let index = layers.get_index(DEFAULT_GLOBAL_Z_LAYER).unwrap() as usize + 1;
+        layers.splice(
+            index..index,
+            [
+                super::FEATHERS_DIALOG_LAYER.into(),
+                FEATHERS_MENU_LAYER.into(),
+            ],
+        );
         app.add_systems(
             PreUpdate,
             (

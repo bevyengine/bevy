@@ -26,7 +26,7 @@ const ROW_COLUMN_GAP: Val = Val::Px(4.);
 /// Padding for cels of the diagnostics overlay
 const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 /// Initial Z-index for the [`DiagnosticsOverlayPlane`]
-pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
+pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: &str = "bevy_dev_tools::diagnostics_overlay";
 /// Alias to shorten the name
 type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMaterial>;
 
@@ -249,6 +249,13 @@ pub struct DiagnosticsOverlayPlugin;
 
 impl Plugin for DiagnosticsOverlayPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<GlobalZLayers>();
+        let mut layers = app.world_mut().resource_mut::<GlobalZLayers>();
+        let index = layers
+            .get_index(crate::fps_overlay::FPS_OVERLAY_ZINDEX)
+            .or_else(|_| layers.get_index(crate::picking_debug::DEBUG_PICKING_LAYER))
+            .map_or(layers.len(), |index| index as usize);
+        layers.insert(index, INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX.into());
         app.init_resource::<DiagnosticsOverlayStyle>();
         app.configure_sets(Update, DiagnosticsOverlaySystems::Rebuild);
         app.add_systems(PreStartup, build_plane);
@@ -280,7 +287,7 @@ fn build_plane(mut commands: Commands) {
             should_block_lower: false,
             ..Default::default()
         },
-        INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX,
+        GlobalZIndex::new(INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX),
     ));
 }
 

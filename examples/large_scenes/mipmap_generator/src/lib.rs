@@ -156,7 +156,12 @@ impl Plugin for MipmapGeneratorDebugTextPlugin {
 }
 
 #[cfg(feature = "debug_text")]
-fn init_loading_text(mut commands: Commands) {
+fn init_loading_text(mut layers: ResMut<GlobalZLayers>, mut commands: Commands) {
+    const LOADING_TEXT_SHADOW_LAYER: &str = "mipmap_generator::loading_text_shadow";
+
+    layers
+        .insert_before(DEFAULT_GLOBAL_Z_LAYER, LOADING_TEXT_SHADOW_LAYER)
+        .unwrap();
     commands
         .spawn((
             Node {
@@ -164,7 +169,7 @@ fn init_loading_text(mut commands: Commands) {
                 top: px(1.5),
                 ..default()
             },
-            GlobalZIndex(-1),
+            GlobalZIndex::new(LOADING_TEXT_SHADOW_LAYER),
         ))
         .with_children(|parent| {
             parent.spawn((

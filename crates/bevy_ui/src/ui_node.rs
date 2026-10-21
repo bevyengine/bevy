@@ -6,6 +6,7 @@ use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
 };
+use alloc::borrow::Cow;
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
@@ -2875,9 +2876,6 @@ pub struct ZIndex(pub i32);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
-/// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
-/// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
-/// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
 /// The order of nodes with the same `GlobalZIndex` is stable between frames.
 ///
 /// If two Nodes have the same `GlobalZIndex`, ties are decided in order by:
@@ -2887,9 +2885,79 @@ pub struct ZIndex(pub i32);
 /// * The node with a changed `GlobalZIndex` or `ZIndex`.
 ///
 /// Otherwise the order is preserved from the previous frame.
-#[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
+#[derive(Component, Clone, Debug, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct GlobalZIndex(pub i32);
+pub struct GlobalZIndex(pub Cow<'static, str>);
+
+impl Default for GlobalZIndex {
+    fn default() -> Self {
+        Self::new(DEFAULT_GLOBAL_Z_LAYER)
+    }
+}
+
+impl GlobalZIndex {
+    /// Create a new `GlobalZIndex`, targeting the given layer.
+    pub fn new(layer: impl Into<Cow<'static, str>>) -> Self {
+        Self(layer.into())
+    }
+}
+
+// Default global z layer nodes without a `GlobalZIndex` component are placed into.
+pub const DEFAULT_GLOBAL_Z_LAYER: &str = "bevy_ui::default";
+
+/// Ordered list of global Z layer names in back-to-front order.
+#[derive(Resource, Clone, Debug, Deref, DerefMut)]
+pub struct GlobalZLayers(pub Vec<Cow<'static, str>>);
+
+impl Default for GlobalZLayers {
+    fn default() -> Self {
+        Self(vec![DEFAULT_GLOBAL_Z_LAYER.into()])
+    }
+}
+
+impl GlobalZLayers {
+    /// Get the underlying corresponding to a layer name.
+    pub fn get_index(&self, layer: &str) -> Result<u32, GlobalZLayerError> {
+        self.iter()
+            .position(|label| label == layer)
+            .map(|index| index as u32)
+            .ok_or(GlobalZLayerError::NoSuchLayer)
+    }
+
+    /// Insert a new z-layer immediately before the given layer.
+    pub fn insert_before(
+        &mut self,
+        before: &str,
+        new_layer: impl Into<Cow<'static, str>>,
+    ) -> Result<(), GlobalZLayerError> {
+        let index = self
+            .iter()
+            .position(|label| label == before)
+            .ok_or(GlobalZLayerError::NoSuchLayer)?;
+        self.insert(index, new_layer.into());
+        Ok(())
+    }
+
+    /// Insert a new z-layer immediately after the given layer.
+    pub fn insert_after(
+        &mut self,
+        after: &str,
+        new_layer: impl Into<Cow<'static, str>>,
+    ) -> Result<(), GlobalZLayerError> {
+        let index = self
+            .iter()
+            .position(|label| label == after)
+            .ok_or(GlobalZLayerError::NoSuchLayer)?;
+        self.insert(index + 1, new_layer.into());
+        Ok(())
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum GlobalZLayerError {
+    #[error("The given global z-layer wasn't found in GlobalZLayers")]
+    NoSuchLayer,
+}
 
 /// Sets a color to fill the regions outside the Node's border created when a border radius is set.
 ///

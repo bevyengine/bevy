@@ -150,6 +150,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<GlobalZLayers>()
             .init_resource::<UiRoots>()
             .register_required_components::<
                 bevy_text::EditableText,

@@ -27,8 +27,8 @@ use bevy_scene::prelude::*;
 use bevy_text::{FontSourceTemplate, FontWeight, LineBreak, TextLayout};
 use bevy_ui::{
     px, AlignItems, BorderRadius, BoxShadow, ComputedNode, Display, FlexDirection, GlobalZIndex,
-    InlineDirection, InteractionDisabled, Node, OuterColor, Outline, Overflow, PositionType,
-    Selected, UiRect, UiSystems, Val,
+    GlobalZLayers, InlineDirection, InteractionDisabled, Node, OuterColor, Outline, Overflow,
+    PositionType, Selected, UiRect, UiSystems, Val, DEFAULT_GLOBAL_Z_LAYER,
 };
 use bevy_ui_widgets::{
     ControlOrientation, DragOverlayRoot, DragProxy, SelectedTab, Tab, TabActivation, TabDragMode,
@@ -57,7 +57,7 @@ const STRIP_INSET: f32 = 3.0;
 const STRIP_BORDER: f32 = 1.0;
 const INDICATOR_SIZE: f32 = 2.0;
 const DRAG_PROXY_OFFSET: Vec2 = Vec2::new(10.0, 10.0);
-const DRAG_PROXY_Z: i32 = 200;
+const DRAG_PROXY_Z: &str = "bevy_feathers::tab_drag";
 
 /// A themed strip of [`FeathersTab`]s.
 ///
@@ -946,7 +946,7 @@ fn spawn_tab_drag_proxy(
             border_radius: tab_node.border_radius,
             ..Default::default()
         },
-        GlobalZIndex(DRAG_PROXY_Z),
+        GlobalZIndex::new(DRAG_PROXY_Z),
         Outline::new(
             px(1),
             px(0),
@@ -976,6 +976,14 @@ pub struct FeathersTabsPlugin;
 
 impl Plugin for FeathersTabsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        app.init_resource::<GlobalZLayers>();
+        let mut layers = app.world_mut().resource_mut::<GlobalZLayers>();
+        let index = layers
+            .get_index(super::FEATHERS_MENU_LAYER)
+            .or_else(|_| layers.get_index(DEFAULT_GLOBAL_Z_LAYER))
+            .unwrap() as usize
+            + 1;
+        layers.insert(index, DRAG_PROXY_Z.into());
         app.add_observer(spawn_tab_drag_proxy).add_systems(
             PostUpdate,
             (

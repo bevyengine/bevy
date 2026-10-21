@@ -44,6 +44,9 @@ impl Default for FeathersDialogProps {
     }
 }
 
+/// [`GlobalZIndex`] layer used by [`FeathersDialog`].
+pub const FEATHERS_DIALOG_LAYER: &str = "bevy_feathers::dialog";
+
 /// A modal dialog box
 #[derive(SceneComponent, Default, Clone, Reflect)]
 #[scene(FeathersDialogProps)]
@@ -68,7 +71,7 @@ impl FeathersDialog {
             ModalDialogBarrier
             FixedNode
             OverrideClip
-            GlobalZIndex(99) // One less than menu layer
+            GlobalZIndex::new(FEATHERS_DIALOG_LAYER) // One less than menu layer
             Children [
                 Node {
                     display: Display::Flex,

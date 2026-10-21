@@ -29,10 +29,14 @@ struct Lights;
 
 /// set up a 3D scene to test shadow biases and perspective projections
 fn setup(
+    mut layers: ResMut<GlobalZLayers>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    const OVERLAY_LAYER: &str = "overlay";
+
+    layers.push(OVERLAY_LAYER.into());
     let spawn_plane_depth = 300.0f32;
     let spawn_height = 2.0;
     let sphere_radius = 0.25;
@@ -102,7 +106,7 @@ fn setup(
             ..default()
         },
         BackgroundColor(Color::BLACK.with_alpha(0.75)),
-        GlobalZIndex(i32::MAX),
+        GlobalZIndex::new(OVERLAY_LAYER),
         children![(
             Text::default(),
             children![

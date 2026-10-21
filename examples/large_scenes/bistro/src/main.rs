@@ -186,7 +186,17 @@ struct Spin;
 #[derive(Component)]
 struct FrameTimeText;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup(
+    mut layers: ResMut<GlobalZLayers>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    args: Res<Args>,
+) {
+    const TEXT_SHADOW_LAYER: &str = "text_shadow";
+
+    layers
+        .insert_before(DEFAULT_GLOBAL_Z_LAYER, TEXT_SHADOW_LAYER)
+        .unwrap();
     info!("Loading models, generating mipmaps");
 
     let bistro_exterior = asset_server.load("bistro_exterior/BistroExterior.gltf#Scene0");
@@ -318,7 +328,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
                     top: px(1.5),
                     ..default()
                 },
-                GlobalZIndex(-1),
+                GlobalZIndex::new(TEXT_SHADOW_LAYER),
             ))
             .with_children(|parent| {
                 parent.spawn((Text::new(""), TextColor(Color::BLACK), FrameTimeText));

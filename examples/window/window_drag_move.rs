@@ -55,7 +55,10 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut layers: ResMut<GlobalZLayers>, mut commands: Commands) {
+    const OVERLAY_LAYER: &str = "overlay";
+
+    layers.push(OVERLAY_LAYER.into());
     // Camera
     commands.spawn(Camera3d::default());
 
@@ -67,7 +70,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         BackgroundColor(Color::BLACK.with_alpha(0.75)),
-        GlobalZIndex(i32::MAX),
+        GlobalZIndex::new(OVERLAY_LAYER),
         children![(
             Text::default(),
             children![

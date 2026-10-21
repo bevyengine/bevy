@@ -52,7 +52,16 @@ struct InputScrollDragState {
     drag_origin: f32,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut layers: ResMut<GlobalZLayers>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    const POPUP_LAYER: &str = "popup";
+
+    layers
+        .insert_after(DEFAULT_GLOBAL_Z_LAYER, POPUP_LAYER)
+        .unwrap();
     commands.spawn(Camera2d);
 
     commands
@@ -488,7 +497,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         }],
                                         ..default()
                                     },
-                                    GlobalZIndex(1),
+                                    GlobalZIndex::new(POPUP_LAYER),
                                     BackgroundColor(DARK_SLATE_GRAY.into()),
                                     BorderColor::all(SLATE_300),
                                 ))
