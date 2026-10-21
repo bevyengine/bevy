@@ -3,8 +3,8 @@ macro_rules! impl_reflect_for_hashmap {
         const _: () = {
             impl<K, V, S> $crate::map::Map for $ty
             where
-                K: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn get(&self, key: &dyn $crate::reflect::PartialReflect) -> Option<&dyn $crate::reflect::PartialReflect> {
@@ -92,8 +92,8 @@ macro_rules! impl_reflect_for_hashmap {
 
             impl<K, V, S> $crate::reflect::PartialReflect for $ty
             where
-                K: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
@@ -170,15 +170,15 @@ macro_rules! impl_reflect_for_hashmap {
             $crate::impl_full_reflect!(
                 <K, V, S> for $ty
                 where
-                    K: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                    V: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                    K: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                    V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                     S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             );
 
             impl<K, V, S> $crate::info::Typed for $ty
             where
-                K: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn type_info() -> &'static $crate::info::TypeInfo {
@@ -196,8 +196,8 @@ macro_rules! impl_reflect_for_hashmap {
 
             impl<K, V, S> $crate::type_registry::GetTypeRegistration for $ty
             where
-                K: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync + Default,
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {

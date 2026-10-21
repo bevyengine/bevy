@@ -11,16 +11,13 @@ use crate::{
     component::{ComponentId, Components, Mutable},
     entity::{Entities, EntityAllocator},
     query::{
-        Access, FilteredAccess, IterQueryData, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        FilteredAccess, IterQueryData, QueryData, QueryFilter, QuerySingleError, QueryState,
+        ReadOnlyQueryData,
     },
     resource::{Resource, ResourceEntities, IS_RESOURCE},
     system::{Query, Single, SkipIfAny, SystemAccess, SystemMeta, SystemState},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
-
-#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
-use crate::world::{FilteredResources, FilteredResourcesMut};
 
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
@@ -2858,94 +2855,6 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 }
 
-// SAFETY: Resource ComponentId access is applied to the access. If this FilteredResources
-// conflicts with any prior access, an `Err` will be returned.
-#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
-unsafe impl SystemParam for FilteredResources<'_, '_> {
-    type State = Access;
-
-    type Item<'world, 'state> = FilteredResources<'world, 'state>;
-
-    fn init_state(_world: &mut World) -> Self::State {
-        Access::new()
-    }
-
-    fn init_access(
-        access: &Self::State,
-        _system_meta: &mut SystemMeta,
-        system_access: &mut SystemAccess,
-    ) -> Result<(), SystemParamAccessConflict> {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.access_mut().extend(access);
-        filtered_access.and_with(IS_RESOURCE);
-
-        system_access
-            .try_extend_single(filtered_access)
-            .map_err(|access| {
-                SystemParamAccessConflict::new::<Self>(access)
-                    .with_suggestion_if_exclusive(system_access, "Calling `World::resource()`")
-                    .with_code("B0002")
-            })
-    }
-
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
-        // and we registered all resource access in `state``.
-        Ok(unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) })
-    }
-}
-
-// SAFETY: FilteredResources only reads resources.
-#[expect(deprecated, reason = "`FilteredResources` will be removed.")]
-unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
-
-// SAFETY: Resource ComponentId access is applied to the access. If this FilteredResourcesMut
-// conflicts with any prior access, an `Err` will be returned.
-#[expect(deprecated, reason = "`FilteredResourcesMut` will be removed.")]
-unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
-    type State = Access;
-
-    type Item<'world, 'state> = FilteredResourcesMut<'world, 'state>;
-
-    fn init_state(_world: &mut World) -> Self::State {
-        Access::new()
-    }
-
-    fn init_access(
-        access: &Self::State,
-        _system_meta: &mut SystemMeta,
-        system_access: &mut SystemAccess,
-    ) -> Result<(), SystemParamAccessConflict> {
-        let mut filtered_access = FilteredAccess::default();
-        filtered_access.access_mut().extend(access);
-        filtered_access.and_with(IS_RESOURCE);
-
-        system_access
-            .try_extend_single(filtered_access)
-            .map_err(|access| {
-                SystemParamAccessConflict::new::<Self>(access)
-                    .with_suggestion_if_exclusive(system_access, "Calling `World::resource_mut()`")
-                    .with_code("B0002")
-            })
-    }
-
-    unsafe fn get_param<'world, 'state>(
-        state: &'state mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        change_tick: Tick,
-    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
-        // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
-        // and we registered all resource access in `state``.
-        Ok(unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) })
-    }
-}
-
 /// An error that occurs when a system parameter is not valid,
 /// used by system executors to determine what to do with a system.
 ///
@@ -3447,70 +3356,80 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "World")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "World"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_commands_first() {
         fn system(_: Commands, _: &mut World) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Commands")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "World"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_commands_second() {
         fn system(_: &mut World, _: Commands) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "World")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "World"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_entities_first() {
         fn system(_: &Entities, _: &mut World) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Entities")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "Entities"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_entities_second() {
         fn system(_: &mut World, _: &Entities) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Archetypes")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "Archetypes"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_archetypes() {
         fn system(_: &mut World, _: &Archetypes) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Components")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "Components"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_components() {
         fn system(_: &mut World, _: &Components) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "EntityAllocator")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "EntityAllocator"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_entity_allocator() {
         fn system(_: &mut World, _: &EntityAllocator) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Bundles")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "Bundles"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_bundles() {
         fn system(_: &mut World, _: &Bundles) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "World")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "World"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_immutable_world() {
         fn system(_: &mut World, _: &World) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "DeferredWorld")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "DeferredWorld"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_deferred_world() {
         fn system(_: &mut World, _: DeferredWorld) {}
         assert_is_system(system);
@@ -3529,28 +3448,32 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "World")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "World"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_param_set_conflicts_outside() {
         fn system(_: &Entities, _: ParamSet<(&mut World, &Entities)>) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Entities")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "Entities"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_param_set_conflicts_outside_reverse() {
         fn system(_: ParamSet<(&mut World, &Entities)>, _: &Entities) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "Entities")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "Entities"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_optional_entities() {
         fn system(_: &mut World, _: Option<&Entities>) {}
         assert_is_system(system);
     }
 
     #[test]
-    #[should_panic(expected = "error[B0008]")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "error[B0008]"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_optional_query() {
         #[derive(Component)]
         struct A;
@@ -3559,7 +3482,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error[B0008]")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "error[B0008]"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_query() {
         #[derive(Component)]
         struct A;
@@ -3568,7 +3492,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error[B0008]")]
+    #[cfg_attr(feature = "debug", should_panic(expected = "error[B0008]"))]
+    #[cfg_attr(not(feature = "debug"), should_panic)]
     fn mutable_world_conflicts_with_empty_query() {
         fn system(_: &mut World, _: Query<()>) {}
         assert_is_system(system);

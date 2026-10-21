@@ -40,6 +40,12 @@ pub struct ComponentInspection {
         serde(with = "crate::inspection::serde_conversions::debug_name")
     )]
     pub name: DebugName,
+    /// The type path of the component, if it is reflected and registered.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub type_path: Option<String>,
     /// The shallow size of the component in memory, excluding heap allocations.
     pub memory_size: MemorySize,
     /// The value of the component as a string, gathered via reflection.
@@ -63,6 +69,7 @@ impl Clone for ComponentInspection {
             entity: self.entity,
             component_id: self.component_id,
             name: self.name.clone(),
+            type_path: self.type_path.clone(),
             memory_size: self.memory_size,
             value: self.value.clone(),
             reflected_value,
@@ -104,6 +111,12 @@ pub struct ComponentTypeMetadata {
     /// The [`TypeId`] of the component type, or `None` for dynamic types.
     #[cfg_attr(feature = "serialize", serde(skip))]
     pub type_id: Option<TypeId>,
+    /// The type path of the component type, if it is reflected and registered.
+    #[cfg_attr(
+        feature = "serialize",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub type_path: Option<String>,
     /// The minimum size in bytes of the component type, computed via [`core::alloc::Layout`].
     pub memory_size: MemorySize,
     /// The label definition priority of the component type, if it defines labels.
@@ -150,10 +163,15 @@ impl ComponentTypeMetadata {
                 .and_then(|registry| registry.get_priority_by_type_id(type_id))
         });
 
+        let type_path = type_registration
+            .as_ref()
+            .map(|registration| registration.type_info().type_path().to_string());
+
         Ok(Self {
             component_id,
             name: component_info.name(),
             type_id,
+            type_path,
             memory_size: MemorySize::new(component_info.layout().size()),
             label_definition_priority,
             mutable: component_info.mutable(),
@@ -337,6 +355,7 @@ impl core::error::Error for ComponentInspectionError {}
 /// Settings for inspecting a component.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(default))]
 pub struct ComponentInspectionSettings {
     /// How much detail to include when inspecting component values.
     pub detail_level: ComponentDetailLevel,
@@ -378,7 +397,7 @@ mod tests {
     use super::*;
     use crate::inspection::extension_methods::WorldInspectionExtensionTrait;
     use bevy_ecs::{component::Component, reflect::ReflectComponent};
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{Reflect, TypePath};
 
     #[derive(Component, Reflect, Debug, PartialEq)]
     #[reflect(Component)]
@@ -517,6 +536,83 @@ mod tests {
             result.unwrap_err(),
             ComponentInspectionError::ComponentIdNotRegistered(component_id)
         );
+    }
+
+    #[derive(Component)]
+    #[expect(dead_code, reason = "only its component id is used")]
+    struct Plain(u32);
+
+    #[test]
+    fn type_path_is_reported_for_reflected_components() {
+        let mut world = test_world();
+        let entity = world.spawn(Health(7)).id();
+        let component_id = world.components().valid_component_id::<Health>().unwrap();
+        let expected = Some(Health::type_path().to_string());
+
+        let metadata = ComponentTypeMetadata::new(&world, component_id).unwrap();
+        assert_eq!(metadata.type_path, expected);
+
+        let inspection = world
+            .inspect_component_by_id(
+                component_id,
+                entity,
+                &metadata,
+                ComponentInspectionSettings::default(),
+            )
+            .unwrap();
+        assert_eq!(inspection.type_path, expected);
+    }
+
+    #[test]
+    fn type_path_is_absent_for_unreflected_components() {
+        let mut world = test_world();
+        let entity = world.spawn(Plain(1)).id();
+        let component_id = world.components().valid_component_id::<Plain>().unwrap();
+
+        let metadata = ComponentTypeMetadata::new(&world, component_id).unwrap();
+        assert_eq!(metadata.type_path, None);
+
+        let inspection = world
+            .inspect_component_by_id(
+                component_id,
+                entity,
+                &metadata,
+                ComponentInspectionSettings::default(),
+            )
+            .unwrap();
+        assert_eq!(inspection.type_path, None);
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn type_path_serialization() {
+        let mut world = test_world();
+        let health = world.spawn(Health(7)).id();
+        let plain = world.spawn(Plain(1)).id();
+        let health_id = world.components().valid_component_id::<Health>().unwrap();
+        let plain_id = world.components().valid_component_id::<Plain>().unwrap();
+
+        for (entity, id, expected) in [
+            (health, health_id, Some(Health::type_path())),
+            (plain, plain_id, None),
+        ] {
+            let metadata = ComponentTypeMetadata::new(&world, id).unwrap();
+            let inspection = world
+                .inspect_component_by_id(
+                    id,
+                    entity,
+                    &metadata,
+                    ComponentInspectionSettings::default(),
+                )
+                .unwrap();
+
+            for json in [
+                serde_json::to_value(&metadata).unwrap(),
+                serde_json::to_value(&inspection).unwrap(),
+            ] {
+                assert_eq!(json.get("type_path").and_then(|v| v.as_str()), expected);
+            }
+        }
     }
 
     #[test]

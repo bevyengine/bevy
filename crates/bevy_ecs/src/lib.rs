@@ -103,9 +103,6 @@ pub mod prelude {
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 
-    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
-    pub use crate::world::{FilteredResources, FilteredResourcesMut};
-
     #[doc(hidden)]
     #[cfg(feature = "std")]
     pub use crate::system::ParallelCommands;

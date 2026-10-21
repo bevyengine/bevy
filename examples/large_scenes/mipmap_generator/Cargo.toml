@@ -22,7 +22,7 @@ fast_image_resize = { version = "6.0", features = ["image"] }
 futures-lite = "2.0.1"
 tracing = "0.1"
 intel_tex_2 = { version = "0.5.0", optional = true }
-zstd = { version = "0.13.2", optional = true }
+zstd = { version = "0.14.0", optional = true }
 
 [dev-dependencies]
 bevy = { path = "../../../" }
