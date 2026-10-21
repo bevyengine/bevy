@@ -1483,7 +1483,10 @@ mod tests {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
         use alloc::vec;
-        use bevy_reflect::{std_traits::ReflectDefault, CreateTypeData, Reflect, ReflectFromPtr};
+        use bevy_reflect::{
+            std_traits::ReflectDefault, CreateTypeData, FromReflect, PartialReflect, Reflect,
+            ReflectFromPtr,
+        };
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -1523,6 +1526,11 @@ mod tests {
                 field: usize,
                 field2: Vec<usize>,
             }
+            impl FromReflect for A {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
+            }
 
             // `ReflectDefault`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
@@ -1533,6 +1541,11 @@ mod tests {
                 field2: Vec<usize>,
                 #[reflect(ignore)]
                 ignored: NotClone,
+            }
+            impl FromReflect for B {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
             }
 
             // `ReflectFromReflect`-based fast path
@@ -1553,6 +1566,11 @@ mod tests {
                 field2: Vec<usize>,
                 #[reflect(ignore)]
                 ignored: NotClone,
+            }
+            impl FromReflect for D {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
             }
 
             let mut world = World::default();
@@ -1677,6 +1695,11 @@ mod tests {
             #[reflect(Component)]
             #[reflect(from_reflect = false)]
             struct B(#[reflect(ignore)] PhantomData<()>);
+            impl FromReflect for B {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
+            }
 
             let mut world = World::default();
 
@@ -1711,6 +1734,11 @@ mod tests {
                 // We add an ignored field here to ensure `reflect_clone` fails and `FromWorld` is used
                 #[reflect(ignore)] PhantomData<()>,
             );
+            impl FromReflect for SomeRef {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
+            }
 
             #[derive(Resource)]
             struct FromWorldCalled(bool);
