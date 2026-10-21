@@ -67,6 +67,7 @@ use bevy_render::render_resource::binding_types::texture_cube;
 #[cfg(debug_assertions)]
 use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::warn};
 
+pub const VISIBILITY_RANGES_BINDING_INDEX: u32 = 11;
 pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 15;
 pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 16;
 pub const LINEAR_SAMPLER_BINDING_INDEX: u32 = 22;
@@ -365,7 +366,7 @@ fn layout_entries(
             (9, uniform_buffer::<LightProbesUniform>(true)),
             // Visibility ranges
             (
-                11,
+                VISIBILITY_RANGES_BINDING_INDEX,
                 buffer_layout(
                     visibility_ranges_buffer_binding_type,
                     false,
@@ -799,7 +800,10 @@ pub fn prepare_mesh_view_bind_groups(
                 (7, cluster_bindings.offsets_and_counts_binding().unwrap()),
                 (8, globals.clone()),
                 (9, light_probes_binding.clone()),
-                (11, visibility_ranges_buffer.as_entire_binding()),
+                (
+                    VISIBILITY_RANGES_BINDING_INDEX,
+                    visibility_ranges_buffer.as_entire_binding(),
+                ),
                 (LINEAR_SAMPLER_BINDING_INDEX, &linear_sampler.0),
             ));
 
