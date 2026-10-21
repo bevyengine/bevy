@@ -218,7 +218,7 @@ fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
 }
 
-/// Converts fragment coordinates to UVs within the main-pass viewport.
+/// Converts fragment coordinates to UVs within the main pass viewport.
 fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
     return coords_to_viewport_uv(frag_coord, view_bindings::view.main_pass_viewport);
 }
