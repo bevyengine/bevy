@@ -1736,7 +1736,13 @@ mod tests {
         app.update();
 
         let world = app.world();
-        let children = world.entity(list).get::<Children>().unwrap().to_vec();
+        let children = world
+            .entity(list)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>();
         let kinds = children
             .iter()
             .map(|child| {
