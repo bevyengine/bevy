@@ -181,7 +181,7 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
             s *= s; // https://github.com/GameTechDev/XeGTAO#sample-distribution
             let sample = s * sample_mul;
 
-            // Choose the mip level from the sample offset in pixels.
+            // * view.main_pass_viewport.zw gets us from [0, 1] to [0, viewport_size], which is needed for this to get the correct mip levels
             let sample_mip_level = clamp(log2(length(sample * view.main_pass_viewport.zw)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
             let sample_position_1 = load_and_reconstruct_view_space_position(uv + sample, sample_mip_level);
             let sample_position_2 = load_and_reconstruct_view_space_position(uv - sample, sample_mip_level);
