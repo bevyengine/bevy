@@ -18,7 +18,7 @@ use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
     InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect,
@@ -41,8 +41,7 @@ use crate::{
     tokens,
 };
 use bevy_input_focus::{
-    tab_navigation::{NavAction, TabIndex},
-    FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
+    tab_navigation::NavAction, FocusCause, InputFocus, InputFocusSystems, InputFocusVisible,
 };
 
 /// Top-level menu container. This wraps the menu button and provides an anchor for the popover.
@@ -429,11 +428,10 @@ impl FeathersMenuItem {
             MenuItem
             Hovered
             EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-            TabIndex(0)
             ThemeBackgroundColor(tokens::MENU_BG) // Same as menu
             InheritableThemeTextColor(tokens::MENUITEM_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }
