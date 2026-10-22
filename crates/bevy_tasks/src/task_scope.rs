@@ -304,16 +304,15 @@ pub fn task_scope<TS, TP, W, R>(
 
             let guard = InflightTaskGuard::new(&queue, &inflight_tasks);
 
-            (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
-                .for_each(|_| {
-                    s.spawn(async { run_worker() });
-                });
+            // Spawn all workers but the first one, which is run locally.
+            (1..task_pool.thread_num()).for_each(|_| s.spawn(async { run_worker() }));
 
             // Produce here the rest of the chunks, so that the workers can start processing
             // before all chunks are sent.
             while !chunk.is_empty() {
                 inflight_tasks.fetch_add(1, Ordering::Relaxed);
                 queue.push(chunk).ok();
+
                 chunk = Vec::with_capacity(chunk_size);
                 chunk.extend(tasks.by_ref().take(chunk_size));
             }
