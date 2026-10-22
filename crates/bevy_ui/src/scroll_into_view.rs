@@ -5,7 +5,9 @@ use bevy_ecs::{
 use bevy_math::{BVec2, Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use crate::{ComputedNode, IgnoreScroll, Node, OverflowAxis, ScrollPosition, UiGlobalTransform};
+use crate::{
+    ComputedNode, GhostNode, IgnoreScroll, Node, OverflowAxis, ScrollPosition, UiGlobalTransform,
+};
 
 /// An event that scrolls the ancestors of a UI node so that the node is visible.
 ///
