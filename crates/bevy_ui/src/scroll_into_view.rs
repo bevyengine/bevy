@@ -1,12 +1,18 @@
 use bevy_ecs::{
-    entity::Entity, event::EntityEvent, hierarchy::ChildOf, observer::On, reflect::ReflectEvent,
+    entity::Entity,
+    event::EntityEvent,
+    hierarchy::ChildOf,
+    observer::On,
+    query::{Or, With, Without},
+    reflect::ReflectEvent,
     system::Query,
 };
 use bevy_math::{BVec2, Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
-    ComputedNode, GhostNode, IgnoreScroll, Node, OverflowAxis, ScrollPosition, UiGlobalTransform,
+    ComputedNode, FixedNode, GhostNode, IgnoreScroll, Node, OverflowAxis, ScrollPosition,
+    UiGlobalTransform,
 };
 
 /// An event that scrolls the ancestors of a UI node so that the node is visible.
