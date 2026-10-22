@@ -7,7 +7,7 @@ use concurrent_queue::{ConcurrentQueue, PopError};
 #[cfg(feature = "multi_threaded")]
 use core::mem::replace;
 #[cfg(feature = "multi_threaded")]
-use core::sync::atomic::{AtomicI32, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
 
 #[cfg(not(feature = "multi_threaded"))]
 use alloc::vec::Vec;
@@ -56,6 +56,8 @@ pub struct TaskScope<'s, 'l, R: TaskRunner + 'l> {
     #[cfg(feature = "multi_threaded")]
     queue: &'s ConcurrentQueue<Vec<R::Task>>,
     #[cfg(feature = "multi_threaded")]
+    inflight_tasks: &'s AtomicU32,
+    #[cfg(feature = "multi_threaded")]
     chunk_size: usize,
     #[cfg(feature = "multi_threaded")]
     outbox: &'s mut Vec<R::Task>,
@@ -80,6 +82,7 @@ impl<'s, 'l, R: TaskRunner> TaskScope<'s, 'l, R> {
             if self.outbox.len() == self.chunk_size {
                 let next_outbox = Vec::with_capacity(self.chunk_size);
                 let prev_outbox = replace(self.outbox, next_outbox);
+                self.inflight_tasks.fetch_add(1, Ordering::Relaxed);
                 self.queue.push(prev_outbox).ok();
             }
 
@@ -122,6 +125,8 @@ impl<'s, 'l, R: TaskRunner> TaskScope<'s, 'l, R> {
                 // If there are more tasks then push the previous outbox and keep the new.
                 // This is important to always keep some work for the current worker.
                 let prev_outbox = replace(self.outbox, next_outbox);
+
+                self.inflight_tasks.fetch_add(1, Ordering::Relaxed);
                 self.queue.push(prev_outbox).ok();
             }
         }
@@ -141,11 +146,29 @@ impl<'s, 'l, R: TaskRunner> TaskScope<'s, 'l, R> {
 }
 
 #[cfg(feature = "multi_threaded")]
-struct BusyWorkersGuard<'a>(&'a AtomicI32);
+pub struct InflightTaskGuard<'s, T> {
+    queue: &'s ConcurrentQueue<T>,
+    inflight_tasks: &'s AtomicU32,
+}
 #[cfg(feature = "multi_threaded")]
-impl Drop for BusyWorkersGuard<'_> {
+impl<'s, T> InflightTaskGuard<'s, T> {
+    pub fn new(queue: &'s ConcurrentQueue<T>, inflight_tasks: &'s AtomicU32) -> Self {
+        InflightTaskGuard {
+            queue,
+            inflight_tasks,
+        }
+    }
+}
+#[cfg(feature = "multi_threaded")]
+impl<T> Drop for InflightTaskGuard<'_, T> {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::Relaxed);
+        // We can now mark this inflight task as completed.
+        let prev_inflight_tasks = self.inflight_tasks.fetch_sub(1, Ordering::Relaxed);
+
+        // If this was the last task, then close the queue to signal that we're done.
+        if prev_inflight_tasks == 1 {
+            self.queue.close();
+        }
     }
 }
 
@@ -154,9 +177,9 @@ pub struct TaskWorker<'s, R: TaskRunner> {
     #[cfg(feature = "multi_threaded")]
     queue: &'s ConcurrentQueue<Vec<R::Task>>,
     #[cfg(feature = "multi_threaded")]
-    chunk_size: usize,
+    inflight_tasks: &'s AtomicU32,
     #[cfg(feature = "multi_threaded")]
-    busy_workers: &'s AtomicI32,
+    chunk_size: usize,
 
     // TODO: Find a way to avoid collecting the tasks in a `Vec` but also avoid including TS in the generics of `TaskWorker`.
     #[cfg(not(feature = "multi_threaded"))]
@@ -168,7 +191,6 @@ pub struct TaskWorker<'s, R: TaskRunner> {
 impl<R: TaskRunner> TaskWorker<'_, R> {
     /// Executes this worker.
     pub fn run(self) {
-        // The worker is used only for multitreaded code.
         #[cfg(feature = "multi_threaded")]
         {
             let mut outbox = Vec::with_capacity(self.chunk_size);
@@ -179,12 +201,6 @@ impl<R: TaskRunner> TaskWorker<'_, R> {
                 let mut tasks = match self.queue.pop() {
                     Ok(tasks) => tasks,
                     Err(PopError::Empty) => {
-                        // There are no tasks ready, check if any thread is currently performing work.
-                        if self.busy_workers.load(Ordering::Relaxed) == 0 {
-                            // No worker is busy meaning there are no tasks remaining, stop the worker.
-                            return;
-                        }
-
                         // Workers might still produce new tasks, spin waiting for more work.
                         core::hint::spin_loop();
                         continue;
@@ -192,9 +208,7 @@ impl<R: TaskRunner> TaskWorker<'_, R> {
                     Err(PopError::Closed) => return,
                 };
 
-                // We got some tasks, mark this worker as busy and prepare the guard to undo that.
-                self.busy_workers.fetch_add(1, Ordering::Relaxed);
-                let busy_workers_guard = BusyWorkersGuard(self.busy_workers);
+                let guard = InflightTaskGuard::new(self.queue, self.inflight_tasks);
 
                 loop {
                     // Process each task.
@@ -202,6 +216,7 @@ impl<R: TaskRunner> TaskWorker<'_, R> {
                         let scope = TaskScope {
                             local: &mut local,
                             queue: self.queue,
+                            inflight_tasks: self.inflight_tasks,
                             chunk_size: self.chunk_size,
                             outbox: &mut outbox,
                         };
@@ -216,8 +231,8 @@ impl<R: TaskRunner> TaskWorker<'_, R> {
                     tasks = replace(&mut outbox, tasks);
                 }
 
-                // We finished our tasks, we are no longer busy, so drop the guard, which will decrease the workers count.
-                drop(busy_workers_guard);
+                // We can now mark this task as not inflight.
+                drop(guard);
             }
         }
 
@@ -258,7 +273,7 @@ pub fn task_scope<TS, TP, W, R>(
         let chunk_size = chunk_size.max(1);
 
         let queue = ConcurrentQueue::unbounded();
-        let busy_workers = AtomicI32::new(0);
+        let inflight_tasks = AtomicU32::new(0);
 
         // Send the first tasks to the queue.
         let mut tasks = tasks.into_iter();
@@ -274,8 +289,8 @@ pub fn task_scope<TS, TP, W, R>(
         let run_worker = || {
             let worker = TaskWorker {
                 queue: &queue,
+                inflight_tasks: &inflight_tasks,
                 chunk_size,
-                busy_workers: &busy_workers,
                 runner: &runner,
             };
 
@@ -284,9 +299,10 @@ pub fn task_scope<TS, TP, W, R>(
 
         let task_pool = task_pool();
         task_pool.scope(|s| {
-            // This thread's worker is busy sending tasks.
-            busy_workers.fetch_add(1, Ordering::Relaxed);
-            let busy_workers_guard = BusyWorkersGuard(&busy_workers);
+            // Fake an inflight task to prevent the workers from stopping while we send the tasks.
+            inflight_tasks.fetch_add(1, Ordering::Relaxed);
+
+            let guard = InflightTaskGuard::new(&queue, &inflight_tasks);
 
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| {
@@ -296,12 +312,13 @@ pub fn task_scope<TS, TP, W, R>(
             // Produce here the rest of the chunks, so that the workers can start processing
             // before all chunks are sent.
             while !chunk.is_empty() {
+                inflight_tasks.fetch_add(1, Ordering::Relaxed);
                 queue.push(chunk).ok();
                 chunk = Vec::with_capacity(chunk_size);
                 chunk.extend(tasks.by_ref().take(chunk_size));
             }
 
-            drop(busy_workers_guard);
+            drop(guard);
 
             run_worker();
         });
