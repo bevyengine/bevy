@@ -721,7 +721,7 @@ mod tests {
             .map(|index| app.world_mut().spawn(Name::new(format!("{index}"))).id())
             .collect();
         app.update();
-        assert_eq!(row_sources(app.world(), tree).len(), 1002);
+        assert_eq!(row_sources(app.world(), tree).len(), 501);
 
         for root in roots.iter().step_by(2) {
             app.world_mut().entity_mut(*root).despawn();
@@ -730,7 +730,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 502);
+        assert_eq!(sources.len(), 251);
         assert!(roots
             .iter()
             .skip(1)
@@ -753,7 +753,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 6);
+        assert_eq!(sources.len(), 3);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(sources.contains(&sibling));
@@ -782,7 +782,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), tree);
-        assert_eq!(sources.len(), 4);
+        assert_eq!(sources.len(), 2);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(app
