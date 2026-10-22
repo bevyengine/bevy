@@ -58,7 +58,7 @@ pub enum ScrollIntoViewContainer {
 pub(crate) fn on_scroll_into_view(
     scroll: On<ScrollIntoView>,
     targets: Query<(&ComputedNode, &UiGlobalTransform)>,
-    parents: Query<&ChildOf>,
+    parents: Query<&ChildOf, Or<(Without<FixedNode>, With<GhostNode>)>>,
     ignore_scroll: Query<&IgnoreScroll>,
     mut views: Query<(
         &Node,
@@ -342,6 +342,18 @@ mod tests {
         world
             .entity_mut(item)
             .insert(IgnoreScroll(BVec2::new(false, true)));
+
+        scroll(&mut world, ScrollIntoView::new(item));
+
+        assert_eq!(scroll_y(&world, view), 0.0);
+    }
+
+    #[test]
+    fn a_fixed_node_does_not_scroll_its_ancestors() {
+        let mut world = World::new();
+        let view = view(&mut world, None, 0.0, 100.0, 400.0);
+        let fixed = world.spawn((ChildOf(view), FixedNode)).id();
+        let item = item(&mut world, fixed, 240.0, 260.0);
 
         scroll(&mut world, ScrollIntoView::new(item));
 
