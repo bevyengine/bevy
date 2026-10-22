@@ -37,7 +37,7 @@ use bevy_ui_widgets::{
     ValueChange,
 };
 
-use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
+use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, WorldKind};
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
 /// hidden from the entity tree, but the marked entity itself still shows as a single,
@@ -58,7 +58,7 @@ pub struct InspectorRow {
     /// The inspected entity this row displays.
     pub source: Entity,
     /// Whether the inspected entity is from the main or render world.
-    pub is_main: bool,
+    pub kind: WorldKind,
 }
 
 /// Marker for the text entity holding a row's label.
@@ -81,9 +81,9 @@ pub struct TreeRowIndex {
 
 impl TreeRowIndex {
     /// The row displaying `source`, if one exists.
-    pub fn row(&self, source: Entity, is_main: bool) -> Option<Entity> {
+    pub fn row(&self, source: Entity, kind: WorldKind) -> Option<Entity> {
         self.source_to_row
-            .get(&InspectableEntity::new(source, is_main))
+            .get(&InspectableEntity::new(source, kind))
             .copied()
     }
 
@@ -169,7 +169,7 @@ pub fn inspector_tree_selected(
     selection.0 = change
         .value
         .and_then(|row| rows.get(row).ok())
-        .map(|row| InspectableEntity::new(row.source, row.is_main));
+        .map(|row| InspectableEntity::new(row.source, row.kind));
 }
 
 /// Observer that starts keeping a row's child rows in sync the first time it is expanded.
@@ -210,7 +210,7 @@ pub fn sync_entity_tree(world: &mut World) {
 struct RowSpawn {
     container: Entity,
     source: Entity,
-    is_main: bool,
+    kind: WorldKind,
     label: String,
     expandable: bool,
 }
@@ -260,21 +260,20 @@ fn plan_sync(world: &World) -> SyncPlan {
 
     let inspector_sources = &world.resource::<InspectorSources>().sources;
 
-    let inspectable_worlds: Vec<(bool, &World)> = inspector_sources
+    let inspectable_worlds: Vec<(WorldKind, &World)> = inspector_sources
         .into_iter()
         .map(|inspector_source| match inspector_source {
-            InspectorSource::Local => (true, world),
+            InspectorSource::Local => (WorldKind::Main, world),
             #[cfg(feature = "remote")]
             InspectorSource::Remote(rem) => {
-                let is_main = rem.subapp == crate::RemoteSubApp::Main;
                 let inspected = crate::world_to_inspect(world, inspector_source.clone());
-                (is_main, inspected)
+                (rem.subapp, inspected)
             }
         })
         .collect();
 
     let mut roots: Vec<InspectableEntity> = vec![];
-    for (is_main, inspected) in inspectable_worlds.iter() {
+    for (kind, inspected) in inspectable_worlds.iter() {
         let mut sub_roots: Vec<Entity> = inspected
             .iter_entities()
             .filter(|entity_ref| !entity_ref.contains::<ChildOf>())
@@ -285,7 +284,7 @@ fn plan_sync(world: &World) -> SyncPlan {
 
         sub_roots
             .iter()
-            .map(|e| InspectableEntity::new(*e, *is_main))
+            .map(|e| InspectableEntity::new(*e, *kind))
             .for_each(|f| roots.push(f));
     }
 
@@ -293,13 +292,13 @@ fn plan_sync(world: &World) -> SyncPlan {
     diff_container(world, &sources, tree_view, &roots, &mut plan);
 
     for row in populated {
-        let Some((source, is_main)) = world
+        let Some((source, kind)) = world
             .get::<InspectorRow>(row)
-            .map(|row| (row.source, row.is_main))
+            .map(|row| (row.source, row.kind))
         else {
             continue;
         };
-        let Some(inspected) = sources.get_world(is_main) else {
+        let Some(inspected) = sources.get_world(kind) else {
             continue;
         };
         if inspected.get_entity(source).is_err() {
@@ -310,7 +309,7 @@ fn plan_sync(world: &World) -> SyncPlan {
         };
         let expected: Vec<InspectableEntity> = visible_children(inspected, source)
             .iter()
-            .map(|e| InspectableEntity::new(*e, is_main))
+            .map(|e| InspectableEntity::new(*e, kind))
             .collect();
         diff_container(world, &sources, container, &expected, &mut plan);
     }
@@ -320,13 +319,13 @@ fn plan_sync(world: &World) -> SyncPlan {
 
 /// The inspected world, and the label priorities of the world the inspector runs in.
 struct Sources<'w> {
-    inspectable_worlds: Vec<(bool, &'w World)>,
+    inspectable_worlds: Vec<(WorldKind, &'w World)>,
     priorities: Option<&'w LabelResolutionRegistry>,
 }
 
 impl<'w> Sources<'w> {
     fn new(
-        inspectable_worlds: Vec<(bool, &'w World)>,
+        inspectable_worlds: Vec<(WorldKind, &'w World)>,
         priorities: Option<&'w LabelResolutionRegistry>,
     ) -> Self {
         Self {
@@ -335,10 +334,10 @@ impl<'w> Sources<'w> {
         }
     }
 
-    fn get_world(&self, want_main: bool) -> Option<&World> {
-        for (is_main, world) in &self.inspectable_worlds {
-            if (*is_main && want_main) || (!*is_main && !want_main) {
-                return Some(world);
+    fn get_world(&'w self, want_kind: WorldKind) -> Option<&'w World> {
+        for (kind, world) in &self.inspectable_worlds {
+            if *kind == want_kind {
+                return Some(*world);
             }
         }
         None
@@ -358,7 +357,7 @@ fn diff_container(
     if let Some(children) = world.get::<Children>(container) {
         for child in children.iter().copied() {
             if let Some(row) = world.get::<InspectorRow>(child) {
-                existing.insert(InspectableEntity::new(row.source, row.is_main), child);
+                existing.insert(InspectableEntity::new(row.source, row.kind), child);
             }
         }
     }
@@ -372,22 +371,19 @@ fn diff_container(
 
     for InspectableEntity {
         entity: source,
-        is_main,
+        kind,
     } in expected.iter().copied()
     {
-        let Some(inspected) = sources.get_world(is_main) else {
+        let Some(inspected) = sources.get_world(kind) else {
             continue;
         };
         let expandable = !visible_children(inspected, source).is_empty();
         let label = entity_label(inspected, sources.priorities, source);
-        let Some(row) = existing
-            .get(&InspectableEntity::new(source, is_main))
-            .copied()
-        else {
+        let Some(row) = existing.get(&InspectableEntity::new(source, kind)).copied() else {
             plan.spawn.push(RowSpawn {
                 container,
                 source,
-                is_main,
+                kind,
                 label,
                 expandable,
             });
@@ -439,7 +435,7 @@ fn apply_sync(world: &mut World, plan: SyncPlan) {
                 row.insert((
                     InspectorRow {
                         source: spawn.source,
-                        is_main: spawn.is_main,
+                        kind: spawn.kind,
                     },
                     ChildOf(spawn.container),
                 ));
@@ -471,8 +467,8 @@ fn rebuild_index(world: &mut World) {
     let mut source_to_row = HashMap::new();
     let mut row_to_source = HashMap::new();
     for (entity, row) in world.query::<(Entity, &InspectorRow)>().iter(world) {
-        source_to_row.insert(InspectableEntity::new(row.source, row.is_main), entity);
-        row_to_source.insert(entity, InspectableEntity::new(row.source, row.is_main));
+        source_to_row.insert(InspectableEntity::new(row.source, row.kind), entity);
+        row_to_source.insert(entity, InspectableEntity::new(row.source, row.kind));
     }
 
     let mut index = world.resource_mut::<TreeRowIndex>();
@@ -606,7 +602,7 @@ fn child_with<C: Component>(world: &World, entity: Entity) -> Option<Entity> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::InspectorPlugin;
+    use crate::{InspectorPlugin, WorldKind::Main};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin};
     use bevy_ecs::name::Name;
@@ -698,7 +694,7 @@ mod tests {
         let row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(parent, true)
+            .row(parent, Main)
             .unwrap();
         let label = row_label_entity(app.world(), row).unwrap();
         assert_eq!(app.world().get::<Text>(label).unwrap().0, "Remote");
@@ -765,19 +761,19 @@ mod tests {
         let panel_row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(panel, true)
+            .row(panel, Main)
             .unwrap();
         assert!(!app.world().get::<TreeItem>(panel_row).unwrap().expandable);
         let parent_row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(parent, true)
+            .row(parent, Main)
             .unwrap();
         assert!(app.world().get::<TreeItem>(parent_row).unwrap().expandable);
         let sibling_row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(sibling, true)
+            .row(sibling, Main)
             .unwrap();
         assert!(!app.world().get::<TreeItem>(sibling_row).unwrap().expandable);
 
@@ -792,7 +788,7 @@ mod tests {
         assert!(app
             .world()
             .resource::<TreeRowIndex>()
-            .row(sibling, true)
+            .row(sibling, Main)
             .is_none());
     }
 }

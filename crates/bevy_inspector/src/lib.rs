@@ -73,12 +73,12 @@ impl InspectorSources {
         t.insert(InspectorSource::Remote(remote::RemoteSource::new(
             host.clone(),
             main_port,
-            crate::RemoteSubApp::Main,
+            WorldKind::Main,
         )));
         t.insert(InspectorSource::Remote(remote::RemoteSource::new(
             host,
             render_port,
-            crate::RemoteSubApp::Render,
+            WorldKind::Render,
         )));
         InspectorSources { sources: t }
     }
@@ -90,10 +90,21 @@ impl InspectorSources {
         t.insert(InspectorSource::Remote(remote::RemoteSource::new(
             host,
             main_port,
-            crate::RemoteSubApp::Main,
+            WorldKind::Main,
         )));
         InspectorSources { sources: t }
     }
+}
+
+/// The sub app of a remote app
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Default, Clone, PartialEq)]
+pub enum WorldKind {
+    /// Main subapp
+    #[default]
+    Main,
+    /// Render subapp
+    Render,
 }
 
 /// A single source to read data from
@@ -126,7 +137,7 @@ pub(crate) fn world_to_inspect(world: &World, inspector_source: InspectorSource)
     if let InspectorSource::Remote(rem) = inspector_source
         && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        if rem.subapp == crate::RemoteSubApp::Main {
+        if rem.subapp == WorldKind::Main {
             return remote.main.world();
         }
         return remote.render.world();
@@ -142,13 +153,13 @@ pub struct InspectableEntity {
     /// The entity in the remote world
     pub entity: Entity,
     /// Whether its from the main or render world
-    pub is_main: bool,
+    pub kind: WorldKind,
 }
 
 impl InspectableEntity {
     /// Creates an selection
-    pub fn new(entity: Entity, is_main: bool) -> Self {
-        InspectableEntity { entity, is_main }
+    pub fn new(entity: Entity, kind: WorldKind) -> Self {
+        InspectableEntity { entity, kind }
     }
 }
 
@@ -223,7 +234,7 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    remote::sync_remote_source,
+                    remote::sync_remote_sources,
                     remote::poll_remote_connections,
                     remote::sync_remote_worlds,
                 )

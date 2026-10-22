@@ -203,7 +203,7 @@ pub fn sync_connection_status(
             }
             #[cfg(feature = "remote")]
             InspectorSource::Remote(remote) => {
-                if remote.subapp == crate::remote::RemoteSubApp::Main {
+                if remote.subapp == crate::WorldKind::Main {
                     let status = status_text(remote, &connections.main);
 
                     if main_label.0 != status {
@@ -276,7 +276,7 @@ fn parse_address(address: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::remote::RemoteSubApp::Main;
+    use crate::WorldKind::Main;
 
     use super::*;
 
