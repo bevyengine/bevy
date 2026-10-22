@@ -192,7 +192,7 @@ fn merge_reservoirs(
 ) -> ReservoirMergeResult {
     var canonical_resolved: ResolvedLightSample;
     if canonical_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        canonical_resolved = resolve_light_sample(canonical_reservoir.light_sample, light_sources[canonical_reservoir.light_sample.light_id >> 16u]);
+        canonical_resolved = resolve_light_sample(canonical_reservoir.light_sample, light_sources[canonical_reservoir.light_sample.light_id >> 16u], view.exposure);
     }
 
     let canonical_wo = normalize(view.world_position - canonical_world_position);
@@ -207,7 +207,7 @@ fn merge_reservoirs(
 
     var other_resolved: ResolvedLightSample;
     if other_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        other_resolved = resolve_light_sample(other_reservoir.light_sample, light_sources[other_reservoir.light_sample.light_id >> 16u]);
+        other_resolved = resolve_light_sample(other_reservoir.light_sample, light_sources[other_reservoir.light_sample.light_id >> 16u], view.exposure);
     }
     let other_wo = normalize(other_view_position - other_world_position);
     let other_NdotV = max(dot(other_world_normal, other_wo), 0.0001);

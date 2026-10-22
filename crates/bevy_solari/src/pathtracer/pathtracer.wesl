@@ -61,7 +61,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             // Sample direct lighting, but only if the surface is not mirror-like
             let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
-                let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+                let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng, view.exposure);
 
                 mis_weight = 1.0;
                 if direct_lighting.brdf_rays_can_hit {
