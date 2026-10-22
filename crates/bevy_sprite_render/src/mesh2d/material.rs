@@ -535,6 +535,17 @@ impl SpecializedMeshPipeline for Material2dPipelineSpecializer {
             specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
         }
 
+        if let Some(ref depth_stencil) = descriptor.depth_stencil
+            && depth_stencil.stencil.is_enabled()
+            && !depth_stencil.format.has_stencil_aspect()
+        {
+            return Err(
+                SpecializedMeshPipelineError::IncompatibleDepthStencilFormat {
+                    format: depth_stencil.format,
+                },
+            );
+        }
+
         // If bindless mode is on, add a `BINDLESS` define.
         if self.properties.bindless {
             descriptor.vertex.shader_defs.push("BINDLESS".into());
