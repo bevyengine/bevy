@@ -87,7 +87,7 @@ pub fn connection_panel() -> impl Scene {
             Children [
                 ConnectionAddressHostInput
                 @FeathersTextInput
-                EditableText::new("localhost")
+                EditableText::new("127.0.0.1")
                 --
                 ConnectionAddressMainPort
                 @FeathersTextInput
@@ -191,6 +191,8 @@ pub fn sync_connection_status(
         return;
     };
 
+    let mut seen_render = false;
+
     for source in &sources.sources {
         match source {
             InspectorSource::Local => {
@@ -202,13 +204,15 @@ pub fn sync_connection_status(
             #[cfg(feature = "remote")]
             InspectorSource::Remote(remote) => {
                 if remote.subapp == crate::remote::RemoteSubApp::Main {
-                    let status = status_text(&remote, &connections.main);
+                    let status = status_text(remote, &connections.main);
 
                     if main_label.0 != status {
                         main_label.0 = status.clone();
                     }
                 } else {
-                    let status = status_text(&remote, &connections.render);
+                    seen_render = true;
+
+                    let status = status_text(remote, &connections.render);
 
                     if render_label.0 != status {
                         render_label.0 = status.clone();
@@ -216,6 +220,10 @@ pub fn sync_connection_status(
                 }
             }
         }
+    }
+
+    if !seen_render {
+        render_label.0 = "".to_string();
     }
 }
 

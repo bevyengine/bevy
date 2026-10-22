@@ -30,19 +30,19 @@ use bevy_platform::collections::HashMap;
 /// The most generations [`spawn_at_remote_id`] steps through for one entity in one call.
 const MAX_GENERATION_STEPS: u32 = 4096;
 
-/// The [`World`] mirroring the remote app.
-///
-/// It holds a clone of the local [`AppTypeRegistry`], sharing its types, and the remote entities
-/// the inspector shows, each with a [`RemoteComponents`] record.
+/// The [`World`]'s mirroring the remote app.
 #[derive(Resource)]
 pub struct RemoteWorlds {
-    /// remote main
+    /// The mirror of the remote main subapp
     pub main: RemoteWorld,
-    /// remote render
+    /// The mirror of the remote render subapp
     pub render: RemoteWorld,
 }
 
-/// Single remote world
+/// Mirror's a single remote [`World`]
+///
+/// It holds a clone of the local [`AppTypeRegistry`], sharing its types, and the remote entities
+/// the inspector shows, each with a [`RemoteComponents`] record.
 pub struct RemoteWorld {
     world: World,
     reserved: u32,

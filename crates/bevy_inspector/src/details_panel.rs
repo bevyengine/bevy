@@ -1133,7 +1133,7 @@ pub fn sync_details_panel(world: &mut World) {
     let is_main = selection.is_none_or(|s| s.is_main);
     let maybe_selected = selection.map(|s| s.entity);
 
-    let inspector_source = get_inspector_source(&world, is_main);
+    let inspector_source = get_inspector_source(world, is_main);
 
     let inspected = crate::world_to_inspect(world, inspector_source);
     let components = inspect_components(inspected, selection);
@@ -1174,6 +1174,9 @@ fn get_inspector_source(world: &World, is_main: bool) -> InspectorSource {
             }
         }
     }
+
+    #[cfg(not(feature = "remote"))]
+    let _ = is_main;
 
     InspectorSource::Local
 }

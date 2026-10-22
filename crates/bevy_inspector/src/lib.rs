@@ -42,7 +42,6 @@ use crate::details_panel::{
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync,
 };
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
-use crate::remote::RemoteSubApp;
 
 /// Where the inspector reads its data from.
 #[derive(Resource, Debug, Clone, PartialEq, Eq, Reflect)]
@@ -74,12 +73,12 @@ impl InspectorSources {
         t.insert(InspectorSource::Remote(remote::RemoteSource::new(
             host.clone(),
             main_port,
-            RemoteSubApp::Main,
+            crate::RemoteSubApp::Main,
         )));
         t.insert(InspectorSource::Remote(remote::RemoteSource::new(
             host,
             render_port,
-            RemoteSubApp::Render,
+            crate::RemoteSubApp::Render,
         )));
         InspectorSources { sources: t }
     }
@@ -91,7 +90,7 @@ impl InspectorSources {
         t.insert(InspectorSource::Remote(remote::RemoteSource::new(
             host,
             main_port,
-            RemoteSubApp::Main,
+            crate::RemoteSubApp::Main,
         )));
         InspectorSources { sources: t }
     }
@@ -113,6 +112,7 @@ pub enum InspectorSource {
 pub fn is_remote(inspector_source: InspectorSource) -> bool {
     match inspector_source {
         InspectorSource::Local => false,
+        #[cfg(feature = "remote")]
         InspectorSource::Remote(_) => true,
     }
 }
@@ -126,7 +126,7 @@ pub(crate) fn world_to_inspect(world: &World, inspector_source: InspectorSource)
     if let InspectorSource::Remote(rem) = inspector_source
         && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        if rem.subapp == RemoteSubApp::Main {
+        if rem.subapp == crate::RemoteSubApp::Main {
             return remote.main.world();
         }
         return remote.render.world();
@@ -224,8 +224,8 @@ impl Plugin for InspectorPlugin {
                 PostUpdate,
                 (
                     remote::sync_remote_source,
-                    remote::poll_remote_connection,
-                    remote::sync_remote_world,
+                    remote::poll_remote_connections,
+                    remote::sync_remote_worlds,
                 )
                     .chain()
                     .before(sync_entity_tree)
@@ -234,7 +234,7 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 connection_panel::sync_connection_status
-                    .after(remote::poll_remote_connection)
+                    .after(remote::poll_remote_connections)
                     .before(UiSystems::Prepare),
             );
     }

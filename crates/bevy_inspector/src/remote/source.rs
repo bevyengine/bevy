@@ -112,10 +112,10 @@ impl RemoteSource {
 pub fn get_remote_worlds(world: &World) -> Vec<(bool, &World, &RemoteSource)> {
     let inspector_sources = world.resource::<InspectorSources>();
 
-    let remote_worlds = inspector_sources
+    inspector_sources
         .sources
         .iter()
-        .map(|is| match is {
+        .filter_map(|is| match is {
             InspectorSource::Local => None,
             InspectorSource::Remote(rem) => {
                 let is_main = rem.subapp == RemoteSubApp::Main;
@@ -123,10 +123,7 @@ pub fn get_remote_worlds(world: &World) -> Vec<(bool, &World, &RemoteSource)> {
                 Some((is_main, inspected, rem))
             }
         })
-        .flatten()
-        .collect();
-
-    remote_worlds
+        .collect()
 }
 
 /// The state of the connection to the remote app.
@@ -455,7 +452,7 @@ fn reset_inspected_world(world: &mut World, is_main: bool) {
 }
 
 /// Polls the request in flight and starts the next one when it is due.
-pub fn poll_remote_connection(
+pub fn poll_remote_connections(
     time: Option<Res<Time<Real>>>,
     registry: Option<Res<AppTypeRegistry>>,
     priorities: Option<Res<LabelResolutionRegistry>>,
@@ -477,31 +474,22 @@ pub fn poll_remote_connection(
         render: render_snapshot,
     } = snapshot.into_inner();
 
-    _poll_remote_connection(
-        now,
-        registry,
-        priorities,
-        main_connection,
-        main_snapshot,
-        true,
-    );
-    _poll_remote_connection(
+    poll_remote_connection(now, registry, priorities, main_connection, main_snapshot);
+    poll_remote_connection(
         now,
         registry,
         priorities,
         render_connection,
         render_snapshot,
-        false,
     );
 }
 
-fn _poll_remote_connection(
+fn poll_remote_connection(
     now: Duration,
     registry: Option<&AppTypeRegistry>,
     priorities: Option<&LabelResolutionRegistry>,
     connection: &mut RemoteConnection,
     snapshot: &mut RemoteSnapshot,
-    _is_main: bool,
 ) {
     if connection.client.is_none() {
         return;
@@ -756,13 +744,8 @@ fn finish_call(
     }
 }
 
-/// Writes the latest poll into the [`RemoteWorld`]: despawns the entities it no longer shows,
-/// spawns the new ones, and writes the components that changed.
-///
-/// Rebuilds the [`RemoteWorld`] first if the connection was reset. If a remote id has an earlier
-/// generation than the one mirrored, the remote app restarted: the world is rebuilt, the poll
-/// written again, and a full poll requested.
-pub fn sync_remote_world(world: &mut World) {
+/// Updates each of the [`RemoteWorld`]'s based on the corresponding connection change.
+pub fn sync_remote_worlds(world: &mut World) {
     let inspector_sources = world.resource::<InspectorSources>().sources.clone();
 
     for inspector_source in inspector_sources.iter() {
@@ -770,13 +753,19 @@ pub fn sync_remote_world(world: &mut World) {
             InspectorSource::Local => {}
             InspectorSource::Remote(rem) => {
                 let is_main = rem.subapp == RemoteSubApp::Main;
-                foo_sync_remote_world(world, is_main);
+                sync_remote_world(world, is_main);
             }
         }
     }
 }
 
-fn foo_sync_remote_world(world: &mut World, is_main: bool) {
+/// Writes the latest poll into the [`RemoteWorld`]: despawns the entities it no longer shows,
+/// spawns the new ones, and writes the components that changed.
+///
+/// Rebuilds the [`RemoteWorld`] first if the connection was reset. If a remote id has an earlier
+/// generation than the one mirrored, the remote app restarted: the world is rebuilt, the poll
+/// written again, and a full poll requested.
+fn sync_remote_world(world: &mut World, is_main: bool) {
     let mut snapshots = world.resource_mut::<RemoteSnapshots>();
     let snapshot = if is_main {
         &mut snapshots.main
@@ -952,7 +941,7 @@ pub(crate) mod tests {
     fn poll(world: &mut World, rows: Vec<Value>, full: bool) {
         let rows = parse(world, Value::Array(rows), full);
         world.resource_mut::<RemoteSnapshots>().main.set(rows, full);
-        sync_remote_world(world);
+        sync_remote_worlds(world);
     }
 
     pub(crate) fn apply(world: &mut World, rows: Vec<Value>) {
@@ -1200,7 +1189,7 @@ pub(crate) mod tests {
             .resource_mut::<RemoteSnapshots>()
             .main
             .set(unseen, false));
-        sync_remote_world(&mut world);
+        sync_remote_worlds(&mut world);
         let rws = world.resource::<RemoteWorlds>();
         let remote_world = &rws.main;
         assert!(remote_world.contains(remote(11)));
@@ -1554,7 +1543,7 @@ pub(crate) mod tests {
                 Duration::ZERO,
             );
         });
-        sync_remote_world(&mut world);
+        sync_remote_worlds(&mut world);
 
         assert!(world.resource::<RemoteSnapshots>().main.is_empty());
         assert!(world
@@ -1582,7 +1571,7 @@ pub(crate) mod tests {
                 Duration::ZERO,
             );
         });
-        sync_remote_world(&mut world);
+        sync_remote_worlds(&mut world);
         assert!(world
             .resource_mut::<RemoteWorlds>()
             .main

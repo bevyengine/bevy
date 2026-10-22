@@ -37,9 +37,7 @@ use bevy_ui_widgets::{
     ValueChange,
 };
 
-use crate::{
-    remote::RemoteSubApp, InspectableEntity, InspectorSelection, InspectorSource, InspectorSources,
-};
+use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
 /// hidden from the entity tree, but the marked entity itself still shows as a single,
@@ -268,7 +266,7 @@ fn plan_sync(world: &World) -> SyncPlan {
             InspectorSource::Local => (true, world),
             #[cfg(feature = "remote")]
             InspectorSource::Remote(rem) => {
-                let is_main = rem.subapp == RemoteSubApp::Main;
+                let is_main = rem.subapp == crate::RemoteSubApp::Main;
                 let inspected = crate::world_to_inspect(world, inspector_source.clone());
                 (is_main, inspected)
             }
@@ -339,9 +337,7 @@ impl<'w> Sources<'w> {
 
     fn get_world(&self, want_main: bool) -> Option<&World> {
         for (is_main, world) in &self.inspectable_worlds {
-            if *is_main && want_main {
-                return Some(world);
-            } else if !*is_main && !want_main {
+            if (*is_main && want_main) || (!*is_main && !want_main) {
                 return Some(world);
             }
         }

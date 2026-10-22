@@ -23,7 +23,7 @@ pub mod world;
 #[cfg(test)]
 pub(crate) use source::tests;
 pub use source::{
-    get_remote_worlds, poll_remote_connection, sync_remote_source, sync_remote_world,
+    get_remote_worlds, poll_remote_connections, sync_remote_source, sync_remote_worlds,
     RemoteConnection, RemoteConnectionState, RemoteConnections, RemoteSnapshot, RemoteSnapshots,
     RemoteSource, RemoteSubApp,
 };
