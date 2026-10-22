@@ -818,6 +818,42 @@ mod tests {
         assert_eq!(values, vec![&B(2)]);
     }
 
+    #[test]
+    fn par_iter_many_unique_visits_each_listed_entity_once() {
+        use crate::entity::UniqueEntityVec;
+        use core::sync::atomic::{AtomicUsize, Ordering};
+
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        let mut world = World::new();
+        let entities: Vec<Entity> = world.spawn_batch((0..1000).map(|i| (A(i), B(0)))).collect();
+        // Every other entity.
+        let subset: UniqueEntityVec = entities.iter().copied().step_by(2).collect();
+
+        let mut state = SystemState::<Query<(&A, &mut B)>>::new(&mut world);
+        let mut query = state.get_mut(&mut world).unwrap();
+        query.par_iter_many_unique_mut(&subset).for_each(|item| {
+            let (a, mut b) = item.unwrap();
+            b.0 = a.0 + 1;
+        });
+
+        let sum = AtomicUsize::new(0);
+        query.par_iter_many_unique(&subset).for_each(|item| {
+            let (_, b) = item.unwrap();
+            sum.fetch_add(b.0, Ordering::Relaxed);
+        });
+        // Listed entities hold A(i) + 1 for i = 0, 2, ..., 998.
+        assert_eq!(
+            sum.into_inner(),
+            (0..1000).step_by(2).map(|i| i + 1).sum::<usize>()
+        );
+
+        for (i, &entity) in entities.iter().enumerate() {
+            let expected = if i % 2 == 0 { i + 1 } else { 0 };
+            assert_eq!(world.get::<B>(entity).unwrap().0, expected);
+        }
+    }
+
     // regression test for https://github.com/bevyengine/bevy/pull/23352
     #[test]
     // presence/lack of trailing commas are significant in this test, so skip rustfmt

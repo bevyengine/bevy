@@ -1272,8 +1272,8 @@ impl<P: VectorSpace<Scalar = f32>> CubicCurve<P> {
         self.iter_samples(subdivisions, Self::acceleration)
     }
 
-    #[inline]
     /// Adds a segment to the curve
+    #[inline]
     pub fn push_segment(&mut self, segment: CubicSegment<P>) {
         self.segments.push(segment);
     }
