@@ -35,10 +35,10 @@ pub enum ApplyError {
         to_kind: ReflectKind,
     },
 
-    #[error("enum variant `{variant_name}` was unable to be converted to an enum value through `FromReflect`")]
-    /// Enum variant that we tried to apply could not be converted using the enum's [`FromReflect`].
+    #[error("enum variant `{variant_name}` was unable to be converted to an enum value through `FromDynamic`")]
+    /// Enum variant that we tried to apply could not be converted using the enum's [`FromDynamic`].
     ///
-    /// [`FromReflect`]: crate::FromReflect
+    /// [`FromDynamic`]: crate::FromDynamic
     InvalidEnumVariant {
         /// Name of the enum variant.
         variant_name: Box<str>,
@@ -527,11 +527,11 @@ impl dyn Reflect {
     /// it can be downcast to. In the case that this underlying value "represents"
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
     /// to determine what type they represent. Represented types cannot be downcast
-    /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    /// to, but you can use [`FromDynamic`] to create a value of the represented type from them.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     ///
-    /// [`FromReflect`]: crate::FromReflect
+    /// [`FromDynamic`]: crate::FromDynamic
     #[inline]
     pub fn is<T: Any>(&self) -> bool {
         self.as_any().type_id() == TypeId::of::<T>()

@@ -138,16 +138,16 @@ impl AssetLoader for RonLoader {
         };
 
         // At this point, we need the concrete type. `ReflectDeserializer` internally uses the
-        // `ReflectFromReflect` for the loaded type to convert into a concrete type. If that fails,
-        // that must mean `ReflectFromReflect` wasn't registered for the type, so there's nothing we
+        // `ReflectFromDynamic` for the loaded type to convert into a concrete type. If that fails,
+        // that must mean `ReflectFromDynamic` wasn't registered for the type, so there's nothing we
         // can do.
         let DynamicValue::Concrete(reflected_asset) = reflected_asset else {
             // We're kind of cheating here: the current implementation of `ReflectDeserializer` (at
-            // the time of writing) only doesn't return the concrete type if `ReflectFromReflect` is
+            // the time of writing) only doesn't return the concrete type if `ReflectFromDynamic` is
             // not registered. We return that here for better error messages (even though an
             // arbitrary implementation might not return the concrete type for other reasons, or
             // might try other fallbacks).
-            return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
+            return Err(ReflectedRonDeserializeError::MissingReflectFromDynamic(
                 asset_type_info.type_path(),
             ));
         };
@@ -458,8 +458,8 @@ pub enum RonDeserializeError {
 pub enum ReflectedRonDeserializeError {
     #[error(transparent)]
     Ron(#[from] RonDeserializeError),
-    #[error("Attempted to load type \"{0}\", which does not have `ReflectFromReflect` in the type registry. This may occur for types that have opted-out of `FromReflect`")]
-    MissingReflectFromReflect(&'static str),
+    #[error("Attempted to load type \"{0}\", which does not have `ReflectFromDynamic` in the type registry. This may occur for types that have opted-out of `FromDynamic`")]
+    MissingReflectFromDynamic(&'static str),
     #[error("Attempted to load type \"{0}\", which does not have `ReflectAsset` in the type registry. Make sure to add `#[reflect(Asset)]` to your type")]
     MissingReflectAsset(&'static str),
 }

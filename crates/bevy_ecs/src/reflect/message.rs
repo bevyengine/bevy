@@ -5,7 +5,7 @@
 //!
 //! Same as [`component`](`super::component`), but for messages.
 
-use crate::{message::Message, reflect::from_reflect_with_fallback, world::World};
+use crate::{message::Message, reflect::from_dynamic_with_fallback, world::World};
 use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Message`] trait of a type.
@@ -101,7 +101,7 @@ impl<M: Message + Reflect + TypePath> CreateTypeData<M> for ReflectMessage {
     fn create_type_data(_input: ()) -> Self {
         ReflectMessage(ReflectMessageFns {
             write_message: |world, reflected_message, registry| {
-                let message = from_reflect_with_fallback::<M>(reflected_message, world, registry);
+                let message = from_dynamic_with_fallback::<M>(reflected_message, world, registry);
                 world.write_message(message);
             },
         })

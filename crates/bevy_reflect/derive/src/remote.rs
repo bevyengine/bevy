@@ -1,6 +1,6 @@
 use crate::{
     derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
-    from_reflect, impls,
+    from_dynamic, impls,
     impls::impl_assertions,
     ReflectDerive, REFLECT_ATTRIBUTE_NAME,
 };
@@ -47,35 +47,35 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
 
     let reflect_remote_impl = impl_reflect_remote(&derive_data, &remote_ty);
 
-    let (reflect_impls, from_reflect_impl) = match derive_data {
+    let (reflect_impls, from_dynamic_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
-            if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_struct(&struct_data))
+            if struct_data.meta().from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_struct(&struct_data))
             } else {
                 None
             },
         ),
         ReflectDerive::TupleStruct(struct_data) => (
             impls::impl_tuple_struct(&struct_data),
-            if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_tuple_struct(&struct_data))
+            if struct_data.meta().from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_tuple_struct(&struct_data))
             } else {
                 None
             },
         ),
         ReflectDerive::Enum(enum_data) => (
             impls::impl_enum(&enum_data),
-            if enum_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_enum(&enum_data))
+            if enum_data.meta().from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_enum(&enum_data))
             } else {
                 None
             },
         ),
         ReflectDerive::Opaque(meta) => (
             impls::impl_opaque(&meta),
-            if meta.from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_opaque(&meta))
+            if meta.from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_opaque(&meta))
             } else {
                 None
             },
@@ -90,7 +90,7 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
 
             #reflect_impls
 
-            #from_reflect_impl
+            #from_dynamic_impl
 
             #definition_assertions
 

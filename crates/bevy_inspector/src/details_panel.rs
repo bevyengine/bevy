@@ -56,7 +56,7 @@ use bevy_reflect::{
     dynamic::{DynamicStruct, DynamicTuple},
     enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
-    GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
+    GetPath, PartialReflect, Reflect, ReflectFromDynamic, ReflectRef, TypeInfo, TypeRegistry,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
 use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
@@ -1792,8 +1792,8 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         .then(|| {
             let info = value.get_represented_type_info()?;
             registry
-                .get_type_data::<ReflectFromReflect>(info.type_id())?
-                .from_reflect(value)
+                .get_type_data::<ReflectFromDynamic>(info.type_id())?
+                .from_dynamic(value)
         })
         .flatten();
     let value = concrete

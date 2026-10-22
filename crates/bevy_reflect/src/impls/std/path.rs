@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
@@ -157,14 +158,14 @@ impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 }
 
-impl FromReflect for &'static Path {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+impl FromDynamic for &'static Path {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        dynamic.into_concrete()?.downcast_ref::<Self>().copied()
     }
 }
 
@@ -298,9 +299,9 @@ impl Typed for Cow<'static, Path> {
 
 impl_type_path!(::std::path::Path);
 
-impl FromReflect for Cow<'static, Path> {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<Self>()?.clone())
+impl FromDynamic for Cow<'static, Path> {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        Some(dynamic.into_concrete()?.downcast_ref::<Self>()?.clone())
     }
 }
 
@@ -310,7 +311,7 @@ impl GetTypeRegistration for Cow<'static, Path> {
         registration.register_type_data::<ReflectDeserialize, Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
         registration.register_type_data::<ReflectSerialize, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 }

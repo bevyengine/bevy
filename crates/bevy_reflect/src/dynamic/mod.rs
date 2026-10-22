@@ -142,6 +142,13 @@ impl DynamicValue {
         }
     }
 
+    /// Takes the current value and leaves a dummy value in its place.
+    ///
+    /// The value of `self` is not well-defined, other than it will be a "cheap" value to construct.
+    pub fn take_dynamic(&mut self) -> DynamicValue {
+        core::mem::replace(self, DynamicValue::Tuple(DynamicTuple::default()))
+    }
+
     /// Converts this value into an equivalent [`PartialReflect`] implementation.
     ///
     /// [`Self::Concrete`] values are passed directly, while for all dynamic representations, this
@@ -205,6 +212,14 @@ impl DynamicValue {
     pub fn as_concrete_mut(&mut self) -> Option<&mut dyn Reflect> {
         match self {
             Self::Concrete(value) => Some(&mut **value),
+            _ => None,
+        }
+    }
+
+    /// Gets the concrete value if this value is [`Self::Concrete`], returns [`None`] otherwise.
+    pub fn into_concrete(self) -> Option<Box<dyn Reflect>> {
+        match self {
+            Self::Concrete(value) => Some(value),
             _ => None,
         }
     }

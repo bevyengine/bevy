@@ -25,7 +25,7 @@ mod paths {
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(where T: TypePath),
-    reflect(from_reflect = false, type_path = false),
+    reflect(from_dynamic = false, type_path = false),
 )]
 pub struct SampleCurve<T, I> {
     pub(crate) core: EvenCore<T>,
@@ -185,7 +185,7 @@ impl<T> SampleAutoCurve<T> {
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(where T: TypePath),
-    reflect(from_reflect = false, type_path = false),
+    reflect(from_dynamic = false, type_path = false),
 )]
 pub struct UnevenSampleCurve<T, I> {
     pub(crate) core: UnevenCore<T>,

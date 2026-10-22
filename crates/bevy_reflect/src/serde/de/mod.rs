@@ -41,7 +41,7 @@ mod tests {
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
         },
-        FromReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
+        FromDynamic, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -246,8 +246,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <MyStruct as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <MyStruct as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -291,8 +290,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <Foo as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -332,8 +330,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <OptionTest as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <OptionTest as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output, "failed to deserialize Options");
 
         // === Implicit Some === //
@@ -355,8 +352,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <OptionTest as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <OptionTest as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(
             expected, output,
             "failed to deserialize Options with implicit Some"
@@ -382,7 +378,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let output = SomeType::from_reflect(output.as_partial_reflect()).unwrap();
+        let output = SomeType::from_dynamic(output).unwrap();
         assert_eq!(output.value, 17);
     }
 
@@ -410,7 +406,7 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         // Using the full name is totally fine.
-        let output = some_mod::Ambiguous::from_reflect(output.as_partial_reflect()).unwrap();
+        let output = some_mod::Ambiguous::from_dynamic(output).unwrap();
         assert_eq!(output.0, 17);
 
         let ambiguous_input = r#"{
@@ -540,8 +536,7 @@ mod tests {
             .deserialize(&mut postcard::Deserializer::from_bytes(&input))
             .unwrap();
 
-        let output =
-            <MyStruct as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <MyStruct as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -572,8 +567,7 @@ mod tests {
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
-        let output =
-            <MyStruct as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <MyStruct as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -641,8 +635,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <Foo as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -696,8 +689,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <Foo as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -784,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn should_fail_from_reflect_if_processor_returns_wrong_typed_value() {
+    fn should_fail_from_dynamic_if_processor_returns_wrong_typed_value() {
         #[derive(Reflect, Debug, PartialEq)]
         struct Foo {
             bar: i32,
@@ -828,7 +820,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_none());
+        assert!(<Foo as FromDynamic>::from_dynamic(dynamic_output).is_none());
     }
 
     #[cfg(feature = "functions")]
@@ -839,7 +831,7 @@ mod tests {
         #[test]
         fn should_not_deserialize_function() {
             #[derive(Reflect)]
-            #[reflect(from_reflect = false)]
+            #[reflect(from_dynamic = false)]
             struct MyStruct {
                 func: DynamicFunction<'static>,
             }

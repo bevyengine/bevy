@@ -19,7 +19,7 @@ use syn::{
 };
 
 mod kw {
-    syn::custom_keyword!(from_reflect);
+    syn::custom_keyword!(from_dynamic);
     syn::custom_keyword!(type_path);
     syn::custom_keyword!(Debug);
     syn::custom_keyword!(PartialEq);
@@ -35,8 +35,8 @@ mod kw {
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 
-// Attributes for `FromReflect` implementation
-const FROM_REFLECT_ATTR: &str = "from_reflect";
+// Attributes for `FromDynamic` implementation
+const FROM_REFLECT_ATTR: &str = "from_dynamic";
 
 // Attributes for `TypePath` implementation
 const TYPE_PATH_ATTR: &str = "type_path";
@@ -78,14 +78,14 @@ impl TraitImpl {
     }
 }
 
-/// A collection of attributes used for deriving `FromReflect`.
+/// A collection of attributes used for deriving `FromDynamic`.
 #[derive(Clone, Default)]
-pub(crate) struct FromReflectAttrs {
+pub(crate) struct FromDynamicAttrs {
     auto_derive: Option<LitBool>,
 }
 
-impl FromReflectAttrs {
-    /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect` derive.
+impl FromDynamicAttrs {
+    /// Returns true if `FromDynamic` should be automatically derived as part of the `Reflect` derive.
     pub fn should_auto_derive(&self) -> bool {
         self.auto_derive.as_ref().is_none_or(LitBool::value)
     }
@@ -178,7 +178,7 @@ pub(crate) struct ContainerAttributes {
     hash: TraitImpl,
     partial_ord: TraitImpl,
     partial_eq: TraitImpl,
-    from_reflect_attrs: FromReflectAttrs,
+    from_dynamic_attrs: FromDynamicAttrs,
     type_path_attrs: TypePathAttrs,
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
@@ -229,8 +229,8 @@ impl ContainerAttributes {
             self.custom_attributes.parse_custom_attribute(input)
         } else if lookahead.peek(Token![where]) {
             self.parse_custom_where(input)
-        } else if lookahead.peek(kw::from_reflect) {
-            self.parse_from_reflect(input, trait_)
+        } else if lookahead.peek(kw::from_dynamic) {
+            self.parse_from_dynamic(input, trait_)
         } else if lookahead.peek(kw::type_path) {
             self.parse_type_path(input, trait_)
         } else if lookahead.peek(kw::opaque) {
@@ -420,28 +420,28 @@ impl ContainerAttributes {
         Ok(())
     }
 
-    /// Parse `from_reflect` attribute.
+    /// Parse `from_dynamic` attribute.
     ///
     /// Examples:
-    /// - `#[reflect(from_reflect = false)]`
-    fn parse_from_reflect(
+    /// - `#[reflect(from_dynamic = false)]`
+    fn parse_from_dynamic(
         &mut self,
         input: ParseStream,
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let pair = input.parse::<MetaNameValue>()?;
         let extracted_bool = extract_bool(&pair.value, |lit| {
-            // Override `lit` if this is a `FromReflect` derive.
+            // Override `lit` if this is a `FromDynamic` derive.
             // This typically means a user is opting out of the default implementation
-            // from the `Reflect` derive and using the `FromReflect` derive directly instead.
-            if trait_ == ReflectTraitToImpl::FromReflect {
+            // from the `Reflect` derive and using the `FromDynamic` derive directly instead.
+            if trait_ == ReflectTraitToImpl::FromDynamic {
                 LitBool::new(true, Span::call_site())
             } else {
                 lit.clone()
             }
         })?;
 
-        if let Some(existing) = &self.from_reflect_attrs.auto_derive {
+        if let Some(existing) = &self.from_dynamic_attrs.auto_derive {
             if existing.value() != extracted_bool.value() {
                 return Err(syn::Error::new(
                     extracted_bool.span(),
@@ -449,7 +449,7 @@ impl ContainerAttributes {
                 ));
             }
         } else {
-            self.from_reflect_attrs.auto_derive = Some(extracted_bool);
+            self.from_dynamic_attrs.auto_derive = Some(extracted_bool);
         }
 
         Ok(())
@@ -466,9 +466,9 @@ impl ContainerAttributes {
     ) -> syn::Result<()> {
         let pair = input.parse::<MetaNameValue>()?;
         let extracted_bool = extract_bool(&pair.value, |lit| {
-            // Override `lit` if this is a `FromReflect` derive.
+            // Override `lit` if this is a `FromDynamic` derive.
             // This typically means a user is opting out of the default implementation
-            // from the `Reflect` derive and using the `FromReflect` derive directly instead.
+            // from the `Reflect` derive and using the `FromDynamic` derive directly instead.
             if trait_ == ReflectTraitToImpl::TypePath {
                 LitBool::new(true, Span::call_site())
             } else {
@@ -503,13 +503,13 @@ impl ContainerAttributes {
         &self.type_data
     }
 
-    /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
+    /// The `FromDynamic` configuration found within `#[reflect(...)]` attributes on this type.
     #[expect(
         clippy::wrong_self_convention,
-        reason = "Method returns `FromReflectAttrs`, does not actually convert data."
+        reason = "Method returns `FromDynamicAttrs`, does not actually convert data."
     )]
-    pub fn from_reflect_attrs(&self) -> &FromReflectAttrs {
-        &self.from_reflect_attrs
+    pub fn from_dynamic_attrs(&self) -> &FromDynamicAttrs {
+        &self.from_dynamic_attrs
     }
 
     /// The `TypePath` configuration found within `#[reflect(...)]` attributes on this type.

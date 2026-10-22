@@ -2,7 +2,7 @@
 use bevy_reflect::{structs::GetField, Reflect};
 
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
 struct Foo<T, U, S> {
     a: T,
     #[reflect(ignore)]
@@ -17,7 +17,7 @@ struct Foo<T, U, S> {
     _e: S,
 }
 
-// check that we use the proper bounds when auto-deriving `FromReflect`
+// check that we use the proper bounds when auto-deriving `FromDynamic`
 #[derive(Reflect)]
 struct Bar<T, U: Default, S: Default> {
     a: T,

@@ -3,7 +3,7 @@ use indexmap::IndexSet;
 use proc_macro2::Span;
 
 use crate::{
-    container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
+    container_attributes::{ContainerAttributes, FromDynamicAttrs, TypePathAttrs},
     field_attributes::FieldAttributes,
     remote::RemoteType,
     serialization::SerializationDataDef,
@@ -61,7 +61,7 @@ pub(crate) struct ReflectMeta<'a> {
     docs: crate::documentation::Documentation,
 }
 
-/// Struct data used by derive macros for `Reflect` and `FromReflect`.
+/// Struct data used by derive macros for `Reflect` and `FromDynamic`.
 ///
 /// # Example
 ///
@@ -80,7 +80,7 @@ pub(crate) struct ReflectStruct<'a> {
     fields: Vec<StructField<'a>>,
 }
 
-/// Enum data used by derive macros for `Reflect` and `FromReflect`.
+/// Enum data used by derive macros for `Reflect` and `FromDynamic`.
 ///
 /// # Example
 ///
@@ -153,7 +153,7 @@ pub(crate) enum ReflectImplSource {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ReflectTraitToImpl {
     Reflect,
-    FromReflect,
+    FromDynamic,
     TypePath,
 }
 
@@ -170,11 +170,11 @@ impl fmt::Display for ReflectProvenance {
         let str = match (self.source, self.trait_) {
             (S::ImplRemoteType, T::Reflect) => "`impl_reflect`",
             (S::DeriveLocalType, T::Reflect) => "`#[derive(Reflect)]`",
-            (S::DeriveLocalType, T::FromReflect) => "`#[derive(FromReflect)]`",
+            (S::DeriveLocalType, T::FromDynamic) => "`#[derive(FromDynamic)]`",
             (S::DeriveLocalType, T::TypePath) => "`#[derive(TypePath)]`",
             (S::RemoteReflect, T::Reflect) => "`#[reflect_remote]`",
-            (S::RemoteReflect, T::FromReflect | T::TypePath)
-            | (S::ImplRemoteType, T::FromReflect | T::TypePath) => unreachable!(),
+            (S::RemoteReflect, T::FromDynamic | T::TypePath)
+            | (S::ImplRemoteType, T::FromDynamic | T::TypePath) => unreachable!(),
         };
         f.write_str(str)
     }
@@ -451,13 +451,13 @@ impl<'a> ReflectMeta<'a> {
         &self.attrs
     }
 
-    /// The `FromReflect` attributes on this type.
+    /// The `FromDynamic` attributes on this type.
     #[expect(
         clippy::wrong_self_convention,
-        reason = "Method returns `FromReflectAttrs`, does not actually convert data."
+        reason = "Method returns `FromDynamicAttrs`, does not actually convert data."
     )]
-    pub fn from_reflect(&self) -> &FromReflectAttrs {
-        self.attrs.from_reflect_attrs()
+    pub fn from_dynamic(&self) -> &FromDynamicAttrs {
+        self.attrs.from_dynamic_attrs()
     }
 
     /// The `TypePath` attributes on this type.

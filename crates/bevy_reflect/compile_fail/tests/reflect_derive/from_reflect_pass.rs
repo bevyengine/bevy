@@ -1,22 +1,22 @@
 //@check-pass
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromDynamic, Reflect};
 
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
+#[reflect(from_dynamic = false)]
 struct Foo {
     value: String,
 }
 
 #[derive(Reflect)]
-#[reflect(from_reflect = true)]
-#[reflect(from_reflect = true)]
+#[reflect(from_dynamic = true)]
+#[reflect(from_dynamic = true)]
 struct Bar {
     value: String,
 }
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect, FromDynamic)]
+#[reflect(from_dynamic = false)]
 struct Baz {
     value: String,
 }

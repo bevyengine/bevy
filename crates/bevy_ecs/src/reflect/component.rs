@@ -57,7 +57,7 @@
 //!
 //! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
 
-use super::from_reflect_with_fallback;
+use super::from_dynamic_with_fallback;
 use crate::{
     change_detection::Mut,
     component::{ComponentId, ComponentMutability},
@@ -70,7 +70,7 @@ use crate::{
     },
 };
 use alloc::boxed::Box;
-use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, FromDynamic, PartialReflect, Reflect, TypePath, TypeRegistry};
 use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
@@ -143,7 +143,7 @@ impl ReflectComponentFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Component + Reflect + FromReflect + TypePath>() -> Self {
+    pub fn new<T: Component + Reflect + FromDynamic + TypePath>() -> Self {
         <ReflectComponent as CreateTypeData<T>>::create_type_data(()).0
     }
 }
@@ -313,7 +313,7 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
                 let component = entity.world_scope(|world| {
-                    from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                    from_dynamic_with_fallback::<C>(reflected_component, world, registry)
                 });
                 entity.insert(component);
             },
@@ -340,7 +340,7 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
                         C::map_entities(&mut component, &mut mapper);
                     } else {
                         let mut component = entity.world_scope(|world| {
-                            from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                            from_dynamic_with_fallback::<C>(reflected_component, world, registry)
                         });
                         C::map_entities(&mut component, &mut mapper);
                         entity
@@ -348,7 +348,7 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
                     }
                 } else {
                     let mut component = entity.world_scope(|world| {
-                        from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                        from_dynamic_with_fallback::<C>(reflected_component, world, registry)
                     });
                     C::map_entities(&mut component, &mut mapper);
                     entity.insert_with_relationship_hook_mode(component, relationship_hook_mode);
@@ -366,7 +366,7 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
             copy: |source_world, destination_world, source_entity, destination_entity, registry| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
                 let destination_component =
-                    from_reflect_with_fallback::<C>(source_component, destination_world, registry);
+                    from_dynamic_with_fallback::<C>(source_component, destination_world, registry);
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);

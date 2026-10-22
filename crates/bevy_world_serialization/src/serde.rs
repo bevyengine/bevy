@@ -11,7 +11,7 @@ use bevy_reflect::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
         TypedReflectSerializer,
     },
-    PartialReflect, ReflectFromReflect, TypeRegistry,
+    PartialReflect, ReflectFromDynamic, TypeRegistry,
 };
 use core::fmt::Formatter;
 use serde::{
@@ -529,12 +529,12 @@ impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
                 },
             ))?;
 
-            // Attempt to convert using FromReflect.
+            // Attempt to convert using FromDynamic.
             let value = self
                 .registry
                 .get(registration.type_id())
-                .and_then(|tr| tr.data::<ReflectFromReflect>())
-                .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
+                .and_then(|tr| tr.data::<ReflectFromDynamic>())
+                .and_then(|fr| fr.from_dynamic(value.as_partial_reflect()))
                 .map(|value| value as _)
                 .unwrap_or(value.as_boxed_partial_reflect());
 

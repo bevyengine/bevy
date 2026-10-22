@@ -122,7 +122,7 @@ struct CameraWindows(EntityHashSet);
 /// associated with views.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Clone, Component)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
 pub struct RootNonCameraView(#[reflect(ignore)] pub InternedScheduleLabel);
 
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]

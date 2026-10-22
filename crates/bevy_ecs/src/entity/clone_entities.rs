@@ -1518,7 +1518,7 @@ mod tests {
 
             // `reflect_clone`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
-            #[reflect(from_reflect = false)]
+            #[reflect(from_dynamic = false)]
             struct A {
                 field: usize,
                 field2: Vec<usize>,
@@ -1527,7 +1527,7 @@ mod tests {
             // `ReflectDefault`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             #[reflect(Default)]
-            #[reflect(from_reflect = false)]
+            #[reflect(from_dynamic = false)]
             struct B {
                 field: usize,
                 field2: Vec<usize>,
@@ -1535,7 +1535,7 @@ mod tests {
                 ignored: NotClone,
             }
 
-            // `ReflectFromReflect`-based fast path
+            // `ReflectFromDynamic`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             struct C {
                 field: usize,
@@ -1547,7 +1547,7 @@ mod tests {
             // `ReflectFromWorld`-based fast path
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             #[reflect(FromWorld)]
-            #[reflect(from_reflect = false)]
+            #[reflect(from_dynamic = false)]
             struct D {
                 field: usize,
                 field2: Vec<usize>,
@@ -1675,7 +1675,7 @@ mod tests {
             // No valid type data and not `reflect_clone`-able
             #[derive(Component, Reflect, PartialEq, Eq, Default, Debug)]
             #[reflect(Component)]
-            #[reflect(from_reflect = false)]
+            #[reflect(from_dynamic = false)]
             struct B(#[reflect(ignore)] PhantomData<()>);
 
             let mut world = World::default();
@@ -1705,7 +1705,7 @@ mod tests {
         #[test]
         fn clone_with_reflect_from_world() {
             #[derive(Component, Reflect, PartialEq, Eq, Debug)]
-            #[reflect(Component, FromWorld, from_reflect = false)]
+            #[reflect(Component, FromWorld, from_dynamic = false)]
             struct SomeRef(
                 #[entities] Entity,
                 // We add an ignored field here to ensure `reflect_clone` fails and `FromWorld` is used

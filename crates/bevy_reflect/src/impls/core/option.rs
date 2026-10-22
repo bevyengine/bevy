@@ -18,8 +18,9 @@ impl_reflect! {
 #[cfg(test)]
 mod tests {
     use crate::{
+        dynamic::DynamicValue,
         enums::{Enum, VariantInfo, VariantType},
-        FromReflect, PartialReflect, TypeInfo, Typed,
+        FromDynamic, PartialReflect, TypeInfo, Typed,
     };
     use bevy_reflect_derive::Reflect;
     use static_assertions::assert_impl_all;
@@ -62,12 +63,15 @@ mod tests {
     }
 
     #[test]
-    fn option_should_from_reflect() {
+    fn option_should_from_dynamic() {
         #[derive(Reflect, PartialEq, Debug)]
         struct Foo(usize);
 
         let expected = Some(Foo(123));
-        let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
+        let output = <Option<Foo> as FromDynamic>::from_dynamic(
+            DynamicValue::try_from_reflect(&expected).unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(expected, output);
     }

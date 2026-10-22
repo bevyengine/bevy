@@ -114,14 +114,17 @@ impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));
 
 #[cfg(test)]
 mod tests {
-    use bevy_reflect::{FromReflect, PartialReflect};
+    use bevy_reflect::{FromDynamic, PartialReflect};
+
+    use crate::dynamic::DynamicValue;
 
     #[test]
-    fn nonzero_usize_impl_reflect_from_reflect() {
+    fn nonzero_usize_impl_reflect_from_dynamic() {
         let a: &dyn PartialReflect = &core::num::NonZero::<usize>::new(42).unwrap();
         let b: &dyn PartialReflect = &core::num::NonZero::<usize>::new(42).unwrap();
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
-        let forty_two: core::num::NonZero<usize> = FromReflect::from_reflect(a).unwrap();
+        let forty_two: core::num::NonZero<usize> =
+            FromDynamic::from_dynamic(DynamicValue::try_from_reflect(a).unwrap()).unwrap();
         assert_eq!(forty_two, core::num::NonZero::<usize>::new(42).unwrap());
     }
 }

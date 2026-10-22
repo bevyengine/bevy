@@ -17,7 +17,7 @@ mod structs {
     }
 
     #[derive(Reflect)]
-    struct FromReflectGeneric<T> {
+    struct FromDynamicGeneric<T> {
         foo: T,
         #[reflect(ignore)]
         _ignored: NonReflect,
@@ -48,7 +48,7 @@ mod structs {
     }
 
     #[derive(Reflect)]
-    struct FromReflectBoundGeneric<T: Clone> {
+    struct FromDynamicBoundGeneric<T: Clone> {
         foo: T,
         #[reflect(ignore)]
         _ignored: NonReflect,
@@ -82,7 +82,7 @@ mod structs {
     }
 
     #[derive(Reflect)]
-    struct FromReflectGenericWithWhere<T>
+    struct FromDynamicGenericWithWhere<T>
     where
         T: Clone,
     {
@@ -127,7 +127,7 @@ mod structs {
 
     #[derive(Reflect)]
     #[rustfmt::skip]
-    struct FromReflectGenericWithWhereNoTrailingComma<T>
+    struct FromDynamicGenericWithWhereNoTrailingComma<T>
         where
             T: Clone
     {
@@ -168,7 +168,7 @@ mod tuple_structs {
     struct ReflectGeneric<T>(T, #[reflect(ignore)] NonReflect);
 
     #[derive(Reflect)]
-    struct FromReflectGeneric<T>(T, #[reflect(ignore)] NonReflect);
+    struct FromDynamicGeneric<T>(T, #[reflect(ignore)] NonReflect);
 
     #[derive(Reflect)]
     #[reflect(Default)]
@@ -184,7 +184,7 @@ mod tuple_structs {
     struct ReflectBoundGeneric<T: Clone>(T, #[reflect(ignore)] NonReflect);
 
     #[derive(Reflect)]
-    struct FromReflectBoundGeneric<T: Clone>(T, #[reflect(ignore)] NonReflect);
+    struct FromDynamicBoundGeneric<T: Clone>(T, #[reflect(ignore)] NonReflect);
 
     #[derive(Reflect)]
     #[reflect(Default)]
@@ -202,7 +202,7 @@ mod tuple_structs {
         T: Clone;
 
     #[derive(Reflect)]
-    struct FromReflectGenericWithWhere<T>(T, #[reflect(ignore)] NonReflect)
+    struct FromDynamicGenericWithWhere<T>(T, #[reflect(ignore)] NonReflect)
     where
         T: Clone;
 
@@ -231,7 +231,7 @@ mod enums {
     }
 
     #[derive(Reflect)]
-    enum FromReflectGeneric<T> {
+    enum FromDynamicGeneric<T> {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
 
@@ -241,7 +241,7 @@ mod enums {
     }
 
     #[derive(Reflect)]
-    enum FromReflectBoundGeneric<T: Clone> {
+    enum FromDynamicBoundGeneric<T: Clone> {
         Foo(T, #[reflect(ignore)] NonReflect),
     }
 
@@ -254,7 +254,7 @@ mod enums {
     }
 
     #[derive(Reflect)]
-    enum FromReflectGenericWithWhere<T>
+    enum FromDynamicGenericWithWhere<T>
     where
         T: Clone,
     {
@@ -272,7 +272,7 @@ mod enums {
 
     #[derive(Reflect)]
     #[rustfmt::skip]
-    enum FromReflectGenericWithWhereNoTrailingComma<T>
+    enum FromDynamicGenericWithWhereNoTrailingComma<T>
         where
             T: Clone
     {

@@ -8,12 +8,12 @@ mod external_crate {
 
 #[repr(transparent)]
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
 struct MyFoo(#[reflect(ignore)] pub external_crate::TheirFoo);
 
 #[derive(Reflect)]
 //~^ ERROR: the trait bound `MyFoo: ReflectRemote` is not satisfied
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
 struct MyStruct {
     // Reason: `MyFoo` does not implement `ReflectRemote` (from `#[reflect_remote]` attribute)
     #[reflect(remote = MyFoo)]

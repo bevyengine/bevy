@@ -4,7 +4,8 @@ mod path;
 
 #[cfg(test)]
 mod tests {
-    use crate::{FromReflect, PartialReflect};
+    use crate::dynamic::DynamicValue;
+    use crate::{FromDynamic, PartialReflect};
     use std::collections::HashMap;
     use std::path::Path;
 
@@ -24,23 +25,32 @@ mod tests {
     }
 
     #[test]
-    fn path_should_from_reflect() {
+    fn path_should_from_dynamic() {
         let path = Path::new("hello_world.rs");
-        let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
+        let output = <&'static Path as FromDynamic>::from_dynamic(
+            DynamicValue::try_from_reflect(&path).unwrap(),
+        )
+        .unwrap();
         assert_eq!(path, output);
     }
 
     #[test]
-    fn type_id_should_from_reflect() {
+    fn type_id_should_from_dynamic() {
         let type_id = core::any::TypeId::of::<usize>();
-        let output = <core::any::TypeId as FromReflect>::from_reflect(&type_id).unwrap();
+        let output = <core::any::TypeId as FromDynamic>::from_dynamic(
+            DynamicValue::try_from_reflect(&type_id).unwrap(),
+        )
+        .unwrap();
         assert_eq!(type_id, output);
     }
 
     #[test]
-    fn static_str_should_from_reflect() {
+    fn static_str_should_from_dynamic() {
         let expected = "Hello, World!";
-        let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
+        let output = <&'static str as FromDynamic>::from_dynamic(
+            DynamicValue::try_from_reflect(&expected).unwrap(),
+        )
+        .unwrap();
         assert_eq!(expected, output);
     }
 }

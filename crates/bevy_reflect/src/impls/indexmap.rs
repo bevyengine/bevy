@@ -2,14 +2,14 @@ use crate::{
     dynamic::DynamicValue,
     set::{Set, SetInfo},
     utility::GenericTypeInfoCell,
-    FromReflect, Generics, GetTypeRegistration, PartialReflect, Reflect, ReflectCloneError,
+    FromDynamic, Generics, GetTypeRegistration, PartialReflect, Reflect, ReflectCloneError,
     ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath,
     TypeRegistration,
 };
 use bevy_platform::prelude::{Box, Vec};
 use bevy_reflect::{
     map::{Map, MapInfo},
-    MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed,
+    MaybeTyped, ReflectFromDynamic, ReflectKind, TypeRegistry, Typed,
 };
 use bevy_reflect_derive::impl_type_path;
 use core::{any::Any, hash::BuildHasher, hash::Hash};
@@ -17,20 +17,16 @@ use indexmap::{IndexMap, IndexSet};
 
 impl<K, V, S> Map for IndexMap<K, V, S>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
-        K::take_from_reflect(dynamic.as_boxed_partial_reflect())
-            .ok()
-            .map(|value| Box::new(value) as _)
+        K::from_dynamic(dynamic).map(|value| Box::new(value) as _)
     }
 
     fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
-        V::take_from_reflect(dynamic.as_boxed_partial_reflect())
-            .ok()
-            .map(|value| Box::new(value) as _)
+        V::from_dynamic(dynamic).map(|value| Box::new(value) as _)
     }
 
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
@@ -76,13 +72,13 @@ where
         key: Box<dyn PartialReflect>,
         value: Box<dyn PartialReflect>,
     ) -> Option<Box<dyn PartialReflect>> {
-        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+        let key = *key.try_downcast::<K>().unwrap_or_else(|key| {
             panic!(
                 "Attempted to insert invalid key of type {}.",
                 key.reflect_type_path()
             )
         });
-        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+        let value = *value.try_downcast::<V>().unwrap_or_else(|value| {
             panic!(
                 "Attempted to insert invalid value of type {}.",
                 value.reflect_type_path()
@@ -93,12 +89,7 @@ where
     }
 
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
-        let mut from_reflect = None;
         key.try_downcast_ref::<K>()
-            .or_else(|| {
-                from_reflect = K::from_reflect(key);
-                from_reflect.as_ref()
-            })
             .and_then(|key| self.shift_remove(key))
             .map(|value| Box::new(value) as Box<dyn PartialReflect>)
     }
@@ -106,8 +97,8 @@ where
 
 impl<K, V, S> PartialReflect for IndexMap<K, V, S>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -182,8 +173,8 @@ where
 
 impl<K, V, S> Reflect for IndexMap<K, V, S>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -218,8 +209,8 @@ where
 
 impl<K, V, S> Typed for IndexMap<K, V, S>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn type_info() -> &'static TypeInfo {
@@ -235,20 +226,24 @@ where
     }
 }
 
-impl<K, V, S> FromReflect for IndexMap<K, V, S>
+impl<K, V, S> FromDynamic for IndexMap<K, V, S>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_map = reflect.reflect_ref().as_map().ok()?;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let dynamic = match dynamic {
+            DynamicValue::Map(dynamic) => dynamic,
+            DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+            _ => return None,
+        };
 
-        let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), S::default());
+        let mut new_map = Self::with_capacity_and_hasher(dynamic.len(), S::default());
 
-        for (key, value) in ref_map.iter() {
-            let new_key = K::from_reflect(key)?;
-            let new_value = V::from_reflect(value)?;
+        for (key, value) in dynamic.into_iter() {
+            let new_key = K::from_dynamic(key)?;
+            let new_value = V::from_dynamic(value)?;
             new_map.insert(new_key, new_value);
         }
 
@@ -258,14 +253,14 @@ where
 
 impl<K, V, S> GetTypeRegistration for IndexMap<K, V, S>
 where
-    K: Hash + Eq + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Hash + Eq + Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Send + Sync + Default,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 
@@ -279,13 +274,11 @@ impl_type_path!(::indexmap::IndexMap<K, V, S>);
 
 impl<T, S> Set for IndexSet<T, S>
 where
-    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromDynamic + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
-        T::take_from_reflect(dynamic.as_boxed_partial_reflect())
-            .ok()
-            .map(|value| Box::new(value) as _)
+        T::from_dynamic(dynamic).map(|value| Box::new(value) as _)
     }
 
     fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
@@ -315,7 +308,7 @@ where
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
-        let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+        let value = *value.try_downcast::<T>().unwrap_or_else(|value| {
             panic!(
                 "Attempted to insert invalid value of type {}.",
                 value.reflect_type_path()
@@ -325,31 +318,21 @@ where
     }
 
     fn remove(&mut self, value: &dyn PartialReflect) -> bool {
-        let mut from_reflect = None;
         value
             .try_downcast_ref::<T>()
-            .or_else(|| {
-                from_reflect = T::from_reflect(value);
-                from_reflect.as_ref()
-            })
             .is_some_and(|value| self.shift_remove(value))
     }
 
     fn contains(&self, value: &dyn PartialReflect) -> bool {
-        let mut from_reflect = None;
         value
             .try_downcast_ref::<T>()
-            .or_else(|| {
-                from_reflect = T::from_reflect(value);
-                from_reflect.as_ref()
-            })
             .is_some_and(|value| self.contains(value))
     }
 }
 
 impl<T, S> PartialReflect for IndexSet<T, S>
 where
-    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromDynamic + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -421,7 +404,7 @@ where
 
 impl<T, S> Reflect for IndexSet<T, S>
 where
-    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromDynamic + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -456,7 +439,7 @@ where
 
 impl<T, S> Typed for IndexSet<T, S>
 where
-    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromDynamic + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn type_info() -> &'static TypeInfo {
@@ -470,18 +453,22 @@ where
     }
 }
 
-impl<T, S> FromReflect for IndexSet<T, S>
+impl<T, S> FromDynamic for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: FromDynamic + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_set = reflect.reflect_ref().as_set().ok()?;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let dynamic = match dynamic {
+            DynamicValue::Set(dynamic) => dynamic,
+            DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+            _ => return None,
+        };
 
-        let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
+        let mut new_set = Self::with_capacity_and_hasher(dynamic.len(), S::default());
 
-        for field in ref_set.iter() {
-            new_set.insert(T::from_reflect(field)?);
+        for value in dynamic.into_iter() {
+            new_set.insert(T::from_dynamic(value)?);
         }
 
         Some(new_set)
@@ -490,7 +477,7 @@ where
 
 impl<T, S> GetTypeRegistration for IndexSet<T, S>
 where
-    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromDynamic + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_type_registration() -> TypeRegistration {

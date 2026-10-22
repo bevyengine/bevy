@@ -80,7 +80,7 @@
 //! * [`PartialReflect::try_as_reflect_mut`] for `&mut dyn Reflect`
 //! * [`PartialReflect::try_into_reflect`] for `Box<dyn Reflect>`
 //!
-//! Additionally, [`FromReflect::from_reflect`] can be used to convert a `dyn PartialReflect` to a concrete type
+//! Additionally, [`FromDynamic::from_dynamic`] can be used to convert a `dyn PartialReflect` to a concrete type
 //! which implements `Reflect`.
 //!
 //! # Implementing `Reflect`
@@ -111,7 +111,7 @@
 //!   (see the [derive macro documentation] for details on how to ignore certain fields when deriving).
 //!
 //! Additionally, using the derive macro on enums requires a third condition to be met:
-//! * All fields and sub-elements must implement [`FromReflect`]—
+//! * All fields and sub-elements must implement [`FromDynamic`]—
 //!   another important reflection trait discussed in a later section.
 //!
 //! # The Reflection Subtraits
@@ -237,7 +237,7 @@
 //! assert_eq!(None, value);
 //! ```
 //!
-//! ## `FromReflect`
+//! ## `FromDynamic`
 //!
 //! It's important to remember that dynamic types are _not_ the concrete type they may be representing.
 //! A common mistake is to treat them like such when trying to cast back to the original type
@@ -258,18 +258,18 @@
 //! ```
 //!
 //! To resolve this issue, we'll need to convert the dynamic type to the concrete one.
-//! This is where [`FromReflect`] comes in.
+//! This is where [`FromDynamic`] comes in.
 //!
-//! `FromReflect` is a trait that allows an instance of a type to be generated from a
+//! `FromDynamic` is a trait that allows an instance of a type to be generated from a
 //! dynamic representation— even partial ones.
-//! And since the [`FromReflect::from_reflect`] method takes the data by reference,
+//! And since the [`FromDynamic::from_dynamic`] method takes the data by reference,
 //! this can be used to effectively clone data (to an extent).
 //!
 //! It is automatically implemented when [deriving `Reflect`] on a type unless opted out of
-//! using `#[reflect(from_reflect = false)]` on the item.
+//! using `#[reflect(from_dynamic = false)]` on the item.
 //!
 //! ```
-//! # use bevy_reflect::{FromReflect, PartialReflect, Reflect, dynamic::DynamicValue};
+//! # use bevy_reflect::{FromDynamic, PartialReflect, Reflect, dynamic::DynamicValue};
 //! #[derive(Reflect)]
 //! struct MyStruct {
 //!   foo: i32
@@ -279,18 +279,18 @@
 //! });
 //!
 //! let dynamic = DynamicValue::try_from_reflect(&*original).unwrap();
-//! let value = <MyStruct as FromReflect>::from_reflect(dynamic.as_partial_reflect()).unwrap(); // OK!
+//! let value = <MyStruct as FromDynamic>::from_dynamic(dynamic.as_partial_reflect()).unwrap(); // OK!
 //! ```
 //!
-//! When deriving, all active fields and sub-elements must also implement `FromReflect`.
+//! When deriving, all active fields and sub-elements must also implement `FromDynamic`.
 //!
 //! Fields can be given default values for when a field is missing in the passed value or even ignored.
 //! Ignored fields must either implement [`Default`] or have a default function specified
 //! using `#[reflect(default = "path::to::function")]`.
 //!
-//! See the [derive macro documentation](derive@crate::FromReflect) for details.
+//! See the [derive macro documentation](derive@crate::FromDynamic) for details.
 //!
-//! All primitives and simple types implement `FromReflect` by relying on their [`Default`] implementation.
+//! All primitives and simple types implement `FromDynamic` by relying on their [`Default`] implementation.
 //!
 //! # Path navigation
 //!
@@ -408,14 +408,14 @@
 //!
 //! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
 //! in order to be used in certain cases.
-//! This can be achieved using [`FromReflect`].
+//! This can be achieved using [`FromDynamic`].
 //!
 //! ```
 //! # use serde::de::DeserializeSeed;
 //! # use bevy_reflect::{
 //! #     serde::{ReflectSerializer, ReflectDeserializer},
 //! #     dynamic::DynamicValue,
-//! #     Reflect, PartialReflect, FromReflect, TypeRegistry
+//! #     Reflect, PartialReflect, FromDynamic, TypeRegistry
 //! # };
 //! #[derive(Reflect, PartialEq, Debug)]
 //! struct MyStruct {
@@ -441,7 +441,7 @@
 //! ).unwrap();
 //!
 //! // Convert
-//! let converted_value = <MyStruct as FromReflect>::from_reflect(deserialized_value.as_partial_reflect()).unwrap();
+//! let converted_value = <MyStruct as FromDynamic>::from_dynamic(deserialized_value.as_partial_reflect()).unwrap();
 //!
 //! assert_eq!(original_value, converted_value);
 //! ```
@@ -601,7 +601,7 @@ pub mod display;
 pub mod dynamic;
 mod error;
 mod fields;
-mod from_reflect;
+mod from_dynamic;
 #[cfg(feature = "functions")]
 pub mod func;
 mod is;
@@ -670,7 +670,7 @@ pub mod prelude {
         reflect_trait,
         structs::{GetField, Struct},
         tuple_struct::{GetTupleStructField, TupleStruct},
-        FromReflect, GetPath, PartialReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+        FromDynamic, GetPath, PartialReflect, Reflect, ReflectDeserialize, ReflectFromDynamic,
         ReflectPath, ReflectSerialize, TypePath,
     };
 
@@ -680,7 +680,7 @@ pub mod prelude {
 
 pub use error::*;
 pub use fields::*;
-pub use from_reflect::*;
+pub use from_dynamic::*;
 pub use generics::*;
 pub use info::*;
 pub use is::*;
@@ -1774,7 +1774,7 @@ mod tests {
     }
 
     #[test]
-    fn enum_from_reflect_does_not_panic() {
+    fn enum_from_dynamic_does_not_panic() {
         #[derive(Reflect, PartialEq, Eq, Debug)]
         enum A {
             Hot,
@@ -1790,10 +1790,19 @@ mod tests {
 
         // There's no difference between the reflected data of these enum variants - they are named
         // the same, so we are able to convert them.
-        assert_eq!(A::from_reflect(&B::Hot), Some(A::Hot));
-        assert_eq!(A::from_reflect(&B::Cold), Some(A::Cold));
+        assert_eq!(
+            A::from_dynamic(DynamicValue::try_from_reflect(&B::Hot).unwrap()),
+            Some(A::Hot)
+        );
+        assert_eq!(
+            A::from_dynamic(DynamicValue::try_from_reflect(&B::Cold).unwrap()),
+            Some(A::Cold)
+        );
         // This variant doesn't exist in `A`, so it should not be converted.
-        assert_eq!(A::from_reflect(&B::Warm), None);
+        assert_eq!(
+            A::from_dynamic(DynamicValue::try_from_reflect(&B::Warm).unwrap()),
+            None
+        );
     }
 
     #[test]
@@ -1977,7 +1986,7 @@ mod tests {
     }
 
     #[test]
-    fn should_call_from_reflect_dynamically() {
+    fn should_call_from_dynamic_dynamically() {
         #[derive(Reflect)]
         struct MyStruct {
             foo: usize,
@@ -1990,14 +1999,14 @@ mod tests {
         // Get type data
         let type_id = TypeId::of::<MyStruct>();
         let rfr = registry
-            .get_type_data::<ReflectFromReflect>(type_id)
-            .expect("the FromReflect trait should be registered");
+            .get_type_data::<ReflectFromDynamic>(type_id)
+            .expect("the FromDynamic trait should be registered");
 
-        // Call from_reflect
+        // Call from_dynamic
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.insert("foo", 123usize);
         let reflected = rfr
-            .from_reflect(DynamicValue::Struct(dynamic_struct).as_partial_reflect())
+            .from_dynamic(DynamicValue::Struct(dynamic_struct))
             .expect("the type should be properly reflected");
 
         // Assert
@@ -2012,7 +2021,7 @@ mod tests {
     }
 
     #[test]
-    fn from_reflect_should_allow_ignored_unnamed_fields() {
+    fn from_dynamic_should_allow_ignored_unnamed_fields() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         struct MyTupleStruct(i8, #[reflect(ignore)] i16, i32);
 
@@ -2021,9 +2030,8 @@ mod tests {
         let mut dyn_tuple_struct = DynamicTupleStruct::default();
         dyn_tuple_struct.insert(1_i8);
         dyn_tuple_struct.insert(3_i32);
-        let my_tuple_struct = <MyTupleStruct as FromReflect>::from_reflect(
-            DynamicValue::from(dyn_tuple_struct).as_partial_reflect(),
-        );
+        let my_tuple_struct =
+            <MyTupleStruct as FromDynamic>::from_dynamic(DynamicValue::from(dyn_tuple_struct));
 
         assert_eq!(Some(expected), my_tuple_struct);
 
@@ -2041,15 +2049,13 @@ mod tests {
         let mut dyn_enum = DynamicEnum::default();
         dyn_enum.set_variant("Tuple", dyn_tuple);
 
-        let my_enum = <MyEnum as FromReflect>::from_reflect(
-            DynamicValue::from(dyn_enum).as_partial_reflect(),
-        );
+        let my_enum = <MyEnum as FromDynamic>::from_dynamic(DynamicValue::from(dyn_enum));
 
         assert_eq!(Some(expected), my_enum);
     }
 
     #[test]
-    fn from_reflect_should_use_default_field_attributes() {
+    fn from_dynamic_should_use_default_field_attributes() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         struct MyStruct {
             // Use `Default::default()`
@@ -2081,15 +2087,13 @@ mod tests {
         };
 
         let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(
-            DynamicValue::from(dyn_struct).as_partial_reflect(),
-        );
+        let my_struct = <MyStruct as FromDynamic>::from_dynamic(DynamicValue::from(dyn_struct));
 
         assert_eq!(Some(expected), my_struct);
     }
 
     #[test]
-    fn from_reflect_should_use_default_variant_field_attributes() {
+    fn from_dynamic_should_use_default_variant_field_attributes() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         enum MyEnum {
             Foo(#[reflect(default)] String),
@@ -2107,9 +2111,7 @@ mod tests {
         let expected = MyEnum::Foo(String::default());
 
         let dyn_enum = DynamicEnum::new("Foo", DynamicTuple::default());
-        let my_enum = <MyEnum as FromReflect>::from_reflect(
-            DynamicValue::from(dyn_enum).as_partial_reflect(),
-        );
+        let my_enum = <MyEnum as FromDynamic>::from_dynamic(DynamicValue::from(dyn_enum));
 
         assert_eq!(Some(expected), my_enum);
 
@@ -2118,15 +2120,13 @@ mod tests {
         };
 
         let dyn_enum = DynamicEnum::new("Bar", DynamicStruct::default());
-        let my_enum = <MyEnum as FromReflect>::from_reflect(
-            DynamicValue::from(dyn_enum).as_partial_reflect(),
-        );
+        let my_enum = <MyEnum as FromDynamic>::from_dynamic(DynamicValue::from(dyn_enum));
 
         assert_eq!(Some(expected), my_enum);
     }
 
     #[test]
-    fn from_reflect_should_use_default_container_attribute() {
+    fn from_dynamic_should_use_default_container_attribute() {
         #[derive(Reflect, Eq, PartialEq, Debug)]
         #[reflect(Default)]
         struct MyStruct {
@@ -2150,9 +2150,7 @@ mod tests {
         };
 
         let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(
-            DynamicValue::from(dyn_struct).as_partial_reflect(),
-        );
+        let my_struct = <MyStruct as FromDynamic>::from_dynamic(DynamicValue::from(dyn_struct));
 
         assert_eq!(Some(expected), my_struct);
     }
@@ -2275,7 +2273,7 @@ mod tests {
 
         assert_eq!(foo, expected_foo);
 
-        let new_foo = Foo::from_reflect(DynamicValue::from(foo_patch).as_partial_reflect())
+        let new_foo = Foo::from_dynamic(DynamicValue::from(foo_patch))
             .expect("error while creating a concrete type from a dynamic type");
 
         let mut hash_map = <HashMap<_, _>>::default();
@@ -2444,7 +2442,7 @@ mod tests {
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let roundtrip_foo = Foo::from_reflect(value.as_partial_reflect()).unwrap();
+        let roundtrip_foo = Foo::from_dynamic(value).unwrap();
 
         assert!(foo.reflect_partial_eq(&roundtrip_foo).unwrap());
     }
@@ -2914,7 +2912,7 @@ mod tests {
     #[test]
     fn should_permit_higher_ranked_lifetimes() {
         #[derive(Reflect)]
-        #[reflect(from_reflect = false)]
+        #[reflect(from_dynamic = false)]
         struct TestStruct {
             #[reflect(ignore)]
             _hrl: for<'a> fn(&'a str) -> &'a str,
@@ -3591,7 +3589,7 @@ bevy_reflect::tests::Test {
 
         // === Struct Container === //
         #[derive(Reflect, Debug)]
-        #[reflect(from_reflect = false)]
+        #[reflect(from_dynamic = false)]
         struct ContainerStruct {
             #[reflect(remote = MyType)]
             their_type: external_crate::TheirType,
@@ -3636,7 +3634,7 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn from_reflect_uses_remote_conversion() {
+    fn from_dynamic_uses_remote_conversion() {
         #[derive(Reflect)]
         struct BadWrapper(u8);
 
@@ -3677,8 +3675,7 @@ bevy_reflect::tests::Test {
         let mut reflected = DynamicStruct::default();
         reflected.insert("value", BadWrapper(2));
 
-        let container =
-            Container::from_reflect(DynamicValue::from(reflected).as_partial_reflect()).unwrap();
+        let container = Container::from_dynamic(DynamicValue::from(reflected)).unwrap();
         assert!(!container.value);
     }
 
@@ -3716,7 +3713,7 @@ bevy_reflect::tests::Test {
 
         // === Struct Container === //
         #[derive(Reflect, Debug)]
-        #[reflect(from_reflect = false)]
+        #[reflect(from_dynamic = false)]
         struct ContainerStruct {
             #[reflect(remote = MyType)]
             their_type: external_crate::TheirType,
@@ -3884,7 +3881,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Reflectable> {
+        struct MyOuter<T: FromDynamic + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub a: external_crate::TheirInner<T>,
             #[reflect(remote = MyInner<bool>)]
@@ -3892,7 +3889,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirInner<T>)]
-        struct MyInner<T: FromReflect>(pub T);
+        struct MyInner<T: FromDynamic>(pub T);
 
         let mut patch = DynamicStruct::default();
         patch.set_represented_type(Some(MyOuter::<i32>::type_info()));
@@ -3932,7 +3929,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         #[derive(Debug)]
-        enum MyOuter<T: FromReflect + Reflectable + Debug> {
+        enum MyOuter<T: FromDynamic + Reflectable + Debug> {
             Unit,
             Tuple(#[reflect(remote = MyInner<T>)] external_crate::TheirInner<T>),
             Struct {
@@ -3943,7 +3940,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirInner<T>)]
         #[derive(Debug)]
-        enum MyInner<T: FromReflect + Debug> {
+        enum MyInner<T: FromDynamic + Debug> {
             Unit,
             Tuple(T),
             Struct { value: T },
@@ -4049,13 +4046,13 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Reflectable> {
+        struct MyOuter<T: FromDynamic + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub inner: external_crate::TheirInner<T>,
         }
 
         #[reflect_remote(external_crate::TheirInner<T>)]
-        struct MyInner<T: FromReflect>(pub T);
+        struct MyInner<T: FromDynamic>(pub T);
 
         let input: Box<dyn Reflect> = Box::new(MyOuter(external_crate::TheirOuter {
             inner: external_crate::TheirInner(123),
@@ -4103,8 +4100,7 @@ bevy_reflect::tests::Test {
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = ReflectDeserializer::new(&registry);
         let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let point =
-            <Point as FromReflect>::from_reflect(deserialized.as_partial_reflect()).unwrap();
+        let point = <Point as FromDynamic>::from_dynamic(deserialized).unwrap();
         assert_eq!(point, Point(external_crate::Vector2([1, 2])));
     }
 

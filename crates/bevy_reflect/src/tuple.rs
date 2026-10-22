@@ -6,7 +6,7 @@ use variadics_please::all_tuples;
 use crate::dynamic::{DynamicTuple, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
+    ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromDynamic, Generics,
     GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
@@ -532,15 +532,18 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
+        impl<$($name: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration),*> FromDynamic for ($($name,)*)
         {
-            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                let _ref_tuple = reflect.reflect_ref().as_tuple().ok()?;
+            fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+                #[allow(unused_mut, reason = "unused for 0-ary tuple")]
+                let DynamicValue::Tuple(mut _dynamic) = dynamic else {
+                    return None;
+                };
 
                 Some(
                     (
                         $(
-                            <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                            <$name as FromDynamic>::from_dynamic(_dynamic.field_mut($index)?.take_dynamic())?,
                         )*
                     )
                 )
@@ -660,7 +663,7 @@ const _: () = {
     macro_rules! impl_from_arg_tuple {
     ($(#[$meta:meta])* $($name: ident),*) => {
         $(#[$meta])*
-        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
@@ -675,7 +678,7 @@ const _: () = {
     macro_rules! impl_into_return_tuple {
     ($(#[$meta:meta])* $($name: ident),+) => {
         $(#[$meta])*
-        $crate::func::impl_into_return!(($($name,)*); <$($name: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::impl_into_return!(($($name,)*); <$($name: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 

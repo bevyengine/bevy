@@ -1,5 +1,6 @@
 use crate::{
     array::{Array, ArrayInfo, ArrayIter},
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
@@ -445,15 +446,15 @@ impl GetTypeRegistration for &'static str {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration.register_type_data::<ReflectSerialize, Self>();
         registration
     }
 }
 
-impl FromReflect for &'static str {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+impl FromDynamic for &'static str {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        dynamic.into_concrete()?.downcast_ref::<Self>().copied()
     }
 }
 
@@ -606,16 +607,20 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
     }
 }
 
-impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
+impl<T: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromDynamic
     for [T; N]
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_array = reflect.reflect_ref().as_array().ok()?;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let dynamic = match dynamic {
+            DynamicValue::Array(dynamic) => dynamic,
+            DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+            _ => return None,
+        };
 
-        let mut temp_vec = Vec::with_capacity(ref_array.len());
+        let mut temp_vec = Vec::with_capacity(dynamic.len());
 
-        for field in ref_array.iter() {
-            temp_vec.push(T::from_reflect(field)?);
+        for field in dynamic.into_iter() {
+            temp_vec.push(T::from_dynamic(field)?);
         }
 
         temp_vec.try_into().ok()
@@ -698,7 +703,7 @@ impl<T: TypePath + ?Sized> TypePath for &'static mut T {
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
-    use bevy_reflect::{FromReflect, PartialReflect};
+    use bevy_reflect::{FromDynamic, PartialReflect};
     use core::{
         any::TypeId,
         f32::consts::{PI, TAU},
@@ -706,6 +711,7 @@ mod tests {
     };
 
     use crate::{
+        dynamic::DynamicValue,
         prelude::{
             ReflectAdd, ReflectDivAssign, ReflectMulAssign, ReflectRem, ReflectRemAssign,
             ReflectSubAssign,
@@ -764,9 +770,11 @@ mod tests {
     }
 
     #[test]
-    fn static_str_should_from_reflect() {
+    fn static_str_should_from_dynamic() {
         let expected = "Hello, World!";
-        let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
+        let output =
+            <&'static str as FromDynamic>::from_dynamic(DynamicValue::Concrete(Box::new(expected)))
+                .unwrap();
         assert_eq!(expected, output);
     }
 

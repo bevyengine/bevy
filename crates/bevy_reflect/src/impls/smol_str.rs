@@ -14,7 +14,7 @@ impl_reflect_opaque!(::smol_str::SmolStr(
 
 #[cfg(test)]
 mod tests {
-    use crate::{FromReflect, PartialReflect};
+    use crate::{FromDynamic, PartialReflect};
     use smol_str::SmolStr;
 
     #[test]
@@ -27,9 +27,9 @@ mod tests {
     }
 
     #[test]
-    fn smolstr_should_from_reflect() {
+    fn smolstr_should_from_dynamic() {
         let smolstr = SmolStr::new("hello_world.rs");
-        let output = <SmolStr as FromReflect>::from_reflect(&smolstr);
+        let output = <SmolStr as FromDynamic>::from_dynamic(&smolstr);
         assert_eq!(Some(smolstr), output);
     }
 }

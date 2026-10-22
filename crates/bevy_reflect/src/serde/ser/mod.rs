@@ -659,7 +659,7 @@ mod tests {
         #[test]
         fn should_not_serialize_function() {
             #[derive(Reflect)]
-            #[reflect(from_reflect = false)]
+            #[reflect(from_dynamic = false)]
             struct MyStruct {
                 func: DynamicFunction<'static>,
             }

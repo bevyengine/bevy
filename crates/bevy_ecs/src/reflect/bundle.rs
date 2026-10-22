@@ -17,7 +17,7 @@ use crate::{
 };
 use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry};
 
-use super::{from_reflect_with_fallback, ReflectComponent};
+use super::{from_dynamic_with_fallback, ReflectComponent};
 
 /// A struct used to operate on reflected [`Bundle`] trait of a type.
 ///
@@ -151,7 +151,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> fo
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
                 let bundle = entity.world_scope(|world| {
-                    from_reflect_with_fallback::<B>(reflected_bundle, world, registry)
+                    from_dynamic_with_fallback::<B>(reflected_bundle, world, registry)
                 });
                 entity.insert(bundle);
             },

@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
@@ -151,13 +152,13 @@ impl GetTypeRegistration for &'static Location<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 }
 
-impl FromReflect for &'static Location<'static> {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+impl FromDynamic for &'static Location<'static> {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        dynamic.into_concrete()?.downcast_ref::<Self>().copied()
     }
 }

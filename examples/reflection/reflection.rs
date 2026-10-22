@@ -27,12 +27,12 @@ fn main() {
 ///
 /// All fields in a reflected item will need to be `Reflect` as well. You can opt a field out of
 /// reflection by using the `#[reflect(ignore)]` attribute.
-/// If you choose to ignore a field, you need to let the automatically-derived `FromReflect` implementation
+/// If you choose to ignore a field, you need to let the automatically-derived `FromDynamic` implementation
 /// how to handle the field.
 /// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored field, or
-/// opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]` attribute.
+/// opt-out of `FromDynamic`'s auto-derive using the `#[reflect(from_dynamic = false)]` attribute.
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
 pub struct Foo {
     a: usize,
     nested: Bar,
@@ -101,8 +101,8 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
     // Deserializing returns a `DynamicValue` value.
-    // Generally, deserializing a value will return the `Concrete` variant through the `FromReflect`
-    // trait. However, in this example, we've disabled the `FromReflect` implementation for `Foo`.
+    // Generally, deserializing a value will return the `Concrete` variant through the `FromDynamic`
+    // trait. However, in this example, we've disabled the `FromDynamic` implementation for `Foo`.
     assert_eq!(
         reflect_value.as_partial_reflect().reflect_type_path(),
         "bevy_reflect::DynamicValueWrapper",

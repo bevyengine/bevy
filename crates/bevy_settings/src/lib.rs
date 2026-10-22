@@ -34,7 +34,7 @@ use bevy_reflect::{
     enums::DynamicEnum,
     prelude::ReflectDefault,
     serde::{ReflectSerializerProcessor, TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    CreateTypeData, FromDynamic, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
     TypeRegistration, TypeRegistry,
 };
 
@@ -235,7 +235,7 @@ impl ReflectSettingsGroup {
     }
 }
 
-impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
+impl<T: SettingsGroup + FromDynamic + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
     fn create_type_data(_input: ()) -> Self {
         ReflectSettingsGroup {
             settings_group_name: T::settings_group_name(),

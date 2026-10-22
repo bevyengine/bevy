@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_curve::{iterable::IterableCurve, Interval};
 use bevy_mesh::morph::MorphWeights;
-use bevy_reflect::{FromReflect, Reflect, Reflectable};
+use bevy_reflect::{FromDynamic, Reflect, Reflectable};
 use core::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -16,8 +16,8 @@ use core::{
 /// that animates [morph weights].
 ///
 /// [morph weights]: MorphWeights
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Debug, Clone, Reflect, FromDynamic)]
+#[reflect(from_dynamic = false)]
 pub struct WeightsCurve<C>(pub C);
 
 #[derive(Reflect)]

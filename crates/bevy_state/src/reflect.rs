@@ -1,6 +1,6 @@
 use crate::state::{FreelyMutableState, NextState, State, States};
 
-use bevy_ecs::{reflect::from_reflect_with_fallback, world::World};
+use bevy_ecs::{reflect::from_dynamic_with_fallback, world::World};
 use bevy_reflect::{CreateTypeData, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
@@ -94,7 +94,7 @@ impl<S: FreelyMutableState + Reflect + TypePath> CreateTypeData<S> for ReflectFr
     fn create_type_data(_input: ()) -> Self {
         ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
             set_next_state: |world, reflected_state, registry| {
-                let new_state: S = from_reflect_with_fallback(
+                let new_state: S = from_dynamic_with_fallback(
                     reflected_state.as_partial_reflect(),
                     world,
                     registry,
@@ -104,7 +104,7 @@ impl<S: FreelyMutableState + Reflect + TypePath> CreateTypeData<S> for ReflectFr
                 }
             },
             set_next_state_if_different: |world, reflected_state, registry| {
-                let new_state: S = from_reflect_with_fallback(
+                let new_state: S = from_dynamic_with_fallback(
                     reflected_state.as_partial_reflect(),
                     world,
                     registry,

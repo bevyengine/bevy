@@ -6,11 +6,11 @@
 //! types to easily implement `Reflect` along with other `bevy_reflect` traits,
 //! such as `Struct`, `GetTypeRegistration`, and more— all with a single derive!
 //!
-//! Some other noteworthy exports include the derive macros for [`FromReflect`] and
+//! Some other noteworthy exports include the derive macros for [`FromDynamic`] and
 //! [`TypePath`], as well as the [`reflect_trait`] attribute macro.
 //!
 //! [`Reflect`]: crate::derive_reflect
-//! [`FromReflect`]: crate::derive_from_reflect
+//! [`FromDynamic`]: crate::derive_from_dynamic
 //! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
@@ -23,7 +23,7 @@ mod derive_data;
 mod documentation;
 mod enum_utility;
 mod field_attributes;
-mod from_reflect;
+mod from_dynamic;
 mod generics;
 mod ident;
 mod impls;
@@ -72,35 +72,35 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 
     let assertions = impls::impl_assertions(&derive_data);
 
-    let (reflect_impls, from_reflect_impl) = match derive_data {
+    let (reflect_impls, from_dynamic_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
-            if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_struct(&struct_data))
+            if struct_data.meta().from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_struct(&struct_data))
             } else {
                 None
             },
         ),
         ReflectDerive::TupleStruct(struct_data) => (
             impls::impl_tuple_struct(&struct_data),
-            if struct_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_tuple_struct(&struct_data))
+            if struct_data.meta().from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_tuple_struct(&struct_data))
             } else {
                 None
             },
         ),
         ReflectDerive::Enum(enum_data) => (
             impls::impl_enum(&enum_data),
-            if enum_data.meta().from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_enum(&enum_data))
+            if enum_data.meta().from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_enum(&enum_data))
             } else {
                 None
             },
         ),
         ReflectDerive::Opaque(meta) => (
             impls::impl_opaque(&meta),
-            if meta.from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_opaque(&meta))
+            if meta.from_dynamic().should_auto_derive() {
+                Some(from_dynamic::impl_opaque(&meta))
             } else {
                 None
             },
@@ -111,7 +111,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
         const _: () = {
             #reflect_impls
 
-            #from_reflect_impl
+            #from_dynamic_impl
 
             #assertions
         };
@@ -121,11 +121,11 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
 ///
 /// This macro can be used on all structs and enums (unions are not supported).
-/// It will automatically generate implementations for `Reflect`, `Typed`, `GetTypeRegistration`, and `FromReflect`.
+/// It will automatically generate implementations for `Reflect`, `Typed`, `GetTypeRegistration`, and `FromDynamic`.
 /// And, depending on the item's structure, will either implement `Struct`, `TupleStruct`, or `Enum`.
 ///
-/// See the [`FromReflect`] derive macro for more information on how to customize the [`FromReflect`] implementation.
-/// To implement [`FromReflect`] manually while deriving [`Reflect`], [opt out](#reflectfrom_reflect--false) of the default implementation.
+/// See the [`FromDynamic`] derive macro for more information on how to customize the [`FromDynamic`] implementation.
+/// To implement [`FromDynamic`] manually while deriving [`Reflect`], [opt out](#reflectfrom_dynamic--false) of the default implementation.
 ///
 /// # Container Attributes
 ///
@@ -162,7 +162,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// The following types are automatically registered when deriving `Reflect`:
 ///
-/// * `ReflectFromReflect` (unless opting out of `FromReflect`)
+/// * `ReflectFromDynamic` (unless opting out of `FromDynamic`)
 /// * `SerializationData`
 /// * `ReflectFromPtr`
 ///
@@ -199,8 +199,8 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// * `#[reflect(Default)]` will register the `ReflectDefault` type data as normal.
 ///   However, it will also affect how certain other operations are performed in order
 ///   to improve performance and/or robustness.
-///   An example of where this is used is in the [`FromReflect`] derive macro,
-///   where adding this attribute will cause the `FromReflect` implementation to create
+///   An example of where this is used is in the [`FromDynamic`] derive macro,
+///   where adding this attribute will cause the `FromDynamic` implementation to create
 ///   a base value using its [`Default`] implementation avoiding issues with ignored fields
 ///   (for structs and tuple structs only).
 ///
@@ -214,14 +214,14 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// If planning to serialize this type using the reflection serializers,
 /// then the `Serialize` and `Deserialize` traits will need to be implemented and registered as well.
 ///
-/// ## `#[reflect(from_reflect = false)]`
+/// ## `#[reflect(from_dynamic = false)]`
 ///
-/// This attribute will opt-out of the default `FromReflect` implementation.
+/// This attribute will opt-out of the default `FromDynamic` implementation.
 ///
-/// This is useful for when a type can't or shouldn't implement `FromReflect`,
+/// This is useful for when a type can't or shouldn't implement `FromDynamic`,
 /// or if a manual implementation is desired.
 ///
-/// Note that in the latter case, `ReflectFromReflect` will no longer be automatically registered.
+/// Note that in the latter case, `ReflectFromDynamic` will no longer be automatically registered.
 ///
 /// ## `#[reflect(type_path = false)]`
 ///
@@ -235,8 +235,8 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// This attribute will opt-out of the default trait bounds added to all field types
 /// for the generated reflection trait impls.
 ///
-/// Normally, all fields will have the bounds `TypePath`, and either `FromReflect` or `Reflect`
-/// depending on if `#[reflect(from_reflect = false)]` is used.
+/// Normally, all fields will have the bounds `TypePath`, and either `FromDynamic` or `Reflect`
+/// depending on if `#[reflect(from_dynamic = false)]` is used.
 /// However, this might not always be desirable, and so this attribute may be used to remove those bounds.
 ///
 /// ### Example
@@ -244,7 +244,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// If a type is recursive the default bounds will cause an overflow error when building:
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// #[derive(Reflect)] // ERROR: overflow evaluating the requirement `Foo: FromReflect`
+/// #[derive(Reflect)] // ERROR: overflow evaluating the requirement `Foo: FromDynamic`
 /// struct Foo {
 ///   foo: Vec<Foo>,
 /// }
@@ -253,12 +253,12 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// // impl bevy_reflect::Reflect for Foo
 /// // where
 /// //   Foo: Any + Send + Sync,
-/// //   Vec<Foo>: FromReflect + TypePath + MaybeTyped + RegisterForReflection,
+/// //   Vec<Foo>: FromDynamic + TypePath + MaybeTyped + RegisterForReflection,
 /// ```
 ///
-/// In this case, `Foo` is given the bounds `Vec<Foo>: FromReflect + ...`,
-/// which requires that `Foo` implements `FromReflect`,
-/// which requires that `Vec<Foo>` implements `FromReflect`,
+/// In this case, `Foo` is given the bounds `Vec<Foo>: FromDynamic + ...`,
+/// which requires that `Foo` implements `FromDynamic`,
+/// which requires that `Vec<Foo>` implements `FromDynamic`,
 /// and so on, resulting in the error.
 ///
 /// To fix this, we can add `#[reflect(no_field_bounds)]` to `Foo` to remove the bounds on `Vec<Foo>`:
@@ -307,7 +307,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// //   Foo<T>: Any + Send + Sync,
 /// //   T::Assoc: Default,
 /// //   T: TypePath,
-/// //   T::Assoc: FromReflect + TypePath + MaybeTyped + RegisterForReflection,
+/// //   T::Assoc: FromDynamic + TypePath + MaybeTyped + RegisterForReflection,
 /// //   T::Assoc: List,
 /// // {/* ... */}
 /// ```
@@ -419,7 +419,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     match_reflect_impls(ast, ReflectImplSource::DeriveLocalType)
 }
 
-/// Derives the `FromReflect` trait.
+/// Derives the `FromDynamic` trait.
 ///
 /// # Field Attributes
 ///
@@ -429,7 +429,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// functionality in that it denotes that a field will be ignored by the reflection API.
 ///
 /// The only major difference is that using it with this derive requires that the field implements [`Default`].
-/// Without this requirement, there would be no way for `FromReflect` to automatically construct missing fields
+/// Without this requirement, there would be no way for `FromDynamic` to automatically construct missing fields
 /// that have been ignored.
 ///
 /// ## `#[reflect(default)]`
@@ -445,33 +445,33 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// or to remove the `Default` requirement on fields marked with `#[reflect(ignore)]`.
 /// Additionally, either form of this attribute can be used to fill in fields that are simply missing,
 /// such as when converting a partially-constructed dynamic type to a concrete one.
-#[proc_macro_derive(FromReflect, attributes(reflect))]
-pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(FromDynamic, attributes(reflect))]
+pub fn derive_from_dynamic(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let derive_data = match ReflectDerive::from_input(
         &ast,
         ReflectProvenance {
             source: ReflectImplSource::DeriveLocalType,
-            trait_: ReflectTraitToImpl::FromReflect,
+            trait_: ReflectTraitToImpl::FromDynamic,
         },
     ) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let from_reflect_impl = match derive_data {
+    let from_dynamic_impl = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
-            from_reflect::impl_struct(&struct_data)
+            from_dynamic::impl_struct(&struct_data)
         }
-        ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
-        ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
-        ReflectDerive::Opaque(meta) => from_reflect::impl_opaque(&meta),
+        ReflectDerive::TupleStruct(struct_data) => from_dynamic::impl_tuple_struct(&struct_data),
+        ReflectDerive::Enum(meta) => from_dynamic::impl_enum(&meta),
+        ReflectDerive::Opaque(meta) => from_dynamic::impl_opaque(&meta),
     };
 
     TokenStream::from(quote! {
         const _: () = {
-            #from_reflect_impl
+            #from_dynamic_impl
         };
     })
 }
@@ -645,7 +645,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// The wrapper type must implement `ReflectRemote` with `Remote` equal to the field's actual
 /// type. Generated reflection code uses the wrapper's conversion methods; in particular,
-/// `FromReflect` calls `ReflectRemote::into_remote` to construct the field value.
+/// `FromDynamic` calls `ReflectRemote::into_remote` to construct the field value.
 ///
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -705,12 +705,12 @@ pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
     let reflect_impls = impls::impl_opaque(&meta);
-    let from_reflect_impl = from_reflect::impl_opaque(&meta);
+    let from_dynamic_impl = from_dynamic::impl_opaque(&meta);
 
     TokenStream::from(quote! {
         const _: () = {
             #reflect_impls
-            #from_reflect_impl
+            #from_dynamic_impl
         };
     })
 }
@@ -718,8 +718,8 @@ pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
 /// the definitions of cannot be altered.
 ///
-/// This macro is an alternative to [`impl_reflect_opaque!`] and [`impl_from_reflect_opaque!`]
-/// which implement foreign types as Opaque types. Note that there is no `impl_from_reflect`,
+/// This macro is an alternative to [`impl_reflect_opaque!`] and [`impl_from_dynamic_opaque!`]
+/// which implement foreign types as Opaque types. Note that there is no `impl_from_dynamic`,
 /// as this macro will do the job of both. This macro implements them using one of the reflect
 /// variant traits (`bevy_reflect::{Struct, TupleStruct, Enum}`, etc.),
 /// which have greater functionality. The type being reflected must be in scope, as you cannot
@@ -754,29 +754,29 @@ pub fn impl_reflect(input: TokenStream) -> TokenStream {
     match_reflect_impls(ast, ReflectImplSource::ImplRemoteType)
 }
 
-/// A macro used to generate a `FromReflect` trait implementation for the given type.
+/// A macro used to generate a `FromDynamic` trait implementation for the given type.
 ///
-/// This is functionally the same as [deriving `FromReflect`] on a type that [derives `Reflect`] using
+/// This is functionally the same as [deriving `FromDynamic`] on a type that [derives `Reflect`] using
 /// the `#[reflect(opaque)]` container attribute.
 ///
-/// The only reason this macro exists is so that `bevy_reflect` can easily implement `FromReflect` on
+/// The only reason this macro exists is so that `bevy_reflect` can easily implement `FromDynamic` on
 /// primitives and other opaque types internally.
 ///
 /// Please note that this macro will not work with any type that [derives `Reflect`] normally
-/// or makes use of the [`impl_reflect_opaque!`] macro, as those macros also implement `FromReflect`
+/// or makes use of the [`impl_reflect_opaque!`] macro, as those macros also implement `FromDynamic`
 /// by default.
 ///
 /// # Examples
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// impl_from_reflect_opaque!(foo<T1, T2: Baz> where T1: Bar);
+/// impl_from_dynamic_opaque!(foo<T1, T2: Baz> where T1: Bar);
 /// ```
 ///
-/// [deriving `FromReflect`]: FromReflect
+/// [deriving `FromDynamic`]: FromDynamic
 /// [derives `Reflect`]: Reflect
 #[proc_macro]
-pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input with ReflectOpaqueDef::parse_from_reflect);
+pub fn impl_from_dynamic_opaque(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input with ReflectOpaqueDef::parse_from_dynamic);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let type_path = if def.type_path.leading_colon.is_none()
@@ -792,12 +792,12 @@ pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
         }
     };
 
-    let from_reflect_impl =
-        from_reflect::impl_opaque(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
+    let from_dynamic_impl =
+        from_dynamic::impl_opaque(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
 
     TokenStream::from(quote! {
         const _: () = {
-            #from_reflect_impl
+            #from_dynamic_impl
         };
     })
 }

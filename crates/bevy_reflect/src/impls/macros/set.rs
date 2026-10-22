@@ -3,13 +3,11 @@ macro_rules! impl_reflect_for_hashset {
         const _: () = {
             impl<V, S> $crate::set::Set for $ty
             where
-                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn value_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    V::take_from_reflect(dynamic.as_boxed_partial_reflect())
-                        .ok()
-                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
+                    V::from_dynamic(dynamic).map(|value| bevy_platform::prelude::Box::new(value) as _)
                 }
 
                 fn get(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<&dyn $crate::reflect::PartialReflect> {
@@ -39,7 +37,7 @@ macro_rules! impl_reflect_for_hashset {
                 }
 
                 fn insert_boxed(&mut self, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) -> bool {
-                    let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+                    let value = *value.try_downcast::<V>().unwrap_or_else(|value| {
                         panic!(
                             "Attempted to insert invalid value of type {}.",
                             value.reflect_type_path()
@@ -49,31 +47,21 @@ macro_rules! impl_reflect_for_hashset {
                 }
 
                 fn remove(&mut self, value: &dyn $crate::reflect::PartialReflect) -> bool {
-                    let mut from_reflect = None;
                     value
                         .try_downcast_ref::<V>()
-                        .or_else(|| {
-                            from_reflect = V::from_reflect(value);
-                            from_reflect.as_ref()
-                        })
                         .is_some_and(|value| self.remove(value))
                 }
 
                 fn contains(&self, value: &dyn $crate::reflect::PartialReflect) -> bool {
-                    let mut from_reflect = None;
                     value
                         .try_downcast_ref::<V>()
-                        .or_else(|| {
-                            from_reflect = V::from_reflect(value);
-                            from_reflect.as_ref()
-                        })
                         .is_some_and(|value| self.contains(value))
                 }
             }
 
             impl<V, S> $crate::reflect::PartialReflect for $ty
             where
-                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
@@ -149,7 +137,7 @@ macro_rules! impl_reflect_for_hashset {
 
             impl<V, S> $crate::info::Typed for $ty
             where
-                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn type_info() -> &'static $crate::info::TypeInfo {
@@ -166,13 +154,13 @@ macro_rules! impl_reflect_for_hashset {
 
             impl<V, S> $crate::type_registry::GetTypeRegistration for $ty
             where
-                V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync + Default,
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<Self>();
                     registration.register_type_data::<$crate::type_registry::ReflectFromPtr, Self>();
-                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, Self>();
+                    registration.register_type_data::<$crate::from_dynamic::ReflectFromDynamic, Self>();
                     registration
                 }
 
@@ -184,22 +172,26 @@ macro_rules! impl_reflect_for_hashset {
             $crate::impl_full_reflect!(
                 <V, S> for $ty
                 where
-                    V: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                    V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                     S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             );
 
-            impl<V, S> $crate::from_reflect::FromReflect for $ty
+            impl<V, S> $crate::from_dynamic::FromDynamic for $ty
             where
-                V: $crate::from_reflect::FromReflect + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
+                V: $crate::from_dynamic::FromDynamic + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn from_reflect(reflect: &dyn $crate::reflect::PartialReflect) -> Option<Self> {
-                    let ref_set = reflect.reflect_ref().as_set().ok()?;
+                fn from_dynamic(dynamic: $crate::dynamic::DynamicValue) -> Option<Self> {
+                    let dynamic = match dynamic {
+                        $crate::dynamic::DynamicValue::Set(dynamic) => dynamic,
+                        $crate::dynamic::DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+                        _ => return None,
+                    };
 
-                    let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
+                    let mut new_set = Self::with_capacity_and_hasher(dynamic.len(), S::default());
 
-                    for value in ref_set.iter() {
-                        let new_value = V::from_reflect(value)?;
+                    for value in dynamic.into_iter() {
+                        let new_value = V::from_dynamic(value)?;
                         new_set.insert(new_value);
                     }
 

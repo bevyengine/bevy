@@ -10,7 +10,7 @@ use alloc::boxed::Box;
 use crate::{
     event::{Event, EventKey, EventTriggerState},
     observer::{Observer, On},
-    reflect::from_reflect_with_fallback,
+    reflect::from_dynamic_with_fallback,
     world::{DeferredWorld, World},
 };
 use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, TypePath, TypeRegistry};
@@ -129,7 +129,7 @@ where
     fn create_type_data(_input: ()) -> Self {
         ReflectEvent(ReflectEventFns {
             trigger: |world, reflected_event, registry| {
-                let event = from_reflect_with_fallback::<E>(reflected_event, world, registry);
+                let event = from_dynamic_with_fallback::<E>(reflected_event, world, registry);
                 world.trigger(event);
             },
             create_observer: |callback| {

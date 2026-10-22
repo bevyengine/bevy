@@ -29,7 +29,7 @@ use bevy_math::common_traits::{HasTangent, WithDerivative, WithTwoDerivatives};
 use core::ops::Deref;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromDynamic, Reflect};
 
 /// Trait for curves that have a well-defined notion of derivative, allowing for
 /// derivatives to be extracted along with values.
@@ -147,8 +147,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct SampleDerivativeWrapper<C>(C);
 
@@ -180,8 +180,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct SampleTwoDerivativesWrapper<C>(C);
 

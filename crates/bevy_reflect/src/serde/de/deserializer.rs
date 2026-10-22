@@ -2,7 +2,7 @@ use crate::dynamic::DynamicValue;
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
 use crate::serde::{ReflectDeserializeWithRegistry, SerializationData};
-use crate::ReflectFromReflect;
+use crate::ReflectFromDynamic;
 use crate::{
     serde::{
         de::{
@@ -44,7 +44,7 @@ use super::ReflectDeserializerProcessor;
 /// and a deserialized `Vec` might return a [`Box<DynamicList>`].
 ///
 /// This means that if the actual type is needed, these dynamic representations will need to
-/// be converted to the concrete type using [`FromReflect`] or [`ReflectFromReflect`].
+/// be converted to the concrete type using [`FromDynamic`] or [`ReflectFromDynamic`].
 ///
 /// If you want to override deserialization for a specific [`TypeRegistration`],
 /// you can pass in a reference to a [`ReflectDeserializerProcessor`] which will
@@ -81,15 +81,15 @@ use super::ReflectDeserializerProcessor;
 /// // although it will represent `MyStruct`.
 /// assert!(output.as_partial_reflect().represents::<MyStruct>());
 ///
-/// // We can convert back to `MyStruct` using `FromReflect`.
-/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(output.as_partial_reflect()).unwrap();
+/// // We can convert back to `MyStruct` using `FromDynamic`.
+/// let value: MyStruct = <MyStruct as FromDynamic>::from_dynamic(output.as_partial_reflect()).unwrap();
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
-/// // We can also do this dynamically with `ReflectFromReflect`.
+/// // We can also do this dynamically with `ReflectFromDynamic`.
 /// let output = output.as_partial_reflect();
 /// let type_id = output.get_represented_type_info().unwrap().type_id();
-/// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
-/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output).unwrap();
+/// let reflect_from_dynamic = registry.get_type_data::<ReflectFromDynamic>(type_id).unwrap();
+/// let value: Box<dyn Reflect> = reflect_from_dynamic.from_dynamic(output).unwrap();
 /// assert!(value.is::<MyStruct>());
 /// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
 /// ```
@@ -101,8 +101,8 @@ use super::ReflectDeserializerProcessor;
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::dynamic::DynamicStruct
 /// [`Box<DynamicList>`]: crate::dynamic::DynamicList
-/// [`FromReflect`]: crate::FromReflect
-/// [`ReflectFromReflect`]: crate::ReflectFromReflect
+/// [`FromDynamic`]: crate::FromDynamic
+/// [`ReflectFromDynamic`]: crate::ReflectFromDynamic
 /// [`with_processor`]: Self::with_processor
 pub struct ReflectDeserializer<'a, P: ReflectDeserializerProcessor = ()> {
     registry: &'a TypeRegistry,
@@ -213,7 +213,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// and a deserialized `Vec` might return a [`Box<DynamicList>`].
 ///
 /// This means that if the actual type is needed, these dynamic representations will need to
-/// be converted to the concrete type using [`FromReflect`] or [`ReflectFromReflect`].
+/// be converted to the concrete type using [`FromDynamic`] or [`ReflectFromDynamic`].
 ///
 /// If you want to override deserialization for a specific [`TypeRegistration`],
 /// you can pass in a reference to a [`ReflectDeserializerProcessor`] which will
@@ -250,15 +250,15 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// // although it will represent `MyStruct`.
 /// assert!(output.as_partial_reflect().represents::<MyStruct>());
 ///
-/// // We can convert back to `MyStruct` using `FromReflect`.
-/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(output.as_partial_reflect()).unwrap();
+/// // We can convert back to `MyStruct` using `FromDynamic`.
+/// let value: MyStruct = <MyStruct as FromDynamic>::from_dynamic(output.as_partial_reflect()).unwrap();
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
-/// // We can also do this dynamically with `ReflectFromReflect`.
+/// // We can also do this dynamically with `ReflectFromDynamic`.
 /// let output = output.as_partial_reflect();
 /// let type_id = output.get_represented_type_info().unwrap().type_id();
-/// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
-/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output).unwrap();
+/// let reflect_from_dynamic = registry.get_type_data::<ReflectFromDynamic>(type_id).unwrap();
+/// let value: Box<dyn Reflect> = reflect_from_dynamic.from_dynamic(output).unwrap();
 /// assert!(value.is::<MyStruct>());
 /// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
 /// ```
@@ -269,8 +269,8 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::dynamic::DynamicStruct
 /// [`Box<DynamicList>`]: crate::dynamic::DynamicList
-/// [`FromReflect`]: crate::FromReflect
-/// [`ReflectFromReflect`]: crate::ReflectFromReflect
+/// [`FromDynamic`]: crate::FromDynamic
+/// [`ReflectFromDynamic`]: crate::ReflectFromDynamic
 /// [`with_processor`]: Self::with_processor
 pub struct TypedReflectDeserializer<'a, P: ReflectDeserializerProcessor = ()> {
     registration: &'a TypeRegistration,
@@ -521,9 +521,10 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                 }
             };
 
-            // Try to produce a concrete instance of the type to deserialize by using the reflected `FromReflect`.
-            if let Some(from_reflect) = self.registration.data::<ReflectFromReflect>()
-                && let Some(value) = from_reflect.from_reflect(dynamic_value.as_partial_reflect())
+            // Try to produce a concrete instance of the type to deserialize by using the reflected `FromDynamic`.
+            if let Some(from_dynamic) = self.registration.data::<ReflectFromDynamic>()
+                && let Ok(dynamic_value) = dynamic_value.dynamic_clone()
+                && let Some(value) = from_dynamic.from_dynamic(dynamic_value)
             {
                 return Ok(DynamicValue::Concrete(value));
             }

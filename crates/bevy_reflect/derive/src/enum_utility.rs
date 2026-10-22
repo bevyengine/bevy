@@ -39,7 +39,7 @@ pub(crate) trait VariantBuilder: Sized {
     /// Returns the enum data.
     fn reflect_enum(&self) -> &ReflectEnum<'_>;
 
-    /// Returns a token stream that accesses a field of a variant as an `Option<dyn Reflect>`.
+    /// Returns a token stream that accesses a field of a variant as an `Option<&mut DynamicValue>`.
     ///
     /// The default implementation of this method will return a token stream
     /// which gets the field dynamically so as to support `dyn Enum`.
@@ -50,9 +50,9 @@ pub(crate) trait VariantBuilder: Sized {
     fn access_field(&self, this: &Ident, field: VariantField) -> TokenStream {
         if let Some(field_ident) = &field.field.data.ident {
             let name = field_ident.to_string();
-            quote!(#this.field(#name))
+            quote!(#this.field_mut(#name))
         } else if let Some(field_index) = field.field.reflection_index {
-            quote!(#this.field_at(#field_index))
+            quote!(#this.field_at_mut(#field_index))
         } else {
             quote!(::core::compile_error!(
                 "internal bevy_reflect error: field should be active"
@@ -60,15 +60,15 @@ pub(crate) trait VariantBuilder: Sized {
         }
     }
 
-    /// Returns a token stream that unwraps a field of a variant as a `&dyn Reflect`
-    /// (from an `Option<dyn Reflect>`).
+    /// Returns a token stream that unwraps a field of a variant as a `DynamicValue`
+    /// (from an `Option<&mut DynamicValue>`).
     ///
     /// # Parameters
     /// * `field`: The field to access
     fn unwrap_field(&self, field: VariantField) -> TokenStream;
 
     /// Returns a token stream that constructs a field of a variant as a concrete type
-    /// (from a `&dyn Reflect`).
+    /// (from a `DynamicValue`).
     ///
     /// # Parameters
     /// * `field`: The field to access
@@ -89,14 +89,14 @@ pub(crate) trait VariantBuilder: Sized {
 
         let construction = match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! {
-                if let #FQOption::Some(#alias) = #field_accessor {
+                if let #FQOption::Some(mut #alias) = #field_accessor {
                     #field_constructor
                 } else {
                     #path()
                 }
             },
             DefaultBehavior::Default => quote! {
-                if let #FQOption::Some(#alias) = #field_accessor {
+                if let #FQOption::Some(mut #alias) = #field_accessor {
                     #field_constructor
                 } else {
                     #FQDefault::default()
@@ -107,7 +107,7 @@ pub(crate) trait VariantBuilder: Sized {
 
                 quote! {{
                     // `#alias` is used by both the unwrapper and constructor
-                    let #alias = #field_accessor;
+                    let mut #alias = #field_accessor;
                     let #alias = #field_unwrapper;
                     #field_constructor
                 }}
@@ -200,18 +200,18 @@ pub(crate) trait VariantBuilder: Sized {
     }
 }
 
-/// Generates the enum variant output data needed to build the `FromReflect::from_reflect` implementation.
-pub(crate) struct FromReflectVariantBuilder<'a> {
+/// Generates the enum variant output data needed to build the `FromDynamic::from_dynamic` implementation.
+pub(crate) struct FromDynamicVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,
 }
 
-impl<'a> FromReflectVariantBuilder<'a> {
+impl<'a> FromDynamicVariantBuilder<'a> {
     pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
         Self { reflect_enum }
     }
 }
 
-impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
+impl<'a> VariantBuilder for FromDynamicVariantBuilder<'a> {
     fn reflect_enum(&self) -> &ReflectEnum<'_> {
         self.reflect_enum
     }
@@ -227,7 +227,7 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
         let alias = field.alias;
 
         quote! {
-            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)?
+            <#field_ty as #bevy_reflect_path::FromDynamic>::from_dynamic(#alias.take_dynamic())?
         }
     }
 }

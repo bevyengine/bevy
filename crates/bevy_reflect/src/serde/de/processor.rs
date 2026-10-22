@@ -146,7 +146,7 @@ pub trait ReflectDeserializerProcessor {
     /// deserialization, return `Ok(Ok(value))` with the boxed reflected value
     /// that you want to assign this value to. The type inside the box must
     /// be the same one as the `registration` is for, otherwise future
-    /// reflection operations (such as using [`FromReflect`] to convert the
+    /// reflection operations (such as using [`FromDynamic`] to convert the
     /// resulting [`Box<dyn PartialReflect>`] into a concrete type) will fail.
     ///
     /// If you don't want to override the deserialization, return ownership of
@@ -191,7 +191,7 @@ pub trait ReflectDeserializerProcessor {
     /// ```
     ///
     /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
-    /// [`FromReflect`]: crate::FromReflect
+    /// [`FromDynamic`]: crate::FromDynamic
     fn try_deserialize<'de, D>(
         &mut self,
         registration: &TypeRegistration,

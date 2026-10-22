@@ -1,5 +1,5 @@
 use crate::{
-    convert::ReflectConvert, serde::Serializable, FromReflect, Reflect, TypeData, TypeInfo,
+    convert::ReflectConvert, serde::Serializable, FromDynamic, Reflect, TypeData, TypeInfo,
     TypePath, Typed,
 };
 use alloc::{boxed::Box, string::String};
@@ -842,17 +842,17 @@ pub struct ReflectSerialize {
     get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
 
-impl<T: TypePath + FromReflect + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
+impl<T: TypePath + FromDynamic + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
     fn create_type_data(_input: ()) -> Self {
         ReflectSerialize {
             get_serializable: |value| {
                 value
                     .downcast_ref::<T>()
                     .map(|value| Serializable::Borrowed(value))
-                    .or_else(|| T::from_reflect(value.as_partial_reflect()).map(|value| Serializable::Owned(Box::new(value))))
                     .unwrap_or_else(|| {
+                        // TODO: Fix this.
                         panic!(
-                            "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
+                            "FromDynamic::from_dynamic failed when called on type `{}` with this value: {value:?}",
                             T::type_path(),
                         );
                     })
@@ -1110,6 +1110,8 @@ impl<T: Reflect> CreateTypeData<T> for ReflectFromPtr {
     reason = "We must interact with pointers here, which are inherently unsafe."
 )]
 mod test {
+    use crate::dynamic::DynamicValue;
+
     use super::*;
 
     #[derive(Reflect, PartialEq, Debug, Clone)]
@@ -1167,8 +1169,9 @@ mod test {
         let any: &dyn Any = &object;
         let reflect = reflect_from_ptr.as_reflect(any).unwrap();
 
-        let object_from_reflect = Foo::from_reflect(reflect).unwrap();
-        assert_eq!(object_from_reflect, object);
+        let object_from_dynamic =
+            Foo::from_dynamic(DynamicValue::try_from_reflect(reflect).unwrap()).unwrap();
+        assert_eq!(object_from_dynamic, object);
     }
 
     #[test]

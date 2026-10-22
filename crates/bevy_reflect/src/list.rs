@@ -14,7 +14,7 @@ use crate::{
     generics::impl_generic_info_methods,
 };
 use crate::{
-    ty::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics, MaybeTyped,
+    ty::impl_type_methods, utility::reflect_hasher, ApplyError, FromDynamic, Generics, MaybeTyped,
     PartialReflect, ReflectRef, Type, TypeInfo, TypePath,
 };
 
@@ -137,7 +137,7 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromDynamic + MaybeTyped + TypePath>() -> Self {
         Self {
             ty: Type::of::<TList>(),
             generics: Generics::new(),

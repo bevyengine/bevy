@@ -7,7 +7,7 @@ use core::{
 
 use crate::{resource::Resource, world::World};
 use bevy_reflect::{
-    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath,
+    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromDynamic, TypePath,
     TypeRegistry, TypeRegistryArc,
 };
 
@@ -93,7 +93,7 @@ impl DerefMut for AppFunctionRegistry {
 ///
 /// This will try the following strategies, in this order:
 ///
-/// - use the reflected `FromReflect`, if it's present and doesn't fail;
+/// - use the reflected `FromDynamic`, if it's present and doesn't fail;
 /// - use the reflected `Default`, if it's present, and then call `apply` on the result;
 /// - use the reflected `FromWorld`, just like the `Default`.
 ///
@@ -105,7 +105,7 @@ impl DerefMut for AppFunctionRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
+pub fn from_dynamic_with_fallback<T: Reflect + TypePath>(
     reflected: &dyn PartialReflect,
     world: &mut World,
     registry: &TypeRegistry,
@@ -118,14 +118,14 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
         id: TypeId,
         name: DebugName,
     ) -> alloc::boxed::Box<dyn core::any::Any> {
-        // First, try `FromReflect`. This is handled differently from the others because
+        // First, try `FromDynamic`. This is handled differently from the others because
         // it doesn't need a subsequent `apply` and may fail.
         // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
         let (value, source) = if let Some(value) = registry
-            .get_type_data::<ReflectFromReflect>(id)
-            .and_then(|reflect_from_reflect| reflect_from_reflect.from_reflect(reflected))
+            .get_type_data::<ReflectFromDynamic>(id)
+            .and_then(|reflect_from_dynamic| reflect_from_dynamic.from_dynamic(reflected))
         {
-            (value, "FromReflect")
+            (value, "FromDynamic")
         }
         // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
         else if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(id) {
@@ -138,7 +138,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             (value, "FromWorld")
         } else {
             panic!(
-                "Couldn't create an instance of `{name}` using the reflected `FromReflect`, \
+                "Couldn't create an instance of `{name}` using the reflected `FromDynamic`, \
                 `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
                 or `#[reflect(FromWorld)]`?",
             );

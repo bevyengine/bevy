@@ -9,7 +9,7 @@ use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
     dynamic::DynamicValue,
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
-    CreateTypeData, FromReflect, PartialReflect, Reflect, TypeRegistry,
+    CreateTypeData, FromDynamic, PartialReflect, Reflect, TypeRegistry,
 };
 
 use crate::{
@@ -178,7 +178,7 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + Reflect + FromReflect> CreateTypeData<A> for ReflectAsset {
+impl<A: Asset + Reflect + FromDynamic> CreateTypeData<A> for ReflectAsset {
     fn create_type_data(_input: ()) -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
@@ -198,14 +198,14 @@ impl<A: Asset + Reflect + FromReflect> CreateTypeData<A> for ReflectAsset {
             },
             add: |world, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value: A = FromReflect::from_reflect(value)
-                    .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::add`");
+                let value: A = FromDynamic::from_dynamic(value)
+                    .expect("could not call `FromDynamic::from_dynamic` in `ReflectAsset::add`");
                 assets.add(value).untyped()
             },
             insert: |world, asset_id, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value: A = FromReflect::from_reflect(value)
-                    .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
+                let value: A = FromDynamic::from_dynamic(value)
+                    .expect("could not call `FromDynamic::from_dynamic` in `ReflectAsset::set`");
                 assets.insert(asset_id.typed_debug_checked(), value)
             },
             len: |world| {
@@ -562,7 +562,7 @@ mod tests {
     use bevy_ecs::reflect::AppTypeRegistry;
     use bevy_reflect::{
         serde::{TypedReflectDeserializer, TypedReflectSerializer},
-        FromReflect, Reflect, TypePath,
+        FromDynamic, Reflect, TypePath,
     };
 
     #[derive(Asset, Reflect)]
@@ -714,7 +714,7 @@ mod tests {
         );
 
         let mut ron_deserializer = ron::Deserializer::from_str(&ron_data).unwrap();
-        let stuff = Stuff::from_reflect(
+        let stuff = Stuff::from_dynamic(
             reflect_deserializer
                 .deserialize(&mut ron_deserializer)
                 .unwrap()

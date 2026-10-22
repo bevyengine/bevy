@@ -915,7 +915,7 @@ mod tests {
 
     fn export_and_round_trip_default<T>(type_registry: &TypeRegistry) -> T
     where
-        T: Reflect + bevy_reflect::FromReflect + bevy_reflect::Typed,
+        T: Reflect + bevy_reflect::FromDynamic + bevy_reflect::Typed,
     {
         let registration = type_registry
             .get(TypeId::of::<T>())
@@ -931,7 +931,7 @@ mod tests {
             bevy_reflect::serde::TypedReflectDeserializer::new(registration, type_registry);
         let value = serde::de::DeserializeSeed::deserialize(deserializer, default)
             .expect("Default should deserialize");
-        T::from_reflect(value.as_ref()).expect("Should convert from reflect")
+        T::from_dynamic(value.as_ref()).expect("Should convert from reflect")
     }
 
     #[test]

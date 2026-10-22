@@ -89,15 +89,13 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         impl #impl_generics #bevy_reflect_path::enums::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn set_from_dynamic(&mut self, #dynamic_name: #bevy_reflect_path::dynamic::DynamicEnum) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
+                let variant_name = #FQInto::into(#dynamic_name.variant_name());
                 let #dynamic_name = #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_name);
-                *self = match <Self as #bevy_reflect_path::FromReflect>::from_reflect(#dynamic_name.as_partial_reflect()) {
+                *self = match <Self as #bevy_reflect_path::FromDynamic>::from_dynamic(#dynamic_name) {
                     Some(#ref_value) => #ref_value,
                     None => return #FQResult::Err(
                         #bevy_reflect_path::ApplyError::InvalidEnumVariant {
-                            variant_name: match #dynamic_name {
-                                #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_name) => #FQInto::into(#dynamic_name.variant_name()),
-                                _ => ::core::unreachable!(),
-                            },
+                            variant_name,
                         }
                     ),
                 };
@@ -217,15 +215,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             _ => {}
                         }
                     } else {
-                        // New variant -> perform a switch.
-                        *self = match <Self as #bevy_reflect_path::FromReflect>::from_reflect(#ref_value) {
-                            Some(#ref_value) => #ref_value,
-                            None => return #FQResult::Err(
-                                #bevy_reflect_path::ApplyError::InvalidEnumVariant {
-                                    variant_name: #FQInto::into(#bevy_reflect_path::enums::Enum::variant_name(#enum_ref_value)),
-                                }
-                            ),
-                        };
+                        todo!()
                     }
                 } else {
                     return #FQResult::Err(

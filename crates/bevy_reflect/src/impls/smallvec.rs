@@ -2,7 +2,7 @@ use crate::{
     dynamic::DynamicValue,
     list::{List, ListInfo, ListIter},
     utility::GenericTypeInfoCell,
-    ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
+    ApplyError, FromDynamic, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
     ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
     TypePath, TypeRegistration, Typed,
 };
@@ -14,7 +14,7 @@ use smallvec::{Array as SmallArray, SmallVec};
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromDynamic + MaybeTyped + TypePath,
 {
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
         if index < SmallVec::len(self) {
@@ -33,19 +33,15 @@ where
     }
 
     fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
-        T::Item::take_from_reflect(dynamic.as_boxed_partial_reflect())
-            .ok()
-            .map(|value| Box::new(value) as _)
+        T::Item::from_dynamic(dynamic).map(|value| Box::new(value) as _)
     }
 
     fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
-            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to insert invalid value of type {}.",
-                    value.reflect_type_path()
-                )
-            })
+            panic!(
+                "Attempted to insert invalid value of type {}.",
+                value.reflect_type_path()
+            )
         });
         SmallVec::insert(self, index, value);
     }
@@ -60,12 +56,10 @@ where
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
-            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to push invalid value of type {}.",
-                    value.reflect_type_path()
-                )
-            })
+            panic!(
+                "Attempted to push invalid value of type {}.",
+                value.reflect_type_path()
+            )
         });
         SmallVec::push(self, value);
     }
@@ -92,7 +86,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromDynamic + MaybeTyped + TypePath,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -169,7 +163,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromDynamic + MaybeTyped + TypePath,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -203,7 +197,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromDynamic + MaybeTyped + TypePath,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -218,17 +212,21 @@ where
 
 impl_type_path!(::smallvec::SmallVec<T: SmallArray>);
 
-impl<T: SmallArray + TypePath + Send + Sync> FromReflect for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> FromDynamic for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromDynamic + MaybeTyped + TypePath,
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_list = reflect.reflect_ref().as_list().ok()?;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let dynamic = match dynamic {
+            DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+            DynamicValue::List(dynamic) => dynamic,
+            _ => return None,
+        };
 
-        let mut new_list = Self::with_capacity(ref_list.len());
+        let mut new_list = Self::with_capacity(dynamic.len());
 
-        for field in ref_list.iter() {
-            new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
+        for value in dynamic.into_iter() {
+            new_list.push(<T as SmallArray>::Item::from_dynamic(value)?);
         }
 
         Some(new_list)
@@ -237,7 +235,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromDynamic + MaybeTyped + TypePath,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
@@ -247,4 +245,4 @@ where
 }
 
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + MaybeTyped + TypePath);
+crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromDynamic + MaybeTyped + TypePath);

@@ -73,7 +73,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`TypeId`](core::any::TypeId)
 /// - Component is registered
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
-/// - Component can be cloned via [`PartialReflect::reflect_clone`] _or_ has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
+/// - Component can be cloned via [`PartialReflect::reflect_clone`] _or_ has one of the following registered: [`ReflectFromDynamic`](bevy_reflect::ReflectFromDynamic),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
 ///
 /// If any of the conditions is not satisfied, the component will be skipped.
@@ -107,11 +107,11 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         return;
     }
 
-    // Try to clone using ReflectFromReflect
-    if let Some(reflect_from_reflect) =
-        registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
+    // Try to clone using ReflectFromDynamic
+    if let Some(reflect_from_dynamic) =
+        registry.get_type_data::<bevy_reflect::ReflectFromDynamic>(type_id)
         && let Some(mut component) =
-            reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+            reflect_from_dynamic.from_dynamic(source_component_reflect.as_partial_reflect())
     {
         if let Some(reflect_component) =
             registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)

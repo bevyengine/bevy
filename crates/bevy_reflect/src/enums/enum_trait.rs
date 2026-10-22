@@ -98,10 +98,10 @@ use core::slice::Iter;
 pub trait Enum: PartialReflect {
     /// Sets this value to one constructed from `dynamic`.
     ///
-    /// This is equivalent to calling [`FromReflect`] and then assigning this value, but all
+    /// This is equivalent to calling [`FromDynamic`] and then assigning this value, but all
     /// dynamically.
     ///
-    /// [`FromReflect`]: crate::FromReflect
+    /// [`FromDynamic`]: crate::FromDynamic
     fn set_from_dynamic(&mut self, dynamic: DynamicEnum) -> Result<(), ApplyError>;
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///

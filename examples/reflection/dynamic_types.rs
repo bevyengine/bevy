@@ -8,7 +8,7 @@ use bevy::reflect::{
     serde::TypedReflectDeserializer,
     set::{DynamicSet, Set},
     std_traits::ReflectDefault,
-    FromReflect, PartialReflect, Reflect, ReflectFromReflect, TypeRegistry, Typed,
+    FromDynamic, PartialReflect, Reflect, ReflectFromDynamic, TypeRegistry, Typed,
 };
 use bevy_reflect::dynamic::DynamicValue;
 use serde::de::DeserializeSeed;
@@ -128,21 +128,21 @@ fn main() {
         assert_eq!(identifiable.id(), 123);
     }
 
-    // 2. Using `FromReflect`
+    // 2. Using `FromDynamic`
     {
-        // If you know the type at compile time, you can use the `FromReflect` trait to convert the
+        // If you know the type at compile time, you can use the `FromDynamic` trait to convert the
         // dynamic value into the concrete type directly.
-        let value: Player = Player::from_reflect(deserialized.as_partial_reflect()).unwrap();
+        let value: Player = Player::from_dynamic(deserialized.as_partial_reflect()).unwrap();
         assert_eq!(value.id, 123);
 
-        // If you don't know the type at compile time, you can use the `ReflectFromReflect` type data
+        // If you don't know the type at compile time, you can use the `ReflectFromDynamic` type data
         // to perform the conversion dynamically.
-        let reflect_from_reflect = registration
-            .data::<ReflectFromReflect>()
-            .expect("`ReflectFromReflect` should be registered");
+        let reflect_from_dynamic = registration
+            .data::<ReflectFromDynamic>()
+            .expect("`ReflectFromDynamic` should be registered");
 
-        let value: Box<dyn Reflect> = reflect_from_reflect
-            .from_reflect(deserialized.as_partial_reflect())
+        let value: Box<dyn Reflect> = reflect_from_dynamic
+            .from_dynamic(deserialized.as_partial_reflect())
             .unwrap();
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
         assert_eq!(identifiable.id(), 123);

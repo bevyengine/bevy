@@ -1,4 +1,5 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
@@ -24,7 +25,7 @@ macro_rules! impl_reflect_for_atomic {
                 fn get_type_registration() -> TypeRegistration {
                     let mut registration = TypeRegistration::of::<Self>();
                     registration.register_type_data::<ReflectFromPtr, Self>();
-                    registration.register_type_data::<ReflectFromReflect, Self>();
+                    registration.register_type_data::<ReflectFromDynamic, Self>();
                     registration.register_type_data::<ReflectDefault, Self>();
 
                     // Serde only supports atomic types when the "std" feature is enabled
@@ -118,10 +119,10 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl FromReflect for $ty {
-                fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+            impl FromDynamic for $ty {
+                fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
                     Some(<$ty>::new(
-                        reflect.try_downcast_ref::<$ty>()?.load($ordering),
+                        dynamic.into_concrete()?.downcast_ref::<$ty>()?.load($ordering),
                     ))
                 }
             }

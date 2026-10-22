@@ -698,7 +698,7 @@ mod tests {
     }
 
     #[test]
-    fn should_use_from_reflect() {
+    fn should_use_from_dynamic() {
         #[derive(Component, Reflect)]
         #[reflect(Component)]
         struct SomeType(i32);
@@ -723,13 +723,13 @@ mod tests {
         let component = &dynamic_world.entities[0].components[0];
         assert!(component
             .try_as_reflect()
-            .expect("component should be concrete due to `FromReflect`")
+            .expect("component should be concrete due to `FromDynamic`")
             .is::<SomeType>());
 
         let resource = &dynamic_world.resources[0];
         assert!(resource
             .try_as_reflect()
-            .expect("resource should be concrete due to `FromReflect`")
+            .expect("resource should be concrete due to `FromDynamic`")
             .is::<SomeResource>());
     }
 }
