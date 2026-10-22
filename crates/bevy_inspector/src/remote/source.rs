@@ -107,6 +107,8 @@ pub enum RemoteConnectionState {
         app_name: String,
         /// The Bevy version the remote app reports.
         bevy_version: String,
+        /// The sub-app the inspector is connected to, which is empty if the remote app did not report one.
+        sub_app: String,
     },
     /// The last request failed. The connection is retried after a short delay.
     Failed(String),
@@ -354,8 +356,8 @@ pub fn sync_remote_source(world: &mut World) {
     connection.source = source;
 }
 
-/// Rebuilds the [`RemoteWorld`] empty, and clears what refers to its entities or component ids:
-/// the selection, the tree rows, and the collapsed and column split state of the details panel.
+/// Rebuilds the [`RemoteWorld`] empty, and clears the state tied to the previous source: the
+/// selection, the tree rows, and the collapsed and column split state of the details panel.
 fn reset_inspected_world(world: &mut World) {
     let registry = world
         .get_resource::<AppTypeRegistry>()
@@ -538,7 +540,7 @@ fn query_params(types: &PollTypes, full: bool) -> Value {
         },
         filter: BrpQueryFilter {
             without: alloc::vec![IS_RESOURCE.to_string()],
-            with: Vec::new(),
+            ..Default::default()
         },
         strict: false,
     };
@@ -616,6 +618,7 @@ fn finish_call(
             connection.state = RemoteConnectionState::Connected {
                 app_name: info.app_name,
                 bevy_version: info.bevy_version,
+                sub_app: info.sub_app,
             };
             connection.next_poll = now;
             connection.next_full = now;
@@ -737,10 +740,10 @@ fn apply_rows(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::details_panel::{DetailsCollapsed, DetailsColumnSplits};
+    use crate::details_panel::{ComponentKey, DetailsCollapsed, DetailsColumnSplits};
     use bevy_dev_tools::inspection::label_resolution::LabelDefinitionPriority;
     use bevy_ecs::{
-        component::{Component, ComponentId},
+        component::Component,
         hierarchy::{ChildOf, Children},
         name::Name,
     };
@@ -838,6 +841,7 @@ pub(crate) mod tests {
             state: RemoteConnectionState::Connected {
                 app_name: "demo".to_string(),
                 bevy_version: "0.20.0-dev".to_string(),
+                sub_app: "main".to_string(),
             },
             client: Some(BrpClient::localhost(1)),
             ..RemoteConnection::default()
@@ -1259,12 +1263,15 @@ pub(crate) mod tests {
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
         world.resource_mut::<InspectorSelection>().0 = Some(remote(11));
-        let id = ComponentId::new(3);
-        world.resource_mut::<DetailsCollapsed>().0.insert(id);
+        let key = ComponentKey::from("remote::Component");
+        world
+            .resource_mut::<DetailsCollapsed>()
+            .0
+            .insert(key.clone());
         world
             .resource_mut::<DetailsColumnSplits>()
             .0
-            .insert(id, 0.3);
+            .insert(key, 0.3);
 
         world.insert_resource(InspectorSource::Local);
         sync_remote_source(&mut world);
@@ -1334,6 +1341,7 @@ pub(crate) mod tests {
             RemoteConnectionState::Connected {
                 app_name: "demo".to_string(),
                 bevy_version: "0.20.0-dev".to_string(),
+                sub_app: "main".to_string(),
             }
         );
     }
