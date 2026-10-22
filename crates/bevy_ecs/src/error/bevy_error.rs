@@ -717,6 +717,10 @@ mod tests {
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
     #[cfg(not(windows))] // the windows backtrace in this context is ... unhelpful and not worth testing
+    #[cfg_attr(
+        not(feature = "debug"),
+        ignore = "test only works with the `debug` feature enabled"
+    )]
     fn filtered_backtrace_test() {
         fn i_fail() -> crate::error::Result {
             let _: usize = "I am not a number".parse()?;

@@ -247,12 +247,7 @@ pub const MAX_RECT_LIGHTS: usize = 8;
 
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
-    pub point_light_comparison_sampler: Sampler,
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub point_light_linear_sampler: Sampler,
-    pub directional_light_comparison_sampler: Sampler,
-    #[cfg(feature = "experimental_pbr_pcss")]
-    pub directional_light_linear_sampler: Sampler,
+    pub shadow_comparison_sampler: Sampler,
 }
 
 pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDevice>) {
@@ -267,18 +262,10 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
     };
 
     commands.insert_resource(ShadowSamplers {
-        point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+        shadow_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
             compare: Some(CompareFunction::GreaterEqual),
             ..base_sampler_descriptor
         }),
-        #[cfg(feature = "experimental_pbr_pcss")]
-        point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
-        directional_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-            compare: Some(CompareFunction::GreaterEqual),
-            ..base_sampler_descriptor
-        }),
-        #[cfg(feature = "experimental_pbr_pcss")]
-        directional_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
     });
 }
 

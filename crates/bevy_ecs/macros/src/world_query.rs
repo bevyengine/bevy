@@ -137,10 +137,12 @@ pub(crate) fn world_query_impl(
             unsafe fn set_archetype<'__w, '__s>(
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _state: &'__s Self::State,
+                _archetype_id: #path::archetype::ArchetypeId,
                 _archetype: &'__w #path::archetype::Archetype,
+                _table_id: #path::storage::TableId,
                 _table: &'__w #path::storage::Table
             ) {
-                #(<#field_types>::set_archetype(&mut _fetch.#field_aliases, &_state.#field_aliases, _archetype, _table);)*
+                #(<#field_types>::set_archetype(&mut _fetch.#field_aliases, &_state.#field_aliases, _archetype_id, _archetype, _table_id, _table);)*
             }
 
             /// SAFETY: we call `set_table` for each member that implements `Fetch`
@@ -148,9 +150,10 @@ pub(crate) fn world_query_impl(
             unsafe fn set_table<'__w, '__s>(
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _state: &'__s Self::State,
+                _table_id: #path::storage::TableId,
                 _table: &'__w #path::storage::Table
             ) {
-                #(<#field_types>::set_table(&mut _fetch.#field_aliases, &_state.#field_aliases, _table);)*
+                #(<#field_types>::set_table(&mut _fetch.#field_aliases, &_state.#field_aliases, _table_id, _table);)*
             }
 
             fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess) {
