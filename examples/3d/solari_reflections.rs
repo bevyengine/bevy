@@ -377,7 +377,7 @@ fn spawn_room(
         RaytracingMesh3d(lamp.clone()),
         Mesh3d(lamp),
         MeshMaterial3d(materials.add(StandardMaterial {
-            emissive: LinearRgba::rgb(40000.0, 38000.0, 34000.0),
+            emissive: LinearRgba::rgb(41.0, 39.0, 35.0),
             ..default()
         })),
         Transform::from_xyz(0.0, 7.8, 0.5),
