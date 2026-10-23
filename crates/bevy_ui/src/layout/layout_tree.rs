@@ -10,9 +10,21 @@ use bevy_ecs::{
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_text::{ComputedTextBlock, FontCx};
-use taffy::{compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout, compute_hidden_layout, compute_leaf_layout, compute_oof_layout, compute_root_layout, round_layout, style::{AvailableSpace, Display, Style}, Cache, CacheTree, Layout, LayoutBlockContainer, LayoutContainingBlock, LayoutFlexboxContainer, LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode, TraversePartialTree, TraverseTree};
+use taffy::{
+    compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
+    compute_hidden_layout, compute_leaf_layout, compute_oof_layout, compute_root_layout,
+    round_layout,
+    style::{AvailableSpace, Display, Style},
+    Cache, CacheTree, Layout, LayoutBlockContainer, LayoutContainingBlock, LayoutFlexboxContainer,
+    LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
+    TraversePartialTree, TraverseTree,
+};
 
-use crate::{layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform};
+use crate::{
+    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
+    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
+    UiTransform,
+};
 
 #[expect(
     unsafe_code,
@@ -873,7 +885,7 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
 
     fn is_out_of_flow(&self, node_id: NodeId) -> bool {
         if node_id == VIEWPORT_NODE_ID {
-            return false
+            return false;
         }
         let entity = node_id_entity(node_id);
         self.style_query
@@ -885,11 +897,11 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
 
     fn hoisted_child_count(&self, node_id: NodeId) -> usize {
         if node_id == VIEWPORT_NODE_ID {
-            return self.hoisted_children.len()
+            return self.hoisted_children.len();
         }
-       let entity = node_id_entity(node_id);
+        let entity = node_id_entity(node_id);
         self.computed_layout_query
-           .get(entity)
+            .get(entity)
             .expect("missing computed layout")
             .hoisted_children
             .len()
@@ -909,7 +921,7 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
 
 impl<'tree, 'w, 's> LayoutContainingBlock for UiLayoutTree<'tree, 'w, 's> {
     type OofItemStyle<'a>
-    = &'a Style
+        = &'a Style
     where
         Self: 'a;
     fn get_oof_item_style(&self, node_id: NodeId) -> Self::OofItemStyle<'_> {
@@ -925,7 +937,8 @@ impl<'tree, 'w, 's> LayoutContainingBlock for UiLayoutTree<'tree, 'w, 's> {
         self.computed_layout_query
             .get_mut(entity)
             .expect("missing computed layout")
-            .hoisted_children.clear();
+            .hoisted_children
+            .clear();
     }
 
     fn add_hoisted_children(&mut self, node_id: NodeId, children: &[NodeId]) {
