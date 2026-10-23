@@ -625,13 +625,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn children(&self, node_id: NodeId) -> &[NodeId] {
-        entity_from_node_id(node_id).map_or(&self.viewport_children, |entity| {
-            &self
-                .computed_layout_query
-                .get(entity)
-                .expect("Missing ComputedLayout on UI node.")
-                .ui_children
-        })
+        &self.layout(node_id).ui_children
     }
 
     #[inline(always)]
