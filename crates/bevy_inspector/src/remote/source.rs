@@ -1340,7 +1340,7 @@ pub(crate) mod tests {
             ],
         );
         let names = |entity| -> Vec<String> {
-            crate::details_panel::inspect_components(mirrored(&world), Some(entity))
+            crate::details_panel::inspect_components(mirrored(&world), Some(entity), false)
                 .into_iter()
                 .map(|component| component.name)
                 .collect()

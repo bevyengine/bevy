@@ -1130,9 +1130,13 @@ pub fn sync_details_panel(world: &mut World) {
     let maybe_selected = selection.map(|s| s.entity);
 
     let inspector_source = get_inspector_source(world, kind);
+    let Some(inspector_source) = inspector_source else {
+        return;
+    };
+    let local = inspector_source == InspectorSource::Local;
 
     let inspected = crate::world_to_inspect(world, inspector_source);
-    let components = inspect_components(inspected, selection);
+    let components = inspect_components(inspected, selection, local);
     let empty = empty_state(inspected, maybe_selected, &components);
 
     let index = world.resource::<DetailsIndex>();
@@ -1144,25 +1148,23 @@ pub fn sync_details_panel(world: &mut World) {
     }
 }
 
-fn get_inspector_source(world: &World, kind: WorldKind) -> InspectorSource {
-    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
-        return InspectorSource::Local;
-    };
+fn get_inspector_source(world: &World, kind: WorldKind) -> Option<InspectorSource> {
+    let inspector_sources = world.get_resource::<InspectorSources>()?;
 
     let local = inspector_sources.sources.contains(&InspectorSource::Local);
     if local {
-        return InspectorSource::Local;
+        return Some(InspectorSource::Local);
     }
 
     #[cfg(feature = "remote")]
     for inspector_source in inspector_sources.sources.iter() {
         match inspector_source {
             InspectorSource::Local => {
-                return InspectorSource::Local;
+                return Some(InspectorSource::Local);
             }
             InspectorSource::Remote(rem) => {
                 if kind == rem.subapp {
-                    return inspector_source.clone();
+                    return Some(inspector_source.clone());
                 }
             }
         }
@@ -1171,7 +1173,7 @@ fn get_inspector_source(world: &World, kind: WorldKind) -> InspectorSource {
     #[cfg(not(feature = "remote"))]
     let _ = kind;
 
-    InspectorSource::Local
+    None
 }
 
 /// The body of the details panel, found through its [`InspectorDetailsBody`] marker.
@@ -1186,6 +1188,7 @@ fn find_body(world: &mut World) -> Option<Entity> {
 pub(crate) fn inspect_components(
     world: &World,
     selection: Option<InspectableEntity>,
+    local: bool,
 ) -> Vec<ComponentDetails> {
     let Some(selection) = selection else {
         return Vec::new();
@@ -1207,11 +1210,6 @@ pub(crate) fn inspect_components(
         return Vec::new();
     };
     let registry = registry.read();
-
-    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
-        return Vec::new();
-    };
-    let local = inspector_sources.sources.contains(&InspectorSource::Local);
 
     let mut components: Vec<ComponentDetails> = inspection
         .components
