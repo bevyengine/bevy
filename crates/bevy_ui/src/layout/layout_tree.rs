@@ -601,8 +601,7 @@ struct UiLayoutTree<'a, 'w, 's> {
 impl<'a> UiLayoutTree<'a, '_, '_> {
     fn layout(&self, node_id: NodeId) -> &ComputedLayout {
         entity_from_node_id(node_id).map_or(&self.viewport_layout, |entity| {
-            &self
-                .computed_layout_query
+            self.computed_layout_query
                 .get(entity)
                 .expect("missing computed layout")
         })
@@ -619,8 +618,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
 
     fn style(&self, node_id: NodeId) -> &'a Style {
         entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
-            &self
-                .style_query
+            self.style_query
                 .get(entity)
                 .expect("missing computed layout")
         })
