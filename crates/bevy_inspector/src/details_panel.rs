@@ -744,6 +744,9 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
 fn write_field_edit(world: &mut World, edit: &FieldEdit) {
+    let Some(_inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return;
+    };
     let Some(registry) = world.get_resource::<AppTypeRegistry>().cloned() else {
         return;
     };

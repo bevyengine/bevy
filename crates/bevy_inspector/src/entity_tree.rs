@@ -661,11 +661,7 @@ mod tests {
     #[cfg(feature = "remote")]
     #[test]
     fn shows_the_inspected_world_only() {
-        use crate::remote::{
-            tests::{apply, row},
-            RemoteSource,
-        };
-        use crate::InspectorSource;
+        use crate::remote::tests::{apply, row};
         use serde_json::json;
 
         let mut app = test_app();
