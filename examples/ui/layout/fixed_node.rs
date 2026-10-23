@@ -2,12 +2,23 @@
 
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
+use bevy::ui::debug::print_ui_layout_tree;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        .add_systems(Update, debug)
         .run();
+}
+
+fn debug(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    world: &World
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        print_ui_layout_tree(world);
+    }
 }
 
 fn setup(mut commands: Commands) {
@@ -30,6 +41,7 @@ fn setup(mut commands: Commands) {
                 }
                 BackgroundColor(LIGHT_GRAY)
                 Children [
+                    #TopLeftAbsolute
                     Node {
                         position_type: PositionType::Absolute,
                         top: px(-50),
@@ -39,6 +51,7 @@ fn setup(mut commands: Commands) {
                     }
                     BackgroundColor(RED)
                     --
+                    #TopRightAbsolute
                     Node {
                       position_type: PositionType::Absolute,
                        top: px(-50),
@@ -48,10 +61,12 @@ fn setup(mut commands: Commands) {
                     }
                     BackgroundColor(BLUE)
                     --
+                    #TopLeftFixed
                     FixedNode
                     Node {
+                        position_type: PositionType::Absolute,
                         top: px(0),
-                        left: px(0)
+                        left: px(0),
                         width: px(100),
                         height: px(100),
                     }
@@ -63,6 +78,7 @@ fn setup(mut commands: Commands) {
                         colors.get_mut(leave.entity).unwrap().0 = BLUE.into();
                     })
                     --
+                    #TopRightFixed
                     FixedNode
                     Node {
                         position_type: PositionType::Absolute,

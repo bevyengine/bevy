@@ -386,6 +386,7 @@ pub fn compute_layout<'w, 's>(
             computed_layout_query,
             viewport_layout: ViewportLayoutState::default(),
             viewport_children: [root_node_id],
+            hoisted_children: Vec::new(),
             measure_function: &mut measure_function,
             layout_changed: false,
         };
@@ -588,6 +589,7 @@ struct UiLayoutTree<'a, 'w, 's> {
     computed_layout_query: &'a mut Query<'w, 's, &'static mut ComputedLayout>,
     viewport_layout: ViewportLayoutState,
     viewport_children: [NodeId; 1],
+    hoisted_children: Vec<NodeId>,
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
@@ -883,9 +885,8 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
 
     fn hoisted_child_count(&self, node_id: NodeId) -> usize {
         if node_id == VIEWPORT_NODE_ID {
-            return 0
+            return self.hoisted_children.len()
         }
-
        let entity = node_id_entity(node_id);
         self.computed_layout_query
            .get(entity)
@@ -893,7 +894,11 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
             .hoisted_children
             .len()
     }
+
     fn get_hoisted_child_id(&self, node_id: NodeId, index: usize) -> NodeId {
+        if node_id == VIEWPORT_NODE_ID {
+            return self.hoisted_children[index];
+        }
         let entity = node_id_entity(node_id);
         self.computed_layout_query
             .get(entity)
@@ -907,8 +912,13 @@ impl<'tree, 'w, 's> LayoutContainingBlock for UiLayoutTree<'tree, 'w, 's> {
     = &'a Style
     where
         Self: 'a;
+    fn get_oof_item_style(&self, node_id: NodeId) -> Self::OofItemStyle<'_> {
+        self.get_core_container_style(node_id)
+    }
+
     fn clear_hoisted_children(&mut self, node_id: NodeId) {
         if node_id == VIEWPORT_NODE_ID {
+            self.hoisted_children.clear();
             return;
         }
         let entity = node_id_entity(node_id);
@@ -918,12 +928,9 @@ impl<'tree, 'w, 's> LayoutContainingBlock for UiLayoutTree<'tree, 'w, 's> {
             .hoisted_children.clear();
     }
 
-    fn get_oof_item_style(&self, node_id: NodeId) -> Self::OofItemStyle<'_> {
-        self.get_core_container_style(node_id)
-    }
-
     fn add_hoisted_children(&mut self, node_id: NodeId, children: &[NodeId]) {
         if node_id == VIEWPORT_NODE_ID {
+            self.hoisted_children.extend_from_slice(children);
             return;
         }
         let entity = node_id_entity(node_id);
