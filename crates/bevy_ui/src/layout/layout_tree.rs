@@ -1,6 +1,6 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
+    change_detection::DetectChanges,
     component::Component,
     entity::{Entity, EntityHashSet},
     hierarchy::Children,
@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_text::{ComputedTextBlock, FontCx};
+use bevy_utils::default;
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
@@ -109,8 +110,9 @@ pub const VIEWPORT_NODE_ID: NodeId = NodeId::new(0u64);
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
-pub(super) fn node_id_entity(node_id: NodeId) -> Entity {
-    Entity::from_bits(u64::from(node_id))
+/// Returns None if the `NodeId` is the viewport, which doesn't correspond to an entity.
+pub(super) fn entity_from_node_id(node_id: NodeId) -> Option<Entity> {
+    (node_id != VIEWPORT_NODE_ID).then(|| Entity::from_bits(u64::from(node_id)))
 }
 
 /// Collect the children of `parent`, after flattening any `GhostNode`s, that are valid UI nodes that should be exposed to Taffy.
@@ -276,9 +278,9 @@ impl ComputedLayout {
     /// merged with any `Node`'s hoisted up to replace a [`GhostNode`] ancestor.
     #[inline]
     pub fn child_entities(&self) -> impl Iterator<Item = Entity> {
-        self.ui_children
-            .iter()
-            .map(|node_id| node_id_entity(*node_id))
+        self.ui_children.iter().map(|node_id| {
+            entity_from_node_id(*node_id).expect("Viewport Node found in UI children.")
+        })
     }
 
     /// True if this UI node is a layout root.
@@ -391,8 +393,10 @@ pub fn compute_layout<'w, 's>(
         let mut tree = UiLayoutTree {
             style_query,
             computed_layout_query,
-            viewport_layout: ViewportLayoutState::default(),
-            viewport_children: [root_node_id],
+            viewport_layout: ComputedLayout {
+                ui_children: vec![root_node_id],
+                ..default()
+            },
             measure_function: &mut measure_function,
             layout_changed: false,
         };
@@ -504,7 +508,7 @@ fn sync_layout_tree(
         let child_node = child_stack[child_index];
         if let Some(built_subtree_state) = sync_layout_tree(
             root,
-            node_id_entity(child_node),
+            entity_from_node_id(child_node).expect("Viewport's NodeId found in child stack."),
             ui_children,
             node_query,
             computed_layout_query,
@@ -524,7 +528,6 @@ fn sync_layout_tree(
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
         return None;
     };
-    let computed_layout = computed_layout.bypass_change_detection();
     let was_root = computed_layout.is_layout_root;
     computed_layout.is_layout_root = entity == root;
     let new_children = &child_stack[start..end];
@@ -583,17 +586,10 @@ fn sync_layout_tree(
     Some(subtree_state)
 }
 
-#[derive(Default)]
-struct ViewportLayoutState {
-    cache: Cache,
-    unrounded: Layout,
-}
-
 struct UiLayoutTree<'a, 'w, 's> {
     style_query: &'a Query<'w, 's, &'static TaffyStyle>,
     computed_layout_query: &'a mut Query<'w, 's, &'static mut ComputedLayout>,
-    viewport_layout: ViewportLayoutState,
-    viewport_children: [NodeId; 1],
+    viewport_layout: ComputedLayout,
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
@@ -603,16 +599,34 @@ struct UiLayoutTree<'a, 'w, 's> {
     layout_changed: bool,
 }
 
-impl UiLayoutTree<'_, '_, '_> {
+impl<'a> UiLayoutTree<'a, '_, '_> {
+    fn layout(&self, node_id: NodeId) -> &ComputedLayout {
+        entity_from_node_id(node_id).map_or(&self.viewport_layout, |entity| {
+            self.computed_layout_query
+                .get(entity)
+                .expect("Missing ComputedLayout on UI node.")
+        })
+    }
+
+    fn layout_mut(&mut self, node_id: NodeId) -> &mut ComputedLayout {
+        entity_from_node_id(node_id).map_or(&mut self.viewport_layout, |entity| {
+            self.computed_layout_query
+                .get_mut(entity)
+                .expect("Missing ComputedLayout on UI node.")
+                .into_inner()
+        })
+    }
+
+    fn style(&self, node_id: NodeId) -> &'a Style {
+        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
+            self.style_query
+                .get(entity)
+                .expect("Missing TaffyStyle on UI node.")
+        })
+    }
+
     fn children(&self, node_id: NodeId) -> &[NodeId] {
-        if node_id == VIEWPORT_NODE_ID {
-            return &self.viewport_children;
-        }
-        &self
-            .computed_layout_query
-            .get(node_id_entity(node_id))
-            .expect("missing computed layout")
-            .ui_children
+        &self.layout(node_id).ui_children
     }
 
     #[inline(always)]
@@ -627,36 +641,30 @@ impl UiLayoutTree<'_, '_, '_> {
         }
 
         compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
-            let has_children = tree.child_count(node_id) > 0;
+            let has_children = 0 < tree.child_count(node_id);
+            let style = tree.style(node_id);
 
-            match (tree.get_core_container_style(node_id).display, has_children) {
+            match (style.display, has_children) {
                 (Display::None, _) => compute_hidden_layout(tree, node_id),
                 (Display::Block, true) => compute_block_layout(tree, node_id, inputs, block_ctx),
                 (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
                 (Display::Grid, true) => compute_grid_layout(tree, node_id, inputs),
                 // There's no matching `FlowRoot` variant for `bevy_ui::Display`, so this is unreachable.
                 (Display::FlowRoot, _) => unreachable!(),
-                (_, false) => {
-                    let style = &tree
-                        .style_query
-                        .get(node_id_entity(node_id))
-                        .expect("missing layout style")
-                        .0;
-                    compute_leaf_layout(
-                        inputs,
-                        style,
-                        |_, _| 0.0,
-                        |known_dimensions, available_space| {
-                            let entity = node_id_entity(node_id);
-                            (tree.measure_function)(
-                                known_dimensions,
-                                available_space,
-                                entity,
-                                style,
-                            )
-                        },
-                    )
-                }
+                (_, false) => compute_leaf_layout(
+                    inputs,
+                    style,
+                    |_, _| 0.0,
+                    |known_dimensions, available_space| {
+                        (tree.measure_function)(
+                            known_dimensions,
+                            available_space,
+                            entity_from_node_id(node_id)
+                                .expect("Viewport Node should not be a child"),
+                            style,
+                        )
+                    },
+                ),
             }
         })
     }
@@ -692,32 +700,12 @@ impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
     type CustomIdent = String;
 
     fn get_core_container_style(&self, node_id: NodeId) -> Self::CoreContainerStyle<'_> {
-        if node_id == VIEWPORT_NODE_ID {
-            &VIEWPORT_NODE_TAFFY_STYLE
-        } else {
-            &self
-                .style_query
-                .get(node_id_entity(node_id))
-                .expect("missing layout node")
-                .0
-        }
+        self.style(node_id)
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
-        if node_id == VIEWPORT_NODE_ID {
-            // Viewport layout is only ever used unrounded.
-            self.viewport_layout.unrounded = *layout;
-            return;
-        }
-
-        let entity = node_id_entity(node_id);
-
-        self.layout_changed |= self
-            .computed_layout_query
-            .get_mut(entity)
-            .expect("missing computed layout")
-            .bypass_change_detection()
-            .set_unrounded(*layout);
+        self.layout_changed |=
+            self.layout_mut(node_id).set_unrounded(*layout) && node_id != VIEWPORT_NODE_ID;
     }
 
     fn compute_child_layout(&mut self, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
@@ -727,47 +715,15 @@ impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
 
 impl CacheTree for UiLayoutTree<'_, '_, '_> {
     fn cache_get(&mut self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
-        if node_id == VIEWPORT_NODE_ID {
-            return self.viewport_layout.cache.get(input);
-        }
-
-        let entity = node_id_entity(node_id);
-        self.computed_layout_query
-            .get_mut(entity)
-            .expect("missing computed layout")
-            .bypass_change_detection()
-            .cache
-            .get(input)
+        self.layout_mut(node_id).cache.get(input)
     }
 
     fn cache_store(&mut self, node_id: NodeId, input: &LayoutInput, layout_output: LayoutOutput) {
-        if node_id == VIEWPORT_NODE_ID {
-            self.viewport_layout.cache.store(input, layout_output);
-            return;
-        }
-
-        let entity = node_id_entity(node_id);
-        self.computed_layout_query
-            .get_mut(entity)
-            .expect("missing computed layout")
-            .bypass_change_detection()
-            .cache
-            .store(input, layout_output);
+        self.layout_mut(node_id).cache.store(input, layout_output);
     }
 
     fn cache_clear(&mut self, node_id: NodeId) {
-        if node_id == VIEWPORT_NODE_ID {
-            self.viewport_layout.cache.clear();
-            return;
-        }
-
-        let entity = node_id_entity(node_id);
-        self.computed_layout_query
-            .get_mut(entity)
-            .expect("missing computed layout")
-            .bypass_change_detection()
-            .cache
-            .clear();
+        self.layout_mut(node_id).cache.clear();
     }
 }
 
@@ -783,11 +739,11 @@ impl<'tree, 'w, 's> LayoutBlockContainer for UiLayoutTree<'tree, 'w, 's> {
         Self: 'a;
 
     fn get_block_container_style(&self, node_id: NodeId) -> Self::BlockContainerStyle<'_> {
-        self.get_core_container_style(node_id)
+        self.style(node_id)
     }
 
     fn get_block_child_style(&self, child_node_id: NodeId) -> Self::BlockItemStyle<'_> {
-        self.get_core_container_style(child_node_id)
+        self.style(child_node_id)
     }
 
     #[inline(always)]
@@ -813,11 +769,11 @@ impl<'tree, 'w, 's> LayoutFlexboxContainer for UiLayoutTree<'tree, 'w, 's> {
         Self: 'a;
 
     fn get_flexbox_container_style(&self, node_id: NodeId) -> Self::FlexboxContainerStyle<'_> {
-        self.get_core_container_style(node_id)
+        self.style(node_id)
     }
 
     fn get_flexbox_child_style(&self, child_node_id: NodeId) -> Self::FlexboxItemStyle<'_> {
-        self.get_core_container_style(child_node_id)
+        self.style(child_node_id)
     }
 }
 
@@ -833,24 +789,17 @@ impl<'tree, 'w, 's> LayoutGridContainer for UiLayoutTree<'tree, 'w, 's> {
         Self: 'a;
 
     fn get_grid_container_style(&self, node_id: NodeId) -> Self::GridContainerStyle<'_> {
-        self.get_core_container_style(node_id)
+        self.style(node_id)
     }
 
     fn get_grid_child_style(&self, child_node_id: NodeId) -> Self::GridItemStyle<'_> {
-        self.get_core_container_style(child_node_id)
+        self.style(child_node_id)
     }
 }
 
 impl RoundTree for UiLayoutTree<'_, '_, '_> {
     fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
-        if node_id == VIEWPORT_NODE_ID {
-            return self.viewport_layout.unrounded;
-        }
-
-        let entity = node_id_entity(node_id);
-        self.computed_layout_query
-            .get(entity)
-            .expect("missing computed layout")
+        self.layout(node_id)
             .unrounded
             .expect("missing unrounded layout")
     }
@@ -861,12 +810,7 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
             return;
         }
 
-        let entity = node_id_entity(node_id);
-        self.computed_layout_query
-            .get_mut(entity)
-            .expect("missing computed layout")
-            .bypass_change_detection()
-            .set_rounded(*layout);
+        self.layout_mut(node_id).set_rounded(*layout);
     }
 }
 
