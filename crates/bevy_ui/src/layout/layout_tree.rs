@@ -1,6 +1,6 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
+    change_detection::DetectChanges,
     component::Component,
     entity::{Entity, EntityHashSet},
     hierarchy::Children,
