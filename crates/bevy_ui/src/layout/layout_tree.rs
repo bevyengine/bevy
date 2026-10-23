@@ -648,7 +648,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
         }
 
         compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
-            let has_children = tree.child_count(node_id) > 0;
+            let has_children = 0 < tree.child_count(node_id);
             let style = tree.style(node_id);
 
             match (style.display, has_children) {
@@ -663,9 +663,13 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                     style,
                     |_, _| 0.0,
                     |known_dimensions, available_space| {
-                        let entity = entity_from_node_id(node_id)
-                            .expect("Viewport Node should not be a child");
-                        (tree.measure_function)(known_dimensions, available_space, entity, style)
+                        (tree.measure_function)(
+                            known_dimensions,
+                            available_space,
+                            entity_from_node_id(node_id)
+                                .expect("Viewport Node should not be a child"),
+                            style,
+                        )
                     },
                 ),
             }
