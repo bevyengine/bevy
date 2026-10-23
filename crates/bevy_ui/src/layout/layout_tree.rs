@@ -603,7 +603,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
         entity_from_node_id(node_id).map_or(&self.viewport_layout, |entity| {
             self.computed_layout_query
                 .get(entity)
-                .expect("missing computed layout")
+                .expect("Missing ComputedLayout on UI node.")
         })
     }
 
@@ -611,7 +611,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
         entity_from_node_id(node_id).map_or(&mut self.viewport_layout, |entity| {
             self.computed_layout_query
                 .get_mut(entity)
-                .expect("missing computed layout")
+                .expect("Missing ComputedLayout on UI node.")
                 .into_inner()
         })
     }
@@ -620,7 +620,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
         entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
             self.style_query
                 .get(entity)
-                .expect("missing computed layout")
+                .expect("Missing TaffyStyle on UI node.")
         })
     }
 
@@ -629,7 +629,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
             &self
                 .computed_layout_query
                 .get(entity)
-                .expect("missing computed layout")
+                .expect("Missing ComputedLayout on UI node.")
                 .ui_children
         })
     }
