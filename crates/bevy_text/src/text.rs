@@ -594,6 +594,7 @@ impl From<Handle<Font>> for FontSource {
         Self::Handle(handle)
     }
 }
+
 impl From<Handle<Font>> for FontSourceTemplate {
     fn from(handle: Handle<Font>) -> Self {
         Into::<FontSource>::into(handle).into()
@@ -605,6 +606,7 @@ impl From<&Handle<Font>> for FontSource {
         Self::Handle(handle.clone())
     }
 }
+
 impl From<&Handle<Font>> for FontSourceTemplate {
     fn from(handle: &Handle<Font>) -> Self {
         Into::<FontSource>::into(handle).into()
@@ -616,6 +618,7 @@ impl From<SmolStr> for FontSource {
         FontSource::Families(families)
     }
 }
+
 impl From<SmolStr> for FontSourceTemplate {
     fn from(families: SmolStr) -> Self {
         Into::<FontSource>::into(families).into()
@@ -627,6 +630,7 @@ impl From<&str> for FontSource {
         FontSource::Families(families.into())
     }
 }
+
 impl From<&str> for FontSourceTemplate {
     fn from(families: &str) -> Self {
         Into::<FontSource>::into(families).into()
@@ -638,6 +642,7 @@ impl From<GenericFontFamily> for FontSource {
         Self::Generic(generic)
     }
 }
+
 impl From<GenericFontFamily> for FontSourceTemplate {
     fn from(generic: GenericFontFamily) -> Self {
         Into::<FontSource>::into(generic).into()
@@ -649,6 +654,7 @@ impl From<Vec<FontSource>> for FontSource {
         Self::List(list)
     }
 }
+
 impl From<Vec<FontSource>> for FontSourceTemplate {
     fn from(list: Vec<FontSource>) -> Self {
         Into::<FontSource>::into(list).into()
@@ -660,6 +666,7 @@ impl<const N: usize> From<[FontSource; N]> for FontSource {
         Self::List(list.into())
     }
 }
+
 impl<const N: usize> From<[FontSource; N]> for FontSourceTemplate {
     fn from(list: [FontSource; N]) -> Self {
         Into::<FontSource>::into(list).into()
@@ -1746,9 +1753,10 @@ pub fn detect_text_needs_rerender(
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::Assets;
-
     use crate::Font;
+    use bevy_app::App;
+    use bevy_asset::{AssetPlugin, Assets};
+    use bevy_scene::{prelude::*, ScenePlugin};
 
     use super::*;
 
@@ -1826,6 +1834,52 @@ mod tests {
             Ok(FontFamily::Single(parley::FontFamilyName::Named(
                 Cow::Borrowed("Dummy Font")
             )))
+        );
+    }
+
+    #[test]
+    fn bsn_conversions() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), ScenePlugin));
+        let world = app.world_mut();
+
+        let str_to_font_source = world
+            .spawn_scene(bsn! {
+                TextFont {
+                    font: "Fira Sans"
+                }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world
+                .entity(str_to_font_source)
+                .get::<TextFont>()
+                .unwrap()
+                .font,
+            FontSource::families("Fira Sans")
+        );
+
+        let list_test = world
+            .spawn_scene(bsn! {
+                TextFont {
+                    font: {vec![
+                        FontSource::families("Fira Sans"),
+                        FontSource::families("Fira Mono"),
+                        FontSource::families("Fira Code"),
+                    ]}
+                }
+            })
+            .unwrap()
+            .id();
+
+        assert_eq!(
+            world.entity(list_test).get::<TextFont>().unwrap().font,
+            FontSource::List(vec![
+                FontSource::families("Fira Sans"),
+                FontSource::families("Fira Mono"),
+                FontSource::families("Fira Code")
+            ])
         );
     }
 }
