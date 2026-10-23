@@ -525,7 +525,6 @@ fn sync_layout_tree(
     let Ok(mut computed_layout) = computed_layout_query.get_mut(entity) else {
         return None;
     };
-    let computed_layout = computed_layout.bypass_change_detection();
     let was_root = computed_layout.is_layout_root;
     computed_layout.is_layout_root = entity == root;
     let new_children = &child_stack[start..end];
