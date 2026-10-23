@@ -709,7 +709,8 @@ impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
     }
 
     fn set_unrounded_layout(&mut self, node_id: NodeId, layout: &Layout) {
-        self.layout_changed |= self.layout_mut(node_id).set_unrounded(*layout);
+        self.layout_changed |=
+            self.layout_mut(node_id).set_unrounded(*layout) && node_id != VIEWPORT_NODE_ID;
     }
 
     fn compute_child_layout(&mut self, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
