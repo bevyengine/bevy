@@ -148,9 +148,7 @@ pub fn clear_transient_dirty_flags(mut computed_layout_query: Query<&mut Compute
     computed_layout_query
         .par_iter_mut()
         .for_each(|mut computed_layout| {
-            computed_layout
-                .bypass_change_detection()
-                .clear_transient_dirty_flags();
+            computed_layout.clear_transient_dirty_flags();
         });
 }
 
