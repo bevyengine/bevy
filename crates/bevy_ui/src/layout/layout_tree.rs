@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_text::{ComputedTextBlock, FontCx};
+use bevy_utils::default;
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
@@ -392,8 +393,10 @@ pub fn compute_layout<'w, 's>(
         let mut tree = UiLayoutTree {
             style_query,
             computed_layout_query,
-            viewport_layout: ComputedLayout::default(),
-            viewport_children: [root_node_id],
+            viewport_layout: ComputedLayout {
+                ui_children: vec![root_node_id],
+                ..default()
+            },
             measure_function: &mut measure_function,
             layout_changed: false,
         };
@@ -587,7 +590,6 @@ struct UiLayoutTree<'a, 'w, 's> {
     style_query: &'a Query<'w, 's, &'static TaffyStyle>,
     computed_layout_query: &'a mut Query<'w, 's, &'static mut ComputedLayout>,
     viewport_layout: ComputedLayout,
-    viewport_children: [NodeId; 1],
     measure_function: &'a mut dyn FnMut(
         taffy::Size<Option<f32>>,
         taffy::Size<AvailableSpace>,
