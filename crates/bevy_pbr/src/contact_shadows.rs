@@ -45,6 +45,17 @@ pub struct ContactShadows {
     pub thickness: f32,
     /// The length of the contact shadow ray in world space.
     pub length: f32,
+    /// An angular bias (in degrees) applied to the contact shadow ray at grazing angles.
+    ///
+    /// When tracing on steep slopes or grazing angles, the ray can prematurely intersect the
+    /// depth buffer's 2.5D staircase representation, causing false self-shadowing artifacts.
+    /// This parameter bends the ray slightly away from the surface (towards the normal)
+    /// to prevent these artifacts.
+    ///
+    /// The bias is gradually applied as the surface becomes steeper. It is fully active
+    /// at extreme grazing angles (e.g. within the last 15-20 degrees before parallel)
+    /// and fades to zero for surfaces facing the light more directly.
+    pub ray_bias_degrees: f32,
 }
 
 impl Default for ContactShadows {
@@ -53,6 +64,7 @@ impl Default for ContactShadows {
             linear_steps: 16,
             thickness: 0.1,
             length: 0.3,
+            ray_bias_degrees: 6.5,
         }
     }
 }
@@ -63,8 +75,7 @@ pub struct ContactShadowsUniform {
     pub linear_steps: u32,
     pub thickness: f32,
     pub length: f32,
-    #[cfg(feature = "webgl")]
-    pub _padding: f32,
+    pub ray_bias_degrees: f32,
 }
 
 impl From<ContactShadows> for ContactShadowsUniform {
@@ -73,8 +84,7 @@ impl From<ContactShadows> for ContactShadowsUniform {
             linear_steps: settings.linear_steps,
             thickness: settings.thickness,
             length: settings.length,
-            #[cfg(feature = "webgl")]
-            _padding: 0.0,
+            ray_bias_degrees: settings.ray_bias_degrees,
         }
     }
 }
