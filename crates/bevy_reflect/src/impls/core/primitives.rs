@@ -5,7 +5,6 @@ use crate::{
     info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::ApplyError,
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
         TypeRegistration, TypeRegistry,
@@ -390,18 +389,6 @@ impl PartialReflect for &'static str {
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
     }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            return Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: Self::type_path().into(),
-            });
-        }
-        Ok(())
-    }
 }
 
 impl Reflect for &'static str {
@@ -557,15 +544,6 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     #[inline]
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
         crate::array::array_partial_cmp(self, value)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::array::array_apply(self, value);
-    }
-
-    #[inline]
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::array::array_try_apply(self, value)
     }
 }
 

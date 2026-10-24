@@ -4,8 +4,7 @@ use crate::{
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::{impl_full_reflect, ApplyError},
-    type_path::DynamicTypePath,
+    reflect::impl_full_reflect,
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::NonGenericTypeInfoCell,
 };
@@ -84,19 +83,6 @@ macro_rules! impl_reflect_for_atomic {
                 #[inline]
                 fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
                     Ok(Box::new(<$ty>::new(self.load($ordering))))
-                }
-
-                #[inline]
-                fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-                    if let Some(value) = value.try_downcast_ref::<Self>() {
-                        *self = <$ty>::new(value.load($ordering));
-                    } else {
-                        return Err(ApplyError::MismatchedTypes {
-                            from_type: Into::into(DynamicTypePath::reflect_type_path(value)),
-                            to_type: Into::into(<Self as TypePath>::type_path()),
-                        });
-                    }
-                    Ok(())
                 }
                 #[inline]
                 fn reflect_kind(&self) -> ReflectKind {

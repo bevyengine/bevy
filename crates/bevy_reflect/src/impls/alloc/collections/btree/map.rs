@@ -4,9 +4,9 @@ use crate::{
     generics::{Generics, TypeParamInfo},
     info::{MaybeTyped, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
-    map::{map_apply, map_partial_cmp, map_partial_eq, map_try_apply, Map, MapInfo},
+    map::{map_partial_cmp, map_partial_eq, Map, MapInfo},
     prelude::*,
-    reflect::{impl_full_reflect, ApplyError},
+    reflect::impl_full_reflect,
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::GenericTypeInfoCell,
 };
@@ -151,14 +151,6 @@ where
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
         map_partial_cmp(self, value)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        map_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        map_try_apply(self, value)
     }
 }
 

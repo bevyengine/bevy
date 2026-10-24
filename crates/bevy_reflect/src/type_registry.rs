@@ -1136,7 +1136,9 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect_mut(value) };
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
-                    strukt.field_mut("a").unwrap().apply(&2.0f32);
+                    DynamicValue::Concrete(Box::new(2.0f32))
+                        .try_apply(strukt.field_mut("a").unwrap().try_as_reflect_mut().unwrap())
+                        .unwrap();
                 }
                 _ => panic!("invalid reflection"),
             }
@@ -1185,7 +1187,10 @@ mod test {
         let reflect = reflect_from_ptr.as_reflect_mut(any).unwrap();
 
         let replacement = Foo { a: 2.0 };
-        reflect.apply(&replacement);
+        DynamicValue::try_from_reflect(&replacement)
+            .unwrap()
+            .try_apply(reflect)
+            .unwrap();
 
         // We mutated `object` through `reflect` which we casted through `&mut dyn Any`.
         assert_eq!(object, replacement);
@@ -1200,7 +1205,10 @@ mod test {
         let mut reflect = reflect_from_ptr.box_as_reflect(any).unwrap();
 
         let replacement = Foo { a: 2.0 };
-        reflect.apply(&replacement);
+        DynamicValue::try_from_reflect(&replacement)
+            .unwrap()
+            .try_apply(&mut *reflect)
+            .unwrap();
 
         // We consumed the value, which was mutated through reflection.
         let final_object: Foo = reflect.take().unwrap();

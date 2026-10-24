@@ -84,28 +84,40 @@ mod tests {
         // === None on None === //
         let patch = None::<Foo>;
         let mut value = None::<Foo>;
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "None apply onto None");
 
         // === Some on None === //
         let patch = Some(Foo(123));
         let mut value = None::<Foo>;
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "Some apply onto None");
 
         // === None on Some === //
         let patch = None::<Foo>;
         let mut value = Some(Foo(321));
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "None apply onto Some");
 
         // === Some on Some === //
         let patch = Some(Foo(123));
         let mut value = Some(Foo(321));
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "Some apply onto Some");
     }

@@ -8,7 +8,7 @@ use crate::{
     dynamic::{DynamicSet, DynamicValue, DynamicValueRef},
     generics::impl_generic_info_methods,
     ty::impl_type_methods,
-    ApplyError, Generics, PartialReflect, Reflect, ReflectRef, Type, TypePath,
+    Generics, PartialReflect, Reflect, ReflectRef, Type, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -243,34 +243,4 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result 
         debug.entry(&value as &dyn Debug);
     }
     debug.finish()
-}
-
-/// Applies the elements of reflected set `b` to the corresponding elements of set `a`.
-///
-/// If a value from `b` does not exist in `a`, the value is cloned and inserted.
-/// If a value from `a` does not exist in `b`, the value is removed.
-///
-/// # Panics
-///
-/// This function panics if `b` is not a reflected set.
-#[inline]
-pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
-    if let Err(err) = set_try_apply(a, b) {
-        panic!("{err}");
-    }
-}
-
-/// Tries to apply the elements of reflected set `b` to the corresponding elements of set `a`
-/// and returns a Result.
-///
-/// If a value from `b` does not exist in `a`, the value is cloned and inserted.
-/// If a value from `a` does not exist in `b`, the value is removed.
-///
-/// # Errors
-///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected set or if
-/// applying elements to each other fails.
-#[inline]
-pub fn set_try_apply<S: Set>(_a: &mut S, _b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    todo!()
 }

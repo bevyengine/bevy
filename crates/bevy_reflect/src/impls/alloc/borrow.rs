@@ -5,7 +5,7 @@ use crate::{
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     list::{List, ListInfo, ListIter},
     prelude::*,
-    reflect::{impl_full_reflect, ApplyError},
+    reflect::impl_full_reflect,
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
         TypeRegistration, TypeRegistry,
@@ -97,19 +97,6 @@ impl PartialReflect for Cow<'static, str> {
 
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            return Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
-                to_type: Self::type_path().into(),
-            });
-        }
-        Ok(())
     }
 }
 
@@ -275,14 +262,6 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
 
     fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
         crate::list::list_partial_cmp(self, value)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list::list_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list::list_try_apply(self, value)
     }
 }
 

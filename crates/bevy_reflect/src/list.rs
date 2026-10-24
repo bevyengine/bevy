@@ -14,7 +14,7 @@ use crate::{
     generics::impl_generic_info_methods,
 };
 use crate::{
-    ty::impl_type_methods, utility::reflect_hasher, ApplyError, FromDynamic, Generics, MaybeTyped,
+    ty::impl_type_methods, utility::reflect_hasher, FromDynamic, Generics, MaybeTyped,
     PartialReflect, ReflectRef, Type, TypeInfo, TypePath,
 };
 
@@ -236,36 +236,6 @@ pub fn dynamic_list_hash(list: &DynamicList) -> Option<u64> {
         hasher.write_u64(value.as_ref().dynamic_hash()?);
     }
     Some(hasher.finish())
-}
-
-/// Applies the elements of `b` to the corresponding elements of `a`.
-///
-/// If the length of `b` is greater than that of `a`, the excess elements of `b`
-/// are cloned and appended to `a`.
-///
-/// # Panics
-///
-/// This function panics if `b` is not a list.
-#[inline]
-pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
-    if let Err(err) = list_try_apply(a, b) {
-        panic!("{err}");
-    }
-}
-
-/// Tries to apply the elements of `b` to the corresponding elements of `a` and
-/// returns a Result.
-///
-/// If the length of `b` is greater than that of `a`, the excess elements of `b`
-/// are cloned and appended to `a`.
-///
-/// # Errors
-///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list or if
-/// applying elements to each other fails.
-#[inline]
-pub fn list_try_apply<L: List>(_a: &mut L, _b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    todo!()
 }
 
 pub(crate) trait ListLike {

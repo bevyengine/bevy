@@ -10,8 +10,7 @@ use crate::{
     dynamic::{DynamicMap, DynamicValue, DynamicValueRef},
     generics::impl_generic_info_methods,
     ty::impl_type_methods,
-    ApplyError, Generics, MaybeTyped, PartialReflect, Reflect, ReflectRef, Type, TypeInfo,
-    TypePath,
+    Generics, MaybeTyped, PartialReflect, Reflect, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 
@@ -346,34 +345,4 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> core::fmt::Result 
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);
     }
     debug.finish()
-}
-
-/// Applies the elements of reflected map `b` to the corresponding elements of map `a`.
-///
-/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
-/// If a key from `a` does not exist in `b`, the value is removed.
-///
-/// # Panics
-///
-/// This function panics if `b` is not a reflected map.
-#[inline]
-pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
-    if let Err(err) = map_try_apply(a, b) {
-        panic!("{err}");
-    }
-}
-
-/// Tries to apply the elements of reflected map `b` to the corresponding elements of map `a`
-/// and returns a Result.
-///
-/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
-/// If a key from `a` does not exist in `b`, the value is removed.
-///
-/// # Errors
-///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected map or if
-/// applying elements to each other fails.
-#[inline]
-pub fn map_try_apply<M: Map>(_a: &mut M, _b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    todo!()
 }

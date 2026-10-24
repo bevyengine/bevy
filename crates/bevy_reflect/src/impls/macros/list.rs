@@ -136,14 +136,6 @@ macro_rules! impl_reflect_for_veclike {
                 fn reflect_partial_cmp(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<::core::cmp::Ordering> {
                     $crate::list::list_partial_cmp(self, value)
                 }
-
-                fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
-                    $crate::list::list_apply(self, value);
-                }
-
-                fn try_apply(&mut self, value: &dyn $crate::reflect::PartialReflect) -> Result<(), $crate::reflect::ApplyError> {
-                    $crate::list::list_try_apply(self, value)
-                }
             }
 
             $crate::impl_full_reflect!(<T> for $ty where T: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration);

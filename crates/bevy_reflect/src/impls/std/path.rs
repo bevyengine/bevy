@@ -4,8 +4,6 @@ use crate::{
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::ApplyError,
-    type_path::DynamicTypePath,
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize, TypeRegistration,
     },
@@ -100,18 +98,6 @@ impl PartialReflect for &'static Path {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
-        }
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-            Ok(())
-        } else {
-            Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            })
         }
     }
 }
@@ -244,18 +230,6 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-            Ok(())
-        } else {
-            Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            })
-        }
     }
 }
 

@@ -2,7 +2,7 @@ use crate::{
     dynamic::DynamicValue,
     list::{List, ListInfo, ListIter},
     utility::GenericTypeInfoCell,
-    ApplyError, FromDynamic, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
+    FromDynamic, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
     ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
     TypePath, TypeRegistration, Typed,
 };
@@ -115,14 +115,6 @@ where
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::list::list_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::list::list_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {

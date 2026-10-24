@@ -95,8 +95,8 @@ pub enum ApplyError {
 impl From<ReflectKindMismatchError> for ApplyError {
     fn from(value: ReflectKindMismatchError) -> Self {
         Self::MismatchedKinds {
-            from_kind: value.received,
-            to_kind: value.expected,
+            from_kind: value.expected,
+            to_kind: value.received,
         }
     }
 }
@@ -173,74 +173,6 @@ where
     ///
     /// [fully-reflected]: Reflect
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect>;
-
-    /// Applies a reflected value to this value.
-    ///
-    /// If `Self` implements a [reflection subtrait], then the semantics of this
-    /// method are as follows:
-    /// - If `Self` is a [`Struct`], then the value of each named field of `value` is
-    ///   applied to the corresponding named field of `self`. Fields which are
-    ///   not present in both structs are ignored.
-    /// - If `Self` is a [`TupleStruct`] or [`Tuple`], then the value of each
-    ///   numbered field is applied to the corresponding numbered field of
-    ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `Self` is an [`Enum`], then the variant of `self` is `updated` to match
-    ///   the variant of `value`. The corresponding fields of that variant are
-    ///   applied from `value` onto `self`. Fields which are not present in both
-    ///   values are ignored.
-    /// - If `Self` is a [`List`] or [`Array`], then each element of `value` is applied
-    ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
-    ///   and excess elements in `value` are appended to `self`.
-    /// - If `Self` is a [`Map`], then for each key in `value`, the associated
-    ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted, and keys from `self` which are not present in `value` are removed.
-    /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
-    ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
-    ///   cloned and inserted. If an element from `self` is not present in `value` then it is removed.
-    /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
-    ///   assigned to `self`.
-    ///
-    /// Note that `Reflect` must be implemented manually for [`List`]s,
-    /// [`Map`]s, and [`Set`]s in order to achieve the correct semantics, as derived
-    /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
-    /// or none of the above depending on the kind of type. For lists, maps, and sets, use the
-    /// [`list_apply`], [`map_apply`], and [`set_apply`] helper functions when implementing this method.
-    ///
-    /// [reflection subtrait]: crate#the-reflection-subtraits
-    /// [`Struct`]: crate::structs::Struct
-    /// [`TupleStruct`]: crate::tuple_struct::TupleStruct
-    /// [`Tuple`]: crate::tuple::Tuple
-    /// [`Enum`]: crate::enums::Enum
-    /// [`List`]: crate::list::List
-    /// [`Array`]: crate::array::Array
-    /// [`Map`]: crate::map::Map
-    /// [`Set`]: crate::set::Set
-    /// [`list_apply`]: crate::list::list_apply
-    /// [`map_apply`]: crate::map::map_apply
-    /// [`set_apply`]: crate::set::set_apply
-    ///
-    /// # Panics
-    ///
-    /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `Self` (e.g. if `Self` is
-    ///   a `List`, while `value` is a `Struct`).
-    /// - If `Self` is any complex type and the corresponding fields or elements of
-    ///   `self` and `value` are not of the same type.
-    /// - If `Self` is an opaque type and `value` cannot be downcast to `Self`
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        PartialReflect::try_apply(self, value).unwrap();
-    }
-
-    /// Tries to [`apply`](PartialReflect::apply) a reflected value to this value.
-    ///
-    /// Functions the same as the [`apply`](PartialReflect::apply) function but returns an error instead of
-    /// panicking.
-    ///
-    /// # Handling Errors
-    ///
-    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
-    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError>;
 
     /// Returns a zero-sized enumeration of "kinds" of type.
     ///

@@ -96,14 +96,6 @@ macro_rules! impl_reflect_for_hashset {
                     Some(self)
                 }
 
-                fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
-                   $crate::set::set_apply(self, value);
-                }
-
-                fn try_apply(&mut self, value: &dyn $crate::reflect::PartialReflect) -> Result<(), $crate::reflect::ApplyError> {
-                    $crate::set::set_try_apply(self, value)
-                }
-
                 fn reflect_kind(&self) -> $crate::kind::ReflectKind {
                     $crate::kind::ReflectKind::Set
                 }

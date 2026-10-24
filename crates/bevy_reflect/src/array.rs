@@ -4,8 +4,8 @@
 use crate::dynamic::{DynamicArray, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    ty::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectRef, Type, TypeInfo, TypePath,
+    ty::impl_type_methods, utility::reflect_hasher, Generics, MaybeTyped, PartialReflect, Reflect,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::Ordering;
@@ -210,58 +210,6 @@ pub fn dynamic_array_hash(array: &DynamicArray) -> Option<u64> {
         hasher.write_u64(value.as_ref().dynamic_hash()?);
     }
     Some(hasher.finish())
-}
-
-/// Applies the reflected [array](Array) data to the given [array](Array).
-///
-/// # Panics
-///
-/// * Panics if the two arrays have differing lengths.
-/// * Panics if the reflected value is not a [valid array](ReflectRef::Array).
-#[inline]
-pub fn array_apply<A: Array + ?Sized>(array: &mut A, reflect: &dyn PartialReflect) {
-    if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
-        if array.len() != reflect_array.len() {
-            panic!("Attempted to apply different sized `Array` types.");
-        }
-        for (i, value) in reflect_array.iter().enumerate() {
-            let v = array.get_mut(i).unwrap();
-            v.apply(value);
-        }
-    } else {
-        panic!("Attempted to apply a non-`Array` type to an `Array` type.");
-    }
-}
-
-/// Tries to apply the reflected [array](Array) data to the given [array](Array) and
-/// returns a Result.
-///
-/// # Errors
-///
-/// * Returns an [`ApplyError::DifferentSize`] if the two arrays have differing lengths.
-/// * Returns an [`ApplyError::MismatchedKinds`] if the reflected value is not a
-///   [valid array](ReflectRef::Array).
-/// * Returns any error that is generated while applying elements to each other.
-#[inline]
-pub fn array_try_apply<A: Array>(
-    array: &mut A,
-    reflect: &dyn PartialReflect,
-) -> Result<(), ApplyError> {
-    let reflect_array = reflect.reflect_ref().as_array()?;
-
-    if array.len() != reflect_array.len() {
-        return Err(ApplyError::DifferentSize {
-            from_size: reflect_array.len(),
-            to_size: array.len(),
-        });
-    }
-
-    for (i, value) in reflect_array.iter().enumerate() {
-        let v = array.get_mut(i).unwrap();
-        v.try_apply(value)?;
-    }
-
-    Ok(())
 }
 
 pub(crate) trait ArrayLike {

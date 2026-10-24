@@ -145,14 +145,6 @@ macro_rules! impl_reflect_for_hashmap {
                 fn reflect_partial_eq(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<bool> {
                     $crate::map::map_partial_eq(self, value)
                 }
-
-                fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
-                    $crate::map::map_apply(self, value);
-                }
-
-                fn try_apply(&mut self, value: &dyn $crate::reflect::PartialReflect) -> Result<(), $crate::reflect::ApplyError> {
-                    $crate::map::map_try_apply(self, value)
-                }
             }
 
             $crate::impl_full_reflect!(

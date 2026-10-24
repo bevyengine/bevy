@@ -131,14 +131,6 @@ where
         Some(self)
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::map::map_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), crate::ApplyError> {
-        crate::map::map_try_apply(self, value)
-    }
-
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Map
     }
@@ -363,14 +355,6 @@ where
 
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
         Some(self)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::set::set_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), crate::ApplyError> {
-        crate::set::set_try_apply(self, value)
     }
 
     fn reflect_kind(&self) -> ReflectKind {

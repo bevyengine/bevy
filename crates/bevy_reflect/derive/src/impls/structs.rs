@@ -3,7 +3,7 @@ use crate::{
     struct_utility::FieldAccessors,
     ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQOption, FQResult};
+use bevy_macro_utils::fq_std::FQOption;
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -137,28 +137,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
-            #[inline]
-            fn try_apply(
-                &mut self,
-                value: &dyn #bevy_reflect_path::PartialReflect
-            ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
-                if let #bevy_reflect_path::ReflectRef::Struct(struct_value)
-                    = #bevy_reflect_path::PartialReflect::reflect_ref(value) {
-                    for (name, value) in #bevy_reflect_path::structs::Struct::iter_fields(struct_value) {
-                        if let #FQOption::Some(v) = #bevy_reflect_path::structs::Struct::field_mut(self, name) {
-                           #bevy_reflect_path::PartialReflect::try_apply(v, value)?;
-                        }
-                    }
-                } else {
-                    return #FQResult::Err(
-                        #bevy_reflect_path::ApplyError::MismatchedKinds {
-                            from_kind: #bevy_reflect_path::PartialReflect::reflect_kind(value),
-                            to_kind: #bevy_reflect_path::ReflectKind::Struct
-                        }
-                    );
-                }
-                #FQResult::Ok(())
-            }
             #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Struct

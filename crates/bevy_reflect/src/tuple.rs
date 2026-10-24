@@ -6,7 +6,7 @@ use variadics_please::all_tuples;
 use crate::dynamic::{DynamicTuple, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromDynamic, Generics,
+    ty::impl_type_methods, utility::GenericTypePathCell, FromDynamic, Generics,
     GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
@@ -210,38 +210,6 @@ impl TupleInfo {
     }
 
     impl_generic_info_methods!(generics);
-}
-
-/// Applies the elements of `b` to the corresponding elements of `a`.
-///
-/// # Panics
-///
-/// This function panics if `b` is not a tuple.
-#[inline]
-pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) {
-    if let Err(err) = tuple_try_apply(a, b) {
-        panic!("{err}");
-    }
-}
-
-/// Tries to apply the elements of `b` to the corresponding elements of `a` and
-/// returns a Result.
-///
-/// # Errors
-///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
-/// applying elements to each other fails.
-#[inline]
-pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    let tuple = b.reflect_ref().as_tuple()?;
-
-    for (i, value) in tuple.iter_fields().enumerate() {
-        if let Some(v) = a.field_mut(i) {
-            v.try_apply(value)?;
-        }
-    }
-
-    Ok(())
 }
 
 pub(crate) trait TupleLike {
@@ -457,14 +425,6 @@ macro_rules! impl_reflect_tuple {
             }
             fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
                 crate::tuple::tuple_partial_cmp(self, value)
-            }
-
-            fn apply(&mut self, value: &dyn PartialReflect) {
-                crate::tuple::tuple_apply(self, value);
-            }
-
-            fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-                crate::tuple::tuple_try_apply(self, value)
             }
 
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {

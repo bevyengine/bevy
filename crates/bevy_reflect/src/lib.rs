@@ -922,7 +922,9 @@ mod tests {
 
         let array_src = [8, 0, 8];
 
-        let result = struct_target.try_apply(&enum_target);
+        let result = DynamicValue::try_from_reflect(&enum_target)
+            .unwrap()
+            .try_apply(&mut struct_target);
         assert!(
             matches!(
                 result,
@@ -934,7 +936,9 @@ mod tests {
             "result was {result:?}"
         );
 
-        let result = enum_target.try_apply(&array_src);
+        let result = DynamicValue::try_from_reflect(&array_src)
+            .unwrap()
+            .try_apply(&mut enum_target);
         assert!(
             matches!(
                 result,
@@ -3708,7 +3712,10 @@ bevy_reflect::tests::Test {
         });
 
         assert_eq!("Hello", data.0.value);
-        data.apply(&patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut data)
+            .unwrap();
         assert_eq!("Goodbye", data.0.value);
 
         // === Struct Container === //
