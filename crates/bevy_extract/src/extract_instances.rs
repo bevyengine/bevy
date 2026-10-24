@@ -97,7 +97,7 @@ where
 impl<EI, L> Plugin for ExtractInstancesPlugin<EI, L>
 where
     EI: ExtractInstance<L>,
-    L: AppLabel + Default,
+    L: AppLabel,
 {
     fn build(&self, app: &mut App) {
         if let Some(sub_app) = app.get_sub_app_mut(L::default()) {
