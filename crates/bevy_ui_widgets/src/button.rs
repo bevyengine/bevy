@@ -15,7 +15,7 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_picking::{
     events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::PointerButtonFlag,
+    pointer::ActivateOnPointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed};
@@ -29,7 +29,7 @@ use crate::Activate;
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::Button)),
     Focusable,
-    PointerButtonFlag
+    ActivateOnPointerButton
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -70,7 +70,7 @@ fn button_on_pointer_click(
         (Has<Pressed>, Has<InteractionDisabled>, Has<ActivateOnPress>),
         With<Button>,
     >,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(click.entity)
@@ -99,7 +99,7 @@ fn button_on_pointer_down(
         ),
         With<Button>,
     >,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(press.entity)
@@ -121,7 +121,7 @@ fn button_on_pointer_down(
 fn button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(release.entity)

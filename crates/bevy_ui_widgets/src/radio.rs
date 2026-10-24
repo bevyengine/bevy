@@ -15,7 +15,7 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_picking::{
     events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::PointerButtonFlag,
+    pointer::ActivateOnPointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
@@ -64,7 +64,7 @@ pub struct RadioGroup;
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::RadioButton)),
     Checkable,
-    PointerButtonFlag
+    ActivateOnPointerButton
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -212,7 +212,7 @@ fn radio_button_on_click(
         (With<RadioButton>, Without<ActivateOnPress>),
     >,
     q_parents: Query<&ChildOf>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(click.entity)
@@ -254,7 +254,7 @@ fn radio_button_on_pointer_down(
         With<RadioButton>,
     >,
     q_parents: Query<&ChildOf>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(press.entity)
@@ -283,7 +283,7 @@ fn radio_button_on_pointer_down(
 fn radio_button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(release.entity)

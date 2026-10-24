@@ -24,7 +24,7 @@ use bevy_picking::{
         PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
     },
     hover::PointerCaptureMap,
-    pointer::PointerButtonFlag,
+    pointer::ActivateOnPointerButton,
 };
 
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -113,7 +113,7 @@ pub enum TrackClick {
     SliderRange,
     SliderStep,
     Focusable,
-    PointerButtonFlag
+    ActivateOnPointerButton
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -283,7 +283,7 @@ pub(crate) fn slider_on_pointer_down(
     )>,
     q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
@@ -395,7 +395,7 @@ pub(crate) fn slider_on_drag_start(
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut capture_map: ResMut<PointerCaptureMap>,
 ) {
     if let Ok(button_flag) = q_button_flag.get(drag_start.entity)
@@ -575,7 +575,7 @@ fn emit_slider_drag_value_change(
 fn slider_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(release.entity)

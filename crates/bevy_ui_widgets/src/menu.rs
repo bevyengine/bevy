@@ -54,7 +54,7 @@ use bevy_input_focus::{
 use bevy_log::warn;
 use bevy_picking::{
     events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::PointerButtonFlag,
+    pointer::ActivateOnPointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
@@ -136,7 +136,7 @@ pub struct MenuPopup {
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::MenuItem)),
     Focusable,
-    PointerButtonFlag
+    ActivateOnPointerButton
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -346,7 +346,7 @@ fn menu_on_key_event(
 fn menu_item_on_pointer_click(
     mut ev: On<PointerClick>,
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(ev.entity)
@@ -376,7 +376,7 @@ fn menu_item_on_pointer_click(
 fn menu_item_on_pointer_down(
     mut ev: On<PointerPress>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(ev.entity)
@@ -395,7 +395,7 @@ fn menu_item_on_pointer_down(
 fn menu_item_on_pointer_up(
     mut ev: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
-    q_button_flag: Query<&PointerButtonFlag>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
     if let Ok(button_flag) = q_button_flag.get(ev.entity)

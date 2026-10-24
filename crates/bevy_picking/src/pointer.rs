@@ -371,7 +371,7 @@ impl PointerInput {
 /// This component is used to specify which pointer button should be used to activate the widget.
 #[derive(Component, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Component, Debug, Clone)]
-pub struct PointerButtonFlag {
+pub struct ActivateOnPointerButton {
     /// Whether the primary pointer button should be used to activate the widget.
     pub primary: bool,
     /// Whether the secondary pointer button should be used to activate the widget.
@@ -380,7 +380,7 @@ pub struct PointerButtonFlag {
     pub middle: bool,
 }
 
-impl Default for PointerButtonFlag {
+impl Default for ActivateOnPointerButton {
     fn default() -> Self {
         Self {
             primary: true,
@@ -390,7 +390,7 @@ impl Default for PointerButtonFlag {
     }
 }
 
-impl PointerButtonFlag {
+impl ActivateOnPointerButton {
     /// Returns whether the given pointer button is allowed to activate the widget.
     pub fn allows(&self, button: PointerButton) -> bool {
         match button {
