@@ -2203,6 +2203,10 @@ pub fn prepare_preprocess_bind_groups(
     mut bin_unpacking_bind_groups: ResMut<BinUnpackingBindGroups>,
     mut uniform_allocation_bind_groups: ResMut<UniformAllocationBindGroups>,
 ) {
+    // Clear out old bind groups, since they may refer to stale metadata.
+    bin_unpacking_bind_groups.clear();
+    uniform_allocation_bind_groups.clear();
+
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
         current_input_buffer: current_input_buffer_vec,
