@@ -27,7 +27,7 @@ use crate::{
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError, FromReflect};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -75,6 +75,14 @@ use crate::{
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// # }
+/// # impl FromReflect for MyStruct {
+/// #     fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+/// #     where
+/// #         Self: Sized,
+/// #     {
+/// #         None
+/// #     }
 /// # }
 /// ```
 ///

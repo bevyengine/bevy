@@ -2314,6 +2314,14 @@ mod tests {
             DynamicTuple,
             i32,
         );
+        impl FromReflect for MyStruct {
+            fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                None
+            }
+        }
 
         assert_impl_all!(MyStruct: Reflect, GetTypeRegistration);
 
@@ -2685,6 +2693,14 @@ mod tests {
             foo: DynamicStruct,
             bar: usize,
         }
+        impl FromReflect for MyDynamicStruct {
+            fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                None
+            }
+        }
 
         let info = MyDynamicStruct::type_info();
         if let TypeInfo::Struct(info) = info {
@@ -2907,6 +2923,14 @@ mod tests {
         struct TestStruct {
             #[reflect(ignore)]
             _hrl: for<'a> fn(&'a str) -> &'a str,
+        }
+        impl FromReflect for TestStruct {
+            fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                None
+            }
         }
 
         impl Default for TestStruct {
@@ -3586,6 +3610,14 @@ bevy_reflect::tests::Test {
             #[reflect(remote = MyType)]
             their_type: external_crate::TheirType,
         }
+        impl FromReflect for ContainerStruct {
+            fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                None
+            }
+        }
 
         let mut patch = DynamicStruct::default();
         patch.set_represented_type(Some(ContainerStruct::type_info()));
@@ -3709,6 +3741,14 @@ bevy_reflect::tests::Test {
         struct ContainerStruct {
             #[reflect(remote = MyType)]
             their_type: external_crate::TheirType,
+        }
+        impl FromReflect for ContainerStruct {
+            fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+            where
+                Self: Sized,
+            {
+                None
+            }
         }
 
         let mut patch = DynamicStruct::default();

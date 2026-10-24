@@ -1,8 +1,8 @@
 use crate::{
     array::array_debug, enums::enum_debug, list::list_debug, map::map_debug, set::set_debug,
     structs::struct_debug, tuple::tuple_debug, tuple_struct::tuple_struct_debug, DynamicTypePath,
-    DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind, ReflectKindMismatchError, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
+    DynamicTyped, FromReflect, OpaqueInfo, ReflectCloneError, ReflectKind,
+    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -426,7 +426,7 @@ where
     message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: PartialReflect + DynamicTyped + Any {
+pub trait Reflect: PartialReflect + FromReflect + DynamicTyped + Any {
     /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.

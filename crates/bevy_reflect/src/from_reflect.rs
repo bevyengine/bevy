@@ -26,9 +26,11 @@ use alloc::boxed::Box;
     message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait FromReflect: Sized + 'static {
+pub trait FromReflect: 'static {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>
+    where
+        Self: Sized;
 
     /// Attempts to downcast the given value to `Self` using,
     /// constructing the value using [`from_reflect`] if that fails.
@@ -40,9 +42,10 @@ pub trait FromReflect: Sized + 'static {
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::structs::DynamicStruct
     /// [`DynamicList`]: crate::list::DynamicList
-    fn take_from_reflect(
-        reflect: Box<dyn PartialReflect>,
-    ) -> Result<Self, Box<dyn PartialReflect>> {
+    fn take_from_reflect(reflect: Box<dyn PartialReflect>) -> Result<Self, Box<dyn PartialReflect>>
+    where
+        Self: Sized,
+    {
         match reflect.try_take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {

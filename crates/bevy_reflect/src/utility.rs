@@ -56,7 +56,7 @@ mod sealed {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, Typed, TypeInfo, TypePath, ApplyError, FromReflect};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -98,6 +98,14 @@ mod sealed {
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// # }
+/// # impl FromReflect for Foo {
+/// #     fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+/// #     where
+/// #         Self: Sized,
+/// #     {
+/// #         None
+/// #     }
 /// # }
 /// ```
 ///
@@ -144,12 +152,12 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, tuple_struct::TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, tuple_struct::TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo, FromReflect};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect + Typed + TypePath> Typed for Foo<T> {
+/// impl<T: Typed> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
@@ -185,6 +193,14 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// # }
+/// # impl<T: FromReflect> FromReflect for Foo<T> {
+/// #     fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self>
+/// #     where
+/// #         Self: Sized,
+/// #     {
+/// #         None
+/// #     }
 /// # }
 /// ```
 ///

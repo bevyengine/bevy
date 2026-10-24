@@ -17,9 +17,12 @@ use core::{
 ///
 /// This allows code to be written that will be checked by the compiler even when the feature is disabled,
 /// but that will be entirely removed during compilation.
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(where T: Sized))]
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct MaybeLocation<T: ?Sized = &'static Location<'static>> {
+pub struct MaybeLocation<T = &'static Location<'static>>
+where
+    T: ?Sized,
+{
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore, clone))]
     marker: PhantomData<T>,
     #[cfg(feature = "track_location")]
