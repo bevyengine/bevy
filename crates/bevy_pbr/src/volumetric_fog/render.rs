@@ -3,7 +3,7 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::Camera3d;
+use bevy_camera::{Camera3d, MainPassResolutionOverride, Viewport};
 use bevy_color::ColorToComponents as _;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -18,6 +18,7 @@ use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
@@ -282,6 +283,8 @@ pub fn extract_volumetric_fog(
 
 pub fn volumetric_fog(
     view: ViewQuery<(
+        &ExtractedCamera,
+        Option<&MainPassResolutionOverride>,
         &ViewTarget,
         &ViewDepthStencilTexture,
         &ViewVolumetricFogPipelines,
@@ -299,6 +302,8 @@ pub fn volumetric_fog(
     mut ctx: RenderContext,
 ) {
     let (
+        camera,
+        resolution_override,
         view_target,
         view_depth_texture,
         view_volumetric_lighting_pipelines,
@@ -423,6 +428,18 @@ pub fn volumetric_fog(
         let command_encoder = ctx.command_encoder();
         let mut render_pass = command_encoder.begin_render_pass(&render_pass_descriptor);
 
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_viewport(
+                viewport.physical_position.x as f32,
+                viewport.physical_position.y as f32,
+                viewport.physical_size.x as f32,
+                viewport.physical_size.y as f32,
+                viewport.depth.start,
+                viewport.depth.end,
+            );
+        }
         render_pass.set_vertex_buffer(0, *vertex_buffer_slice.buffer.slice(..));
         render_pass.set_pipeline(pipeline);
 

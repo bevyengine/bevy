@@ -141,10 +141,19 @@ fn sample_hzb_row(sx: vec4<u32>, sy: u32, mip: i32) -> f32 {
     return min(min(a, b), min(c, d));
 }
 
-fn occlusion_cull_screen_aabb(aabb: ScreenAabb, screen: vec2<f32>) -> bool {
+fn occlusion_cull_screen_aabb(aabb: ScreenAabb) -> bool {
     let hzb_size = vec2<f32>(textureDimensions(depth_pyramid).xy);
-    let aabb_min = aabb.min.xy * hzb_size;
-    let aabb_max = aabb.max.xy * hzb_size;
+    // The visibility buffer size is viewport origin + size. Dividing by this
+    // sum also cancels the previous viewport's normalization.
+    @if(MESHLET_FIRST_CULLING_PASS)
+    let viewport = previous_view.main_pass_viewport_uv;
+    @else
+    let viewport = view.main_pass_viewport;
+    let origin = viewport.xy;
+    let screen = viewport.zw;
+    let raster_size = origin + screen;
+    let aabb_min = (origin + aabb.min.xy * screen) / raster_size * hzb_size;
+    let aabb_max = (origin + aabb.max.xy * screen) / raster_size * hzb_size;
 
     let min_texel = vec2<u32>(max(aabb_min, vec2<f32>(0.0)));
     let max_texel = vec2<u32>(min(aabb_max, hzb_size - 1.0));
@@ -197,7 +206,7 @@ fn should_occlusion_cull_aabb(aabb: MeshletAabb, instance_id: u32) -> bool {
     let clip_from_local = occlusion_cull_clip_from_local(instance_id);
     var screen_aabb = ScreenAabb(vec3<f32>(0.0), vec3<f32>(0.0));
     if project_aabb(clip_from_local, near, aabb, &screen_aabb) {
-        return occlusion_cull_screen_aabb(screen_aabb, view.viewport.zw);
+        return occlusion_cull_screen_aabb(screen_aabb);
     }
     return false;
 }

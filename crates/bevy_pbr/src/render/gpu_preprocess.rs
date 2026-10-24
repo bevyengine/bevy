@@ -63,8 +63,8 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
     view::{
-        ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
+        ViewDepthStencilTexture, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
@@ -1005,7 +1005,12 @@ fn gather_shadow_cascades_for_view(
 
 pub fn late_gpu_preprocess(
     current_view: ViewQuery<
-        (&ExtractedView, &PreprocessBindGroups, &ViewUniformOffset),
+        (
+            &ExtractedView,
+            &PreprocessBindGroups,
+            &ViewUniformOffset,
+            &ViewDepthStencilTexture,
+        ),
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
@@ -1018,7 +1023,7 @@ pub fn late_gpu_preprocess(
     preprocess_pipelines: Res<PreprocessPipelines>,
     mut ctx: RenderContext,
 ) {
-    let (view, bind_groups, view_uniform_offset) = current_view.into_inner();
+    let (view, bind_groups, view_uniform_offset, depth) = current_view.into_inner();
 
     // Fetch the pipeline BEFORE starting diagnostic spans to avoid panic on early return
     let maybe_pipeline_id = preprocess_pipelines
@@ -1049,6 +1054,13 @@ pub fn late_gpu_preprocess(
     let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
 
     compute_pass.set_pipeline(preprocess_pipeline);
+
+    // The vec2 in Immediates is aligned to byte 8, after the work item offset.
+    let target_size = [
+        depth.texture().width() as f32,
+        depth.texture().height() as f32,
+    ];
+    compute_pass.set_immediates(8, bytemuck::bytes_of(&target_size));
 
     // Loop over each phase. Because we built the phases in parallel,
     // each phase has a separate set of instance buffers.
@@ -1485,7 +1497,11 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             ),
             layout: vec![self.bind_group_layout.clone()],
             immediate_size: if key.contains(PreprocessPipelineKey::OCCLUSION_CULLING) {
-                4
+                if key.contains(PreprocessPipelineKey::EARLY_PHASE) {
+                    4
+                } else {
+                    16
+                }
             } else {
                 0
             },
@@ -2575,7 +2591,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: previous_view_buffer,
                                     offset: previous_view_uniform_offset.offset as u64,
-                                    size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
+                                    size: Some(PreviousViewData::min_size()),
                                 },
                             ),
                             // @group(0) @binding(12) var<storage, read_write>
@@ -2696,7 +2712,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: previous_view_buffer,
                                     offset: previous_view_uniform_offset.offset as u64,
-                                    size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
+                                    size: Some(PreviousViewData::min_size()),
                                 },
                             ),
                             // @group(0) @binding(12) var<storage, read_write>
@@ -2816,7 +2832,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: previous_view_buffer,
                                     offset: previous_view_uniform_offset.offset as u64,
-                                    size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
+                                    size: Some(PreviousViewData::min_size()),
                                 },
                             ),
                             // @group(0) @binding(13) var<storage, read_write>
@@ -2925,7 +2941,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: previous_view_buffer,
                                     offset: previous_view_uniform_offset.offset as u64,
-                                    size: NonZeroU64::new(size_of::<PreviousViewData>() as u64),
+                                    size: Some(PreviousViewData::min_size()),
                                 },
                             ),
                             // @group(0) @binding(13) var<storage, read>
