@@ -13,7 +13,7 @@ use derive_more::derive::From;
 /// The mesh used in this component must declare the BLAS its material needs in
 /// [`Mesh::raytracing`],
 /// use the following set of vertex attributes: `{POSITION, NORMAL, UV_0, TANGENT}`, use [`bevy_mesh::PrimitiveTopology::TriangleList`],
-/// and use [`bevy_mesh::Indices::U32`].
+/// and use [`bevy_mesh::Indices::U16`] or [`bevy_mesh::Indices::U32`].
 ///
 /// The material used for this entity must be [`MeshMaterial3d<StandardMaterial>`].
 #[derive(
