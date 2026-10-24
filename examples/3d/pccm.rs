@@ -96,7 +96,7 @@ fn setup(
 /// Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         FreeCamera::default(),
         Transform::from_xyz(0.0, 0.0, 4.0).looking_at(Vec3::new(0.0, -2.5, 0.0), Dir3::Y),
         Hdr,

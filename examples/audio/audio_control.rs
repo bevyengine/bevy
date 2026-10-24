@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // camera
-    commands.spawn(Camera3d::default());
+    commands.spawn(Camera3d);
 }
 
 #[derive(Component)]

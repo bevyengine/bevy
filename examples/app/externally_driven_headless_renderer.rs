@@ -88,7 +88,7 @@ impl BevyWrapper {
         self.0
             .main
             .world_mut()
-            .spawn((Camera3d::default(), target, Transform::IDENTITY))
+            .spawn((Camera3d, target, Transform::IDENTITY))
             .id()
     }
 

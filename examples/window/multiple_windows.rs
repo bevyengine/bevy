@@ -23,7 +23,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let first_window_camera = commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ))
         .id();
@@ -38,7 +38,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let second_window_camera = commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             RenderTarget::Window(WindowRef::Entity(second_window)),
         ))

@@ -77,7 +77,7 @@ fn setup(
     ));
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-8.0, 5.0, 8.0).looking_at(Vec3::Y, Vec3::Y),
         FreeCamera::default(),
     ));

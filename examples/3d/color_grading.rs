@@ -240,7 +240,7 @@ fn number_input_for_value(
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Hdr,
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         color_grading,

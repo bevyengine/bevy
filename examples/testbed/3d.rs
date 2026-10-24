@@ -211,7 +211,7 @@ mod light {
         ));
 
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExit(CURRENT_SCENE),
         ));
@@ -229,7 +229,7 @@ mod bloom {
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Tonemapping::TonyMcMapface,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             Bloom::NATURAL,
@@ -271,7 +271,7 @@ mod gltf {
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             EnvironmentMapLight {
                 diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
@@ -328,7 +328,7 @@ mod animation {
         });
 
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
             DespawnOnExit(CURRENT_SCENE),
         ));
@@ -379,7 +379,7 @@ mod gizmos {
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(-1.0, 2.5, 6.5).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExit(super::Scene::Gizmos),
         ));
@@ -437,7 +437,7 @@ mod gltf_coordinate_conversion {
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(-4.0, 4.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExit(CURRENT_SCENE),
         ));
@@ -599,7 +599,7 @@ mod white_furnace_solid_color_light {
 
         // camera
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Hdr,
             Tonemapping::None,
             DebandDither::Disabled,
@@ -715,7 +715,7 @@ mod white_furnace_environment_map_light {
 
         // camera
         commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Hdr,
             Tonemapping::None,
             DebandDither::Disabled,
@@ -801,7 +801,7 @@ mod render_layers {
         for index in 0..4 {
             let viewport_pos = UVec2::new((index % 2) as u32, (index / 2) as u32);
             let mut entity_cmds = commands.spawn((
-                Camera3d::default(),
+                Camera3d,
                 Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
                 Camera {
                     // Renders cameras with different priorities to prevent ambiguities

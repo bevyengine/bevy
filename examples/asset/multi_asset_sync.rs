@@ -192,7 +192,7 @@ fn setup_scene(
 ) {
     // Camera
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(10.0, 10.0, 15.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     ));
 

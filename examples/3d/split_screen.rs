@@ -78,7 +78,7 @@ fn setup(
     {
         let camera = commands
             .spawn((
-                Camera3d::default(),
+                Camera3d,
                 Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
                 Camera {
                     // Renders cameras with different priorities to prevent ambiguities

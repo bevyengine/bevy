@@ -38,7 +38,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_translation(Vec3::new(1.8, 0.4, -0.1)).looking_at(Vec3::ZERO, Vec3::Y),
         Msaa::Off,
         EnvironmentMapLight {

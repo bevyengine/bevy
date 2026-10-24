@@ -216,7 +216,7 @@ fn setup_scene_after_load(
         info!("{}", *scene_handle);
 
         let mut camera = commands.spawn((
-            Camera3d::default(),
+            Camera3d,
             Projection::from(projection),
             Transform::from_translation(
                 Vec3::from(aabb.center) + size * (args.rotation() * Vec3::new(0.5, 0.25, 0.5)),
