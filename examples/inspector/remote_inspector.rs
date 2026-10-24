@@ -25,11 +25,10 @@ use bevy::{
         connection_panel::connection_panel,
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
-        remote::RemoteSource,
-        InspectorPlugin, InspectorSource,
+        InspectorPlugin, InspectorSources,
     },
     prelude::*,
-    remote::http::DEFAULT_PORT,
+    remote::http::{DEFAULT_PORT, DEFAULT_RENDER_PORT},
     ui_widgets::split_pane_self_update,
 };
 
@@ -37,18 +36,23 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins, InspectorPlugin))
         .insert_resource(UiTheme(create_dark_theme()))
-        .insert_resource(InspectorSource::Remote(remote_source()))
+        .insert_resource(build_inspector_sources())
         .add_systems(Startup, (camera.spawn(), inspector_ui.spawn()))
         .run();
 }
 
-fn remote_source() -> RemoteSource {
+fn build_inspector_sources() -> InspectorSources {
     let host = std::env::var("BRP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let port = std::env::var("BRP_PORT")
+    let main_port = std::env::var("BRP_PORT")
         .ok()
         .and_then(|port| port.parse().ok())
         .unwrap_or(DEFAULT_PORT);
-    RemoteSource::new(host, port)
+    let render_port = std::env::var("BRP_RENDER_PORT")
+        .ok()
+        .and_then(|port| port.parse().ok())
+        .unwrap_or(DEFAULT_RENDER_PORT);
+
+    InspectorSources::remote(host, main_port, render_port)
 }
 
 fn camera() -> impl Scene {
