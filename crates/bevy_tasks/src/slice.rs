@@ -90,7 +90,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
         let chunk_size = core::cmp::max(
             1,
             core::cmp::max(
-                slice.len() / task_pool.thread_num(),
+                slice.len() / task_pool.thread_num().max(1),
                 slice.len() / max_tasks.unwrap_or(usize::MAX),
             ),
         );
@@ -201,7 +201,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         let chunk_size = core::cmp::max(
             1,
             core::cmp::max(
-                slice.len() / task_pool.thread_num(),
+                slice.len() / task_pool.thread_num().max(1),
                 slice.len() / max_tasks.unwrap_or(usize::MAX),
             ),
         );

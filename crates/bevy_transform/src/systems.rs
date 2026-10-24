@@ -196,7 +196,7 @@ pub fn mark_dirty_trees(
 
             // Traversal: each task loops until the producer channel is exhausted, walking each
             // entity's ancestor chain and forwarding newly marked entities to the consumer task.
-            for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
+            for _ in 0..ComputeTaskPool::get().thread_num().saturating_sub(1).max(1) {
                 let traversal_rx = traversal_rx.clone();
                 let mut consumer_tx = consumer_tx.clone();
                 scope.spawn({
