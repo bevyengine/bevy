@@ -362,6 +362,13 @@ impl PointerInput {
                         }
                     });
                 }
+                PointerAction::Cancel => {
+                    for (id, _, mut state) in &mut pointers {
+                        if *id == event.pointer_id {
+                            state.set_if_neq(PointerPressState::default());
+                        }
+                    }
+                }
                 _ => {}
             }
         }
