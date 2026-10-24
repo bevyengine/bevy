@@ -489,10 +489,10 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
     }
 }
 
-/// Stores a placeholder texture that can be bound to a depth pyramid binding if
+/// Stores placeholder textures that can be bound to depth pyramid bindings if
 /// no depth pyramid is needed.
 #[derive(Resource, Deref, DerefMut)]
-pub struct DepthPyramidDummyTexture(TextureView);
+pub struct DepthPyramidDummyTexture([TextureView; DEPTH_PYRAMID_MIP_COUNT]);
 
 pub fn init_depth_pyramid_dummy_texture(mut commands: Commands, render_device: Res<RenderDevice>) {
     commands.insert_resource(DepthPyramidDummyTexture(
@@ -504,35 +504,37 @@ pub fn init_depth_pyramid_dummy_texture(mut commands: Commands, render_device: R
     ));
 }
 
-/// Creates a placeholder texture that can be bound to a depth pyramid binding
-/// if no depth pyramid is needed.
+/// Creates placeholder textures that can be bound to depth pyramid bindings if
+/// no depth pyramid is needed, one per mip level.
 pub fn create_depth_pyramid_dummy_texture(
     render_device: &RenderDevice,
     texture_label: &'static str,
     texture_view_label: &'static str,
-) -> TextureView {
-    render_device
-        .create_texture(&TextureDescriptor {
-            label: Some(texture_label),
-            size: Extent3d::default(),
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::R32Float,
-            usage: TextureUsages::STORAGE_BINDING,
-            view_formats: &[],
-        })
-        .create_view(&TextureViewDescriptor {
-            label: Some(texture_view_label),
-            format: Some(TextureFormat::R32Float),
-            dimension: Some(TextureViewDimension::D2),
-            usage: None,
-            aspect: TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: Some(1),
-            base_array_layer: 0,
-            array_layer_count: Some(1),
-        })
+) -> [TextureView; DEPTH_PYRAMID_MIP_COUNT] {
+    array::from_fn(|_| {
+        render_device
+            .create_texture(&TextureDescriptor {
+                label: Some(texture_label),
+                size: Extent3d::default(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            })
+            .create_view(&TextureViewDescriptor {
+                label: Some(texture_view_label),
+                format: Some(TextureFormat::R32Float),
+                dimension: Some(TextureViewDimension::D2),
+                usage: None,
+                aspect: TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: Some(1),
+                base_array_layer: 0,
+                array_layer_count: Some(1),
+            })
+    })
 }
 
 /// Stores a hierarchical Z-buffer for a view, which is a series of mipmaps
@@ -557,7 +559,7 @@ impl ViewDepthPyramid {
     pub fn new(
         render_device: &RenderDevice,
         texture_cache: &mut TextureCache,
-        depth_pyramid_dummy_texture: &TextureView,
+        depth_pyramid_dummy_texture: &[TextureView; DEPTH_PYRAMID_MIP_COUNT],
         size: UVec2,
         texture_label: &'static str,
         texture_view_label: &'static str,
@@ -603,7 +605,7 @@ impl ViewDepthPyramid {
                     array_layer_count: Some(1),
                 })
             } else {
-                (*depth_pyramid_dummy_texture).clone()
+                depth_pyramid_dummy_texture[i].clone()
             }
         });
 
