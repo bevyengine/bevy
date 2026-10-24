@@ -45,6 +45,7 @@ import package::render::view_transformations::{
     position_view_to_world
 };
 import bevy_render::maths::orthonormalize;
+import bevy_render::view::apply_hdr_ceiling;
 import package::render::clustered_forward as clustering;
 import package::render::pbr_lighting::getDistanceAttenuation;
 
@@ -444,7 +445,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // We're done! Return the color with alpha so it can be blended onto the
     // render target.
-    return vec4(accumulated_color, 1.0 - background_alpha);
+    return vec4(apply_hdr_ceiling(accumulated_color), 1.0 - background_alpha);
 }
 
 fn fetch_point_shadow_without_normal(light_id: u32, frag_position: vec4<f32>, frag_coord_xy: vec2<f32>) -> f32 {

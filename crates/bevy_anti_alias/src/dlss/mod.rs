@@ -182,11 +182,14 @@ impl Plugin for DlssPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare::prepare_dlss::<DlssSuperResolutionFeature>,
-                    prepare::prepare_dlss::<DlssRayReconstructionFeature>,
+                    (
+                        prepare::prepare_dlss::<DlssSuperResolutionFeature>,
+                        prepare::prepare_dlss::<DlssRayReconstructionFeature>,
+                    )
+                        .before(prepare_view_targets),
+                    prepare::prepare_dlss_exposure,
                 )
-                    .in_set(RenderSystems::PrepareViews)
-                    .before(prepare_view_targets),
+                    .in_set(RenderSystems::PrepareViews),
             );
 
         app.sub_app_mut(RenderApp).add_systems(
@@ -199,6 +202,10 @@ impl Plugin for DlssPlugin {
 }
 
 /// Camera component to enable DLSS.
+///
+/// Super Resolution's history follows changes to the view's exposure (`view.exposure` in
+/// shaders). Ray Reconstruction isn't given the view's exposure; set [`reset`](Self::reset) only at
+/// camera cuts, not when the exposure changes.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component)]
 #[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass, Hdr)]
@@ -345,8 +352,7 @@ impl DlssFeature for DlssRayReconstructionFeature {
         DlssRayReconstruction::new(
             upscaled_resolution.to_array(),
             perf_quality_mode,
-            // Not supported by ray reconstruction
-            feature_flags - dlss_wgpu::DlssFeatureFlags::AutoExposure,
+            feature_flags,
             DlssRayReconstructionRoughnessMode::Packed,
             DlssRayReconstructionDepthMode::Hardware,
             sdk,
