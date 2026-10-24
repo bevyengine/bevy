@@ -1,4 +1,4 @@
-use crate::ImageLoader;
+use crate::{ImageLoader, SourceColorPrimaries};
 
 #[cfg(feature = "basis-universal")]
 use super::basis::*;
@@ -671,6 +671,8 @@ pub struct Image {
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
     pub copy_on_resize: bool,
+    /// The color primaries the image data is expressed in.
+    pub source_color_primaries: SourceColorPrimaries,
 }
 
 #[cfg(feature = "serialize")]
@@ -1187,6 +1189,7 @@ impl Image {
             texture_view_descriptor: None,
             asset_usage,
             copy_on_resize: false,
+            source_color_primaries: SourceColorPrimaries::default(),
         }
     }
 
@@ -1318,6 +1321,7 @@ impl Image {
             }),
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: true,
+            source_color_primaries: SourceColorPrimaries::default(),
         }
     }
 
@@ -1562,6 +1566,7 @@ impl Image {
             texture_view_descriptor: self.texture_view_descriptor.clone(),
             asset_usage: self.asset_usage,
             copy_on_resize: self.copy_on_resize,
+            source_color_primaries: self.source_color_primaries,
         };
 
         Ok(new_image)
@@ -1602,12 +1607,18 @@ impl Image {
                 _ => None,
             })
             .map(|(dyn_img, is_srgb)| {
-                Self::from_dynamic_inner(dyn_img, is_srgb, false, self.asset_usage)
+                let mut image = Self::from_dynamic_inner(dyn_img, is_srgb, false, self.asset_usage);
+                image.source_color_primaries = self.source_color_primaries;
+                image
             })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate. Grayscale images are expanded to RGBA.
+    ///
+    /// `source_color_primaries` overrides the color primaries set on the image. With
+    /// `None`, color metadata embedded in the buffer wins where the format carries any,
+    /// then [`SourceColorPrimaries::Bt709`].
     pub fn from_buffer(
         buffer: &[u8],
         image_type: ImageType,
@@ -1615,6 +1626,7 @@ impl Image {
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
+        source_color_primaries: Option<SourceColorPrimaries>,
     ) -> Result<Image, TextureError> {
         Self::from_buffer_inner(
             buffer,
@@ -1624,6 +1636,7 @@ impl Image {
             true,
             image_sampler,
             asset_usage,
+            source_color_primaries,
         )
     }
 
@@ -1639,6 +1652,7 @@ impl Image {
         expand_grayscale: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
+        source_color_primaries: Option<SourceColorPrimaries>,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -1656,9 +1670,12 @@ impl Image {
             #[cfg(feature = "dds")]
             ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
             #[cfg(feature = "ktx2")]
-            ImageFormat::Ktx2 => {
-                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
-            }
+            ImageFormat::Ktx2 => ktx2_buffer_to_image(
+                buffer,
+                supported_compressed_formats,
+                is_srgb,
+                source_color_primaries,
+            )?,
             #[expect(
                 clippy::allow_attributes,
                 reason = "`unreachable_patterns` may not always lint"
@@ -1675,9 +1692,27 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic_inner(dyn_img, is_srgb, expand_grayscale, asset_usage)
+                #[cfg_attr(
+                    not(feature = "png"),
+                    expect(unused_mut, reason = "only mutated with the png feature")
+                )]
+                let mut image =
+                    Self::from_dynamic_inner(dyn_img, is_srgb, expand_grayscale, asset_usage);
+                #[cfg(feature = "png")]
+                if matches!(format, ImageFormat::Png) {
+                    image.source_color_primaries =
+                        SourceColorPrimaries::resolve(source_color_primaries, || {
+                            crate::png::png_source_color_primaries(buffer)
+                        });
+                }
+                image
             }
         };
+        // KTX2 and PNG resolve the primaries themselves. This applies the override
+        // for the other formats, and re-applying it to those two is harmless.
+        if let Some(source_color_primaries) = source_color_primaries {
+            image.source_color_primaries = source_color_primaries;
+        }
         image.sampler = image_sampler;
         image.asset_usage = asset_usage;
         Ok(image)
@@ -2553,6 +2588,25 @@ mod test {
         let image = Image::default();
         assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
+    }
+
+    #[test]
+    fn image_source_color_primaries_default_to_bt709() {
+        for image in [
+            Image::default(),
+            Image::default_uninit(),
+            Image::transparent(),
+            Image::new_target_texture(1, 1, TextureFormat::Rgba8UnormSrgb, None),
+            Image::new_fill(
+                Extent3d::default(),
+                TextureDimension::D2,
+                &[0, 0, 0, 255],
+                TextureFormat::Rgba8Unorm,
+                RenderAssetUsages::MAIN_WORLD,
+            ),
+        ] {
+            assert_eq!(image.source_color_primaries, SourceColorPrimaries::Bt709);
+        }
     }
 
     #[test]

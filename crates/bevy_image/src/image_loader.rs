@@ -1,6 +1,6 @@
 use crate::{
     image::{Image, ImageFormat, ImageType, TextureError},
-    TextureReinterpretationError,
+    SourceColorPrimaries, TextureReinterpretationError,
 };
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use bevy_reflect::TypePath;
@@ -157,6 +157,11 @@ pub struct ImageLoaderSettings {
     /// uniform type.
     #[serde(default)]
     pub array_layout: Option<ImageArrayLayout>,
+    /// Overrides [`Image::source_color_primaries`]. By default, the loader reads the
+    /// file's color metadata, KTX2 and PNG only. See [`SourceColorPrimaries`] for the
+    /// resolution order.
+    #[serde(default)]
+    pub source_color_primaries: Option<SourceColorPrimaries>,
     /// Whether to expand grayscale images to RGBA.
     /// When `false`, grayscale images load as `R8Unorm`, `Rg8Unorm`, `R16Unorm` or `Rg16Unorm`
     /// and `is_srgb` is ignored.
@@ -177,6 +182,7 @@ impl Default for ImageLoaderSettings {
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
             array_layout: None,
+            source_color_primaries: None,
             expand_grayscale: true,
         }
     }
@@ -246,6 +252,7 @@ impl AssetLoader for ImageLoader {
             expand_grayscale,
             settings.sampler.clone(),
             settings.asset_usage,
+            settings.source_color_primaries,
         )
         .map_err(|err| FileTextureError {
             error: err,
@@ -297,7 +304,19 @@ pub struct FileTextureError {
 
 #[cfg(test)]
 mod tests {
-    use super::ImageLoaderSettings;
+    use super::*;
+
+    #[test]
+    fn settings_metadata_without_source_color_primaries_still_deserializes() {
+        let mut serialized = serde_json::to_value(ImageLoaderSettings::default()).unwrap();
+        assert!(serialized
+            .as_object_mut()
+            .unwrap()
+            .remove("source_color_primaries")
+            .is_some());
+        let deserialized: ImageLoaderSettings = serde_json::from_value(serialized).unwrap();
+        assert_eq!(deserialized.source_color_primaries, None);
+    }
 
     #[test]
     fn missing_expand_grayscale_defaults_to_true() {
