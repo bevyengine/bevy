@@ -21,6 +21,7 @@ use bevy_log::debug;
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
@@ -705,7 +706,10 @@ pub fn prepare_view_depth_pyramids(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
-    views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, Without<NoIndirectDrawing>)>,
+    views: Query<
+        (Entity, &ExtractedView, Option<&ExtractedCamera>),
+        (With<OcclusionCulling>, Without<NoIndirectDrawing>),
+    >,
     stale_views: Query<Entity, (With<ViewDepthPyramid>, Without<OcclusionCulling>)>,
 ) {
     // Remove old resources when occlusion culling gets disabled
@@ -715,12 +719,14 @@ pub fn prepare_view_depth_pyramids(
             .remove::<(ViewDepthPyramid, ViewDownsampleDepthBindGroup)>();
     }
 
-    for (view_entity, view) in &views {
+    for (view_entity, view, camera) in &views {
         commands.entity(view_entity).insert(ViewDepthPyramid::new(
             &render_device,
             &mut texture_cache,
             &depth_pyramid_dummy_texture,
-            view.viewport.zw(),
+            camera
+                .and_then(|camera| camera.physical_target_size)
+                .unwrap_or(view.viewport.zw()),
             "view depth pyramid texture",
             "view depth pyramid texture view",
         ));
