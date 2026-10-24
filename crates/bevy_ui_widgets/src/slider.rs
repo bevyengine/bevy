@@ -19,10 +19,13 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{
-    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
+    hover::PointerCaptureMap,
+    pointer::ActivateOnPointerButton,
 };
-use bevy_picking::hover::PointerCaptureMap;
 
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
@@ -109,7 +112,8 @@ pub enum TrackClick {
     SliderValue,
     SliderRange,
     SliderStep,
-    Focusable
+    Focusable,
+    ActivateOnPointerButton
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -279,9 +283,15 @@ pub(crate) fn slider_on_pointer_down(
     )>,
     q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
+    if let Ok(button_flag) = q_button_flag.get(press.entity)
+        && !button_flag.allows(press.button)
+    {
+        return;
+    }
     if q_thumb.contains(press.entity) {
         // Thumb click, stop propagation to prevent track click.
         press.propagate(false);
@@ -385,8 +395,14 @@ pub(crate) fn slider_on_drag_start(
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut capture_map: ResMut<PointerCaptureMap>,
 ) {
+    if let Ok(button_flag) = q_button_flag.get(drag_start.entity)
+        && !button_flag.allows(drag_start.button)
+    {
+        return;
+    }
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
         drag_start.propagate(false);
         if !disabled {
@@ -559,8 +575,14 @@ fn emit_slider_drag_value_change(
 fn slider_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
+    q_button_flag: Query<&ActivateOnPointerButton>,
     mut commands: Commands,
 ) {
+    if let Ok(button_flag) = q_button_flag.get(release.entity)
+        && !button_flag.allows(release.button)
+    {
+        return;
+    }
     if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {

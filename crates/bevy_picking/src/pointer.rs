@@ -367,3 +367,36 @@ impl PointerInput {
         }
     }
 }
+
+/// This component is used to specify which pointer button should be used to activate the widget.
+#[derive(Component, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Component, Debug, Clone)]
+pub struct ActivateOnPointerButton {
+    /// Whether the primary pointer button should be used to activate the widget.
+    pub primary: bool,
+    /// Whether the secondary pointer button should be used to activate the widget.
+    pub secondary: bool,
+    /// Whether the middle pointer button should be used to activate the widget.
+    pub middle: bool,
+}
+
+impl Default for ActivateOnPointerButton {
+    fn default() -> Self {
+        Self {
+            primary: true,
+            secondary: false,
+            middle: false,
+        }
+    }
+}
+
+impl ActivateOnPointerButton {
+    /// Returns whether the given pointer button is allowed to activate the widget.
+    pub fn allows(&self, button: PointerButton) -> bool {
+        match button {
+            PointerButton::Primary => self.primary,
+            PointerButton::Secondary => self.secondary,
+            PointerButton::Middle => self.middle,
+        }
+    }
+}
