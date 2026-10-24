@@ -34,7 +34,8 @@ use crate::{
         InsertMode, NoBundleEffect,
     },
     change_detection::{
-        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
+        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutNoComp, MutUntyped,
+        Tick,
     },
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
@@ -2393,7 +2394,7 @@ impl World {
             .into_mut_by_id(resource_id)
             .expect("Resource must exist");
         // SAFETY: resource is of type R
-        unsafe { untyped.with_type() }
+        unsafe { untyped.with_type::<R>().into_mut() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2439,7 +2440,7 @@ impl World {
             .into_mut_by_id(resource_id)
             .expect("Resource must exist");
         // SAFETY: resource is of type R
-        unsafe { untyped.with_type() }
+        unsafe { untyped.with_type::<R>().into_mut() }
     }
 
     /// Retrieves the [`Entity`] associated with the resource of type `R`, if it exists.
@@ -2482,7 +2483,7 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+    pub fn non_send_mut<R: 'static>(&mut self) -> MutNoComp<'_, R> {
         match self.get_non_send_mut() {
             Some(x) => x,
             None => panic!(
@@ -2513,7 +2514,7 @@ impl World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<MutNoComp<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell` gives permission to access the entire world mutably
         // - `&mut self` ensures that there are no borrows of world data
