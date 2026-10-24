@@ -105,10 +105,10 @@ where
     /// Creates a new [`GpuComponentArray`] and the [`ShaderBuffer`] it writes
     /// into.
     pub fn new(shader_buffer_assets: &mut Assets<ShaderBuffer>) -> Self {
+        let data = AlignedVec::from(bytemuck::zeroed_vec::<C::Out>(1));
+        let buffer_size = data.len() as u64;
         let buffer = shader_buffer_assets.add(ShaderBuffer {
-            data: ShaderBufferData::Initialized(AlignedVec::from(bytemuck::zeroed_vec::<C::Out>(
-                1,
-            ))),
+            data: ShaderBufferData::Initialized { data, buffer_size },
             label: C::label(),
             buffer_usage: C::buffer_usage(),
             asset_usage: RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
@@ -239,7 +239,11 @@ where
     ///
     /// Data for the given entity must not already be present in the buffer.
     fn push(&mut self, buffer: &mut ShaderBuffer, entity: Entity, data: C::Out) {
-        let ShaderBufferData::Initialized(ref mut data_buffer) = buffer.data else {
+        let ShaderBufferData::Initialized {
+            data: ref mut data_buffer,
+            ref mut buffer_size,
+        } = buffer.data
+        else {
             panic!(
                 "Shader buffers created for use in a `GpuComponentArrayBuffer` must have been \
                 created with `ShaderBufferData::Initialized`"
@@ -256,6 +260,7 @@ where
         if needed_buffer_len > current_buffer_len {
             let next_buffer_len = round_buffer_size_up(needed_buffer_len);
             data_buffer.resize(next_buffer_len * size_of::<C::Out>(), 0);
+            *buffer_size = data_buffer.len() as u64;
         }
         data_buffer.cast_slice_mut()[tag as usize] = data;
 
@@ -266,7 +271,7 @@ where
     }
 
     fn get<'a>(&'_ self, buffer: &'a ShaderBuffer, tag: u32) -> &'a C::Out {
-        let Some(data_buffer) = buffer.as_slice() else {
+        let Some(data_buffer) = buffer.cast_slice() else {
             panic!(
                 "Shader buffers created for use in a `GpuComponentArrayBuffer` must have been \
                 created with `ShaderBufferData::Initialized`"
@@ -276,7 +281,7 @@ where
     }
 
     fn set(&mut self, buffer: &mut ShaderBuffer, tag: u32, data: C::Out) {
-        let Some(data_buffer) = buffer.as_mut_slice() else {
+        let Some(data_buffer) = buffer.cast_slice_mut() else {
             panic!(
                 "Shader buffers created for use in a `GpuComponentArrayBuffer` must have been \
                 created with `ShaderBufferData::Initialized`"
@@ -431,7 +436,8 @@ mod tests {
                 expected_data.len()
             );
             assert!(
-                self.buffer.len() >= (expected_data.len() * size_of::<MockComponentData>()) as u64
+                self.buffer.buffer_size()
+                    >= (expected_data.len() * size_of::<MockComponentData>()) as u64
             );
 
             for (tag, (entity, data)) in expected_data.iter().enumerate() {

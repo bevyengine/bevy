@@ -36,7 +36,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 
 |Collection|Description|
 |-|-|
-|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `file_watcher`.|
+|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `render_dev_tools`, `file_watcher`.|
 |audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
 |audio-all-formats|Enables audio features and all supported formats. **Feature set:** `bevy_audio`, `aac`, `flac`, `mp3`, `mp4`, `vorbis`, `wav`.|
 |scene|Features used to compose Bevy scenes. **Feature set:** `bevy_world_serialization`, `bevy_scene`.|
@@ -71,6 +71,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_anti_alias|Provides various anti-aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
+|bevy_bsn|Provides BSN AST / parsing functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
 |bevy_camera_controller|Provides a collection of prebuilt camera controllers|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
@@ -88,6 +89,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
+|bevy_inspector|Entity inspector built on bevy_ui and bevy_feathers.|
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_material|Provides materials.|
@@ -97,6 +99,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_picking|Provides picking functionality without any backend|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_remote_client|Enable a native client for calling a running app over the Bevy Remote Protocol, used by in-engine tools like the inspector and by the remote examples|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_settings|Load and save settings|
@@ -116,6 +119,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |clipboard_image|Enables image copy/paste via the system clipboard. Not supported on WASM.|
+|complex_script_segmentation|Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary|
 |compressed_image_saver|Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)|
 |compressed_image_saver_universal|Texture compression asset processor (cross-platform, transcodes to any GPU format at load time)|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
@@ -129,6 +133,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
+|equirectangular_cubemap|Equirectangular (lat-long) panorama to cubemap conversion|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
@@ -138,10 +143,10 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
-|ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |gltf_animation|Enable glTF animation loading|
+|gltf_meshopt|Enables loading glTF files that use KHR_meshopt_compression or EXT_meshopt_compression|
 |hdr|HDR image format support|
 |hotpatching|Enable hotpatching of Bevy systems|
 |http|Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
@@ -151,6 +156,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
+|linux_game_mode|Enable Feral Interactive's `GameMode` integration on Linux|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|
@@ -162,6 +168,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |pan_camera|Enables the pan camera from bevy_camera_controller|
 |pan_orbit_camera|Enables the pan orbit camera from bevy_camera_controller|
+|pan_orbit_gizmo|Enables the pan orbit camera anchor indicator gizmo|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
@@ -176,6 +183,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enables `bevy_reflect` to access documentation comments of Rust code at runtime|
 |reflect_functions|Enable function reflection|
+|render_dev_tools|Enable systems that allow for renderable dev tools|
 |schedule_data|Enable collecting schedule data from the app.|
 |serialize|Enable serialization support through serde|
 |shader_format_spirv|Enable support for shaders in SPIR-V|

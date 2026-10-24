@@ -13,7 +13,7 @@ struct UiVertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
 
-    /// Defines the dividing line that are used to split the texture atlas rect into corner, side and center slices
+    /// Defines the dividing lines that are used to split the texture atlas rect into corner, side and center slices
     /// The distances are normalized and from the top left corner of the texture atlas rect
     /// x = distance of the left vertical dividing line
     /// y = distance of the top horizontal dividing line
@@ -21,7 +21,7 @@ struct UiVertexOutput {
     /// w = distance of the bottom horizontal dividing line
     @location(2) @interpolate(flat) texture_slices: vec4<f32>,
 
-    /// Defines the dividing line that are used to split the render target into corner, side and center slices
+    /// Defines the dividing lines that are used to split the render target into corner, side and center slices
     /// The distances are normalized and from the top left corner of the render target
     /// x = distance of left vertical dividing line
     /// y = distance of top horizontal dividing line
@@ -84,7 +84,7 @@ fn map_axis_with_repeat(
         // inside one of the two left (horizontal axis) or top (vertical axis) corners
         return (p / il) * tl;
     } else if ih < p {
-        // inside one of the two (horizontal axis) or top (vertical axis) corners
+        // inside one of the two right (horizontal axis) or top (vertical axis) corners
         return th + ((p - ih) / (1 - ih)) * (1 - th);
     } else {
         // not inside a corner, repeat the texture

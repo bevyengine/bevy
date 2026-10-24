@@ -1,8 +1,11 @@
 //! glTF extensions defined by the Khronos Group and other vendors
 
+mod ext_mesh_gpu_instancing;
 mod khr_materials_anisotropy;
 mod khr_materials_clearcoat;
 mod khr_materials_specular;
+#[cfg(feature = "meshopt")]
+pub mod khr_meshopt_compression;
 
 use alloc::sync::Arc;
 use async_lock::RwLock;
@@ -24,8 +27,8 @@ use {bevy_animation::AnimationClip, bevy_platform::collections::HashSet};
 use crate::{GltfLoaderSettings, GltfMaterial, GltfMesh};
 
 pub(crate) use self::{
-    khr_materials_anisotropy::AnisotropyExtension, khr_materials_clearcoat::ClearcoatExtension,
-    khr_materials_specular::SpecularExtension,
+    ext_mesh_gpu_instancing::instance_transforms, khr_materials_anisotropy::AnisotropyExtension,
+    khr_materials_clearcoat::ClearcoatExtension, khr_materials_specular::SpecularExtension,
 };
 
 /// Stores the `ErasedGltfExtensionHandler` implementations so that they

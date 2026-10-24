@@ -64,6 +64,8 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
+        embedded_asset!(app, "assets/fonts/NotoSansSymbols2-U+1F7D5.ttf");
+        embedded_asset!(app, "assets/fonts/KeySymbols.ttf");
 
         // Embedded icons
         embedded_asset!(app, "assets/icons/chevron-down.png");
@@ -73,6 +75,7 @@ impl Plugin for FeathersCorePlugin {
         // Embedded shader
         embedded_asset!(app, "assets/shaders/alpha_pattern.wesl");
         embedded_asset!(app, "assets/shaders/color_plane.wesl");
+        embedded_asset!(app, "assets/shaders/color_wheel.wesl");
 
         app.add_plugins((
             ControlsPlugin,
@@ -123,6 +126,7 @@ impl Plugin for FeathersCorePlugin {
         .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+        app.init_resource::<font_styles::FeathersFonts>();
     }
 }
 

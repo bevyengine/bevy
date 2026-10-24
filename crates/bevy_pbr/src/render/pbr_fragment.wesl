@@ -108,8 +108,10 @@ fn pbr_input_from_standard_material(
     // Fill in the sample bias so we can sample from textures.
     var bias: SampleBias;
 @if(MESHLET_MESH_MATERIAL_PASS) {
-    bias.ddx_uv = in.ddx_uv;
-    bias.ddy_uv = in.ddy_uv;
+    // Apply mip bias by scaling the gradients used by textureSampleGrad.
+    let mip_scale = exp2(view.mip_bias);
+    bias.ddx_uv = in.ddx_uv * mip_scale;
+    bias.ddy_uv = in.ddy_uv * mip_scale;
 }
 @else {
     bias.mip_bias = view.mip_bias;
@@ -354,9 +356,14 @@ pbr_input.material.uv_transform = uv_transform;
             let metallic_roughness = textureSampleGrad(texture, sampler_, coords, bias.ddx_uv, bias.ddy_uv);
             @else
             let metallic_roughness = textureSampleBias(texture, sampler_, coords, bias.mip_bias);
-            // Sampling from GLTF standard channels for now
-            metallic *= metallic_roughness.b;
-            perceptual_roughness *= metallic_roughness.g;
+            if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_RG_BIT) != 0u) {
+                perceptual_roughness *= metallic_roughness.r;
+                metallic *= metallic_roughness.g;
+            } else {
+                // Sampling from GLTF standard channels
+                perceptual_roughness *= metallic_roughness.g;
+                metallic *= metallic_roughness.b;
+            }
         }
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
