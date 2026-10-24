@@ -108,6 +108,7 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
+[2D Lighting](../examples/2d/lighting_2d.rs) | Illustrates lighting in 2d
 [2D Rotation to Cursor](../examples/2d/rotate_to_cursor.rs) | Demonstrates rotating entities in 2D to follow the cursor
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
