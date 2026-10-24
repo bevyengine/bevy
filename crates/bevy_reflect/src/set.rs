@@ -271,15 +271,6 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected set or if
 /// applying elements to each other fails.
 #[inline]
-pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    let set_value = b.reflect_ref().as_set()?;
-
-    for b_value in set_value.iter() {
-        if a.get(b_value).is_none() {
-            a.insert_boxed(DynamicValue::try_from_reflect(b_value)?.as_boxed_partial_reflect());
-        }
-    }
-    a.retain(&mut |value| set_value.get(value).is_some());
-
-    Ok(())
+pub fn set_try_apply<S: Set>(_a: &mut S, _b: &dyn PartialReflect) -> Result<(), ApplyError> {
+    todo!()
 }

@@ -5,7 +5,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::{
     dynamic::{DynamicStruct, DynamicTuple, DynamicValue, DynamicValueRef},
     enums::{Enum, EnumInfo, VariantType},
-    ApplyError, DynamicTypePath, PartialReflect, ReflectCloneError, TypeInfo,
+    ApplyError, DynamicTypePath, ReflectCloneError, TypeInfo,
 };
 
 use alloc::{format, string::String};
@@ -532,59 +532,4 @@ where
             Self::Tuple(iter) => iter.len(),
         }
     }
-}
-
-/// Tries to apply `value` to the enum defined by `target`.
-pub fn enum_try_apply(
-    target: &mut DynamicEnum,
-    value: &dyn PartialReflect,
-) -> Result<(), ApplyError> {
-    let value = value.reflect_ref().as_enum()?;
-
-    if target.variant_name() == value.variant_name() {
-        // Same variant -> just update fields
-        match value.variant_type() {
-            VariantType::Struct => {
-                for field in value.iter_fields() {
-                    let name = field.name().unwrap();
-                    if let Some(v) = target.field_mut(name) {
-                        v.as_partial_reflect_mut().try_apply(field.value())?;
-                    }
-                }
-            }
-            VariantType::Tuple => {
-                for (index, field) in value.iter_fields().enumerate() {
-                    if let Some(v) = target.field_at_mut(index) {
-                        v.as_partial_reflect_mut().try_apply(field.value())?;
-                    }
-                }
-            }
-            _ => {}
-        }
-    } else {
-        // New variant -> perform a switch
-        let dyn_variant = match value.variant_type() {
-            VariantType::Unit => DynamicVariant::Unit,
-            VariantType::Tuple => {
-                let mut dyn_tuple = DynamicTuple::default();
-                for field in value.iter_fields() {
-                    dyn_tuple.insert(DynamicValue::try_from_reflect(field.value())?);
-                }
-                DynamicVariant::Tuple(dyn_tuple)
-            }
-            VariantType::Struct => {
-                let mut dyn_struct = DynamicStruct::default();
-                for field in value.iter_fields() {
-                    dyn_struct.insert(
-                        field.name().unwrap(),
-                        DynamicValue::try_from_reflect(field.value())?,
-                    );
-                }
-                DynamicVariant::Struct(dyn_struct)
-            }
-        };
-        target.set_variant(value.variant_name(), dyn_variant);
-    }
-
-    Ok(())
 }

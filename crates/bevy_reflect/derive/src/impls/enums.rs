@@ -89,6 +89,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         impl #impl_generics #bevy_reflect_path::enums::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn set_from_dynamic(&mut self, #dynamic_name: #bevy_reflect_path::dynamic::DynamicEnum) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
+                // TODO: Remove this allocation.
                 let variant_name = #FQInto::into(#dynamic_name.variant_name());
                 let #dynamic_name = #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_name);
                 *self = match <Self as #bevy_reflect_path::FromDynamic>::from_dynamic(#dynamic_name) {

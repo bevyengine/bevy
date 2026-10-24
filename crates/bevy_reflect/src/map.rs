@@ -374,20 +374,6 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected map or if
 /// applying elements to each other fails.
 #[inline]
-pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    let map_value = b.reflect_ref().as_map()?;
-
-    for (key, b_value) in map_value.iter() {
-        if let Some(a_value) = a.get_mut(key) {
-            a_value.try_apply(b_value)?;
-        } else {
-            a.insert_boxed(
-                DynamicValue::try_from_reflect(key)?.as_boxed_partial_reflect(),
-                DynamicValue::try_from_reflect(b_value)?.as_boxed_partial_reflect(),
-            );
-        }
-    }
-    a.retain(&mut |key, _| map_value.get(key).is_some());
-
-    Ok(())
+pub fn map_try_apply<M: Map>(_a: &mut M, _b: &dyn PartialReflect) -> Result<(), ApplyError> {
+    todo!()
 }

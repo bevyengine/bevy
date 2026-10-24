@@ -264,23 +264,8 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list or if
 /// applying elements to each other fails.
 #[inline]
-pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    let list_value = b.reflect_ref().as_list()?;
-
-    for (i, value) in list_value.iter().enumerate() {
-        if i < a.len() {
-            if let Some(v) = a.get_mut(i) {
-                v.try_apply(value)?;
-            }
-        } else {
-            List::push(
-                a,
-                DynamicValue::try_from_reflect(value)?.as_boxed_partial_reflect(),
-            );
-        }
-    }
-
-    Ok(())
+pub fn list_try_apply<L: List>(_a: &mut L, _b: &dyn PartialReflect) -> Result<(), ApplyError> {
+    todo!()
 }
 
 pub(crate) trait ListLike {

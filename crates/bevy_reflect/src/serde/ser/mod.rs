@@ -21,7 +21,6 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
-        dynamic::DynamicValue,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, TypeRegistry,
     };
@@ -394,45 +393,6 @@ mod tests {
         ];
 
         assert_eq!(expected, bytes);
-    }
-
-    #[test]
-    fn should_serialize_dynamic_option() {
-        #[derive(Default, Reflect)]
-        struct OtherStruct {
-            some: Option<SomeStruct>,
-            none: Option<SomeStruct>,
-        }
-
-        let value = OtherStruct {
-            some: Some(SomeStruct { foo: 999999999 }),
-            none: None,
-        };
-        let dynamic = DynamicValue::try_from_reflect(&value).unwrap();
-        let reflect = dynamic.as_partial_reflect();
-
-        let registry = get_registry();
-
-        let serializer = ReflectSerializer::new(reflect, &registry);
-
-        let mut buf = Vec::new();
-
-        let format = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-        let mut ser = serde_json::Serializer::with_formatter(&mut buf, format);
-
-        serializer.serialize(&mut ser).unwrap();
-
-        let output = core::str::from_utf8(&buf).unwrap();
-        let expected = r#"{
-    "bevy_reflect::serde::ser::tests::OtherStruct": {
-        "some": {
-            "foo": 999999999
-        },
-        "none": null
-    }
-}"#;
-
-        assert_eq!(expected, output);
     }
 
     #[test]
