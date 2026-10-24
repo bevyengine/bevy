@@ -1393,7 +1393,7 @@ pub fn prepare_view_targets(
 ) {
     main_texture_atomics.retain(|_, weak| weak.strong_count() > 0);
 
-    let mut usages = <HashMap<_, TextureUsages>>::default();
+    let mut usages = HashMap::new();
     for (_, camera, view, texture_usage, msaa, _) in cameras.iter() {
         *usages
             .entry(main_texture_key(camera, view, *msaa))
