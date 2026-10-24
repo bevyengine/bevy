@@ -342,7 +342,11 @@ pub struct JsonSchemaBevyType {
     /// The default value of the type, serialized the same way as BRP component values.
     ///
     /// Only present when the type registers [`ReflectDefault`].
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        default,
+        deserialize_with = "deserialize_present"
+    )]
     pub default: Option<Value>,
     /// The type's [`bevy_annotations`], such as `tooltip`,
     /// `displayName` and `readOnly`.
@@ -397,6 +401,13 @@ impl SchemaAnnotations {
 
 fn is_false(value: &bool) -> bool {
     !value
+}
+
+/// Deserializes a present field as `Some`, so a `null` default is kept rather than dropped.
+fn deserialize_present<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 
 /// Kind of json schema, maps [`TypeInfo`] type
