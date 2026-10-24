@@ -12,10 +12,7 @@ import package::sprite_mesh::bindings::material_indices;
 
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;
-@if(SRGB_OUTPUT)
-import bevy_render::color_operations::linear_to_srgb;
-@if(OKLAB_OUTPUT)
-import bevy_render::color_operations::linear_rgb_to_oklab;
+import bevy_render::writer_encode::writer_encode;
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
@@ -76,11 +73,5 @@ fn fragment(
 @if(TONEMAP_IN_SHADER)
     output_color = tonemapping::tone_mapping(output_color, view.color_grading);
 
-@if(SRGB_OUTPUT)
-    output_color = vec4(linear_to_srgb(output_color.rgb), output_color.a);
-
-@if(OKLAB_OUTPUT)
-    output_color = vec4(linear_rgb_to_oklab(output_color.rgb), output_color.a);
-
-    return output_color;
+    return writer_encode(output_color);
 }

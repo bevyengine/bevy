@@ -1,6 +1,7 @@
 import bevy_sprite_render::mesh2d::vertex_output::VertexOutput;
 import bevy_sprite_render::mesh2d::bindings::mesh;
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
+import bevy_render::writer_encode::writer_encode;
 // we can import items from shader modules in the assets folder with a relative path
 import super::custom_material_import::COLOR_MULTIPLIER;
 
@@ -39,10 +40,11 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let texture = material_color_texture;
     let color_sampler = material_color_sampler;
     }
-    return base_color * textureSampleLevel(
+    let color = base_color * textureSampleLevel(
         texture,
         color_sampler,
         in.uv,
         0.0
     );
+    return writer_encode(color);
 }
