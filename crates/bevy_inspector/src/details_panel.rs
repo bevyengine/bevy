@@ -9,6 +9,7 @@ use alloc::{
     vec::Vec,
 };
 
+use bevy_annotations::{DisplayName, ReadOnly, Step, Unit, ValueRange};
 use bevy_color::{
     Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba,
     Oklaba, Oklcha, Srgba, Xyza,
@@ -37,7 +38,8 @@ use bevy_feathers::{
     controls::{
         list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, OptionIndex, ScrollbarGutter,
+        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputPrecision,
+        NumberInputStep, OptionIndex, ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
@@ -53,11 +55,13 @@ use bevy_platform::{
     sync::Arc,
 };
 use bevy_reflect::{
+    attributes::CustomAttributes,
     enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
     structs::DynamicStruct,
     tuple::DynamicTuple,
-    GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
+    GetPath, NamedField, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo,
+    TypeRegistry, UnnamedField,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
 use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
@@ -244,8 +248,115 @@ pub struct FieldEntry {
     pub depth: usize,
     /// The value of the field.
     pub value: FieldValue,
-    /// The range of an integer field whose type is narrower than its number input.
+    /// The range a number input is limited to: that of an integer type narrower than the input,
+    /// narrowed to the [`ValueRange`] annotation of the field.
     pub limit: Option<NumericRange>,
+    /// The annotations of the field.
+    pub annotations: FieldAnnotations,
+}
+
+impl FieldEntry {
+    /// This entry in its read-only caption form, with the unit of a number appended and the
+    /// display name of a variant.
+    fn into_read_only(self) -> Self {
+        let value = match (self.value, self.annotations.unit) {
+            (FieldValue::Number(number), Some(unit)) => {
+                FieldValue::Label(format!("{number} {unit}"))
+            }
+            (FieldValue::Variant { variants, selected }, _) => FieldValue::Label(
+                variants
+                    .get(selected)
+                    .map(|name| self.annotations.variant_label(name).to_string())
+                    .unwrap_or_default(),
+            ),
+            (value, _) => read_only(value),
+        };
+        Self {
+            value,
+            limit: None,
+            annotations: FieldAnnotations {
+                read_only: true,
+                ..self.annotations
+            },
+            ..self
+        }
+    }
+}
+
+/// The [`bevy_annotations`] of a field or type that the details panel honors.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FieldAnnotations {
+    /// The label shown in place of the field or type name.
+    pub display_name: Option<&'static str>,
+    /// Whether the value is shown without an editable widget, also set on the fields of a
+    /// read-only value.
+    pub read_only: bool,
+    /// The range a number is limited to.
+    pub range: Option<ValueRange>,
+    /// The increment of a number input.
+    pub step: Option<f64>,
+    /// The unit shown with a number.
+    pub unit: Option<&'static str>,
+    /// The display names of the variants of an enum, as pairs of variant and display name.
+    pub variant_names: Vec<(&'static str, &'static str)>,
+}
+
+impl FieldAnnotations {
+    /// Reads the annotations from the custom attributes of a field or type.
+    pub fn from_attributes(attributes: &CustomAttributes) -> Self {
+        Self {
+            display_name: attributes.get::<DisplayName>().map(|name| name.0),
+            read_only: attributes.contains::<ReadOnly>(),
+            range: ValueRange::from_attributes(attributes),
+            step: attributes.get::<Step>().map(|step| step.0),
+            unit: attributes.get::<Unit>().map(|unit| unit.0),
+            variant_names: Vec::new(),
+        }
+    }
+
+    /// Reads the annotations of a struct, tuple struct or enum type, and of the variants of an
+    /// enum.
+    fn of_type(info: Option<&TypeInfo>) -> Self {
+        match info {
+            Some(TypeInfo::Struct(info)) => Self::from_attributes(info.custom_attributes()),
+            Some(TypeInfo::TupleStruct(info)) => Self::from_attributes(info.custom_attributes()),
+            Some(TypeInfo::Enum(info)) => Self {
+                variant_names: info
+                    .iter()
+                    .filter_map(|variant| {
+                        let name = variant.get_attribute::<DisplayName>()?;
+                        Some((variant.name(), name.0))
+                    })
+                    .collect(),
+                ..Self::from_attributes(info.custom_attributes())
+            },
+            _ => Self::default(),
+        }
+    }
+
+    /// The name shown for the enum variant `name`.
+    fn variant_label<'a>(&self, name: &'a str) -> &'a str {
+        self.variant_names
+            .iter()
+            .find(|(variant, _)| *variant == name)
+            .map_or(name, |(_, label)| label)
+    }
+
+    /// Fills the annotations missing from `self` with those of `other`.
+    fn or(self, other: Self) -> Self {
+        Self {
+            display_name: self.display_name.or(other.display_name),
+            read_only: self.read_only || other.read_only,
+            range: self.range.or(other.range),
+            step: self.step.or(other.step),
+            unit: self.unit.or(other.unit),
+            variant_names: if self.variant_names.is_empty() {
+                other.variant_names
+            } else {
+                self.variant_names
+            },
+        }
+    }
 }
 
 /// The widgets rendering one field, and the value they were last given.
@@ -283,6 +394,7 @@ struct RowLayout {
     depth: usize,
     kind: FieldKind,
     limit: Option<NumericRange>,
+    annotations: FieldAnnotations,
 }
 
 impl RowLayout {
@@ -293,6 +405,7 @@ impl RowLayout {
             depth: entry.depth,
             kind: entry.value.kind(),
             limit: entry.limit.clone(),
+            annotations: entry.annotations.clone(),
         }
     }
 
@@ -302,6 +415,7 @@ impl RowLayout {
             && self.depth == entry.depth
             && self.kind == entry.value.kind()
             && self.limit == entry.limit
+            && self.annotations == entry.annotations
     }
 }
 
@@ -478,6 +592,18 @@ pub fn inspector_details_toggled(
 /// `value` maps the value the widget last showed to the new one, or returns `None` to skip the
 /// change. The feathers controls do not update themselves when the user changes them, so the
 /// widget only shows the new value once it is written back.
+/// Rounds dragged values to the decimal places of `step`, so dragging lands on the same grid as
+/// the step buttons.
+fn step_precision(step: f64) -> NumberInputPrecision {
+    let places = (0..=6)
+        .find(|&places| {
+            let scaled = step * 10f64.powi(places);
+            (scaled - scaled.round()).abs() < 1e-9 * scaled.abs().max(1.0)
+        })
+        .unwrap_or(6);
+    NumberInputPrecision(places)
+}
+
 fn emit_field_edit(
     widget: Entity,
     value: impl FnOnce(&FieldValue) -> Option<FieldValue>,
@@ -776,6 +902,17 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
         return;
     };
 
+    let annotations = walk_entries(component.as_partial_reflect(), &registry, Some(&edit.path))
+        .into_iter()
+        .find(|entry| entry.path == edit.path)
+        .map(|entry| entry.annotations)
+        .unwrap_or_default();
+    if annotations.read_only {
+        warn!("`{}` at `{}` is read-only", edit.component, edit.path);
+        return;
+    }
+    let value = clamp_to_range(&edit.value, annotations.range.as_ref());
+
     let target = component.bypass_change_detection();
     let field = if edit.path.is_empty() {
         Ok(target.as_partial_reflect_mut())
@@ -784,7 +921,7 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     };
     let (write, held, typing_a_char) = match field {
         Ok(field) => {
-            let write = write_field_value(field, &edit.value, &registry);
+            let write = write_field_value(field, &value, &registry);
             let held = write != FieldWrite::Rejected && holds_value(field, &edit.value);
             let typing_a_char = matches!(edit.value, FieldValue::Text(_))
                 && field.try_downcast_ref::<char>().is_some();
@@ -803,6 +940,70 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     }
     if !held {
         refresh_details_panel(world);
+    }
+}
+
+/// Clamps a number to `range`, leaving other values and empty ranges untouched.
+fn clamp_to_range(value: &FieldValue, range: Option<&ValueRange>) -> FieldValue {
+    match (value, range) {
+        (FieldValue::Number(number), Some(range)) => match numeric_range(range, *number) {
+            Some(range) => FieldValue::Number(range.clamp(*number)),
+            None => value.clone(),
+        },
+        _ => value.clone(),
+    }
+}
+
+/// `range` in the format of `number`, rounded inward for integers, or `None` if it is empty.
+fn numeric_range(range: &ValueRange, number: NumericValue) -> Option<NumericRange> {
+    let (min, max) = (range.min(), range.max());
+    if min.is_nan() || max.is_nan() || min > max {
+        return None;
+    }
+    let (min, max) = match number {
+        NumericValue::F32(_) => return Some(NumericRange::F32(min as f32..=max as f32)),
+        NumericValue::F64(_) => return Some(NumericRange::F64(min..=max)),
+        _ => (min.ceil(), max.floor()),
+    };
+    if min > max {
+        return None;
+    }
+    Some(match number {
+        NumericValue::I32(_) => NumericRange::I32(min as i32..=max as i32),
+        _ => NumericRange::I64(min as i64..=max as i64),
+    })
+}
+
+/// The range a number input showing `value` is limited to: `limit`, the range of the field type,
+/// narrowed to the annotated `range` where they overlap.
+fn narrowed_limit(
+    limit: Option<NumericRange>,
+    range: Option<&ValueRange>,
+    value: NumericValue,
+) -> Option<NumericRange> {
+    let Some(range) = range.and_then(|range| numeric_range(range, value)) else {
+        return limit;
+    };
+    match (limit, range) {
+        (Some(NumericRange::I32(limit)), NumericRange::I32(range)) => {
+            let start = *limit.start().max(range.start());
+            let end = *limit.end().min(range.end());
+            Some(NumericRange::I32(if start <= end {
+                start..=end
+            } else {
+                limit
+            }))
+        }
+        (Some(NumericRange::I64(limit)), NumericRange::I64(range)) => {
+            let start = *limit.start().max(range.start());
+            let end = *limit.end().min(range.end());
+            Some(NumericRange::I64(if start <= end {
+                start..=end
+            } else {
+                limit
+            }))
+        }
+        (_, range) => Some(range),
     }
 }
 
@@ -1186,18 +1387,20 @@ pub(crate) fn inspect_components(
                 .get_info(component.component_id)
                 .is_some_and(ComponentInfo::mutable);
             if !(local && mutable) {
-                fields = fields
-                    .into_iter()
-                    .map(|entry| FieldEntry {
-                        value: read_only(entry.value),
-                        limit: None,
-                        ..entry
-                    })
-                    .collect();
+                fields = fields.into_iter().map(FieldEntry::into_read_only).collect();
             }
+            let display_name = FieldAnnotations::of_type(
+                component
+                    .reflected_value
+                    .as_deref()
+                    .and_then(PartialReflect::get_represented_type_info),
+            )
+            .display_name;
             ComponentDetails {
                 key: ComponentKey::of(world, component.component_id),
-                name: crate::component_short_name(world, component.component_id),
+                name: display_name
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| crate::component_short_name(world, component.component_id)),
                 memory: component.memory_size.to_string(),
                 fields,
             }
@@ -1536,12 +1739,15 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             }
         }
         FieldValue::Number(_) => {
+            let unit = entry.annotations.unit;
             let entity = spawn_child_scene(
                 world,
                 row,
                 bsn! {
                     InspectorUi
-                    @FeathersNumberInput
+                    @FeathersNumberInput {
+                        @interior_label_text: {unit},
+                    }
                     on(inspector_field_f32_changed)
                     on(inspector_field_f64_changed)
                     on(inspector_field_i32_changed)
@@ -1554,6 +1760,11 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             )?;
             if let Some(limit) = &entry.limit {
                 world.entity_mut(entity).insert(HardLimit(limit.clone()));
+            }
+            if let Some(step) = entry.annotations.step {
+                world
+                    .entity_mut(entity)
+                    .insert((NumberInputStep(step), step_precision(step)));
             }
             FieldWidget {
                 entity,
@@ -1609,7 +1820,11 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             variants,
             selected: index,
         } => {
-            let options = list_rows_from_strings(variants.clone(), Some(*index));
+            let labels: Vec<String> = variants
+                .iter()
+                .map(|name| entry.annotations.variant_label(name).to_string())
+                .collect();
+            let options = list_rows_from_strings(labels, Some(*index));
             let entity = spawn_child_scene(
                 world,
                 row,
@@ -1787,6 +2002,16 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
 ///
 /// `registry` decides which enum variants can be built from defaults and so offered for switching.
 pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec<FieldEntry> {
+    walk_entries(value, registry, None)
+}
+
+/// Flattens `value` into rows like [`field_entries`], skipping the rows that are not on the way
+/// to the `target` path, if any.
+fn walk_entries(
+    value: &dyn PartialReflect,
+    registry: &TypeRegistry,
+    target: Option<&str>,
+) -> Vec<FieldEntry> {
     let concrete = value
         .try_as_reflect()
         .is_none()
@@ -1803,6 +2028,7 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         .unwrap_or(value);
     let mut walk = Walk {
         registry,
+        target,
         entries: Vec::new(),
     };
     if let Some(name) = value.try_downcast_ref::<Name>() {
@@ -1811,33 +2037,48 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
             "value".to_string(),
             0,
             FieldValue::Label(name.as_str().to_string()),
+            &FieldAnnotations::default(),
         );
         return walk.entries;
     }
-    let (value, path) = flatten_newtypes(value, String::new());
-    if let Some(label) = asset_handle_label(value) {
-        walk.push(path, "value".to_string(), 0, FieldValue::Label(label));
+    let root = FieldAnnotations {
+        display_name: None,
+        ..FieldAnnotations::of_type(value.get_represented_type_info())
+    };
+    let (value, path, annotations) = flatten_newtypes(value, String::new(), root);
+    let label = |name: &str| annotations.display_name.unwrap_or(name).to_string();
+    let editable = !annotations.read_only;
+    if let Some(caption) = asset_handle_label(value) {
+        walk.push(
+            path,
+            label("value"),
+            0,
+            FieldValue::Label(caption),
+            &annotations,
+        );
     } else if let Some(scalar) = scalar_value(value) {
-        walk.push_scalar(path, "value".to_string(), 0, value, scalar);
+        walk.push_scalar(path, label("value"), 0, value, scalar, &annotations);
     } else if let Some(variant) = variant_value(value, registry) {
-        walk.push(path.clone(), "variant".to_string(), 0, variant);
-        walk.children(value, &path, 0, true);
+        walk.push(path.clone(), label("variant"), 0, variant, &annotations);
+        walk.children(value, &path, 0, editable);
     } else if let Some(summary) = summary(value) {
         if !summary.is_empty() {
             walk.push(
                 path.clone(),
-                "value".to_string(),
+                label("value"),
                 0,
                 FieldValue::Label(summary),
+                &annotations,
             );
         }
-        walk.children(value, &path, 0, true);
+        walk.children(value, &path, 0, editable);
     } else {
         walk.push(
             path,
-            "value".to_string(),
+            label("value"),
             0,
             FieldValue::Label(format_fallback(value)),
+            &annotations,
         );
     }
     walk.entries
@@ -1846,21 +2087,30 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
 /// The state of a walk over a reflected value.
 struct Walk<'a> {
     registry: &'a TypeRegistry,
+    target: Option<&'a str>,
     entries: Vec<FieldEntry>,
 }
 
 impl Walk<'_> {
-    fn push(&mut self, path: String, label: String, depth: usize, value: FieldValue) {
-        self.entries.push(FieldEntry {
+    fn push(
+        &mut self,
+        path: String,
+        label: String,
+        depth: usize,
+        value: FieldValue,
+        annotations: &FieldAnnotations,
+    ) {
+        self.push_entry(FieldEntry {
             path,
             label,
             depth,
             value,
             limit: None,
+            annotations: annotations.clone(),
         });
     }
 
-    /// Adds the row of `scalar`, the value read from `value`, keeping the range of an integer.
+    /// Adds the row of `scalar`, the value read from `value`, keeping the range of a number.
     fn push_scalar(
         &mut self,
         path: String,
@@ -1868,17 +2118,29 @@ impl Walk<'_> {
         depth: usize,
         value: &dyn PartialReflect,
         scalar: FieldValue,
+        annotations: &FieldAnnotations,
     ) {
         let limit = match scalar {
-            FieldValue::Number(_) => integer_limit(value),
+            FieldValue::Number(number) => {
+                narrowed_limit(integer_limit(value), annotations.range.as_ref(), number)
+            }
             _ => None,
         };
-        self.entries.push(FieldEntry {
+        self.push_entry(FieldEntry {
             path,
             label,
             depth,
             value: scalar,
             limit,
+            annotations: annotations.clone(),
+        });
+    }
+
+    fn push_entry(&mut self, entry: FieldEntry) {
+        self.entries.push(if entry.annotations.read_only {
+            entry.into_read_only()
+        } else {
+            entry
         });
     }
 
@@ -1890,48 +2152,63 @@ impl Walk<'_> {
         label: String,
         depth: usize,
         editable: bool,
+        annotations: FieldAnnotations,
     ) {
-        let (value, path) = flatten_newtypes(value, path);
-        let lock = |value| if editable { value } else { read_only(value) };
+        let on_target = self.target.is_none_or(|target| {
+            target
+                .strip_prefix(path.as_str())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(['.', '[']))
+        });
+        if !on_target {
+            return;
+        }
+        let annotations =
+            annotations.or(FieldAnnotations::of_type(value.get_represented_type_info()));
+        let (value, path, mut annotations) = flatten_newtypes(value, path, annotations);
+        annotations.read_only |= !editable;
+        let editable = !annotations.read_only;
+        let label = annotations
+            .display_name
+            .map(ToString::to_string)
+            .unwrap_or(label);
 
         if depth >= MAX_DEPTH {
-            self.push(path, label, depth, FieldValue::Label("...".to_string()));
+            let value = FieldValue::Label("...".to_string());
+            self.push(path, label, depth, value, &annotations);
             return;
         }
 
         if let Some(caption) = asset_handle_label(value) {
-            self.push(path, label, depth, FieldValue::Label(caption));
+            self.push(path, label, depth, FieldValue::Label(caption), &annotations);
             return;
         }
 
         if let Some(scalar) = scalar_value(value) {
-            self.push_scalar(path, label, depth, value, lock(scalar));
+            self.push_scalar(path, label, depth, value, scalar, &annotations);
             return;
         }
 
         if let Some(variant) = variant_value(value, self.registry) {
-            self.push(path.clone(), label, depth, lock(variant));
+            self.push(path.clone(), label, depth, variant, &annotations);
             self.children(value, &path, depth + 1, editable);
             return;
         }
 
         let Some(summary) = summary(value) else {
-            self.push(
-                path,
-                label,
-                depth,
-                FieldValue::Label(format_fallback(value)),
-            );
+            let value = FieldValue::Label(format_fallback(value));
+            self.push(path, label, depth, value, &annotations);
             return;
         };
 
-        self.push(path.clone(), label, depth, FieldValue::Label(summary));
+        let summary = FieldValue::Label(summary);
+        self.push(path.clone(), label, depth, summary, &annotations);
         self.children(value, &path, depth + 1, editable);
     }
 
     fn children(&mut self, value: &dyn PartialReflect, prefix: &str, depth: usize, editable: bool) {
         match value.reflect_ref() {
             ReflectRef::Struct(value) => {
+                let info = value.get_represented_struct_info();
                 for index in 0..value.field_len() {
                     let Some(field) = value.field_at(index) else {
                         continue;
@@ -1940,47 +2217,85 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(
+                        info.and_then(|info| info.field_at(index))
+                            .map(NamedField::custom_attributes),
+                    );
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::TupleStruct(value) => {
+                let info = value.get_represented_tuple_struct_info();
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(
+                        info.and_then(|info| info.field_at(index))
+                            .map(UnnamedField::custom_attributes),
+                    );
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::Tuple(value) => {
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = FieldAnnotations::default();
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::List(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    let annotations = FieldAnnotations::default();
+                    self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Array(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    let annotations = FieldAnnotations::default();
+                    self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Map(value) => {
                 for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, key, index);
                     let editable = editable && key_access(key).is_some();
-                    self.field(item, path, display_value(key), depth, editable);
+                    let annotations = FieldAnnotations::default();
+                    self.field(item, path, display_value(key), depth, editable, annotations);
                 }
             }
             ReflectRef::Set(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, item, index);
-                    self.field(item, path, index.to_string(), depth, false);
+                    let annotations = FieldAnnotations::default();
+                    self.field(item, path, index.to_string(), depth, false, annotations);
                 }
             }
             ReflectRef::Enum(value) => {
+                let variant = value
+                    .get_represented_enum_info()
+                    .and_then(|info| info.variant(value.variant_name()));
                 for index in 0..value.field_len() {
                     let Some(field) = value.field_at(index) else {
                         continue;
@@ -1989,7 +2304,23 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(match variant {
+                        Some(VariantInfo::Struct(info)) => {
+                            info.field_at(index).map(NamedField::custom_attributes)
+                        }
+                        Some(VariantInfo::Tuple(info)) => {
+                            info.field_at(index).map(UnnamedField::custom_attributes)
+                        }
+                        _ => None,
+                    });
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             _ => {}
@@ -2025,10 +2356,22 @@ pub(crate) fn read_only(value: FieldValue) -> FieldValue {
     })
 }
 
-/// Follows single-field tuple structs down to their inner value, returning it and its path.
+/// The annotations read from `attributes`, or none if there are no attributes.
+fn annotations_of(attributes: Option<&CustomAttributes>) -> FieldAnnotations {
+    attributes
+        .map(FieldAnnotations::from_attributes)
+        .unwrap_or_default()
+}
+
+/// Follows single-field tuple structs down to their inner value, returning it, its path, and
+/// `annotations` filled with those of the inner fields and their types.
 ///
 /// This keeps newtypes from adding a nesting level of their own.
-fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn PartialReflect, String) {
+fn flatten_newtypes(
+    value: &dyn PartialReflect,
+    mut path: String,
+    mut annotations: FieldAnnotations,
+) -> (&dyn PartialReflect, String, FieldAnnotations) {
     let mut value = value;
     while let ReflectRef::TupleStruct(tuple) = value.reflect_ref() {
         if tuple.field_len() != 1 {
@@ -2037,10 +2380,17 @@ fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn Parti
         let Some(field) = tuple.field(0) else {
             break;
         };
+        let inner = tuple
+            .get_represented_tuple_struct_info()
+            .and_then(|info| info.field_at(0))
+            .map(UnnamedField::custom_attributes);
+        annotations = annotations
+            .or(annotations_of(inner))
+            .or(FieldAnnotations::of_type(field.get_represented_type_info()));
         path = join(&path, "0");
         value = field;
     }
-    (value, path)
+    (value, path, annotations)
 }
 
 /// The caption shown on the row of a container value, or `None` if the value has no fields.
@@ -2269,6 +2619,13 @@ fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn step_precision_matches_step_decimals() {
+        assert_eq!(step_precision(1.0).0, 0);
+        assert_eq!(step_precision(0.5).0, 1);
+        assert_eq!(step_precision(0.05).0, 2);
+        assert_eq!(step_precision(0.125).0, 3);
+    }
     use super::*;
     use crate::{column_split::ColumnSplitHandle, entity_tree::InspectorTreeView, InspectorPlugin};
     use alloc::collections::VecDeque;
@@ -4623,5 +4980,320 @@ mod tests {
         assert!(!is_out_of_range(Color::hsla(0.0, 0.5, 0.5, 1.0)));
         assert!(is_out_of_range(Color::linear_rgb(2.0, 1.0, 1.0)));
         assert!(is_out_of_range(Color::srgb(-0.5, 0.0, 0.0)));
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    struct Meters(#[reflect(@Unit("m"))] f32);
+
+    #[derive(Reflect, Debug, Default)]
+    struct Span(#[reflect(@DisplayName("Left"))] f32, f32);
+
+    #[derive(Reflect, Debug, Default)]
+    enum Gait {
+        #[default]
+        Still,
+        Walk {
+            #[reflect(@ValueRange(0.0..=1.0))]
+            pace: f32,
+        },
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    #[reflect(@DisplayName("Limits"), @ReadOnly)]
+    struct Caps {
+        max: f32,
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    #[reflect(@DisplayName("Tuning"))]
+    struct Tuning {
+        gain: f32,
+    }
+
+    #[derive(Reflect, Debug, Default, PartialEq)]
+    enum Stance {
+        #[default]
+        #[reflect(@DisplayName("Standing Still"))]
+        Idle,
+        Crouched,
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default, @DisplayName("Movement Settings"))]
+    struct Annotated {
+        #[reflect(@ValueRange(0.0..=10.0), @Step(0.5), @Unit("m/s"))]
+        speed: f32,
+        #[reflect(@DisplayName("Jump Height"))]
+        jump: f32,
+        #[reflect(@ReadOnly)]
+        grounded: bool,
+        #[reflect(@ValueRange(-5.0..=500.0))]
+        level: u8,
+        #[reflect(@1_u32..=10_u32)]
+        count: u32,
+        #[reflect(@ReadOnly, @Unit("kg"))]
+        mass: f32,
+        #[reflect(@ReadOnly)]
+        nested: Nested,
+        height: Meters,
+        span: Span,
+        gait: Gait,
+        caps: Caps,
+        #[reflect(@DisplayName("Custom Tuning"))]
+        tuning: Tuning,
+        stance: Stance,
+    }
+
+    fn has_text(world: &World, entity: Entity, expected: &str) -> bool {
+        world
+            .get::<Text>(entity)
+            .is_some_and(|text| text.0 == expected)
+            || world.get::<Children>(entity).is_some_and(|children| {
+                children
+                    .iter()
+                    .any(|&child| has_text(world, child, expected))
+            })
+    }
+
+    fn annotated() -> Annotated {
+        Annotated {
+            count: 1,
+            mass: 2.5,
+            gait: Gait::Walk { pace: 0.5 },
+            ..Default::default()
+        }
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default, @ReadOnly)]
+    struct Sealed {
+        value: f32,
+    }
+
+    #[test]
+    fn reads_annotations_into_field_entries() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let speed = entry(&entries, "speed");
+        assert_eq!(speed.limit, Some(NumericRange::F32(0.0..=10.0)));
+        assert_eq!(speed.annotations.step, Some(0.5));
+        assert_eq!(speed.annotations.unit, Some("m/s"));
+        assert_eq!(entry(&entries, "jump").label, "Jump Height");
+        assert_eq!(entry(&entries, "span.0").label, "Left");
+        assert_eq!(entry(&entries, "span.1").label, "1");
+        assert_eq!(
+            entry(&entries, "level").limit,
+            Some(NumericRange::I32(0..=255))
+        );
+        assert_eq!(
+            entry(&entries, "count").limit,
+            Some(NumericRange::I64(1..=10))
+        );
+        assert_eq!(entry(&entries, "height.0").annotations.unit, Some("m"));
+        assert_eq!(
+            entry(&entries, "gait.pace").limit,
+            Some(NumericRange::F32(0.0..=1.0))
+        );
+    }
+
+    #[test]
+    fn shows_annotated_fields_read_only() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let grounded = entry(&entries, "grounded");
+        assert_eq!(grounded.value, FieldValue::Label("false".to_string()));
+        assert!(grounded.annotations.read_only);
+        assert_eq!(
+            entry(&entries, "mass").value,
+            FieldValue::Label("2.5 kg".to_string())
+        );
+        assert_eq!(
+            entry(&entries, "nested.depth").value,
+            FieldValue::Label("0".to_string())
+        );
+        assert_eq!(entry(&entries, "jump").value.kind(), FieldKind::Number);
+    }
+
+    #[test]
+    fn rejects_edits_to_read_only_fields() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+
+        edit_component::<Annotated>(&mut app, entity, "grounded", FieldValue::Bool(true));
+        edit_component::<Annotated>(&mut app, entity, "nested.depth", int(4));
+        edit_component::<Annotated>(&mut app, entity, "jump", float(1.5));
+
+        let annotated = app.world().get::<Annotated>(entity).unwrap();
+        assert!(!annotated.grounded);
+        assert_eq!(annotated.nested.depth, 0);
+        assert_eq!(annotated.jump, 1.5);
+    }
+
+    fn float(value: f32) -> FieldValue {
+        FieldValue::Number(NumericValue::F32(value))
+    }
+
+    #[test]
+    fn clamps_edits_to_the_annotated_range() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+
+        edit_component::<Annotated>(&mut app, entity, "speed", float(25.0));
+        edit_component::<Annotated>(&mut app, entity, "count", int(50));
+        edit_component::<Annotated>(&mut app, entity, "gait.pace", float(-3.0));
+        edit_component::<Annotated>(&mut app, entity, "height.0", float(-3.0));
+
+        let annotated = app.world().get::<Annotated>(entity).unwrap();
+        assert_eq!(annotated.speed, 10.0);
+        assert_eq!(annotated.count, 10);
+        assert!(matches!(annotated.gait, Gait::Walk { pace: 0.0 }));
+        assert_eq!(annotated.height.0, -3.0);
+
+        edit_component::<Annotated>(&mut app, entity, "speed", float(-1.0));
+        assert_eq!(app.world().get::<Annotated>(entity).unwrap().speed, 0.0);
+    }
+
+    #[test]
+    fn configures_number_inputs_from_annotations() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        inspect(&mut app, annotated());
+
+        let speed = field_widget(&mut app, "speed");
+        let world = app.world();
+        assert_eq!(
+            world.get::<HardLimit>(speed).map(|limit| limit.0.clone()),
+            Some(NumericRange::F32(0.0..=10.0))
+        );
+        assert_eq!(
+            world.get::<NumberInputStep>(speed).map(|step| step.0),
+            Some(0.5)
+        );
+        assert_eq!(
+            world
+                .get::<NumberInputPrecision>(speed)
+                .map(|precision| precision.0),
+            Some(1)
+        );
+        assert!(has_text(world, speed, "m/s"));
+
+        let jump = widget_at(&app, "jump").unwrap();
+        assert!(world.get::<NumberInputStep>(jump).is_none());
+        assert!(!has_text(world, jump, "m/s"));
+        assert!(row_labels(&app).contains(&"Jump Height".to_string()));
+        assert!(matches!(
+            world
+                .resource::<DetailsIndex>()
+                .fields
+                .iter()
+                .find(|((_, path), _)| path == "grounded"),
+            Some((
+                _,
+                FieldWidget {
+                    value: FieldValue::Label(_),
+                    ..
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn honors_component_annotations() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        app.register_type::<Sealed>();
+        let entity = inspect(&mut app, (annotated(), Sealed { value: 1.0 }));
+
+        let names: Vec<String> = inspect_components(app.world(), Some(entity))
+            .into_iter()
+            .map(|component| component.name)
+            .collect();
+        assert!(
+            names.contains(&"Movement Settings".to_string()),
+            "{names:?}"
+        );
+        assert!(names.contains(&"Sealed".to_string()), "{names:?}");
+
+        let value = widget_at(&app, "value").unwrap();
+        assert!(app.world().get::<InspectorField>(value).is_none());
+        edit_component::<Sealed>(&mut app, entity, "value", float(2.0));
+        assert_eq!(app.world().get::<Sealed>(entity).unwrap().value, 1.0);
+    }
+
+    #[test]
+    fn honors_type_annotations_on_fields() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let caps = entry(&entries, "caps");
+        assert_eq!(caps.label, "Limits");
+        assert!(caps.annotations.read_only);
+        assert_eq!(
+            entry(&entries, "caps.max").value,
+            FieldValue::Label("0".to_string())
+        );
+        assert_eq!(entry(&entries, "tuning").label, "Custom Tuning");
+        assert_eq!(
+            entry(&entries, "tuning.gain").value.kind(),
+            FieldKind::Number
+        );
+
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+        edit_component::<Annotated>(&mut app, entity, "caps.max", float(4.0));
+        assert_eq!(app.world().get::<Annotated>(entity).unwrap().caps.max, 0.0);
+    }
+
+    #[test]
+    fn shows_variant_display_names() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+        let stance = entry(&entries, "stance");
+        assert_eq!(stance.value, variant(&["Idle", "Crouched"], 0));
+        assert_eq!(stance.annotations.variant_label("Idle"), "Standing Still");
+        assert_eq!(
+            stance.clone().into_read_only().value,
+            FieldValue::Label("Standing Still".to_string())
+        );
+
+        let mut app = test_app();
+        app.add_plugins(bevy_text::TextPlugin);
+        app.register_type::<Annotated>();
+        let entity = inspect(
+            &mut app,
+            Annotated {
+                stance: Stance::Crouched,
+                ..annotated()
+            },
+        );
+        let select = field_widget(&mut app, "stance");
+        assert!(has_text(app.world(), select, "Standing Still"));
+        assert!(!has_text(app.world(), select, "Idle"));
+
+        let listbox = descendant_with::<bevy_ui_widgets::ListBox>(app.world(), select).unwrap();
+        let idle = option_rows(&app, select)[0].0;
+        app.world_mut().trigger(ValueChange {
+            source: listbox,
+            value: idle,
+            is_final: true,
+        });
+        app.update();
+        assert_eq!(
+            app.world().get::<Annotated>(entity).unwrap().stance,
+            Stance::Idle
+        );
+    }
+
+    #[test]
+    fn resolves_edit_annotations_like_the_panel() {
+        let value = annotated();
+        let registry = TypeRegistry::new();
+        for full in field_entries(&value, &registry) {
+            let targeted = walk_entries(&value, &registry, Some(&full.path));
+            let found = entry(&targeted, &full.path);
+            assert_eq!(found.annotations, full.annotations, "{}", full.path);
+            assert!(targeted.len() < 10, "{}: {targeted:?}", full.path);
+        }
     }
 }
