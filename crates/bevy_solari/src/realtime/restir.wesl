@@ -66,6 +66,9 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     pixel_color += surface.material.emissive;
     pixel_color += textureLoad(view_output, global_id.xy).rgb;
     pixel_color *= view.exposure;
+    if surface.unlit {
+        pixel_color = surface.material.emissive;
+    }
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)
