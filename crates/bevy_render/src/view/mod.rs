@@ -190,6 +190,9 @@ impl Plugin for ViewPlugin {
                 Render,
                 (
                     resolve_composition_spaces.in_set(ResolveCompositingSpaces),
+                    check_stacked_tonemapping
+                        .in_set(RenderSystems::CreateViews)
+                        .after(crate::camera::sort_cameras),
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
                         .in_set(RenderSystems::PrepareViews)
@@ -272,6 +275,12 @@ impl Msaa {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 ///
+/// When several cameras render to the same render target, a camera that
+/// renders later can tonemap the pixels of the cameras before it again. To
+/// apply a tone curve once, give the cameras that render earlier
+/// [`Tonemapping::Linear`] and let the last camera apply the curve. Its color
+/// grading then applies to the whole image.
+///
 /// The tonemapping pass lives in `bevy_core_pipeline`. The type is defined in
 /// `bevy_render` so render-world code can read it.
 #[derive(
@@ -338,6 +347,11 @@ pub enum Tonemapping {
 impl Tonemapping {
     pub fn is_enabled(&self) -> bool {
         *self != Tonemapping::None
+    }
+
+    /// Whether the method applies a tone curve. `None` and `Linear` don't.
+    pub(crate) fn applies_tone_curve(&self) -> bool {
+        !matches!(self, Tonemapping::None | Tonemapping::Linear)
     }
 }
 
