@@ -1084,6 +1084,11 @@ impl DynamicStruct {
     pub fn reflect_struct_info(&self) -> Option<&'static StructInfo> {
         self.represented_type?.as_struct().ok()
     }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
+    }
 }
 
 impl Debug for DynamicStruct {
@@ -1241,6 +1246,11 @@ impl DynamicTupleStruct {
     /// type.
     pub fn reflect_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
         self.represented_type?.as_tuple_struct().ok()
+    }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 
@@ -1402,6 +1412,11 @@ impl DynamicTuple {
     /// Gets the type info of the represented tuple, if this dynamic value represents a known type.
     pub fn reflect_tuple_info(&self) -> Option<&'static TupleInfo> {
         self.represented_type?.as_tuple().ok()
+    }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 
@@ -1585,6 +1600,11 @@ impl DynamicList {
     pub fn reflect_list_info(&self) -> Option<&'static ListInfo> {
         self.represented_type?.as_list().ok()
     }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
+    }
 }
 
 impl Debug for DynamicList {
@@ -1760,6 +1780,11 @@ impl DynamicArray {
     /// Gets the type info of the represented array, if this dynamic value represents a known type.
     pub fn reflect_array_info(&self) -> Option<&'static ArrayInfo> {
         self.represented_type?.as_array().ok()
+    }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 
@@ -2031,6 +2056,11 @@ impl DynamicMap {
     pub fn reflect_map_info(&self) -> Option<&'static MapInfo> {
         self.represented_type?.as_map().ok()
     }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
+    }
 }
 
 impl Debug for DynamicMap {
@@ -2263,6 +2293,11 @@ impl DynamicSet {
     /// Gets the type info of the represented set, if this dynamic value represents a known type.
     pub fn reflect_set_info(&self) -> Option<&'static SetInfo> {
         self.represented_type?.as_set().ok()
+    }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 

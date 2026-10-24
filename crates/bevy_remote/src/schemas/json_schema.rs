@@ -62,11 +62,7 @@ pub fn export_type(
 /// Serializes the [`ReflectDefault`] value of a type, if it has one and it can be serialized.
 fn default_value(reg: &TypeRegistration, registry: &TypeRegistry) -> Option<Value> {
     let value = reg.data::<ReflectDefault>()?.default();
-    serde_json::to_value(TypedReflectSerializer::new(
-        value.as_partial_reflect(),
-        registry,
-    ))
-    .ok()
+    serde_json::to_value(TypedReflectSerializer::new(&*value, registry)).ok()
 }
 
 /// Adds an `annotations` key to `schema` when `attributes` contain any annotation.
@@ -931,7 +927,7 @@ mod tests {
             bevy_reflect::serde::TypedReflectDeserializer::new(registration, type_registry);
         let value = serde::de::DeserializeSeed::deserialize(deserializer, default)
             .expect("Default should deserialize");
-        T::from_dynamic(value.as_ref()).expect("Should convert from reflect")
+        T::from_dynamic(value).expect("Should convert from reflect")
     }
 
     #[test]

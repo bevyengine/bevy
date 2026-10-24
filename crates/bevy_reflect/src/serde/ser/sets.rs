@@ -1,16 +1,16 @@
-use crate::{serde::TypedReflectSerializer, set::Set, TypeRegistry};
+use crate::{serde::TypedReflectSerializer, set::SetLike, TypeRegistry};
 use serde::{ser::SerializeSeq, Serialize};
 
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`Set`] values.
-pub(super) struct SetSerializer<'a, P> {
-    pub set: &'a dyn Set,
+pub(super) struct SetSerializer<'a, SL: SetLike + ?Sized, P> {
+    pub set: &'a SL,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for SetSerializer<'_, P> {
+impl<SL: SetLike + ?Sized, P: ReflectSerializerProcessor> Serialize for SetSerializer<'_, SL, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
-    dynamic::DynamicValue,
+    dynamic::{DynamicValue, DynamicValueRef},
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
     CreateTypeData, Reflect, TypeRegistry,
 };
@@ -325,7 +325,7 @@ pub enum EphemeralHandleBehavior {
 impl ReflectSerializerProcessor for HandleSerializeProcessor {
     fn try_serialize<S>(
         &self,
-        value: &dyn Reflect,
+        value: DynamicValueRef<'_>,
         registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -359,6 +359,10 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
                 UntypedHandle::Uuid { uuid, .. } => HandleReference::Uuid(*uuid),
             })
         }
+
+        let Some(value) = value.as_concrete() else {
+            return Ok(Err(serializer));
+        };
 
         if let Some(untyped_handle) = value.downcast_ref::<UntypedHandle>() {
             let Some(asset_registration) = registry.get(untyped_handle.type_id()) else {

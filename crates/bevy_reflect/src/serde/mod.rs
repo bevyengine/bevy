@@ -216,7 +216,10 @@ mod tests {
             {
                 let mut state = serializer.serialize_seq(Some(self.0.len()))?;
                 for enemy in &self.0 {
-                    state.serialize_element(&ReflectSerializer::new(&**enemy, registry))?;
+                    state.serialize_element(&ReflectSerializer::new(
+                        &**enemy as &dyn Reflect,
+                        registry,
+                    ))?;
                 }
                 state.end()
             }
@@ -405,7 +408,8 @@ mod tests {
                 value: &T,
                 registry: &TypeRegistry,
             ) {
-                let serializer = TypedReflectSerializer::new(value, registry);
+                let serializer =
+                    TypedReflectSerializer::new(DynamicValueRef::Concrete(value), registry);
                 let reflect_serialize = serde_json::to_string(&serializer).unwrap();
                 let serde_serialize = serde_json::to_string(value).unwrap();
                 assert_eq!(reflect_serialize, serde_serialize);

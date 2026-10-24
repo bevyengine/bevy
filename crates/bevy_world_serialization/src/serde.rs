@@ -7,11 +7,12 @@ use bevy_asset::{
 use bevy_ecs::entity::Entity;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{
+    dynamic::DynamicValue,
     serde::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
         TypedReflectSerializer,
     },
-    Reflect, ReflectFromDynamic, TypeRegistry,
+    ReflectFromDynamic, TypeRegistry,
 };
 use core::fmt::Formatter;
 use serde::{
@@ -161,7 +162,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// Note: The entries are sorted by type path before they're serialized.
 pub struct WorldMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn Reflect>],
+    pub entries: &'a [DynamicValue],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
@@ -178,8 +179,8 @@ impl<'a> Serialize for WorldMapSerializer<'a> {
                 .iter()
                 .map(|entry| {
                     (
-                        entry.reflect_type_info().unwrap().type_path(),
-                        entry.as_partial_reflect(),
+                        entry.get_represented_type_info().unwrap().type_path(),
+                        entry,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -468,7 +469,7 @@ pub struct WorldMapDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for WorldMapDeserializer<'a> {
-    type Value = Vec<Box<dyn Reflect>>;
+    type Value = Vec<DynamicValue>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -487,7 +488,7 @@ struct WorldMapVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
-    type Value = Vec<Box<dyn Reflect>>;
+    type Value = Vec<DynamicValue>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map of reflect types")
@@ -499,7 +500,7 @@ impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
     {
         let mut dynamic_properties = Vec::new();
         while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
-            dynamic_properties.push(entity.as_boxed_partial_reflect());
+            dynamic_properties.push(entity);
         }
 
         Ok(dynamic_properties)
@@ -534,9 +535,9 @@ impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
                 .registry
                 .get(registration.type_id())
                 .and_then(|tr| tr.data::<ReflectFromDynamic>())
-                .and_then(|fr| fr.from_dynamic(value.as_partial_reflect()))
-                .map(|value| value as _)
-                .unwrap_or(value.as_boxed_partial_reflect());
+                .and_then(|fr| fr.from_dynamic(value.dynamic_clone().ok()?))
+                .map(DynamicValue::Concrete)
+                .unwrap_or(value);
 
             entries.push(value);
         }
@@ -1009,19 +1010,19 @@ mod tests {
                     .components
                     .iter()
                     .find(|component| {
-                        component.reflect_type_info().unwrap().type_path()
-                            == expected.reflect_type_info().unwrap().type_path()
+                        component.get_represented_type_info().unwrap().type_path()
+                            == expected.get_represented_type_info().unwrap().type_path()
                     })
                     .unwrap_or_else(|| {
                         panic!(
                             "missing component (expected: `{}`)",
-                            expected.reflect_type_info().unwrap().type_path()
+                            expected.get_represented_type_info().unwrap().type_path()
                         )
                     });
 
                 assert!(
-                    expected
-                        .reflect_partial_eq(received.as_ref())
+                    expected.as_ref()
+                        .dynamic_partial_eq(received.as_ref())
                         .unwrap_or_default(),
                     "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
                 );

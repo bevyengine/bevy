@@ -424,6 +424,11 @@ impl DynamicEnum {
     pub fn reflect_enum_info(&self) -> Option<&'static EnumInfo> {
         self.represented_type?.as_enum().ok()
     }
+
+    /// Gets the type info of the type being represented.
+    pub fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
+    }
 }
 
 impl Debug for DynamicEnum {

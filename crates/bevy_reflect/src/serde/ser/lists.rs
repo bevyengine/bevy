@@ -1,16 +1,16 @@
-use crate::{list::List, serde::TypedReflectSerializer, TypeRegistry};
+use crate::{list::ListLike, serde::TypedReflectSerializer, TypeRegistry};
 use serde::{ser::SerializeSeq, Serialize};
 
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`List`] values.
-pub(super) struct ListSerializer<'a, P> {
-    pub list: &'a dyn List,
+pub(super) struct ListSerializer<'a, L: ListLike + ?Sized, P> {
+    pub list: &'a L,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for ListSerializer<'_, P> {
+impl<L: ListLike + ?Sized, P: ReflectSerializerProcessor> Serialize for ListSerializer<'_, L, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

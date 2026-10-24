@@ -2,7 +2,7 @@ use crate::{
     dynamic::{DynamicEnum, DynamicValue, DynamicValueRef, DynamicVariantField},
     enums::{Enum, VariantField, VariantType},
     utility::reflect_hasher,
-    Reflect, ReflectRef,
+    Reflect, ReflectRef, TypeInfo,
 };
 use core::{
     cmp::Ordering,
@@ -39,6 +39,8 @@ pub(crate) fn dynamic_enum_hash(value: &DynamicEnum) -> Option<u64> {
 pub(crate) trait EnumLike {
     fn variant_name(&self) -> &str;
 
+    fn variant_index(&self) -> usize;
+
     fn variant_type(&self) -> VariantType;
 
     fn field_len(&self) -> usize;
@@ -50,11 +52,17 @@ pub(crate) trait EnumLike {
     fn name_at(&self, index: usize) -> Option<&str>;
 
     fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>>;
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 }
 
 impl EnumLike for DynamicEnum {
     fn variant_name(&self) -> &str {
         self.variant_name()
+    }
+
+    fn variant_index(&self) -> usize {
+        self.variant_index()
     }
 
     fn variant_type(&self) -> VariantType {
@@ -80,11 +88,19 @@ impl EnumLike for DynamicEnum {
     fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>> {
         self.iter_fields()
     }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.get_represented_type_info()
+    }
 }
 
 impl EnumLike for dyn Enum {
     fn variant_name(&self) -> &str {
         self.variant_name()
+    }
+
+    fn variant_index(&self) -> usize {
+        self.variant_index()
     }
 
     fn variant_type(&self) -> VariantType {
@@ -115,6 +131,10 @@ impl EnumLike for dyn Enum {
             }
             VariantField::Tuple(value) => DynamicVariantField::Tuple(DynamicValueRef::from(value)),
         })
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(self.reflect_type_info())
     }
 }
 

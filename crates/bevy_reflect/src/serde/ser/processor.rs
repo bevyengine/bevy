@@ -1,6 +1,6 @@
 use serde::Serializer;
 
-use crate::{Reflect, TypeRegistry};
+use crate::{dynamic::DynamicValueRef, TypeRegistry};
 
 /// Allows overriding the default serialization behavior of
 /// [`ReflectSerializer`] and [`TypedReflectSerializer`] for specific values.
@@ -173,7 +173,7 @@ pub trait ReflectSerializerProcessor {
     /// [`Reflect`]: crate::Reflect
     fn try_serialize<S>(
         &self,
-        value: &dyn Reflect,
+        value: DynamicValueRef<'_>,
         registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -184,7 +184,7 @@ pub trait ReflectSerializerProcessor {
 impl ReflectSerializerProcessor for () {
     fn try_serialize<S>(
         &self,
-        _value: &dyn Reflect,
+        _value: DynamicValueRef<'_>,
         _registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>

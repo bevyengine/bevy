@@ -7,7 +7,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{Reflect, TypeRegistration};
+use bevy_reflect::{dynamic::DynamicValue, TypeRegistration};
 use bevy_utils::{memory_size::MemorySize, prelude::DebugName};
 use core::{
     any::TypeId,
@@ -15,10 +15,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate::inspection::{
-    label_resolution::{LabelDefinitionPriority, LabelResolutionRegistry},
-    reflection_tools::clone_incomplete,
-};
+use crate::inspection::label_resolution::{LabelDefinitionPriority, LabelResolutionRegistry};
 
 /// The result of inspecting a component on an entity.
 ///
@@ -52,7 +49,7 @@ pub struct ComponentInspection {
     pub value: Option<String>,
     /// The reflected value of the component.
     #[cfg_attr(feature = "serialize", serde(skip))]
-    pub reflected_value: Option<Box<dyn Reflect>>,
+    pub dynamic_value: Option<DynamicValue>,
     /// The value of the component as structured JSON, gathered via reflection.
     #[cfg(feature = "serialize")]
     pub serialized_value: Option<serde_json::Value>,
@@ -60,10 +57,10 @@ pub struct ComponentInspection {
 
 impl Clone for ComponentInspection {
     fn clone(&self) -> Self {
-        let reflected_value = self
-            .reflected_value
-            .as_deref()
-            .and_then(|reflected| clone_incomplete(reflected).ok());
+        let dynamic_value = self
+            .dynamic_value
+            .as_ref()
+            .and_then(|value| value.dynamic_clone().ok());
 
         Self {
             entity: self.entity,
@@ -72,7 +69,7 @@ impl Clone for ComponentInspection {
             type_path: self.type_path.clone(),
             memory_size: self.memory_size,
             value: self.value.clone(),
-            reflected_value,
+            dynamic_value,
             #[cfg(feature = "serialize")]
             serialized_value: self.serialized_value.clone(),
         }
@@ -483,13 +480,13 @@ mod tests {
             )
             .unwrap();
 
-        assert!(inspection.reflected_value.is_some());
+        assert!(inspection.dynamic_value.is_some());
 
         let cloned = inspection.clone();
-        let reflected = cloned.reflected_value.unwrap();
+        let reflected = cloned.dynamic_value.unwrap();
         assert_eq!(
-            reflected.try_downcast_ref::<Health>(),
-            Some(&Health(7)),
+            reflected.into_concrete().unwrap().take::<Health>().ok(),
+            Some(Health(7)),
             "the reflected value should survive cloning"
         );
     }

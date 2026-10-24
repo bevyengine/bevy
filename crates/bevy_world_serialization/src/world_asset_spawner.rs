@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectCloneError};
 use bevy_utils::prelude::DebugName;
 use thiserror::Error;
 use uuid::Uuid;
@@ -140,11 +140,8 @@ pub enum WorldInstanceSpawnError {
         type_path: String,
     },
     /// `WorldAsset` contains a proxy without a represented type.
-    #[error("world contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
-    NoRepresentedType {
-        /// The dynamic instance type.
-        type_path: String,
-    },
+    #[error("world contains DynamicValue without a represented type. consider changing this using `set_represented_type`.")]
+    NoRepresentedType,
     /// Dynamic world with the given id does not exist.
     #[error("Dynamic world does not exist")]
     NonExistentDynamicWorld {
@@ -157,6 +154,9 @@ pub enum WorldInstanceSpawnError {
         /// Id of the non-existent world asset.
         id: AssetId<WorldAsset>,
     },
+    /// Dynamic world includes a dynamic component that could not be cloned.
+    #[error("failed to clone dynamic component: {0}")]
+    ReflectCloneError(ReflectCloneError),
 }
 
 impl WorldInstanceSpawner {

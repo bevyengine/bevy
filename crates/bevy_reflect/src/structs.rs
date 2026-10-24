@@ -3,6 +3,7 @@
 //! [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 use crate::dynamic::{DynamicStruct, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
+use crate::TypeInfo;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     ty::impl_type_methods,
@@ -297,6 +298,8 @@ pub(crate) trait StructLike {
     fn field_len(&self) -> usize;
 
     fn iter_fields(&self) -> impl Iterator<Item = (&str, DynamicValueRef<'_>)>;
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 }
 
 impl StructLike for DynamicStruct {
@@ -319,6 +322,10 @@ impl StructLike for DynamicStruct {
     fn iter_fields(&self) -> impl Iterator<Item = (&str, DynamicValueRef<'_>)> {
         self.iter_fields()
             .map(|(name, value)| (name, value.as_ref()))
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.get_represented_type_info()
     }
 }
 
@@ -343,6 +350,10 @@ impl StructLike for dyn Struct {
     fn iter_fields(&self) -> impl Iterator<Item = (&str, DynamicValueRef<'_>)> {
         self.iter_fields()
             .map(|(name, value)| (name, DynamicValueRef::from(value)))
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(self.reflect_type_info())
     }
 }
 

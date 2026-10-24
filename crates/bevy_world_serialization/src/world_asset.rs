@@ -1,6 +1,5 @@
 use core::any::TypeId;
 
-use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicWorld, WorldInstanceSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::resource::IS_RESOURCE;
@@ -12,6 +11,7 @@ use bevy_ecs::{
     relationship::RelationshipHookMode,
     world::World,
 };
+use bevy_reflect::dynamic::DynamicValue;
 use bevy_reflect::{TypePath, TypeRegistry};
 
 /// A composition of [`World`] objects.
@@ -179,9 +179,7 @@ impl WorldAsset {
 
                     let Some(component) = reflect_component
                         .reflect(self.world.entity(scene_entity.id()))
-                        .map(|component| {
-                            clone_reflect_value(component.as_partial_reflect(), registration)
-                        })
+                        .and_then(|component| DynamicValue::try_from_reflect(component).ok())
                     else {
                         continue;
                     };
@@ -191,7 +189,7 @@ impl WorldAsset {
                     SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                         reflect_component.apply_or_insert_mapped(
                             &mut world.entity_mut(entity),
-                            component.as_partial_reflect(),
+                            component,
                             &type_registry,
                             mapper,
                             RelationshipHookMode::Skip,

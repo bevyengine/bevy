@@ -1,8 +1,9 @@
+use crate::dynamic::DynamicValueRef;
 use crate::serde::ser::error_utils::make_custom_error;
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::serde::ReflectSerializeWithRegistry;
-use crate::{Reflect, ReflectSerialize, TypeRegistry};
+use crate::{ReflectSerialize, TypeRegistry};
 use serde::Serializer;
 
 /// Attempts to serialize a [`Reflect`] value with custom [`ReflectSerialize`]
@@ -11,10 +12,17 @@ use serde::Serializer;
 /// On success, returns the result of the serialization.
 /// On failure, returns the original serializer and the error that occurred.
 pub(super) fn try_custom_serialize<S: Serializer>(
-    value: &dyn Reflect,
+    value: DynamicValueRef<'_>,
     type_registry: &TypeRegistry,
     serializer: S,
 ) -> Result<Result<S::Ok, S::Error>, (S, S::Error)> {
+    let Some(value) = value.as_concrete() else {
+        return Err((
+            serializer,
+            make_custom_error("no custom serialization for dynamic values"),
+        ));
+    };
+
     let info = value.reflect_type_info();
 
     let Some(registration) = type_registry.get(info.type_id()) else {

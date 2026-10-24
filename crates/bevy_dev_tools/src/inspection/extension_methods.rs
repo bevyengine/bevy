@@ -10,6 +10,7 @@ use bevy_ecs::{
     world::{EntityWorldMut, World},
 };
 use bevy_log::{info, warn};
+use bevy_reflect::dynamic::DynamicValue;
 use bevy_utils::memory_size::MemorySize;
 use core::any::{type_name, TypeId};
 
@@ -21,7 +22,7 @@ use crate::inspection::{
     },
     entity_inspection::{EntityInspection, EntityInspectionError, EntityInspectionSettings},
     label_resolution::{resolve_label, ComponentLabelData, EntityLabel},
-    reflection_tools::{clone_incomplete, component_value_to_string},
+    reflection_tools::component_value_to_string,
     resource_inspection::{
         ResourceInspection, ResourceInspectionError, ResourceInspectionSettings,
     },
@@ -193,11 +194,11 @@ impl WorldInspectionExtensionTrait for World {
             ))
         };
 
-        let reflected_value = if settings.store_reflected_value {
+        let dynamic_value = if settings.store_reflected_value {
             metadata
                 .type_id
                 .and_then(|type_id| self.get_reflect(entity, type_id).ok())
-                .and_then(|reflected| clone_incomplete(reflected.as_partial_reflect()).ok())
+                .and_then(|reflected| DynamicValue::try_from_reflect(reflected).ok())
         } else {
             None
         };
@@ -207,7 +208,7 @@ impl WorldInspectionExtensionTrait for World {
             metadata
                 .type_id
                 .and_then(|type_id| self.get_reflect(entity, type_id).ok())
-                .and_then(|reflected| reflect_to_json_value(self, reflected.as_partial_reflect()))
+                .and_then(|reflected| reflect_to_json_value(self, reflected))
         } else {
             None
         };
@@ -219,7 +220,7 @@ impl WorldInspectionExtensionTrait for World {
             type_path: metadata.type_path.clone(),
             memory_size,
             value,
-            reflected_value,
+            dynamic_value,
             #[cfg(feature = "serialize")]
             serialized_value,
         })
@@ -312,7 +313,7 @@ impl WorldInspectionExtensionTrait for World {
                 .and_then(|(resource_entity, type_id)| {
                     self.get_reflect(resource_entity, type_id).ok()
                 })
-                .and_then(|reflected| reflect_to_json_value(self, reflected.as_partial_reflect()))
+                .and_then(|reflected| reflect_to_json_value(self, reflected))
         } else {
             None
         };

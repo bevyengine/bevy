@@ -1,5 +1,5 @@
 use crate::{
-    enums::{Enum, VariantInfo, VariantType},
+    enums::{EnumLike, VariantInfo, VariantType},
     serde::{ser::error_utils::make_custom_error, TypedReflectSerializer},
     TypeInfo, TypeRegistry,
 };
@@ -11,18 +11,21 @@ use serde::{
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`Enum`] values.
-pub(super) struct EnumSerializer<'a, P> {
-    pub enum_value: &'a dyn Enum,
+pub(super) struct EnumSerializer<'a, E: EnumLike + ?Sized, P> {
+    pub enum_value: &'a E,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for EnumSerializer<'_, P> {
+impl<E: EnumLike + ?Sized, P: ReflectSerializerProcessor> Serialize for EnumSerializer<'_, E, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let type_info = self.enum_value.reflect_type_info();
+        let type_info = self
+            .enum_value
+            .get_represented_type_info()
+            .ok_or_else(|| make_custom_error("cannot get type info for dynamic value"))?;
 
         let enum_info = match type_info {
             TypeInfo::Enum(enum_info) => enum_info,
