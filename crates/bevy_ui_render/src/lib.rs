@@ -89,7 +89,10 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::clipping::clip_polygon;
 use crate::shader_flags::INVERT;
-use crate::text::{calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor};
+use crate::text::{
+    calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor,
+    extract_text_placeholder,
+};
 
 pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
@@ -277,6 +280,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_decorations.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    extract_text_placeholder.in_set(RenderUiSystems::ExtractText),
                     extract_text_cursor.in_set(RenderUiSystems::ExtractCursor),
                     extract_preedit_underlines.in_set(RenderUiSystems::ExtractCursor),
                     extract_inline_images.in_set(RenderUiSystems::ExtractInlineImages),
