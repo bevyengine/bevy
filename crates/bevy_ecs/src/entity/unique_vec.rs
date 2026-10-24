@@ -40,6 +40,7 @@ use super::{
 /// When `T` is [`Entity`], use the [`UniqueEntityVec`] alias.
 #[repr(transparent)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct UniqueEntityEquivalentVec<T: EntityEquivalent>(Vec<T>);
 
 /// A `Vec` that contains only unique [`Entity`].
