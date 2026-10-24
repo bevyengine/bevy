@@ -21,6 +21,8 @@
 //! To test this example using the system feature, run `cargo run --example text_input --features="system_clipboard"`.
 //! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
 //!
+//! The right input demonstrates password-style character masking via [`EditableText::mask`].
+//!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
 use bevy::color::palettes::css::DARK_GREY;
 use bevy::color::palettes::tailwind::SLATE_300;
@@ -129,6 +131,7 @@ fn build_input_text(commands: &mut Commands, is_left: bool, font_size: f32) -> E
             EditableText {
                 visible_width: Some(10.),
                 allow_newlines: false,
+                mask: (!is_left).then_some('*'),
                 ..Default::default()
             },
             TextLayout::no_wrap(),
@@ -154,6 +157,8 @@ fn text_submission(
         && let Some(focused_entity) = input_focus.get()
         && let Ok((mut text_input, name)) = text_input.get_mut(focused_entity)
     {
+        // `EditableText::value()` always returns the entered text; the mask
+        // affects display only.
         text_output.0 = format!("{:}: {:}", name, text_input.value());
 
         text_input.clear();
