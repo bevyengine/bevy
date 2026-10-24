@@ -5,11 +5,11 @@ use crate::{
     change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, EntitySetIterator, UniqueEntityArray},
     query::{
-        ArchetypeFilter, ContiguousQueryData, IterQueryData, NopWorldQuery,
-        QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryData,
-        QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter,
-        QueryNotDenseError, QueryParIter, QueryParManyIter, QueryParManyUniqueIter,
-        QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData, SingleEntityQueryData,
+        ArchetypeFilter, ContiguousQueryData, IterQueryData, NopWorldQuery, QueryCombinationIter,
+        QueryContiguousIter, QueryContiguousParIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryNotDenseError, QueryParIter,
+        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };

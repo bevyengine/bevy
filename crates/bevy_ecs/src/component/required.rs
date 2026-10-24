@@ -10,7 +10,7 @@ use crate::{
     change_detection::{MaybeLocation, Tick},
     component::{Component, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
-        storage::{SparseSets, Table, TableRow},
+    storage::{SparseSets, Table, TableRow},
 };
 
 /// Metadata associated with a required component. See [`Component`] for details.
@@ -366,10 +366,8 @@ impl Components {
         // First step: validate inputs and return errors.
 
         // SAFETY: The caller ensures that the `required` is valid.
-        let required_required_components = unsafe {
-            self.get_required_components(required)
-                .unwrap_unchecked()
-        };
+        let required_required_components =
+            unsafe { self.get_required_components(required).unwrap_unchecked() };
 
         // Cannot create cyclic requirements.
         if required_required_components.all.contains_key(&requiree) {

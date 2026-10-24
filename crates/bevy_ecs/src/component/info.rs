@@ -19,7 +19,7 @@ use crate::{
         RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
-        relationship::{
+    relationship::{
         MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
     },
     storage::SparseSetIndex,

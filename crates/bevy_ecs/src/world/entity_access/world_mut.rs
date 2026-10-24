@@ -10,8 +10,8 @@ use crate::{
     lifecycle::{DespawnEvent, DiscardEvent, RemoveEvent, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
     query::{
-        has_conflicts, QueryAccessError, ReadOnlyQueryData,
-        ReleaseStateQueryData, SingleEntityQueryData,
+        has_conflicts, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData,
+        SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
     resource::{Resource, ResourceEntities},

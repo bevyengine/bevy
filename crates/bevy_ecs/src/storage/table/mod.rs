@@ -6,7 +6,7 @@ use crate::{
     change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
-        storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
+    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
