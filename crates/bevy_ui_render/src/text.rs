@@ -13,7 +13,8 @@ use bevy_ui::{
 };
 
 use crate::{
-    stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
+    sub_z_layers::{UiSubZLayerList, UiSubZLayers},
+    ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
 };
 
 pub(crate) fn calculate_text_scroll_clip(
@@ -36,6 +37,7 @@ pub(crate) fn calculate_text_scroll_clip(
 
 pub fn extract_text_cursor(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     text_node_query: Extract<
         Query<(
@@ -55,6 +57,9 @@ pub fn extract_text_cursor(
     camera_map: Extract<UiCameraMap>,
     input_focus: Extract<Option<Res<InputFocus>>>,
 ) {
+    let selection_offset = sub_layers.get_offset(UiSubZLayers::TextSelection);
+    let cursor_offset = sub_layers.get_offset(UiSubZLayers::TextCursor);
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -109,6 +114,7 @@ pub fn extract_text_cursor(
         if !text_layout_info.selection_rects.is_empty()
             && !sc.is_fully_transparent()
             && *rwmode != TextReadWriteMode::Static
+            && let Ok(sub_z_layer_offset) = selection_offset
         {
             let selection_color = sc.to_linear();
             let selection_radius = cursor_style.selection_radius.clamp(0.0, 0.5);
@@ -164,7 +170,7 @@ pub fn extract_text_cursor(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(selection.center()),
@@ -190,6 +196,7 @@ pub fn extract_text_cursor(
             && !cursor_rect.is_empty()
             && !cursor_style.color.is_fully_transparent()
             && *rwmode != TextReadWriteMode::Static
+            && let Ok(sub_z_layer_offset) = cursor_offset
         {
             extracted_uinodes
                 .uinodes
@@ -199,7 +206,7 @@ pub fn extract_text_cursor(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
+                        z_order: stack_index.0 as f32 + sub_z_layer_offset,
                         clip: clip.clone(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(cursor_rect.center()),
@@ -224,6 +231,7 @@ pub fn extract_text_cursor(
 
 pub fn extract_preedit_underlines(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     text_node_query: Extract<
         Query<
@@ -244,6 +252,10 @@ pub fn extract_preedit_underlines(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::TextStrikethrough) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -291,7 +303,7 @@ pub fn extract_preedit_underlines(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                        z_order: stack_index.0 as f32 + sub_z_layer_offset,
                         clip: clip.clone(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(rect.center()),

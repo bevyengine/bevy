@@ -704,6 +704,7 @@ pub fn extract_gradients(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_gradient(
+    sub_layers: Res<UiSubZLayerList>,
     extracted_gradients: ResMut<ExtractedGradients>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
@@ -741,6 +742,13 @@ pub fn queue_gradient(
             continue;
         };
         for (render_entity, gradient) in sub_gradients.iter() {
+            let Ok(sub_z_layer_offset) = sub_layers.get_offset(match gradient.node_type {
+                NodeType::Rect | NodeType::Inverted => UiSubZLayers::Gradient,
+                NodeType::Border(_) => UiSubZLayers::BorderGradient,
+            }) else {
+                continue;
+            };
+
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &gradients_pipeline,
@@ -755,13 +763,7 @@ pub fn queue_gradient(
                 draw_function,
                 pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(
-                    gradient.stack_index as f32
-                        + match gradient.node_type {
-                            NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
-                            NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                        },
-                ),
+                sort_key: FloatOrd(gradient.stack_index as f32 + sub_z_layer_offset),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,

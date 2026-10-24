@@ -7,10 +7,13 @@
 
 //! Provides rendering functionality for `bevy_ui`.
 
+extern crate self as bevy_ui_render;
+
 pub mod box_shadow;
 pub mod clipping;
 mod gradient;
 mod image;
+pub mod sub_z_layers;
 pub use image::ImageNodeAssetChangedSystems;
 mod pipeline;
 pub mod render_pass;
@@ -89,6 +92,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::clipping::clip_polygon;
 use crate::shader_flags::INVERT;
+use crate::sub_z_layers::{UiSubZLayerList, UiSubZLayers};
 use crate::text::{calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor};
 
 pub mod prelude {
@@ -98,35 +102,6 @@ pub mod prelude {
     pub use crate::{
         ui_material::*, ui_material_pipeline::UiMaterialPlugin, BoxShadowSamples, UiAntiAlias,
     };
-}
-
-/// Local Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
-/// for a given source entity (ex: render both a background color _and_ a custom material for a given node).
-///
-/// When possible these offsets should be defined in _this_ module to ensure z-index coordination across contexts.
-/// When this is _not_ possible, pick a suitably unique index unlikely to clash with other things (ex: `0.1826823` not `0.1`).
-///
-/// Offsets should be unique for a given node entity to avoid z fighting.
-/// These should pretty much _always_ be larger than -0.5 and smaller than 0.5 to avoid clipping into nodes
-/// above / below the current node in the stack.
-///
-/// A z-index of 0.0 is the baseline, which is used as the primary "background color" of the node.
-///
-/// Note that nodes "stack" on each other, so a negative offset on the node above could clip _into_
-/// a positive offset on a node below.
-pub mod stack_z_offsets {
-    pub const BOX_SHADOW: f32 = -0.1;
-    pub const BACKGROUND_COLOR: f32 = 0.0;
-    pub const BORDER: f32 = 0.01;
-    pub const GRADIENT: f32 = 0.02;
-    pub const BORDER_GRADIENT: f32 = 0.03;
-    pub const IMAGE: f32 = 0.04;
-    pub const MATERIAL: f32 = 0.05;
-    pub const TEXT_SELECTION: f32 = 0.055;
-    pub const TEXT: f32 = 0.06;
-    pub const TEXT_STRIKETHROUGH: f32 = 0.07;
-    pub const TEXT_CURSOR: f32 = 0.08;
-    pub const INLINE_IMAGE: f32 = 0.09;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -215,6 +190,8 @@ impl Plugin for UiRenderPlugin {
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<GlobalUiDebugOptions>();
 
+        app.init_resource::<UiSubZLayerList>();
+
         app.add_systems(
             PostUpdate,
             (
@@ -302,6 +279,9 @@ impl Plugin for UiRenderPlugin {
                 ui_pass.after(Core3dSystems::PostProcess).before(upscaling),
             );
 
+        app.add_plugins(bevy_render::extract_resource::ExtractResourcePlugin::<
+            UiSubZLayerList,
+        >::default());
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
@@ -439,6 +419,7 @@ type UiNodeQueryFilter = (
 pub fn extract_uinode_changes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     all_uinodes_query: Extract<Query<Entity, UiNodeQueryFilter>>,
     changed_uinodes_query: Extract<
         Query<
@@ -591,7 +572,7 @@ pub fn extract_uinode_changes(
     #[cfg(not(feature = "bevy_ui_debug"))]
     let must_wipe_all_nodes = false;
 
-    if must_wipe_all_nodes {
+    if must_wipe_all_nodes || sub_layers.is_changed() {
         for main_entity in &all_uinodes_query {
             process_changed_entity(
                 main_entity.into(),
@@ -720,6 +701,7 @@ pub fn extract_uinode_changes(
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -736,6 +718,10 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::BackgroundColor) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -784,7 +770,7 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    z_order: stack_index.0 as f32 + sub_z_layer_offset,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -811,7 +797,7 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    z_order: stack_index.0 as f32 + sub_z_layer_offset,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -836,6 +822,7 @@ pub fn extract_uinode_background_colors(
 
 pub fn extract_inline_images(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -852,6 +839,10 @@ pub fn extract_inline_images(
     inline_image_query: Extract<Query<&InlineImage, With<InlineBox>>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::InlineImage) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
     for (entity, text_layout, camera, inherited_visibility, stack_index, transform, clip, uinode) in
@@ -889,7 +880,7 @@ pub fn extract_inline_images(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
+                        z_order: stack_index.0 as f32 + sub_z_layer_offset,
                         clip: clip.cloned(),
                         image: image.image.id(),
                         transform: Affine2::from(*transform)
@@ -915,6 +906,7 @@ pub fn extract_inline_images(
 
 pub fn extract_uinode_images(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
@@ -932,6 +924,10 @@ pub fn extract_uinode_images(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Image) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -1032,7 +1028,7 @@ pub fn extract_uinode_images(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    z_order: stack_index.0 as f32 + sub_z_layer_offset,
                     clip: clip.cloned(),
                     image: image.image.id(),
                     transform: Affine2::from(*transform)
@@ -1080,6 +1076,7 @@ pub fn bevel_colors(colors: [LinearRgba; 4], bevel: Bevel) -> [LinearRgba; 4] {
 
 pub fn extract_uinode_borders(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1096,6 +1093,10 @@ pub fn extract_uinode_borders(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Border) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let image = AssetId::<Image>::default();
     let mut camera_mapper = camera_map.get_mapper();
@@ -1144,7 +1145,7 @@ pub fn extract_uinode_borders(
             let node_ctx = BorderNodeContext {
                 entity: entity.into(),
                 camera_entity: extracted_camera_entity,
-                z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                z_order: stack_index.0 as f32 + sub_z_layer_offset,
                 clip: maybe_clip.cloned(),
             };
             let base_transform: Affine2 = transform.into();
@@ -1236,7 +1237,7 @@ pub fn extract_uinode_borders(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                        z_order: stack_index.0 as f32 + sub_z_layer_offset,
                         image,
                         clip: maybe_clip.cloned(),
                         transform: transform.into(),
@@ -1542,6 +1543,7 @@ pub fn extract_ui_camera_view(
 
 pub fn extract_viewport_nodes(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
     uinode_query: Extract<
@@ -1558,6 +1560,10 @@ pub fn extract_viewport_nodes(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Image) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -1603,7 +1609,7 @@ pub fn extract_viewport_nodes(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    z_order: stack_index.0 as f32 + sub_z_layer_offset,
                     clip: clip.cloned(),
                     image: image.id(),
                     transform: transform.into(),
@@ -1627,6 +1633,7 @@ pub fn extract_viewport_nodes(
 
 pub fn extract_text_sections(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1647,6 +1654,10 @@ pub fn extract_text_sections(
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Text) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -1754,7 +1765,7 @@ pub fn extract_text_sections(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1770,6 +1781,7 @@ pub fn extract_text_sections(
 
 pub fn extract_text_shadows(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1789,6 +1801,10 @@ pub fn extract_text_shadows(
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Text) else {
+        return;
+    };
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -1857,7 +1873,7 @@ pub fn extract_text_shadows(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             transform: node_transform,
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1890,7 +1906,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1921,7 +1937,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1948,6 +1964,7 @@ pub fn extract_text_shadows(
 
 pub fn extract_text_decorations(
     mut commands: Commands,
+    sub_layers: Extract<Res<UiSubZLayerList>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1973,6 +1990,9 @@ pub fn extract_text_decorations(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let text_offset = sub_layers.get_offset(UiSubZLayers::Text);
+    let strikethrough_offset = sub_layers.get_offset(UiSubZLayers::TextStrikethrough);
+
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
 
@@ -2027,7 +2047,9 @@ pub fn extract_text_decorations(
                 continue;
             };
 
-            if let Some(text_background_color) = text_background_color {
+            if let Some(text_background_color) = text_background_color
+                && let Ok(sub_z_layer_offset) = text_offset
+            {
                 extracted_uinodes
                     .uinodes
                     .entry(entity.into())
@@ -2036,7 +2058,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(run.bounds.center()),
@@ -2057,7 +2079,9 @@ pub fn extract_text_decorations(
                     );
             }
 
-            if maybe_strikethrough.is_some() {
+            if maybe_strikethrough.is_some()
+                && let Ok(sub_z_layer_offset) = strikethrough_offset
+            {
                 let color = maybe_strikethrough_color
                     .map(|sc| sc.0)
                     .unwrap_or(text_color.0)
@@ -2071,7 +2095,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform
@@ -2093,7 +2117,9 @@ pub fn extract_text_decorations(
                     );
             }
 
-            if maybe_underline.is_some() {
+            if maybe_underline.is_some()
+                && let Ok(sub_z_layer_offset) = strikethrough_offset
+            {
                 let color = maybe_underline_color
                     .map(|uc| uc.0)
                     .unwrap_or(text_color.0)
@@ -2107,7 +2133,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            z_order: stack_index.0 as f32 + sub_z_layer_offset,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform

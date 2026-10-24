@@ -38,7 +38,8 @@ use crate::{
     clipping::clip_polygon, BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap,
 };
 
-use super::{stack_z_offsets, UiCameraView, QUAD_VERTEX_POSITIONS};
+use super::{UiCameraView, QUAD_VERTEX_POSITIONS};
+use crate::sub_z_layers::{UiSubZLayerList, UiSubZLayers};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -401,6 +402,7 @@ pub fn extract_shadows(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_shadows(
+    sub_layers: Res<UiSubZLayerList>,
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
@@ -410,6 +412,10 @@ pub fn queue_shadows(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::BoxShadow) else {
+        return;
+    };
+
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
@@ -451,9 +457,7 @@ pub fn queue_shadows(
                 draw_function,
                 pipeline: *pipeline,
                 entity: (*entity, *main_entity),
-                sort_key: FloatOrd(
-                    extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW,
-                ),
+                sort_key: FloatOrd(extracted_shadow.stack_index as f32 + sub_z_layer_offset),
 
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,

@@ -414,6 +414,7 @@ pub fn extract_ui_texture_slices(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_ui_slices(
+    sub_layers: Res<UiSubZLayerList>,
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
@@ -423,6 +424,10 @@ pub fn queue_ui_slices(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Image) else {
+        return;
+    };
+
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
@@ -463,7 +468,7 @@ pub fn queue_ui_slices(
                 draw_function,
                 pipeline: *pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
+                sort_key: FloatOrd(extracted_slicer.stack_index as f32 + sub_z_layer_offset),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
