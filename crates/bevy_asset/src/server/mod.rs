@@ -1406,7 +1406,7 @@ impl AssetServer {
         let mut meta_reader;
 
         let (meta, loader) = if read_meta {
-            match asset_reader.read_meta(asset_path.path()).await {
+            match asset_reader.read_meta(asset_path.path_cow()).await {
                 Ok(new_meta_reader) => {
                     meta_reader = new_meta_reader;
                     let mut meta_bytes = vec![];
@@ -1474,7 +1474,7 @@ impl AssetServer {
             let meta = loader.default_meta();
             (meta, loader)
         };
-        let reader = asset_reader.read(asset_path.path()).await?;
+        let reader = asset_reader.read(asset_path.path_cow()).await?;
         Ok((meta, loader, reader))
     }
 
