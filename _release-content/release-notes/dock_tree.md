@@ -16,4 +16,4 @@ tree.split(center, DockEdge::Left, "outliner")?;
 tree.split(center, DockEdge::Bottom, "assets")?;
 ```
 
-The dock tree holds the data only. Building UI from the tree and dragging tabs between groups come in later releases.
+Dragging tabs between groups comes in a later release.
