@@ -79,7 +79,7 @@ impl FromWorld for MorphIndices {
     fn from_world(world: &mut World) -> MorphIndices {
         let render_device = world.resource::<RenderDevice>();
 
-        if skin::skins_use_uniform_buffers(&render_device.limits()) {
+        if skin::skins_use_uniform_buffers(render_device.limits()) {
             MorphIndices::Uniform {
                 current: MainEntityHashMap::default(),
                 prev: MainEntityHashMap::default(),
@@ -119,7 +119,7 @@ impl FromWorld for MorphUniforms {
     fn from_world(world: &mut World) -> MorphUniforms {
         let render_device = world.resource::<RenderDevice>();
 
-        let skins_use_uniform_buffers = skin::skins_use_uniform_buffers(&render_device.limits());
+        let skins_use_uniform_buffers = skin::skins_use_uniform_buffers(render_device.limits());
 
         let buffer_usages = BufferUsages::COPY_DST
             | (if skins_use_uniform_buffers {
@@ -256,7 +256,7 @@ pub fn extract_morphs(
     // Borrow check workaround.
     let (morph_indices, uniform) = (morph_indices.into_inner(), uniform.into_inner());
 
-    let morphs_use_uniform_buffers = skin::skins_use_uniform_buffers(&render_device.limits());
+    let morphs_use_uniform_buffers = skin::skins_use_uniform_buffers(render_device.limits());
 
     // Swap buffers. We need to keep the previous frame's buffer around for the
     // purposes of motion vector computation.
@@ -437,7 +437,7 @@ pub fn no_automatic_morph_batching(
 ) {
     // We *can* batch mesh instances with morph targets if the platform supports
     // storage buffers.
-    if !skin::skins_use_uniform_buffers(&render_device.limits()) {
+    if !skin::skins_use_uniform_buffers(render_device.limits()) {
         return;
     }
 

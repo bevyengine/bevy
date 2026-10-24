@@ -51,7 +51,7 @@ impl DiagnosticsRecorder {
         device: &RenderDevice,
         queue: &RenderQueue,
     ) -> DiagnosticsRecorder {
-        let features = device.features();
+        let features = *device.features();
 
         #[cfg(feature = "tracing-tracy")]
         let tracy_gpu_context =
