@@ -72,6 +72,30 @@ impl Core3d {
     }
 }
 
+/// Schedule label for rendering the shadow maps of point and spot lights.
+///
+/// Point and spot light shadow views aren't associated with a camera, so each of
+/// them runs this schedule, instead of the full [`Core3d`] schedule, through its
+/// [`RootNonCameraView`]. It only contains the systems that such a view needs:
+/// GPU mesh preprocessing and the shadow passes themselves.
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct Core3dShadows;
+
+impl Core3dShadows {
+    pub fn base_schedule() -> Schedule {
+        use bevy_ecs::schedule::ScheduleBuildSettings;
+
+        let mut schedule = Schedule::new(Self);
+
+        schedule.set_build_settings(ScheduleBuildSettings {
+            auto_insert_apply_deferred: false,
+            ..Default::default()
+        });
+
+        schedule
+    }
+}
+
 /// Schedule label for the Core 2D rendering pipeline.
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct Core2d;
