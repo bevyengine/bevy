@@ -6,8 +6,7 @@ use crate::{
     change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
-    query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
+        storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -575,7 +574,7 @@ impl Table {
         row: TableRow,
     ) -> OwningPtr<'_> {
         self.get_column_mut(component_id)
-            .debug_checked_unwrap()
+            .unwrap_unchecked()
             .get_data_unchecked(row)
             .assert_unique()
             .promote()

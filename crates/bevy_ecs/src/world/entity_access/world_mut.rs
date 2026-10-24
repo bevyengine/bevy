@@ -10,7 +10,7 @@ use crate::{
     lifecycle::{DespawnEvent, DiscardEvent, RemoveEvent, DESPAWN, DISCARD, REMOVE},
     observer::IntoEntityObserver,
     query::{
-        has_conflicts, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
+        has_conflicts, QueryAccessError, ReadOnlyQueryData,
         ReleaseStateQueryData, SingleEntityQueryData,
     },
     relationship::RelationshipHookMode,
@@ -1305,7 +1305,7 @@ impl<'w> EntityWorldMut<'w> {
                                     table
                                         .as_mut()
                                         // SAFETY: The table must be valid if the component is in it.
-                                        .debug_checked_unwrap()
+                                        .unwrap_unchecked()
                                         // SAFETY: The remover is cleaning this up.
                                         .take_component(component_id, location.table_row)
                                 }
