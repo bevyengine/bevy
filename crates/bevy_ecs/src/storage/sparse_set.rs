@@ -369,7 +369,7 @@ impl ComponentSparseSet {
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
-    pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
+    pub(crate) fn take(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity.index()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
@@ -410,7 +410,7 @@ impl ComponentSparseSet {
                 // overlapping, and thus also within bounds.
                 unsafe {
                     self.dense
-                        .swap_remove_and_forget_unchecked_nonoverlapping(last, dense_index)
+                        .swap_remove_take_unchecked_nonoverlapping(last, dense_index)
                 }
             }
         })

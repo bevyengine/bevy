@@ -436,36 +436,7 @@ impl BlobArray {
         }
     }
 
-    /// This method will swap two elements in the array, and return the one at `index_to_remove`.
-    /// It is the caller's responsibility to drop the returned pointer, if that is desirable.
-    ///
-    /// # Safety
-    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
-    ///     1) initialize a different value in `index_to_keep`
-    ///     2) update the saved length of the array if `index_to_keep` was the last element.
-    #[inline]
-    #[must_use = "The returned pointer should be used to drop the removed element"]
-    pub unsafe fn swap_remove_unchecked(
-        &mut self,
-        index_to_remove: usize,
-        index_to_keep: usize,
-    ) -> OwningPtr<'_> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(self.capacity > index_to_keep);
-            debug_assert!(self.capacity > index_to_remove);
-        }
-        if index_to_remove != index_to_keep {
-            return self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
-        }
-        // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
-        // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
-        self.get_unchecked_mut(index_to_keep).promote()
-    }
-
-    /// The same as [`Self::swap_remove_unchecked`] but the two elements must non-overlapping.
+    /// Swap-remove the provided row. Returns the removed value.
     ///
     /// # Safety
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
@@ -475,7 +446,7 @@ impl BlobArray {
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
-    pub unsafe fn swap_remove_unchecked_nonoverlapping(
+    pub unsafe fn swap_remove_take_unchecked_nonoverlapping(
         &mut self,
         index_to_remove: usize,
         index_to_keep: usize,
@@ -496,58 +467,74 @@ impl BlobArray {
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
-    /// This method will call [`Self::swap_remove_unchecked`] and drop the result.
+    /// Swap-remove the provided row.
+    ///
+    /// If `DROP` is `true`, the removed element will be dropped as needed.
+    ///
+    /// If `DROP` is `false`, the removed element will be forgotten.
     ///
     /// # Safety
-    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_of_value_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_of_value_to_remove` must be safe to access (within the bounds of the length of the array).
     /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
-    ///     1) initialize a different value in `index_to_keep`
-    ///     2) update the saved length of the array if `index_to_keep` was the last element.
+    ///     1) initialize a different value in `index_of_value_to_keep`
+    ///     2) decrement the saved length of the array if `index_of_value_to_keep` was the last element.
     #[inline]
-    pub unsafe fn swap_remove_and_drop_unchecked(
+    pub unsafe fn swap_remove_unchecked<const DROP: bool>(
         &mut self,
-        index_to_remove: usize,
-        index_to_keep: usize,
+        index_of_value_to_remove: usize,
+        index_of_value_to_keep: usize,
     ) {
         #[cfg(debug_assertions)]
         {
-            debug_assert!(self.capacity > index_to_keep);
-            debug_assert!(self.capacity > index_to_remove);
+            debug_assert!(self.capacity > index_of_value_to_keep);
+            debug_assert!(self.capacity > index_of_value_to_remove);
         }
         let drop = self.drop;
-        let value = self.swap_remove_unchecked(index_to_remove, index_to_keep);
-        if let Some(drop) = drop {
-            drop(value);
+        if let Some(drop) = drop
+            && DROP
+        {
+            let to_remove = self.get_unchecked_mut(index_of_value_to_remove).promote();
+            drop(to_remove);
         }
+        core::ptr::copy::<u8>(
+            self.get_unchecked_mut(index_of_value_to_keep).as_ptr(),
+            self.get_unchecked_mut(index_of_value_to_remove).as_ptr(),
+            self.item_layout.size(),
+        );
     }
 
-    /// The same as [`Self::swap_remove_and_drop_unchecked`] but the two elements must non-overlapping.
+    /// Swap-remove the provided row.
     ///
     /// # Safety
-    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
-    /// - `index_to_remove` != `index_to_keep`
+    /// - `index_of_value_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_of_value_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_of_value_to_remove` != `index_of_value_to_keep`
     /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
-    ///     1) initialize a different value in `index_to_keep`
-    ///     2) update the saved length of the array if `index_to_keep` was the last element.
+    ///     1) initialize a different value in `index_of_value_to_keep`
+    ///     2) update the saved length of the array if `index_of_value_to_keep` was the last element.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,
-        index_to_remove: usize,
-        index_to_keep: usize,
+        index_of_value_to_remove: usize,
+        index_of_value_to_keep: usize,
     ) {
         #[cfg(debug_assertions)]
         {
-            debug_assert!(self.capacity > index_to_keep);
-            debug_assert!(self.capacity > index_to_remove);
-            debug_assert_ne!(index_to_keep, index_to_remove);
+            debug_assert!(self.capacity > index_of_value_to_keep);
+            debug_assert!(self.capacity > index_of_value_to_remove);
+            debug_assert_ne!(index_of_value_to_keep, index_of_value_to_remove);
         }
         let drop = self.drop;
-        let value = self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
-            drop(value);
+            let to_remove = self.get_unchecked_mut(index_of_value_to_remove).promote();
+            drop(to_remove);
         }
+        core::ptr::copy_nonoverlapping::<u8>(
+            self.get_unchecked_mut(index_of_value_to_keep).as_ptr(),
+            self.get_unchecked_mut(index_of_value_to_remove).as_ptr(),
+            self.item_layout.size(),
+        );
     }
 }
 
