@@ -248,7 +248,9 @@ mod tests {
                         {
                             let registration = self
                                 .registry
-                                .get_with_type_path(enemy.reflect_type_info().unwrap().type_path())
+                                .get_with_type_path(
+                                    enemy.get_represented_type_info().unwrap().type_path(),
+                                )
                                 .unwrap();
 
                             // 1. Convert any possible dynamic values to concrete ones

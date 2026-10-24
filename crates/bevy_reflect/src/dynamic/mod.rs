@@ -62,6 +62,13 @@ impl DynamicValue {
     /// This function clones opaque fields out of the original `value`, which can fail if the
     /// original type does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn Reflect) -> Result<Self, ReflectCloneError> {
+        let clone_err;
+        match value.reflect_clone() {
+            Ok(value) => return Ok(Self::Concrete(value)),
+            Err(err) => {
+                clone_err = err;
+            }
+        }
         Ok(match value.reflect_ref() {
             ReflectRef::Struct(value) => Self::Struct(DynamicStruct::try_from_reflect(value)?),
             ReflectRef::TupleStruct(value) => {
@@ -75,7 +82,8 @@ impl DynamicValue {
             ReflectRef::Enum(value) => Self::Enum(DynamicEnum::try_from_ref(value)?),
             #[cfg(feature = "functions")]
             ReflectRef::Function(value) => todo!(),
-            ReflectRef::Opaque(value) => Self::Concrete(value.reflect_clone()?),
+            // We already tried to clone earlier and failed. Just return that error.
+            ReflectRef::Opaque(_) => return Err(clone_err),
         })
     }
 
