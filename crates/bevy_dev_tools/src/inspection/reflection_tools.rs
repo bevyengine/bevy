@@ -1,7 +1,7 @@
 //! Helpers for working with reflected values during inspection.
 
 use bevy_ecs::{entity::Entity, world::World};
-use bevy_reflect::{dynamic::DynamicValue, PartialReflect, ReflectCloneError, ReflectRef};
+use bevy_reflect::{dynamic::DynamicValue, Reflect, ReflectCloneError, ReflectRef};
 use bevy_utils::prelude::ShortName;
 use core::any::TypeId;
 
@@ -9,8 +9,8 @@ use core::any::TypeId;
 ///
 /// Opaque values have no dynamic form, so their clone error is returned as-is.
 pub fn clone_incomplete(
-    reflected: &dyn PartialReflect,
-) -> Result<Box<dyn PartialReflect>, ReflectCloneError> {
+    reflected: &dyn Reflect,
+) -> Result<Box<dyn Reflect>, ReflectCloneError> {
     match reflected.reflect_clone() {
         Ok(cloned) => Ok(cloned.into_partial_reflect()),
         Err(err) => match reflected.reflect_ref() {

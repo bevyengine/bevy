@@ -14,8 +14,8 @@ use crate::{
     generics::impl_generic_info_methods,
 };
 use crate::{
-    ty::impl_type_methods, utility::reflect_hasher, FromDynamic, Generics, MaybeTyped,
-    PartialReflect, ReflectRef, Type, TypeInfo, TypePath,
+    ty::impl_type_methods, utility::reflect_hasher, FromDynamic, Generics, MaybeTyped, Reflect,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -43,12 +43,12 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, list::List};
+/// use bevy_reflect::{Reflect, Reflect, list::List};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let last_field: Box<dyn PartialReflect> = foo.pop().unwrap();
+/// let last_field: Box<dyn Reflect> = foo.pop().unwrap();
 /// assert_eq!(last_field.try_downcast_ref::<u32>(), Some(&789));
 /// ```
 ///
@@ -57,29 +57,29 @@ use crate::{
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 // Prevents unexpectedly importing this trait when trying to call, for example, `Vec::iter`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
-pub trait List: PartialReflect {
+pub trait List: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn get(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
     /// Constructs a value for this list from a dynamic value representation.
-    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>>;
 
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///
     /// # Panics
     /// Panics if `index > len`.
-    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>);
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>);
 
     /// Removes and returns the element at position `index` within the list,
     /// shifting all elements before it towards the front of the list.
     ///
     /// # Panics
     /// Panics if `index` is out of bounds.
-    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect>;
 
     /// Swaps two elements in place.
     ///
@@ -88,12 +88,12 @@ pub trait List: PartialReflect {
     fn swap(&mut self, a: usize, b: usize);
 
     /// Appends an element to the _back_ of the list.
-    fn push(&mut self, value: Box<dyn PartialReflect>) {
+    fn push(&mut self, value: Box<dyn Reflect>) {
         self.insert(self.len(), value);
     }
 
     /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
-    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
         if self.is_empty() {
             None
         } else {
@@ -116,11 +116,11 @@ pub trait List: PartialReflect {
     ///
     /// After calling this function, `self` will be empty. The order of items in the returned
     /// [`Vec`] will match the order of items in `self`.
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(&mut self) -> Vec<Box<dyn Reflect>>;
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
-        self.get_represented_type_info()?.as_list().ok()
+    /// Returns the [`ListInfo`] for this type.
+    fn reflect_list_info(&self) -> &'static ListInfo {
+        self.reflect_type_info().as_list().unwrap()
     }
 }
 
@@ -195,7 +195,7 @@ impl ListIter<'_> {
 }
 
 impl<'a> Iterator for ListIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a dyn Reflect;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -260,9 +260,7 @@ impl ListLike for dyn List {
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
-        // TODO: Don't unwrap here.
-        self.iter()
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+        self.iter().map(|value| DynamicValueRef::from(value))
     }
 }
 
@@ -271,11 +269,11 @@ impl ListLike for dyn List {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
-/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn list_partial_eq(a: &dyn List, b: &dyn PartialReflect) -> Option<bool> {
+pub fn list_partial_eq(a: &dyn List, b: &dyn Reflect) -> Option<bool> {
     let ReflectRef::List(b) = b.reflect_ref() else {
         return Some(false);
     };
@@ -306,7 +304,7 @@ pub(crate) fn list_like_partial_eq<L: ListLike + ?Sized, R: ListLike + ?Sized>(
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn list_partial_cmp(a: &dyn List, b: &dyn PartialReflect) -> Option<Ordering> {
+pub fn list_partial_cmp(a: &dyn List, b: &dyn Reflect) -> Option<Ordering> {
     let ReflectRef::List(b) = b.reflect_ref() else {
         return None;
     };

@@ -33,7 +33,7 @@ pub enum AccessErrorKind {
     InvalidKey {
         /// The type path of the map's key type or the set's element type, or `None` if the map or
         /// set has no type info.
-        key_type: Option<&'static str>,
+        key_type: &'static str,
     },
 
     /// An error that occurs when trying to mutably access an element of a set.
@@ -140,13 +140,9 @@ impl fmt::Display for AccessError<'_> {
                 "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
                 access.kind()
             ),
-            AccessErrorKind::InvalidKey { key_type: Some(key_type) } => write!(
+            AccessErrorKind::InvalidKey { key_type } => write!(
                 f,
                 "The key in the path can't be converted to the map or set key type `{key_type}`."
-            ),
-            AccessErrorKind::InvalidKey { key_type: None } => write!(
-                f,
-                "The key type of the map or set is unknown, since it has no type info."
             ),
             AccessErrorKind::MutableSetAccess => write!(
                 f,

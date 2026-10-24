@@ -38,7 +38,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// - Any given bounds in a `where` clause on the type
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is
     ///   present
-    /// - Active fields with non-generic types have the bounds `TypePath`, either `PartialReflect`
+    /// - Active fields with non-generic types have the bounds `TypePath`, either `Reflect`
     ///   if `#[reflect(from_dynamic = false)]` is present or `Reflect + FromDynamic` otherwise,
     ///   `MaybeTyped`, and `RegisterForReflection` (or no bounds at all if
     ///   `#[reflect(no_field_bounds)]` is present)
@@ -231,14 +231,14 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
-    /// The `PartialReflect` or `FromDynamic` bound to use based on `#[reflect(from_dynamic = false)]`.
+    /// The `Reflect` or `FromDynamic` bound to use based on `#[reflect(from_dynamic = false)]`.
     fn reflect_bound(&self) -> TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 
         if self.meta.from_dynamic().should_auto_derive() {
             quote!(#bevy_reflect_path::FromDynamic)
         } else {
-            quote!(#bevy_reflect_path::PartialReflect)
+            quote!(#bevy_reflect_path::Reflect)
         }
     }
 

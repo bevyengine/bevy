@@ -3,7 +3,7 @@ use crate::{
         args::{ArgCount, ArgList},
         DynamicFunction, FunctionInfo, FunctionResult,
     },
-    PartialReflect,
+    Reflect,
 };
 use alloc::borrow::Cow;
 use core::fmt::Debug;
@@ -35,7 +35,7 @@ use core::fmt::Debug;
 /// [`Reflect`]: crate::Reflect
 /// [arguments]: crate::func::args
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-pub trait Function: PartialReflect + Debug {
+pub trait Function: Reflect + Debug {
     /// The name of the function, if any.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],

@@ -517,7 +517,7 @@ impl ContainerAttributes {
         &self.type_path_attrs
     }
 
-    /// Returns the implementation of `PartialReflect::reflect_hash` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
     ///
     /// If `Hash` was not registered, returns `None`.
     pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
@@ -540,7 +540,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `PartialReflect::reflect_partial_eq` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::reflect_partial_eq` as a `TokenStream`.
     ///
     /// If `PartialEq` was not registered, returns `None`.
     pub fn get_partial_eq_impl(
@@ -549,8 +549,8 @@ impl ContainerAttributes {
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
-                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                    let value = <dyn #bevy_reflect_path::Reflect>::downcast_ref::<Self>(value);
                     if let #FQOption::Some(value) = value {
                         #FQOption::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
@@ -559,7 +559,7 @@ impl ContainerAttributes {
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
                     #FQOption::Some(#impl_fn(self, value))
                 }
             }),
@@ -567,7 +567,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `PartialReflect::reflect_partial_cmp` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::reflect_partial_cmp` as a `TokenStream`.
     ///
     /// If `PartialOrd` was not registered, returns `None`.
     pub fn get_partial_ord_impl(
@@ -576,8 +576,8 @@ impl ContainerAttributes {
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_ord {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
-                    let value = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value);
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<::core::cmp::Ordering> {
+                    let value = <dyn #bevy_reflect_path::Reflect>::downcast_ref::<Self>(value);
                     if let #FQOption::Some(value) = value {
                         ::core::cmp::PartialOrd::partial_cmp(self, value)
                     } else {
@@ -586,7 +586,7 @@ impl ContainerAttributes {
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<::core::cmp::Ordering> {
+                fn reflect_partial_cmp(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<::core::cmp::Ordering> {
                     #impl_fn(self, value)
                 }
             }),
@@ -594,7 +594,7 @@ impl ContainerAttributes {
         }
     }
 
-    /// Returns the implementation of `PartialReflect::debug` as a `TokenStream`.
+    /// Returns the implementation of `Reflect::debug` as a `TokenStream`.
     ///
     /// If `Debug` was not registered, returns `None`.
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {

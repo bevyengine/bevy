@@ -2,7 +2,7 @@ use crate::{
     dynamic::{DynamicEnum, DynamicValue, DynamicValueRef, DynamicVariantField},
     enums::{Enum, VariantField, VariantType},
     utility::reflect_hasher,
-    PartialReflect, ReflectRef,
+    Reflect, ReflectRef,
 };
 use core::{
     cmp::Ordering,
@@ -96,15 +96,12 @@ impl EnumLike for dyn Enum {
     }
 
     fn field(&self, name: &str) -> Option<DynamicValueRef<'_>> {
-        self.field(name)
-            // TODO: Don't unwrap here.
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+        self.field(name).map(|value| DynamicValueRef::from(value))
     }
 
     fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>> {
         self.field_at(index)
-            // TODO: Don't unwrap here.
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+            .map(|value| DynamicValueRef::from(value))
     }
 
     fn name_at(&self, index: usize) -> Option<&str> {
@@ -113,29 +110,24 @@ impl EnumLike for dyn Enum {
 
     fn iter_fields(&self) -> impl Iterator<Item = DynamicVariantField<'_>> {
         self.iter_fields().map(|value| match value {
-            VariantField::Struct(name, value) => DynamicVariantField::Struct(
-                name,
-                // TODO: Don't unwrap here.
-                DynamicValueRef::from(value.try_as_reflect().unwrap()),
-            ),
-            VariantField::Tuple(value) => {
-                // TODO: Don't unwrap here.
-                DynamicVariantField::Tuple(DynamicValueRef::from(value.try_as_reflect().unwrap()))
+            VariantField::Struct(name, value) => {
+                DynamicVariantField::Struct(name, DynamicValueRef::from(value))
             }
+            VariantField::Tuple(value) => DynamicVariantField::Tuple(DynamicValueRef::from(value)),
         })
     }
 }
 
-/// Compares an [`Enum`] with a [`PartialReflect`] value.
+/// Compares an [`Enum`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is an enum;
 /// - `b` is the same variant as `a`;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 #[inline(never)]
-pub fn enum_partial_eq(a: &dyn Enum, b: &dyn PartialReflect) -> Option<bool> {
+pub fn enum_partial_eq(a: &dyn Enum, b: &dyn Reflect) -> Option<bool> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
@@ -207,7 +199,7 @@ pub(crate) fn enum_like_partial_eq<L: EnumLike + ?Sized, R: EnumLike + ?Sized>(
 ///
 /// The ordering is same with `derive` macro. First order by variant index, then by fields.
 #[inline(never)]
-pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn PartialReflect) -> Option<Ordering> {
+pub fn enum_partial_cmp(a: &dyn Enum, b: &dyn Reflect) -> Option<Ordering> {
     // Both enums?
     let ReflectRef::Enum(b) = b.reflect_ref() else {
         return None;

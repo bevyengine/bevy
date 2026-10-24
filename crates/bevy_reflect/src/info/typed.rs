@@ -1,4 +1,4 @@
-use crate::{PartialReflect, Reflect, TypeInfo, TypePath};
+use crate::{Reflect, TypeInfo, TypePath};
 
 /// A static accessor to compile-time type information.
 ///
@@ -23,7 +23,7 @@ use crate::{PartialReflect, Reflect, TypeInfo, TypePath};
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -50,20 +50,10 @@ use crate::{PartialReflect, Reflect, TypeInfo, TypePath};
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
-/// # impl PartialReflect for MyStruct {
-/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
-/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
-/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
-/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
-/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
-/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
-/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// # impl Reflect for MyStruct {
 /// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// # }
-/// # impl Reflect for MyStruct {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
@@ -122,7 +112,7 @@ impl<T: Typed> DynamicTyped for T {
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait MaybeTyped: PartialReflect {
+pub trait MaybeTyped: Reflect {
     /// Returns the compile-time [info] for the underlying type, if it exists.
     ///
     /// [info]: TypeInfo

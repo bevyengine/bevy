@@ -4,7 +4,7 @@ use benches::bench;
 use bevy_reflect::{
     dynamic::DynamicStruct,
     structs::{GetField, Struct},
-    PartialReflect, Reflect,
+    Reflect, Reflect,
 };
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
@@ -77,7 +77,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
 
     // Use functions that produce trait objects of varying concrete types as the
     // input to the benchmark.
-    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect>)] = &[
+    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn Reflect>)] = &[
         || (Box::new(Struct16::default()), Box::new(Struct16::default())),
         || (Box::new(Struct32::default()), Box::new(Struct32::default())),
         || (Box::new(Struct64::default()), Box::new(Struct64::default())),
@@ -161,14 +161,14 @@ fn concrete_struct_type_info(criterion: &mut Criterion) {
             BenchmarkId::new("NonGeneric", field_count),
             &standard,
             |bencher, s| {
-                bencher.iter(|| s.get_represented_type_info());
+                bencher.iter(|| s.reflect_type_info());
             },
         );
         group.bench_with_input(
             BenchmarkId::new("Generic", field_count),
             &generic,
             |bencher, s| {
-                bencher.iter(|| s.get_represented_type_info());
+                bencher.iter(|| s.reflect_type_info());
             },
         );
     }
@@ -247,7 +247,7 @@ fn dynamic_struct_to_dynamic_struct(criterion: &mut Criterion) {
 fn dynamic_struct_apply(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("dynamic_struct_apply"));
 
-    let patches: &[(fn() -> Box<dyn PartialReflect>, usize)] = &[
+    let patches: &[(fn() -> Box<dyn Reflect>, usize)] = &[
         (|| Box::new(Struct16::default()), 16),
         (|| Box::new(Struct32::default()), 32),
         (|| Box::new(Struct64::default()), 64),

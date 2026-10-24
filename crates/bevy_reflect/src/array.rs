@@ -4,8 +4,8 @@
 use crate::dynamic::{DynamicArray, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    ty::impl_type_methods, utility::reflect_hasher, Generics, MaybeTyped, PartialReflect, Reflect,
-    ReflectRef, Type, TypeInfo, TypePath,
+    ty::impl_type_methods, utility::reflect_hasher, Generics, MaybeTyped, Reflect, ReflectRef,
+    Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::Ordering;
@@ -34,12 +34,12 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, array::Array};
+/// use bevy_reflect::{Reflect, array::Array};
 ///
 /// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let field: &dyn PartialReflect = foo.get(0).unwrap();
+/// let field: &dyn Reflect = foo.get(0).unwrap();
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
@@ -52,12 +52,12 @@ use core::{
 /// [`Deserialize`]: ::serde::Deserialize
 // Prevents unexpectedly importing this trait when trying to call, for example, `array::map`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
-pub trait Array: PartialReflect {
+pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn get(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
     /// Swaps two elements in place.
     ///
@@ -77,11 +77,11 @@ pub trait Array: PartialReflect {
     fn iter(&self) -> ArrayIter<'_>;
 
     /// Drain the elements of this array to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
-        self.get_represented_type_info()?.as_array().ok()
+    /// Returns the [`ArrayInfo`] for this type.
+    fn reflect_array_info(&self) -> &'static ArrayInfo {
+        self.reflect_type_info().as_array().unwrap()
     }
 }
 
@@ -169,7 +169,7 @@ impl ArrayIter<'_> {
 }
 
 impl<'a> Iterator for ArrayIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a dyn Reflect;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -234,9 +234,7 @@ impl ArrayLike for dyn Array {
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
-        // TODO: Don't unwrap here.
-        self.iter()
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+        self.iter().map(|value| DynamicValueRef::from(value))
     }
 }
 
@@ -245,7 +243,7 @@ impl ArrayLike for dyn Array {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn array_partial_eq(a: &dyn Array, b: &dyn PartialReflect) -> Option<bool> {
+pub fn array_partial_eq(a: &dyn Array, b: &dyn Reflect) -> Option<bool> {
     let ReflectRef::Array(b) = b.reflect_ref() else {
         return None;
     };
@@ -274,7 +272,7 @@ pub(crate) fn array_like_partial_eq<L: ArrayLike + ?Sized, R: ArrayLike + ?Sized
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn array_partial_cmp(a: &dyn Array, b: &dyn PartialReflect) -> Option<Ordering> {
+pub fn array_partial_cmp(a: &dyn Array, b: &dyn Reflect) -> Option<Ordering> {
     let ReflectRef::Array(b) = b.reflect_ref() else {
         return None;
     };
@@ -359,8 +357,8 @@ mod tests {
         let mut b = Box::new([0usize, 1usize]).into_reflect();
         let array = b.reflect_mut().as_array().unwrap();
         array.swap(0, 1);
-        assert_eq!(array.get(0).unwrap().try_downcast_ref(), Some(&1usize));
-        assert_eq!(array.get(1).unwrap().try_downcast_ref(), Some(&0usize));
+        assert_eq!(array.get(0).unwrap().downcast_ref(), Some(&1usize));
+        assert_eq!(array.get(1).unwrap().downcast_ref(), Some(&0usize));
     }
 
     #[test]

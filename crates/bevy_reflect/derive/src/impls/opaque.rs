@@ -1,10 +1,9 @@
 use crate::generics::generate_generics;
 use crate::{
-    impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
+    impls::{common_reflect_trait_methods, impl_reflect_casts, impl_type_path, impl_typed},
     where_clause_options::WhereClauseOptions,
     ReflectMeta,
 };
-use bevy_macro_utils::fq_std::FQOption;
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
@@ -38,8 +37,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     );
 
     let type_path_impl = impl_type_path(meta);
-    let full_reflect_impl = impl_full_reflect(&where_clause_options);
-    let common_methods = common_partial_reflect_methods(meta, || None, || None, || None);
+    let reflect_casts_impl = impl_reflect_casts(meta);
+    let common_methods = common_reflect_trait_methods(meta, || None, || None, || None);
     let clone_fn = meta.attrs().get_clone_impl(bevy_reflect_path);
 
     #[cfg(not(feature = "functions"))]
@@ -63,18 +62,11 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
         #typed_impl
 
-        #full_reflect_impl
-
         #function_impls
 
         #auto_register
 
-        impl #impl_generics #bevy_reflect_path::PartialReflect for #type_path #ty_generics #where_reflect_clause  {
-            #[inline]
-            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
-                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
+        impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Opaque
@@ -98,6 +90,8 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             #common_methods
 
             #clone_fn
+
+            #reflect_casts_impl
         }
     }
 }

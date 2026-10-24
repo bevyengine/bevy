@@ -6,7 +6,7 @@ use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     ty::impl_type_methods,
-    Generics, PartialReflect, Reflect, ReflectRef, Type, TypeInfo, TypePath, UnnamedField,
+    Generics, Reflect, ReflectRef, Type, TypePath, UnnamedField,
 };
 use alloc::boxed::Box;
 use core::cmp::Ordering;
@@ -26,7 +26,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, tuple_struct::TupleStruct};
+/// use bevy_reflect::{Reflect, Reflect, tuple_struct::TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(u32);
@@ -35,20 +35,20 @@ use core::{
 ///
 /// assert_eq!(foo.field_len(), 1);
 ///
-/// let field: &dyn PartialReflect = foo.field(0).unwrap();
+/// let field: &dyn Reflect = foo.field(0).unwrap();
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 /// [reflection]: crate
-pub trait TupleStruct: PartialReflect {
+pub trait TupleStruct: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Returns a mutable reference to the value of the field with index `index`
     /// as a `&mut dyn Reflect`.
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
     /// Returns the number of fields in the tuple struct.
     fn field_len(&self) -> usize;
@@ -56,9 +56,9 @@ pub trait TupleStruct: PartialReflect {
     /// Returns an iterator over the values of the tuple struct's fields.
     fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
-        self.get_represented_type_info()?.as_tuple_struct().ok()
+    /// Returns the [`TupleStructInfo`] for this type.
+    fn reflect_tuple_struct_info(&self) -> &'static TupleStructInfo {
+        self.reflect_type_info().as_tuple_struct().unwrap()
     }
 }
 
@@ -156,7 +156,7 @@ impl<'a> TupleStructFieldIter<'a> {
 }
 
 impl<'a> Iterator for TupleStructFieldIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a dyn Reflect;
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple_struct.field(self.index);
@@ -203,24 +203,24 @@ pub trait GetTupleStructField {
 impl<S: TupleStruct> GetTupleStructField for S {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
         self.field(index)
-            .and_then(|value| value.try_downcast_ref::<T>())
+            .and_then(|value| value.downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
-            .and_then(|value| value.try_downcast_mut::<T>())
+            .and_then(|value| value.downcast_mut::<T>())
     }
 }
 
 impl GetTupleStructField for dyn TupleStruct {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
         self.field(index)
-            .and_then(|value| value.try_downcast_ref::<T>())
+            .and_then(|value| value.downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
-            .and_then(|value| value.try_downcast_mut::<T>())
+            .and_then(|value| value.downcast_mut::<T>())
     }
 }
 
@@ -248,9 +248,7 @@ impl TupleStructLike for DynamicTupleStruct {
 
 impl TupleStructLike for dyn TupleStruct {
     fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
-        // TODO: Don't unwrap here.
-        self.field(index)
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+        self.field(index).map(|value| DynamicValueRef::from(value))
     }
 
     fn field_len(&self) -> usize {
@@ -258,21 +256,20 @@ impl TupleStructLike for dyn TupleStruct {
     }
 
     fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
-        self.iter_fields()
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+        self.iter_fields().map(|value| DynamicValueRef::from(value))
     }
 }
 
-/// Compares a [`TupleStruct`] with a [`PartialReflect`] value.
+/// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a tuple struct;
 /// - `b` has the same number of fields as `a`;
-/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise fields of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<bool> {
+pub fn tuple_struct_partial_eq(a: &dyn TupleStruct, b: &dyn Reflect) -> Option<bool> {
     let ReflectRef::TupleStruct(b) = b.reflect_ref() else {
         return Some(false);
     };
@@ -310,7 +307,7 @@ pub(crate) fn tuple_struct_like_partial_eq<
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn tuple_struct_partial_cmp(a: &dyn TupleStruct, b: &dyn PartialReflect) -> Option<Ordering> {
+pub fn tuple_struct_partial_cmp(a: &dyn TupleStruct, b: &dyn Reflect) -> Option<Ordering> {
     let ReflectRef::TupleStruct(b) = b.reflect_ref() else {
         return None;
     };
@@ -365,12 +362,7 @@ pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut Formatter<'_>,
 ) -> core::fmt::Result {
-    let mut debug = f.debug_tuple(
-        dyn_tuple_struct
-            .get_represented_type_info()
-            .map(TypeInfo::type_path)
-            .unwrap_or("_"),
-    );
+    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_info().type_path());
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

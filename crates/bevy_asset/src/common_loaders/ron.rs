@@ -10,7 +10,7 @@ use ron::ser::PrettyConfig;
 use bevy_reflect::{
     dynamic::DynamicValue,
     serde::{ReflectDeserializer, ReflectSerializer},
-    Reflect, ReflectFromPtr, TypePath, TypeRegistryArc,
+    Reflect, ReflectFromPtr, TypeInfo, TypePath, TypeRegistryArc,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
@@ -121,22 +121,6 @@ impl AssetLoader for RonLoader {
             .from_bytes_seed(&buffer, reflect_deserializer)
             .map_err(Into::<RonDeserializeError>::into)?;
 
-        // Unwrap is ok because the `ReflectDeserializer` will produce values representing a
-        // particular type.
-        let asset_type_info = reflected_asset
-            .as_partial_reflect()
-            .get_represented_type_info()
-            .unwrap();
-        let asset_type_id = asset_type_info.type_id();
-        // Unwrap is ok because the `ReflectDeserializer` could not have deserialized this value if
-        // the type weren't in the registry.
-        let type_registration = registry.get(asset_type_id).unwrap();
-        let Some(reflect_asset) = type_registration.data::<ReflectAsset>() else {
-            return Err(ReflectedRonDeserializeError::MissingReflectAsset(
-                asset_type_info.type_path(),
-            ));
-        };
-
         // At this point, we need the concrete type. `ReflectDeserializer` internally uses the
         // `ReflectFromDynamic` for the loaded type to convert into a concrete type. If that fails,
         // that must mean `ReflectFromDynamic` wasn't registered for the type, so there's nothing we
@@ -148,6 +132,22 @@ impl AssetLoader for RonLoader {
             // arbitrary implementation might not return the concrete type for other reasons, or
             // might try other fallbacks).
             return Err(ReflectedRonDeserializeError::MissingReflectFromDynamic(
+                reflected_asset
+                    .get_represented_type_info()
+                    .map(TypeInfo::type_path)
+                    // Unwrap is ok because the `ReflectDeserializer` will produce values
+                    // representing a particular type.
+                    .unwrap(),
+            ));
+        };
+
+        let asset_type_info = reflected_asset.reflect_type_info();
+        let asset_type_id = asset_type_info.type_id();
+        // Unwrap is ok because the `ReflectDeserializer` could not have deserialized this value if
+        // the type weren't in the registry.
+        let type_registration = registry.get(asset_type_id).unwrap();
+        let Some(reflect_asset) = type_registration.data::<ReflectAsset>() else {
+            return Err(ReflectedRonDeserializeError::MissingReflectAsset(
                 asset_type_info.type_path(),
             ));
         };

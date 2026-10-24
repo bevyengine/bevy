@@ -12,7 +12,7 @@ use crate::{dynamic::DynamicValue, TypeRegistration, TypeRegistry};
 ///
 /// Whenever the deserializer attempts to deserialize a value, it will first
 /// call [`try_deserialize`] on your processor, which may take ownership of the
-/// deserializer and give back a [`Box<dyn PartialReflect>`], or return
+/// deserializer and give back a [`Box<dyn Reflect>`], or return
 /// ownership of the deserializer back, and continue with the default logic.
 ///
 /// The serialization equivalent of this is [`ReflectSerializerProcessor`].
@@ -42,7 +42,7 @@ use crate::{dynamic::DynamicValue, TypeRegistration, TypeRegistry};
 /// ```
 /// # use bevy_reflect::serde::{ReflectDeserializer, ReflectDeserializerProcessor};
 /// # use bevy_reflect::dynamic::DynamicValue;
-/// # use bevy_reflect::{PartialReflect, Reflect, TypeData, TypeRegistration, TypeRegistry};
+/// # use bevy_reflect::{Reflect, Reflect, TypeData, TypeRegistration, TypeRegistry};
 /// # use serde::de::{DeserializeSeed, Deserializer, Visitor};
 /// # use std::marker::PhantomData;
 /// #
@@ -147,7 +147,7 @@ pub trait ReflectDeserializerProcessor {
     /// that you want to assign this value to. The type inside the box must
     /// be the same one as the `registration` is for, otherwise future
     /// reflection operations (such as using [`FromDynamic`] to convert the
-    /// resulting [`Box<dyn PartialReflect>`] into a concrete type) will fail.
+    /// resulting [`Box<dyn Reflect>`] into a concrete type) will fail.
     ///
     /// If you don't want to override the deserialization, return ownership of
     /// the deserializer back via `Ok(Err(deserializer))`.
@@ -163,7 +163,7 @@ pub trait ReflectDeserializerProcessor {
     /// deserializer):
     ///
     /// ```
-    /// # use bevy_reflect::{TypeRegistration, PartialReflect, TypeRegistry, dynamic::DynamicValue};
+    /// # use bevy_reflect::{TypeRegistration, Reflect, TypeRegistry, dynamic::DynamicValue};
     /// # use bevy_reflect::serde::ReflectDeserializerProcessor;
     /// # use core::any::TypeId;
     /// use serde::de::IgnoredAny;

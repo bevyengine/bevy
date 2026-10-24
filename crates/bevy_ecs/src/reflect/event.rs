@@ -10,10 +10,9 @@ use alloc::boxed::Box;
 use crate::{
     event::{Event, EventKey, EventTriggerState},
     observer::{Observer, On},
-    reflect::from_dynamic_with_fallback,
     world::{DeferredWorld, World},
 };
-use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
 ///
@@ -43,7 +42,7 @@ pub struct ReflectEvent(ReflectEventFns);
 #[derive(Clone)]
 pub struct ReflectEventFns {
     /// Function pointer implementing [`ReflectEvent::trigger`].
-    pub trigger: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
+    pub trigger: fn(&mut World, Box<dyn Reflect>),
     /// Function pointer implementing [`ReflectEvent::create_observer`].
     pub create_observer: fn(Box<dyn Fn(&dyn Reflect, DeferredWorld) + Send + Sync>) -> Observer,
     /// Function pointer implementing [`ReflectEvent::register_event_key`].
@@ -66,8 +65,8 @@ impl ReflectEventFns {
 
 impl ReflectEvent {
     /// Triggers a reflected [`Event`] like [`trigger()`](World::trigger).
-    pub fn trigger(&self, world: &mut World, event: &dyn PartialReflect, registry: &TypeRegistry) {
-        (self.0.trigger)(world, event, registry);
+    pub fn trigger(&self, world: &mut World, event: Box<dyn Reflect>) {
+        (self.0.trigger)(world, event);
     }
 
     /// Creates an [`Observer`] for this [`Event`] that calls the given callback.
@@ -128,9 +127,8 @@ where
 {
     fn create_type_data(_input: ()) -> Self {
         ReflectEvent(ReflectEventFns {
-            trigger: |world, reflected_event, registry| {
-                let event = from_dynamic_with_fallback::<E>(reflected_event, world, registry);
-                world.trigger(event);
+            trigger: |world, event| {
+                world.trigger(event.take::<E>().unwrap());
             },
             create_observer: |callback| {
                 Observer::new(move |event: On<E>, world: DeferredWorld| {

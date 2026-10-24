@@ -34,7 +34,7 @@ use bevy_reflect::{
     enums::DynamicEnum,
     prelude::ReflectDefault,
     serde::{ReflectSerializerProcessor, TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromDynamic, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    CreateTypeData, FromDynamic, Reflect, Reflect, ReflectMut, TypeInfo, TypePath,
     TypeRegistration, TypeRegistry,
 };
 
@@ -384,14 +384,14 @@ struct SettingsSerializerProcessor;
 impl ReflectSerializerProcessor for SettingsSerializerProcessor {
     fn try_serialize<S>(
         &self,
-        value: &dyn PartialReflect,
+        value: &dyn Reflect,
         _registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
     where
         S: serde::Serializer,
     {
-        let Some(type_info) = value.get_represented_type_info() else {
+        let Some(type_info) = value.reflect_type_info() else {
             return Ok(Err(serializer));
         };
 
@@ -638,8 +638,8 @@ fn is_option_type(type_info: &TypeInfo) -> bool {
         && type_info.type_path_table().ident() == Some("Option")
 }
 
-fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types: &TypeRegistry) {
-    let Some(tinfo) = resource.get_represented_type_info() else {
+fn load_properties(value: &toml::Value, resource: &mut dyn Reflect, types: &TypeRegistry) {
+    let Some(tinfo) = resource.reflect_type_info() else {
         return;
     };
 

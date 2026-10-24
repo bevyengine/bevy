@@ -10,7 +10,7 @@ use crate::{
     dynamic::{DynamicMap, DynamicValue, DynamicValueRef},
     generics::impl_generic_info_methods,
     ty::impl_type_methods,
-    Generics, MaybeTyped, PartialReflect, Reflect, ReflectRef, Type, TypeInfo, TypePath,
+    Generics, MaybeTyped, Reflect, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 
@@ -22,8 +22,8 @@ use alloc::{boxed::Box, vec::Vec};
 ///
 /// # Hashing and equality
 ///
-/// All keys are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
-/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// All keys are expected to return a valid hash value from [`Reflect::reflect_hash`] and be
+/// comparable using [`Reflect::reflect_partial_eq`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
 /// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
 /// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
@@ -33,7 +33,7 @@ use alloc::{boxed::Box, vec::Vec};
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, map::Map};
+/// use bevy_reflect::{Reflect, Reflect, map::Map};
 /// use std::collections::HashMap;
 ///
 ///
@@ -41,7 +41,7 @@ use alloc::{boxed::Box, vec::Vec};
 /// foo.insert_boxed(Box::new(123_u32), Box::new(true));
 /// assert_eq!(foo.len(), 1);
 ///
-/// let field: &dyn PartialReflect = foo.get(&123_u32).unwrap();
+/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
 /// assert_eq!(field.try_downcast_ref::<bool>(), Some(&true));
 /// ```
 ///
@@ -51,22 +51,22 @@ use alloc::{boxed::Box, vec::Vec};
 /// [reflection]: crate
 // Prevents unexpectedly importing this trait when trying to call, for example, `HashMap::get`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
-pub trait Map: PartialReflect {
+pub trait Map: Reflect {
     /// Constructs a key for this map from a dynamic value representation.
-    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>>;
 
     /// Constructs a value for this map from a dynamic value representation.
-    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>>;
 
     /// Returns a reference to the value associated with the given key.
     ///
     /// If no value is associated with `key`, returns `None`.
-    fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect>;
+    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
 
     /// Returns a mutable reference to the value associated with the given key.
     ///
     /// If no value is associated with `key`, returns `None`.
-    fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect>;
+    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
 
     /// Returns the number of elements in the map.
     fn len(&self) -> usize;
@@ -77,17 +77,17 @@ pub trait Map: PartialReflect {
     }
 
     /// Returns an iterator over the key-value pairs of the map.
-    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_>;
+    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn Reflect, &dyn Reflect)> + '_>;
 
     /// Drain the key-value pairs of this map to get a vector of owned values.
     ///
     /// After calling this function, `self` will be empty.
-    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
+    fn drain(&mut self) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>;
 
     /// Retain only the elements specified by the predicate.
     ///
     /// In other words, remove all pairs `(k, v)` such that `f(&k, &mut v)` returns `false`.
-    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool);
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn Reflect, &mut dyn Reflect) -> bool);
 
     /// Inserts a key-value pair into the map.
     ///
@@ -95,19 +95,19 @@ pub trait Map: PartialReflect {
     /// If the map did have this key present, the value is updated, and the old value is returned.
     fn insert_boxed(
         &mut self,
-        key: Box<dyn PartialReflect>,
-        value: Box<dyn PartialReflect>,
-    ) -> Option<Box<dyn PartialReflect>>;
+        key: Box<dyn Reflect>,
+        value: Box<dyn Reflect>,
+    ) -> Option<Box<dyn Reflect>>;
 
     /// Removes an entry from the map.
     ///
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the removed value is returned.
-    fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>>;
+    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
-        self.get_represented_type_info()?.as_map().ok()
+    /// Returns the [`MapInfo`] for this type.
+    fn reflect_map_info(&self) -> &'static MapInfo {
+        self.reflect_type_info().as_map().unwrap()
     }
 }
 
@@ -215,7 +215,7 @@ impl MapLike for DynamicMap {
 impl MapLike for dyn Map {
     fn get(&self, key: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
         self.get(key.as_concrete()?)
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+            .map(|value| DynamicValueRef::from(value))
     }
 
     fn len(&self) -> usize {
@@ -223,27 +223,22 @@ impl MapLike for dyn Map {
     }
 
     fn iter(&self) -> impl Iterator<Item = (DynamicValueRef<'_>, DynamicValueRef<'_>)> {
-        self.iter().map(|(k, v)| {
-            (
-                // TODO: Don't unwrap here.
-                DynamicValueRef::from(k.try_as_reflect().unwrap()),
-                DynamicValueRef::from(v.try_as_reflect().unwrap()),
-            )
-        })
+        self.iter()
+            .map(|(k, v)| (DynamicValueRef::from(k), DynamicValueRef::from(v)))
     }
 }
 
-/// Compares a [`Map`] with a [`PartialReflect`] value.
+/// Compares a [`Map`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a map;
 /// - `b` is the same length as `a`;
 /// - For each key-value pair in `a`, `b` contains a value for the given key,
-///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn map_partial_eq(a: &dyn Map, b: &dyn PartialReflect) -> Option<bool> {
+pub fn map_partial_eq(a: &dyn Map, b: &dyn Reflect) -> Option<bool> {
     let ReflectRef::Map(b) = b.reflect_ref() else {
         return Some(false);
     };
@@ -284,7 +279,7 @@ pub(crate) fn map_like_partial_eq<L: MapLike + ?Sized, R: MapLike + ?Sized>(
 /// Returns [`None`] if the comparison couldn't be performed (kinds mismatch or
 /// an element comparison returns `None`).
 #[inline]
-pub fn map_partial_cmp(a: &dyn Map, b: &dyn PartialReflect) -> Option<Ordering> {
+pub fn map_partial_cmp(a: &dyn Map, b: &dyn Reflect) -> Option<Ordering> {
     let ReflectRef::Map(b) = b.reflect_ref() else {
         return None;
     };

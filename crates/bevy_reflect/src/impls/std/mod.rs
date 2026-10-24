@@ -5,7 +5,7 @@ mod path;
 #[cfg(test)]
 mod tests {
     use crate::dynamic::DynamicValue;
-    use crate::{FromDynamic, PartialReflect};
+    use crate::{FromDynamic, Reflect};
     use std::collections::HashMap;
     use std::path::Path;
 
@@ -17,9 +17,9 @@ mod tests {
         let mut c = <HashMap<_, _>>::default();
         c.insert(0usize, 3.21_f64);
 
-        let a: &dyn PartialReflect = &a;
-        let b: &dyn PartialReflect = &b;
-        let c: &dyn PartialReflect = &c;
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }

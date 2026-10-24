@@ -18,7 +18,7 @@ use crate::{
     tuple_struct::{
         tuple_struct_like_partial_cmp, tuple_struct_like_partial_eq, TupleStruct, TupleStructInfo,
     },
-    ApplyError, PartialReflect, Reflect, ReflectCloneError, ReflectRef, TypeInfo, TypePath,
+    ApplyError, Reflect, ReflectCloneError, ReflectRef, TypeInfo, TypePath,
 };
 
 use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
@@ -57,11 +57,11 @@ pub enum DynamicValue {
 }
 
 impl DynamicValue {
-    /// Creates a dynamically-typed value equivalent to the provided [`PartialReflect`].
+    /// Creates a dynamically-typed value equivalent to the provided [`Reflect`].
     ///
     /// This function clones opaque fields out of the original `value`, which can fail if the
     /// original type does not implement [`Clone`].
-    pub fn try_from_reflect(value: &dyn PartialReflect) -> Result<Self, ReflectCloneError> {
+    pub fn try_from_reflect(value: &dyn Reflect) -> Result<Self, ReflectCloneError> {
         Ok(match value.reflect_ref() {
             ReflectRef::Struct(value) => Self::Struct(DynamicStruct::try_from_reflect(value)?),
             ReflectRef::TupleStruct(value) => {
@@ -125,7 +125,7 @@ impl DynamicValue {
 
     /// Attempts to clone this value's data.
     ///
-    /// Note: Any [`Self::Concrete`] variants first call [`PartialReflect::reflect_clone`], and then
+    /// Note: Any [`Self::Concrete`] variants first call [`Reflect::reflect_clone`], and then
     /// fallback to converting the value to a dynamic representation.
     pub fn dynamic_clone(&self) -> Result<Self, ReflectCloneError> {
         self.as_ref().dynamic_clone()
@@ -284,7 +284,7 @@ pub enum DynamicValueRef<'a> {
 impl<'b> DynamicValueRef<'b> {
     /// Attempts to clone this value's data.
     ///
-    /// Note: Any [`Self::Concrete`] variants first call [`PartialReflect::reflect_clone`], and then
+    /// Note: Any [`Self::Concrete`] variants first call [`Reflect::reflect_clone`], and then
     /// fallback to converting the value to a dynamic representation.
     pub fn dynamic_clone(&self) -> Result<DynamicValue, ReflectCloneError> {
         match self {
@@ -735,7 +735,7 @@ impl<'a> DynamicValueMut<'a> {
 
     /// Attempts to clone this value's data.
     ///
-    /// Note: Any [`Self::Concrete`] variants first call [`PartialReflect::reflect_clone`], and then
+    /// Note: Any [`Self::Concrete`] variants first call [`Reflect::reflect_clone`], and then
     /// fallback to converting the value to a dynamic representation.
     pub fn dynamic_clone(&self) -> Result<DynamicValue, ReflectCloneError> {
         self.as_ref().dynamic_clone()
@@ -865,7 +865,7 @@ impl DynamicStruct {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn Struct) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
         let mut fields = Vec::with_capacity(value.field_len());
         let mut field_names = Vec::with_capacity(value.field_len());
         let mut field_indices = HashMap::new();
@@ -892,9 +892,6 @@ impl DynamicStruct {
                 // TODO: Should this be an error?
                 continue;
             };
-            // This unwrap should be safe since the original value was `Reflect`, so all of
-            // its fields should also be `Reflect`.
-            let field = field.try_as_reflect_mut().unwrap();
             value.try_apply(field)?;
         }
         Ok(())
@@ -1076,7 +1073,7 @@ impl DynamicStruct {
     }
 
     /// Gets the type info of the represented struct, if this dynamic value represents a known type.
-    pub fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
+    pub fn reflect_struct_info(&self) -> Option<&'static StructInfo> {
         self.represented_type?.as_struct().ok()
     }
 }
@@ -1140,7 +1137,7 @@ impl DynamicTupleStruct {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn TupleStruct) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
 
         let mut fields = Vec::with_capacity(value.field_len());
         for field in value.iter_fields() {
@@ -1162,9 +1159,6 @@ impl DynamicTupleStruct {
                 // TODO: Should this be an error?
                 continue;
             };
-            // This unwrap should be safe since the original value was `Reflect`, so all of
-            // its fields should also be `Reflect`.
-            let field = field.try_as_reflect_mut().unwrap();
             value.try_apply(field)?;
         }
         Ok(())
@@ -1237,7 +1231,7 @@ impl DynamicTupleStruct {
 
     /// Gets the type info of the represented tuple struct, if this dynamic value represents a known
     /// type.
-    pub fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
+    pub fn reflect_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
         self.represented_type?.as_tuple_struct().ok()
     }
 }
@@ -1300,7 +1294,7 @@ impl DynamicTuple {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn Tuple) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
 
         let mut fields = Vec::with_capacity(value.field_len());
         for field in value.iter_fields() {
@@ -1322,9 +1316,6 @@ impl DynamicTuple {
                 // TODO: Should this be an error?
                 continue;
             };
-            // This unwrap should be safe since the original value was `Reflect`, so all of
-            // its fields should also be `Reflect`.
-            let field = field.try_as_reflect_mut().unwrap();
             value.try_apply(field)?;
         }
         Ok(())
@@ -1401,7 +1392,7 @@ impl DynamicTuple {
     }
 
     /// Gets the type info of the represented tuple, if this dynamic value represents a known type.
-    pub fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
+    pub fn reflect_tuple_info(&self) -> Option<&'static TupleInfo> {
         self.represented_type?.as_tuple().ok()
     }
 }
@@ -1451,7 +1442,7 @@ impl DynamicList {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn List) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
 
         let mut values = Vec::with_capacity(value.len());
         for value in value.iter() {
@@ -1474,9 +1465,6 @@ impl DynamicList {
                     // TODO: This should be an error. Their list impl is bad.
                     continue;
                 };
-                // This unwrap should be safe since the original value was `Reflect`, so all of
-                // its fields should also be `Reflect`.
-                let reflect_value = reflect_value.try_as_reflect_mut().unwrap();
                 value.try_apply(reflect_value)?;
             } else {
                 let value = match reflect.value_from_dynamic(value) {
@@ -1586,7 +1574,7 @@ impl DynamicList {
     }
 
     /// Gets the type info of the represented list, if this dynamic value represents a known type.
-    pub fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
+    pub fn reflect_list_info(&self) -> Option<&'static ListInfo> {
         self.represented_type?.as_list().ok()
     }
 }
@@ -1643,7 +1631,7 @@ impl DynamicArray {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn Array) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
 
         let mut values = Vec::with_capacity(value.len());
         for value in value.iter() {
@@ -1668,9 +1656,6 @@ impl DynamicArray {
         }
         for (index, value) in self.values.into_iter().enumerate() {
             let reflect_value = reflect.get_mut(index).unwrap();
-            // This unwrap should be safe since the original value was `Reflect`, so all of
-            // its values should also be `Reflect`.
-            let reflect_value = reflect_value.try_as_reflect_mut().unwrap();
             value.try_apply(reflect_value)?;
         }
         Ok(())
@@ -1765,7 +1750,7 @@ impl DynamicArray {
     }
 
     /// Gets the type info of the represented array, if this dynamic value represents a known type.
-    pub fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+    pub fn reflect_array_info(&self) -> Option<&'static ArrayInfo> {
         self.represented_type?.as_array().ok()
     }
 }
@@ -1819,7 +1804,7 @@ impl DynamicMap {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn Map) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
 
         Ok(Self {
             represented_type,
@@ -1841,8 +1826,6 @@ impl DynamicMap {
             if result.is_err() {
                 return true;
             }
-            let k = k.try_as_reflect().unwrap();
-            let v = v.try_as_reflect_mut().unwrap();
             let k_ref = DynamicValueRef::Concrete(k);
             let hash = DynamicMap::internal_hash(k_ref);
             let eq = DynamicMap::internal_eq(k_ref);
@@ -1864,10 +1847,7 @@ impl DynamicMap {
             let Some(value) = reflect.value_from_dynamic(value) else {
                 return Err(ApplyError::InvalidDynamicValueForCollection);
             };
-            reflect.insert_boxed(
-                key.try_into_reflect().unwrap(),
-                value.try_into_reflect().unwrap(),
-            );
+            reflect.insert_boxed(key, value);
         }
 
         Ok(())
@@ -2040,7 +2020,7 @@ impl DynamicMap {
     }
 
     /// Gets the type info of the represented map, if this dynamic value represents a known type.
-    pub fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
+    pub fn reflect_map_info(&self) -> Option<&'static MapInfo> {
         self.represented_type?.as_map().ok()
     }
 }
@@ -2091,7 +2071,7 @@ impl DynamicSet {
     /// This function clones opaque fields out of the original `value`, which can fail if a field
     /// does not implement [`Clone`].
     pub fn try_from_reflect(value: &dyn Set) -> Result<Self, ReflectCloneError> {
-        let represented_type = value.get_represented_type_info();
+        let represented_type = Some(value.reflect_type_info());
 
         Ok(Self {
             represented_type,
@@ -2106,7 +2086,6 @@ impl DynamicSet {
     /// If this function fails, the `reflect` may be partially mutated.
     pub fn try_apply(mut self, reflect: &mut dyn Set) -> Result<(), ApplyError> {
         reflect.retain(&mut |reflect_value| {
-            let reflect_value = reflect_value.try_as_reflect().unwrap();
             let reflect_value_ref = DynamicValueRef::Concrete(reflect_value);
             let hash = DynamicSet::internal_hash(reflect_value_ref);
             let eq = DynamicSet::internal_eq(reflect_value_ref);
@@ -2123,7 +2102,7 @@ impl DynamicSet {
             let Some(value) = reflect.value_from_dynamic(value) else {
                 return Err(ApplyError::InvalidDynamicValueForCollection);
             };
-            reflect.insert_boxed(value.try_into_reflect().unwrap());
+            reflect.insert_boxed(value);
         }
         Ok(())
     }
@@ -2274,7 +2253,7 @@ impl DynamicSet {
     }
 
     /// Gets the type info of the represented set, if this dynamic value represents a known type.
-    pub fn get_represented_set_info(&self) -> Option<&'static SetInfo> {
+    pub fn reflect_set_info(&self) -> Option<&'static SetInfo> {
         self.represented_type?.as_set().ok()
     }
 }

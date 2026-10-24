@@ -7,7 +7,7 @@ use crate::{
         DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
         IntoFunctionMut,
     },
-    ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ApplyError, MaybeTyped, Reflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, boxed::Box};
@@ -363,24 +363,24 @@ impl Function for DynamicFunction<'static> {
     }
 }
 
-impl PartialReflect for DynamicFunction<'static> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+impl Reflect for DynamicFunction<'static> {
+    fn reflect_type_info(&self) -> Option<&'static TypeInfo> {
         None
     }
 
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn Reflect> {
         self
     }
 
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+    fn as_partial_reflect(&self) -> &dyn Reflect {
         self
     }
 
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn Reflect {
         self
     }
 
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn Reflect>> {
         Err(self)
     }
 
@@ -392,7 +392,7 @@ impl PartialReflect for DynamicFunction<'static> {
         None
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         match value.reflect_ref() {
             ReflectRef::Function(func) => {
                 *self = func.to_dynamic_function();
@@ -425,7 +425,7 @@ impl PartialReflect for DynamicFunction<'static> {
         None
     }
 
-    fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
         None
     }
 

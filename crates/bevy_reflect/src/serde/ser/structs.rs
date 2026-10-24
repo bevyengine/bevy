@@ -19,15 +19,7 @@ impl<P: ReflectSerializerProcessor> Serialize for StructSerializer<'_, P> {
     where
         S: serde::Serializer,
     {
-        let type_info = self
-            .struct_value
-            .get_represented_type_info()
-            .ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "cannot get type info for `{}`",
-                    self.struct_value.reflect_type_path()
-                ))
-            })?;
+        let type_info = self.struct_value.reflect_type_info();
 
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,

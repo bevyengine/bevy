@@ -87,7 +87,7 @@ use super::ReflectDeserializerProcessor;
 ///
 /// // We can also do this dynamically with `ReflectFromDynamic`.
 /// let output = output.as_partial_reflect();
-/// let type_id = output.get_represented_type_info().unwrap().type_id();
+/// let type_id = output.reflect_type_info().unwrap().type_id();
 /// let reflect_from_dynamic = registry.get_type_data::<ReflectFromDynamic>(type_id).unwrap();
 /// let value: Box<dyn Reflect> = reflect_from_dynamic.from_dynamic(output).unwrap();
 /// assert!(value.is::<MyStruct>());
@@ -256,7 +256,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 ///
 /// // We can also do this dynamically with `ReflectFromDynamic`.
 /// let output = output.as_partial_reflect();
-/// let type_id = output.get_represented_type_info().unwrap().type_id();
+/// let type_id = output.reflect_type_info().unwrap().type_id();
 /// let reflect_from_dynamic = registry.get_type_data::<ReflectFromDynamic>(type_id).unwrap();
 /// let value: Box<dyn Reflect> = reflect_from_dynamic.from_dynamic(output).unwrap();
 /// assert!(value.is::<MyStruct>());

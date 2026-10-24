@@ -1,7 +1,7 @@
 //! Serde helpers for the inspection types, used via `#[serde(with = "...")]`.
 
 use bevy_ecs::{query::SpawnDetails, reflect::AppTypeRegistry, world::World};
-use bevy_reflect::{serde::TypedReflectSerializer, PartialReflect};
+use bevy_reflect::{serde::TypedReflectSerializer, Reflect};
 use serde::{ser::SerializeStruct, Serializer};
 
 /// Serializes a [`ComponentId`](bevy_ecs::component::ComponentId) as its integer index.
@@ -249,7 +249,7 @@ where
 /// Returns [`None`] if the type is unregistered or cannot be serialized.
 pub fn reflect_to_json_value(
     world: &World,
-    value: &dyn PartialReflect,
+    value: &dyn Reflect,
 ) -> Option<serde_json::Value> {
     let type_registry = world.get_resource::<AppTypeRegistry>()?;
     let type_registry = type_registry.read();

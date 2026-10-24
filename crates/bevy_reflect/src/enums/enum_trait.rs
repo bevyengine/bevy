@@ -5,7 +5,7 @@ use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     enums::{VariantInfo, VariantType},
     ty::impl_type_methods,
-    Generics, PartialReflect, Type, TypePath,
+    Generics, Reflect, Type, TypePath,
 };
 use alloc::{boxed::Box, format, string::String};
 use bevy_platform::collections::HashMap;
@@ -95,7 +95,7 @@ use core::slice::Iter;
 /// [`None`]: Option<T>::None
 /// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
-pub trait Enum: PartialReflect {
+pub trait Enum: Reflect {
     /// Sets this value to one constructed from `dynamic`.
     ///
     /// This is equivalent to calling [`FromDynamic`] and then assigning this value, but all
@@ -106,15 +106,15 @@ pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
+    fn field(&self, name: &str) -> Option<&dyn Reflect>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
     /// Returns the index of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
@@ -142,11 +142,9 @@ pub trait Enum: PartialReflect {
         format!("{}::{}", self.reflect_type_path(), self.variant_name())
     }
 
-    /// Will return `None` if [`TypeInfo`] is not available.
-    ///
-    /// [`TypeInfo`]: crate::TypeInfo
-    fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
-        self.get_represented_type_info()?.as_enum().ok()
+    /// Returns the [`EnumInfo`] for this type.
+    fn reflect_enum_info(&self) -> &'static EnumInfo {
+        self.reflect_type_info().as_enum().unwrap()
     }
 }
 
@@ -311,9 +309,9 @@ impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 /// A field in the current enum variant.
 pub enum VariantField<'a> {
     /// The name and value of a field in a struct variant.
-    Struct(&'a str, &'a dyn PartialReflect),
+    Struct(&'a str, &'a dyn Reflect),
     /// The value of a field in a tuple variant.
-    Tuple(&'a dyn PartialReflect),
+    Tuple(&'a dyn Reflect),
 }
 
 impl<'a> VariantField<'a> {
@@ -327,7 +325,7 @@ impl<'a> VariantField<'a> {
     }
 
     /// Gets a reference to the value of this field.
-    pub fn value(&self) -> &'a dyn PartialReflect {
+    pub fn value(&self) -> &'a dyn Reflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,
         }

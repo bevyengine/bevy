@@ -5,8 +5,9 @@
 //!
 //! Same as [`component`](`super::component`), but for messages.
 
-use crate::{message::Message, reflect::from_dynamic_with_fallback, world::World};
-use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, TypePath, TypeRegistry};
+use crate::{message::Message, world::World};
+use alloc::boxed::Box;
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 
 /// A struct used to operate on reflected [`Message`] trait of a type.
 ///
@@ -36,7 +37,7 @@ pub struct ReflectMessage(ReflectMessageFns);
 #[derive(Clone)]
 pub struct ReflectMessageFns {
     /// Function pointer implementing [`ReflectMessage::write_message`].
-    pub write_message: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
+    pub write_message: fn(&mut World, Box<dyn Reflect>),
 }
 
 impl ReflectMessageFns {
@@ -52,13 +53,8 @@ impl ReflectMessageFns {
 
 impl ReflectMessage {
     /// Triggers a reflected [`Message`] like [`write_message()`](World::write_message).
-    pub fn write_message(
-        &self,
-        world: &mut World,
-        message: &dyn PartialReflect,
-        registry: &TypeRegistry,
-    ) {
-        (self.0.write_message)(world, message, registry);
+    pub fn write_message(&self, world: &mut World, message: Box<dyn Reflect>) {
+        (self.0.write_message)(world, message);
     }
 
     /// Create a custom implementation of [`ReflectMessage`].
@@ -100,9 +96,8 @@ impl ReflectMessage {
 impl<M: Message + Reflect + TypePath> CreateTypeData<M> for ReflectMessage {
     fn create_type_data(_input: ()) -> Self {
         ReflectMessage(ReflectMessageFns {
-            write_message: |world, reflected_message, registry| {
-                let message = from_dynamic_with_fallback::<M>(reflected_message, world, registry);
-                world.write_message(message);
+            write_message: |world, message| {
+                world.write_message(message.take::<M>().unwrap());
             },
         })
     }

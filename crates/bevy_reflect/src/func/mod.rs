@@ -10,12 +10,12 @@
 //! via an [`ArgList`].
 //!
 //! This returns a [`FunctionResult`] containing the [`Return`] value,
-//! which can be used to extract a [`PartialReflect`] trait object.
+//! which can be used to extract a [`Reflect`] trait object.
 //!
 //! # Example
 //!
 //! ```
-//! # use bevy_reflect::PartialReflect;
+//! # use bevy_reflect::Reflect;
 //! # use bevy_reflect::func::args::ArgList;
 //! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
@@ -27,7 +27,7 @@
 //!   // Pushing a known type with owned ownership
 //!   .with_owned(25_i32)
 //!   // Pushing a reflected type with owned ownership
-//!   .with_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
+//!   .with_boxed(Box::new(75_i32) as Box<dyn Reflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
@@ -149,7 +149,7 @@
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&50));
 //! ```
 //!
-//! [`PartialReflect`]: crate::PartialReflect
+//! [`Reflect`]: crate::Reflect
 //! [`Reflect`]: crate::Reflect
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check

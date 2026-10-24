@@ -11,7 +11,7 @@ use bevy_reflect::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
         TypedReflectSerializer,
     },
-    PartialReflect, ReflectFromDynamic, TypeRegistry,
+    Reflect, ReflectFromDynamic, TypeRegistry,
 };
 use core::fmt::Formatter;
 use serde::{
@@ -161,7 +161,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// Note: The entries are sorted by type path before they're serialized.
 pub struct WorldMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn PartialReflect>],
+    pub entries: &'a [Box<dyn Reflect>],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
@@ -178,7 +178,7 @@ impl<'a> Serialize for WorldMapSerializer<'a> {
                 .iter()
                 .map(|entry| {
                     (
-                        entry.get_represented_type_info().unwrap().type_path(),
+                        entry.reflect_type_info().unwrap().type_path(),
                         entry.as_partial_reflect(),
                     )
                 })
@@ -468,7 +468,7 @@ pub struct WorldMapDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for WorldMapDeserializer<'a> {
-    type Value = Vec<Box<dyn PartialReflect>>;
+    type Value = Vec<Box<dyn Reflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -487,7 +487,7 @@ struct WorldMapVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
-    type Value = Vec<Box<dyn PartialReflect>>;
+    type Value = Vec<Box<dyn Reflect>>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map of reflect types")
@@ -1009,13 +1009,13 @@ mod tests {
                     .components
                     .iter()
                     .find(|component| {
-                        component.get_represented_type_info().unwrap().type_path()
-                            == expected.get_represented_type_info().unwrap().type_path()
+                        component.reflect_type_info().unwrap().type_path()
+                            == expected.reflect_type_info().unwrap().type_path()
                     })
                     .unwrap_or_else(|| {
                         panic!(
                             "missing component (expected: `{}`)",
-                            expected.get_represented_type_info().unwrap().type_path()
+                            expected.reflect_type_info().unwrap().type_path()
                         )
                     });
 

@@ -20,15 +20,14 @@ mod tests {
     use crate::{
         dynamic::DynamicValue,
         enums::{Enum, VariantInfo, VariantType},
-        FromDynamic, PartialReflect, TypeInfo, Typed,
+        FromDynamic, Reflect, TypeInfo, Typed,
     };
-    use bevy_reflect_derive::Reflect;
     use static_assertions::assert_impl_all;
 
     #[test]
     fn should_partial_eq_option() {
-        let a: &dyn PartialReflect = &Some(123);
-        let b: &dyn PartialReflect = &Some(123);
+        let a: &dyn Reflect = &Some(123);
+        let b: &dyn Reflect = &Some(123);
         assert_eq!(Some(true), a.reflect_partial_eq(b));
     }
 
@@ -51,7 +50,7 @@ mod tests {
         if value.is_variant(VariantType::Tuple) {
             if let Some(field) = value
                 .field_at_mut(0)
-                .and_then(|field| field.try_downcast_mut::<usize>())
+                .and_then(|field| field.downcast_mut::<usize>())
             {
                 *field = 321;
             }

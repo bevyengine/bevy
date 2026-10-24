@@ -1,6 +1,6 @@
 use crate::{
     func::args::{ArgError, FromArg, Ownership},
-    PartialReflect, Reflect, TypePath,
+    Reflect, Reflect, TypePath,
 };
 use alloc::{boxed::Box, string::ToString};
 use core::ops::Deref;
@@ -197,15 +197,15 @@ impl<'a> Arg<'a> {
 #[derive(Debug)]
 pub enum ArgValue<'a> {
     /// An owned argument.
-    Owned(Box<dyn PartialReflect>),
+    Owned(Box<dyn Reflect>),
     /// An immutable reference argument.
-    Ref(&'a dyn PartialReflect),
+    Ref(&'a dyn Reflect),
     /// A mutable reference argument.
-    Mut(&'a mut dyn PartialReflect),
+    Mut(&'a mut dyn Reflect),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn PartialReflect;
+    type Target = dyn Reflect;
 
     fn deref(&self) -> &Self::Target {
         match self {

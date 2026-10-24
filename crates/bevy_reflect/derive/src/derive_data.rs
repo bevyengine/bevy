@@ -729,7 +729,7 @@ impl<'a> ReflectStruct<'a> {
                         }
                     } else {
                         quote! {
-                            <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#accessor)?
+                            <#field_ty as #bevy_reflect_path::Reflect>::reflect_clone_and_take(#accessor)?
                         }
                     };
 

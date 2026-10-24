@@ -6,7 +6,7 @@
 //! Same as [`component`](`super::component`), but for bundles.
 use alloc::boxed::Box;
 use bevy_utils::prelude::DebugName;
-use core::any::{Any, TypeId};
+use core::any::TypeId;
 
 use crate::{
     bundle::BundleFromComponents,
@@ -15,9 +15,9 @@ use crate::{
     relationship::RelationshipHookMode,
     world::{EntityMut, EntityWorldMut},
 };
-use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry};
+use bevy_reflect::{dynamic::DynamicValue, CreateTypeData, Reflect, TypePath, TypeRegistry};
 
-use super::{from_dynamic_with_fallback, ReflectComponent};
+use super::ReflectComponent;
 
 /// A struct used to operate on reflected [`Bundle`] trait of a type.
 ///
@@ -32,13 +32,13 @@ pub struct ReflectBundle(ReflectBundleFns);
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert`].
-    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, Box<dyn Reflect>),
     /// Function pointer implementing [`ReflectBundle::apply`].
-    pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
+    pub apply: fn(EntityMut, DynamicValue, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert_mapped`].
     pub apply_or_insert_mapped: fn(
         &mut EntityWorldMut,
-        &dyn PartialReflect,
+        DynamicValue,
         &TypeRegistry,
         &mut dyn EntityMapper,
         RelationshipHookMode,
@@ -62,13 +62,8 @@ impl ReflectBundleFns {
 
 impl ReflectBundle {
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
-    pub fn insert(
-        &self,
-        entity: &mut EntityWorldMut,
-        bundle: &dyn PartialReflect,
-        registry: &TypeRegistry,
-    ) {
-        (self.0.insert)(entity, bundle, registry);
+    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: Box<dyn Reflect>) {
+        (self.0.insert)(entity, bundle);
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value.
@@ -79,22 +74,28 @@ impl ReflectBundle {
     pub fn apply<'a>(
         &self,
         entity: impl Into<EntityMut<'a>>,
-        bundle: &dyn PartialReflect,
+        dynamic_value: impl Into<DynamicValue>,
         registry: &TypeRegistry,
     ) {
-        (self.0.apply)(entity.into(), bundle, registry);
+        (self.0.apply)(entity.into(), dynamic_value.into(), registry);
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
     pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
-        bundle: &dyn PartialReflect,
+        dynamic_value: impl Into<DynamicValue>,
         registry: &TypeRegistry,
         mapper: &mut dyn EntityMapper,
         relationship_hook_mode: RelationshipHookMode,
     ) {
-        (self.0.apply_or_insert_mapped)(entity, bundle, registry, mapper, relationship_hook_mode);
+        (self.0.apply_or_insert_mapped)(
+            entity,
+            dynamic_value.into(),
+            registry,
+            mapper,
+            relationship_hook_mode,
+        );
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
@@ -149,24 +150,27 @@ impl ReflectBundle {
 impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> for ReflectBundle {
     fn create_type_data(_input: ()) -> Self {
         ReflectBundle(ReflectBundleFns {
-            insert: |entity, reflected_bundle, registry| {
-                let bundle = entity.world_scope(|world| {
-                    from_dynamic_with_fallback::<B>(reflected_bundle, world, registry)
-                });
-                entity.insert(bundle);
+            insert: |entity, reflect| {
+                entity.insert(reflect.take::<B>().unwrap());
             },
-            apply: |mut entity, reflected_bundle, registry| {
+            apply: |mut entity, mut dynamic_value, registry| {
                 if let Some(reflect_component) =
                     registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
-                    reflect_component.apply(entity, reflected_bundle);
+                    reflect_component.apply(entity, dynamic_value);
                 } else {
-                    match reflected_bundle.reflect_ref() {
-                        ReflectRef::Struct(bundle) => bundle
-                            .iter_fields()
+                    // TODO: This sucks. We should ideally be able to break apart the bundle into
+                    // its component values so we can iterate them and apply each independently or
+                    // something.
+                    if let Some(concrete) = dynamic_value.as_concrete() {
+                        dynamic_value = DynamicValue::try_from_reflect(concrete).unwrap();
+                    }
+                    match dynamic_value {
+                        DynamicValue::Struct(bundle) => bundle
+                            .into_iter()
                             .for_each(|(_, field)| apply_field(&mut entity, field, registry)),
-                        ReflectRef::Tuple(bundle) => bundle
-                            .iter_fields()
+                        DynamicValue::Tuple(bundle) => bundle
+                            .into_iter()
                             .for_each(|field| apply_field(&mut entity, field, registry)),
                         _ => panic!(
                             "expected bundle `{}` to be named struct or tuple",
@@ -177,7 +181,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> fo
                 }
             },
             apply_or_insert_mapped: |entity,
-                                     reflected_bundle,
+                                     mut dynamic_value,
                                      registry,
                                      mapper,
                                      relationship_hook_mode| {
@@ -186,15 +190,21 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> fo
                 {
                     reflect_component.apply_or_insert_mapped(
                         entity,
-                        reflected_bundle,
+                        dynamic_value,
                         registry,
                         mapper,
                         relationship_hook_mode,
                     );
                 } else {
-                    match reflected_bundle.reflect_ref() {
-                        ReflectRef::Struct(bundle) => {
-                            bundle.iter_fields().for_each(|(_, field)| {
+                    // TODO: This sucks. We should ideally be able to break apart the bundle into
+                    // its component values so we can iterate them and apply each independently or
+                    // something.
+                    if let Some(concrete) = dynamic_value.as_concrete() {
+                        dynamic_value = DynamicValue::try_from_reflect(concrete).unwrap();
+                    }
+                    match dynamic_value {
+                        DynamicValue::Struct(bundle) => {
+                            bundle.into_iter().for_each(|(_, field)| {
                                 apply_or_insert_field_mapped(
                                     entity,
                                     field,
@@ -204,7 +214,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> fo
                                 );
                             });
                         }
-                        ReflectRef::Tuple(bundle) => bundle.iter_fields().for_each(|field| {
+                        DynamicValue::Tuple(bundle) => bundle.into_iter().for_each(|field| {
                             apply_or_insert_field_mapped(
                                 entity,
                                 field,
@@ -233,43 +243,41 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> fo
     }
 }
 
-fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
-    let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
-        panic!(
-            "`{}` did not implement `Reflect`",
-            field.reflect_type_path()
-        );
+fn apply_field(entity: &mut EntityMut, field: DynamicValue, registry: &TypeRegistry) {
+    let concrete = match field {
+        DynamicValue::Concrete(concrete) => concrete,
+        other => panic!("`{:?}` did not implement `Reflect`", other),
     };
+    let type_id = concrete.type_id();
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
-        reflect_component.apply(entity.reborrow(), field);
+        reflect_component.apply(entity.reborrow(), concrete);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
-        reflect_bundle.apply(entity.reborrow(), field, registry);
+        reflect_bundle.apply(entity.reborrow(), concrete, registry);
     } else {
         panic!(
             "no `ReflectComponent` nor `ReflectBundle` registration found for `{}`",
-            field.reflect_type_path()
+            concrete.reflect_type_path()
         );
     }
 }
 
 fn apply_or_insert_field_mapped(
     entity: &mut EntityWorldMut,
-    field: &dyn PartialReflect,
+    field: DynamicValue,
     registry: &TypeRegistry,
     mapper: &mut dyn EntityMapper,
     relationship_hook_mode: RelationshipHookMode,
 ) {
-    let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
-        panic!(
-            "`{}` did not implement `Reflect`",
-            field.reflect_type_path()
-        );
+    let concrete = match field {
+        DynamicValue::Concrete(concrete) => concrete,
+        other => panic!("`{:?}` did not implement `Reflect`", other),
     };
+    let type_id = concrete.type_id();
 
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
         reflect_component.apply_or_insert_mapped(
             entity,
-            field,
+            concrete,
             registry,
             mapper,
             relationship_hook_mode,
@@ -277,7 +285,7 @@ fn apply_or_insert_field_mapped(
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
         reflect_bundle.apply_or_insert_mapped(
             entity,
-            field,
+            concrete,
             registry,
             mapper,
             relationship_hook_mode,
@@ -288,12 +296,12 @@ fn apply_or_insert_field_mapped(
         if is_component {
             panic!(
                 "no `ReflectComponent` registration found for `{}`",
-                field.reflect_type_path(),
+                concrete.reflect_type_path(),
             );
         }
         panic!(
             "no `ReflectBundle` registration found for `{}`",
-            field.reflect_type_path(),
+            concrete.reflect_type_path(),
         )
     }
 }

@@ -70,7 +70,9 @@ use crate::{
     },
 };
 use alloc::boxed::Box;
-use bevy_reflect::{CreateTypeData, FromDynamic, PartialReflect, Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{
+    dynamic::DynamicValue, CreateTypeData, FromDynamic, Reflect, TypePath, TypeRegistry,
+};
 use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
@@ -103,13 +105,13 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, Box<dyn Reflect>),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(EntityMut, &dyn PartialReflect),
+    pub apply: fn(EntityMut, DynamicValue),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert_mapped()`].
     pub apply_or_insert_mapped: fn(
         &mut EntityWorldMut,
-        &dyn PartialReflect,
+        DynamicValue,
         &TypeRegistry,
         &mut dyn EntityMapper,
         RelationshipHookMode,
@@ -150,13 +152,8 @@ impl ReflectComponentFns {
 
 impl ReflectComponent {
     /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
-    pub fn insert(
-        &self,
-        entity: &mut EntityWorldMut,
-        component: &dyn PartialReflect,
-        registry: &TypeRegistry,
-    ) {
-        (self.0.insert)(entity, component, registry);
+    pub fn insert(&self, entity: &mut EntityWorldMut, component: Box<dyn Reflect>) {
+        (self.0.insert)(entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value.
@@ -166,8 +163,8 @@ impl ReflectComponent {
     /// Panics if there is no [`Component`] of the given type.
     ///
     /// Will also panic if [`Component`] is immutable.
-    pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: &dyn PartialReflect) {
-        (self.0.apply)(entity.into(), component);
+    pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: impl Into<DynamicValue>) {
+        (self.0.apply)(entity.into(), component.into());
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
@@ -178,12 +175,18 @@ impl ReflectComponent {
     pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
-        component: &dyn PartialReflect,
+        component: impl Into<DynamicValue>,
         registry: &TypeRegistry,
         map: &mut dyn EntityMapper,
         relationship_hook_mode: RelationshipHookMode,
     ) {
-        (self.0.apply_or_insert_mapped)(entity, component, registry, map, relationship_hook_mode);
+        (self.0.apply_or_insert_mapped)(
+            entity,
+            component.into(),
+            registry,
+            map,
+            relationship_hook_mode,
+        );
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
@@ -311,13 +314,10 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
         // TODO: Currently we panic if a component is immutable and you use
         // reflection to mutate it. Perhaps the mutation methods should be fallible?
         ReflectComponent(ReflectComponentFns {
-            insert: |entity, reflected_component, registry| {
-                let component = entity.world_scope(|world| {
-                    from_dynamic_with_fallback::<C>(reflected_component, world, registry)
-                });
-                entity.insert(component);
+            insert: |entity, reflect| {
+                entity.insert(reflect.take::<C>().unwrap());
             },
-            apply: |mut entity, reflected_component| {
+            apply: |mut entity, dynamic_value| {
                 if !C::Mutability::MUTABLE {
                     let name = DebugName::type_name::<C>();
                     let name = name.shortname();
@@ -325,22 +325,23 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
                 }
 
                 // SAFETY: guard ensures `C` is a mutable component
-                let mut component = unsafe { entity.get_mut_assume_mutable::<C>() }.unwrap();
-                component.apply(reflected_component);
+                let component = unsafe { entity.get_mut_assume_mutable::<C>() }.unwrap();
+                dynamic_value.try_apply(component.into_inner()).unwrap();
             },
             apply_or_insert_mapped: |entity,
-                                     reflected_component,
+                                     dynamic_value,
                                      registry,
                                      mut mapper,
                                      relationship_hook_mode| {
                 if C::Mutability::MUTABLE {
                     // SAFETY: guard ensures `C` is a mutable component
-                    if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
-                        component.apply(reflected_component.as_partial_reflect());
-                        C::map_entities(&mut component, &mut mapper);
+                    if let Some(component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
+                        let component = component.into_inner();
+                        dynamic_value.try_apply(component).unwrap();
+                        C::map_entities(component, &mut mapper);
                     } else {
                         let mut component = entity.world_scope(|world| {
-                            from_dynamic_with_fallback::<C>(reflected_component, world, registry)
+                            from_dynamic_with_fallback::<C>(dynamic_value, world, registry)
                         });
                         C::map_entities(&mut component, &mut mapper);
                         entity
@@ -348,7 +349,7 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
                     }
                 } else {
                     let mut component = entity.world_scope(|world| {
-                        from_dynamic_with_fallback::<C>(reflected_component, world, registry)
+                        from_dynamic_with_fallback::<C>(dynamic_value, world, registry)
                     });
                     C::map_entities(&mut component, &mut mapper);
                     entity.insert_with_relationship_hook_mode(component, relationship_hook_mode);
@@ -365,8 +366,11 @@ impl<C: Component + Reflect + TypePath> CreateTypeData<C> for ReflectComponent {
             contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity, registry| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let destination_component =
-                    from_dynamic_with_fallback::<C>(source_component, destination_world, registry);
+                let destination_component = from_dynamic_with_fallback::<C>(
+                    DynamicValue::try_from_reflect(source_component).unwrap(),
+                    destination_world,
+                    registry,
+                );
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);

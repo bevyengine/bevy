@@ -22,9 +22,9 @@ mod incorrect_inner_type {
     use bevy_reflect::{reflect_remote, FromDynamic, GetTypeRegistration, Reflect};
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-    //~^ ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
-    //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
-    //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
+    //~^ ERROR: `TheirInner<T>` does not implement `Reflect` so cannot be introspected
+    //~| ERROR: `TheirInner<T>` does not implement `Reflect` so cannot be introspected
+    //~| ERROR: `TheirInner<T>` does not implement `Reflect` so cannot be introspected
     //~| ERROR: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
     //~| ERROR: `?` operator has incompatible types
     //~| ERROR: mismatched types

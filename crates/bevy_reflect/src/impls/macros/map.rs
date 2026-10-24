@@ -3,118 +3,153 @@ macro_rules! impl_reflect_for_hashmap {
         const _: () = {
             impl<K, V, S> $crate::map::Map for $ty
             where
-                K: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration
+                    + Eq
+                    + core::hash::Hash,
+                V: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn key_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    K::from_dynamic(dynamic).map(|value| bevy_platform::prelude::Box::new(value) as _)
+                fn key_from_dynamic(
+                    &self,
+                    dynamic: $crate::dynamic::DynamicValue,
+                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>> {
+                    K::from_dynamic(dynamic)
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
                 }
 
-                fn value_from_dynamic(&self, dynamic: $crate::dynamic::DynamicValue) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    V::from_dynamic(dynamic).map(|value| bevy_platform::prelude::Box::new(value) as _)
+                fn value_from_dynamic(
+                    &self,
+                    dynamic: $crate::dynamic::DynamicValue,
+                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>> {
+                    V::from_dynamic(dynamic)
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
                 }
 
-                fn get(&self, key: &dyn $crate::reflect::PartialReflect) -> Option<&dyn $crate::reflect::PartialReflect> {
-                    key.try_downcast_ref::<K>()
+                fn get(
+                    &self,
+                    key: &dyn $crate::reflect::Reflect,
+                ) -> Option<&dyn $crate::reflect::Reflect> {
+                    key.downcast_ref::<K>()
                         .and_then(|key| Self::get(self, key))
-                        .map(|value| value as &dyn $crate::reflect::PartialReflect)
+                        .map(|value| value as &dyn $crate::reflect::Reflect)
                 }
 
-                fn get_mut(&mut self, key: &dyn $crate::reflect::PartialReflect) -> Option<&mut dyn $crate::reflect::PartialReflect> {
-                    key.try_downcast_ref::<K>()
+                fn get_mut(
+                    &mut self,
+                    key: &dyn $crate::reflect::Reflect,
+                ) -> Option<&mut dyn $crate::reflect::Reflect> {
+                    key.downcast_ref::<K>()
                         .and_then(move |key| Self::get_mut(self, key))
-                        .map(|value| value as &mut dyn $crate::reflect::PartialReflect)
+                        .map(|value| value as &mut dyn $crate::reflect::Reflect)
                 }
 
                 fn len(&self) -> usize {
                     Self::len(self)
                 }
 
-                fn iter(&self) -> bevy_platform::prelude::Box<dyn Iterator<Item = (&dyn $crate::reflect::PartialReflect, &dyn $crate::reflect::PartialReflect)> + '_> {
-                    bevy_platform::prelude::Box::new(self.iter().map(|(k, v)| (k as &dyn $crate::reflect::PartialReflect, v as &dyn $crate::reflect::PartialReflect)))
+                fn iter(
+                    &self,
+                ) -> bevy_platform::prelude::Box<
+                    dyn Iterator<
+                            Item = (&dyn $crate::reflect::Reflect, &dyn $crate::reflect::Reflect),
+                        > + '_,
+                > {
+                    bevy_platform::prelude::Box::new(self.iter().map(|(k, v)| {
+                        (
+                            k as &dyn $crate::reflect::Reflect,
+                            v as &dyn $crate::reflect::Reflect,
+                        )
+                    }))
                 }
 
-                fn drain(&mut self) -> bevy_platform::prelude::Vec<(bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>, bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>)> {
+                fn drain(
+                    &mut self,
+                ) -> bevy_platform::prelude::Vec<(
+                    bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                    bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                )> {
                     self.drain()
                         .map(|(key, value)| {
                             (
-                                bevy_platform::prelude::Box::new(key) as bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>,
-                                bevy_platform::prelude::Box::new(value) as bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>,
+                                bevy_platform::prelude::Box::new(key)
+                                    as bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                                bevy_platform::prelude::Box::new(value)
+                                    as bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
                             )
                         })
                         .collect()
                 }
 
-                fn retain(&mut self, f: &mut dyn FnMut(&dyn $crate::reflect::PartialReflect, &mut dyn $crate::reflect::PartialReflect) -> bool) {
+                fn retain(
+                    &mut self,
+                    f: &mut dyn FnMut(
+                        &dyn $crate::reflect::Reflect,
+                        &mut dyn $crate::reflect::Reflect,
+                    ) -> bool,
+                ) {
                     self.retain(move |key, value| f(key, value));
                 }
 
                 fn insert_boxed(
                     &mut self,
-                    key: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>,
-                    value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>,
-                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    let key = *key.try_downcast::<K>().unwrap_or_else(|key| {
+                    key: bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                    value: bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>> {
+                    let key = *key.downcast::<K>().unwrap_or_else(|key| {
                         panic!(
                             "Attempted to insert invalid key of type {}.",
                             key.reflect_type_path()
                         )
                     });
-                    let value = *value.try_downcast::<V>().unwrap_or_else(|value| {
+                    let value = *value.downcast::<V>().unwrap_or_else(|value| {
                         panic!(
                             "Attempted to insert invalid value of type {}.",
                             value.reflect_type_path()
                         )
                     });
-                    self.insert(key, value)
-                        .map(|old_value| bevy_platform::prelude::Box::new(old_value) as bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>)
+                    self.insert(key, value).map(|old_value| {
+                        bevy_platform::prelude::Box::new(old_value)
+                            as bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>
+                    })
                 }
 
-                fn remove(&mut self, key: &dyn $crate::reflect::PartialReflect) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    key.try_downcast_ref::<K>()
+                fn remove(
+                    &mut self,
+                    key: &dyn $crate::reflect::Reflect,
+                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>> {
+                    key.downcast_ref::<K>()
                         .and_then(|key| self.remove(key))
-                        .map(|value| bevy_platform::prelude::Box::new(value) as bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>)
+                        .map(|value| {
+                            bevy_platform::prelude::Box::new(value)
+                                as bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>
+                        })
                 }
             }
 
-            impl<K, V, S> $crate::reflect::PartialReflect for $ty
+            impl<K, V, S> $crate::reflect::Reflect for $ty
             where
-                K: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration
+                    + Eq
+                    + core::hash::Hash,
+                V: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
-                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
-                    Some(<Self as $crate::info::Typed>::type_info())
-                }
-
-                #[inline]
-                fn into_partial_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect> {
-                    self
-                }
-
-                fn as_partial_reflect(&self) -> &dyn $crate::reflect::PartialReflect {
-                    self
-                }
-
-                fn as_partial_reflect_mut(&mut self) -> &mut dyn $crate::reflect::PartialReflect {
-                    self
-                }
-
-                fn try_into_reflect(
-                    self: bevy_platform::prelude::Box<Self>,
-                ) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    Ok(self)
-                }
-
-                fn try_as_reflect(&self) -> Option<&dyn $crate::reflect::Reflect> {
-                    Some(self)
-                }
-
-                fn try_as_reflect_mut(&mut self) -> Option<&mut dyn $crate::reflect::Reflect> {
-                    Some(self)
-                }
-
                 fn reflect_kind(&self) -> $crate::kind::ReflectKind {
                     $crate::kind::ReflectKind::Map
                 }
@@ -127,11 +162,18 @@ macro_rules! impl_reflect_for_hashmap {
                     $crate::kind::ReflectMut::Map(self)
                 }
 
-                fn reflect_owned(self: bevy_platform::prelude::Box<Self>) -> $crate::kind::ReflectOwned {
+                fn reflect_owned(
+                    self: bevy_platform::prelude::Box<Self>,
+                ) -> $crate::kind::ReflectOwned {
                     $crate::kind::ReflectOwned::Map(self)
                 }
 
-                fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
+                fn reflect_clone(
+                    &self,
+                ) -> Result<
+                    bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                    $crate::error::ReflectCloneError,
+                > {
                     let mut map = Self::with_capacity_and_hasher(self.len(), S::default());
                     for (key, value) in self.iter() {
                         let key = key.reflect_clone_and_take()?;
@@ -142,33 +184,40 @@ macro_rules! impl_reflect_for_hashmap {
                     Ok(bevy_platform::prelude::Box::new(map))
                 }
 
-                fn reflect_partial_eq(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<bool> {
+                fn reflect_partial_eq(&self, value: &dyn $crate::reflect::Reflect) -> Option<bool> {
                     $crate::map::map_partial_eq(self, value)
                 }
-            }
 
-            $crate::impl_full_reflect!(
-                <K, V, S> for $ty
-                where
-                    K: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                    V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
-                    S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
-            );
+                $crate::impl_reflect_casts! {}
+            }
 
             impl<K, V, S> $crate::info::Typed for $ty
             where
-                K: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration
+                    + Eq
+                    + core::hash::Hash,
+                V: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn type_info() -> &'static $crate::info::TypeInfo {
-                    static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
+                    static CELL: $crate::utility::GenericTypeInfoCell =
+                        $crate::utility::GenericTypeInfoCell::new();
                     CELL.get_or_insert::<Self, _>(|| {
                         $crate::info::TypeInfo::Map(
-                            $crate::map::MapInfo::new::<Self, K, V>().with_generics($crate::generics::Generics::from_iter([
-                                $crate::generics::TypeParamInfo::new::<K>("K"),
-                                $crate::generics::TypeParamInfo::new::<V>("V"),
-                            ])),
+                            $crate::map::MapInfo::new::<Self, K, V>().with_generics(
+                                $crate::generics::Generics::from_iter([
+                                    $crate::generics::TypeParamInfo::new::<K>("K"),
+                                    $crate::generics::TypeParamInfo::new::<V>("V"),
+                                ]),
+                            ),
                         )
                     })
                 }
@@ -176,14 +225,31 @@ macro_rules! impl_reflect_for_hashmap {
 
             impl<K, V, S> $crate::type_registry::GetTypeRegistration for $ty
             where
-                K: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::Reflect + $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
-                S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync + Default,
+                K: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration
+                    + Eq
+                    + core::hash::Hash,
+                V: $crate::Reflect
+                    + $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration,
+                S: $crate::type_path::TypePath
+                    + core::hash::BuildHasher
+                    + Default
+                    + Send
+                    + Sync
+                    + Default,
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<Self>();
-                    registration.register_type_data::<$crate::type_registry::ReflectFromPtr, Self>();
-                    registration.register_type_data::<$crate::from_dynamic::ReflectFromDynamic, Self>();
+                    registration
+                        .register_type_data::<$crate::type_registry::ReflectFromPtr, Self>();
+                    registration
+                        .register_type_data::<$crate::from_dynamic::ReflectFromDynamic, Self>();
                     registration
                 }
 
@@ -195,14 +261,24 @@ macro_rules! impl_reflect_for_hashmap {
 
             impl<K, V, S> $crate::from_dynamic::FromDynamic for $ty
             where
-                K: $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration + Eq + core::hash::Hash,
-                V: $crate::from_dynamic::FromDynamic + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration,
+                K: $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration
+                    + Eq
+                    + core::hash::Hash,
+                V: $crate::from_dynamic::FromDynamic
+                    + $crate::info::MaybeTyped
+                    + $crate::type_path::TypePath
+                    + $crate::type_registry::GetTypeRegistration,
                 S: $crate::type_path::TypePath + core::hash::BuildHasher + Default + Send + Sync,
             {
                 fn from_dynamic(dynamic: $crate::dynamic::DynamicValue) -> Option<Self> {
                     let dynamic = match dynamic {
                         $crate::dynamic::DynamicValue::Map(dynamic) => dynamic,
-                        $crate::dynamic::DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+                        $crate::dynamic::DynamicValue::Concrete(concrete) => {
+                            return concrete.downcast().ok().map(|v| *v)
+                        }
                         _ => return None,
                     };
 

@@ -274,7 +274,7 @@ impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
         match &field.field.attrs.clone {
             CloneBehavior::Default => {
                 quote! {
-                    <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#alias)?
+                    <#field_ty as #bevy_reflect_path::Reflect>::reflect_clone_and_take(#alias)?
                 }
             }
             CloneBehavior::Trait => {

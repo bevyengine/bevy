@@ -9,7 +9,7 @@ use bevy::{
     reflect::{
         dynamic::DynamicStruct,
         serde::{ReflectDeserializer, ReflectSerializer},
-        PartialReflect,
+        Reflect,
     },
 };
 use serde::de::DeserializeSeed;
@@ -64,18 +64,15 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     assert_eq!(value.a, 2);
     assert_eq!(*value.get_field::<usize>("a").unwrap(), 2);
 
-    // You can also get the `&dyn PartialReflect` value of a field like this
+    // You can also get the `&dyn Reflect` value of a field like this
     let field = value.field("a").unwrap();
 
-    // But values introspected via `PartialReflect` will not return `dyn Reflect` trait objects
+    // But values introspected via `Reflect` will not return `dyn Reflect` trait objects
     // (even if the containing type does implement `Reflect`), so we need to convert them:
     let fully_reflected_field = field.try_as_reflect().unwrap();
 
     // Now, you can downcast your `Reflect` value like this:
     assert_eq!(*fully_reflected_field.downcast_ref::<usize>().unwrap(), 2);
-
-    // For this specific case, we also support the shortcut `try_downcast_ref`:
-    assert_eq!(*field.try_downcast_ref::<usize>().unwrap(), 2);
 
     // `DynamicStruct` also implements the `Struct` and `Reflect` traits.
     let mut patch = DynamicStruct::default();

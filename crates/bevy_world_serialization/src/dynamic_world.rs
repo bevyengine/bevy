@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
+use bevy_reflect::{Reflect, TypePath, TypeRegistry};
 
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
@@ -24,7 +24,7 @@ use {crate::serde::DynamicWorldSerializer, serde::Serialize};
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicWorld {
     /// Resources stored in the dynamic world.
-    pub resources: Vec<Box<dyn PartialReflect>>,
+    pub resources: Vec<Box<dyn Reflect>>,
     /// Entities contained in the dynamic world.
     pub entities: Vec<DynamicEntity>,
 }
@@ -36,8 +36,8 @@ pub struct DynamicEntity {
     /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
-    /// implement the [`PartialReflect`] trait.
-    pub components: Vec<Box<dyn PartialReflect>>,
+    /// implement the [`Reflect`] trait.
+    pub components: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicWorld {
@@ -114,7 +114,7 @@ impl DynamicWorld {
 
             // Apply/ add each component to the given entity.
             for component in &dynamic_entity.components {
-                let type_info = component.get_represented_type_info().ok_or_else(|| {
+                let type_info = component.reflect_type_info().ok_or_else(|| {
                     WorldInstanceSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
                     }
@@ -160,7 +160,7 @@ impl DynamicWorld {
         // Insert resources after all entities have been added to the world.
         // This ensures the entities are available for the resources to reference during mapping.
         for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+            let type_info = resource.reflect_type_info().ok_or_else(|| {
                 WorldInstanceSpawnError::NoRepresentedType {
                     type_path: resource.reflect_type_path().to_string(),
                 }

@@ -1,6 +1,6 @@
 use serde::Serializer;
 
-use crate::{PartialReflect, TypeRegistry};
+use crate::{Reflect, TypeRegistry};
 
 /// Allows overriding the default serialization behavior of
 /// [`ReflectSerializer`] and [`TypedReflectSerializer`] for specific values.
@@ -44,7 +44,7 @@ use crate::{PartialReflect, TypeRegistry};
 /// ```
 /// # use core::any::Any;
 /// # use serde::Serialize;
-/// # use bevy_reflect::{PartialReflect, Reflect, TypeData, TypeRegistry};
+/// # use bevy_reflect::{Reflect, Reflect, TypeData, TypeRegistry};
 /// # use bevy_reflect::serde::{ReflectSerializer, ReflectSerializerProcessor};
 /// #
 /// # #[derive(Debug, Clone, Reflect)]
@@ -84,7 +84,7 @@ use crate::{PartialReflect, TypeRegistry};
 /// impl ReflectSerializerProcessor for HandleProcessor {
 ///     fn try_serialize<S>(
 ///         &self,
-///         value: &dyn PartialReflect,
+///         value: &dyn Reflect,
 ///         registry: &TypeRegistry,
 ///         serializer: S,
 ///     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -143,7 +143,7 @@ pub trait ReflectSerializerProcessor {
     /// serializing, or just try to downcast the value directly:
     ///
     /// ```
-    /// # use bevy_reflect::{TypeRegistration, TypeRegistry, PartialReflect};
+    /// # use bevy_reflect::{TypeRegistration, TypeRegistry, Reflect};
     /// # use bevy_reflect::serde::ReflectSerializerProcessor;
     /// # use core::any::TypeId;
     /// struct I32AsStringProcessor;
@@ -151,7 +151,7 @@ pub trait ReflectSerializerProcessor {
     /// impl ReflectSerializerProcessor for I32AsStringProcessor {
     ///     fn try_serialize<S>(
     ///         &self,
-    ///         value: &dyn PartialReflect,
+    ///         value: &dyn Reflect,
     ///         registry: &TypeRegistry,
     ///         serializer: S,
     ///     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -173,7 +173,7 @@ pub trait ReflectSerializerProcessor {
     /// [`Reflect`]: crate::Reflect
     fn try_serialize<S>(
         &self,
-        value: &dyn PartialReflect,
+        value: &dyn Reflect,
         registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -184,7 +184,7 @@ pub trait ReflectSerializerProcessor {
 impl ReflectSerializerProcessor for () {
     fn try_serialize<S>(
         &self,
-        _value: &dyn PartialReflect,
+        _value: &dyn Reflect,
         _registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>

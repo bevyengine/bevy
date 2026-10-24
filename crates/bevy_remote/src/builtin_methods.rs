@@ -27,7 +27,7 @@ use bevy_reflect::{
     dynamic::DynamicStruct,
     dynamic::DynamicValue,
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
+    GetPath, Reflect, Reflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -2199,7 +2199,7 @@ fn reflect_component_from_id(
 fn deserialize_components(
     type_registry: &TypeRegistry,
     components: HashMap<String, Value>,
-) -> AnyhowResult<Vec<Box<dyn PartialReflect>>> {
+) -> AnyhowResult<Vec<Box<dyn Reflect>>> {
     let mut reflect_components = vec![];
 
     for (component_path, component) in components {
@@ -2221,7 +2221,7 @@ fn deserialize_resource(
     type_registry: &TypeRegistry,
     resource_path: &str,
     value: Value,
-) -> AnyhowResult<Box<dyn PartialReflect>> {
+) -> AnyhowResult<Box<dyn Reflect>> {
     let Some(resource_type) = type_registry.get_with_type_path(resource_path) else {
         return Err(anyhow!("Unknown resource type: `{}`", resource_path));
     };
@@ -2235,7 +2235,7 @@ fn deserialize_resource(
 /// the given entity (`entity_world_mut`).
 fn insert_reflected_components(
     mut entity_world_mut: EntityWorldMut,
-    reflect_components: Vec<Box<dyn PartialReflect>>,
+    reflect_components: Vec<Box<dyn Reflect>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {
         entity_world_mut.insert_reflect(reflected);

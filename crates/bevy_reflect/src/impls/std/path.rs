@@ -28,36 +28,7 @@ impl_reflect_opaque!(::std::path::PathBuf(
     Default
 ));
 
-impl PartialReflect for &'static Path {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl Reflect for &'static Path {
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Opaque
     }
@@ -85,24 +56,22 @@ impl PartialReflect for &'static Path {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
         }
     }
-}
 
-impl Reflect for &'static Path {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -155,36 +124,7 @@ impl FromDynamic for &'static Path {
     }
 }
 
-impl PartialReflect for Cow<'static, Path> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl Reflect for Cow<'static, Path> {
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Opaque
     }
@@ -212,16 +152,16 @@ impl PartialReflect for Cow<'static, Path> {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
@@ -231,9 +171,7 @@ impl PartialReflect for Cow<'static, Path> {
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
     }
-}
 
-impl Reflect for Cow<'static, Path> {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }

@@ -7,7 +7,7 @@ use crate::{
         sets::SetSerializer, structs::StructSerializer, tuple_structs::TupleStructSerializer,
         tuples::TupleSerializer,
     },
-    PartialReflect, ReflectRef, TypeRegistry,
+    Reflect, ReflectRef, TypeRegistry,
 };
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
@@ -55,7 +55,7 @@ use super::ReflectSerializerProcessor;
 /// [type path]: crate::TypePath::type_path
 /// [`with_processor`]: Self::with_processor
 pub struct ReflectSerializer<'a, P = ()> {
-    value: &'a dyn PartialReflect,
+    value: &'a dyn Reflect,
     registry: &'a TypeRegistry,
     processor: Option<&'a P>,
 }
@@ -67,7 +67,7 @@ impl<'a> ReflectSerializer<'a, ()> {
     /// [`with_processor`].
     ///
     /// [`with_processor`]: Self::with_processor
-    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
         Self {
             value,
             registry,
@@ -84,7 +84,7 @@ impl<'a, P: ReflectSerializerProcessor> ReflectSerializer<'a, P> {
     ///
     /// [`new`]: Self::new
     pub fn with_processor(
-        value: &'a dyn PartialReflect,
+        value: &'a dyn Reflect,
         registry: &'a TypeRegistry,
         processor: &'a P,
     ) -> Self {
@@ -103,22 +103,7 @@ impl<P: ReflectSerializerProcessor> Serialize for ReflectSerializer<'_, P> {
     {
         let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
-            self.value
-                .get_represented_type_info()
-                .ok_or_else(|| {
-                    if self.value.is_dynamic() {
-                        make_custom_error(format_args!(
-                            "cannot serialize dynamic value without represented type: `{}`",
-                            self.value.reflect_type_path()
-                        ))
-                    } else {
-                        make_custom_error(format_args!(
-                            "cannot get type info for `{}`",
-                            self.value.reflect_type_path()
-                        ))
-                    }
-                })?
-                .type_path(),
+            self.value.reflect_type_path(),
             &TypedReflectSerializer::new_internal(self.value, self.registry, self.processor),
         )?;
         state.end()
@@ -169,7 +154,7 @@ impl<P: ReflectSerializerProcessor> Serialize for ReflectSerializer<'_, P> {
 /// [type path]: crate::TypePath::type_path
 /// [`with_processor`]: Self::with_processor
 pub struct TypedReflectSerializer<'a, P = ()> {
-    value: &'a dyn PartialReflect,
+    value: &'a dyn Reflect,
     registry: &'a TypeRegistry,
     processor: Option<&'a P>,
 }
@@ -181,7 +166,7 @@ impl<'a> TypedReflectSerializer<'a, ()> {
     /// [`with_processor`].
     ///
     /// [`with_processor`]: Self::with_processor
-    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
 
@@ -201,7 +186,7 @@ impl<'a, P> TypedReflectSerializer<'a, P> {
     ///
     /// [`new`]: Self::new
     pub fn with_processor(
-        value: &'a dyn PartialReflect,
+        value: &'a dyn Reflect,
         registry: &'a TypeRegistry,
         processor: &'a P,
     ) -> Self {
@@ -217,7 +202,7 @@ impl<'a, P> TypedReflectSerializer<'a, P> {
 
     /// An internal constructor for creating a serializer without resetting the type info stack.
     pub(super) fn new_internal(
-        value: &'a dyn PartialReflect,
+        value: &'a dyn Reflect,
         registry: &'a TypeRegistry,
         processor: Option<&'a P>,
     ) -> Self {
@@ -236,9 +221,8 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
     {
         #[cfg(feature = "debug_stack")]
         {
-            if let Some(info) = self.value.get_represented_type_info() {
-                TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
-            }
+            let info = self.value.reflect_type_info();
+            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
         }
 
         // First, check if our processor wants to serialize this type

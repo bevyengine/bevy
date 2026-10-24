@@ -22,7 +22,7 @@ mod tuples;
 mod tests {
     use crate::{
         serde::{ReflectSerializer, ReflectSerializerProcessor},
-        PartialReflect, Reflect, ReflectSerialize, TypeRegistry,
+        Reflect, ReflectSerialize, TypeRegistry,
     };
     #[cfg(feature = "functions")]
     use alloc::boxed::Box;
@@ -457,17 +457,13 @@ mod tests {
         impl ReflectSerializerProcessor for FooProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: &dyn Reflect,
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
             where
                 S: Serializer,
             {
-                let Some(value) = value.try_as_reflect() else {
-                    return Ok(Err(serializer));
-                };
-
                 let type_id = value.reflect_type_info().type_id();
                 if type_id == TypeId::of::<i64>() {
                     Ok(Ok(serializer.serialize_str("custom!")?))
@@ -516,17 +512,13 @@ mod tests {
         impl ReflectSerializerProcessor for FooProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: &dyn Reflect,
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
             where
                 S: Serializer,
             {
-                let Some(value) = value.try_as_reflect() else {
-                    return Ok(Err(serializer));
-                };
-
                 let type_id = value.reflect_type_info().type_id();
                 if type_id == TypeId::of::<i32>() {
                     Ok(Ok(serializer.serialize_str("an i32")?))
@@ -570,17 +562,13 @@ mod tests {
         impl ReflectSerializerProcessor for ErroringProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: &dyn Reflect,
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
             where
                 S: Serializer,
             {
-                let Some(value) = value.try_as_reflect() else {
-                    return Ok(Err(serializer));
-                };
-
                 let type_id = value.reflect_type_info().type_id();
                 if type_id == TypeId::of::<i32>() {
                     Err(serde::ser::Error::custom("my custom serialize error"))

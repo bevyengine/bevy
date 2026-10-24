@@ -7,7 +7,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{PartialReflect, TypeRegistration};
+use bevy_reflect::{Reflect, TypeRegistration};
 use bevy_utils::{memory_size::MemorySize, prelude::DebugName};
 use core::{
     any::TypeId,
@@ -52,7 +52,7 @@ pub struct ComponentInspection {
     pub value: Option<String>,
     /// The reflected value of the component.
     #[cfg_attr(feature = "serialize", serde(skip))]
-    pub reflected_value: Option<Box<dyn PartialReflect>>,
+    pub reflected_value: Option<Box<dyn Reflect>>,
     /// The value of the component as structured JSON, gathered via reflection.
     #[cfg(feature = "serialize")]
     pub serialized_value: Option<serde_json::Value>,

@@ -40,7 +40,7 @@ impl DynamicVariant {
 ///
 /// `Clone` cannot fail, so deep-cloning a variant whose fields contain a non-cloneable
 /// opaque value panics. This is unavoidable: the field-by-field deep clone relies on
-/// `PartialReflect::reflect_clone`, which is fallible to avoid exactly this problem.
+/// `Reflect::reflect_clone`, which is fallible to avoid exactly this problem.
 impl Clone for DynamicVariant {
     fn clone(&self) -> Self {
         self.dynamic_clone().unwrap()
@@ -60,7 +60,7 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{dynamic::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
+/// # use bevy_reflect::{dynamic::{DynamicEnum, DynamicVariant}, Reflect, Reflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
@@ -189,7 +189,7 @@ impl DynamicEnum {
     /// This is functionally the same as [`DynamicEnum::try_from_ref`] except it takes an owned value.
     ///
     /// Returns an error if any field of the active variant cannot be converted via
-    /// [`PartialReflect::to_dynamic`].
+    /// [`Reflect::to_dynamic`].
     pub fn try_from<TEnum: Enum>(value: TEnum) -> Result<Self, ReflectCloneError> {
         Self::try_from_ref(&value)
     }
@@ -210,9 +210,9 @@ impl DynamicEnum {
     /// This is functionally the same as [`DynamicEnum::try_from`] except it takes a reference.
     ///
     /// Returns an error if any field of the active variant cannot be converted via
-    /// [`PartialReflect::to_dynamic`].
+    /// [`Reflect::to_dynamic`].
     pub fn try_from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Result<Self, ReflectCloneError> {
-        let type_info = value.get_represented_type_info();
+        let type_info = value.reflect_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
                 value.variant_index(),
@@ -244,7 +244,7 @@ impl DynamicEnum {
             }
         };
 
-        dyn_enum.set_represented_type(type_info);
+        dyn_enum.set_represented_type(Some(type_info));
         Ok(dyn_enum)
     }
 
@@ -273,9 +273,6 @@ impl DynamicEnum {
                         // TODO: Should this be an error?
                         continue;
                     };
-                    // This unwrap should be safe since the original value was `Reflect`, so all of
-                    // its fields should also be `Reflect`.
-                    let field = field.try_as_reflect_mut().unwrap();
                     value.try_apply(field)?;
                 }
             }
@@ -285,9 +282,6 @@ impl DynamicEnum {
                         // TODO: Should this be an error?
                         continue;
                     };
-                    // This unwrap should be safe since the original value was `Reflect`, so all of
-                    // its fields should also be `Reflect`.
-                    let field = field.try_as_reflect_mut().unwrap();
                     value.try_apply(field)?;
                 }
             }
@@ -427,7 +421,7 @@ impl DynamicEnum {
     }
 
     /// Gets the type info of the represented enum, if this dynamic value represents a known type.
-    pub fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
+    pub fn reflect_enum_info(&self) -> Option<&'static EnumInfo> {
         self.represented_type?.as_enum().ok()
     }
 }

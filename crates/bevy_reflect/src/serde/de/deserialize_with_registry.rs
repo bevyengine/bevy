@@ -1,5 +1,5 @@
 use crate::serde::de::error_utils::make_custom_error;
-use crate::{CreateTypeData, PartialReflect, TypeRegistry};
+use crate::{CreateTypeData, Reflect, TypeRegistry};
 use alloc::boxed::Box;
 use serde::Deserializer;
 
@@ -50,22 +50,22 @@ pub trait DeserializeWithRegistry<'de>: Sized {
         D: Deserializer<'de>;
 }
 
-/// Type data used to deserialize a [`PartialReflect`] type with a custom [`DeserializeWithRegistry`] implementation.
+/// Type data used to deserialize a [`Reflect`] type with a custom [`DeserializeWithRegistry`] implementation.
 #[derive(Clone)]
 pub struct ReflectDeserializeWithRegistry {
     deserialize: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
         registry: &TypeRegistry,
-    ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>,
+    ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
 }
 
 impl ReflectDeserializeWithRegistry {
-    /// Deserialize a [`PartialReflect`] type with this type data's custom [`DeserializeWithRegistry`] implementation.
+    /// Deserialize a [`Reflect`] type with this type data's custom [`DeserializeWithRegistry`] implementation.
     pub fn deserialize<'de, D>(
         &self,
         deserializer: D,
         registry: &TypeRegistry,
-    ) -> Result<Box<dyn PartialReflect>, D::Error>
+    ) -> Result<Box<dyn Reflect>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -74,7 +74,7 @@ impl ReflectDeserializeWithRegistry {
     }
 }
 
-impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> CreateTypeData<T>
+impl<T: Reflect + for<'de> DeserializeWithRegistry<'de>> CreateTypeData<T>
     for ReflectDeserializeWithRegistry
 {
     fn create_type_data(_input: ()) -> Self {

@@ -22,7 +22,7 @@ crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashMap
 
 #[cfg(test)]
 mod tests {
-    use crate::{PartialReflect, Reflect};
+    use crate::Reflect;
     use static_assertions::assert_impl_all;
 
     #[test]
@@ -33,9 +33,9 @@ mod tests {
         let mut c = <bevy_platform::collections::HashMap<_, _>>::default();
         c.insert(0usize, 3.21_f64);
 
-        let a: &dyn PartialReflect = &a;
-        let b: &dyn PartialReflect = &b;
-        let c: &dyn PartialReflect = &c;
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }

@@ -14,14 +14,14 @@ impl_reflect_opaque!(::smol_str::SmolStr(
 
 #[cfg(test)]
 mod tests {
-    use crate::{FromDynamic, PartialReflect};
+    use crate::{FromDynamic, Reflect};
     use smol_str::SmolStr;
 
     #[test]
     fn should_partial_eq_smolstr() {
-        let a: &dyn PartialReflect = &SmolStr::new("A");
-        let a2: &dyn PartialReflect = &SmolStr::new("A");
-        let b: &dyn PartialReflect = &SmolStr::new("B");
+        let a: &dyn Reflect = &SmolStr::new("A");
+        let a2: &dyn Reflect = &SmolStr::new("A");
+        let b: &dyn Reflect = &SmolStr::new("B");
         assert_eq!(Some(true), a.reflect_partial_eq(a2));
         assert_eq!(Some(false), a.reflect_partial_eq(b));
     }

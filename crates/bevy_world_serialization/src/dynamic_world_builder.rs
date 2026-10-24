@@ -12,7 +12,7 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypeRegistry};
+use bevy_reflect::{Reflect, TypeRegistry};
 use bevy_utils::default;
 
 /// A [`DynamicWorld`] builder, used to build a [`DynamicWorld`] from a [`World`] by extracting some entities and resources.
@@ -65,7 +65,7 @@ use bevy_utils::default;
 /// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicWorldBuilder<'w> {
     /// The resources that have been extracted so far.
-    extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
+    extracted_resources: BTreeMap<ComponentId, Box<dyn Reflect>>,
     /// The entities that have been extracted so far.
     extracted_entities: BTreeMap<Entity, DynamicEntity>,
     /// The filter to determine which components extract.

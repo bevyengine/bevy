@@ -7,7 +7,7 @@ use core::{
 
 use crate::{resource::Resource, world::World};
 use bevy_reflect::{
-    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromDynamic, TypePath,
+    dynamic::DynamicValue, std_traits::ReflectDefault, Reflect, ReflectFromDynamic, TypePath,
     TypeRegistry, TypeRegistryArc,
 };
 
@@ -89,7 +89,7 @@ impl DerefMut for AppFunctionRegistry {
     }
 }
 
-/// Creates a `T` from a `&dyn PartialReflect`.
+/// Creates a `T` from a `&dyn Reflect`.
 ///
 /// This will try the following strategies, in this order:
 ///
@@ -106,13 +106,13 @@ impl DerefMut for AppFunctionRegistry {
 ///
 /// If none of the strategies succeed, this method will panic.
 pub fn from_dynamic_with_fallback<T: Reflect + TypePath>(
-    reflected: &dyn PartialReflect,
+    dynamic_value: DynamicValue,
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
     #[inline(never)]
     fn type_erased(
-        reflected: &dyn PartialReflect,
+        dynamic_value: DynamicValue,
         world: &mut World,
         registry: &TypeRegistry,
         id: TypeId,
@@ -123,18 +123,19 @@ pub fn from_dynamic_with_fallback<T: Reflect + TypePath>(
         // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
         let (value, source) = if let Some(value) = registry
             .get_type_data::<ReflectFromDynamic>(id)
-            .and_then(|reflect_from_dynamic| reflect_from_dynamic.from_dynamic(reflected))
-        {
+            .and_then(|reflect_from_dynamic| {
+                reflect_from_dynamic.from_dynamic(dynamic_value.dynamic_clone().ok()?)
+            }) {
             (value, "FromDynamic")
         }
         // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
         else if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(id) {
             let mut value = reflect_default.default();
-            value.apply(reflected);
+            dynamic_value.try_apply(&mut *value).unwrap();
             (value, "Default")
         } else if let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(id) {
             let mut value = reflect_from_world.from_world(world);
-            value.apply(reflected);
+            dynamic_value.try_apply(&mut *value).unwrap();
             (value, "FromWorld")
         } else {
             panic!(
@@ -152,7 +153,7 @@ pub fn from_dynamic_with_fallback<T: Reflect + TypePath>(
         value
     }
     *type_erased(
-        reflected,
+        dynamic_value,
         world,
         registry,
         TypeId::of::<T>(),

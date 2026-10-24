@@ -9,7 +9,7 @@ use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{
     dynamic::DynamicValue,
     serde::{ReflectDeserializerProcessor, ReflectSerializerProcessor},
-    CreateTypeData, FromDynamic, PartialReflect, Reflect, TypeRegistry,
+    CreateTypeData, Reflect, TypeRegistry,
 };
 
 use crate::{
@@ -34,9 +34,8 @@ pub struct ReflectAsset {
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedAssetId) -> Option<&mut dyn Reflect>,
-    add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
-    insert:
-        fn(&mut World, UntypedAssetId, &dyn PartialReflect) -> Result<(), InvalidGenerationError>,
+    add: fn(&mut World, Box<dyn Reflect>) -> UntypedHandle,
+    insert: fn(&mut World, UntypedAssetId, Box<dyn Reflect>) -> Result<(), InvalidGenerationError>,
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedAssetId) -> Option<Box<dyn Reflect>>,
@@ -125,7 +124,7 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add(&self, world: &mut World, value: &dyn PartialReflect) -> UntypedHandle {
+    pub fn add(&self, world: &mut World, value: Box<dyn Reflect>) -> UntypedHandle {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::insert`]
@@ -133,7 +132,7 @@ impl ReflectAsset {
         &self,
         world: &mut World,
         asset_id: impl Into<UntypedAssetId>,
-        value: &dyn PartialReflect,
+        value: Box<dyn Reflect>,
     ) -> Result<(), InvalidGenerationError> {
         (self.insert)(world, asset_id.into(), value)
     }
@@ -178,7 +177,7 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + Reflect + FromDynamic> CreateTypeData<A> for ReflectAsset {
+impl<A: Asset + Reflect> CreateTypeData<A> for ReflectAsset {
     fn create_type_data(_input: ()) -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),
@@ -198,14 +197,16 @@ impl<A: Asset + Reflect + FromDynamic> CreateTypeData<A> for ReflectAsset {
             },
             add: |world, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value: A = FromDynamic::from_dynamic(value)
-                    .expect("could not call `FromDynamic::from_dynamic` in `ReflectAsset::add`");
+                let value: A = value
+                    .take()
+                    .expect("wrong type passed to `ReflectAsset::add`");
                 assets.add(value).untyped()
             },
             insert: |world, asset_id, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value: A = FromDynamic::from_dynamic(value)
-                    .expect("could not call `FromDynamic::from_dynamic` in `ReflectAsset::set`");
+                let value: A = value
+                    .take()
+                    .expect("wrong type passed to `ReflectAsset::insert`");
                 assets.insert(asset_id.typed_debug_checked(), value)
             },
             len: |world| {
@@ -324,19 +325,13 @@ pub enum EphemeralHandleBehavior {
 impl ReflectSerializerProcessor for HandleSerializeProcessor {
     fn try_serialize<S>(
         &self,
-        value: &dyn PartialReflect,
+        value: &dyn Reflect,
         registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
     where
         S: serde::Serializer,
     {
-        let Some(value_reflect) = value.try_as_reflect() else {
-            // Anything that isn't a concrete type should be serialized by the underlying
-            // serializer, since it must not be a handle!
-            return Ok(Err(serializer));
-        };
-
         #[derive(Error, Debug)]
         #[error("Attempted to serialize an ephemeral asset handle {0:?} while `EphemeralHandleBehavior::Error` is set")]
         struct SerializingEphemeralHandleError(UntypedHandle);
@@ -365,7 +360,7 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
             })
         }
 
-        if let Some(untyped_handle) = value_reflect.downcast_ref::<UntypedHandle>() {
+        if let Some(untyped_handle) = value.downcast_ref::<UntypedHandle>() {
             let Some(asset_registration) = registry.get(untyped_handle.type_id()) else {
                 return Err(S::Error::custom(format!(
                     "Missing type registration for asset type of handle {:?}. Ensure the asset implements Reflect, includes #[reflect(Asset)], and is registered",
@@ -383,16 +378,14 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
             .serialize(serializer)?));
         }
 
-        let Some(handle_registration) = registry.get(value_reflect.type_id()) else {
+        let Some(handle_registration) = registry.get(value.type_id()) else {
             // This is a slow path. Users are unlikely to be intentionally serializing types without
             // reflection, especially in production apps, so we can afford to be slow and give
             // better diagnostics.
-            if let Some(type_info) = value_reflect.get_represented_type_info()
-                && type_info.type_path().starts_with("bevy_asset::Handle")
-            {
+            if value.reflect_type_path().starts_with("bevy_asset::Handle") {
                 warn!(
                     "HandleSerializeProcessor attempted to serialize a handle type \"{}\" without type data. This likely means the asset type was not registered.",
-                    type_info.type_path()
+                    value.reflect_type_path()
                 );
             }
             // Otherwise, fall back to the underlying serializer. Let it handle the error.
@@ -406,8 +399,10 @@ impl ReflectSerializerProcessor for HandleSerializeProcessor {
         };
 
         let untyped_handle = reflect_handle
-            .downcast_handle_untyped(value_reflect.as_any())
-            .expect("type includes `ReflectHandle` type data, so it must be a handle matching that type");
+            .downcast_handle_untyped(value.as_any())
+            .expect(
+            "type includes `ReflectHandle` type data, so it must be a handle matching that type",
+        );
 
         let handle_reference =
             handle_reference_from_handle(&untyped_handle, self.ephemeral_handle_behavior)
@@ -546,7 +541,7 @@ pub struct TypedHandleReference {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{string::String, vec, vec::Vec};
+    use alloc::{boxed::Box, string::String, vec, vec::Vec};
     use core::any::TypeId;
     use ron::ser::PrettyConfig;
     use serde::de::DeserializeSeed;
@@ -590,7 +585,7 @@ mod tests {
             field: "test".into(),
         };
 
-        let handle = reflect_asset.add(app.world_mut(), &value);
+        let handle = reflect_asset.add(app.world_mut(), Box::new(value));
         // struct is a reserved keyword, so we can't use it here
         let strukt = reflect_asset
             .get_mut(app.world_mut(), &handle)
@@ -601,7 +596,8 @@ mod tests {
         strukt
             .field_mut("field")
             .unwrap()
-            .apply(&String::from("edited"));
+            .set(Box::new(String::from("edited")))
+            .unwrap();
 
         assert_eq!(reflect_asset.len(app.world()), 1);
         let ids: Vec<_> = reflect_asset.ids(app.world()).collect();
@@ -717,8 +713,7 @@ mod tests {
         let stuff = Stuff::from_dynamic(
             reflect_deserializer
                 .deserialize(&mut ron_deserializer)
-                .unwrap()
-                .as_partial_reflect(),
+                .unwrap(),
         )
         .unwrap();
 

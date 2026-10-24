@@ -8,7 +8,7 @@ use crate::{
     dynamic::{DynamicSet, DynamicValue, DynamicValueRef},
     generics::impl_generic_info_methods,
     ty::impl_type_methods,
-    Generics, PartialReflect, Reflect, ReflectRef, Type, TypePath,
+    Generics, Reflect, ReflectRef, Type, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -19,8 +19,8 @@ use crate::{
 ///
 /// # Hashing and equality
 ///
-/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
-/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// All values are expected to return a valid hash value from [`Reflect::reflect_hash`] and be
+/// comparable using [`Reflect::reflect_partial_eq`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
 /// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
 /// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
@@ -30,7 +30,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, set::Set};
+/// use bevy_reflect::{Reflect, set::Set};
 /// use std::collections::HashSet;
 ///
 ///
@@ -38,7 +38,7 @@ use crate::{
 /// foo.insert_boxed(Box::new(123_u32));
 /// assert_eq!(foo.len(), 1);
 ///
-/// let field: &dyn PartialReflect = foo.get(&123_u32).unwrap();
+/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
@@ -48,14 +48,14 @@ use crate::{
 /// [reflection]: crate
 // Prevents unexpectedly importing this trait when trying to call, for example, `HashSet::iter`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
-pub trait Set: PartialReflect {
+pub trait Set: Reflect {
     /// Constructs a value for this set from a dynamic value representation.
-    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>>;
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>>;
 
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.
-    fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect>;
+    fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect>;
 
     /// Returns the number of elements in the set.
     fn len(&self) -> usize;
@@ -66,32 +66,37 @@ pub trait Set: PartialReflect {
     }
 
     /// Returns an iterator over the values of the set.
-    fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
+    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
     ///
     /// After calling this function, `self` will be empty.
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(&mut self) -> Vec<Box<dyn Reflect>>;
 
     /// Retain only the elements specified by the predicate.
     ///
     /// In other words, remove all elements `e` for which `f(&e)` returns `false`.
-    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool);
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn Reflect) -> bool);
 
     /// Inserts a value into the set.
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool;
+    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool;
 
     /// Removes a value from the set.
     ///
     /// If the set did have this value present, `true` is returned.
     /// If the set did not have this value present, `false` is returned.
-    fn remove(&mut self, value: &dyn PartialReflect) -> bool;
+    fn remove(&mut self, value: &dyn Reflect) -> bool;
 
     /// Checks if the given value is contained in the set
-    fn contains(&self, value: &dyn PartialReflect) -> bool;
+    fn contains(&self, value: &dyn Reflect) -> bool;
+
+    /// Returns the [`SetInfo`] for this type.
+    fn reflect_set_info(&self) -> &'static SetInfo {
+        self.reflect_type_info().as_set().unwrap()
+    }
 }
 
 /// A container for compile-time set info.
@@ -165,7 +170,7 @@ impl SetLike for DynamicSet {
 impl SetLike for dyn Set {
     fn get(&self, value: DynamicValueRef<'_>) -> Option<DynamicValueRef<'_>> {
         self.get(value.as_concrete()?)
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+            .map(|value| DynamicValueRef::from(value))
     }
 
     fn len(&self) -> usize {
@@ -173,23 +178,21 @@ impl SetLike for dyn Set {
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
-        // TODO: Don't unwrap here.
-        self.iter()
-            .map(|value| DynamicValueRef::from(value.try_as_reflect().unwrap()))
+        self.iter().map(|value| DynamicValueRef::from(value))
     }
 }
 
-/// Compares a [`Set`] with a [`PartialReflect`] value.
+/// Compares a [`Set`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a set;
 /// - `b` is the same length as `a`;
 /// - For each value pair in `a`, `b` contains the value too,
-///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn set_partial_eq(a: &dyn Set, b: &dyn PartialReflect) -> Option<bool> {
+pub fn set_partial_eq(a: &dyn Set, b: &dyn Reflect) -> Option<bool> {
     let ReflectRef::Set(b) = b.reflect_ref() else {
         return Some(false);
     };

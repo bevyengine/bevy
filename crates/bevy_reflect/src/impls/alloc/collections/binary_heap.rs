@@ -18,11 +18,7 @@ mod tests {
         let a: &dyn Reflect = &a;
         let b: &dyn Reflect = &b;
         let c: &dyn Reflect = &c;
-        assert!(a
-            .reflect_partial_eq(b.as_partial_reflect())
-            .unwrap_or_default());
-        assert!(!a
-            .reflect_partial_eq(c.as_partial_reflect())
-            .unwrap_or_default());
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 }

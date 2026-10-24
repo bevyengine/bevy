@@ -216,10 +216,7 @@ mod tests {
             {
                 let mut state = serializer.serialize_seq(Some(self.0.len()))?;
                 for enemy in &self.0 {
-                    state.serialize_element(&ReflectSerializer::new(
-                        (**enemy).as_partial_reflect(),
-                        registry,
-                    ))?;
+                    state.serialize_element(&ReflectSerializer::new(&**enemy, registry))?;
                 }
                 state.end()
             }
@@ -251,9 +248,7 @@ mod tests {
                         {
                             let registration = self
                                 .registry
-                                .get_with_type_path(
-                                    enemy.get_represented_type_info().unwrap().type_path(),
-                                )
+                                .get_with_type_path(enemy.reflect_type_info().unwrap().type_path())
                                 .unwrap();
 
                             // 1. Convert any possible dynamic values to concrete ones

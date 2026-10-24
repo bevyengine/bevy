@@ -1,6 +1,6 @@
 use crate::{
     derive_data::{EnumVariantFields, ReflectEnum, StructField},
-    impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
+    impls::{common_reflect_trait_methods, impl_reflect_casts, impl_type_path, impl_typed},
 };
 use bevy_macro_utils::fq_std::{FQInto, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
@@ -47,8 +47,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let typed_impl = impl_typed(&where_clause_options, reflect_enum.to_info_tokens());
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
-    let full_reflect_impl = impl_full_reflect(&where_clause_options);
-    let common_methods = common_partial_reflect_methods(
+    let reflect_casts_impl = impl_reflect_casts(reflect_enum.meta());
+    let common_methods = common_reflect_trait_methods(
         reflect_enum.meta(),
         || Some(quote!(#bevy_reflect_path::enums::enum_partial_eq)),
         || Some(quote!(#bevy_reflect_path::enums::enum_hash)),
@@ -80,8 +80,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         #type_path_impl
 
-        #full_reflect_impl
-
         #function_impls
 
         #auto_register
@@ -102,28 +100,28 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 #FQResult::Ok(())
             }
 
-            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                  match #match_this {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match #match_this {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                  match #match_this_mut {
                     #(#enum_field_mut,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                 match #match_this_mut {
                     #(#enum_field_at_mut,)*
                     _ => #FQOption::None,
@@ -181,12 +179,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::PartialReflect for #enum_path #ty_generics #where_reflect_clause {
-            #[inline]
-            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
-                #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
-            }
-
+        impl #impl_generics #bevy_reflect_path::Reflect for #enum_path #ty_generics #where_reflect_clause {
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Enum
             }
@@ -206,6 +199,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             #common_methods
 
             #clone_fn
+
+            #reflect_casts_impl
         }
     }
 }

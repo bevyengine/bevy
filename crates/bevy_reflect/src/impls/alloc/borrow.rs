@@ -5,7 +5,7 @@ use crate::{
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     list::{List, ListInfo, ListIter},
     prelude::*,
-    reflect::impl_full_reflect,
+    reflect::impl_reflect_casts,
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
         TypeRegistration, TypeRegistry,
@@ -22,36 +22,7 @@ use core::hash::{Hash, Hasher};
 
 impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
-impl PartialReflect for Cow<'static, str> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl Reflect for Cow<'static, str> {
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Opaque
     }
@@ -79,16 +50,16 @@ impl PartialReflect for Cow<'static, str> {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
@@ -98,9 +69,9 @@ impl PartialReflect for Cow<'static, str> {
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
-}
 
-impl_full_reflect!(for Cow<'static, str>);
+    impl_reflect_casts! {}
+}
 
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
@@ -136,22 +107,20 @@ crate::func::macros::impl_function_traits!(Cow<'static, str>);
 impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     for Cow<'static, [T]>
 {
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.as_ref().get(index).map(|x| x as &dyn PartialReflect)
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        self.as_ref().get(index).map(|x| x as &dyn Reflect)
     }
 
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.to_mut()
-            .get_mut(index)
-            .map(|x| x as &mut dyn PartialReflect)
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        self.to_mut().get_mut(index).map(|x| x as &mut dyn Reflect)
     }
 
-    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn PartialReflect>> {
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>> {
         T::from_dynamic(dynamic).map(|value| Box::new(value) as _)
     }
 
-    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
-        let value = *element.try_downcast::<T>().unwrap_or_else(|value| {
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
+        let value = *element.downcast::<T>().unwrap_or_else(|value| {
             panic!(
                 "Attempted to insert invalid value of type {}.",
                 value.reflect_type_path()
@@ -160,7 +129,7 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.to_mut().insert(index, value);
     }
 
-    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
         Box::new(self.to_mut().remove(index))
     }
 
@@ -168,8 +137,8 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.to_mut().swap(a, b);
     }
 
-    fn push(&mut self, value: Box<dyn PartialReflect>) {
-        let value = *value.try_downcast::<T>().unwrap_or_else(|value| {
+    fn push(&mut self, value: Box<dyn Reflect>) {
+        let value = *value.downcast::<T>().unwrap_or_else(|value| {
             panic!(
                 "Attempted to push invalid value of type {}.",
                 value.reflect_type_path()
@@ -178,10 +147,10 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.to_mut().push(value);
     }
 
-    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
         self.to_mut()
             .pop()
-            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 
     fn len(&self) -> usize {
@@ -192,46 +161,17 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         ListIter::new(self)
     }
 
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+    fn drain(&mut self) -> Vec<Box<dyn Reflect>> {
         self.to_mut()
             .drain(..)
-            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
             .collect()
     }
 }
 
-impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> PartialReflect
+impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> Reflect
     for Cow<'static, [T]>
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::List
     }
@@ -256,20 +196,16 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         crate::list::list_hash(self)
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list::list_partial_eq(self, value)
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<::core::cmp::Ordering> {
         crate::list::list_partial_cmp(self, value)
     }
-}
 
-impl_full_reflect!(
-    <T> for Cow<'static, [T]>
-    where
-        T: FromDynamic + Clone + MaybeTyped + TypePath + GetTypeRegistration,
-);
+    impl_reflect_casts! {}
+}
 
 impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> Typed
     for Cow<'static, [T]>

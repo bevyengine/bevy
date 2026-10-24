@@ -36,7 +36,7 @@ use crate::{
     structs::Struct,
     tuple::Tuple,
     tuple_struct::TupleStruct,
-    PartialReflect, Reflect, ReflectRef, TypeInfo,
+    Reflect, ReflectRef,
 };
 
 /// String-formats a reflected value, detecting cycles via their [`TypeId`].
@@ -53,7 +53,7 @@ use crate::{
 /// (or last continuation line for opaque values) should appear.
 fn write_value(
     f: &mut Formatter<'_>,
-    value: &dyn PartialReflect,
+    value: &dyn Reflect,
     // A HashSet / BTreeSet has better asymptotic performance for the .contains() check,
     // but a Vec will be faster at low n, which is the common case for reflected values,
     // as most types are not deeply nested.
@@ -61,9 +61,7 @@ fn write_value(
     indent: u32,
 ) -> core::fmt::Result {
     // Dynamic types without type info cannot be cycle-checked.
-    let Some(type_info) = value.get_represented_type_info() else {
-        return write_reflect_ref(f, &value.reflect_ref(), ancestry, indent);
-    };
+    let type_info = value.reflect_type_info();
 
     let type_id = type_info.type_id();
     let type_path = type_info.type_path();
@@ -107,7 +105,7 @@ fn write_struct(
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = display_type_name(value.get_represented_type_info(), "<Unknown Struct>");
+    let type_name = value.reflect_type_path();
 
     if value.field_len() == 0 {
         return write!(f, "{type_name} {{}}");
@@ -136,7 +134,7 @@ fn write_tuple_struct(
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = display_type_name(value.get_represented_type_info(), "<Unknown TupleStruct>");
+    let type_name = value.reflect_type_path();
 
     if value.field_len() == 0 {
         return write!(f, "{type_name}()");
@@ -278,7 +276,7 @@ fn write_enum(
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = display_type_name(value.get_represented_type_info(), "<Unknown Enum>");
+    let type_name = value.reflect_type_path();
     let variant = value.variant_name();
     let variant = if variant.is_empty() {
         "<unnamed>"
@@ -406,25 +404,9 @@ impl Display for ReflectRef<'_> {
     }
 }
 
-impl Display for dyn PartialReflect {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write_value(f, self, &mut Vec::new(), 0)
-    }
-}
-
 impl Display for dyn Reflect {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        Display::fmt(self as &dyn PartialReflect, f)
-    }
-}
-
-/// Display name for a reflected type, using its full type path.
-///
-/// Uses `fallback` when no type information is available (e.g. for dynamic values).
-fn display_type_name(type_info: Option<&TypeInfo>, fallback: &'static str) -> &'static str {
-    match type_info {
-        Some(info) => info.type_path(),
-        None => fallback,
+        write_value(f, self, &mut Vec::new(), 0)
     }
 }
 
@@ -468,11 +450,7 @@ fn write_delimited_block(
 /// sits at `indent`).
 ///
 /// Leading whitespace is trimmed.
-fn write_opaque(
-    f: &mut Formatter<'_>,
-    value: &dyn PartialReflect,
-    indent: u32,
-) -> core::fmt::Result {
+fn write_opaque(f: &mut Formatter<'_>, value: &dyn Reflect, indent: u32) -> core::fmt::Result {
     let debug = alloc::format!("{value:?}");
     let trimmed = debug.trim();
 
@@ -562,12 +540,9 @@ mod tests {
 
     #[test]
     fn opaque_values_use_debug() {
-        assert_eq!(format!("{}", &42u32 as &dyn PartialReflect), "42");
-        assert_eq!(
-            format!("{}", &"hi".to_string() as &dyn PartialReflect),
-            "\"hi\""
-        );
-        assert_eq!(format!("{}", &true as &dyn PartialReflect), "true");
+        assert_eq!(format!("{}", &42u32 as &dyn Reflect), "42");
+        assert_eq!(format!("{}", &"hi".to_string() as &dyn Reflect), "\"hi\"");
+        assert_eq!(format!("{}", &true as &dyn Reflect), "true");
     }
 
     #[test]
@@ -577,7 +552,7 @@ mod tests {
             b: "two".to_string(),
         };
         assert_eq!(
-            format!("{}", &value as &dyn PartialReflect),
+            format!("{}", &value as &dyn Reflect),
             "bevy_reflect::display::tests::Inner {\n  a: 1,\n  b: \"two\",\n}"
         );
     }
@@ -585,37 +560,31 @@ mod tests {
     #[test]
     fn empty_containers_collapse_to_one_line() {
         assert_eq!(
-            format!("{}", &EmptyStruct {} as &dyn PartialReflect),
+            format!("{}", &EmptyStruct {} as &dyn Reflect),
             "bevy_reflect::display::tests::EmptyStruct {}"
         );
         assert_eq!(
-            format!("{}", &EmptyTupleStruct() as &dyn PartialReflect),
+            format!("{}", &EmptyTupleStruct() as &dyn Reflect),
             "bevy_reflect::display::tests::EmptyTupleStruct()"
         );
+        assert_eq!(format!("{}", &Vec::<i32>::new() as &dyn Reflect), "[]");
+        assert_eq!(format!("{}", &[0i32; 0] as &dyn Reflect), "[]");
+        assert_eq!(format!("{}", &() as &dyn Reflect), "()");
         assert_eq!(
-            format!("{}", &Vec::<i32>::new() as &dyn PartialReflect),
-            "[]"
-        );
-        assert_eq!(format!("{}", &[0i32; 0] as &dyn PartialReflect), "[]");
-        assert_eq!(format!("{}", &() as &dyn PartialReflect), "()");
-        assert_eq!(
-            format!("{}", &BTreeMap::<u32, u32>::new() as &dyn PartialReflect),
+            format!("{}", &BTreeMap::<u32, u32>::new() as &dyn Reflect),
             "{}"
         );
-        assert_eq!(
-            format!("{}", &HashSet::<u32>::new() as &dyn PartialReflect),
-            "{}"
-        );
+        assert_eq!(format!("{}", &HashSet::<u32>::new() as &dyn Reflect), "{}");
     }
 
     #[test]
     fn empty_enum_variants() {
         assert_eq!(
-            format!("{}", &MyEnum::EmptyTuple() as &dyn PartialReflect),
+            format!("{}", &MyEnum::EmptyTuple() as &dyn Reflect),
             "bevy_reflect::display::tests::MyEnum::EmptyTuple()"
         );
         assert_eq!(
-            format!("{}", &MyEnum::EmptyStruct {} as &dyn PartialReflect),
+            format!("{}", &MyEnum::EmptyStruct {} as &dyn Reflect),
             "bevy_reflect::display::tests::MyEnum::EmptyStruct {}"
         );
     }
@@ -623,7 +592,7 @@ mod tests {
     #[test]
     fn newtype_struct() {
         assert_eq!(
-            format!("{}", &Newtype(5) as &dyn PartialReflect),
+            format!("{}", &Newtype(5) as &dyn Reflect),
             "bevy_reflect::display::tests::Newtype(\n  5,\n)"
         );
     }
@@ -631,7 +600,7 @@ mod tests {
     #[test]
     fn list_of_scalars() {
         assert_eq!(
-            format!("{}", &vec![1, 2, 3] as &dyn PartialReflect),
+            format!("{}", &vec![1, 2, 3] as &dyn Reflect),
             "[\n  1,\n  2,\n  3,\n]"
         );
     }
@@ -642,7 +611,7 @@ mod tests {
         map.insert(1u32, "one".to_string());
         map.insert(2u32, "two".to_string());
         assert_eq!(
-            format!("{}", &map as &dyn PartialReflect),
+            format!("{}", &map as &dyn Reflect),
             "{\n  1: \"one\",\n  2: \"two\",\n}"
         );
     }
@@ -650,14 +619,11 @@ mod tests {
     #[test]
     fn enum_variants() {
         assert_eq!(
-            format!("{}", &MyEnum::Unit as &dyn PartialReflect),
+            format!("{}", &MyEnum::Unit as &dyn Reflect),
             "bevy_reflect::display::tests::MyEnum::Unit"
         );
         assert_eq!(
-            format!(
-                "{}",
-                &MyEnum::Tuple(7, "t".to_string()) as &dyn PartialReflect
-            ),
+            format!("{}", &MyEnum::Tuple(7, "t".to_string()) as &dyn Reflect),
             "bevy_reflect::display::tests::MyEnum::Tuple(\n  7,\n  \"t\",\n)"
         );
     }
@@ -685,7 +651,7 @@ bevy_reflect::display::tests::Outer {
     20,
   ],
 }";
-        assert_eq!(format!("{}", &value as &dyn PartialReflect), expected);
+        assert_eq!(format!("{}", &value as &dyn Reflect), expected);
     }
 
     #[test]
@@ -706,7 +672,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     b: \"q\",
   },
 }";
-        assert_eq!(format!("{}", &value as &dyn PartialReflect), expected);
+        assert_eq!(format!("{}", &value as &dyn Reflect), expected);
     }
 
     #[test]
@@ -716,7 +682,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             b: "two".to_string(),
         };
         assert_eq!(
-            format!("{}", &value as &dyn PartialReflect),
+            format!("{}", &value as &dyn Reflect),
             "bevy_reflect::display::tests::Inner {\n  a: 1,\n  b: \"two\",\n}"
         );
     }
@@ -732,7 +698,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             list: vec![10, 20],
         };
 
-        let full = format!("{}", &value as &dyn PartialReflect);
+        let full = format!("{}", &value as &dyn Reflect);
         // Verify the full version actually has paths to collapse
         assert!(full.contains("bevy_reflect::display::tests::Outer"));
         assert!(full.contains("bevy_reflect::display::tests::Inner"));
@@ -774,7 +740,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[test]
     fn opaque_debug_trailing_newline_does_not_orphan_comma() {
         assert_eq!(
-            format!("{}", &TrailingNewlineDebug as &dyn PartialReflect),
+            format!("{}", &TrailingNewlineDebug as &dyn Reflect),
             "value"
         );
         assert_eq!(
@@ -782,7 +748,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
                 "{}",
                 &HoldsTrailingNewline {
                     op: TrailingNewlineDebug
-                } as &dyn PartialReflect
+                } as &dyn Reflect
             ),
             "bevy_reflect::display::tests::HoldsTrailingNewline {\n  op: value,\n}"
         );
@@ -806,7 +772,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[test]
     fn opaque_debug_trailing_whitespace_does_not_orphan_comma() {
         assert_eq!(
-            format!("{}", &TrailingNewlineThenSpaces as &dyn PartialReflect),
+            format!("{}", &TrailingNewlineThenSpaces as &dyn Reflect),
             "value"
         );
         assert_eq!(
@@ -814,7 +780,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
                 "{}",
                 &HoldsTrailingNewlineThenSpaces {
                     op: TrailingNewlineThenSpaces
-                } as &dyn PartialReflect
+                } as &dyn Reflect
             ),
             "bevy_reflect::display::tests::HoldsTrailingNewlineThenSpaces {\n  op: value,\n}"
         );
@@ -838,14 +804,11 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[test]
     fn multi_line_opaque_value_indents_continuation_lines() {
         assert_eq!(
-            format!("{}", &MultiLineDebug as &dyn PartialReflect),
+            format!("{}", &MultiLineDebug as &dyn Reflect),
             "line1\n  line2"
         );
         assert_eq!(
-            format!(
-                "{}",
-                &HoldsMultiLine { op: MultiLineDebug } as &dyn PartialReflect
-            ),
+            format!("{}", &HoldsMultiLine { op: MultiLineDebug } as &dyn Reflect),
             "bevy_reflect::display::tests::HoldsMultiLine {\n  op: line1\n    line2,\n}"
         );
     }
@@ -868,7 +831,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     #[test]
     fn opaque_debug_blank_interior_line_carries_no_trailing_whitespace() {
         assert_eq!(
-            format!("{}", &BlankInteriorLineDebug as &dyn PartialReflect),
+            format!("{}", &BlankInteriorLineDebug as &dyn Reflect),
             "line1\n\n  line2"
         );
         assert_eq!(
@@ -876,7 +839,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
                 "{}",
                 &HoldsBlankInterior {
                     op: BlankInteriorLineDebug
-                } as &dyn PartialReflect
+                } as &dyn Reflect
             ),
             "bevy_reflect::display::tests::HoldsBlankInterior {\n  op: line1\n\n    line2,\n}"
         );
@@ -884,7 +847,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             "{}",
             &HoldsBlankInterior {
                 op: BlankInteriorLineDebug
-            } as &dyn PartialReflect
+            } as &dyn Reflect
         );
         for line in formatted.lines() {
             assert_eq!(
@@ -912,16 +875,13 @@ bevy_reflect::display::tests::MyEnum::Struct {
 
     #[test]
     fn opaque_debug_leading_newline_does_not_leave_trailing_whitespace() {
-        assert_eq!(
-            format!("{}", &LeadingNewlineDebug as &dyn PartialReflect),
-            "value"
-        );
+        assert_eq!(format!("{}", &LeadingNewlineDebug as &dyn Reflect), "value");
         assert_eq!(
             format!(
                 "{}",
                 &HoldsLeadingNewline {
                     op: LeadingNewlineDebug
-                } as &dyn PartialReflect
+                } as &dyn Reflect
             ),
             "bevy_reflect::display::tests::HoldsLeadingNewline {\n  op: value,\n}"
         );
@@ -950,7 +910,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     b: \"y\",
   },
 ]";
-        assert_eq!(format!("{}", &value as &dyn PartialReflect), expected);
+        assert_eq!(format!("{}", &value as &dyn Reflect), expected);
     }
 
     #[test]
@@ -970,7 +930,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
     b: \"x\",
   },
 }";
-        assert_eq!(format!("{}", &map as &dyn PartialReflect), expected);
+        assert_eq!(format!("{}", &map as &dyn Reflect), expected);
     }
 
     #[test]
@@ -997,7 +957,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             children: vec![child],
         };
         assert_eq!(
-            format!("{}", &parent as &dyn PartialReflect),
+            format!("{}", &parent as &dyn Reflect),
             concat!(
                 "bevy_reflect::display::tests::GraphNode {\n",
                 "  value: 1,\n",
@@ -1015,7 +975,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
         let b = MutuallyRecursiveB { items: vec![inner] };
         let outer = MutuallyRecursiveA { items: vec![b] };
         assert_eq!(
-            format!("{}", &outer as &dyn PartialReflect),
+            format!("{}", &outer as &dyn Reflect),
             concat!(
                 "bevy_reflect::display::tests::MutuallyRecursiveA {\n",
                 "  items: [\n",
@@ -1042,7 +1002,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             }
             let function = greet.into_function();
             assert_eq!(
-                format!("{}", &function as &dyn PartialReflect),
+                format!("{}", &function as &dyn Reflect),
                 "fn bevy_reflect::display::tests::functions::named_function::greet(_: &alloc::string::String) -> alloc::string::String"
             );
         }
@@ -1051,7 +1011,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
         fn anonymous_function() {
             let function = (|a: i32, b: i32| a + b).into_function();
             assert_eq!(
-                format!("{}", &function as &dyn PartialReflect),
+                format!("{}", &function as &dyn Reflect),
                 "fn _(_: i32, _: i32) -> i32"
             );
         }
@@ -1069,7 +1029,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
                 .with_overload(add_f32)
                 .with_name("add");
             assert_eq!(
-                format!("{}", &function as &dyn PartialReflect),
+                format!("{}", &function as &dyn Reflect),
                 "fn add {(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32}"
             );
         }

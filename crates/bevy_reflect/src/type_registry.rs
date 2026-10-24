@@ -1137,7 +1137,7 @@ mod test {
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
                     DynamicValue::Concrete(Box::new(2.0f32))
-                        .try_apply(strukt.field_mut("a").unwrap().try_as_reflect_mut().unwrap())
+                        .try_apply(strukt.field_mut("a").unwrap())
                         .unwrap();
                 }
                 _ => panic!("invalid reflection"),
@@ -1149,11 +1149,7 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
-                    let a = strukt
-                        .field("a")
-                        .unwrap()
-                        .try_downcast_ref::<f32>()
-                        .unwrap();
+                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
                     assert_eq!(*a, 2.0);
                 }
                 _ => panic!("invalid reflection"),
@@ -1226,11 +1222,7 @@ mod test {
         // We can use reflection to access the "a" field.
         match reflect.reflect_ref() {
             crate::ReflectRef::Struct(strukt) => {
-                let a = strukt
-                    .field("a")
-                    .unwrap()
-                    .try_downcast_ref::<f32>()
-                    .unwrap();
+                let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
                 assert_eq!(*a, 1.0);
             }
             _ => panic!("unexpected meta-type"),
