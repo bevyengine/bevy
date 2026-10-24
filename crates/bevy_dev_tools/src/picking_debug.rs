@@ -2,7 +2,9 @@
 
 use bevy_app::prelude::*;
 use bevy_camera::visibility::Visibility;
+#[cfg(feature = "bevy_ui")]
 use bevy_camera::{Camera, RenderTarget};
+#[cfg(feature = "bevy_ui")]
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
@@ -13,7 +15,9 @@ use bevy_picking::pointer::{
 use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
+#[cfg(feature = "bevy_ui")]
 use bevy_text::prelude::*;
+#[cfg(feature = "bevy_ui")]
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::{Debug, Display, Formatter, Result};
@@ -117,10 +121,13 @@ impl Plugin for DebugPickingPlugin {
 
         app.add_systems(
             PreUpdate,
-            (add_pointer_debug, update_debug_data, debug_draw)
-                .chain()
-                .distributive_run_if(DebugPickingMode::is_enabled)
-                .in_set(PickingSystems::Last),
+            cfg_select! {
+                feature = "bevy_ui" => (add_pointer_debug, update_debug_data, debug_draw),
+                _ => (add_pointer_debug, update_debug_data),
+            }
+            .chain()
+            .distributive_run_if(DebugPickingMode::is_enabled)
+            .in_set(PickingSystems::Last),
         );
     }
 }
@@ -260,6 +267,7 @@ pub fn update_debug_data(
 }
 
 /// Draw text on each cursor with debug info
+#[cfg(feature = "bevy_ui")]
 pub fn debug_draw(
     mut commands: Commands,
     camera_query: Query<(Entity, &Camera, &RenderTarget)>,
