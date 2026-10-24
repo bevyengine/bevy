@@ -1,6 +1,6 @@
 import package::{
     atmosphere::{
-        bindings::settings,
+        bindings::{settings, view},
         functions::{
             sample_density_lut, sample_local_inscattering, uv_to_ray_direction, get_view_position,
             MIDPOINT_RATIO, MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
@@ -57,8 +57,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             }
         }
 
-        // Store in log space to allow linear interpolation of exponential values between slices
-        let log_inscattering = log(max(total_inscattering, vec3(1e-6)));
+        // Store pre-exposed, like the sky-view LUT, and in log space to allow linear interpolation
+        // of exponential values between slices
+        let log_inscattering = log(max(total_inscattering * view.exposure, vec3(1e-6)));
         textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(log_inscattering, 0.0));
     }
 }

@@ -76,7 +76,8 @@ use bevy_shader::load_shader_library;
 use environment::{
     atmosphere_environment, init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
     on_insert_atmosphere_environment_map_light, on_remove_atmosphere_environment_map_light,
-    prepare_atmosphere_probe_bind_groups, prepare_probe_textures, AtmosphereEnvironmentMap,
+    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_sources, prepare_probe_textures,
+    AtmosphereEnvironmentMap,
 };
 use node::{atmosphere_luts, render_sky};
 use resources::{
@@ -174,10 +175,11 @@ impl Plugin for AtmospherePlugin {
                     configure_camera_depth_usages.in_set(RenderSystems::PrepareViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
-                    prepare_probe_textures
-                        .in_set(RenderSystems::PrepareResources)
-                        .after(prepare_atmosphere_textures),
+                    prepare_probe_textures.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_uniforms
+                        .in_set(RenderSystems::Prepare)
+                        .before(RenderSystems::PrepareResources),
+                    prepare_atmosphere_probe_sources
                         .in_set(RenderSystems::Prepare)
                         .before(RenderSystems::PrepareResources),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
@@ -275,21 +277,23 @@ pub struct ExtractedAtmosphere {
 /// This component controls the resolution of the atmosphere LUTs, and
 /// how many samples are used when computing them.
 ///
-/// The transmittance LUT stores the transmittance from a point in the
+/// The transmittance LUT stores the optical depth from a point in the
 /// atmosphere to the outer edge of the atmosphere in any direction,
 /// parametrized by the point's radius and the cosine of the zenith angle
 /// of the ray.
 ///
-/// The multiscattering LUT stores the factor representing luminance scattered
-/// towards the camera with scattering order >2, parametrized by the point's radius
-/// and the cosine of the zenith angle of the sun.
+/// The multiscattering LUT stores the log of the factor representing luminance
+/// scattered towards the camera with scattering order >2, parametrized by the
+/// point's radius and the cosine of the zenith angle of the sun.
 ///
 /// The sky-view lut is essentially the actual skybox, storing the light scattered
 /// towards the camera in every direction with a cubemap.
 ///
-/// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the luminance
-/// scattered towards the camera at each point (RGB channels), alongside the average
-/// transmittance to that point (A channel).
+/// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the log of
+/// the luminance scattered towards the camera at each point.
+///
+/// The sky-view and aerial-view LUTs hold luminance pre-exposed by the view's
+/// exposure, so twilight and night skies stay in f16's normal range.
 #[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
 #[require(Hdr)]
@@ -347,7 +351,8 @@ impl Default for AtmosphereSettings {
         Self {
             transmittance_lut_size: UVec2::new(256, 128),
             transmittance_lut_samples: 40,
-            multiscattering_lut_size: UVec2::new(32, 32),
+            // Wider along the sun angle, where the factor falls fastest near the horizon.
+            multiscattering_lut_size: UVec2::new(64, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,
             sky_view_lut_size: UVec2::new(400, 200),

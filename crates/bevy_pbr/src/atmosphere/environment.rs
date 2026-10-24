@@ -1,4 +1,5 @@
 use crate::{
+    environment_map::EnvironmentMapExposures,
     resources::{
         AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms, AtmosphereTransformsOffset,
         GpuAtmosphere,
@@ -23,12 +24,13 @@ use bevy_light::{
 };
 use bevy_math::UVec2;
 use bevy_render::{
+    camera::{ExtractedCamera, SortedCameras},
     diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, ExtractComponent},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    texture::{CachedTexture, GpuImage},
+    texture::GpuImage,
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp,
 };
@@ -38,19 +40,25 @@ use tracing::warn;
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone, FromTemplate)]
 #[extract_app(RenderApp)]
-#[extract_component_sync_target((Self, AtmosphereProbeTextures, AtmosphereProbeBindGroups))]
+#[extract_component_sync_target((
+    Self,
+    AtmosphereProbeSource,
+    AtmosphereProbeTextures,
+    AtmosphereProbeBindGroups
+))]
 pub struct AtmosphereEnvironmentMap {
     pub environment_map: Handle<Image>,
     pub size: UVec2,
 }
 
+/// The atmosphere view that renders a probe's environment map this frame, from its own LUTs and
+/// uniforms.
+#[derive(Component)]
+pub struct AtmosphereProbeSource(pub Entity);
+
 #[derive(Component)]
 pub struct AtmosphereProbeTextures {
     pub environment: TextureView,
-    pub transmittance_lut: CachedTexture,
-    pub multiscattering_lut: CachedTexture,
-    pub sky_view_lut: CachedTexture,
-    pub aerial_view_lut: CachedTexture,
 }
 
 #[derive(Component)]
@@ -101,8 +109,40 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
     commands.insert_resource(AtmosphereProbeLayouts { environment });
 }
 
+/// Picks the atmosphere view that renders each probe this frame and records the exposure the
+/// probe's environment map is stored with: the sky-view LUT it samples holds luminance pre-exposed
+/// by that view.
+///
+/// A probe on an atmosphere view renders from that view. Any other probe renders from the view that
+/// renders first, so that later views sample this frame's environment map.
+pub(super) fn prepare_atmosphere_probe_sources(
+    views: Query<(Entity, &ExtractedCamera), With<ExtractedAtmosphere>>,
+    sorted_cameras: Res<SortedCameras>,
+    probes: Query<(Entity, &AtmosphereEnvironmentMap)>,
+    mut exposures: ResMut<EnvironmentMapExposures>,
+    mut commands: Commands,
+) {
+    let first_view = sorted_cameras
+        .0
+        .iter()
+        .find_map(|camera| views.get(camera.entity).ok());
+
+    for (probe, render_env_map) in &probes {
+        match views.get(probe).ok().or(first_view) {
+            Some((view, camera)) => {
+                exposures.insert(render_env_map.environment_map.id(), camera.exposure);
+                commands.entity(probe).insert(AtmosphereProbeSource(view));
+            }
+            None => {
+                commands.entity(probe).remove::<AtmosphereProbeSource>();
+            }
+        }
+    }
+}
+
 pub(super) fn prepare_atmosphere_probe_bind_groups(
-    probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMap>>,
+    probes: Query<(Entity, &AtmosphereProbeTextures, &AtmosphereProbeSource)>,
+    view_textures: Query<&AtmosphereTextures>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereProbeLayouts>,
     atmosphere_sampler: Res<LinearSampler>,
@@ -114,7 +154,10 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
-    for (entity, textures) in &probes {
+    for (entity, textures, source) in &probes {
+        let Ok(luts) = view_textures.get(source.0) else {
+            continue;
+        };
         let environment = render_device.create_bind_group(
             "environment_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.environment),
@@ -126,10 +169,10 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
                 (3, view_uniforms.uniforms.binding().unwrap()),
                 (4, lights_uniforms.view_gpu_lights.binding().unwrap()),
                 // atmosphere luts and sampler
-                (8, &textures.transmittance_lut.default_view),
-                (9, &textures.multiscattering_lut.default_view),
-                (10, &textures.sky_view_lut.default_view),
-                (11, &textures.aerial_view_lut.default_view),
+                (8, &luts.transmittance_lut.default_view),
+                (9, &luts.multiscattering_lut.default_view),
+                (10, &luts.sky_view_lut.default_view),
+                (11, &luts.aerial_view_lut.default_view),
                 (12, &atmosphere_sampler.0),
                 // output 2D array texture
                 (13, &textures.environment),
@@ -143,16 +186,10 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
 }
 
 pub(super) fn prepare_probe_textures(
-    view_textures: Query<&AtmosphereTextures, With<ExtractedAtmosphere>>,
     probes: Query<(Entity, &AtmosphereEnvironmentMap), Without<AtmosphereProbeTextures>>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
-    // Get the first view entity's textures to borrow
-    let Some(view_textures) = view_textures.iter().next() else {
-        return;
-    };
-
     for (probe, render_env_map) in &probes {
         let Some(environment) = gpu_images.get(&render_env_map.environment_map) else {
             continue;
@@ -165,10 +202,6 @@ pub(super) fn prepare_probe_textures(
 
         commands.entity(probe).insert(AtmosphereProbeTextures {
             environment: environment_view,
-            transmittance_lut: view_textures.transmittance_lut.clone(),
-            multiscattering_lut: view_textures.multiscattering_lut.clone(),
-            sky_view_lut: view_textures.sky_view_lut.clone(),
-            aerial_view_lut: view_textures.aerial_view_lut.clone(),
         });
     }
 }
@@ -290,13 +323,18 @@ pub fn on_remove_atmosphere_environment_map_light(
 
 pub fn atmosphere_environment(
     view: ViewQuery<(
+        Entity,
         &DynamicUniformIndex<GpuAtmosphere>,
         &DynamicUniformIndex<GpuAtmosphereSettings>,
         &AtmosphereTransformsOffset,
         &ViewUniformOffset,
         &ViewLightsUniformOffset,
     )>,
-    probe_query: Query<(&AtmosphereProbeBindGroups, &AtmosphereEnvironmentMap)>,
+    probe_query: Query<(
+        &AtmosphereProbeBindGroups,
+        &AtmosphereEnvironmentMap,
+        &AtmosphereProbeSource,
+    )>,
     pipeline_cache: Res<PipelineCache>,
     pipelines: Res<AtmosphereProbePipeline>,
     mut ctx: RenderContext,
@@ -307,6 +345,7 @@ pub fn atmosphere_environment(
     };
 
     let (
+        view_entity,
         atmosphere_uniforms_offset,
         settings_uniforms_offset,
         atmosphere_transforms_offset,
@@ -318,7 +357,10 @@ pub fn atmosphere_environment(
     let diagnostics = diagnostics.as_deref();
     let time_span = diagnostics.time_span(ctx.command_encoder(), "atmosphere_environment");
 
-    for (bind_groups, env_map_light) in probe_query.iter() {
+    for (bind_groups, env_map_light, source) in &probe_query {
+        if source.0 != view_entity {
+            continue;
+        }
         let command_encoder = ctx.command_encoder();
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("environment_pass"),
@@ -346,4 +388,84 @@ pub fn atmosphere_environment(
     }
 
     time_span.end(ctx.command_encoder());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::Update;
+    use bevy_asset::{uuid_handle, AssetId};
+    use bevy_camera::{CameraOutputMode, ClearColorConfig, MsaaWriteback};
+    use bevy_ecs::{schedule::ScheduleLabel, world::World};
+    use bevy_math::{Mat4, Vec3};
+    use bevy_render::camera::SortedCamera;
+
+    fn atmosphere_view(order: isize, exposure: f32) -> (ExtractedCamera, ExtractedAtmosphere) {
+        (
+            ExtractedCamera {
+                target: None,
+                physical_viewport_size: None,
+                physical_target_size: None,
+                viewport: None,
+                schedule: Update.intern(),
+                order,
+                output_mode: CameraOutputMode::default(),
+                msaa_writeback: MsaaWriteback::default(),
+                clear_color: ClearColorConfig::default(),
+                sorted_camera_index_for_target: 0,
+                exposure,
+                hdr: true,
+                tonemap_in_shader: false,
+            },
+            ExtractedAtmosphere {
+                inner_radius: 6_360_000.0,
+                outer_radius: 6_460_000.0,
+                ground_albedo: Vec3::splat(0.3),
+                medium: AssetId::default(),
+                world_to_atmosphere: Mat4::IDENTITY,
+            },
+        )
+    }
+
+    fn probe(environment_map: Handle<Image>) -> AtmosphereEnvironmentMap {
+        AtmosphereEnvironmentMap {
+            environment_map,
+            size: UVec2::splat(128),
+        }
+    }
+
+    #[test]
+    fn probes_record_the_exposure_of_the_view_that_renders_them() {
+        let own_map = uuid_handle!("6d2f86a4-3c1b-4b9e-9a51-0c6f1e0b7a11");
+        let standalone_map = uuid_handle!("0b9c7f3e-58d2-4e8a-b3a4-71d5c2e9f622");
+
+        let mut world = World::new();
+        world.init_resource::<EnvironmentMapExposures>();
+        let late_view = world
+            .spawn((atmosphere_view(1, 0.25), probe(own_map.clone())))
+            .id();
+        let first_view = world.spawn(atmosphere_view(0, 4.0)).id();
+        let standalone = world.spawn(probe(standalone_map.clone())).id();
+        let sorted = |entity, order| SortedCamera {
+            entity,
+            order,
+            target: None,
+            output_mode: CameraOutputMode::default(),
+        };
+        world.insert_resource(SortedCameras(vec![
+            sorted(first_view, 0),
+            sorted(late_view, 1),
+        ]));
+
+        world
+            .run_system_cached(prepare_atmosphere_probe_sources)
+            .unwrap();
+
+        let source = |entity| world.get::<AtmosphereProbeSource>(entity).unwrap().0;
+        assert_eq!(source(late_view), late_view);
+        assert_eq!(source(standalone), first_view);
+        let exposures = world.resource::<EnvironmentMapExposures>();
+        assert_eq!(exposures.get(own_map.id()), 0.25);
+        assert_eq!(exposures.get(standalone_map.id()), 4.0);
+    }
 }
