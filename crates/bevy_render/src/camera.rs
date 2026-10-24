@@ -10,10 +10,10 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
-        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        ResolvedCompositingSpace, RetainedViewEntity, Tonemapping, ViewUniformOffset,
-        VisibilityExtractionSystemParam,
+        ColorGrading, ExtractedRenderLayersMeta, ExtractedView, ExtractedWindow, Msaa,
+        NoIndirectDrawing, RenderExtractedVisibleEntities, RenderVisibleEntities,
+        RenderVisibleEntitiesClass, ResolvedCompositingSpace, RetainedViewEntity, Tonemapping,
+        ViewUniformOffset, VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -42,7 +42,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::{InternedScheduleLabel, IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query, Res, ResMut},
-    world::DeferredWorld,
+    world::{DeferredWorld, Ref},
 };
 use bevy_image::Image;
 use bevy_log::warn;
@@ -500,7 +500,7 @@ pub fn extract_cameras(
                 Option<&Exposure>,
                 Option<&TemporalJitter>,
                 Option<&MipBias>,
-                Option<&RenderLayers>,
+                Option<Ref<RenderLayers>>,
                 Option<&Projection>,
                 Has<NoIndirectDrawing>,
                 Has<TonemappingPass>,
@@ -717,9 +717,14 @@ pub fn extract_cameras(
             }
 
             if let Some(render_layers) = render_layers {
-                commands.insert(render_layers.clone());
+                commands.insert((
+                    (*render_layers).clone(),
+                    ExtractedRenderLayersMeta {
+                        changed: render_layers.is_changed(),
+                    },
+                ));
             } else {
-                commands.remove::<RenderLayers>();
+                commands.remove::<(RenderLayers, ExtractedRenderLayersMeta)>();
             }
 
             if let Some(projection) = projection {
