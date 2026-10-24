@@ -80,6 +80,9 @@ struct Immediates {
     /// The offset into the `late_preprocess_work_item_indirect_parameters`
     /// buffer.
     late_preprocess_work_item_indirect_offset: u32,
+    /// Full depth texture size used to normalize the current viewport.
+    @if(LATE_PHASE)
+    target_size: vec2<f32>,
 }
 
 /// The current frame's `MeshInput`.
@@ -296,7 +299,12 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         @if(!EARLY_PHASE)
         let ndc_pos = position_world_to_ndc(world_pos);
 
-        let uv_pos = ndc_to_uv(ndc_pos.xy);
+        // The pyramid covers the full depth texture, not just the rendered region.
+        @if(EARLY_PHASE)
+        let viewport = previous_view_uniforms.main_pass_viewport_uv;
+        @else
+        let viewport = view.main_pass_viewport / immediates.target_size.xyxy;
+        let uv_pos = viewport.xy + ndc_to_uv(ndc_pos.xy) * viewport.zw;
 
         // Update the AABB and maximum view-space depth.
         aabb = vec4(min(aabb.xy, uv_pos), max(aabb.zw, uv_pos));

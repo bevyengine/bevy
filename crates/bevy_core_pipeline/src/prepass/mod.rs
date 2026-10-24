@@ -39,7 +39,7 @@ use core::ops::Range;
 use crate::deferred::{DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT};
 use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::allocator::MeshSlabs;
 use bevy_render::render_phase::PhaseItemBatchSetKey;
@@ -107,6 +107,8 @@ pub struct PreviousViewData {
     pub clip_from_view: Mat4,
     pub world_from_clip: Mat4,
     pub view_from_clip: Mat4,
+    /// Previous frame's main pass viewport origin and size, normalized to the full render target.
+    pub main_pass_viewport_uv: Vec4,
 }
 
 #[derive(Resource, Default)]

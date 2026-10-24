@@ -9,6 +9,7 @@ struct PreviousViewUniforms {
     clip_from_view: mat4x4<f32>,
     world_from_clip: mat4x4<f32>,
     view_from_clip: mat4x4<f32>,
+    main_pass_viewport_uv: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> view: View;
