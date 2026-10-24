@@ -19,8 +19,7 @@ use crate::{
         RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
-    query::DebugCheckedUnwrap as _,
-    relationship::{
+        relationship::{
         MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
     },
     storage::SparseSetIndex,
@@ -409,7 +408,7 @@ impl Components {
             self.components.resize_with(least_len, || None);
         }
         // SAFETY: We just extended the vec to make this index valid.
-        let slot = unsafe { self.components.get_mut(id.0).debug_checked_unwrap() };
+        let slot = unsafe { self.components.get_mut(id.0).unwrap_unchecked() };
         // Caller ensures id is unique
         debug_assert!(slot.is_none());
         *slot = Some(info);
@@ -531,9 +530,9 @@ impl Components {
         unsafe {
             self.components
                 .get(id.0)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .as_ref()
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 

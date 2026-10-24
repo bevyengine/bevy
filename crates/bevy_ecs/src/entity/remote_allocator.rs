@@ -42,8 +42,6 @@ use core::mem::ManuallyDrop;
 use log::warn;
 use nonmax::NonMaxU32;
 
-use crate::query::DebugCheckedUnwrap;
-
 use super::{Entity, EntityIndex, EntitySetIterator};
 
 /// This is the item we store in the free list.
@@ -383,7 +381,7 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
 
         // SAFETY: Constructor ensures these indices are valid in the buffer; the buffer is not sparse, and we just got the next slice.
         // So the only way for the slice to be empty is if the constructor did not uphold safety.
-        let next = unsafe { self.current_chunk_slice.next().debug_checked_unwrap() };
+        let next = unsafe { self.current_chunk_slice.next().unwrap_unchecked() };
         Some(next.get_entity())
     }
 

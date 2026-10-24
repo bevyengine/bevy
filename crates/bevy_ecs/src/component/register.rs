@@ -10,8 +10,7 @@ use crate::{
     component::{
         Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
     },
-    query::DebugCheckedUnwrap as _,
-};
+    };
 
 /// Generates [`ComponentId`]s.
 #[derive(Debug, Default)]
@@ -132,7 +131,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner);
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
-                unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
+                unsafe { queued.components.remove(&type_id).unwrap_unchecked() }
             })
         } {
             registrator.register(self);
@@ -250,9 +249,9 @@ impl<'w> ComponentsRegistrator<'w> {
                 .components
                 .components
                 .get_mut(id.index())
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .as_mut()
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
 
         update_from_component(&mut info.hooks);
