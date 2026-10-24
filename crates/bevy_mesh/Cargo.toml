@@ -39,7 +39,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 half = { version = "2.4.1", features = ["bytemuck"] }
 encase = "0.13"
-glam = { version = "0.33.9", default-features = false, optional = true }
+glam = { version = "0.34.1", default-features = false, optional = true }
 
 [dev-dependencies]
 approx = "0.5"
