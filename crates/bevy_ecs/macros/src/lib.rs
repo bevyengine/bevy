@@ -507,6 +507,10 @@ fn derive_system_param_impl(
                     }
                 }
 
+                fn configure(state: &mut Self::State, meta: &mut #path::system::SystemMeta, config: &mut dyn core::any::Any) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::configure(&mut state.state, meta, config)
+                }
+
                 fn init_access(
                     state: &Self::State,
                     system_meta: &mut #path::system::SystemMeta,
