@@ -57,8 +57,11 @@ impl SchemaRegistry {
     }
 
     fn resolve<'a>(&'a self, value: &Value) -> Option<TypeSchema<'a>> {
-        let path = value.get("$ref")?.as_str()?.strip_prefix(REF_PREFIX)?;
-        self.get(path)
+        self.resolve_ref(value.get("$ref")?.as_str()?)
+    }
+
+    fn resolve_ref(&self, reference: &str) -> Option<TypeSchema<'_>> {
+        self.get(reference.strip_prefix(REF_PREFIX)?)
     }
 
     fn named_fields<'a>(
@@ -122,10 +125,19 @@ impl<'a> TypeSchema<'a> {
     ///
     /// Tuple-like fields are named by their position. Struct fields without a `fieldIndex`
     /// come after the indexed ones, sorted by name.
+    ///
+    /// A newtype, whose schema is a `$ref` to its inner type, has a single field `0` that
+    /// carries the newtype's annotations.
     pub fn fields(&self) -> impl Iterator<Item = SchemaField<'a>> + use<'a> {
-        let fields = match self.schema.kind {
-            SchemaKind::Struct => self.registry.named_fields(self.schema.properties.iter()),
-            SchemaKind::Tuple | SchemaKind::TupleStruct => {
+        let fields = match (&self.schema.kind, &self.schema.reference) {
+            (SchemaKind::Struct, _) => self.registry.named_fields(self.schema.properties.iter()),
+            (SchemaKind::TupleStruct, Some(reference)) => vec![SchemaField {
+                name: Cow::Borrowed("0"),
+                index: Some(0),
+                ty: self.registry.resolve_ref(reference),
+                annotations: self.schema.annotations.clone(),
+            }],
+            (SchemaKind::Tuple | SchemaKind::TupleStruct, None) => {
                 self.registry.unnamed_fields(&self.schema.prefix_items)
             }
             _ => Vec::new(),
@@ -204,11 +216,20 @@ pub struct SchemaVariant<'a> {
 
 impl<'a> SchemaVariant<'a> {
     /// The fields of a struct or tuple variant, in declaration order.
+    ///
+    /// A single-field tuple variant, whose payload is a `$ref`, has one field named `0`.
     pub fn fields(&self) -> impl Iterator<Item = SchemaField<'a>> + use<'a> {
-        let fields = if let Some(Value::Object(properties)) = self.variant.get("properties") {
+        let payload = self
+            .variant
+            .get("properties")
+            .and_then(|properties| properties.get(self.name))
+            .unwrap_or(self.variant);
+        let fields = if let Some(Value::Object(properties)) = payload.get("properties") {
             self.registry.named_fields(properties.iter())
-        } else if let Some(Value::Array(items)) = self.variant.get("prefixItems") {
+        } else if let Some(Value::Array(items)) = payload.get("prefixItems") {
             self.registry.unnamed_fields(items)
+        } else if payload.get("$ref").is_some() {
+            self.registry.unnamed_fields(core::slice::from_ref(payload))
         } else {
             Vec::new()
         };
@@ -247,10 +268,24 @@ mod tests {
         #[default]
         Empty,
         Circle(f32),
+        Segment(f32, #[reflect(@Unit("m"))] Inner),
         Rect {
             width: f32,
             height: f32,
         },
+    }
+
+    #[derive(Reflect)]
+    struct Meters(#[reflect(@Unit("m"))] f32);
+
+    #[derive(Reflect)]
+    #[reflect(@Tooltip("Newtype tooltip"))]
+    struct Labeled(#[reflect(@Unit("m"))] Inner);
+
+    #[derive(Reflect)]
+    enum Mode {
+        Fast,
+        Slow,
     }
 
     #[derive(Reflect)]
@@ -270,6 +305,9 @@ mod tests {
             registry.register::<Shape>();
             registry.register::<Pair>();
             registry.register::<Collections>();
+            registry.register::<Meters>();
+            registry.register::<Labeled>();
+            registry.register::<Mode>();
         }
         registry
     }
@@ -284,6 +322,43 @@ mod tests {
 
     fn field_names<'a>(fields: impl Iterator<Item = SchemaField<'a>>) -> Vec<String> {
         fields.map(|field| field.name.into_owned()).collect()
+    }
+
+    fn describe(schema: TypeSchema<'_>) -> Vec<String> {
+        let field = |prefix: &str, field: SchemaField<'_>| {
+            format!(
+                "{prefix}{}:{}:{:?}",
+                field.name,
+                field.ty.map_or("?", |ty| ty.type_path()),
+                field.annotations
+            )
+        };
+        let mut out: Vec<_> = schema.fields().map(|f| field("", f)).collect();
+        for variant in schema.variants() {
+            out.push(variant.name.to_owned());
+            out.extend(variant.fields().map(|f| field("  ", f)));
+        }
+        out.extend(schema.items().map(|ty| ty.type_path().to_owned()));
+        out.extend(
+            schema
+                .key_value()
+                .map(|(k, v)| format!("{}=>{}", k.type_path(), v.type_path())),
+        );
+        out
+    }
+
+    fn describe_fields<'a>(
+        fields: impl Iterator<Item = SchemaField<'a>>,
+    ) -> Vec<(String, Option<usize>, &'a str)> {
+        fields
+            .map(|field| {
+                (
+                    field.name.into_owned(),
+                    field.index,
+                    field.ty.map_or("?", |ty| ty.type_path()),
+                )
+            })
+            .collect()
     }
 
     fn field_type<'a>(schema: TypeSchema<'a>, name: &str) -> Option<TypeSchema<'a>> {
@@ -308,9 +383,14 @@ mod tests {
             Shape::type_path(),
             Pair::type_path(),
             Collections::type_path(),
+            Meters::type_path(),
+            Labeled::type_path(),
+            Mode::type_path(),
+            Option::<i32>::type_path(),
         ] {
             let (local, remote) = (local.get(path).unwrap(), remote.get(path).unwrap());
-            assert_eq!(field_names(local.fields()), field_names(remote.fields()));
+            assert!(!describe(local).is_empty(), "{path}");
+            assert_eq!(describe(local), describe(remote), "{path}");
             assert_eq!(local.default_value(), remote.default_value());
         }
     }
@@ -408,12 +488,86 @@ mod tests {
             [
                 ("Empty", Vec::<String>::new()),
                 ("Circle", vec!["0".to_owned()]),
+                ("Segment", vec!["0".to_owned(), "1".to_owned()]),
                 ("Rect", vec!["width".to_owned(), "height".to_owned()]),
             ]
         );
         let circle = shape.variants().nth(1).unwrap();
-        let radius = circle.fields().next().unwrap().ty.unwrap();
-        assert_eq!(radius.type_path(), "f32");
+        let radius = circle.fields().next().unwrap();
+        assert_eq!(radius.index, Some(0));
+        assert_eq!(radius.ty.unwrap().type_path(), "f32");
+
+        let segment = shape.variants().nth(2).unwrap();
+        let fields: Vec<_> = segment.fields().collect();
+        assert_eq!(fields[0].ty.unwrap().type_path(), "f32");
+        assert_eq!(fields[1].ty.unwrap().type_path(), Inner::type_path());
+        assert_eq!(
+            fields[1]
+                .annotations
+                .as_ref()
+                .and_then(|a| a.unit.as_deref()),
+            Some("m")
+        );
+
+        let rect = shape.variants().nth(3).unwrap();
+        assert!(rect
+            .fields()
+            .all(|field| field.ty.unwrap().type_path() == "f32"));
+    }
+
+    #[test]
+    fn unit_only_enum_variants() {
+        let index = local_index();
+        let mode = index.get(Mode::type_path()).unwrap();
+        assert_eq!(mode.kind(), &SchemaKind::Enum);
+        let variants: Vec<_> = mode
+            .variants()
+            .map(|variant| (variant.name, variant.fields().count()))
+            .collect();
+        assert_eq!(variants, [("Fast", 0), ("Slow", 0)]);
+    }
+
+    #[test]
+    fn option_variants() {
+        let index = local_index();
+        let outer = index.get(Outer::type_path()).unwrap();
+        let option = field_type(outer, "alpha").unwrap();
+        assert_eq!(option.type_path(), Option::<i32>::type_path());
+        assert_eq!(option.kind(), &SchemaKind::Enum);
+        let variants: Vec<_> = option
+            .variants()
+            .map(|variant| (variant.name, describe_fields(variant.fields())))
+            .collect();
+        assert_eq!(
+            variants,
+            [
+                ("None", Vec::new()),
+                ("Some", vec![("0".to_owned(), Some(0), "i32")]),
+            ]
+        );
+    }
+
+    #[test]
+    fn newtype_has_one_positional_field() {
+        let index = local_index();
+        let meters = index.get(Meters::type_path()).unwrap();
+        assert_eq!(meters.kind(), &SchemaKind::TupleStruct);
+        assert_eq!(
+            describe_fields(meters.fields()),
+            [("0".to_owned(), Some(0), "f32")]
+        );
+        let field = meters.fields().next().unwrap();
+        assert_eq!(field.annotations.and_then(|a| a.unit), Some("m".to_owned()));
+        assert!(meters.variants().next().is_none());
+        assert!(meters.items().is_none());
+
+        let labeled = index.get(Labeled::type_path()).unwrap();
+        let field = labeled.fields().next().unwrap();
+        assert_eq!(field.ty.unwrap().type_path(), Inner::type_path());
+        assert_eq!(
+            field.annotations.and_then(|a| a.tooltip),
+            Some("Newtype tooltip".to_owned())
+        );
     }
 
     #[test]
