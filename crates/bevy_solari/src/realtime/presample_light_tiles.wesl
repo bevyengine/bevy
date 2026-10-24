@@ -18,7 +18,7 @@ fn presample_light_tiles(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builti
     let tile_id = workgroup_id.x;
     var rng = (tile_id * 0x9E3779B9u) + sample_index + constants.frame_rng;
 
-    let sample = generate_random_light_sample(&rng);
+    let sample = generate_random_light_sample(&rng, view.exposure);
 
     let i = (tile_id * 1024u) + sample_index;
     light_tile_samples[i] = sample.light_sample;

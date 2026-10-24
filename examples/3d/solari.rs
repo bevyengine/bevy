@@ -295,9 +295,9 @@ fn setup_many_lights(
                     MeshMaterial3d(
                         materials.add(StandardMaterial {
                             emissive: Color::linear_rgb(
-                                rng.random::<f32>() * 60000.0,
-                                rng.random::<f32>() * 60000.0,
-                                rng.random::<f32>() * 60000.0,
+                                rng.random::<f32>() * 62.0,
+                                rng.random::<f32>() * 62.0,
+                                rng.random::<f32>() * 62.0,
                             )
                             .into(),
                             ..default()
@@ -437,8 +437,7 @@ fn add_raytracing_meshes_on_scene_load(
             }
             if material_name.map(|s| s.0.as_str()) == Some("Lights") {
                 let mut material = materials.get_mut(material_handle).unwrap();
-                material.emissive =
-                    LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
+                material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1030.0;
                 material.alpha_mode = AlphaMode::Opaque;
                 material.specular_transmission = 0.0;
 
@@ -524,7 +523,7 @@ fn toggle_lights(
     {
         let mut material = materials.get_mut(&robot_light_material.0).unwrap();
         if material.emissive == LinearRgba::BLACK {
-            material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
+            material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1030.0;
         } else {
             material.emissive = LinearRgba::BLACK;
         }

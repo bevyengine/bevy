@@ -62,10 +62,12 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     reservoirs_a[pixel_index] = merge_result.merged_reservoir;
 
+    // Reused emissive was pre-divided by exposure (see generate_emissive_candidate), so the
+    // trailing `* view.exposure` cancels it; the first-hit G-buffer emissive is added raw after.
     var pixel_color = merge_result.selected_sample_brdf_radiance * merge_result.merged_reservoir.unbiased_contribution_weight;
-    pixel_color += surface.material.emissive;
     pixel_color += textureLoad(view_output, global_id.xy).rgb;
     pixel_color *= view.exposure;
+    pixel_color += surface.material.emissive;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)
@@ -190,7 +192,7 @@ fn merge_reservoirs(
 ) -> ReservoirMergeResult {
     var canonical_resolved: ResolvedLightSample;
     if canonical_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        canonical_resolved = resolve_light_sample(canonical_reservoir.light_sample, light_sources[canonical_reservoir.light_sample.light_id >> 16u]);
+        canonical_resolved = resolve_light_sample(canonical_reservoir.light_sample, light_sources[canonical_reservoir.light_sample.light_id >> 16u], view.exposure);
     }
 
     let canonical_wo = normalize(view.world_position - canonical_world_position);
@@ -205,7 +207,7 @@ fn merge_reservoirs(
 
     var other_resolved: ResolvedLightSample;
     if other_reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        other_resolved = resolve_light_sample(other_reservoir.light_sample, light_sources[other_reservoir.light_sample.light_id >> 16u]);
+        other_resolved = resolve_light_sample(other_reservoir.light_sample, light_sources[other_reservoir.light_sample.light_id >> 16u], view.exposure);
     }
     let other_wo = normalize(other_view_position - other_world_position);
     let other_NdotV = max(dot(other_world_normal, other_wo), 0.0001);

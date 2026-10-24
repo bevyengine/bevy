@@ -140,8 +140,8 @@ struct GenerateRandomLightSampleResult {
     resolved_light_sample: ResolvedLightSample,
 }
 
-fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>) -> LightContribution {
-    let sample = generate_random_light_sample(rng);
+fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rng: ptr<function, u32>, exposure: f32) -> LightContribution {
+    let sample = generate_random_light_sample(rng, exposure);
     var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
     light_contribution.radiance *= trace_visibility(ray_origin, sample.resolved_light_sample.world_position);
     return light_contribution;
@@ -163,7 +163,7 @@ fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(environment_map, environment_map_sampler, sample_direction, 0.0).rgb * environment_map_light.intensity;
 }
 
-fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
+fn generate_random_light_sample(rng: ptr<function, u32>, exposure: f32) -> GenerateRandomLightSampleResult {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
 
@@ -177,13 +177,13 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
     let seed = rand_u(rng);
     let light_sample = LightSample((light_id << 16u) | triangle_id, seed);
 
-    var resolved_light_sample = resolve_light_sample(light_sample, light_source);
+    var resolved_light_sample = resolve_light_sample(light_sample, light_source, exposure);
     resolved_light_sample.inverse_pdf *= f32(light_count);
 
     return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
 }
 
-fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
+fn resolve_light_sample(light_sample: LightSample, light_source: LightSource, exposure: f32) -> ResolvedLightSample {
     let kind = light_source_kind(light_source);
     if kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
@@ -275,7 +275,7 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
         return ResolvedLightSample(
             vec4(triangle_data.world_position, 1.0),
             triangle_data.world_normal,
-            triangle_data.material.emissive.rgb,
+            triangle_data.material.emissive.rgb / exposure,
             f32(triangle_count) * triangle_data.triangle_area,
             triangle_data.world_normal,
             NO_EMISSION_CONE,

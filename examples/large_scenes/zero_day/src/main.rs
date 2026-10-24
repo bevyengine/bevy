@@ -49,7 +49,7 @@ pub struct Args {
     #[argh(option, default = "Scene::MeasureOne")]
     scene: Scene,
 
-    /// emissive multiplier for the light panels (default 150000)
+    /// emissive multiplier for the light panels (default 155)
     #[argh(option, default = "DEFAULT_EMISSIVE")]
     emissive: f32,
 
@@ -145,7 +145,7 @@ impl Scene {
 
 /// Default emissive multiplier, approximately the luminance of a bright LED fixture in
 /// nits.
-const DEFAULT_EMISSIVE: f32 = 150_000.0;
+const DEFAULT_EMISSIVE: f32 = 155.0;
 
 impl argh::FromArgValue for Scene {
     fn from_arg_value(value: &str) -> Result<Self, String> {
