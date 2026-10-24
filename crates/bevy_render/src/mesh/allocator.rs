@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_mesh::Indices;
-use bevy_shape::{Aabb2d, BoundingVolume};
+use bevy_shape::BoundingVolume;
 use glam::Vec4;
 use wgpu::{BufferUsages, DownlevelFlags, COPY_BUFFER_ALIGNMENT};
 
@@ -154,7 +154,7 @@ impl MeshAllocationKey {
 /// The type of element that a mesh slab can store.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ElementClass {
-    /// Per-mesh metadata, except for meshes without `final_aabb` and `final_uv_ranges`.
+    /// Per-mesh metadata, for meshes with `final_aabb`, `final_uv_ranges` or compressed attributes.
     Metadata,
     /// Data for a vertex.
     Vertex,
@@ -270,6 +270,13 @@ pub fn allocate_and_free_meshes(
     );
 }
 
+/// Whether `mesh` needs a [`MeshMetadata`] entry.
+fn needs_metadata(mesh: &Mesh) -> bool {
+    mesh.final_aabb.is_some()
+        || mesh.final_uv_ranges.iter().any(Option::is_some)
+        || !mesh.attribute_compression().is_empty()
+}
+
 impl MeshAllocator {
     /// Returns the buffer and range within that buffer of the metadata for
     /// the mesh with the given ID.
@@ -282,23 +289,28 @@ impl MeshAllocator {
         )
     }
 
-    /// Meshes that had the buffer under their vertex or index data replaced this frame by a slab
+    /// Meshes that had the buffer under their vertex, index or metadata replaced this frame by a slab
     /// they were already resident in growing, so that anything caching those buffers can rebuild
     /// just the affected entries.
     ///
     /// **It is not the full set of meshes whose buffers changed this frame, and is not meant to be.**
     /// Callers must handle [`ExtractedAssets`] themselves if they want the full set of changed buffers.
     ///
-    /// A mesh is yielded twice if both its vertex and its index slab grew, since those are separate
+    /// A mesh is yielded once for each of its slabs that grew, since those are separate
     /// allocations, so deduplicate if repeating the work per mesh would be expensive.
     ///
-    /// Morph target and metadata allocations are filtered out.
+    /// Morph target allocations are filtered out.
     ///
     /// See [`SlabAllocator::keys_displaced_by_slab_growth`], which this wraps.
     pub fn meshes_displaced_by_slab_growth(&self) -> impl Iterator<Item = AssetId<Mesh>> {
         self.keys_displaced_by_slab_growth()
             .iter()
-            .filter(|key| matches!(key.class, ElementClass::Vertex | ElementClass::Index))
+            .filter(|key| {
+                matches!(
+                    key.class,
+                    ElementClass::Vertex | ElementClass::Index | ElementClass::Metadata
+                )
+            })
             .map(|key| key.mesh_id)
     }
 
@@ -436,7 +448,7 @@ impl MeshAllocator {
             }
 
             // Allocate metadata.
-            if mesh.final_aabb.is_some() || mesh.final_uv_ranges.iter().any(Option::is_some) {
+            if needs_metadata(mesh) {
                 // If storage buffers are unsupported, we allocate uniform buffers for each mesh.
                 if crate::storage_buffers_are_unsupported(&render_device.limits()) {
                     allocation_stage.allocate_large(
@@ -520,33 +532,31 @@ impl MeshAllocator {
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
     ) {
-        const UV_RANGES_NONE: [Option<Aabb2d>; 2] = [None; 2];
-        let metadata = match (mesh.final_aabb, mesh.final_uv_ranges) {
-            (None, UV_RANGES_NONE) => return,
-            _ => {
-                let (aabb_center, aabb_half_extents) = mesh
-                    .final_aabb
-                    .map(|aabb| (aabb.center().into(), aabb.half_size().into()))
-                    .unwrap_or_default();
-                let uv_channels_min_and_extents = mesh.final_uv_ranges.map(|maybe_uv| {
-                    maybe_uv
-                        .map(|aabb2d| {
-                            Vec4::new(
-                                aabb2d.min.x,
-                                aabb2d.min.y,
-                                aabb2d.max.x - aabb2d.min.x,
-                                aabb2d.max.y - aabb2d.min.y,
-                            )
-                        })
-                        .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
-                });
-                MeshMetadata {
-                    aabb_center,
-                    aabb_half_extents,
-                    uv_channels_min_and_extents,
-                    ..Default::default()
-                }
-            }
+        if !needs_metadata(mesh) {
+            return;
+        }
+        let (aabb_center, aabb_half_extents) = mesh
+            .final_aabb
+            .map(|aabb| (aabb.center().into(), aabb.half_size().into()))
+            .unwrap_or_default();
+        let uv_channels_min_and_extents = mesh.final_uv_ranges.map(|maybe_uv| {
+            maybe_uv
+                .map(|aabb2d| {
+                    Vec4::new(
+                        aabb2d.min.x,
+                        aabb2d.min.y,
+                        aabb2d.max.x - aabb2d.min.x,
+                        aabb2d.max.y - aabb2d.min.y,
+                    )
+                })
+                .unwrap_or(Vec4::new(0.0, 0.0, 1.0, 1.0))
+        });
+        let metadata = MeshMetadata {
+            aabb_center,
+            attribute_compression: mesh.attribute_compression().bits().into(),
+            aabb_half_extents,
+            uv_channels_min_and_extents,
+            ..Default::default()
         };
         // Call the generic function.
         self.copy_element_data(
@@ -753,7 +763,7 @@ mod tests {
     use crate::test_utils::create_dummy_device;
     use bevy_asset::{uuid::Uuid, RenderAssetUsages};
     use bevy_mesh::PrimitiveTopology;
-    use bevy_shape::Aabb3d;
+    use bevy_shape::{Aabb2d, Aabb3d};
     use glam::{Vec2, Vec3};
 
     fn test_mesh() -> Mesh {
