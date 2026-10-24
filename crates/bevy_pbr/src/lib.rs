@@ -100,7 +100,7 @@ use crate::{deferred::DeferredPbrLightingPlugin, gpu::extract_clusters_for_gpu_c
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
-use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
+use bevy_core_pipeline::schedule::{Core3d, Core3dShadows, Core3dSystems};
 use bevy_ecs::prelude::*;
 use bevy_image::{Image, ImageSampler};
 use bevy_material::AlphaMode;
@@ -376,6 +376,7 @@ impl Plugin for PbrPlugin {
                 ExtractSchedule,
                 (
                     extract_lights,
+                    extract_shadow_caster_changes,
                     extract_ambient_light_resource,
                     extract_ambient_light,
                     extract_shadow_filtering_method,
@@ -389,6 +390,9 @@ impl Plugin for PbrPlugin {
                     prepare_lights
                         .in_set(RenderSystems::CreateViews)
                         .after(sort_cameras),
+                    // Once the shadow phases are queued: what they hold is part of
+                    // what a shadow map was rendered from.
+                    skip_unchanged_shadow_views.in_set(RenderSystems::PrepareResources),
                     prepare_clusters_for_cpu_clustering
                         .in_set(RenderSystems::PrepareResources)
                         .run_if(
@@ -399,7 +403,8 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .init_gpu_resource::<LightMeta>()
-            .init_resource::<RenderShadowLodOrigin>();
+            .init_resource::<RenderShadowLodOrigin>()
+            .init_resource::<ShadowCasterChanges>();
 
         render_app
             .world_mut()
@@ -419,14 +424,17 @@ impl Plugin for PbrPlugin {
                     .after(late_prepass_build_indirect_parameters)
                     .before(main_build_indirect_parameters)
                     .before(Core3dSystems::MainPass),
+            ),
+        );
+
+        render_app.add_systems(
+            Core3dShadows,
+            (
                 shared_shadow_pass::<EARLY_SHADOW_PASS>
                     .after(early_prepass_build_indirect_parameters)
-                    .before(early_downsample_depth)
-                    .before(shared_shadow_pass::<LATE_SHADOW_PASS>),
+                    .before(late_gpu_preprocess),
                 shared_shadow_pass::<LATE_SHADOW_PASS>
-                    .after(late_prepass_build_indirect_parameters)
-                    .before(main_build_indirect_parameters)
-                    .before(Core3dSystems::MainPass),
+                    .after(late_prepass_build_indirect_parameters),
             ),
         );
     }
