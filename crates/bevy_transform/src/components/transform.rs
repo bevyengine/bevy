@@ -72,7 +72,8 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component),
-    require(GlobalTransform, TransformTreeChanged)
+    require(GlobalTransform),
+    component(summary_tick)
 )]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -686,20 +687,3 @@ impl Mul<Vec3> for Transform {
         self.transform_point(value)
     }
 }
-
-/// An optimization for transform propagation. This ZST marker component uses change detection to
-/// mark all entities of the hierarchy as "dirty" if any of their descendants have a changed
-/// `Transform`. If this component is *not* marked `is_changed()`, propagation will halt.
-#[derive(Clone, Copy, Default, PartialEq, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Component, Default, PartialEq, Debug)
-)]
-#[cfg_attr(
-    all(feature = "bevy_reflect", feature = "serialize"),
-    reflect(Serialize, Deserialize)
-)]
-pub struct TransformTreeChanged;

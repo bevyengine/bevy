@@ -6,10 +6,7 @@ use bevy_math::ops::{cos, sin};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_transform::{
     components::{GlobalTransform, Transform},
-    systems::{
-        mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
-        StaticTransformOptimizations,
-    },
+    systems::{propagate_transforms, sync_simple_transforms, StaticTransformOptimizations},
 };
 use criterion::{criterion_group, Criterion};
 
@@ -231,14 +228,7 @@ impl ReparentBench {
         }
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(
-            (
-                mark_dirty_trees,
-                propagate_parent_transforms,
-                sync_simple_transforms,
-            )
-                .chain(),
-        );
+        schedule.add_systems((propagate_transforms, sync_simple_transforms).chain());
 
         schedule.run(&mut world);
 
@@ -280,7 +270,7 @@ fn mark_dirty_trees_bench(c: &mut Criterion) {
 
     group.bench_function("localized_leaf_updates", |b| {
         let mut scene = WorldBench::new(StaticTransformOptimizations::Enabled, |schedule| {
-            schedule.add_systems(mark_dirty_trees);
+            schedule.add_systems(propagate_transforms);
         });
         b.iter(|| {
             scene.mutate_movers(1024);
@@ -291,7 +281,7 @@ fn mark_dirty_trees_bench(c: &mut Criterion) {
 
     group.bench_function("distributed_leaf_updates", |b| {
         let mut scene = WorldBench::new(StaticTransformOptimizations::Enabled, |schedule| {
-            schedule.add_systems(mark_dirty_trees);
+            schedule.add_systems(propagate_transforms);
         });
         b.iter(|| {
             scene.mutate_movers(HOT_BATCH);
@@ -311,7 +301,7 @@ fn propagate_parent_transforms_bench(c: &mut Criterion) {
     // Disable static optimization to isolate pure propagation traversal cost.
     group.bench_function("full_recompute_roots_changed", |b| {
         let mut scene = WorldBench::new(StaticTransformOptimizations::Disabled, |schedule| {
-            schedule.add_systems(propagate_parent_transforms);
+            schedule.add_systems(propagate_transforms);
         });
         b.iter(|| {
             scene.mutate_roots(8);
@@ -322,7 +312,7 @@ fn propagate_parent_transforms_bench(c: &mut Criterion) {
 
     group.bench_function("full_recompute_leaves_changed", |b| {
         let mut scene = WorldBench::new(StaticTransformOptimizations::Disabled, |schedule| {
-            schedule.add_systems(propagate_parent_transforms);
+            schedule.add_systems(propagate_transforms);
         });
         b.iter(|| {
             scene.mutate_movers(HOT_BATCH);
@@ -341,14 +331,7 @@ fn transform_pipeline_bench(c: &mut Criterion) {
 
     group.bench_function("localized_updates_static_optimized", |b| {
         let mut scene = WorldBench::new(StaticTransformOptimizations::Enabled, |schedule| {
-            schedule.add_systems(
-                (
-                    mark_dirty_trees,
-                    propagate_parent_transforms,
-                    sync_simple_transforms,
-                )
-                    .chain(),
-            );
+            schedule.add_systems((propagate_transforms, sync_simple_transforms).chain());
         });
         b.iter(|| {
             scene.mutate_movers(1024);
@@ -359,14 +342,7 @@ fn transform_pipeline_bench(c: &mut Criterion) {
 
     group.bench_function("localized_updates_no_static_optimization", |b| {
         let mut scene = WorldBench::new(StaticTransformOptimizations::Disabled, |schedule| {
-            schedule.add_systems(
-                (
-                    mark_dirty_trees,
-                    propagate_parent_transforms,
-                    sync_simple_transforms,
-                )
-                    .chain(),
-            );
+            schedule.add_systems((propagate_transforms, sync_simple_transforms).chain());
         });
         b.iter(|| {
             scene.mutate_movers(1024);
