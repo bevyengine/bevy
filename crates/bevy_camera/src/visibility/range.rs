@@ -294,6 +294,7 @@ pub fn check_visibility_ranges(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{system::RunSystemOnce, world::World};
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_transform::components::GlobalTransform;
 
     use super::{check_visibility_ranges, VisibilityRange, VisibleEntityRanges};
@@ -301,6 +302,7 @@ mod tests {
 
     #[test]
     fn inactive_cameras_do_not_use_view_slots() {
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         world.init_resource::<VisibleEntityRanges>();
         for _ in 0..40 {
