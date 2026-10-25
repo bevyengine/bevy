@@ -183,7 +183,7 @@ impl FeathersNumberInput {
                             Children [
                                 Text(text)
                                 TextFont {
-                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font: FontSourceTemplate::Families(fonts::SANS),
                                     font_size: size::COMPACT_FONT,
                                 }
                                 PropagateOver<TextFont>
@@ -260,7 +260,7 @@ impl FeathersNumberInput {
                                     left: px(INTERIOR_LABEL_INSET),
                                 }
                                 TextFont {
-                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font: FontSourceTemplate::Families(fonts::SANS),
                                     font_size: size::COMPACT_FONT,
                                 }
                                 ThemedText
@@ -572,7 +572,7 @@ fn number_input_on_insert_value(
             clamped_value,
             drag_state.mode == EditMode::Editing,
         );
-        if editable_text.value() != &new_digits {
+        if editable_text.value() != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
@@ -694,8 +694,7 @@ fn number_input_init(
             *input_value,
             drag_state.mode == EditMode::Editing,
         );
-        let old_digits = editable_text.value().to_string();
-        if old_digits != new_digits {
+        if editable_text.value() != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
@@ -780,7 +779,7 @@ fn number_input_on_enter_key(
         && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
-        let text_value = editable_text.value().to_string();
+        let text_value = editable_text.value().into_owned();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
         show_interior_label(text_id, true, &q_children, &mut q_label);
         commands
@@ -853,7 +852,7 @@ fn number_input_on_focus_lost(
         && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
-        let text_value = editable_text.value().to_string();
+        let text_value = editable_text.value().into_owned();
         emit_value_change(
             text_value,
             input_value.format(),
@@ -970,8 +969,7 @@ fn scrubber_on_release(
             // Replace the text before editing; this lets us change the degree symbol (°), which
             // is hard to type, into `d`, which is easier.
             let editable_digits = format_value(units_registry.resolve(units), *value, true);
-            let old_digits = editable_text.value().to_string();
-            if old_digits != editable_digits {
+            if editable_text.value() != editable_digits {
                 editable_text.queue_edit(TextEdit::SelectAll);
                 editable_text.queue_edit(TextEdit::Insert(editable_digits.into()));
             }
