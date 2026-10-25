@@ -215,12 +215,18 @@ impl TupleInfo {
 pub(crate) trait TupleLike {
     fn field_len(&self) -> usize;
 
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
     fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
 }
 
 impl TupleLike for DynamicTuple {
     fn field_len(&self) -> usize {
         self.field_len()
+    }
+
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field(index).map(DynamicValue::as_ref)
     }
 
     fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
@@ -231,6 +237,10 @@ impl TupleLike for DynamicTuple {
 impl TupleLike for dyn Tuple {
     fn field_len(&self) -> usize {
         self.field_len()
+    }
+
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field(index).map(Into::into)
     }
 
     fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {

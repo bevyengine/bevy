@@ -3,7 +3,7 @@
 use core::{
     any::Any,
     cmp::Ordering,
-    fmt::{Debug, Formatter},
+    fmt::{Debug, Display, Formatter},
     ops::Deref,
 };
 
@@ -186,17 +186,13 @@ impl DynamicValue {
 
 impl Debug for DynamicValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            DynamicValue::Struct(value) => value.fmt(f),
-            DynamicValue::TupleStruct(value) => value.fmt(f),
-            DynamicValue::Tuple(value) => value.fmt(f),
-            DynamicValue::List(value) => value.fmt(f),
-            DynamicValue::Array(value) => value.fmt(f),
-            DynamicValue::Map(value) => value.fmt(f),
-            DynamicValue::Set(value) => value.fmt(f),
-            DynamicValue::Enum(value) => value.fmt(f),
-            DynamicValue::Concrete(value) => value.debug(f),
-        }
+        Debug::fmt(&self.as_ref(), f)
+    }
+}
+
+impl Display for DynamicValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        Display::fmt(&self.as_ref(), f)
     }
 }
 
@@ -570,6 +566,38 @@ impl<'b> DynamicValueRef<'b> {
     }
 }
 
+impl Debug for DynamicValueRef<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Struct(value) => Debug::fmt(value, f),
+            Self::TupleStruct(value) => Debug::fmt(value, f),
+            Self::Tuple(value) => Debug::fmt(value, f),
+            Self::List(value) => Debug::fmt(value, f),
+            Self::Array(value) => Debug::fmt(value, f),
+            Self::Map(value) => Debug::fmt(value, f),
+            Self::Set(value) => Debug::fmt(value, f),
+            Self::Enum(value) => Debug::fmt(value, f),
+            Self::Concrete(concrete) => concrete.debug(f),
+        }
+    }
+}
+
+impl Display for DynamicValueRef<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Struct(value) => Display::fmt(value, f),
+            Self::TupleStruct(value) => Display::fmt(value, f),
+            Self::Tuple(value) => Display::fmt(value, f),
+            Self::List(value) => Display::fmt(value, f),
+            Self::Array(value) => Display::fmt(value, f),
+            Self::Map(value) => Display::fmt(value, f),
+            Self::Set(value) => Display::fmt(value, f),
+            Self::Enum(value) => Display::fmt(value, f),
+            Self::Concrete(concrete) => Display::fmt(concrete, f),
+        }
+    }
+}
+
 impl<'a> From<&'a DynamicValue> for DynamicValueRef<'a> {
     fn from(value: &'a DynamicValue) -> Self {
         match value {
@@ -773,6 +801,18 @@ impl<'a> DynamicValueMut<'a> {
             Self::Concrete(value) => Some(&mut **value),
             _ => None,
         }
+    }
+}
+
+impl Debug for DynamicValueMut<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        Debug::fmt(&self.as_ref(), f)
+    }
+}
+
+impl Display for DynamicValueMut<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        Display::fmt(&self.as_ref(), f)
     }
 }
 

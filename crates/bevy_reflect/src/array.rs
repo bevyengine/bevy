@@ -215,12 +215,18 @@ pub fn dynamic_array_hash(array: &DynamicArray) -> Option<u64> {
 pub(crate) trait ArrayLike {
     fn len(&self) -> usize;
 
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
 }
 
 impl ArrayLike for DynamicArray {
     fn len(&self) -> usize {
         self.len()
+    }
+
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.get(index).map(DynamicValue::as_ref)
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
@@ -231,6 +237,10 @@ impl ArrayLike for DynamicArray {
 impl ArrayLike for dyn Array {
     fn len(&self) -> usize {
         self.len()
+    }
+
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.get(index).map(Into::into)
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {

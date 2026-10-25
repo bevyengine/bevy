@@ -241,12 +241,18 @@ pub fn dynamic_list_hash(list: &DynamicList) -> Option<u64> {
 pub(crate) trait ListLike {
     fn len(&self) -> usize;
 
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
 }
 
 impl ListLike for DynamicList {
     fn len(&self) -> usize {
         self.len()
+    }
+
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.get(index).map(DynamicValue::as_ref)
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
@@ -257,6 +263,10 @@ impl ListLike for DynamicList {
 impl ListLike for dyn List {
     fn len(&self) -> usize {
         self.len()
+    }
+
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.get(index).map(Into::into)
     }
 
     fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {

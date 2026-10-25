@@ -25,8 +25,20 @@ use alloc::vec::Vec;
 use core::any::TypeId;
 use core::fmt::{Display, Formatter, Write};
 
+use crate::array::ArrayLike;
+use crate::dynamic::{
+    DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, DynamicValueRef,
+};
+use crate::enums::EnumLike;
 #[cfg(feature = "functions")]
 use crate::func::Function;
+use crate::list::ListLike;
+use crate::map::MapLike;
+use crate::set::SetLike;
+use crate::structs::StructLike;
+use crate::tuple::TupleLike;
+use crate::tuple_struct::TupleStructLike;
 use crate::{
     array::Array,
     enums::{Enum, VariantType},
@@ -53,7 +65,7 @@ use crate::{
 /// (or last continuation line for opaque values) should appear.
 fn write_value(
     f: &mut Formatter<'_>,
-    value: &dyn Reflect,
+    value: DynamicValueRef<'_>,
     // A HashSet / BTreeSet has better asymptotic performance for the .contains() check,
     // but a Vec will be faster at low n, which is the common case for reflected values,
     // as most types are not deeply nested.
@@ -61,7 +73,9 @@ fn write_value(
     indent: u32,
 ) -> core::fmt::Result {
     // Dynamic types without type info cannot be cycle-checked.
-    let type_info = value.reflect_type_info();
+    let Some(type_info) = value.get_represented_type_info() else {
+        return write_dynamic_value_ref(f, value, ancestry, indent);
+    };
 
     let type_id = type_info.type_id();
     let type_path = type_info.type_path();
@@ -71,9 +85,31 @@ fn write_value(
     }
 
     ancestry.push(type_id);
-    let result = write_reflect_ref(f, &value.reflect_ref(), ancestry, indent);
+    let result = write_dynamic_value_ref(f, value, ancestry, indent);
     ancestry.pop();
     result
+}
+
+/// Writes a [`DynamicValueRef`], dispatching to the type-specific writer.
+fn write_dynamic_value_ref(
+    f: &mut Formatter<'_>,
+    dynamic_value: DynamicValueRef<'_>,
+    ancestry: &mut Vec<TypeId>,
+    indent: u32,
+) -> core::fmt::Result {
+    match dynamic_value {
+        DynamicValueRef::Struct(value) => write_struct(f, value, ancestry, indent),
+        DynamicValueRef::TupleStruct(value) => write_tuple_struct(f, value, ancestry, indent),
+        DynamicValueRef::Tuple(value) => write_tuple(f, value, ancestry, indent),
+        DynamicValueRef::List(value) => write_list(f, value, ancestry, indent),
+        DynamicValueRef::Array(value) => write_array(f, value, ancestry, indent),
+        DynamicValueRef::Map(value) => write_map(f, value, ancestry, indent),
+        DynamicValueRef::Set(value) => write_set(f, value, ancestry, indent),
+        DynamicValueRef::Enum(value) => write_enum(f, value, ancestry, indent),
+        DynamicValueRef::Concrete(value) => {
+            write_reflect_ref(f, &value.reflect_ref(), ancestry, indent)
+        }
+    }
 }
 
 /// Writes a [`ReflectRef`], dispatching to the type-specific writer.
@@ -99,13 +135,16 @@ fn write_reflect_ref(
 }
 
 /// Writes a reflected [`Struct`] value.
-fn write_struct(
+fn write_struct<SL: StructLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn Struct,
+    value: &SL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = value.reflect_type_path();
+    let type_name = value
+        .get_represented_type_info()
+        .map(|info| info.type_path())
+        .unwrap_or("<Unknown Struct>");
 
     if value.field_len() == 0 {
         return write!(f, "{type_name} {{}}");
@@ -128,13 +167,16 @@ fn write_struct(
 }
 
 /// Writes a reflected [`TupleStruct`] value.
-fn write_tuple_struct(
+fn write_tuple_struct<TSL: TupleStructLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn TupleStruct,
+    value: &TSL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = value.reflect_type_path();
+    let type_name = value
+        .get_represented_type_info()
+        .map(|info| info.type_path())
+        .unwrap_or("<Unknown TupleStruct>");
 
     if value.field_len() == 0 {
         return write!(f, "{type_name}()");
@@ -154,9 +196,9 @@ fn write_tuple_struct(
 }
 
 /// Writes a reflected [`Tuple`] value.
-fn write_tuple(
+fn write_tuple<TL: TupleLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn Tuple,
+    value: &TL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
@@ -178,13 +220,13 @@ fn write_tuple(
 }
 
 /// Writes a reflected [`List`] value.
-fn write_list(
+fn write_list<LL: ListLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn List,
+    value: &LL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    if value.is_empty() {
+    if value.len() == 0 {
         return f.write_str("[]");
     }
 
@@ -202,13 +244,13 @@ fn write_list(
 }
 
 /// Writes a reflected [`Array`] value.
-fn write_array(
+fn write_array<AL: ArrayLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn Array,
+    value: &AL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    if value.is_empty() {
+    if value.len() == 0 {
         return f.write_str("[]");
     }
 
@@ -226,13 +268,13 @@ fn write_array(
 }
 
 /// Writes a reflected [`Map`] value.
-fn write_map(
+fn write_map<ML: MapLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn Map,
+    value: &ML,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    if value.is_empty() {
+    if value.len() == 0 {
         return f.write_str("{}");
     }
 
@@ -249,13 +291,13 @@ fn write_map(
 }
 
 /// Writes a reflected [`Set`] value.
-fn write_set(
+fn write_set<SL: SetLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn Set,
+    value: &SL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    if value.is_empty() {
+    if value.len() == 0 {
         return f.write_str("{}");
     }
 
@@ -270,13 +312,16 @@ fn write_set(
 }
 
 /// Writes a reflected [`Enum`] value.
-fn write_enum(
+fn write_enum<EL: EnumLike + ?Sized>(
     f: &mut Formatter<'_>,
-    value: &dyn Enum,
+    value: &EL,
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = value.reflect_type_path();
+    let type_name = value
+        .get_represented_type_info()
+        .map(|info| info.type_path())
+        .unwrap_or("<Unknown Enum>");
     let variant = value.variant_name();
     let variant = if variant.is_empty() {
         "<unnamed>"
@@ -406,7 +451,55 @@ impl Display for ReflectRef<'_> {
 
 impl Display for dyn Reflect {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write_value(f, self, &mut Vec::new(), 0)
+        write_value(f, self.into(), &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicStruct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_struct(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicTupleStruct {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_tuple_struct(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicTuple {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_tuple(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_list(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicArray {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_array(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicMap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_map(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_set(f, self, &mut Vec::new(), 0)
+    }
+}
+
+impl Display for DynamicEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_enum(f, self, &mut Vec::new(), 0)
     }
 }
 
