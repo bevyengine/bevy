@@ -266,7 +266,8 @@ pub fn prepare_solari_lighting_resources(
 
         let world_cache_active_cells_dispatch = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_active_cells_dispatch"),
-            size: size_of::<[u32; 3]>() as u64,
+            // `vec3<u32>` is 16-byte aligned on Metal. A 12-byte buffer fails that binding.
+            size: size_of::<[u32; 4]>() as u64,
             usage: BufferUsages::INDIRECT | BufferUsages::STORAGE,
             mapped_at_creation: false,
         });

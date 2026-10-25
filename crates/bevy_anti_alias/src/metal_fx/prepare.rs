@@ -30,7 +30,6 @@ pub fn prepare_metal_fx<F: MetalFxFeature>(
             Entity,
             &ExtractedView,
             &MetalFx<F>,
-            &mut Camera3d,
             &mut CameraMainTextureUsages,
             &mut TemporalJitter,
             &mut MipBias,
@@ -51,7 +50,6 @@ pub fn prepare_metal_fx<F: MetalFxFeature>(
         entity,
         view,
         metal_fx,
-        mut camera_3d,
         mut camera_main_texture_usages,
         mut temporal_jitter,
         mut mip_bias,
@@ -77,7 +75,7 @@ pub fn prepare_metal_fx<F: MetalFxFeature>(
                         .expect("Failed to create MetalFxRenderContext");
 
                 let usages = F::texture_usages(&context);
-                apply_texture_usages(&mut camera_main_texture_usages, &mut camera_3d, usages);
+                apply_texture_usages(&mut camera_main_texture_usages, usages);
 
                 let render_resolution = F::render_resolution(&context);
                 temporal_jitter.offset =
@@ -98,15 +96,11 @@ pub fn prepare_metal_fx<F: MetalFxFeature>(
 
 fn apply_texture_usages(
     camera_main_texture_usages: &mut CameraMainTextureUsages,
-    camera_3d: &mut Camera3d,
     usages: MetalFxTextureUsages,
 ) {
+    // Depth comes from Solari's guide texture, not the camera depth attachment.
     camera_main_texture_usages.0 |= usages.color
         | usages.output
         | TextureUsages::STORAGE_BINDING
         | TextureUsages::TEXTURE_BINDING;
-
-    let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
-    depth_texture_usages |= usages.depth | TextureUsages::TEXTURE_BINDING;
-    camera_3d.depth_texture_usages = depth_texture_usages.into();
 }

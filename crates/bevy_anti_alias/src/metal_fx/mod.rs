@@ -172,7 +172,8 @@ impl MetalFxFeature for MetalFxTemporalDenoisedScalerFeature {
         let render_resolution = quality_mode.render_resolution(upscaled_resolution.to_array());
         let formats = MetalFxTemporalDenoisedScalerFormats {
             color: TextureFormat::Rgba16Float,
-            depth: TextureFormat::Depth32Float,
+            // Solari's guide depth, including virtual depth for mirrors.
+            depth: TextureFormat::R32Float,
             motion_vectors: MOTION_VECTOR_PREPASS_FORMAT,
             diffuse_albedo: TextureFormat::Rgba8Unorm,
             specular_albedo: TextureFormat::Rgba8Unorm,
