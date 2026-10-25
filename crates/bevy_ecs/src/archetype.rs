@@ -172,38 +172,6 @@ pub(crate) struct ArchetypeAfterBundleRemove {
     pub removed: Box<[ComponentId]>,
 }
 
-/// The state of an [`Edges`] cache entry for removing a bundle from the source archetype.
-pub(crate) enum CachedBundleRemove<'a> {
-    /// The removal was not computed yet.
-    Uncached,
-    /// The bundle cannot be removed from the source archetype.
-    Invalid,
-    /// The bundle can be removed from the source archetype.
-    Valid(&'a ArchetypeAfterBundleRemove),
-}
-
-impl<'a> From<Option<&'a Option<ArchetypeAfterBundleRemove>>> for CachedBundleRemove<'a> {
-    #[inline]
-    fn from(entry: Option<&'a Option<ArchetypeAfterBundleRemove>>) -> Self {
-        match entry {
-            None => Self::Uncached,
-            Some(None) => Self::Invalid,
-            Some(Some(after_remove)) => Self::Valid(after_remove),
-        }
-    }
-}
-
-impl CachedBundleRemove<'_> {
-    #[inline]
-    fn archetype_id(self) -> Option<Option<ArchetypeId>> {
-        match self {
-            Self::Uncached => None,
-            Self::Invalid => Some(None),
-            Self::Valid(after_remove) => Some(Some(after_remove.archetype_id)),
-        }
-    }
-}
-
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
 /// being inserted into a given entity, relative to that entity's original archetype.
 /// See [`BundleInfo::write_components`](`crate::bundle::BundleInfo::write_components`) for more info.
@@ -318,17 +286,17 @@ impl Edges {
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
         self.get_archetype_after_bundle_remove_internal(bundle_id)
-            .archetype_id()
+            .map(|after_remove| after_remove.map(|after_remove| after_remove.archetype_id))
     }
 
     /// Internal version of `get_archetype_after_bundle_remove` that
-    /// fetches the full [`CachedBundleRemove`].
+    /// fetches the full `ArchetypeAfterBundleRemove`.
     #[inline]
     pub(crate) fn get_archetype_after_bundle_remove_internal(
         &self,
         bundle_id: BundleId,
-    ) -> CachedBundleRemove<'_> {
-        self.remove_bundle.get(bundle_id).into()
+    ) -> Option<Option<&ArchetypeAfterBundleRemove>> {
+        self.remove_bundle.get(bundle_id).map(Option::as_ref)
     }
 
     /// Caches the target archetype when removing a bundle from the source archetype,
@@ -359,17 +327,17 @@ impl Edges {
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
         self.get_archetype_after_bundle_take_internal(bundle_id)
-            .archetype_id()
+            .map(|after_take| after_take.map(|after_take| after_take.archetype_id))
     }
 
     /// Internal version of `get_archetype_after_bundle_take` that
-    /// fetches the full [`CachedBundleRemove`].
+    /// fetches the full `ArchetypeAfterBundleRemove`.
     #[inline]
     pub(crate) fn get_archetype_after_bundle_take_internal(
         &self,
         bundle_id: BundleId,
-    ) -> CachedBundleRemove<'_> {
-        self.take_bundle.get(bundle_id).into()
+    ) -> Option<Option<&ArchetypeAfterBundleRemove>> {
+        self.take_bundle.get(bundle_id).map(Option::as_ref)
     }
 
     /// Caches the target archetype when taking a bundle from the source archetype,

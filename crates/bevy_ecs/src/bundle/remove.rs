@@ -5,7 +5,7 @@ use core::ptr::NonNull;
 use crate::{
     archetype::{
         Archetype, ArchetypeAfterBundleRemove, ArchetypeCreated, ArchetypeId, Archetypes,
-        CachedBundleRemove, ARCHETYPE_CREATED,
+        ARCHETYPE_CREATED,
     },
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::{MaybeLocation, Tick},
@@ -415,11 +415,9 @@ impl BundleInfo {
             edges.get_archetype_after_bundle_take_internal(self.id())
         };
         match cached {
-            CachedBundleRemove::Uncached => {}
-            CachedBundleRemove::Invalid => return None,
-            CachedBundleRemove::Valid(after_remove) => {
-                return Some(BundleRemoval::new(after_remove, false));
-            }
+            None => {}
+            Some(None) => return None,
+            Some(Some(after_remove)) => return Some(BundleRemoval::new(after_remove, false)),
         }
         let mut removed = Vec::new();
         let mut next_table_components;
