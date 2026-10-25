@@ -3751,8 +3751,7 @@ impl World {
             .iter()
             .filter_map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-                let component_info =
-                    unsafe { components.get_info(component_id).unwrap_unchecked() };
+                let component_info = unsafe { components.get_info_unchecked(component_id) };
 
                 let entity_cell = unsafe_world.get_entity(entity).ok()?;
 

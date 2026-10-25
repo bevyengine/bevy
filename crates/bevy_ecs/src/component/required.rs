@@ -272,7 +272,7 @@ impl RequiredComponents {
         components: &Components,
     ) {
         // SAFETY: the caller guarantees that `required_id` is valid in `components`.
-        let info = unsafe { components.get_info(required_id).unwrap_unchecked() };
+        let info = unsafe { components.get_info_unchecked(required_id) };
 
         // Now we need to "recursively" register the
         // Small optimization: if the current required component was already required recursively
