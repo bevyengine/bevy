@@ -1288,12 +1288,62 @@ mod tests {
     #[test]
     fn reflect_export_skipped_field_tuple_struct_stays_array() {
         #[derive(Reflect)]
-        struct Wrapper(f32, #[reflect(skip_serializing)] u8);
+        struct Wrapper(#[reflect(skip_serializing)] f32);
 
-        let (schema, value) = export_schema_and_value(&Wrapper(1.5, 2));
-        assert_eq!(value, json!([1.5]));
+        let (schema, value) = export_schema_and_value(&Wrapper(1.5));
+        assert_eq!(value, json!([]));
         assert_eq!(schema["type"], "array");
         assert!(schema.get("$ref").is_none());
+    }
+
+    #[test]
+    fn reflect_export_skipped_tuple_struct_field_is_not_an_item() {
+        #[derive(Reflect)]
+        struct Wrapper(#[reflect(skip_serializing)] u8, f32);
+
+        let (schema, value) = export_schema_and_value(&Wrapper(2, 1.5));
+        assert_eq!(value, json!([1.5]));
+        assert_eq!(schema["prefixItems"], json!([{ "$ref": "#/f32" }]));
+    }
+
+    #[test]
+    fn reflect_export_skipped_struct_field_is_not_required() {
+        #[derive(Reflect)]
+        struct Settings {
+            kept: f32,
+            #[reflect(skip_serializing)]
+            skipped: f32,
+        }
+
+        let (schema, value) = export_schema_and_value(&Settings {
+            kept: 1.0,
+            skipped: 2.0,
+        });
+        assert_eq!(value, json!({ "kept": 1.0 }));
+        assert_eq!(schema["required"], json!(["kept"]));
+    }
+
+    #[test]
+    fn reflect_export_newtype_keeps_type_and_field_annotations() {
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("Top speed"))]
+        struct Speed(#[reflect(@0.0..=10.0, @Unit("m/s"))] f32);
+
+        let (schema, _) = export_schema_and_value(&Speed(1.0));
+        assert_eq!(
+            schema["annotations"],
+            json!({ "tooltip": "Top speed", "range": [0.0, 10.0], "unit": "m/s" })
+        );
+        assert_eq!(schema["minimum"], 0.0);
+    }
+
+    #[test]
+    fn reflect_export_option_some_excludes_null() {
+        use bevy_ecs::entity::Entity;
+
+        let (schema, value) = export_schema_and_value(&None::<Entity>);
+        assert_eq!(value, Value::Null);
+        assert_eq!(schema["oneOf"][1]["not"], json!({ "type": "null" }));
     }
 
     #[test]
