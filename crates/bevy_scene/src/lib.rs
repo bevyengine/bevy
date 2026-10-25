@@ -3429,6 +3429,25 @@ mod tests {
         assert_eq!(expected_id, actual_id);
     }
 
+    #[derive(Default)]
+    pub struct ContainerProps {
+        pub content: Option<Box<dyn SceneList>>,
+    }
+
+    #[derive(SceneComponent, Clone, Default)]
+    #[scene(ContainerProps)]
+    pub struct Container;
+
+    impl Container {
+        fn scene(props: ContainerProps) -> impl Scene {
+            bsn! {
+                Children [
+                    { props.content }
+                ]
+            }
+        }
+    }
+
     #[track_caller]
     fn split_entity_ref_display(s: &str) -> (&str, &str) {
         if let Some((loc, _)) = s.split_once(' ')
@@ -3446,25 +3465,6 @@ mod tests {
 
         let assets = world.resource::<AssetServer>();
         let patches = world.resource::<Assets<ScenePatch>>();
-
-        #[derive(Default)]
-        pub struct ContainerProps {
-            pub content: Option<Box<dyn SceneList>>,
-        }
-
-        #[derive(SceneComponent, Clone, Default)]
-        #[scene(ContainerProps)]
-        pub struct Container;
-
-        impl Container {
-            fn scene(props: ContainerProps) -> impl Scene {
-                bsn! {
-                    Children [
-                        { props.content }
-                    ]
-                }
-            }
-        }
 
         let scene = bsn! {
             #E1
@@ -3517,25 +3517,6 @@ mod tests {
         let assets = world.resource::<AssetServer>();
         let patches = world.resource::<Assets<ScenePatch>>();
 
-        #[derive(Default)]
-        pub struct ContainerProps {
-            pub content: Option<Box<dyn SceneList>>,
-        }
-
-        #[derive(SceneComponent, Clone, Default)]
-        #[scene(ContainerProps)]
-        pub struct Container;
-
-        impl Container {
-            fn scene(props: ContainerProps) -> impl Scene {
-                bsn! {
-                    Children [
-                        { props.content }
-                    ]
-                }
-            }
-        }
-
         let scene = bsn_list! {
             #E1
             @Container {
@@ -3581,25 +3562,6 @@ mod tests {
 
     #[test]
     fn scene_spawns_with_projected_name() {
-        #[derive(Default)]
-        pub struct ContainerProps {
-            pub content: Option<Box<dyn SceneList>>,
-        }
-
-        #[derive(SceneComponent, Clone, Default)]
-        #[scene(ContainerProps)]
-        pub struct Container;
-
-        impl Container {
-            fn scene(props: ContainerProps) -> impl Scene {
-                bsn! {
-                    Children [
-                        { props.content }
-                    ]
-                }
-            }
-        }
-
         let mut app = test_app();
         let world = app.world_mut();
 
@@ -3625,25 +3587,6 @@ mod tests {
 
     #[test]
     fn scene_list_spawns_with_projected_name() {
-        #[derive(Default)]
-        pub struct ContainerProps {
-            pub content: Option<Box<dyn SceneList>>,
-        }
-
-        #[derive(SceneComponent, Clone, Default)]
-        #[scene(ContainerProps)]
-        pub struct Container;
-
-        impl Container {
-            fn scene(props: ContainerProps) -> impl Scene {
-                bsn! {
-                    Children [
-                        { props.content }
-                    ]
-                }
-            }
-        }
-
         let mut app = test_app();
         let world = app.world_mut();
 
