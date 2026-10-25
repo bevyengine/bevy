@@ -229,6 +229,9 @@ render_dev_tools = ["bevy_dev_tools/render"]
 # Enable glTF animation loading
 gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
+# Enables loading glTF files that use KHR_meshopt_compression or EXT_meshopt_compression
+gltf_meshopt = ["bevy_gltf?/meshopt"]
+
 # Enables support for morph target weights in bevy_mesh
 morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
 
@@ -519,6 +522,7 @@ bevy_settings = ["bevy-settings", "bevy_feathers?/bevy_settings"]
 
 [dependencies]
 # bevy (no_std)
+bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev", default-features = false }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }

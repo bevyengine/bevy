@@ -211,7 +211,6 @@ where
         )
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.a.refresh_hotpatch();
@@ -517,7 +516,6 @@ where
         }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.a.refresh_hotpatch();
