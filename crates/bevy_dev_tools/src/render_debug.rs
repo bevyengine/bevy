@@ -46,7 +46,7 @@ use bevy_pbr::{
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 ///
-/// The plugin is part of `DefaultPlugins` when the `dev` feature is enabled.
+/// The plugin is part of `DefaultPlugins` when the `dev` and `bevy_pbr` features are enabled.
 /// The overlay is hidden by default. To control it from the keyboard, insert a
 /// [`RenderDebugOverlayKeybindings`] resource with
 /// [`enable_keybindings`](RenderDebugOverlayKeybindings::enable_keybindings) set to `true`:
