@@ -3629,4 +3629,70 @@ mod tests {
             .id();
         assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
     }
+
+    // Tests the usage of `..Default::default()` in bsn.
+    #[test]
+    fn struct_default_construction() {
+        #[derive(Clone, Copy, Component, Default)]
+        struct Sprite {
+            color: Color,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        enum Color {
+            Rgba(Rgba),
+        }
+
+        impl Default for Color {
+            fn default() -> Self {
+                Color::Rgba(Rgba::default())
+            }
+        }
+
+        #[derive(Debug, Clone, Copy, Default, PartialEq)]
+        struct Rgba {
+            r: u32,
+            g: u32,
+            b: u32,
+            a: u32,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Sprite {
+                    color: Color::Rgba(Rgba { r: 1, g: 241, b: 49, a: 255 })
+                }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world.entity(entity).get::<Sprite>().unwrap().color,
+            Color::Rgba(Rgba {
+                r: 1,
+                g: 241,
+                b: 49,
+                a: 255
+            })
+        );
+
+        #[derive(Clone, Copy, Component, Default)]
+        struct Outer {
+            inner: Inner,
+        }
+
+        #[derive(Clone, Copy, Debug, Default, PartialEq)]
+        struct Inner {
+            a: u32,
+        }
+
+        // validates a niche interaction
+        let _entity2 = world
+            .spawn_scene(bsn! {
+                Outer { inner: Inner { a: 2, ..Inner { a: 1 } } }
+            })
+            .unwrap()
+            .id();
+    }
 }
