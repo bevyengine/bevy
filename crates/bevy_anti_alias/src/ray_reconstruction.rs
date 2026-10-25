@@ -12,11 +12,15 @@ pub struct RayReconstructionDenoiser;
 pub struct ViewRayReconstructionGuideTextures {
     pub diffuse_albedo: CachedTexture,
     pub specular_albedo: CachedTexture,
-    /// World/view-space normals in RGB; perceptual roughness may also be packed in A for DLSS Packed mode.
+    /// World/view-space normals in RGB; perceptual roughness is packed in A for DLSS.
     pub normal_roughness: CachedTexture,
-    /// Specular / reflection motion vectors (DLSS-RR). Unused by MetalFX v1.
+    /// Hardware depth copied for DLSS, with virtual depth written for replaced mirrors.
+    ///
+    /// MetalFX samples the depth prepass instead: this copy is `R32Float`, not a depth format.
+    pub depth: CachedTexture,
+    /// Specular / reflection motion vectors (DLSS-RR). MetalFX uses the prepass motion vectors.
     pub specular_motion_vectors: CachedTexture,
-    /// Linear roughness in R (MetalFX). May mirror `normal_roughness.a`.
+    /// Perceptual roughness in R, for MetalFX. DLSS reads roughness from `normal_roughness.a`.
     pub roughness: CachedTexture,
 }
 

@@ -47,6 +47,8 @@ pub fn metal_fx_temporal_denoised_scaler(
         normals: &guide_textures.normal_roughness.default_view,
         roughness: &guide_textures.roughness.default_view,
         color: &view_target.source,
+        // Depth32Float prepass. The Solari guide depth is an R32Float copy (with virtual depth for
+        // mirrors) and is not a depth texture, which MetalFX requires.
         depth: &prepass_depth_texture.texture.default_view,
         motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
         output: &view_target.destination,

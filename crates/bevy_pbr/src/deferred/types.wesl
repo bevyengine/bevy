@@ -1,4 +1,4 @@
-import bevy_pbr::render::{
+import package::render::{
     mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT,
     pbr_types::{STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
 };
@@ -50,9 +50,9 @@ fn unpack_flags(packed: u32) -> u32 {
     return (packed >> 24u) & 0xFFu;
 }
 
-// The builtin one didn't work in webgl.
-// "'unpackUnorm4x8' : no matching overloaded function found"
-// https://github.com/gfx-rs/naga/issues/2006
+/// The builtin one didn't work in webgl.
+/// "'unpackUnorm4x8' : no matching overloaded function found"
+/// https://github.com/gfx-rs/naga/issues/2006
 fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
     return vec4(
         f32(v & 0xFFu),
@@ -62,21 +62,21 @@ fn unpack_unorm4x8_(v: u32) -> vec4<f32> {
     ) / 255.0;
 }
 
-// 'packUnorm4x8' : no matching overloaded function found
-// https://github.com/gfx-rs/naga/issues/2006
+/// 'packUnorm4x8' : no matching overloaded function found
+/// https://github.com/gfx-rs/naga/issues/2006
 fn pack_unorm4x8_(values: vec4<f32>) -> u32 {
     let v = vec4<u32>(saturate(values) * 255.0 + 0.5);
     return (v.w << 24u) | (v.z << 16u) | (v.y << 8u) | v.x;
 }
 
-// Pack 3x 4bit unorm + 1x 20bit
+/// Pack 3x 4bit unorm + 1x 20bit
 fn pack_unorm3x4_plus_unorm_20_(v: vec4<f32>) -> u32 {
     let sm = vec3<u32>(saturate(v.xyz) * 15.0 + 0.5);
     let bg = u32(saturate(v.w) * U20MAXF + 0.5);
     return (bg << 12u) | (sm.z << 8u) | (sm.y << 4u) | sm.x;
 }
 
-// Unpack 3x 4bit unorm + 1x 20bit
+/// Unpack 3x 4bit unorm + 1x 20bit
 fn unpack_unorm3x4_plus_unorm_20_(v: u32) -> vec4<f32> {
     return vec4(
         f32(v & 0xfu) / 15.0,

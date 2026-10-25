@@ -3,8 +3,10 @@ mod blas;
 mod extract;
 mod types;
 
+use bevy_asset::embedded_asset;
 use bevy_shader::load_shader_library;
-pub use binder::RaytracingSceneBindings;
+pub use binder::prepare_raytracing_scene_resources;
+pub use binder::{RaytracingSceneBindings, RaytracingSceneNeedsPreviousFrameData};
 pub use types::RaytracingMesh3d;
 
 use crate::SolariPlugins;
@@ -16,16 +18,20 @@ use bevy_render::{
         RenderMesh,
     },
     render_asset::prepare_assets,
-    render_resource::BufferUsages,
-    renderer::RenderDevice,
+    render_resource::{update_sparse_buffers, BufferUsages},
+    renderer::{RenderDevice, RenderGraph, RenderGraphSystems},
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
-use binder::prepare_raytracing_scene_bindings;
-use blas::{compact_raytracing_blas, prepare_raytracing_blas, BlasManager};
+use binder::{
+    build_raytracing_tlas, prepare_raytracing_scene_bind_group, TlasInstanceSetupPipeline,
+};
+use blas::{compact_raytracing_blas, delete_raytracing_blas, prepare_raytracing_blas, BlasManager};
 use extract::{
-    extract_raytracing_material_assets, extract_raytracing_scene_meshes_and_materials,
+    extract_raytracing_directional_lights, extract_raytracing_environment_map_light,
+    extract_raytracing_material_assets, extract_raytracing_point_lights,
+    extract_raytracing_rect_lights, extract_raytracing_scene_meshes_and_materials,
     extract_raytracing_scene_structural, extract_raytracing_scene_transforms,
-    StandardMaterialAssets,
+    extract_raytracing_spot_lights, ExtractedEnvironmentMapLight, StandardMaterialAssets,
 };
 use tracing::warn;
 
@@ -37,10 +43,12 @@ impl Plugin for RaytracingScenePlugin {
         load_shader_library!(app, "brdf.wesl");
         load_shader_library!(app, "bindings.wesl");
         load_shader_library!(app, "sampling.wesl");
+        embedded_asset!(app, "binder/setup_tlas_instances.wesl");
     }
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
+
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
         if !features.contains(SolariPlugins::required_wgpu_features()) {
@@ -51,17 +59,17 @@ impl Plugin for RaytracingScenePlugin {
             return;
         }
 
-        let render_app = app.sub_app_mut(RenderApp);
-
         render_app
             .world_mut()
             .resource_mut::<MeshAllocatorSettings>()
             .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
         render_app
+            .init_resource::<ExtractedEnvironmentMapLight>()
             .init_gpu_resource::<BlasManager>()
             .init_gpu_resource::<StandardMaterialAssets>()
-            .insert_resource(RaytracingSceneBindings::new())
+            .init_gpu_resource::<RaytracingSceneBindings>()
+            .init_gpu_resource::<TlasInstanceSetupPipeline>()
             .add_systems(
                 ExtractSchedule,
                 (
@@ -69,6 +77,11 @@ impl Plugin for RaytracingScenePlugin {
                     extract_raytracing_scene_transforms,
                     extract_raytracing_scene_meshes_and_materials,
                     extract_raytracing_material_assets,
+                    extract_raytracing_directional_lights,
+                    extract_raytracing_point_lights,
+                    extract_raytracing_spot_lights,
+                    extract_raytracing_rect_lights,
+                    extract_raytracing_environment_map_light,
                 ),
             )
             .add_systems(
@@ -81,7 +94,17 @@ impl Plugin for RaytracingScenePlugin {
                     compact_raytracing_blas
                         .in_set(RenderSystems::PrepareAssets)
                         .after(prepare_raytracing_blas),
-                    prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_raytracing_scene_resources.in_set(RenderSystems::PrepareResources),
+                    prepare_raytracing_scene_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                ),
+            )
+            .add_systems(
+                RenderGraph,
+                (
+                    build_raytracing_tlas
+                        .after(update_sparse_buffers)
+                        .in_set(RenderGraphSystems::Begin),
+                    delete_raytracing_blas.in_set(RenderGraphSystems::Finish),
                 ),
             );
     }

@@ -54,6 +54,8 @@ use crate::{
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
+// Prevents unexpectedly importing this trait when trying to call, for example, `Vec::iter`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait List: PartialReflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
@@ -74,6 +76,12 @@ pub trait List: PartialReflect {
     /// # Panics
     /// Panics if `index` is out of bounds.
     fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
+
+    /// Swaps two elements in place.
+    ///
+    /// # Panics
+    /// Panics if `a` or `b` are out of bounds.
+    fn swap(&mut self, a: usize, b: usize);
 
     /// Appends an element to the _back_ of the list.
     fn push(&mut self, value: Box<dyn PartialReflect>) {
@@ -251,7 +259,11 @@ impl List for DynamicList {
     }
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
-        self.values.drain(..).collect()
+        core::mem::take(&mut self.values)
+    }
+
+    fn swap(&mut self, a: usize, b: usize) {
+        self.values.swap(a, b);
     }
 }
 
@@ -411,8 +423,8 @@ impl<'a> Iterator for ListIter<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.list.len();
-        (size, Some(size))
+        let remaining = self.list.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
     }
 }
 
@@ -555,7 +567,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    use crate::Reflect;
+    use crate::{PartialReflect, Reflect};
     use alloc::{boxed::Box, vec};
     use core::assert_eq;
 
@@ -595,5 +607,26 @@ mod tests {
         assert!(iter.index == SIZE);
         assert!(iter.next().is_none());
         assert!(iter.index == SIZE);
+    }
+
+    #[test]
+    fn test_swap() {
+        let mut list = DynamicList::default();
+        list.push(0usize);
+        list.push(1usize);
+        let list = list.reflect_mut().as_list().unwrap();
+        list.swap(0, 1);
+        assert_eq!(list.get(0).unwrap().try_downcast_ref(), Some(&1usize));
+        assert_eq!(list.get(1).unwrap().try_downcast_ref(), Some(&0usize));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_swap_oob() {
+        let mut list = DynamicList::default();
+        list.push(0usize);
+        list.push(1usize);
+        let list = list.reflect_mut().as_list().unwrap();
+        list.swap(0, 10);
     }
 }

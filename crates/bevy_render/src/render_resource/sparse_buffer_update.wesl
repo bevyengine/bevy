@@ -1,29 +1,29 @@
-// A compute shader that performs scattering sparse updates to
-// `AtomicSparseBufferVec` types.
-//
-// This shader isn't used for every update. Only if the number of updates is
-// small is this shader used. Otherwise, the standard `write_buffer` `wgpu`
-// command is used to update the buffer in bulk.
-//
-// We issue one thread per *word*, not per element. That allows us to achieve
-// maximum parallelism, without any loops.
+//! A compute shader that performs scattering sparse updates to
+//! `AtomicSparseBufferVec` types.
+//!
+//! This shader isn't used for every update. Only if the number of updates is
+//! small is this shader used. Otherwise, the standard `write_buffer` `wgpu`
+//! command is used to update the buffer in bulk.
+//!
+//! We issue one thread per *word*, not per element. That allows us to achieve
+//! maximum parallelism, without any loops.
 
-// Metadata that describes the update.
+/// Metadata that describes the update.
 struct SparseBufferUpdateMetadata {
-    // The size of a single element in words.
+    /// The size of a single element in words.
     element_size: u32,
-    // The total number of elements to be updated.
+    /// The total number of elements to be updated.
     updated_element_count: u32,
 };
 
-// The buffer we're copying to.
+/// The buffer we're copying to.
 @group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
-// The buffer we're copying from.
+/// The buffer we're copying from.
 @group(0) @binding(1) var<storage> src_buffer: array<u32>;
-// For each element in `src_buffer`, the element in `dest_buffer` that we should
-// copy it to.
+/// For each element in `src_buffer`, the element in `dest_buffer` that we should
+/// copy it to.
 @group(0) @binding(2) var<storage> indices: array<u32>;
-// Metadata that describes the operation.
+/// Metadata that describes the operation.
 @group(0) @binding(3) var<uniform> metadata: SparseBufferUpdateMetadata;
 
 @workgroup_size(256, 1, 1)

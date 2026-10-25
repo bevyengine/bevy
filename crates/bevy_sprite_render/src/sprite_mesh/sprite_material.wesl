@@ -1,4 +1,4 @@
-import bevy_sprite_render::{
+import package::{
     mesh2d::functions as mesh_functions,
     mesh2d::vertex_output::VertexOutput,
     mesh2d::view_bindings::view,
@@ -8,7 +8,7 @@ import bevy_sprite_render::{
     sprite_mesh::functions as sprite_functions,
 };
 @if(BINDLESS)
-import bevy_sprite_render::sprite_mesh::bindings::material_indices;
+import package::sprite_mesh::bindings::material_indices;
 
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping;

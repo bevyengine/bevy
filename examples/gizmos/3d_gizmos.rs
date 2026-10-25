@@ -12,7 +12,14 @@ fn main() {
         .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(
+            Update,
+            (
+                draw_example_collection,
+                update_config,
+                drive_gizmos_animation,
+            ),
+        )
         .run();
 }
 
@@ -85,6 +92,7 @@ fn setup(
             Press 'B' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos\n\
+            Press 'L' to cycle through gizmos animations (only for dotted/dashed round gizmos)\n\
             Press 'Spacebar' to toggle pause",
         ),
         Node {
@@ -212,6 +220,12 @@ fn draw_example_collection(
         .arrow(Vec3::new(2., 0., 2.), Vec3::new(2., 2., 2.), ORANGE_RED)
         .with_double_end()
         .with_tip_length(0.5);
+
+    let from = Vec3::new(1.0, 2.0, 3.0);
+    let to = Vec3::new(3.0, 2.5, 4.0);
+    gizmos.rect(from, Vec2::ONE, RED);
+    my_gizmos.short_arc_3d_between((from + to) / 2.0, from, to, YELLOW_GREEN);
+    gizmos.rect(to, Vec2::ONE, RED);
 }
 
 fn update_config(
@@ -303,5 +317,42 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Space) {
         virtual_time.toggle();
+    }
+}
+
+enum GizmosAnimationType {
+    Linear,
+    BackAndForth,
+    Stutter,
+}
+
+fn drive_gizmos_animation(
+    mut config_store: ResMut<GizmoConfigStore>,
+    virtual_time: ResMut<Time<Virtual>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut animation_type: Local<Option<GizmosAnimationType>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        *animation_type = match *animation_type {
+            None => Some(GizmosAnimationType::Linear),
+            Some(GizmosAnimationType::Linear) => Some(GizmosAnimationType::BackAndForth),
+            Some(GizmosAnimationType::BackAndForth) => Some(GizmosAnimationType::Stutter),
+            Some(GizmosAnimationType::Stutter) => None,
+        };
+    }
+
+    if let Some(animation_type) = animation_type.as_ref() {
+        let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
+        match animation_type {
+            GizmosAnimationType::Linear => {
+                my_config.line.animation_offset = virtual_time.elapsed_secs() * 10.0;
+            }
+            GizmosAnimationType::BackAndForth => {
+                my_config.line.animation_offset = ops::sin(virtual_time.elapsed_secs()) * 10.0;
+            }
+            GizmosAnimationType::Stutter => {
+                my_config.line.animation_offset = (virtual_time.elapsed_secs() * 4.0).round();
+            }
+        }
     }
 }

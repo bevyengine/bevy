@@ -53,7 +53,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     types::Atmosphere,
     bindings::atmosphere,
     functions::{get_local_r, sample_transmittance_lut},
@@ -63,10 +63,10 @@ import bevy_pbr::atmosphere::{
 // Our `Atmosphere` struct uses `inner_radius` and `outer_radius` for the same values so naming stays
 // meaningful when the atmosphere entity has an arbitrary transform.
 
-// Mapping from view height (r) and zenith cos angle (mu) to UV coordinates in the transmittance LUT
-// Assuming r between ground and top atmosphere boundary, and mu= cos(zenith_angle)
-// Chosen to increase precision near the ground and to work around a discontinuity at the horizon
-// See Bruneton and Neyret 2008, "Precomputed Atmospheric Scattering" section 4
+/// Mapping from view height (r) and zenith cos angle (mu) to UV coordinates in the transmittance LUT
+/// Assuming r between ground and top atmosphere boundary, and mu= cos(zenith_angle)
+/// Chosen to increase precision near the ground and to work around a discontinuity at the horizon
+/// See Bruneton and Neyret 2008, "Precomputed Atmospheric Scattering" section 4
 fn transmittance_lut_r_mu_to_uv(atm: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
     // Distance along a horizontal ray from the ground to the top atmosphere boundary
     let H = sqrt(atm.outer_radius * atm.outer_radius - atm.inner_radius * atm.inner_radius);
@@ -87,7 +87,7 @@ fn transmittance_lut_r_mu_to_uv(atm: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
     return vec2<f32>(u, v);
 }
 
-// Inverse of the mapping above, mapping from UV coordinates in the transmittance LUT to view height (r) and zenith cos angle (mu)
+/// Inverse of the mapping above, mapping from UV coordinates in the transmittance LUT to view height (r) and zenith cos angle (mu)
 fn transmittance_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     // Distance to top atmosphere boundary for a horizontal ray at ground level
     let H = sqrt(atmosphere.outer_radius * atmosphere.outer_radius - atmosphere.inner_radius * atmosphere.inner_radius);

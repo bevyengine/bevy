@@ -1,7 +1,6 @@
 use crate::{
-    irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE, MeshPipeline, MeshPipelineKey,
-    MeshPipelineSystems, MeshViewBindGroup, ViewKeyCache, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshViewBindGroup, ViewKeyCache,
+    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -16,6 +15,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -148,6 +148,9 @@ pub fn deferred_lighting(
         return;
     };
 
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+
     let bind_group_2 = ctx.render_device().create_bind_group(
         "deferred_lighting_layout_group_2",
         &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
@@ -169,6 +172,7 @@ pub fn deferred_lighting(
         occlusion_query_set: None,
         multiview_mask: None,
     });
+    let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
 
     render_pass.set_render_pipeline(pipeline);
 
@@ -180,6 +184,7 @@ pub fn deferred_lighting(
     render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
     render_pass.set_bind_group(2, &bind_group_2, &[]);
     render_pass.draw(0..3, 0..1);
+    pass_span.end(&mut render_pass);
 }
 
 #[derive(Resource)]
@@ -219,8 +224,8 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
-            if method == MeshPipelineKey::TONEMAP_METHOD_NONE {
-                shader_defs.push("TONEMAP_METHOD_NONE".into());
+            if method == MeshPipelineKey::TONEMAP_METHOD_LINEAR {
+                shader_defs.push("TONEMAP_METHOD_LINEAR".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD {
                 shader_defs.push("TONEMAP_METHOD_REINHARD".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
@@ -253,7 +258,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -308,10 +313,6 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if self.mesh_pipeline.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
-        }
-
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
         if self.mesh_pipeline.clustered_decals_are_usable {

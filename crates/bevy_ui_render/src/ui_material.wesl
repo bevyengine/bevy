@@ -2,7 +2,7 @@ import bevy_render::{
     view::View,
     globals::Globals,
 };
-import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import package::ui_vertex_output::UiVertexOutput;
 
 @group(0) @binding(0)
 var<uniform> view: View;

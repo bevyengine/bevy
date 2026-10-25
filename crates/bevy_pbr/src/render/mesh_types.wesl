@@ -1,25 +1,25 @@
 struct Mesh {
-    // Affine 4x3 matrices transposed to 3x4
-    // Use bevy_render::maths::affine3_to_square to unpack
+    /// Affine 4x3 matrices transposed to 3x4
+    /// Use bevy_render::maths::affine3_to_square to unpack
     world_from_local: mat3x4<f32>,
     previous_world_from_local: mat3x4<f32>,
-    // 3x3 matrix packed in mat2x4 and f32 as:
-    // [0].xyz, [1].x,
-    // [1].yz, [2].xy
-    // [2].z
-    // Use bevy_pbr::render::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
+    /// 3x3 matrix packed in mat2x4 and f32 as:
+    /// [0].xyz, [1].x,
+    /// [1].yz, [2].xy
+    /// [2].z
+    /// Use package::render::mesh_functions::mat2x4_f32_to_mat3x3_unpack to unpack
     local_from_world_transpose_a: mat2x4<f32>,
     local_from_world_transpose_b: f32,
-    // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
+    /// 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     lightmap_uv_rect: vec2<u32>,
-    // The index of the mesh's first vertex in the vertex buffer.
+    /// The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
     current_skin_index: u32,
-    // Low 16 bits: index of the material inside the bind group data.
-    // High 16 bits: index of the lightmap in the binding array.
+    /// Low 16 bits: index of the material inside the bind group data.
+    /// High 16 bits: index of the lightmap in the binding array.
     material_and_lightmap_bind_group_slot: u32,
-    // User supplied index to identify the mesh instance
+    /// User supplied index to identify the mesh instance
     tag: u32,
     morph_descriptor_index: u32,
     /// The index of the mesh metadata buffer.
@@ -36,37 +36,37 @@ struct MorphWeights {
     weights: array<vec4<f32>, 64u>, // 64 = 256 / 4 (256 = MAX_MORPH_WEIGHTS)
 };
 
-// Describes a single mesh instance that uses morph targets.
+/// Describes a single mesh instance that uses morph targets.
 @if(MORPH_TARGETS)
 struct MorphDescriptor {
-    // The index of the first morph target weight in the `morph_weights` array.
+    /// The index of the first morph target weight in the `morph_weights` array.
     current_weights_offset: u32,
-    // The index of the first morph target weight in the `prev_morph_weights`
-    // array.
+    /// The index of the first morph target weight in the `prev_morph_weights`
+    /// array.
     prev_weights_offset: u32,
-    // The index of the first morph target for this mesh in the
-    // `MorphAttributes` array.
+    /// The index of the first morph target for this mesh in the
+    /// `MorphAttributes` array.
     targets_offset: u32,
-    // The number of vertices in the mesh.
+    /// The number of vertices in the mesh.
     vertex_count: u32,
-    // The number of morph targets this mesh has.
+    /// The number of morph targets this mesh has.
     weight_count: u32,
 };
 
-// Morph displacement for a single vertex.
+/// Morph displacement for a single vertex.
 @if(MORPH_TARGETS)
 struct MorphAttributes {
-    // The position delta.
+    /// The position delta.
     position: vec3<f32>,
-    // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
+    /// Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
     pad_a: f32,
-    // The normal delta.
+    /// The normal delta.
     normal: vec3<f32>,
-    // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
+    /// Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
     pad_b: f32,
-    // The tangent delta.
+    /// The tangent delta.
     tangent: vec3<f32>,
-    // Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
+    /// Padding, to ensure that each `vec3<f32>` is aligned to 16 bytes.
     pad_c: f32,
 };
 

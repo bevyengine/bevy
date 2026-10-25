@@ -5,11 +5,11 @@ use core::ptr::NonNull;
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{Bundle, BundleId, BundleInfo},
-    change_detection::MaybeLocation,
+    change_detection::{MaybeLocation, Tick},
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     event::{EntityComponentsTrigger, GlobalTrigger},
-    lifecycle::{Discard, Remove, DISCARD, REMOVE},
+    lifecycle::{DiscardEvent, RemoveEvent, DISCARD, REMOVE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table, TableId},
@@ -26,6 +26,8 @@ pub(crate) struct BundleRemover<'w> {
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
     pub(crate) relationship_hook_mode: RelationshipHookMode,
+    /// The current change tick of the executing system.
+    change_tick: Tick,
 }
 
 impl<'w> BundleRemover<'w> {
@@ -33,23 +35,28 @@ impl<'w> BundleRemover<'w> {
     ///
     /// If `require_all` is true, the [`BundleRemover`] is only created if the entire bundle is present on the archetype.
     ///
+    /// `change_tick` should be the current change tick of the executing system.
+    ///
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
     pub(crate) unsafe fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
+        change_tick: Tick,
         require_all: bool,
     ) -> Option<Self> {
         let bundle_id = world.register_bundle_info::<T>();
 
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
+        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick, require_all) }
     }
 
     /// Creates a new [`BundleRemover`], if such a remover would do anything.
     ///
     /// If `require_all` is true, the [`BundleRemover`] is only created if the entire bundle is present on the archetype.
+    ///
+    /// `change_tick` should be the current change tick of the executing system.
     ///
     /// # Safety
     /// - `bundle_id` must correspond to an existing bundle in `world`.
@@ -59,6 +66,7 @@ impl<'w> BundleRemover<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
+        change_tick: Tick,
         require_all: bool,
     ) -> Option<Self> {
         // SAFETY: Bundle exists per precondition
@@ -96,6 +104,7 @@ impl<'w> BundleRemover<'w> {
             old_and_new_table: tables,
             world: world.as_unsafe_world_cell(),
             relationship_hook_mode: RelationshipHookMode::Run,
+            change_tick,
         };
         if is_new_created {
             // SAFETY:
@@ -164,7 +173,7 @@ impl<'w> BundleRemover<'w> {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 deferred_world.trigger_raw(
                     DISCARD,
-                    &mut Discard { entity },
+                    &mut DiscardEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
                         old_archetype: Some(self.old_archetype.as_ref()),
@@ -185,7 +194,7 @@ impl<'w> BundleRemover<'w> {
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
                 deferred_world.trigger_raw(
                     REMOVE,
-                    &mut Remove { entity },
+                    &mut RemoveEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &components,
                         old_archetype: Some(self.old_archetype.as_ref()),
@@ -281,6 +290,7 @@ impl<'w> BundleRemover<'w> {
                         old_table_id,
                         new_table_id,
                         location.table_row,
+                        self.change_tick,
                     )
                 }
             } else {
@@ -296,6 +306,7 @@ impl<'w> BundleRemover<'w> {
                         old_table_id,
                         new_table_id,
                         location.table_row,
+                        self.change_tick,
                     )
                 }
             };

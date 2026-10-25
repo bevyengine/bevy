@@ -1,4 +1,4 @@
-import bevy_pbr::meshlet::bindings::{
+import package::meshlet::bindings::{
     InstancedOffset,
     constants,
     meshlet_view_instance_visibility,
@@ -11,7 +11,7 @@ import bevy_pbr::meshlet::bindings::{
     meshlet_second_pass_instance_dispatch,
     meshlet_second_pass_instance_candidates,
 };
-import bevy_pbr::meshlet::cull_shared::{
+import package::meshlet::cull_shared::{
     aabb_in_frustum,
     should_occlusion_cull_aabb,
 };

@@ -14,7 +14,7 @@ use crate::{
     change_detection::{CheckChangeTicks, Tick},
     component::{ComponentId, Components},
     prelude::{SystemIn, SystemSet},
-    query::{AccessConflicts, FilteredAccessSet},
+    query::AccessConflicts,
     schedule::{
         graph::{
             DagAnalysis, DagGroups, DiGraph,
@@ -23,7 +23,9 @@ use crate::{
         },
         BoxedCondition, InternedSystemSet, ScheduleGraph,
     },
-    system::{ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemStateFlags},
+    system::{
+        ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemAccess, SystemStateFlags,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -38,7 +40,7 @@ pub struct SystemWithAccess {
     pub(crate) system: ScheduleSystem,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub(crate) access: FilteredAccessSet,
+    pub(crate) access: SystemAccess,
 }
 
 impl SystemWithAccess {
@@ -47,7 +49,7 @@ impl SystemWithAccess {
     pub fn new(system: ScheduleSystem) -> Self {
         Self {
             system,
-            access: FilteredAccessSet::new(),
+            access: SystemAccess::default(),
         }
     }
 
@@ -56,8 +58,8 @@ impl SystemWithAccess {
         &self.system
     }
 
-    /// Returns the underlying [`FilteredAccessSet`]
-    pub fn access(&self) -> &FilteredAccessSet {
+    /// Returns the underlying [`SystemAccess`]
+    pub fn access(&self) -> &SystemAccess {
         &self.access
     }
 }
@@ -91,7 +93,6 @@ impl System for SystemWithAccess {
         unsafe { self.system.run_unsafe(input, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -108,7 +109,7 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         self.system.initialize(world)
     }
 
@@ -139,16 +140,16 @@ pub struct ConditionWithAccess {
     pub condition: BoxedCondition,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet,
+    pub access: SystemAccess,
 }
 
 impl ConditionWithAccess {
     /// Constructs a new [`ConditionWithAccess`] from a [`BoxedCondition`].
     /// The `access` will initially be empty.
-    pub const fn new(condition: BoxedCondition) -> Self {
+    pub fn new(condition: BoxedCondition) -> Self {
         Self {
             condition,
-            access: FilteredAccessSet::new(),
+            access: SystemAccess::default(),
         }
     }
 }
@@ -182,7 +183,6 @@ impl System for ConditionWithAccess {
         unsafe { self.condition.run_unsafe(input, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.condition.refresh_hotpatch();
@@ -199,7 +199,7 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         self.condition.initialize(world)
     }
 
@@ -608,13 +608,11 @@ impl Systems {
                 continue;
             }
 
-            let system_a = &self[a];
-            let system_b = &self[b];
-            if system_a.is_exclusive() || system_b.is_exclusive() {
+            let access_a = &self[a].access;
+            let access_b = &self[b].access;
+            if access_a.is_exclusive() || access_b.is_exclusive() {
                 conflicting_systems.push((a, b, Box::new([])));
             } else {
-                let access_a = &system_a.access;
-                let access_b = &system_b.access;
                 if !access_a.is_compatible(access_b) {
                     match access_a.get_conflicts(access_b) {
                         AccessConflicts::Individual(conflicts) => {

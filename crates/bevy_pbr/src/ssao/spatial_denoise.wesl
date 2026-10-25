@@ -1,13 +1,13 @@
-// 3x3 bilaterial filter (edge-preserving blur)
-// https://people.csail.mit.edu/sparis/bf_course/course_notes.pdf
-
-// Note: Does not use the Gaussian kernel part of a typical bilateral blur
-// From the paper: "use the information gathered on a neighborhood of 4 × 4 using a bilateral filter for
-// reconstruction, using _uniform_ convolution weights"
-
-// Note: The paper does a 4x4 (not quite centered) filter, offset by +/- 1 pixel every other frame
-// XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
-// We do a 3x3 filter, on 1 pixel per compute thread, applied once
+//! 3x3 bilaterial filter (edge-preserving blur)
+//! https://people.csail.mit.edu/sparis/bf_course/course_notes.pdf
+//!
+//! Note: Does not use the Gaussian kernel part of a typical bilateral blur
+//! From the paper: "use the information gathered on a neighborhood of 4 × 4 using a bilateral filter for
+//! reconstruction, using _uniform_ convolution weights"
+//!
+//! Note: The paper does a 4x4 (not quite centered) filter, offset by +/- 1 pixel every other frame
+//! XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
+//! We do a 3x3 filter, on 1 pixel per compute thread, applied once
 
 import bevy_render::view::View;
 
@@ -54,15 +54,15 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let center_visibility = visibility0.y;
     let left_visibility = visibility0.x;
-    let right_visibility = visibility0.z;
-    let top_visibility = visibility1.x;
+    let right_visibility = visibility1.x;
+    let top_visibility = visibility0.z;
     let bottom_visibility = visibility2.z;
     let top_left_visibility = visibility0.w;
     let top_right_visibility = visibility1.w;
     let bottom_left_visibility = visibility2.w;
     let bottom_right_visibility = visibility3.w;
 
-    var sum = center_visibility;
+    var sum = center_visibility * center_weight;
     sum += left_visibility * left_weight;
     sum += right_visibility * right_weight;
     sum += top_visibility * top_weight;

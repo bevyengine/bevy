@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_prepass_functions,
         pbr_bindings,
@@ -15,10 +15,10 @@ import bevy_pbr::{
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-import bevy_pbr::meshlet::visibility_buffer_resolve::resolve_vertex_output;
+import package::meshlet::visibility_buffer_resolve::resolve_vertex_output;
 
 @if(BINDLESS)
-import bevy_pbr::render::pbr_bindings::material_indices;
+import package::render::pbr_bindings::material_indices;
 
 @if(PREPASS_FRAGMENT)
 @fragment
@@ -89,10 +89,12 @@ fn fragment(
 
         // Fill in the sample bias so we can sample from textures.
         var bias: SampleBias;
-@if(MESHLET_MESH_MATERIAL_PASS)
-        bias.ddx_uv = in.ddx_uv;
-@if(MESHLET_MESH_MATERIAL_PASS)
-        bias.ddy_uv = in.ddy_uv;
+@if(MESHLET_MESH_MATERIAL_PASS) {
+        // Apply mip bias by scaling the gradients used by textureSampleGrad.
+        let mip_scale = exp2(view.mip_bias);
+        bias.ddx_uv = in.ddx_uv * mip_scale;
+        bias.ddy_uv = in.ddy_uv * mip_scale;
+}
 @if(!MESHLET_MESH_MATERIAL_PASS)
         bias.mip_bias = view.mip_bias;
 

@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_lighting as lighting,
         utils::interleaved_gradient_noise,
@@ -13,11 +13,13 @@ import bevy_render::maths::PI;
 @if(TONEMAP_IN_SHADER)
 import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping;
 
-// The IOR impacts how much a single microfacet refracts incoming light. In turn this changes how
-// "wide" the distribution of output ray directions is and how rough the BRDF should be.
-// This function scales the roughness toward 0.0 as IOR tends towards 1.0, while leaving the default
-// roughness for IOR = 1.5.
-// Adapted from Khronos gltf-Sample-Renderer (https://github.com/KhronosGroup/glTF-Sample-Renderer/blob/bec106e53da4a6a398aa3205f0f96563519a657e/source/Renderer/shaders/functions.glsl#L84-L89)
+@if (VIEW_TRANSMISSION_TEXTURE) {
+
+/// The IOR impacts how much a single microfacet refracts incoming light. In turn this changes how
+/// "wide" the distribution of output ray directions is and how rough the BRDF should be.
+/// This function scales the roughness toward 0.0 as IOR tends towards 1.0, while leaving the default
+/// roughness for IOR = 1.5.
+/// Adapted from Khronos gltf-Sample-Renderer (https://github.com/KhronosGroup/glTF-Sample-Renderer/blob/bec106e53da4a6a398aa3205f0f96563519a657e/source/Renderer/shaders/functions.glsl#L84-L89)
 fn ior_corrected_roughness(roughness: f32, ior: f32) -> f32 {
     return roughness * clamp(ior * 2.0 - 2.0, 0.0, 1.0);
 }
@@ -73,7 +75,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
 fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coord: vec3<f32>) -> vec4<f32> {
     var background_color = textureSampleLevel(
         view_bindings::view_transmission_texture,
-        view_bindings::view_transmission_sampler,
+        view_bindings::linear_sampler,
         offset_position,
         0.0
     );
@@ -169,7 +171,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
         var sample = textureSampleLevel(
             view_bindings::view_transmission_texture,
-            view_bindings::view_transmission_sampler,
+            view_bindings::linear_sampler,
             modified_offset_position,
             0.0
         );
@@ -194,4 +196,6 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
     result = approximate_inverse_tone_mapping(result, view_bindings::view.color_grading);
 
     return result;
+}
+
 }

@@ -4,18 +4,18 @@ import bevy_render::{
     maths::{PI_2, powsafe},
 };
 
-import bevy_core_pipeline::tonemapping::lut_bindings::{
+import package::tonemapping::lut_bindings::{
     dt_lut_texture,
     dt_lut_sampler,
 };
 
-// Half the size of the crossfade region between shadows and midtones and
-// between midtones and highlights. This value, 0.1, corresponds to 10% of the
-// gamut on either side of the cutoff point.
+/// Half the size of the crossfade region between shadows and midtones and
+/// between midtones and highlights. This value, 0.1, corresponds to 10% of the
+/// gamut on either side of the cutoff point.
 const LEVEL_MARGIN: f32 = 0.1;
 
-// The inverse reciprocal of twice the above, used when scaling the midtone
-// region.
+/// The inverse reciprocal of twice the above, used when scaling the midtone
+/// region.
 const LEVEL_MARGIN_DIV: f32 = 0.5 / LEVEL_MARGIN;
 
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
@@ -197,7 +197,7 @@ fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_
     Main processes
 =================*/
 
-// Prepare the data for display encoding. Converted to log domain.
+/// Prepare the data for display encoding. Converted to log domain.
 fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     var prepared_image = max(vec3(0.0), Image); // clamp negatives
     let r = dot(prepared_image, vec3(0.84247906, 0.0784336, 0.07922375));
@@ -225,14 +225,14 @@ fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
     return applyLUT3D(normalized, block_size);
 }
 
-// from https://64.github.io/tonemapping/
-// reinhard on RGB oversaturates colors
+/// from https://64.github.io/tonemapping/
+/// reinhard on RGB oversaturates colors
 fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {
     return color / (1.0 + color);
 }
 
-// luminance coefficients from Rec. 709.
-// https://en.wikipedia.org/wiki/Rec._709
+/// luminance coefficients from Rec. 709.
+/// https://en.wikipedia.org/wiki/Rec._709
 fn tonemapping_luminance(v: vec3<f32>) -> f32 {
     return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
@@ -252,9 +252,9 @@ fn rgb_to_srgb_simple(color: vec3<f32>) -> vec3<f32> {
     return pow(color, vec3<f32>(1.0 / 2.2));
 }
 
-// PBR Neutral tone mapping
-// https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/pbrNeutral.glsl
-// Adapted under Apache 2.0, per https://github.com/KhronosGroup/ToneMapping/tree/main/LICENSES
+/// PBR Neutral tone mapping
+/// https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/pbrNeutral.glsl
+/// Adapted under Apache 2.0, per https://github.com/KhronosGroup/ToneMapping/tree/main/LICENSES
 fn tonemapping_pbr_neutral(color_in: vec3<f32>) -> vec3<f32> {
     // Parameter controlling when highlight compression starts
     // (`K_s` in specification)
@@ -300,16 +300,16 @@ fn tonemapping_pbr_neutral(color_in: vec3<f32>) -> vec3<f32> {
     return mix(color, vec3(new_max_channel), g);
 }
 
-// Source: Advanced VR Rendering, GDC 2015, Alex Vlachos, Valve, Slide 49
-// https://media.steampowered.com/apps/valve/2015/Alex_Vlachos_Advanced_VR_Rendering_GDC2015.pdf
+/// Source: Advanced VR Rendering, GDC 2015, Alex Vlachos, Valve, Slide 49
+/// https://media.steampowered.com/apps/valve/2015/Alex_Vlachos_Advanced_VR_Rendering_GDC2015.pdf
 fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     var dither = vec3<f32>(dot(vec2<f32>(171.0, 231.0), frag_coord)).xxx;
     dither = fract(dither.rgb / vec3<f32>(103.0, 71.0, 97.0));
     return (dither - 0.5) / 255.0;
 }
 
-// Performs the "sectional" color grading: i.e. the color grading that applies
-// individually to shadows, midtones, and highlights.
+/// Performs the "sectional" color grading: i.e. the color grading that applies
+/// individually to shadows, midtones, and highlights.
 fn sectional_color_grading(
     in: vec3<f32>,
     color_grading: ptr<function, ColorGrading>,
@@ -400,7 +400,7 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
 }
 
     // tone_mapping
-@if(TONEMAP_METHOD_NONE) {
+@if(TONEMAP_METHOD_LINEAR) {
     color = color;
 } @elif(TONEMAP_METHOD_REINHARD) {
     color = tonemapping_reinhard(color.rgb);
@@ -427,10 +427,10 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     return vec4(color, in.a);
 }
 
-// This is an **incredibly crude** approximation of the inverse of the tone mapping function.
-// We assume here that there's a simple linear relationship between the input and output
-// which is not true at all, but useful to at least preserve the overall luminance of colors
-// when sampling from an already tonemapped image. (e.g. for transmissive materials when HDR is off)
+/// This is an **incredibly crude** approximation of the inverse of the tone mapping function.
+/// We assume here that there's a simple linear relationship between the input and output
+/// which is not true at all, but useful to at least preserve the overall luminance of colors
+/// when sampling from an already tonemapped image. (e.g. for transmissive materials when HDR is off)
 fn approximate_inverse_tone_mapping(in: vec4<f32>, color_grading: ColorGrading) -> vec4<f32> {
     let out = tone_mapping(in, color_grading);
     let approximate_ratio = length(in.rgb) / length(out.rgb);

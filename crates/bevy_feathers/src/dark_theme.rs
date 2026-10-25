@@ -53,6 +53,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::AXIS_X, palette::X_AXIS),
             (semantic::AXIS_Y, palette::Y_AXIS),
             (semantic::AXIS_Z, palette::Z_AXIS),
+            (semantic::AXIS_W, palette::W_AXIS),
             (semantic::FOCUS_RING, palette::ACCENT.with_alpha(0.5)),
         ]),
         semantic_overrides: HashMap::from([
@@ -143,6 +144,44 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::SCROLLBAR_BG, semantic::FILL_SOLID_DISABLED),
             (tokens::SCROLLBAR_THUMB, semantic::FILL_ACCENT_DEFAULT),
             (tokens::SCROLLBAR_THUMB_HOVER, semantic::FILL_ACCENT_HOVER), // Needed a dim gray here
+            (tokens::SPLIT_PANE_HANDLE, semantic::BORDER_DEFAULT),
+            (
+                tokens::SPLIT_PANE_HANDLE_HOVER,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (
+                tokens::SPLIT_PANE_HANDLE_PRESSED,
+                semantic::FILL_ACCENT_PRESSED,
+            ),
+            (
+                tokens::SPLIT_PANE_HANDLE_DISABLED,
+                semantic::FILL_SOLID_DISABLED,
+            ),
+            // Tabs
+            (tokens::TAB_STRIP_BG, semantic::SURFACE_PANE_HEADER),
+            (tokens::TAB_STRIP_BORDER, semantic::SURFACE_PANE_HEADER),
+            (
+                tokens::TAB_STRIP_BORDER_PREVIEW,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (tokens::TAB_BG, semantic::FILL_ITEM_DEFAULT),
+            (tokens::TAB_BG_HOVER, semantic::FILL_ITEM_HOVER),
+            (tokens::TAB_BG_SELECTED, semantic::SURFACE_PANE_BODY),
+            (tokens::TAB_BG_DRAGGING, semantic::FILL_ITEM_DEFAULT),
+            (tokens::TAB_STRIPE, semantic::FILL_NONE),
+            (tokens::TAB_STRIPE_SELECTED, semantic::FILL_ACCENT_DEFAULT),
+            (tokens::TAB_TEXT, semantic::TEXT_DIM),
+            (tokens::TAB_TEXT_SELECTED, semantic::TEXT_DEFAULT),
+            (tokens::TAB_TEXT_DRAGGING, semantic::TEXT_DISABLED),
+            (tokens::TAB_TEXT_DISABLED, semantic::TEXT_DISABLED),
+            (
+                tokens::TAB_INSERTION_INDICATOR,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (tokens::TAB_DRAG_PROXY_BG, semantic::SURFACE_SUBPANE_HEADER),
+            (tokens::TAB_DRAG_PROXY_BORDER, semantic::FILL_ACCENT_DEFAULT),
+            (tokens::TAB_DRAG_PROXY_OUTLINE, semantic::BORDER_DEFAULT),
+            (tokens::TAB_DRAG_PROXY_TEXT, semantic::TEXT_DEFAULT),
             // Checkbox
             (tokens::CHECKBOX_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::CHECKBOX_BG_HOVER, semantic::FILL_SOLID_DEFAULT),
@@ -310,6 +349,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::TEXT_INPUT_X_AXIS, semantic::AXIS_X),
             (tokens::TEXT_INPUT_Y_AXIS, semantic::AXIS_Y),
             (tokens::TEXT_INPUT_Z_AXIS, semantic::AXIS_Z),
+            (tokens::TEXT_INPUT_W_AXIS, semantic::AXIS_W),
             // Pane
             (tokens::PANE_HEADER_BG, semantic::SURFACE_PANE_HEADER),
             (tokens::PANE_HEADER_BORDER, semantic::SURFACE_PANE_BODY),

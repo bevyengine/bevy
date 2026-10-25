@@ -1,4 +1,4 @@
-import bevy_pbr::render::mesh_types::Mesh;
+import package::render::mesh_types::Mesh;
 import bevy_render::mesh::metadata_types::MeshMetadata;
 
 @if(!MESHLET_MESH_MATERIAL_PASS && PER_OBJECT_BUFFER_BATCH_SIZE)

@@ -87,19 +87,19 @@ fn setup(
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |drag: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
+                    |drag: On<PointerDrag>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
                         let (mut node, computed) = nodes.get_mut(drag.entity).unwrap();
-                        node.left = px(drag.pointer_location.position.x - computed.size.x / 2.0);
-                        node.top = px(drag.pointer_location.position.y - 50.0);
+                        node.left = px(drag.pointer.position.x - computed.size.x / 2.0);
+                        node.top = px(drag.pointer.position.y - 50.0);
                     },
                 )
                 .observe(
-                    |over: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
+                    |over: On<PointerOver>, mut colors: Query<&mut BackgroundColor>| {
                         colors.get_mut(over.entity).unwrap().0 = RED.into();
                     },
                 )
                 .observe(
-                    |out: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
+                    |out: On<PointerOut>, mut colors: Query<&mut BackgroundColor>| {
                         colors.get_mut(out.entity).unwrap().0 = BLUE.into();
                     },
                 )

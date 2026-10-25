@@ -1,6 +1,7 @@
 use core::{any::TypeId, mem};
 
 use bevy_ecs::{
+    change_detection::Tick,
     component::Component,
     entity::Entity,
     prelude::ReflectComponent,
@@ -66,7 +67,7 @@ pub struct RenderShadowMapVisibleEntities {
     /// A mapping from each subview (cascade or cubemap face) to the entities
     /// visible from it.
     #[reflect(ignore, clone)]
-    pub subviews: HashMap<RetainedViewEntity, RenderVisibleEntities>,
+    pub subviews: HashMap<RetainedViewEntity, (Tick, RenderVisibleEntities)>,
 }
 
 /// Stores a list of all entities that are visible from a single view for a
@@ -250,15 +251,6 @@ impl RenderVisibleEntitiesClass {
         }
     }
 
-    /// Adds a new entity to the [`Self::added_entities`] list.
-    ///
-    /// After calling this method one or more times, you must call
-    /// [`Self::sort_added_entities`] to ensure the [`Self::added_entities`]
-    /// list is sorted.
-    pub fn add_entity(&mut self, pair: (Entity, MainEntity)) {
-        self.added_entities.push(pair);
-    }
-
     /// Returns the list of newly-added entities.
     pub fn added_entities(&self) -> &[(Entity, MainEntity)] {
         &self.added_entities
@@ -270,8 +262,10 @@ impl RenderVisibleEntitiesClass {
     /// no-CPU-culling visible entries table.
     pub fn entity_pair_is_visible(&self, entity: Entity, main_entity: MainEntity) -> bool {
         self.entities_cpu_culling
-            .binary_search(&(entity, main_entity))
-            .is_ok()
+            // We need to search by the same key used to sort the vec
+            // in `collect_visible_cpu_culled_entities_for_subview()`
+            .binary_search_by_key(&main_entity, |(_, main_entity)| *main_entity)
+            .is_ok_and(|index| self.entities_cpu_culling[index].0 == entity)
             || self
                 .entities_gpu_culling
                 .get(&main_entity)
@@ -295,8 +289,8 @@ impl RenderVisibleEntitiesClass {
 
     /// Sorts the [`Self::added_entities`] list.
     ///
-    /// You must call this after adding entities to the list via
-    /// [`Self::add_entity`].
+    /// You must call this after pushing entities onto the list, as the
+    /// `DirtySpecializations` iterator will binary search it.
     pub fn sort_added_entities(&mut self) {
         self.added_entities
             .sort_unstable_by_key(|(_, main_entity)| *main_entity);
@@ -358,7 +352,7 @@ pub fn collect_visible_cpu_culled_entities(
         mut maybe_render_shadow_map_visible_entities_cpu_culling,
     ) in lights.iter_mut()
     {
-        for (subview, render_visible_entities) in
+        for (subview, (_, render_visible_entities)) in
             render_shadow_map_visible_entities.subviews.iter_mut()
         {
             let mut maybe_render_subview_visible_entities_cpu_culling =
@@ -425,5 +419,60 @@ fn collect_visible_cpu_culled_entities_for_subview(
             .sort_unstable_by_key(|(_, main_entity)| *main_entity);
 
         entities.update_cpu_culled_entities(&render_view_entities.entities);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cpu_visible_entity_pair_lookup_uses_main_entity_sort_order() {
+        struct TestVisibilityClass;
+
+        let main_a = MainEntity::from(Entity::from_bits(1));
+        let main_b = MainEntity::from(Entity::from_bits(2));
+
+        // We need the render entities to sort differently from the main entities
+        let render_a = Entity::from_bits(2);
+        let render_b = Entity::from_bits(1);
+
+        let mut pairs = vec![(render_a, main_a), (render_b, main_b)];
+
+        let mut extracted = RenderExtractedVisibleEntities {
+            classes: TypeIdHashMap::from_iter([(
+                TypeId::of::<TestVisibilityClass>(),
+                RenderExtractedVisibleEntitiesClass {
+                    entities: pairs.clone(),
+                },
+            )]),
+        };
+        let mut render_visible_entities = RenderVisibleEntities::default();
+
+        collect_visible_cpu_culled_entities_for_subview(
+            &mut render_visible_entities,
+            &mut Some(&mut extracted),
+            &mut HashSet::default(),
+        );
+
+        let visible = render_visible_entities
+            .get::<TestVisibilityClass>()
+            .unwrap();
+
+        // Sort the pairs by the full tuple and confirm that the sort for visible entities is
+        // different
+        pairs.sort();
+        assert_ne!(visible.entities_cpu_culling, pairs);
+        // Sort the pairs by only the main_entity to make sure the order is as expected
+        pairs.sort_by_key(|(_, main_entity)| *main_entity);
+        assert_eq!(visible.entities_cpu_culling, pairs);
+
+        // Make sure the visibility lookup works
+        for (entity, main_entity) in &pairs {
+            assert!(
+                visible.entity_pair_is_visible(*entity, *main_entity),
+                "expected {entity:?}/{main_entity:?} to be visible"
+            );
+        }
     }
 }

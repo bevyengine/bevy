@@ -10,6 +10,8 @@ use bevy_reflect::prelude::*;
 use thiserror::Error;
 
 /// Non-linear standard RGB with alpha.
+///
+/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -26,11 +28,11 @@ use thiserror::Error;
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
-    /// The red channel. [0.0, 1.0]
+    /// The red channel. [0.0, 1.0] for SDR colors.
     pub red: f32,
-    /// The green channel. [0.0, 1.0]
+    /// The green channel. [0.0, 1.0] for SDR colors.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0]
+    /// The blue channel. [0.0, 1.0] for SDR colors.
     pub blue: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
@@ -89,12 +91,39 @@ impl Srgba {
     /// * `green` - Green channel. [0.0, 1.0]
     /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn rgb(red: f32, green: f32, blue: f32) -> Self {
-        Self {
-            red,
-            green,
-            blue,
-            alpha: 1.0,
-        }
+        Self::new(red, green, blue, 1.)
+    }
+
+    /// New `Srgba` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    /// * `alpha` - Alpha channel. [0, 255]
+    ///
+    /// See also [`Srgba::new`], [`Srgba::rgb`], [`Srgba::rgb_u8`], [`Srgba::hex`].
+    pub const fn rgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+        Self::new(
+            red as f32 / 255.,
+            green as f32 / 255.,
+            blue as f32 / 255.,
+            alpha as f32 / 255.,
+        )
+    }
+
+    /// New `Srgba` from sRGB colorspace, with the default alpha (255).
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    ///
+    /// See also [`Srgba::new`],  [`Srgba::rgb`], [`Srgba::rgba_u8`], [`Srgba::hex`].
+    pub const fn rgb_u8(red: u8, green: u8, blue: u8) -> Self {
+        Self::rgba_u8(red, green, blue, 255)
     }
 
     /// Return a copy of this color with the red channel set to the given value.
@@ -168,35 +197,6 @@ impl Srgba {
             255 => format!("#{r:02X}{g:02X}{b:02X}"),
             _ => format!("#{r:02X}{g:02X}{b:02X}{a:02X}"),
         }
-    }
-
-    /// New `Srgba` from sRGB colorspace.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Red channel. [0, 255]
-    /// * `g` - Green channel. [0, 255]
-    /// * `b` - Blue channel. [0, 255]
-    ///
-    /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
-    pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
-        Self::from_u8_array_no_alpha([r, g, b])
-    }
-
-    // Float operations in const fn are not stable yet
-    // see https://github.com/rust-lang/rust/issues/57241
-    /// New `Srgba` from sRGB colorspace.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Red channel. [0, 255]
-    /// * `g` - Green channel. [0, 255]
-    /// * `b` - Blue channel. [0, 255]
-    /// * `a` - Alpha channel. [0, 255]
-    ///
-    /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
-    pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::from_u8_array([r, g, b, a])
     }
 
     /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).

@@ -1,4 +1,4 @@
-@if(MORPH_TARGETS) import bevy_pbr::render::mesh_types::{MorphAttributes, MorphDescriptor, MorphWeights};
+@if(MORPH_TARGETS) import package::render::mesh_types::{MorphAttributes, MorphDescriptor, MorphWeights};
 
 @if(MORPH_TARGETS && SKINS_USE_UNIFORM_BUFFERS) {
 @group(2) @binding(2) var<uniform> morph_weights: MorphWeights;

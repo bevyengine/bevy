@@ -1,7 +1,6 @@
 use bevy_app::Propagate;
-use bevy_ecs::template::template;
 use bevy_scene::{bsn, Scene};
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect};
 
 use crate::{
@@ -26,7 +25,7 @@ pub fn group() -> impl Scene {
         }
         ThemeBackgroundColor(tokens::GROUP_BG)
         ThemeBorderColor(tokens::GROUP_BORDER)
-        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Highest))))
+        Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Highest))
     }
 }
 
@@ -44,7 +43,7 @@ pub fn group_header() -> impl Scene {
         }
         InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
@@ -62,7 +61,7 @@ pub fn group_body() -> impl Scene {
         }
         InheritableThemeTextColor(tokens::GROUP_HEADER_TEXT)
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }

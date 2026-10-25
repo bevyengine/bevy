@@ -14,6 +14,9 @@ bevy_animation_macros = { path = "macros", version = "0.20.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
+bevy_curve = { path = "../bevy_curve", version = "0.20.0-dev", features = [
+  "bevy_reflect",
+] }
 bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.20.0-dev", optional = true, features = [
@@ -44,6 +47,10 @@ thread_local = "1"
 uuid = { version = "1.21.0", features = ["v4"] }
 smallvec = { version = "1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+bitvec = { version = "1" }
+
+[dev-dependencies]
+itertools = "0.14"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.

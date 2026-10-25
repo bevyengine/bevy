@@ -1,7 +1,7 @@
-// A postprocessing pass that performs screen-space reflections.
+//! A postprocessing pass that performs screen-space reflections.
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import bevy_pbr::{
+import package::{
     render::{
         clustered_forward,
         pbr_lighting as lighting,
@@ -42,12 +42,12 @@ import bevy_render::{
     maths::orthonormalize,
 };
 
-@if(ENVIRONMENT_MAP) import bevy_pbr::light_probe::environment_map;
+@if(ENVIRONMENT_MAP) import package::light_probe::environment_map;
 
-// The texture representing the color framebuffer.
+/// The texture representing the color framebuffer.
 @group(2) @binding(0) var color_texture: texture_2d<f32>;
 
-// The sampler that lets us sample from the color framebuffer.
+/// The sampler that lets us sample from the color framebuffer.
 @group(2) @binding(1) var color_sampler: sampler;
 
 // Group 1, bindings 2 and 3 are in `raymarch.wesl`.
@@ -61,7 +61,7 @@ struct BrdfSample {
 
 fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec2<f32>, N: vec3<f32>) -> BrdfSample {
     var brdf_sample: BrdfSample;
-    
+
     // Use VNDF sampling for the half-vector.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
@@ -82,23 +82,23 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     return brdf_sample;
 }
 
-// Returns the reflected color in the RGB channel and the specular occlusion in
-// the alpha channel.
-//
-// The general approach here is similar to [1]. We first project the reflection
-// ray into screen space. Then we perform uniform steps along that screen-space
-// reflected ray, converting each step to view space.
-//
-// The arguments are:
-//
-// * `R_world`: The reflection vector in world space.
-//
-// * `P_world`: The current position in world space.
-//
-// * `jitter`: Jitter to apply to the first step of the linear search; 0..=1
-//   range.
-//
-// [1]: https://lettier.github.io/3d-game-shaders-for-beginners/screen-space-reflection.html
+/// Returns the reflected color in the RGB channel and the specular occlusion in
+/// the alpha channel.
+///
+/// The general approach here is similar to [1]. We first project the reflection
+/// ray into screen space. Then we perform uniform steps along that screen-space
+/// reflected ray, converting each step to view space.
+///
+/// The arguments are:
+///
+/// * `R_world`: The reflection vector in world space.
+///
+/// * `P_world`: The current position in world space.
+///
+/// * `jitter`: Jitter to apply to the first step of the linear search; 0..=1
+///   range.
+///
+/// [1]: https://lettier.github.io/3d-game-shaders-for-beginners/screen-space-reflection.html
 fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>, jitter: f32) -> vec4<f32> {
     let depth_size = vec2<f32>(textureDimensions(depth_prepass_texture));
 
@@ -220,7 +220,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Sample the BRDF.
     let N_tangent = vec3(0.0, 0.0, 1.0);
     let V_tangent = V * tangent_to_world;
-    
+
     let brdf_sample = sample_specular_brdf(V_tangent, roughness, F0, urand, N_tangent);
     let R_stochastic = tangent_to_world * brdf_sample.wi;
     let brdf_sample_value_over_pdf = brdf_sample.value_over_pdf;

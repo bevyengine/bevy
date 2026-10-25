@@ -159,6 +159,33 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
     color.insert(bevy::feathers::tokens::BUTTON_TEXT, text_color);
     color.insert(bevy::feathers::tokens::LISTROW_TEXT, text_color);
 
+    // Slider tokens
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BG,
+        bevy::feathers::palette::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BG_HOVER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BG_PRESSED,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BAR,
+        bevy::feathers::palette::ACCENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BAR_HOVER,
+        bevy::feathers::palette::ACCENT.lighter(0.05),
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BAR_PRESSED,
+        bevy::feathers::palette::ACCENT.lighter(0.1),
+    );
+    color.insert(bevy::feathers::tokens::SLIDER_TEXT, text_color);
+
     // Main text color
     color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);
     ThemeProps::new_non_contextual(color)

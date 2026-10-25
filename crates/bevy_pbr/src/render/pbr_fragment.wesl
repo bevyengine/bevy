@@ -1,6 +1,6 @@
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-import bevy_pbr::{
+import package::{
     render::{
         pbr_functions,
         pbr_functions::SampleBias,
@@ -16,21 +16,21 @@ import bevy_pbr::{
 };
 
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION)
-import bevy_pbr::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
+import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION)
-import bevy_pbr::ssao::utils::ssao_multibounce;
+import package::ssao::utils::ssao_multibounce;
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-import bevy_pbr::meshlet::visibility_buffer_resolve::VertexOutput;
+import package::meshlet::visibility_buffer_resolve::VertexOutput;
 @elif(PREPASS_PIPELINE)
-import bevy_pbr::prepass::io::VertexOutput;
+import package::prepass::io::VertexOutput;
 @else
-import bevy_pbr::render::forward_io::VertexOutput;
+import package::render::forward_io::VertexOutput;
 
 @if(BINDLESS)
-import bevy_pbr::render::pbr_bindings::material_indices;
+import package::render::pbr_bindings::material_indices;
 
-// prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
+/// prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
 fn pbr_input_from_vertex_output(
     in: VertexOutput,
     is_front: bool,
@@ -66,8 +66,8 @@ fn pbr_input_from_vertex_output(
     return pbr_input;
 }
 
-// Prepare a full PbrInput by sampling all textures to resolve
-// the material members
+/// Prepare a full PbrInput by sampling all textures to resolve
+/// the material members
 fn pbr_input_from_standard_material(
     in: VertexOutput,
     is_front: bool,
@@ -108,8 +108,10 @@ fn pbr_input_from_standard_material(
     // Fill in the sample bias so we can sample from textures.
     var bias: SampleBias;
 @if(MESHLET_MESH_MATERIAL_PASS) {
-    bias.ddx_uv = in.ddx_uv;
-    bias.ddy_uv = in.ddy_uv;
+    // Apply mip bias by scaling the gradients used by textureSampleGrad.
+    let mip_scale = exp2(view.mip_bias);
+    bias.ddx_uv = in.ddx_uv * mip_scale;
+    bias.ddy_uv = in.ddy_uv * mip_scale;
 }
 @else {
     bias.mip_bias = view.mip_bias;
@@ -354,9 +356,14 @@ pbr_input.material.uv_transform = uv_transform;
             let metallic_roughness = textureSampleGrad(texture, sampler_, coords, bias.ddx_uv, bias.ddy_uv);
             @else
             let metallic_roughness = textureSampleBias(texture, sampler_, coords, bias.mip_bias);
-            // Sampling from GLTF standard channels for now
-            metallic *= metallic_roughness.b;
-            perceptual_roughness *= metallic_roughness.g;
+            if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_RG_BIT) != 0u) {
+                perceptual_roughness *= metallic_roughness.r;
+                metallic *= metallic_roughness.g;
+            } else {
+                // Sampling from GLTF standard channels
+                perceptual_roughness *= metallic_roughness.g;
+                metallic *= metallic_roughness.b;
+            }
         }
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
@@ -528,7 +535,8 @@ pbr_input.material.uv_transform = uv_transform;
             diffuse_occlusion *= textureSampleBias(texture, sampler_, coords, bias.mip_bias).r;
         }
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
+        let ssao_tex_pos = vec2<i32>(in.position.xy - view.viewport.xy);
+        let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
         // Use SSAO to estimate the specular occlusion.

@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     atmosphere::{
         functions::{direction_world_to_atmosphere, sample_sky_view_lut, get_view_position},
     },

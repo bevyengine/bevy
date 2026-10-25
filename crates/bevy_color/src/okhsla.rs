@@ -8,8 +8,11 @@ use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
-/// Color in Okhsl color space with alpha
+/// Color in Okhsl color space with alpha.
 /// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
+///
+/// Okhsl is defined relative to the sRGB (Rec. 709) gamut. Converting a wide-gamut or
+/// HDR color clamps the lightness to `1.0` but can push saturation outside `[0.0, 1.0]`.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]

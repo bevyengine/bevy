@@ -16,7 +16,7 @@ use core::marker::PhantomData;
 use crate::{
     component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
-    event::EventKey,
+    event::{EventKey, EventPattern},
     lifecycle::{ComponentHook, HookContext},
     observer::{
         condition::{ObserverCondition, ObserverWithCondition, ObserverWithConditionMarker},
@@ -207,7 +207,7 @@ use crate::prelude::ReflectComponent;
 pub struct Observer {
     hook_on_add: ComponentHook,
     pub(crate) error_handler: Option<ErrorHandler>,
-    pub(crate) system: Box<dyn AnyNamedSystem>,
+    pub(crate) system: Option<Box<dyn AnyNamedSystem>>,
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) last_trigger_id: u32,
     pub(crate) despawned_watched_entities: u32,
@@ -221,22 +221,14 @@ impl Observer {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
+    pub fn new<E: EventPattern, M, I: IntoObserverSystem<E, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
-        assert!(
-            !system.is_exclusive(),
-            concat!(
-                "Exclusive system `{}` may not be used as observer.\n",
-                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
-            ),
-            system.name()
-        );
         Self {
-            system,
+            system: Some(system),
             descriptor: Default::default(),
-            hook_on_add: hook_on_add::<E, B, I::System>,
+            hook_on_add: hook_on_add::<E, I::System>,
             error_handler: None,
-            runner: observer_system_runner::<E, B, I::System>,
+            runner: observer_system_runner::<E, I::System>,
             despawned_watched_entities: 0,
             last_trigger_id: 0,
             conditions: Vec::new(),
@@ -246,7 +238,7 @@ impl Observer {
     /// Creates a new [`Observer`] with custom runner, this is mostly used for dynamic event observers
     pub fn with_dynamic_runner(runner: ObserverRunner) -> Self {
         Self {
-            system: Box::new(IntoSystem::into_system(|| {})),
+            system: Some(Box::new(IntoSystem::into_system(|| {}))),
             descriptor: Default::default(),
             hook_on_add: |mut world, hook_context| {
                 let default_error_handler = world.fallback_error_handler();
@@ -359,7 +351,10 @@ impl Observer {
 
     /// Returns the name of the [`Observer`]'s system .
     pub fn system_name(&self) -> DebugName {
-        self.system.system_name()
+        self.system.as_deref().map_or(
+            DebugName::borrowed("<system is initializing>"),
+            AnyNamedSystem::system_name,
+        )
     }
 }
 
@@ -453,44 +448,46 @@ impl ObserverDescriptor {
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
 /// ensure type parameters match.
-fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+fn hook_on_add<E: EventPattern, S: ObserverSystem<E>>(
     mut world: DeferredWorld<'_>,
     HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_key = world.register_event_key::<E>();
-        let components = B::component_ids(&mut world.components_registrator());
+        let event_key = world.register_event_key::<E::Event>();
+        let components = E::Components::component_ids(&mut world.components_registrator());
 
-        let system_ptr: *mut dyn ObserverSystem<E, B> = {
-            let Some(mut observer) = world.get_mut::<Observer>(entity) else {
-                return;
-            };
-            observer.descriptor.event_keys.push(event_key);
-            observer.descriptor.components.extend(components);
-
-            let system: &mut dyn Any = observer.system.as_mut();
-            core::ptr::from_mut(system.downcast_mut::<S>().unwrap())
+        let Some(mut observer) = world.get_mut::<Observer>(entity) else {
+            return;
         };
+        observer.descriptor.event_keys.push(event_key);
+        observer.descriptor.components.extend(components);
 
-        // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
-        unsafe {
-            (*system_ptr).initialize(world);
-        }
+        let mut boxed_system = core::mem::take(&mut observer.system).unwrap();
+        let mut conditions = core::mem::take(&mut observer.conditions);
 
-        let mut conditions = {
-            let Some(mut observer) = world.get_mut::<Observer>(entity) else {
-                return;
-            };
-            core::mem::take(&mut observer.conditions)
-        };
+        let system: &mut dyn Any = boxed_system.as_mut();
+        let system = system.downcast_mut::<S>().unwrap();
+        let access = system.initialize(world);
+        assert!(
+            !access.is_exclusive(),
+            concat!(
+                "Exclusive system `{}` may not be used as observer.\n",
+                "Instead of `&mut World`, use either `DeferredWorld` if you do not need structural changes, or `Commands` if you do."
+            ),
+            system.name(),
+        );
 
         for condition in &mut conditions {
             condition.initialize(world);
         }
 
-        if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.conditions = conditions;
-        }
+        // If the observer was despawned during `initialize`, don't register it.
+        let Some(mut observer) = world.get_mut::<Observer>(entity) else {
+            return;
+        };
+
+        observer.system = Some(boxed_system);
+        observer.conditions = conditions;
 
         world.register_observer(entity);
     });
@@ -569,14 +566,14 @@ impl IntoObserver<()> for Observer {
     }
 }
 
-impl<E: Event, B: Bundle, M, T: IntoObserverSystem<E, B, M>> IntoObserver<(E, B, M)> for T {
+impl<E: EventPattern, M, T: IntoObserverSystem<E, M>> IntoObserver<(E, M)> for T {
     fn into_observer(self) -> Observer {
         Observer::new(self)
     }
 }
 
-impl<E: Event, B: Bundle, M: 'static, S: IntoObserverSystem<E, B, M>>
-    IntoObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, B, M, S>
+impl<E: EventPattern, M: 'static, S: IntoObserverSystem<E, M>>
+    IntoObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
 {
     fn into_observer(self) -> Observer {
         let (system, conditions) = self.take_conditions();
@@ -598,7 +595,7 @@ pub trait IntoEntityObserver<Marker>: Send + 'static {
     fn into_observer_for_entity(self, entity: Entity) -> Observer;
 }
 
-impl<E: EntityEvent, B: Bundle, M, T: IntoObserverSystem<E, B, M>> IntoEntityObserver<(E, B, M)>
+impl<E: EventPattern<Event: EntityEvent>, M, T: IntoObserverSystem<E, M>> IntoEntityObserver<(E, M)>
     for T
 {
     fn into_observer_for_entity(self, entity: Entity) -> Observer {
@@ -606,8 +603,8 @@ impl<E: EntityEvent, B: Bundle, M, T: IntoObserverSystem<E, B, M>> IntoEntityObs
     }
 }
 
-impl<E: EntityEvent, B: Bundle, M: 'static, S: IntoObserverSystem<E, B, M>>
-    IntoEntityObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, B, M, S>
+impl<E: EventPattern<Event: EntityEvent>, M: 'static, S: IntoObserverSystem<E, M>>
+    IntoEntityObserver<ObserverWithConditionMarker> for ObserverWithCondition<E, M, S>
 {
     fn into_observer_for_entity(self, entity: Entity) -> Observer {
         let (system, conditions) = self.take_conditions();
@@ -618,12 +615,12 @@ impl<E: EntityEvent, B: Bundle, M: 'static, S: IntoObserverSystem<E, B, M>>
 }
 
 /// Extension trait for adding run conditions to observer systems.
-pub trait ObserverSystemExt<E: Event, B: Bundle, M>: IntoObserverSystem<E, B, M> + Sized {
+pub trait ObserverSystemExt<E: EventPattern, M>: IntoObserverSystem<E, M> + Sized {
     /// Adds a run condition to this observer system.
     ///
     /// The observer will only run if the condition returns `true`.
     /// Multiple conditions can be chained (AND semantics).
-    fn run_if<C, CM>(self, condition: C) -> ObserverWithCondition<E, B, M, Self>
+    fn run_if<C, CM>(self, condition: C) -> ObserverWithCondition<E, M, Self>
     where
         C: SystemCondition<CM>,
     {
@@ -635,4 +632,4 @@ pub trait ObserverSystemExt<E: Event, B: Bundle, M>: IntoObserverSystem<E, B, M>
     }
 }
 
-impl<E: Event, B: Bundle, M, T: IntoObserverSystem<E, B, M>> ObserverSystemExt<E, B, M> for T {}
+impl<E: EventPattern, M, T: IntoObserverSystem<E, M>> ObserverSystemExt<E, M> for T {}

@@ -1,5 +1,4 @@
 use super::{MetalFx, MetalFxFeature};
-use crate::ray_reconstruction::RayReconstructionDenoiser;
 use bevy_camera::{Camera3d, CameraMainTextureUsages, MainPassResolutionOverride};
 use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass};
 use bevy_diagnostic::FrameCount;
@@ -71,7 +70,6 @@ pub fn prepare_metal_fx<F: MetalFxFeature>(
                 temporal_jitter.offset =
                     F::suggested_jitter(&ctx, frame_count.0, render_resolution);
                 mip_bias.0 = F::suggested_mip_bias(&ctx, render_resolution);
-                commands.entity(entity).insert(RayReconstructionDenoiser);
             }
             _ => {
                 let context =
@@ -92,7 +90,6 @@ pub fn prepare_metal_fx<F: MetalFxFeature>(
                         quality_mode: metal_fx.quality_mode,
                     },
                     MainPassResolutionOverride(render_resolution),
-                    RayReconstructionDenoiser,
                 ));
             }
         }

@@ -21,6 +21,11 @@ pub fn extract_dlss<F: DlssFeature>(
             .expect("Camera entity wasn't synced.");
         if dlss.is_some() && camera.is_active && camera_projection.is_perspective() {
             entity_commands.insert(dlss.as_deref().unwrap().clone());
+            // Inserted here, not in prepare: Solari allocates guide buffers in `PrepareResources`,
+            // which runs before `PrepareViews`.
+            if F::requests_ray_reconstruction_guides() {
+                entity_commands.insert(RayReconstructionDenoiser);
+            }
             dlss.as_mut().unwrap().reset = false;
         } else if cleanup_query.get(entity) == Ok(true) {
             entity_commands.remove::<(

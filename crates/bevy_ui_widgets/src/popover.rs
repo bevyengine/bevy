@@ -13,8 +13,8 @@ use bevy_ecs::{
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_ui::{
-    ui_layout_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
-    UiGlobalTransform, UiSystems, UiTransform, Val2,
+    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
+    UiTransform, Val2,
 };
 
 use crate::update_scrollbar_thumb;
@@ -253,6 +253,8 @@ pub(crate) fn position_popover(
                 computed_target.scale_factor(),
                 computed_node.size(),
                 computed_target.physical_size().as_vec2(),
+                computed_node.em_size,
+                computed_node.rem_size,
             );
             let logical_translation = (resolved_translation
                 + parent_matrix.inverse() * physical_translation)
@@ -313,8 +315,8 @@ impl Plugin for PopoverPlugin {
         app.add_systems(
             PostUpdate,
             position_popover
-                .in_set(UiSystems::Layout)
-                .after(ui_layout_system)
+                .after(UiSystems::Layout)
+                .before(UiSystems::Clipping)
                 .before(update_scrollbar_thumb),
         );
     }

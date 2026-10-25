@@ -1,9 +1,9 @@
-// The vignette postprocessing effect.
+//! The vignette postprocessing effect.
 
-import bevy_post_process::effect_stack::chromatic_aberration::source_texture;
+import package::effect_stack::chromatic_aberration::source_texture;
 
-// See `bevy_post_process::effect_stack::Vignette` for more
-// information on these fields.
+/// See `package::effect_stack::Vignette` for more
+/// information on these fields.
 struct VignetteSettings {
     intensity: f32,
     radius: f32,
@@ -17,7 +17,7 @@ struct VignetteSettings {
 
 const VISUAL_THRESHOLD: f32 = 1e-4;
 
-// The settings supplied by the developer.
+/// The settings supplied by the developer.
 @group(0) @binding(4) var<uniform> vignette_settings: VignetteSettings;
 
 fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {

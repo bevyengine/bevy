@@ -17,7 +17,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
+use bevy_math::{ops, AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -26,23 +26,6 @@ use wgpu_types::{
     SamplerBorderColor, SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages, TextureViewDescriptor,
 };
-
-/// Trait used to provide default values for Bevy-external types that
-/// do not implement [`Default`].
-#[deprecated(
-    note = "Use ExtractedView::texture_format where possible. Bevy does not encourage a default TextureFormat anymore. If you really need this, use TextureFormat::Rgba8UnormSrgb"
-)]
-pub trait BevyDefault {
-    /// Returns the default value for a type.
-    fn bevy_default() -> Self;
-}
-
-#[expect(deprecated, reason = "deprecated")]
-impl BevyDefault for TextureFormat {
-    fn bevy_default() -> Self {
-        TextureFormat::Rgba8UnormSrgb
-    }
-}
 
 /// Trait used to provide texture srgb view formats with static lifetime for `TextureDescriptor.view_formats`.
 pub trait TextureSrgbViewFormats {
@@ -259,6 +242,13 @@ impl Plugin for ImagePlugin {
         {
             processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
                 ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                crate::CompressedImageSaver,
+            >>(crate::CompressedImageSaver::default().into());
+
+            #[cfg(all(feature = "hdr", feature = "compressed_image_saver"))]
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                crate::HdrTextureLoader,
                 bevy_asset::transformer::IdentityAssetTransformer<Image>,
                 crate::CompressedImageSaver,
             >>(crate::CompressedImageSaver::default().into());
@@ -630,7 +620,15 @@ impl ToExtents for UVec3 {
 ///
 /// ## Remote Inspection
 ///
-/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use
+#[cfg_attr(
+    feature = "serialize",
+    doc = "[`SerializedImage`](crate::SerializedImage)."
+)]
+#[cfg_attr(
+    not(feature = "serialize"),
+    doc = "`SerializedImage`, which requires the `serialize` feature."
+)]
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
@@ -1123,6 +1121,21 @@ impl Default for Image {
     }
 }
 
+/// Quantizes a normalized channel to the nearest `u8`, matching [`ColorToPacked::to_u8_array`](bevy_color::ColorToPacked::to_u8_array).
+fn unorm_u8(value: f32) -> u8 {
+    ops::round(value.clamp(0.0, 1.0) * u8::MAX as f32) as u8
+}
+
+/// Quantizes a normalized channel to the nearest `u16`.
+fn unorm_u16(value: f32) -> u16 {
+    ops::round(value.clamp(0.0, 1.0) * u16::MAX as f32) as u16
+}
+
+/// Quantizes a normalized channel to the nearest `u32`, going via `f64` for precision.
+fn unorm_u32(value: f32) -> u32 {
+    (f64::from(value.clamp(0.0, 1.0)) * f64::from(u32::MAX)).round() as u32
+}
+
 impl Image {
     /// Creates a new image from raw binary data and the corresponding metadata.
     ///
@@ -1566,6 +1579,15 @@ impl Image {
         self.clone()
             .try_into_dynamic()
             .ok()
+            // `Rgba16Float` and `Rgba32Float` inputs return `None`. `image`
+            // would clamp them to 8 bits with no sRGB encode, and the
+            // `Rgba8UnormSrgb` result would be dark and clipped.
+            .filter(|img| {
+                !matches!(
+                    img,
+                    image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_)
+                )
+            })
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
@@ -1579,12 +1601,33 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
+            .map(|(dyn_img, is_srgb)| {
+                Self::from_dynamic_inner(dyn_img, is_srgb, false, self.asset_usage)
+            })
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
-    /// crate
+    /// crate. Grayscale images are expanded to RGBA.
     pub fn from_buffer(
+        buffer: &[u8],
+        image_type: ImageType,
+        supported_compressed_formats: CompressedImageFormats,
+        is_srgb: bool,
+        image_sampler: ImageSampler,
+        asset_usage: RenderAssetUsages,
+    ) -> Result<Image, TextureError> {
+        Self::from_buffer_inner(
+            buffer,
+            image_type,
+            supported_compressed_formats,
+            is_srgb,
+            true,
+            image_sampler,
+            asset_usage,
+        )
+    }
+
+    pub(crate) fn from_buffer_inner(
         buffer: &[u8],
         image_type: ImageType,
         #[cfg_attr(
@@ -1593,6 +1636,7 @@ impl Image {
         )]
         supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
+        expand_grayscale: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
@@ -1631,7 +1675,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
+                Self::from_dynamic_inner(dyn_img, is_srgb, expand_grayscale, asset_usage)
             }
         };
         image.sampler = image_sampler;
@@ -2018,31 +2062,31 @@ impl Image {
         match format {
             TextureFormat::Rgba8UnormSrgb => {
                 let [r, g, b, a] = Srgba::from(color).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (b * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
+                bytes[0] = unorm_u8(r);
+                bytes[1] = unorm_u8(g);
+                bytes[2] = unorm_u8(b);
+                bytes[3] = unorm_u8(a);
             }
             TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => {
                 let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (b * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
+                bytes[0] = unorm_u8(r);
+                bytes[1] = unorm_u8(g);
+                bytes[2] = unorm_u8(b);
+                bytes[3] = unorm_u8(a);
             }
             TextureFormat::Bgra8UnormSrgb => {
                 let [r, g, b, a] = Srgba::from(color).to_f32_array();
-                bytes[0] = (b * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (r * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
+                bytes[0] = unorm_u8(b);
+                bytes[1] = unorm_u8(g);
+                bytes[2] = unorm_u8(r);
+                bytes[3] = unorm_u8(a);
             }
             TextureFormat::Bgra8Unorm => {
                 let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                bytes[0] = (b * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
-                bytes[2] = (r * u8::MAX as f32) as u8;
-                bytes[3] = (a * u8::MAX as f32) as u8;
+                bytes[0] = unorm_u8(b);
+                bytes[1] = unorm_u8(g);
+                bytes[2] = unorm_u8(r);
+                bytes[3] = unorm_u8(a);
             }
             TextureFormat::Rgba16Float => {
                 let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
@@ -2060,12 +2104,7 @@ impl Image {
             }
             TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Uint => {
                 let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                let [r, g, b, a] = [
-                    (r * u16::MAX as f32) as u16,
-                    (g * u16::MAX as f32) as u16,
-                    (b * u16::MAX as f32) as u16,
-                    (a * u16::MAX as f32) as u16,
-                ];
+                let [r, g, b, a] = [unorm_u16(r), unorm_u16(g), unorm_u16(b), unorm_u16(a)];
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
                 bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
                 bytes[4..6].copy_from_slice(&u16::to_le_bytes(b));
@@ -2073,12 +2112,7 @@ impl Image {
             }
             TextureFormat::Rgba32Uint => {
                 let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
-                let [r, g, b, a] = [
-                    (r * u32::MAX as f32) as u32,
-                    (g * u32::MAX as f32) as u32,
-                    (b * u32::MAX as f32) as u32,
-                    (a * u32::MAX as f32) as u32,
-                ];
+                let [r, g, b, a] = [unorm_u32(r), unorm_u32(g), unorm_u32(b), unorm_u32(a)];
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
                 bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
                 bytes[8..12].copy_from_slice(&u32::to_le_bytes(b));
@@ -2089,14 +2123,14 @@ impl Image {
                 let linear = LinearRgba::from(color);
                 let luminance = Xyza::from(linear).y;
                 let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
+                bytes[0] = unorm_u8(r);
             }
             TextureFormat::R16Unorm | TextureFormat::R16Uint => {
                 // Convert to grayscale with minimal loss if color is already gray
                 let linear = LinearRgba::from(color);
                 let luminance = Xyza::from(linear).y;
                 let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                let r = (r * u16::MAX as f32) as u16;
+                let r = unorm_u16(r);
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
             }
             TextureFormat::R32Uint => {
@@ -2104,8 +2138,7 @@ impl Image {
                 let linear = LinearRgba::from(color);
                 let luminance = Xyza::from(linear).y;
                 let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
-                // go via f64 to avoid imprecision
-                let r = (r as f64 * u32::MAX as f64) as u32;
+                let r = unorm_u32(r);
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
             }
             TextureFormat::R16Float => {
@@ -2125,21 +2158,20 @@ impl Image {
             }
             TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
                 let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                bytes[0] = (r * u8::MAX as f32) as u8;
-                bytes[1] = (g * u8::MAX as f32) as u8;
+                bytes[0] = unorm_u8(r);
+                bytes[1] = unorm_u8(g);
             }
             TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
                 let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                let r = (r * u16::MAX as f32) as u16;
-                let g = (g * u16::MAX as f32) as u16;
+                let r = unorm_u16(r);
+                let g = unorm_u16(g);
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
                 bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
             }
             TextureFormat::Rg32Uint => {
                 let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
-                // go via f64 to avoid imprecision
-                let r = (r as f64 * u32::MAX as f64) as u32;
-                let g = (g as f64 * u32::MAX as f64) as u32;
+                let r = unorm_u32(r);
+                let g = unorm_u32(g);
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
                 bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
             }
@@ -2474,6 +2506,29 @@ mod test {
     use super::*;
 
     #[test]
+    fn convert_keeps_single_channel() {
+        let image = Image::new_fill(
+            Extent3d {
+                width: 2,
+                height: 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[10, 20, 30, 255],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        let r8 = image.convert(TextureFormat::R8Unorm).unwrap();
+        assert_eq!(r8.texture_descriptor.format, TextureFormat::R8Unorm);
+        assert_eq!(r8.data.as_ref().unwrap().len(), 4);
+
+        let rg8 = image.convert(TextureFormat::Rg8Unorm).unwrap();
+        assert_eq!(rg8.texture_descriptor.format, TextureFormat::Rg8Unorm);
+        assert_eq!(rg8.data.as_ref().unwrap().len(), 8);
+    }
+
+    #[test]
     fn image_size() {
         let size = Extent3d {
             width: 200,
@@ -2550,6 +2605,51 @@ mod test {
                 TextureFormat::Bc1RgbaUnorm
             ))
         ));
+    }
+
+    #[test]
+    fn set_color_at_rounds_normalized_channels() {
+        let size = Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        };
+        let mut image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0, 0, 0, 0],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        image
+            .set_color_at(0, 0, Color::LinearRgba(LinearRgba::WHITE))
+            .unwrap();
+        assert_eq!(image.data.as_deref(), Some(&[255, 255, 255, 255][..]));
+        image
+            .set_color_at(0, 0, Color::srgba(0.5, 0.5, 0.5, 0.5))
+            .unwrap();
+        assert_eq!(image.data.as_deref(), Some(&[128, 128, 128, 128][..]));
+
+        let mut image = Image::new_fill(
+            size,
+            TextureDimension::D2,
+            &[0; 8],
+            TextureFormat::Rgba16Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        image
+            .set_color_at(0, 0, Color::linear_rgba(0.5, 0.5, 0.5, 1.0))
+            .unwrap();
+        let channels: Vec<u16> = image
+            .data
+            .as_deref()
+            .unwrap()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
+            .collect();
+        assert_eq!(channels, [32768, 32768, 32768, 65535]);
     }
 
     #[test]

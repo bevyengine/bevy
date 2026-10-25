@@ -75,7 +75,13 @@ pub struct RenderClusteredDecals {
     /// [`Self::binding_index_to_textures`] holds the inverse mapping.
     texture_to_binding_index: HashMap<AssetId<Image>, i32>,
     /// The information concerning each decal that we provide to the shader.
+    ///
+    /// Light textures follow the true clustered decals in this list, so that
+    /// lights can reference them via their decal indices.
     decals: Vec<RenderClusteredDecal>,
+    /// The number of true clustered decals at the start of `decals`. Light
+    /// textures past this count aren't clusterable objects.
+    clusterable_decal_count: usize,
     /// Maps the [`bevy_render::sync_world::RenderEntity`] of each decal to the
     /// index of that decal in the [`Self::decals`] list.
     entity_to_decal_index: EntityHashMap<usize>,
@@ -88,9 +94,14 @@ impl RenderClusteredDecals {
         self.binding_index_to_textures.clear();
         self.texture_to_binding_index.clear();
         self.decals.clear();
+        self.clusterable_decal_count = 0;
         self.entity_to_decal_index.clear();
     }
 
+    /// Inserts a decal into the buffer, along with its associated textures.
+    ///
+    /// Decals inserted this way aren't assigned to clusters; use the
+    /// [`bevy_light::ClusteredDecal`] component for clusterable decals.
     pub fn insert_decal(
         &mut self,
         entity: Entity,
@@ -122,14 +133,20 @@ impl RenderClusteredDecals {
         self.entity_to_decal_index.get(&entity).copied()
     }
 
-    /// Returns the number of clustered decals in the scene.
+    /// Returns the number of entries in the decal buffer, light textures included.
     pub fn len(&self) -> usize {
         self.decals.len()
     }
 
-    /// Returns true if there are no clustered decals in the scene.
+    /// Returns true if there are no entries in the decal buffer.
     pub fn is_empty(&self) -> bool {
         self.decals.is_empty()
+    }
+
+    /// Returns the number of true clustered decals in the scene, excluding
+    /// light textures, which aren't clusterable objects.
+    pub(crate) fn clusterable_decal_count(&self) -> usize {
+        self.clusterable_decal_count
     }
 }
 
@@ -161,7 +178,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wesl");
 
-        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, RenderApp, Self>::default());
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -273,6 +290,11 @@ pub fn extract_decals(
     render_decals.clear();
 
     extract_clustered_decals(&decals, &mut render_decals);
+
+    // Light textures follow the true clustered decals in the buffer, but
+    // aren't clusterable objects. Record where they start.
+    render_decals.clusterable_decal_count = render_decals.decals.len();
+
     extract_spot_light_textures(&spot_light_textures, &mut render_decals);
     extract_point_light_textures(&point_light_textures, &mut render_decals);
     extract_directional_light_textures(&directional_light_textures, &mut render_decals);

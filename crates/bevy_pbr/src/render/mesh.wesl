@@ -1,4 +1,4 @@
-import bevy_pbr::render::{
+import package::render::{
     mesh_bindings::mesh,
     mesh_functions,
     skinning,
@@ -8,17 +8,17 @@ import bevy_pbr::render::{
 };
 
 @if(MORPH_TARGETS)
-// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
-// See https://github.com/gfx-rs/naga/issues/2416
+/// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+/// See https://github.com/gfx-rs/naga/issues/2416
 fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
     let vertex_index = vertex.index - first_vertex;
     let morph_descriptor_index = mesh[instance_index].morph_descriptor_index;
 
-    let weight_count = bevy_pbr::render::morph::layer_count(morph_descriptor_index);
+    let weight_count = package::render::morph::layer_count(morph_descriptor_index);
     for (var i: u32 = 0u; i < weight_count; i ++) {
-        let weight = bevy_pbr::render::morph::weight_at(i, morph_descriptor_index);
+        let weight = package::render::morph::weight_at(i, morph_descriptor_index);
         if weight == 0.0 {
             continue;
         }

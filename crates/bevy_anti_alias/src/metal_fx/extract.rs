@@ -21,7 +21,12 @@ pub fn extract_metal_fx<F: MetalFxFeature>(
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
         if metal_fx.is_some() && camera.is_active && camera_projection.is_perspective() {
-            entity_commands.insert(metal_fx.as_deref().unwrap().clone());
+            entity_commands.insert((
+                metal_fx.as_deref().unwrap().clone(),
+                RayReconstructionDenoiser,
+            ));
+            // Inserted here, not in prepare: Solari allocates guide buffers in `PrepareResources`,
+            // which runs before `PrepareViews`.
             metal_fx.as_mut().unwrap().reset = false;
         } else if cleanup_query.get(entity) == Ok(true) {
             entity_commands.remove::<(

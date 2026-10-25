@@ -1,4 +1,4 @@
-import bevy_pbr::render::mesh_view_bindings as view_bindings;
+import package::render::mesh_view_bindings as view_bindings;
 
 @if(DEPTH_PREPASS)
 fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {

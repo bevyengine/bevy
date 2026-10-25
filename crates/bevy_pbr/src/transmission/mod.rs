@@ -3,7 +3,6 @@ mod phase;
 mod texture;
 
 use bevy_app::{App, Plugin};
-use bevy_camera::Camera3d;
 use bevy_core_pipeline::{
     core_3d::{main_opaque_pass_3d, main_transparent_pass_3d},
     schedule::{Core3d, Core3dSystems},
@@ -28,8 +27,7 @@ pub struct ScreenSpaceTransmissionPlugin;
 
 impl Plugin for ScreenSpaceTransmissionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceTransmission>::default())
-            .register_required_components::<Camera3d, ScreenSpaceTransmission>();
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceTransmission>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

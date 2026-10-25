@@ -1,5 +1,4 @@
 use super::{Dlss, DlssFeature, DlssSdk};
-use crate::ray_reconstruction::RayReconstructionDenoiser;
 use bevy_camera::{Camera3d, CameraMainTextureUsages, MainPassResolutionOverride};
 use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass};
 use bevy_diagnostic::FrameCount;
@@ -86,9 +85,6 @@ pub fn prepare_dlss<F: DlssFeature>(
                 let render_resolution = F::render_resolution(&dlss_context);
                 temporal_jitter.offset =
                     F::suggested_jitter(&dlss_context, frame_count.0, render_resolution);
-                if F::requests_ray_reconstruction_guides() {
-                    commands.entity(entity).insert(RayReconstructionDenoiser);
-                }
             }
             _ => {
                 let dlss_context = F::new_context(
@@ -106,8 +102,7 @@ pub fn prepare_dlss<F: DlssFeature>(
                     F::suggested_jitter(&dlss_context, frame_count.0, render_resolution);
                 mip_bias.0 = F::suggested_mip_bias(&dlss_context, render_resolution);
 
-                let mut entity_commands = commands.entity(entity);
-                entity_commands.insert((
+                commands.entity(entity).insert((
                     DlssRenderContext::<F> {
                         context: Mutex::new(dlss_context),
                         perf_quality_mode: dlss.perf_quality_mode,
@@ -115,9 +110,6 @@ pub fn prepare_dlss<F: DlssFeature>(
                     },
                     MainPassResolutionOverride(render_resolution),
                 ));
-                if F::requests_ray_reconstruction_guides() {
-                    entity_commands.insert(RayReconstructionDenoiser);
-                }
             }
         }
     }
