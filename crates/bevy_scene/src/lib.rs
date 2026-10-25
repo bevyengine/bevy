@@ -989,8 +989,10 @@ pub struct Ready {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_scene, Ready, ScenePlugin};
-    use crate::{prelude::*, ScenePatch};
+    use crate::{
+        self as bevy_scene, prelude::*, Ready, ResolvedSceneListRoot, ResolvedSceneRoot,
+        ScenePatch, ScenePlugin,
+    };
     use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
@@ -1004,6 +1006,7 @@ mod tests {
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
+    use std::any::TypeId;
     use std::ops::Range;
     use std::path::Path;
     use std::sync::Mutex;
@@ -3424,6 +3427,156 @@ mod tests {
             .map(|r| r.0);
 
         assert_eq!(expected_id, actual_id);
+    }
+
+    #[track_caller]
+    fn split_entity_ref_display(s: &str) -> (&str, &str) {
+        if let Some((loc, _)) = s.split_once(' ')
+            && let Some((path, line_col)) = loc.split_once(':')
+        {
+            return (path, line_col);
+        }
+        panic!("unexpected entity ref display: {s}");
+    }
+
+    #[test]
+    fn nested_scene_entity_ref_resolves_correct_call_site() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let assets = world.resource::<AssetServer>();
+        let patches = world.resource::<Assets<ScenePatch>>();
+
+        #[derive(Default)]
+        pub struct ContainerProps {
+            pub content: Option<Box<dyn SceneList>>,
+        }
+
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(ContainerProps)]
+        pub struct Container;
+
+        impl Container {
+            fn scene(props: ContainerProps) -> impl Scene {
+                bsn! {
+                    Children [
+                        { props.content }
+                    ]
+                }
+            }
+        }
+
+        let scene = bsn! {
+            #E1
+            @Container {
+                @content: bsn! { #E2 }
+            }
+        };
+
+        let resolved = &ResolvedSceneRoot::resolve(Box::new(scene), assets, patches)
+            .unwrap()
+            .scene;
+
+        let parent_ref = resolved
+            .entity_references
+            .first()
+            .expect("missing parent entity ref")
+            .to_string();
+
+        let related_child_scenes = &resolved
+            .related
+            .get(&TypeId::of::<ChildOf>())
+            .expect("missing related scenes for ChildOf (from Container)");
+
+        let child_scene = related_child_scenes
+            .scenes
+            .first()
+            .expect("missing related child scene (from Container.@content)");
+
+        let child_ref = child_scene
+            .entity_references
+            .first()
+            .expect("missing child entity ref")
+            .to_string();
+
+        let (parent_ref_path, parent_ref_line_col) = split_entity_ref_display(&parent_ref);
+        let (child_ref_path, child_ref_line_col) = split_entity_ref_display(&child_ref);
+
+        assert_eq!(parent_ref_path, child_ref_path);
+        assert_ne!(
+            parent_ref_line_col, child_ref_line_col,
+            "expected parsing to preserve call site of nested macro"
+        );
+    }
+
+    #[test]
+    fn nested_scene_list_entity_ref_resolves_correct_call_site() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let assets = world.resource::<AssetServer>();
+        let patches = world.resource::<Assets<ScenePatch>>();
+
+        #[derive(Default)]
+        pub struct ContainerProps {
+            pub content: Option<Box<dyn SceneList>>,
+        }
+
+        #[derive(SceneComponent, Clone, Default)]
+        #[scene(ContainerProps)]
+        pub struct Container;
+
+        impl Container {
+            fn scene(props: ContainerProps) -> impl Scene {
+                bsn! {
+                    Children [
+                        { props.content }
+                    ]
+                }
+            }
+        }
+
+        let scene = bsn_list! {
+            #E1
+            @Container {
+                @content: bsn_list! { #E2 }
+            }
+        };
+
+        let resolved = &ResolvedSceneListRoot::resolve(Box::new(scene), assets, patches)
+            .unwrap()
+            .scenes[0];
+
+        let parent_ref = resolved
+            .entity_references
+            .first()
+            .expect("missing parent entity ref")
+            .to_string();
+
+        let related_child_scenes = &resolved
+            .related
+            .get(&TypeId::of::<ChildOf>())
+            .expect("missing related scenes for ChildOf (from Container)");
+
+        let child_scene = related_child_scenes
+            .scenes
+            .first()
+            .expect("missing related child scene (from Container.@content)");
+
+        let child_ref = child_scene
+            .entity_references
+            .first()
+            .expect("missing child entity ref")
+            .to_string();
+
+        let (parent_ref_path, parent_ref_line_col) = split_entity_ref_display(&parent_ref);
+        let (child_ref_path, child_ref_line_col) = split_entity_ref_display(&child_ref);
+
+        assert_eq!(parent_ref_path, child_ref_path);
+        assert_ne!(
+            parent_ref_line_col, child_ref_line_col,
+            "expected parsing to preserve call site of nested macro"
+        );
     }
 
     #[test]
