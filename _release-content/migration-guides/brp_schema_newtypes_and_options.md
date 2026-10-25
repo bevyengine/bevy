@@ -1,6 +1,6 @@
 ---
 title: "`registry.schema` matches serialized BRP values"
-pull_requests: []
+pull_requests: [26308]
 ---
 
 `registry.schema` now describes types the way BRP serializes them, so serialized values validate against it with a standard JSON Schema 2020-12 validator.
