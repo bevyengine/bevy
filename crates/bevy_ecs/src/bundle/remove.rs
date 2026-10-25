@@ -5,7 +5,7 @@ use core::ptr::NonNull;
 use crate::{
     archetype::{
         Archetype, ArchetypeAfterBundleRemove, ArchetypeCreated, ArchetypeId, Archetypes,
-        ARCHETYPE_CREATED,
+        CachedBundleRemove, ARCHETYPE_CREATED,
     },
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::{MaybeLocation, Tick},
@@ -409,14 +409,17 @@ impl BundleInfo {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let edges = archetypes[archetype_id].edges();
-        let archetype_after_remove_result = if intersection {
+        let cached = if intersection {
             edges.get_archetype_after_bundle_remove_internal(self.id())
         } else {
             edges.get_archetype_after_bundle_take_internal(self.id())
         };
-        if let Some(result) = archetype_after_remove_result {
-            // This bundle removal result is cached. Just return that!
-            return result.map(|after_remove| BundleRemoval::new(after_remove, false));
+        match cached {
+            CachedBundleRemove::Uncached => {}
+            CachedBundleRemove::Invalid => return None,
+            CachedBundleRemove::Valid(after_remove) => {
+                return Some(BundleRemoval::new(after_remove, false));
+            }
         }
         let mut removed = Vec::new();
         let mut next_table_components;
