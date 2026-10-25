@@ -14,7 +14,6 @@ use crate::{
     event::{EntityComponentsTrigger, GlobalTrigger},
     lifecycle::{DiscardEvent, RemoveEvent, DISCARD, REMOVE},
     observer::Observers,
-    query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -78,7 +77,11 @@ impl<'w> BundleRemover<'w> {
         // SAFETY: Bundle exists per precondition
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         // SAFETY: Caller ensures archetype and bundle ids are correct.
-        let (new_archetype_id, is_new_created) = unsafe {
+        let BundleRemoval {
+            archetype_id: new_archetype_id,
+            removed,
+            is_new_created,
+        } = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 &mut world.storages,
@@ -87,8 +90,7 @@ impl<'w> BundleRemover<'w> {
                 archetype_id,
                 !require_all,
             )
-        };
-        let new_archetype_id = new_archetype_id?;
+        }?;
 
         // SAFETY:
         // - The caller ensures `archetype_id` is valid.
@@ -99,16 +101,6 @@ impl<'w> BundleRemover<'w> {
                 .get_maybe_disjoint_mut(archetype_id, new_archetype_id)
         };
         let new_archetype = new_archetype?;
-
-        let edges = old_archetype.edges();
-        let after_remove = if require_all {
-            edges.get_archetype_after_bundle_take_internal(bundle_id)
-        } else {
-            edges.get_archetype_after_bundle_remove_internal(bundle_id)
-        };
-        // SAFETY: `remove_bundle_from_archetype` cached this edge, and it returned an archetype,
-        // so the edge holds one.
-        let removed = unsafe { &*after_remove.flatten().debug_checked_unwrap().removed }.into();
 
         let tables = (old_archetype.table_id() != new_archetype.table_id())
             .then_some((old_archetype.table_id(), new_archetype.table_id()));
@@ -369,11 +361,31 @@ impl<'w> BundleRemover<'w> {
     }
 }
 
+/// The result of a valid [`BundleInfo::remove_bundle_from_archetype`].
+pub(crate) struct BundleRemoval {
+    /// The target archetype. This could be the source archetype, in the event that removing the
+    /// bundle does not result in an [`Archetype`] change.
+    archetype_id: ArchetypeId,
+    /// The [`ArchetypeAfterBundleRemove::removed`] cached in the source archetype's edges,
+    /// which live as long as the [`Archetypes`].
+    removed: ConstNonNull<[ComponentId]>,
+    /// Whether the target archetype was created by this removal.
+    is_new_created: bool,
+}
+
+impl BundleRemoval {
+    fn new(after_remove: &ArchetypeAfterBundleRemove, is_new_created: bool) -> Self {
+        Self {
+            archetype_id: after_remove.archetype_id,
+            removed: (&*after_remove.removed).into(),
+            is_new_created,
+        }
+    }
+}
+
 impl BundleInfo {
-    /// Removes a bundle from the given archetype and returns the resulting archetype and whether a new archetype was created.
+    /// Removes a bundle from the given archetype and returns the resulting [`BundleRemoval`]
     /// (or `None` if the removal was invalid).
-    /// This could be the same [`ArchetypeId`], in the event that removing the given bundle
-    /// does not result in an [`Archetype`] change.
     ///
     /// Results are cached in the [`Archetype`] graph to avoid redundant work.
     ///
@@ -393,20 +405,18 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
         intersection: bool,
-    ) -> (Option<ArchetypeId>, bool) {
+    ) -> Option<BundleRemoval> {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
-        let archetype_after_remove_result = {
-            let edges = archetypes[archetype_id].edges();
-            if intersection {
-                edges.get_archetype_after_bundle_remove(self.id())
-            } else {
-                edges.get_archetype_after_bundle_take(self.id())
-            }
+        let edges = archetypes[archetype_id].edges();
+        let archetype_after_remove_result = if intersection {
+            edges.get_archetype_after_bundle_remove_internal(self.id())
+        } else {
+            edges.get_archetype_after_bundle_take_internal(self.id())
         };
         if let Some(result) = archetype_after_remove_result {
             // This bundle removal result is cached. Just return that!
-            return (result, false);
+            return result.map(|after_remove| BundleRemoval::new(after_remove, false));
         }
         let mut removed = Vec::new();
         let mut next_table_components;
@@ -433,7 +443,7 @@ impl BundleInfo {
                     current_archetype
                         .edges_mut()
                         .cache_archetype_after_bundle_take(self.id(), None);
-                    return (None, false);
+                    return None;
                 }
             }
 
@@ -477,18 +487,14 @@ impl BundleInfo {
             archetype_id: new_archetype_id,
             removed: removed.into(),
         };
-        let current_archetype = &mut archetypes[archetype_id];
+        let edges = archetypes[archetype_id].edges_mut();
         // Cache the result in an edge.
-        if intersection {
-            current_archetype
-                .edges_mut()
-                .cache_archetype_after_bundle_remove(self.id(), Some(after_remove));
+        let after_remove = if intersection {
+            edges.cache_archetype_after_bundle_remove(self.id(), Some(after_remove))
         } else {
-            current_archetype
-                .edges_mut()
-                .cache_archetype_after_bundle_take(self.id(), Some(after_remove));
-        }
-        (Some(new_archetype_id), is_new_created)
+            edges.cache_archetype_after_bundle_take(self.id(), Some(after_remove))
+        };
+        after_remove.map(|after_remove| BundleRemoval::new(after_remove, is_new_created))
     }
 }
 

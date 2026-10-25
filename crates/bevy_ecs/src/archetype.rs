@@ -299,14 +299,15 @@ impl Edges {
         self.remove_bundle.get(bundle_id).map(Option::as_ref)
     }
 
-    /// Caches the target archetype when removing a bundle from the source archetype.
+    /// Caches the target archetype when removing a bundle from the source archetype,
+    /// and returns the cached value.
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_remove(
         &mut self,
         bundle_id: BundleId,
         after_remove: Option<ArchetypeAfterBundleRemove>,
-    ) {
-        self.remove_bundle.insert(bundle_id, after_remove);
+    ) -> Option<&ArchetypeAfterBundleRemove> {
+        self.remove_bundle.insert(bundle_id, after_remove).as_ref()
     }
 
     /// Checks the cache for the target archetype when taking a bundle from the
@@ -339,7 +340,8 @@ impl Edges {
         self.take_bundle.get(bundle_id).map(Option::as_ref)
     }
 
-    /// Caches the target archetype when taking a bundle from the source archetype.
+    /// Caches the target archetype when taking a bundle from the source archetype,
+    /// and returns the cached value.
     ///
     /// Unlike `remove`, `take` will only succeed if the source archetype
     /// contains all of the components in the bundle.
@@ -348,8 +350,8 @@ impl Edges {
         &mut self,
         bundle_id: BundleId,
         after_take: Option<ArchetypeAfterBundleRemove>,
-    ) {
-        self.take_bundle.insert(bundle_id, after_take);
+    ) -> Option<&ArchetypeAfterBundleRemove> {
+        self.take_bundle.insert(bundle_id, after_take).as_ref()
     }
 }
 
