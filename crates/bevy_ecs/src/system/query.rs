@@ -3,13 +3,13 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     batching::BatchingStrategy,
     change_detection::Tick,
-    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
+    entity::{Entity, EntityEquivalent, EntitySet, EntitySetIterator, UniqueEntityArray},
     query::{
-        ArchetypeFilter, ContiguousQueryData, DebugCheckedUnwrap, IterQueryData, NopWorldQuery,
-        QueryCombinationIter, QueryContiguousIter, QueryContiguousParIter, QueryData,
-        QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter,
-        QueryNotDenseError, QueryParIter, QueryParManyIter, QueryParManyUniqueIter,
-        QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData, SingleEntityQueryData,
+        ArchetypeFilter, ContiguousQueryData, IterQueryData, NopWorldQuery, QueryCombinationIter,
+        QueryContiguousIter, QueryContiguousParIter, QueryData, QueryEntityError, QueryFilter,
+        QueryIter, QueryManyIter, QueryManyUniqueIter, QueryNotDenseError, QueryParIter,
+        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -1435,7 +1435,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state.as_readonly(),
-            entity_list: entities.into_iter().collect(),
+            entity_list: entities.into_iter().collect_set(),
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
@@ -1468,7 +1468,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state,
-            entity_list: entities.into_iter().collect(),
+            entity_list: entities.into_iter().collect_set(),
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
@@ -1890,7 +1890,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .world
                 .archetypes()
                 .get(location.archetype_id)
-                .debug_checked_unwrap();
+                .unwrap_unchecked();
             let mut fetch = D::init_fetch(
                 self.world,
                 &self.state.fetch_state,
@@ -1909,9 +1909,23 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .storages()
                 .tables
                 .get(location.table_id)
-                .debug_checked_unwrap();
-            D::set_archetype(&mut fetch, &self.state.fetch_state, archetype, table);
-            F::set_archetype(&mut filter, &self.state.filter_state, archetype, table);
+                .unwrap_unchecked();
+            D::set_archetype(
+                &mut fetch,
+                &self.state.fetch_state,
+                location.archetype_id,
+                archetype,
+                location.table_id,
+                table,
+            );
+            F::set_archetype(
+                &mut filter,
+                &self.state.filter_state,
+                location.archetype_id,
+                archetype,
+                location.table_id,
+                table,
+            );
 
             if F::filter_fetch(
                 &self.state.filter_state,

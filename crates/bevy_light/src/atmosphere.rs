@@ -205,7 +205,7 @@ impl ScatteringMedium {
     /// [`Aerosol::CONTINENTAL_AVERAGE`].
     ///
     /// [Bruneton 2017]: https://ebruneton.github.io/precomputed_atmospheric_scattering/
-    /// [Hillaire 2020]: https://doi.org/10.1111/cgf.14050
+    /// [Hillaire 2020]: https://sebh.github.io/publications/egsr2020.pdf
     pub fn earth(falloff_resolution: u32, phase_resolution: u32) -> Self {
         Self::earth_with_aerosol(falloff_resolution, phase_resolution, Aerosol::default())
     }
