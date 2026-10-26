@@ -12,7 +12,7 @@ This note will be completed once the rest of the series lands.
 - Added `diagnostics.list` and `diagnostics.get` to the Bevy Remote Protocol (#25824)
 - Added `WorldSummary` to `bevy_dev_tools` inspection (#25818)
 - Added component inspection to `bevy_dev_tools` (#25823)
-- Added `stepping.*` methods to the Bevy Remote Protocol (#25826)
+- Added `stepping.*` methods to the Bevy Remote Protocol (#25826); the handlers need `bevy_debug_stepping`, while the method names and response types are always available for clients
 - Added a native BRP client behind the `client` feature (#25837)
 - Added entity and resource inspection to `bevy_dev_tools` (#25845)
 - Added serde support and structured values to the inspection types (#25866)

@@ -669,7 +669,6 @@ pub mod client;
 pub mod http;
 pub mod inspection_methods;
 pub mod schemas;
-#[cfg(feature = "bevy_debug_stepping")]
 pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;

@@ -6,7 +6,7 @@
 //! cargo run --example server --features="bevy_remote"
 //! ```
 //!
-//! Add the `bevy_debug_stepping` feature to the server to enable the stepping controls.
+//! Add the `bevy_debug_stepping` feature to the server to enable stepping through systems using controls on the inspector.
 //!
 //! Then run this example in another terminal:
 //! ```bash

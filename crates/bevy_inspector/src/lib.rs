@@ -156,6 +156,7 @@ impl Plugin for InspectorPlugin {
                     remote::stepping::sync_stepping_controls,
                 )
                     .after(remote::poll_remote_connection)
+                    .after(remote::stepping::poll_remote_stepping)
                     .before(UiSystems::Prepare),
             );
     }
