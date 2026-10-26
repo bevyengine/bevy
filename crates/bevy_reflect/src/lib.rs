@@ -4078,7 +4078,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::Vector2<i32>)]
         #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-        #[reflect(Serialize, Deserialize)]
+        #[reflect(Clone, Serialize, Deserialize)]
         #[reflect(opaque)]
         struct Vector2Wrapper([i32; 2]);
 

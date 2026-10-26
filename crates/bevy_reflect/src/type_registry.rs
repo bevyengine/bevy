@@ -1,6 +1,6 @@
 use crate::{
-    convert::ReflectConvert, serde::Serializable, FromDynamic, Reflect, TypeData, TypeInfo,
-    TypePath, Typed,
+    convert::ReflectConvert, dynamic::DynamicValue, serde::Serializable, FromDynamic, Reflect,
+    TypeData, TypeInfo, TypePath, Typed,
 };
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
@@ -849,8 +849,8 @@ impl<T: TypePath + FromDynamic + erased_serde::Serialize> CreateTypeData<T> for 
                 value
                     .downcast_ref::<T>()
                     .map(|value| Serializable::Borrowed(value))
+                    .or_else(|| T::from_dynamic(DynamicValue::try_from_reflect(value).ok()?).map(|value| Serializable::Owned(Box::new(value))))
                     .unwrap_or_else(|| {
-                        // TODO: Fix this.
                         panic!(
                             "FromDynamic::from_dynamic failed when called on type `{}` with this value: {value:?}",
                             T::type_path(),
