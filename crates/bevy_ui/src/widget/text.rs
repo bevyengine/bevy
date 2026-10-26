@@ -199,6 +199,19 @@ impl TextMeasure {
     }
 }
 
+// Measured widths are rounded up to whole pixels, but layout can offer back a width a few ULPs
+// smaller after fractional `UiScale` padding math, which would wrap text that actually fits.
+const MAX_CONTENT_WIDTH_TOLERANCE_ULPS: f32 = 8.0;
+
+fn snap_to_max_content_width(width: f32, max_content_width: f32) -> f32 {
+    let tolerance = max_content_width * f32::EPSILON * MAX_CONTENT_WIDTH_TOLERANCE_ULPS;
+    if width < max_content_width && max_content_width - width <= tolerance {
+        max_content_width
+    } else {
+        width
+    }
+}
+
 impl Measure for TextMeasure {
     fn measure(&self, measure_args: MeasureArgs) -> Vec2 {
         let mut width = measure_args.resolve_width();
@@ -229,9 +242,8 @@ impl Measure for TextMeasure {
                 .map(|effective| (effective - total_x_inset).max(0.));
         }
 
-        let x = width
-            .effective
-            .unwrap_or_else(|| match available_width {
+        let x = snap_to_max_content_width(
+            width.effective.unwrap_or_else(|| match available_width {
                 AvailableSpace::Definite(x) => {
                     // It is possible for the "min content width" to be larger than
                     // the "max content width" when soft-wrapping right-aligned text
@@ -241,8 +253,10 @@ impl Measure for TextMeasure {
                 }
                 AvailableSpace::MinContent => self.info.min.x,
                 AvailableSpace::MaxContent => self.info.max.x,
-            })
-            .maybe_clamp(width.min, width.max);
+            }),
+            self.info.max.x,
+        )
+        .maybe_clamp(width.min, width.max);
 
         let size = height.effective.map_or_else(
             || {
@@ -468,5 +482,19 @@ mod tests {
         assert!(flags.cache_no_wrap_measure(size));
         assert!(!flags.cache_no_wrap_measure(size));
         assert!(flags.cache_no_wrap_measure(Vec2::new(101.0, 20.0)));
+    }
+
+    #[test]
+    fn width_just_below_max_content_is_snapped() {
+        for max_content in [120.0_f32, 4000.0] {
+            assert_eq!(
+                snap_to_max_content_width(max_content.next_down(), max_content),
+                max_content
+            );
+            assert_eq!(
+                snap_to_max_content_width(max_content - 0.1, max_content),
+                max_content - 0.1
+            );
+        }
     }
 }
