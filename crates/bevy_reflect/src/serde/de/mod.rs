@@ -509,7 +509,7 @@ mod tests {
         let reflect_deserializer = ReflectDeserializer::new(&registry);
         let input2 = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let serializer2 = ReflectSerializer::new(DynamicValueRef::Struct(todo!()), &registry);
+        let serializer2 = ReflectSerializer::new(input2.as_ref(), &registry);
         let serialized2 = ron::ser::to_string(&serializer2).unwrap();
 
         assert_eq!(serialized1, serialized2);
