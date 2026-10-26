@@ -10,7 +10,7 @@ define_label!(UiSubZLayer);
 
 /// Sub Z layers used by Bevy UI's builtin renderable elements
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, UiSubZLayer)]
-pub enum UiSubZLayers {
+pub enum NodePaintSteps {
     BoxShadow,
     BackgroundColor,
     Border,
@@ -36,18 +36,18 @@ pub struct PaintOrder(pub Vec<Interned<dyn UiSubZLayer>>);
 impl Default for PaintOrder {
     fn default() -> Self {
         Self(vec![
-            UiSubZLayers::BoxShadow.intern(),
-            UiSubZLayers::BackgroundColor.intern(),
-            UiSubZLayers::Border.intern(),
-            UiSubZLayers::Gradient.intern(),
-            UiSubZLayers::BorderGradient.intern(),
-            UiSubZLayers::Image.intern(),
-            UiSubZLayers::Material.intern(),
-            UiSubZLayers::TextSelection.intern(),
-            UiSubZLayers::Text.intern(),
-            UiSubZLayers::TextStrikethrough.intern(),
-            UiSubZLayers::TextCursor.intern(),
-            UiSubZLayers::InlineImage.intern(),
+            NodePaintSteps::BoxShadow.intern(),
+            NodePaintSteps::BackgroundColor.intern(),
+            NodePaintSteps::Border.intern(),
+            NodePaintSteps::Gradient.intern(),
+            NodePaintSteps::BorderGradient.intern(),
+            NodePaintSteps::Image.intern(),
+            NodePaintSteps::Material.intern(),
+            NodePaintSteps::TextSelection.intern(),
+            NodePaintSteps::Text.intern(),
+            NodePaintSteps::TextStrikethrough.intern(),
+            NodePaintSteps::TextCursor.intern(),
+            NodePaintSteps::InlineImage.intern(),
         ])
     }
 }

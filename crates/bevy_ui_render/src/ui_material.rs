@@ -1,5 +1,5 @@
 use crate::{
-    sub_z_layers::{UiSubZLayer, UiSubZLayers},
+    sub_z_layers::{UiSubZLayer, NodePaintSteps},
     Node,
 };
 use bevy_asset::{Asset, AssetId, Handle};
@@ -117,7 +117,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     }
 
     fn sub_z_layer() -> impl UiSubZLayer {
-        UiSubZLayers::Material
+        NodePaintSteps::Material
     }
 
     #[expect(

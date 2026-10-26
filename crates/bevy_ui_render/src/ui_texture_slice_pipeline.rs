@@ -424,7 +424,7 @@ pub fn queue_ui_slices(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let Ok(sub_z_layer_offset) = sub_layers.get_offset(UiSubZLayers::Image) else {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(NodePaintSteps::Image) else {
         return;
     };
 
