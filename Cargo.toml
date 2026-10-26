@@ -628,6 +628,12 @@ dlss = ["bevy_internal/dlss"]
 # Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
+# Apple MetalFX Temporal Denoised Scaler (ray reconstruction)
+metal_fx = ["bevy_internal/metal_fx"]
+
+# Forcibly disable MetalFX so that `cargo build --all-features` works without macOS 26 MetalFX. Not meant for users.
+force_disable_metal_fx = ["bevy_internal/force_disable_metal_fx"]
+
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 

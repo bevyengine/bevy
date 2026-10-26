@@ -1,19 +1,28 @@
 use super::SolariLighting;
 use crate::scene::RaytracingSceneNeedsPreviousFrameData;
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_anti_alias::dlss::{
-    Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
+#[cfg(any(
+    all(feature = "dlss", not(feature = "force_disable_dlss")),
+    all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+))]
+use bevy_anti_alias::ray_reconstruction::{
+    RayReconstructionDenoiser, ViewRayReconstructionGuideTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_diagnostic::FrameCount;
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+#[cfg(any(
+    all(feature = "dlss", not(feature = "force_disable_dlss")),
+    all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+))]
 use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::{Commands, Query, Res},
 };
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+#[cfg(any(
+    all(feature = "dlss", not(feature = "force_disable_dlss")),
+    all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+))]
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
 use bevy_render::{
@@ -21,7 +30,10 @@ use bevy_render::{
     render_resource::{Buffer, BufferDescriptor, BufferInitDescriptor, BufferUsages},
     renderer::{RenderDevice, RenderQueue},
 };
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+#[cfg(any(
+    all(feature = "dlss", not(feature = "force_disable_dlss")),
+    all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+))]
 use bevy_render::{
     render_resource::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
@@ -128,20 +140,29 @@ pub struct SolariReservoirBuffers {
 }
 
 pub fn prepare_solari_lighting_resources(
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<(
+    #[cfg(not(any(
+        all(feature = "dlss", not(feature = "force_disable_dlss")),
+        all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+    )))]
+    query: Query<(
         Entity,
         &ExtractedCamera,
         &SolariLighting,
         Option<&SolariLightingResources>,
         Option<&MainPassResolutionOverride>,
     )>,
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<(
+    #[cfg(any(
+        all(feature = "dlss", not(feature = "force_disable_dlss")),
+        all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+    ))]
+    query: Query<(
         Entity,
         &ExtractedCamera,
         &SolariLighting,
         Option<&SolariLightingResources>,
         Option<&MainPassResolutionOverride>,
-        Has<Dlss<DlssRayReconstructionFeature>>,
+        Has<RayReconstructionDenoiser>,
+        Has<ViewRayReconstructionGuideTextures>,
     )>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -149,17 +170,24 @@ pub fn prepare_solari_lighting_resources(
     mut commands: Commands,
 ) {
     for query_item in &query {
-        #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+        #[cfg(not(any(
+            all(feature = "dlss", not(feature = "force_disable_dlss")),
+            all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+        )))]
         let (entity, camera, solari_lighting, solari_lighting_resources, resolution_override) =
             query_item;
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        #[cfg(any(
+            all(feature = "dlss", not(feature = "force_disable_dlss")),
+            all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+        ))]
         let (
             entity,
             camera,
             solari_lighting,
             solari_lighting_resources,
             resolution_override,
-            has_dlss_rr,
+            has_ray_reconstruction,
+            has_guide_textures,
         ) = query_item;
 
         let Some(mut view_size) = camera.physical_viewport_size else {
@@ -172,6 +200,13 @@ pub fn prepare_solari_lighting_resources(
         let reusable = solari_lighting_resources.filter(|r| {
             r.view_size == view_size && r.reservoirs.is_some() == solari_lighting.restir
         });
+        // Native-resolution denoising does not change the view size, so guides still need to be
+        // created the frame a denoiser is enabled.
+        #[cfg(any(
+            all(feature = "dlss", not(feature = "force_disable_dlss")),
+            all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+        ))]
+        let reusable = reusable.filter(|_| !(has_ray_reconstruction && !has_guide_textures));
         let uniforms =
             SolariLightingUniforms::new(solari_lighting, frame_count.0, reusable.is_none());
 
@@ -231,7 +266,8 @@ pub fn prepare_solari_lighting_resources(
 
         let world_cache_active_cells_dispatch = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache_active_cells_dispatch"),
-            size: size_of::<[u32; 3]>() as u64,
+            // `vec3<u32>` is 16-byte aligned on Metal. A 12-byte buffer fails that binding.
+            size: size_of::<[u32; 4]>() as u64,
             usage: BufferUsages::INDIRECT | BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
@@ -246,8 +282,11 @@ pub fn prepare_solari_lighting_resources(
             view_size,
         });
 
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        if has_dlss_rr {
+        #[cfg(any(
+            all(feature = "dlss", not(feature = "force_disable_dlss")),
+            all(feature = "metal_fx", not(feature = "force_disable_metal_fx"))
+        ))]
+        if has_ray_reconstruction {
             let diffuse_albedo = render_device.create_texture(&TextureDescriptor {
                 label: Some("solari_lighting_diffuse_albedo"),
                 size: view_size.to_extents(),
@@ -311,9 +350,21 @@ pub fn prepare_solari_lighting_resources(
             let specular_motion_vectors_view =
                 specular_motion_vectors.create_view(&TextureViewDescriptor::default());
 
+            let roughness = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_roughness"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let roughness_view = roughness.create_view(&TextureViewDescriptor::default());
+
             commands
                 .entity(entity)
-                .insert(ViewDlssRayReconstructionTextures {
+                .insert(ViewRayReconstructionGuideTextures {
                     diffuse_albedo: CachedTexture {
                         texture: diffuse_albedo,
                         default_view: diffuse_albedo_view,
@@ -333,6 +384,10 @@ pub fn prepare_solari_lighting_resources(
                     specular_motion_vectors: CachedTexture {
                         texture: specular_motion_vectors,
                         default_view: specular_motion_vectors_view,
+                    },
+                    roughness: CachedTexture {
+                        texture: roughness,
+                        default_view: roughness_view,
                     },
                 });
         }

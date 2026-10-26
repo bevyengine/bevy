@@ -140,6 +140,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `claxon`)|
 |force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
+|force_disable_metal_fx|Forcibly disable MetalFX so that `cargo build --all-features` works without macOS 26 MetalFX. Not meant for users.|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
@@ -157,6 +158,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |linux_game_mode|Enable Feral Interactive's `GameMode` integration on Linux|
+|metal_fx|Apple MetalFX Temporal Denoised Scaler (ray reconstruction). Plugin compiles only on Apple targets; use `force_disable_metal_fx` for non-Apple CI with this feature enabled.|
 |mesh_picking|Provides an implementation for picking meshes|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for `bevy_pbr`|

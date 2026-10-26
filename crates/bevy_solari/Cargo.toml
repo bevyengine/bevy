@@ -45,6 +45,8 @@ wgpu = { version = "30", default-features = false }
 [features]
 dlss = ["bevy_anti_alias/dlss"]
 force_disable_dlss = ["bevy_anti_alias/force_disable_dlss"]
+metal_fx = ["bevy_anti_alias/metal_fx"]
+force_disable_metal_fx = ["bevy_anti_alias/force_disable_metal_fx"]
 
 [lints]
 workspace = true

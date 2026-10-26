@@ -107,6 +107,15 @@ force_disable_dlss = [
   "bevy_solari?/force_disable_dlss",
 ]
 
+# Apple MetalFX Temporal Denoised Scaler (ray reconstruction)
+metal_fx = ["bevy_anti_alias/metal_fx", "bevy_solari?/metal_fx"]
+
+# Forcibly disable MetalFX so that `cargo build --all-features` works without macOS 26 MetalFX. Not meant for users.
+force_disable_metal_fx = [
+  "bevy_anti_alias?/force_disable_metal_fx",
+  "bevy_solari?/force_disable_metal_fx",
+]
+
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]

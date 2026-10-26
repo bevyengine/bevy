@@ -1,6 +1,6 @@
 use super::{
     prepare::DlssRenderContext, Dlss, DlssRayReconstructionFeature, DlssSuperResolutionFeature,
-    ViewDlssRayReconstructionTextures,
+    ViewRayReconstructionGuideTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
@@ -76,7 +76,7 @@ pub fn dlss_ray_reconstruction(
         &TemporalJitter,
         &ViewTarget,
         &ViewPrepassTextures,
-        &ViewDlssRayReconstructionTextures,
+        &ViewRayReconstructionGuideTextures,
     )>,
     adapter: Res<RenderAdapter>,
     mut ctx: RenderContext,

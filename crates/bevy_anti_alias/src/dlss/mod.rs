@@ -35,7 +35,6 @@ use bevy_render::{
         raw_vulkan_init::{AdditionalVulkanFeatures, RawVulkanInitSettings},
         RenderDevice, RenderQueue,
     },
-    texture::CachedTexture,
     view::prepare_view_targets,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -243,6 +242,11 @@ pub trait DlssFeature: Reflect + Clone + Default {
 
     fn suggested_mip_bias(context: &Self::Context, render_resolution: UVec2) -> f32;
 
+    /// Whether Solari (or similar) should allocate ray-reconstruction guide buffers.
+    fn requests_ray_reconstruction_guides() -> bool {
+        false
+    }
+
     fn new_context(
         upscaled_resolution: UVec2,
         perf_quality_mode: DlssPerfQualityMode,
@@ -334,6 +338,10 @@ impl DlssFeature for DlssRayReconstructionFeature {
         context.suggested_mip_bias(render_resolution.to_array())
     }
 
+    fn requests_ray_reconstruction_guides() -> bool {
+        true
+    }
+
     fn new_context(
         upscaled_resolution: UVec2,
         perf_quality_mode: DlssPerfQualityMode,
@@ -357,14 +365,9 @@ impl DlssFeature for DlssRayReconstructionFeature {
 }
 
 /// Additional textures needed as inputs for [`DlssRayReconstructionFeature`].
-#[derive(Component)]
-pub struct ViewDlssRayReconstructionTextures {
-    pub diffuse_albedo: CachedTexture,
-    pub specular_albedo: CachedTexture,
-    pub normal_roughness: CachedTexture,
-    pub depth: CachedTexture,
-    pub specular_motion_vectors: CachedTexture,
-}
+pub use crate::ray_reconstruction::{
+    ViewDlssRayReconstructionTextures, ViewRayReconstructionGuideTextures,
+};
 
 #[reflect_remote(DlssPerfQualityMode)]
 #[derive(Default)]

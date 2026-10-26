@@ -31,6 +31,7 @@ enable wgpu_ray_query;
 @group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
 @group(2) @binding(3) var dlss_rr_depth: texture_storage_2d<r32float, write>;
 @group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+@group(2) @binding(5) var roughness: texture_storage_2d<r16float, write>;
 }
 
 fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
