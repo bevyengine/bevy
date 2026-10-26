@@ -1,18 +1,12 @@
-use crate::{
-    __macro_exports::RegisterForReflection,
-    func::{
-        args::{ArgCount, ArgList},
-        dynamic_function_internal::DynamicFunctionInternal,
-        info::FunctionInfo,
-        DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
-        IntoFunctionMut,
-    },
-    ApplyError, MaybeTyped, Reflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath,
+use crate::func::{
+    args::{ArgCount, ArgList},
+    dynamic_function_internal::DynamicFunctionInternal,
+    info::FunctionInfo,
+    DynamicFunctionMut, FunctionOverloadError, FunctionResult, IntoFunction, IntoFunctionMut,
 };
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_platform::sync::Arc;
-use bevy_reflect_derive::impl_type_path;
+use bevy_reflect_derive::impl_reflect_opaque;
 use core::fmt::{Debug, Formatter};
 
 /// An [`Arc`] containing a callback to a reflected function.
@@ -162,12 +156,12 @@ impl<'env> DynamicFunction<'env> {
     /// // Test `i32`:
     /// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.take::<i32>().unwrap(), 100);
     ///
     /// // Test `f32`:
     /// let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+    /// assert_eq!(result.take::<f32>().unwrap(), 100.0);
     ///```
     ///
     /// ```
@@ -190,7 +184,7 @@ impl<'env> DynamicFunction<'env> {
     /// // Test two arguments:
     /// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.take::<i32>().unwrap(), 100);
     ///
     /// // Test three arguments:
     /// let args = ArgList::default()
@@ -198,7 +192,7 @@ impl<'env> DynamicFunction<'env> {
     ///     .with_owned(75_i32)
     ///     .with_owned(100_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.try_take::<i32>().unwrap(), 200);
+    /// assert_eq!(result.take::<i32>().unwrap(), 200);
     /// ```
     ///
     ///```should_panic
@@ -267,7 +261,7 @@ impl<'env> DynamicFunction<'env> {
     /// let mut func = add.into_function().with_name("add");
     /// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.try_take::<i32>().unwrap(), 123);
+    /// assert_eq!(result.take::<i32>().unwrap(), 123);
     /// ```
     ///
     /// # Errors
@@ -345,105 +339,6 @@ impl<'env> DynamicFunction<'env> {
     }
 }
 
-impl Function for DynamicFunction<'static> {
-    fn name(&self) -> Option<&Cow<'static, str>> {
-        self.internal.name()
-    }
-
-    fn info(&self) -> &FunctionInfo {
-        self.internal.info()
-    }
-
-    fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        self.call(args)
-    }
-
-    fn to_dynamic_function(&self) -> DynamicFunction<'static> {
-        self.clone()
-    }
-}
-
-impl Reflect for DynamicFunction<'static> {
-    fn reflect_type_info(&self) -> Option<&'static TypeInfo> {
-        None
-    }
-
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn Reflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
-        match value.reflect_ref() {
-            ReflectRef::Function(func) => {
-                *self = func.to_dynamic_function();
-                Ok(())
-            }
-            _ => Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: Self::type_path().into(),
-            }),
-        }
-    }
-
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Function
-    }
-
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::Function(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::Function(self)
-    }
-
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Function(self)
-    }
-
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
-    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
-        None
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        Debug::fmt(self, f)
-    }
-
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-}
-
-impl MaybeTyped for DynamicFunction<'static> {}
-
-impl RegisterForReflection for DynamicFunction<'static> {}
-
-impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
-
 /// Outputs the function's signature.
 ///
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
@@ -474,6 +369,11 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
     }
 }
 
+impl_reflect_opaque!(::bevy_reflect::func::DynamicFunction<'a: 'static>(
+    Clone,
+    Debug,
+));
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -482,7 +382,7 @@ mod tests {
     use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
     use bevy_platform::collections::HashSet;
-    use core::ops::Add;
+    use core::ops::{Add, Deref};
 
     #[test]
     fn should_overwrite_function_name() {
@@ -563,20 +463,10 @@ mod tests {
             .call(ArgList::default().with_ref(&String::from("world")))
             .unwrap()
             .unwrap_owned()
-            .try_take::<String>()
+            .take::<String>()
             .unwrap();
 
         assert_eq!(cloned_value, "Hello, world!");
-    }
-
-    #[test]
-    fn should_apply_function() {
-        let mut func: Box<dyn Function> = Box::new((|a: i32, b: i32| a + b).into_function());
-        func.apply(&((|a: i32, b: i32| a * b).into_function()));
-
-        let args = ArgList::new().with_owned(5_i32).with_owned(5_i32);
-        let result = func.reflect_call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 25);
     }
 
     #[test]
@@ -591,18 +481,13 @@ mod tests {
                 let arg = args.pop_arg()?;
                 let this = arg.value();
 
-                match this.reflect_ref() {
-                    ReflectRef::Function(func) => {
-                        let result = func.reflect_call(
-                            ArgList::new()
-                                .with_ref(this.as_partial_reflect())
-                                .with_owned(curr - 1),
-                        );
-                        let value = result.unwrap().unwrap_owned().try_take::<i32>().unwrap();
-                        Ok((curr * value).into_return())
-                    }
-                    _ => panic!("expected function"),
-                }
+                let func = this
+                    .downcast_ref::<DynamicFunction>()
+                    .expect("expected function");
+
+                let result = func.call(ArgList::new().with_ref(this.deref()).with_owned(curr - 1));
+                let value = result.unwrap().unwrap_owned().take::<i32>().unwrap();
+                Ok((curr * value).into_return())
             },
             // The `FunctionInfo` doesn't really matter for this test
             // so we can just give it dummy information.
@@ -613,7 +498,7 @@ mod tests {
 
         let args = ArgList::new().with_ref(&factorial).with_owned(5_i32);
         let value = factorial.call(args).unwrap().unwrap_owned();
-        assert_eq!(value.try_take::<i32>().unwrap(), 120);
+        assert_eq!(value.take::<i32>().unwrap(), 120);
     }
 
     #[test]
@@ -651,11 +536,11 @@ mod tests {
 
         let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+        assert_eq!(result.take::<i32>().unwrap(), 100);
 
         let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+        assert_eq!(result.take::<f32>().unwrap(), 100.0);
     }
 
     #[test]
@@ -674,11 +559,11 @@ mod tests {
 
         let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+        assert_eq!(result.take::<i32>().unwrap(), 100);
 
         let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+        assert_eq!(result.take::<f32>().unwrap(), 100.0);
     }
 
     #[test]
@@ -695,14 +580,14 @@ mod tests {
 
         let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+        assert_eq!(result.take::<i32>().unwrap(), 100);
 
         let args = ArgList::default()
             .with_owned(25_i32)
             .with_owned(75_i32)
             .with_owned(100_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 200);
+        assert_eq!(result.take::<i32>().unwrap(), 200);
     }
 
     #[test]
@@ -738,11 +623,11 @@ mod tests {
 
         let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+        assert_eq!(result.take::<i32>().unwrap(), 100);
 
         let args = ArgList::default().with_owned(25_u32).with_owned(75_u32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<u32>().unwrap(), 100);
+        assert_eq!(result.take::<u32>().unwrap(), 100);
     }
 
     #[test]

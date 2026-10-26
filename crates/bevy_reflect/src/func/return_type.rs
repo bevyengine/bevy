@@ -26,7 +26,7 @@ impl<'a> Return<'a> {
     /// Returns `true` if the return value is an [`Owned`](Self::Owned) unit (`()`) type.
     pub fn is_unit(&self) -> bool {
         match self {
-            Return::Owned(val) => val.represents::<()>(),
+            Return::Owned(val) => val.is::<()>(),
             _ => false,
         }
     }

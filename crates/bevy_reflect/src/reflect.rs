@@ -227,8 +227,6 @@ pub trait Reflect: DynamicTyped + DynamicTypePath + Send + Sync + Any {
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Set(dyn_set) => set_debug(dyn_set, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            #[cfg(feature = "functions")]
-            ReflectRef::Function(dyn_function) => dyn_function.fmt(f),
             ReflectRef::Opaque(_) => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }

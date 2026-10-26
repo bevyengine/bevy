@@ -479,10 +479,10 @@ mod tests {
 
         let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+        assert_eq!(result.take::<i32>().unwrap(), 100);
 
         let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
+        assert_eq!(result.take::<f32>().unwrap(), 100.0);
     }
 }

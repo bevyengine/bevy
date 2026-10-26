@@ -80,8 +80,6 @@ impl DynamicValue {
             ReflectRef::Map(value) => Self::Map(DynamicMap::try_from_reflect(value)?),
             ReflectRef::Set(value) => Self::Set(DynamicSet::try_from_reflect(value)?),
             ReflectRef::Enum(value) => Self::Enum(DynamicEnum::try_from_ref(value)?),
-            #[cfg(feature = "functions")]
-            ReflectRef::Function(value) => todo!(),
             // We already tried to clone earlier and failed. Just return that error.
             ReflectRef::Opaque(_) => return Err(clone_err),
         })

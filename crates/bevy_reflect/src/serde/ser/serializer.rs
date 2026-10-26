@@ -373,8 +373,6 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
                     processor: self.processor,
                 }
                 .serialize(serializer),
-                #[cfg(feature = "functions")]
-                ReflectRef::Function(_) => Err(make_custom_error("functions cannot be serialized")),
                 ReflectRef::Opaque(_) => Err(error),
             }
         };

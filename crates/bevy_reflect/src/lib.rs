@@ -675,7 +675,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "functions")]
-    pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
+    pub use crate::func::{IntoFunction, IntoFunctionMut};
 }
 
 pub use error::*;
@@ -3501,12 +3501,12 @@ bevy_reflect::tests::Test {
         assert_eq!(
             format!("{test_struct:?}"),
             "DynamicStruct(bevy_reflect::tests::TestStruct { \
-                tuple: DynamicTuple((0, 1)), \
-                tuple_struct: DynamicTupleStruct(bevy_reflect::tests::TestTupleStruct(8)), \
-                list: DynamicList([2, 3, 4]), \
+                tuple: (0, 1), \
+                tuple_struct: bevy_reflect::tests::TestTupleStruct(8), \
+                list: [2, 3, 4], \
                 array: DynamicArray([5, 6, 7]), \
-                e: DynamicEnum(A(11)), \
-                map: DynamicMap({9: 10}), \
+                e: A(11), \
+                map: {9: 10}, \
                 value: 12, \
                 unknown_struct: DynamicStruct(_ { a: 13 }), \
                 unknown_tuplestruct: DynamicTupleStruct(_(14)) \

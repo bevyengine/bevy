@@ -32,7 +32,7 @@ use crate::dynamic::{
 };
 use crate::enums::EnumLike;
 #[cfg(feature = "functions")]
-use crate::func::Function;
+use crate::func::DynamicFunction;
 use crate::list::ListLike;
 use crate::map::MapLike;
 use crate::set::SetLike;
@@ -129,8 +129,6 @@ fn write_reflect_ref(
         ReflectRef::Set(value) => write_set(f, value, ancestry, indent),
         ReflectRef::Enum(value) => write_enum(f, value, ancestry, indent),
         ReflectRef::Opaque(value) => write_opaque(f, value, indent),
-        #[cfg(feature = "functions")]
-        ReflectRef::Function(function) => write_function(f, function),
     }
 }
 
@@ -376,7 +374,7 @@ fn write_enum<EL: EnumLike + ?Sized>(
 ///
 /// This method does not need cycle tracking as functions cannot contain other reflected values.
 #[cfg(feature = "functions")]
-fn write_function(f: &mut Formatter<'_>, func: &dyn Function) -> core::fmt::Result {
+fn write_function(f: &mut Formatter<'_>, func: &DynamicFunction<'_>) -> core::fmt::Result {
     let pretty = func
         .info()
         .pretty_printer()
@@ -432,13 +430,6 @@ impl Display for dyn Set {
 impl Display for dyn Enum {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write_enum(f, self, &mut Vec::new(), 0)
-    }
-}
-
-#[cfg(feature = "functions")]
-impl Display for dyn Function {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write_function(f, self)
     }
 }
 
@@ -500,6 +491,13 @@ impl Display for DynamicSet {
 impl Display for DynamicEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write_enum(f, self, &mut Vec::new(), 0)
+    }
+}
+
+#[cfg(feature = "functions")]
+impl Display for DynamicFunction<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write_function(f, self)
     }
 }
 
@@ -1096,7 +1094,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             let function = greet.into_function();
             assert_eq!(
                 format!("{}", &function as &dyn Reflect),
-                "fn bevy_reflect::display::tests::functions::named_function::greet(_: &alloc::string::String) -> alloc::string::String"
+                "DynamicFunction(fn bevy_reflect::display::tests::functions::named_function::greet(_: &alloc::string::String) -> alloc::string::String)"
             );
         }
 
@@ -1105,7 +1103,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
             let function = (|a: i32, b: i32| a + b).into_function();
             assert_eq!(
                 format!("{}", &function as &dyn Reflect),
-                "fn _(_: i32, _: i32) -> i32"
+                "DynamicFunction(fn _(_: i32, _: i32) -> i32)"
             );
         }
 
@@ -1123,7 +1121,7 @@ bevy_reflect::display::tests::MyEnum::Struct {
                 .with_name("add");
             assert_eq!(
                 format!("{}", &function as &dyn Reflect),
-                "fn add {(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32}"
+                "DynamicFunction(fn add {(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"
             );
         }
     }
