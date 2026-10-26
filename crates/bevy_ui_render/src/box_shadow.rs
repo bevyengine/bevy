@@ -39,7 +39,7 @@ use crate::{
 };
 
 use super::{UiCameraView, QUAD_VERTEX_POSITIONS};
-use crate::sub_z_layers::{NodePaintLayers, PaintOrder};
+use crate::paint_layers::{NodePaintLayers, PaintOrder};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
