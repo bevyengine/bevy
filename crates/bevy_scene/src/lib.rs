@@ -154,12 +154,15 @@
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`] which ultimately resolves to an [`Entity`]:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
+//! which is a [`Template`] that resolves to an [`Entity`].
+//!
+//! Note that a "child entity" can reference its ancestors using the #Name declared in the "root entity".
 //!
 //! ```ignore
 //! bsn! {
 //!     #Name
-//!     my_scene(#Name)
+//!     @my_scene(#Name)
 //!     ComponentA(#Name)
 //!     ComponentB { entity: #Name }
 //!     Children [
@@ -168,20 +171,49 @@
 //! }
 //! ```
 //!
-//! Notice that the "child entity" was able to access the parent entity via `#Name`. It is also possible for ancestors to access
-//! their descendants:
+//! It is also possible for ancestors to access their descendants:
 //!
 //! ```ignore
 //! bsn! {
-//!     #Root
+//!     Reference(#Child)
 //!     Children [
-//!         Reference(#Root)
+//!         #Child
 //!     ]
 //! }
 //! ```
 //!
-//! Using `#Name` as a value in [`bsn!`] will result in an [`EntityTemplate`], which is a [`Template`] that resolves to an [`Entity`]
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(FromTemplate, Component)]
+//! struct Reference(Entity);
+//! ```
+//!
+//! You can pass it to functions by accepting a [`EntityTemplate`] argument:
+//!
+//! ```rust
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_ecs::template::EntityTemplate;
+//! #[derive(FromTemplate, Component)]
+//! # struct Reference(Entity);
+//! fn outer_scene() -> impl Scene {
+//!     bsn! {
+//!         #Outer
+//!         @inner_scene(#Outer)
+//!     }
+//!
+//! }
+//! fn inner_scene(entity: EntityTemplate) -> impl Scene {
+//!     bsn! {
+//!         #Inner
+//!         Reference(entity)
+//!     }
+//!
+//! }
+//! ```
+//!
 //!
 //! ### Scope rules
 //!
@@ -3533,5 +3565,166 @@ mod tests {
         ) -> Result<Self::Asset, Self::Error> {
             Ok(ScenePatch::load_with(load_context, (self.0)()))
         }
+    }
+
+    #[test]
+    fn arrays_in_bsn() {
+        #[derive(Component)]
+        struct Foo(Vec<Entity>);
+
+        impl FromTemplate for Foo {
+            type Template = FooTemplate;
+        }
+
+        struct FooTemplate(Vec<bevy_ecs::template::EntityTemplate>);
+
+        impl Template for FooTemplate {
+            type Output = Foo;
+
+            fn build_template(
+                &self,
+                context: &mut bevy_ecs::template::TemplateContext,
+            ) -> Result<Self::Output> {
+                self.0
+                    .iter()
+                    .map(|template| template.build_template(context))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Foo)
+            }
+
+            fn clone_template(&self) -> Self {
+                FooTemplate(self.0.clone())
+            }
+        }
+
+        impl FooTemplate {
+            fn new<const N: usize>(
+                entities: [bevy_ecs::template::EntityTemplate; N],
+            ) -> FooTemplate {
+                FooTemplate(entities.to_vec())
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                Foo::new([#A, #B])
+                --
+                #A
+                --
+                #B
+            })
+            .unwrap();
+        let foo = world.entity(entities[0]).get::<Foo>().unwrap();
+        assert_eq!(foo.0, entities[1..]);
+    }
+
+    #[test]
+    fn array_argument_allows_trailing_tokens() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(usize);
+
+        fn count_scene(len: usize) -> impl Scene {
+            bsn! { Marker({ len }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @count_scene([1, 2, 3].len()) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn array_argument_preserves_plain_rust_struct_literal() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(u32);
+
+        #[derive(Clone, Copy)]
+        struct Pair {
+            a: u32,
+            b: u32,
+        }
+
+        fn pair_scene(pairs: [Pair; 1]) -> impl Scene {
+            bsn! { Marker({ pairs[0].a + pairs[0].b }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @pair_scene([Pair { a: 7, b: 8 }]) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
+    }
+
+    // Tests the usage of `..Default::default()` in bsn.
+    #[test]
+    fn struct_default_construction() {
+        #[derive(Clone, Copy, Component, Default)]
+        struct Sprite {
+            color: Color,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        enum Color {
+            Rgba(Rgba),
+        }
+
+        impl Default for Color {
+            fn default() -> Self {
+                Color::Rgba(Rgba::default())
+            }
+        }
+
+        #[derive(Debug, Clone, Copy, Default, PartialEq)]
+        struct Rgba {
+            r: u32,
+            g: u32,
+            b: u32,
+            a: u32,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Sprite {
+                    color: Color::Rgba(Rgba { r: 1, g: 241, b: 49, a: 255 })
+                }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world.entity(entity).get::<Sprite>().unwrap().color,
+            Color::Rgba(Rgba {
+                r: 1,
+                g: 241,
+                b: 49,
+                a: 255
+            })
+        );
+
+        #[derive(Clone, Copy, Component, Default)]
+        struct Outer {
+            inner: Inner,
+        }
+
+        #[derive(Clone, Copy, Debug, Default, PartialEq)]
+        struct Inner {
+            a: u32,
+        }
+
+        // validates a niche interaction
+        let _entity2 = world
+            .spawn_scene(bsn! {
+                Outer { inner: Inner { a: 2, ..Inner { a: 1 } } }
+            })
+            .unwrap()
+            .id();
     }
 }

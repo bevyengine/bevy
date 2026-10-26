@@ -283,7 +283,7 @@ mod sub_entities_world_query_impls {
 
     use bevy_app::AppLabel;
     use bevy_ecs::{
-        archetype::Archetype,
+        archetype::{Archetype, ArchetypeId},
         change_detection::Tick,
         component::{ComponentId, Components},
         entity::Entity,
@@ -291,7 +291,7 @@ mod sub_entities_world_query_impls {
             ArchetypeQueryData, FilteredAccess, FilteredAccessSet, IterQueryData, QueryData,
             ReadOnlyQueryData, ReleaseStateQueryData, SingleEntityQueryData, WorldQuery,
         },
-        storage::{Table, TableRow},
+        storage::{Table, TableId, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
@@ -326,12 +326,21 @@ mod sub_entities_world_query_impls {
         unsafe fn set_archetype<'w, 's>(
             fetch: &mut Self::Fetch<'w>,
             component_id: &'s ComponentId,
+            archetype_id: ArchetypeId,
             archetype: &'w Archetype,
+            table_id: TableId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `SubEntity`.
             unsafe {
-                <&SubEntity<L> as WorldQuery>::set_archetype(fetch, component_id, archetype, table);
+                <&SubEntity<L> as WorldQuery>::set_archetype(
+                    fetch,
+                    component_id,
+                    archetype_id,
+                    archetype,
+                    table_id,
+                    table,
+                );
             }
         }
 
@@ -339,10 +348,13 @@ mod sub_entities_world_query_impls {
         unsafe fn set_table<'w, 's>(
             fetch: &mut Self::Fetch<'w>,
             &component_id: &'s ComponentId,
+            table_id: TableId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `SubEntity`.
-            unsafe { <&SubEntity<L> as WorldQuery>::set_table(fetch, &component_id, table) }
+            unsafe {
+                <&SubEntity<L> as WorldQuery>::set_table(fetch, &component_id, table_id, table);
+            }
         }
 
         fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
@@ -456,12 +468,21 @@ mod sub_entities_world_query_impls {
         unsafe fn set_archetype<'w, 's>(
             fetch: &mut Self::Fetch<'w>,
             component_id: &ComponentId,
+            archetype_id: ArchetypeId,
             archetype: &'w Archetype,
+            table_id: TableId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
-                <&MainEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table);
+                <&MainEntity as WorldQuery>::set_archetype(
+                    fetch,
+                    component_id,
+                    archetype_id,
+                    archetype,
+                    table_id,
+                    table,
+                );
             }
         }
 
@@ -469,10 +490,11 @@ mod sub_entities_world_query_impls {
         unsafe fn set_table<'w, 's>(
             fetch: &mut Self::Fetch<'w>,
             &component_id: &'s ComponentId,
+            table_id: TableId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
-            unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
+            unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table_id, table) }
         }
 
         fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {

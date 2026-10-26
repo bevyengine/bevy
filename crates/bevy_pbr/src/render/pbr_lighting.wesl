@@ -526,7 +526,7 @@ fn Fd_Burley(
 // Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
 @if(DFG_LUT)
-    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::linear_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 @else {
     // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
     let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
@@ -1074,8 +1074,8 @@ fn rect_light(
     let LUT_SCALE = 63.0 / 64.0;
     let LUT_BIAS  =  0.5 / 64.0;
     let uv = vec2<f32>(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
-    let t1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, uv, 0, 0.0);
-    let t2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, uv, 1, 0.0);
+    let t1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, uv, 0, 0.0);
+    let t2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, uv, 1, 0.0);
 
     // Reconstruct the GGX inverse-LTC matrix
     let Minv = mat3x3<f32>(
@@ -1105,8 +1105,8 @@ fn rect_light(
 
     // Sample LUTs for clearcoat layer
     let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
-    let tc1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, cc_uv, 0, 0.0);
-    let tc2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, cc_uv, 1, 0.0);
+    let tc1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, cc_uv, 0, 0.0);
+    let tc2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, cc_uv, 1, 0.0);
     let Minv_cc = mat3x3<f32>(
         vec3<f32>(tc1.x, 0.0, tc1.y),
         vec3<f32>(0.0,   1.0, 0.0),
@@ -1132,5 +1132,5 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
     return textureSampleLevel(
         view_bindings::atmosphere_transmittance_texture,
-        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+        view_bindings::linear_sampler, uv, 0.0).rgb;
 }
