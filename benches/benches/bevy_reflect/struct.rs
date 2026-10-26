@@ -4,7 +4,7 @@ use benches::bench;
 use bevy_reflect::{
     dynamic::DynamicStruct,
     structs::{GetField, Struct},
-    Reflect, Reflect,
+    Reflect,
 };
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,

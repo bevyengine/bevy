@@ -30,7 +30,7 @@
 //!   .with_boxed(Box::new(75_i32) as Box<dyn Reflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
-//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
 //! # Types of Functions
@@ -142,11 +142,11 @@
 //! // You can then retrieve and call these functions by name:
 //! let reflect_add = registry.get(core::any::type_name_of_val(&add)).unwrap();
 //! let value = reflect_add.call(ArgList::default().with_owned(10_i32).with_owned(5_i32)).unwrap();
-//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&15));
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&15));
 //!
 //! let reflect_mul = registry.get("mul").unwrap();
 //! let value = reflect_mul.call(ArgList::default().with_owned(10_i32).with_owned(5_i32)).unwrap();
-//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&50));
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&50));
 //! ```
 //!
 //! [`Reflect`]: crate::Reflect

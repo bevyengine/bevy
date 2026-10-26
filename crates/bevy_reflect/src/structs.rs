@@ -29,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Reflect, structs::Struct};
+/// use bevy_reflect::{Reflect, structs::Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -42,7 +42,7 @@ use core::{
 /// assert_eq!(foo.name_at(0), Some("bar"));
 ///
 /// let field: &dyn Reflect = foo.field("bar").unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html

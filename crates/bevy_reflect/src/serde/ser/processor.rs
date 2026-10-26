@@ -44,7 +44,7 @@ use crate::{dynamic::DynamicValueRef, TypeRegistry};
 /// ```
 /// # use core::any::Any;
 /// # use serde::Serialize;
-/// # use bevy_reflect::{Reflect, Reflect, TypeData, TypeRegistry};
+/// # use bevy_reflect::{Reflect, TypeData, TypeRegistry, dynamic::DynamicValueRef};
 /// # use bevy_reflect::serde::{ReflectSerializer, ReflectSerializerProcessor};
 /// #
 /// # #[derive(Debug, Clone, Reflect)]
@@ -84,14 +84,14 @@ use crate::{dynamic::DynamicValueRef, TypeRegistry};
 /// impl ReflectSerializerProcessor for HandleProcessor {
 ///     fn try_serialize<S>(
 ///         &self,
-///         value: &dyn Reflect,
+///         value: DynamicValueRef<'_>,
 ///         registry: &TypeRegistry,
 ///         serializer: S,
 ///     ) -> Result<Result<S::Ok, S>, S::Error>
 ///     where
 ///         S: serde::Serializer,
 ///     {
-///         let Some(value) = value.try_as_reflect() else {
+///         let Some(value) = value.as_concrete() else {
 ///             // we don't have any info on this type; do the default serialization logic
 ///             return Ok(Err(serializer));
 ///         };
@@ -143,7 +143,7 @@ pub trait ReflectSerializerProcessor {
     /// serializing, or just try to downcast the value directly:
     ///
     /// ```
-    /// # use bevy_reflect::{TypeRegistration, TypeRegistry, Reflect};
+    /// # use bevy_reflect::{TypeRegistration, TypeRegistry, Reflect, dynamic::DynamicValueRef};
     /// # use bevy_reflect::serde::ReflectSerializerProcessor;
     /// # use core::any::TypeId;
     /// struct I32AsStringProcessor;
@@ -151,14 +151,14 @@ pub trait ReflectSerializerProcessor {
     /// impl ReflectSerializerProcessor for I32AsStringProcessor {
     ///     fn try_serialize<S>(
     ///         &self,
-    ///         value: &dyn Reflect,
+    ///         value: DynamicValueRef<'_>,
     ///         registry: &TypeRegistry,
     ///         serializer: S,
     ///     ) -> Result<Result<S::Ok, S>, S::Error>
     ///     where
     ///         S: serde::Serializer
     ///     {
-    ///         if let Some(value) = value.try_downcast_ref::<i32>() {
+    ///         if let Some(value) = value.as_concrete().and_then(|value| value.downcast_ref::<i32>()) {
     ///             let value_as_string = format!("{value:?}");
     ///             Ok(Ok(serializer.serialize_str(&value_as_string)?))
     ///         } else {

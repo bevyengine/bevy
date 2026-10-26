@@ -40,15 +40,15 @@ pub trait FromDynamic: Sized + 'static {
 /// However, to do this, you normally need to specify the exact concrete type:
 ///
 /// ```
-/// # use bevy_reflect::{dynamic::DynamicTupleStruct, FromDynamic, Reflect};
+/// # use bevy_reflect::{dynamic::{DynamicTupleStruct, DynamicValue}, FromDynamic, Reflect};
 /// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
 /// fn default_value() -> usize { 123 }
 ///
-/// let reflected = DynamicTupleStruct::default();
+/// let dynamic = DynamicValue::from(DynamicTupleStruct::default());
 ///
-/// let concrete: Foo = <Foo as FromDynamic>::from_dynamic(&reflected).unwrap();
+/// let concrete: Foo = <Foo as FromDynamic>::from_dynamic(dynamic).unwrap();
 ///
 /// assert_eq!(Foo(123), concrete);
 /// ```
@@ -60,20 +60,20 @@ pub trait FromDynamic: Sized + 'static {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{dynamic::DynamicTupleStruct, Reflect, ReflectFromDynamic, Typed, TypeRegistry, TypePath};
+/// # use bevy_reflect::{dynamic::{DynamicTupleStruct, DynamicValue}, Reflect, ReflectFromDynamic, Typed, TypeRegistry, TypePath};
 /// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }
 /// # let mut registry = TypeRegistry::new();
 /// # registry.register::<Foo>();
 ///
-/// let mut reflected = DynamicTupleStruct::default();
-/// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
+/// let mut dynamic = DynamicTupleStruct::default();
+/// dynamic.set_represented_type(Some(<Foo as Typed>::type_info()));
 ///
 /// let registration = registry.get_with_type_path(<Foo as TypePath>::type_path()).unwrap();
 /// let rfr = registration.data::<ReflectFromDynamic>().unwrap();
 ///
-/// let concrete: Box<dyn Reflect> = rfr.from_dynamic(&reflected).unwrap();
+/// let concrete: Box<dyn Reflect> = rfr.from_dynamic(DynamicValue::from(dynamic)).unwrap();
 ///
 /// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
 /// ```

@@ -60,19 +60,19 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{dynamic::{DynamicEnum, DynamicVariant}, Reflect, Reflect};
+/// # use bevy_reflect::{dynamic::{DynamicEnum, DynamicVariant}, Reflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
 ///
 /// // Create a DynamicEnum to represent the new value
-/// let mut dyn_enum = DynamicEnum::new(
+/// let dyn_enum = DynamicEnum::new(
 ///   "None",
 ///   DynamicVariant::Unit
 /// );
 ///
 /// // Apply the DynamicEnum as a patch to the original value
-/// value.apply(dyn_enum.as_partial_reflect());
+/// dyn_enum.try_apply(&mut value).unwrap();
 ///
 /// // Tada!
 /// assert_eq!(None, value);

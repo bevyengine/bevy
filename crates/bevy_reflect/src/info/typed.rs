@@ -23,7 +23,7 @@ use crate::{Reflect, TypeInfo, TypePath};
 ///
 /// ```
 /// # use core::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, structs::StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///

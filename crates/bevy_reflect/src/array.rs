@@ -40,7 +40,7 @@ use core::{
 /// assert_eq!(foo.len(), 3);
 ///
 /// let field: &dyn Reflect = foo.get(0).unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type

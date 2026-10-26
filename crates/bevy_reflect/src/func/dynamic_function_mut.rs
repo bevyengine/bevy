@@ -55,7 +55,7 @@ type BoxFnMut<'env> = Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> +
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.try_take::<i32>().unwrap(), 2);
+/// assert_eq!(value.take::<i32>().unwrap(), 2);
 ///
 /// // Note that `func` still has a reference to `list`,
 /// // so we need to drop it before we can access `list` again.
@@ -222,7 +222,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// let mut func = add.into_function_mut().with_name("add");
     /// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.take::<i32>().unwrap(), 100);
     /// ```
     ///
     /// # Errors

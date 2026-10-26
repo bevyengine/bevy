@@ -79,15 +79,14 @@ use super::ReflectDeserializerProcessor;
 /// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
 /// // although it will represent `MyStruct`.
-/// assert!(output.as_partial_reflect().represents::<MyStruct>());
+/// assert!(output.represents::<MyStruct>());
 ///
 /// // We can convert back to `MyStruct` using `FromDynamic`.
-/// let value: MyStruct = <MyStruct as FromDynamic>::from_dynamic(output.as_partial_reflect()).unwrap();
+/// let value: MyStruct = <MyStruct as FromDynamic>::from_dynamic(output.dynamic_clone().unwrap()).unwrap();
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
 /// // We can also do this dynamically with `ReflectFromDynamic`.
-/// let output = output.as_partial_reflect();
-/// let type_id = output.reflect_type_info().unwrap().type_id();
+/// let type_id = output.get_represented_type_info().unwrap().type_id();
 /// let reflect_from_dynamic = registry.get_type_data::<ReflectFromDynamic>(type_id).unwrap();
 /// let value: Box<dyn Reflect> = reflect_from_dynamic.from_dynamic(output).unwrap();
 /// assert!(value.is::<MyStruct>());
@@ -248,15 +247,14 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
 /// // although it will represent `MyStruct`.
-/// assert!(output.as_partial_reflect().represents::<MyStruct>());
+/// assert!(output.represents::<MyStruct>());
 ///
 /// // We can convert back to `MyStruct` using `FromDynamic`.
-/// let value: MyStruct = <MyStruct as FromDynamic>::from_dynamic(output.as_partial_reflect()).unwrap();
+/// let value: MyStruct = <MyStruct as FromDynamic>::from_dynamic(output.dynamic_clone().unwrap()).unwrap();
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
 /// // We can also do this dynamically with `ReflectFromDynamic`.
-/// let output = output.as_partial_reflect();
-/// let type_id = output.reflect_type_info().unwrap().type_id();
+/// let type_id = output.get_represented_type_info().unwrap().type_id();
 /// let reflect_from_dynamic = registry.get_type_data::<ReflectFromDynamic>(type_id).unwrap();
 /// let value: Box<dyn Reflect> = reflect_from_dynamic.from_dynamic(output).unwrap();
 /// assert!(value.is::<MyStruct>());

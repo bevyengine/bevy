@@ -136,7 +136,7 @@
 //! For example, we can access our struct's fields by name using the [`Struct::field`] method.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, Reflect, structs::Struct};
+//! # use bevy_reflect::{Reflect, structs::Struct};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -145,7 +145,7 @@
 //!   foo: 123
 //! });
 //! let foo: &dyn Reflect = my_struct.field("foo").unwrap();
-//! assert_eq!(Some(&123), foo.try_downcast_ref::<i32>());
+//! assert_eq!(Some(&123), foo.downcast_ref::<i32>());
 //! ```
 //!
 //! Since most data is passed around as `dyn Reflect` or `dyn Reflect` trait objects,
@@ -199,7 +199,7 @@
 //! # use bevy_reflect::{structs::Struct, dynamic::DynamicStruct};
 //! let mut data = DynamicStruct::default();
 //! data.insert("foo", 123_i32);
-//! assert_eq!(Some(&123), data.field("foo").unwrap().try_downcast_ref::<i32>())
+//! assert_eq!(Some(&123), data.field("foo").unwrap().as_concrete().unwrap().downcast_ref::<i32>())
 //! ```
 //!
 //! They are most commonly used as "proxies" for other types,
@@ -210,7 +210,7 @@
 //! we may pass them around just like most other reflected types.
 //!
 //! ```
-//! # use bevy_reflect::{dynamic::DynamicStruct, Reflect, Reflect, dynamic::DynamicValue};
+//! # use bevy_reflect::{dynamic::DynamicStruct, Reflect, dynamic::DynamicValue};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -230,10 +230,10 @@
 //! This is known as "patching" and is done using the [`Reflect::apply`] and [`Reflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{dynamic::DynamicEnum, Reflect};
+//! # use bevy_reflect::{dynamic::{DynamicEnum, DynamicValue}, Reflect};
 //! let mut value = Some(123_i32);
-//! let patch = DynamicEnum::new("None", ());
-//! value.apply(&patch);
+//! let patch = DynamicValue::from(DynamicEnum::new("None", ()));
+//! patch.try_apply(&mut value).unwrap();
 //! assert_eq!(None, value);
 //! ```
 //!
@@ -244,7 +244,7 @@
 //! or when trying to make use of a reflected trait which expects the actual type.
 //!
 //! ```should_panic
-//! # use bevy_reflect::{dynamic::DynamicStruct, Reflect, Reflect, dynamic::DynamicValue};
+//! # use bevy_reflect::{dynamic::DynamicStruct, Reflect, dynamic::DynamicValue};
 //! # #[derive(Reflect)]
 //! # struct MyStruct {
 //! #   foo: i32
@@ -253,8 +253,8 @@
 //!   foo: 123
 //! });
 //!
-//! let dynamic = DynamicValue::try_from_reflect(&*original).unwrap();
-//! let value = dynamic.try_take::<MyStruct>().unwrap(); // PANIC!
+//! let dynamic = DynamicValue::try_from_reflect_deep(&*original).unwrap();
+//! let value = dynamic.into_concrete().unwrap(); // PANIC!
 //! ```
 //!
 //! To resolve this issue, we'll need to convert the dynamic type to the concrete one.
@@ -269,7 +269,7 @@
 //! using `#[reflect(from_dynamic = false)]` on the item.
 //!
 //! ```
-//! # use bevy_reflect::{FromDynamic, Reflect, Reflect, dynamic::DynamicValue};
+//! # use bevy_reflect::{FromDynamic, Reflect, dynamic::DynamicValue};
 //! #[derive(Reflect)]
 //! struct MyStruct {
 //!   foo: i32
@@ -279,7 +279,7 @@
 //! });
 //!
 //! let dynamic = DynamicValue::try_from_reflect(&*original).unwrap();
-//! let value = <MyStruct as FromDynamic>::from_dynamic(dynamic.as_partial_reflect()).unwrap(); // OK!
+//! let value = <MyStruct as FromDynamic>::from_dynamic(dynamic).unwrap(); // OK!
 //! ```
 //!
 //! When deriving, all active fields and sub-elements must also implement `FromDynamic`.
@@ -415,7 +415,7 @@
 //! # use bevy_reflect::{
 //! #     serde::{ReflectSerializer, ReflectDeserializer},
 //! #     dynamic::DynamicValue,
-//! #     Reflect, Reflect, FromDynamic, TypeRegistry
+//! #     Reflect, FromDynamic, TypeRegistry
 //! # };
 //! #[derive(Reflect, PartialEq, Debug)]
 //! struct MyStruct {
@@ -431,7 +431,7 @@
 //! registry.register::<MyStruct>();
 //!
 //! // Serialize
-//! let reflect_serializer = ReflectSerializer::new(original_value.as_partial_reflect(), &registry);
+//! let reflect_serializer = ReflectSerializer::new(&original_value, &registry);
 //! let serialized_value: String = ron::to_string(&reflect_serializer).unwrap();
 //!
 //! // Deserialize
@@ -441,7 +441,7 @@
 //! ).unwrap();
 //!
 //! // Convert
-//! let converted_value = <MyStruct as FromDynamic>::from_dynamic(deserialized_value.as_partial_reflect()).unwrap();
+//! let converted_value = <MyStruct as FromDynamic>::from_dynamic(deserialized_value).unwrap();
 //!
 //! assert_eq!(original_value, converted_value);
 //! ```

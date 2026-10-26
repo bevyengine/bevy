@@ -11,7 +11,7 @@ use bevy::reflect::{
         ArgList, DynamicFunction, DynamicFunctionMut, FunctionResult, IntoFunction,
         IntoFunctionMut, Return, SignatureInfo,
     },
-    Reflect, Reflect,
+    Reflect,
 };
 
 // Note that the `dbg!` invocations are used purely for demonstration purposes
@@ -159,7 +159,7 @@ fn main() {
     let args = dbg!(ArgList::new().with_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
     let value: &dyn Reflect = return_value.unwrap_ref();
-    assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
+    assert_eq!(value.downcast_ref::<String>().unwrap(), "Hello, world!");
 
     // For more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
@@ -212,9 +212,9 @@ fn main() {
 
     let args = dbg!(ArgList::new().with_owned(5_i32).with_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
 
     let args = dbg!(ArgList::new().with_owned(500_i32).with_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
 }

@@ -33,7 +33,7 @@ use alloc::{boxed::Box, vec::Vec};
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Reflect, map::Map};
+/// use bevy_reflect::{Reflect, map::Map};
 /// use std::collections::HashMap;
 ///
 ///
@@ -42,7 +42,7 @@ use alloc::{boxed::Box, vec::Vec};
 /// assert_eq!(foo.len(), 1);
 ///
 /// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
-/// assert_eq!(field.try_downcast_ref::<bool>(), Some(&true));
+/// assert_eq!(field.downcast_ref::<bool>(), Some(&true));
 /// ```
 ///
 /// [`HashMap`]: std::collections::HashMap

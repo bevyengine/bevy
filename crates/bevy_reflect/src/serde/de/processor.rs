@@ -42,7 +42,7 @@ use crate::{dynamic::DynamicValue, TypeRegistration, TypeRegistry};
 /// ```
 /// # use bevy_reflect::serde::{ReflectDeserializer, ReflectDeserializerProcessor};
 /// # use bevy_reflect::dynamic::DynamicValue;
-/// # use bevy_reflect::{Reflect, Reflect, TypeData, TypeRegistration, TypeRegistry};
+/// # use bevy_reflect::{Reflect, TypeData, TypeRegistration, TypeRegistry};
 /// # use serde::de::{DeserializeSeed, Deserializer, Visitor};
 /// # use std::marker::PhantomData;
 /// #

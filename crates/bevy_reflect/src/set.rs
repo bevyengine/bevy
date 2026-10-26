@@ -39,7 +39,7 @@ use crate::{
 /// assert_eq!(foo.len(), 1);
 ///
 /// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
 /// [`HashSet`]: std::collections::HashSet

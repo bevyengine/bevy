@@ -52,7 +52,7 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.try_downcast_ref::<i32>(), Some(&100));
+/// assert_eq!(value.downcast_ref::<i32>(), Some(&100));
 /// ```
 ///
 /// [`ReflectFn`]: crate::func::ReflectFn

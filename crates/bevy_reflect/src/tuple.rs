@@ -36,7 +36,7 @@ use core::{
 /// assert_eq!(foo.field_len(), 2);
 ///
 /// let field: &dyn Reflect = foo.field(0).unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type

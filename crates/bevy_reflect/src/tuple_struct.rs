@@ -27,7 +27,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Reflect, tuple_struct::TupleStruct};
+/// use bevy_reflect::{Reflect, tuple_struct::TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(u32);
@@ -37,7 +37,7 @@ use core::{
 /// assert_eq!(foo.field_len(), 1);
 ///
 /// let field: &dyn Reflect = foo.field(0).unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
