@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let translation = Vec3::new(10.0, 10.0, 10.0);
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
         Projection::Orthographic(OrthographicProjection {
             scale: 0.01,

@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn a camera.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
         Hdr,
         VolumetricFog {

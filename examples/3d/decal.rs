@@ -81,7 +81,7 @@ fn setup(
 
     commands.spawn((
         Name::new("Camera"),
-        Camera3d::default(),
+        Camera3d,
         FreeCamera::default(),
         // Must enable the depth prepass to render forward decals
         DepthPrepass,

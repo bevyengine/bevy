@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     // Spawn the camera.
     commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             Tonemapping::TonyMcMapface,
             Bloom::default(),

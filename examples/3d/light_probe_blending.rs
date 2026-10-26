@@ -224,7 +224,7 @@ fn create_reflective_material(
 /// Spawns the orbital pan/zoom camera.
 fn spawn_camera(commands: &mut Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::IDENTITY,
         Hdr,
         OrbitCamera {

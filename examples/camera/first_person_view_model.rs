@@ -112,7 +112,7 @@ fn spawn_view_model(
         children![
             (
                 WorldModelCamera,
-                Camera3d::default(),
+                Camera3d,
                 Projection::from(PerspectiveProjection {
                     fov: 90.0_f32.to_radians(),
                     ..default()
@@ -120,7 +120,7 @@ fn spawn_view_model(
             ),
             // Spawn view model camera.
             (
-                Camera3d::default(),
+                Camera3d,
                 Camera {
                     // Bump the order to render on top of the world model.
                     order: 1,

@@ -32,7 +32,7 @@ use crate::ViewFogUniformOffset;
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual
-///     Camera3d::default(),
+///     Camera3d,
 ///     // Add fog to the same entity
 ///     DistanceFog {
 ///         color: Color::WHITE,

@@ -20,7 +20,7 @@ struct ColorOverride(Color);
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0., 1., 2.5).looking_at(Vec3::new(0., 0.25, 0.), Dir3::Y),
     ));
 

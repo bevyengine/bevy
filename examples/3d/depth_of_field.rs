@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     // Spawn the camera. Enable HDR and bloom, as that highlights the depth of
     // field effect.
     let mut camera = commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,

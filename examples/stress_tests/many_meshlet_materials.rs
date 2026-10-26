@@ -83,7 +83,7 @@ fn setup(
     let spacing = 2.0;
 
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(0.0, n as f32, n as f32 * 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         Msaa::Off,
     ));
