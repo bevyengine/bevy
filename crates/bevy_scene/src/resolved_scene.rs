@@ -173,7 +173,7 @@ pub struct ResolvedScene {
     ///
     /// [`Children`]: bevy_ecs::hierarchy::Children
     // PERF: special casing Children might make sense here to avoid hashing
-    pub related: TypeIdIndexMap<RelatedResolvedScenes>,
+    pub(crate) related: TypeIdIndexMap<RelatedResolvedScenes>,
     /// The cached [`ScenePatch`] to apply _first_ before applying this [`ResolvedScene`].
     cached: Option<CachedSceneInfo>,
     /// A [`TypeId`] to `templates` index mapping. If a [`Template`] is intended to be shared / patched across scenes, it should be registered
