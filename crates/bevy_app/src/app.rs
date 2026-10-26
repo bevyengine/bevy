@@ -1014,7 +1014,7 @@ impl App {
     /// ```
     pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> &mut Self {
         self.world_mut()
             .register_required_components_with::<T, R>(constructor);
@@ -1144,7 +1144,7 @@ impl App {
     /// ```
     pub fn try_register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         self.world_mut()
             .try_register_required_components_with::<T, R>(constructor)

@@ -13,11 +13,10 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight, TextLayout};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
     Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
@@ -89,7 +88,6 @@ impl FeathersSlider {
             SliderValue({props.min})
             SliderRange::new(props.min, props.max)
             EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
-            TabIndex(0)
             FocusIndicator
             InheritableThemeTextColor(tokens::SLIDER_TEXT)
             // Use a gradient to draw the moving bar
@@ -103,7 +101,7 @@ impl FeathersSlider {
                 ],
                 color_space: InterpolationColorSpace::Srgba,
             })])
-            Children [(
+            Children [
                 // Text container
                 Node {
                     display: Display::Flex,
@@ -113,12 +111,12 @@ impl FeathersSlider {
                     justify_content: JustifyContent::Center,
                 }
                 InheritableFont {
-                    font: fonts::MONO,
+                    font: FontSourceTemplate::Handle(fonts::MONO),
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }
-                Children [(@caption("10.0") SliderValueText)]
-            )]
+                Children [@caption("10.0") TextLayout::no_wrap() SliderValueText]
+            ]
         }
     }
 }

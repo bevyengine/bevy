@@ -66,8 +66,9 @@
 //!     #Player // This names the entity "Player"
 //!     Score(0)
 //!     Children [
-//!         Sword,
-//!         Shield,
+//!         Sword
+//!         --
+//!         Shield
 //!     ]
 //! });
 //! ```
@@ -110,19 +111,23 @@
 //!
 //! ## Entity Hierarchies and Relationships
 //!
-//! Use `Children [scene1, scene2]` inside [`bsn!`] to spawn child entities.
-//! [`Children`] (and entities within [`bsn_list!`]) are separated by commas;
-//! add multiple components to the same entity by listing them without a comma:
+//! Use `Children [scene1 -- scene2]` inside [`bsn!`] to spawn child entities.
+//! [`Children`] (and entities within [`bsn_list!`]) are separated by `--`;
+//! add multiple components to the same entity by listing them without a `--`:
 //!
 //! ```ignore
 //! // Spawns one child entity with components A, B and C
 //! bsn! { #Parent Children [A B C] }
 //!
-//! // Spawns two child entities, one with A and B, the other with C, due to the added comma
-//! bsn! { #Parent Children [A B, C] }
-//!
-//! // Spawns two child entities, but more clearly separated due to parentheses.
-//! bsn! { #Parent Children [(A B), C] }
+//! // Spawns two child entities, one with A and B, the other with C, due to the added `--`
+//! bsn! {
+//!     #Parent
+//!     Children [
+//!         A B
+//!         --
+//!         C
+//!     ]
+//! }
 //! ```
 //!
 //! These invocations can be nested to build deeper hierarchies.
@@ -131,56 +136,33 @@
 //! bsn! {
 //!   #Parent
 //!   Children [
-//!     #Child1 SomeComponent,
+//!     #Child1 SomeComponent
+//!     --
 //!     #Child2
 //!     SomeComponent
 //!     Children [
-//!        #GrandChild1 SomeComponent,
+//!        #GrandChild1 SomeComponent
+//!         --
 //!        #GrandChild2
 //!     ]
 //!   ]
 //! }
 //! ```
 //!
-//! We can improve clarity at the cost of compactness through the careful use of newlines, parentheses and indentation:
-//!
-//! ```ignore
-//! bsn! {
-//!   #Parent
-//!   Children [
-//!      (
-//!        #Child1
-//!        SomeComponent
-//!      ),
-//!      (
-//!        #Child2
-//!        Children [
-//!           (
-//!             #GrandChild1
-//!             SomeComponent
-//!           ),
-//!           (
-//!             #GrandChild2
-//!           )
-//!        ]
-//!      ),
-//!   ]
-//! }
-//! ```
-//!
-//! This is fundamentally a stylistic choice: white space, Rust comments (`//` and `/* */`), and parentheses used in this way are ignored.
-//!
 //! The tools discussed here are not limited to [`Children`]: any [`RelationshipTarget`] type can be used the same way.
 //!
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`] which ultimately resolves to an [`Entity`]:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
+//! which is a [`Template`] that resolves to an [`Entity`].
+//!
+//! Note that a "child entity" can reference its ancestors using the #Name declared in the "root entity".
 //!
 //! ```ignore
 //! bsn! {
 //!     #Name
-//!     my_scene(#Name)
+//!     @my_scene(#Name)
 //!     ComponentA(#Name)
 //!     ComponentB { entity: #Name }
 //!     Children [
@@ -189,20 +171,49 @@
 //! }
 //! ```
 //!
-//! Notice that the "child entity" was able to access the parent entity via `#Name`. It is also possible for ancestors to access
-//! their descendants:
+//! It is also possible for ancestors to access their descendants:
 //!
 //! ```ignore
 //! bsn! {
-//!     #Root
+//!     Reference(#Child)
 //!     Children [
-//!         Reference(#Root)
+//!         #Child
 //!     ]
 //! }
 //! ```
 //!
-//! Using `#Name` as a value in [`bsn!`] will result in an [`EntityTemplate`], which is a [`Template`] that resolves to an [`Entity`]
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(FromTemplate, Component)]
+//! struct Reference(Entity);
+//! ```
+//!
+//! You can pass it to functions by accepting a [`EntityTemplate`] argument:
+//!
+//! ```rust
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_ecs::template::EntityTemplate;
+//! #[derive(FromTemplate, Component)]
+//! # struct Reference(Entity);
+//! fn outer_scene() -> impl Scene {
+//!     bsn! {
+//!         #Outer
+//!         @inner_scene(#Outer)
+//!     }
+//!
+//! }
+//! fn inner_scene(entity: EntityTemplate) -> impl Scene {
+//!     bsn! {
+//!         #Inner
+//!         Reference(entity)
+//!     }
+//!
+//! }
+//! ```
+//!
 //!
 //! ### Scope rules
 //!
@@ -228,10 +239,11 @@
 //!
 //! ```ignore
 //! fn linked_pair() -> impl SceneList {
-//!     bsn_list![
-//!         (#Left  Link(#Right)),
-//!         (#Right Link(#Left)),
-//!     ]
+//!     bsn_list! {
+//!         #Left Link(#Right)
+//!         --
+//!         #Right Link(#Left)
+//!     }
 //! }
 //! ```
 //!
@@ -484,7 +496,7 @@
 //! fn enemy(hp: u32, name: &str) -> impl Scene {
 //!     let name_string = name.to_string();
 //!     bsn! {
-//!         #{name}
+//!         Name({name.to_string()})
 //!         Health { current: {hp / 2}, max: hp }
 //!         Sprite { image: {name_string + ".png"} }
 //!     }
@@ -540,7 +552,7 @@
 //!     }
 //! }
 //!
-//! let items = bsn_list![#A, #B, #C]; // or bsn! if container takes a `impl Scene`
+//! let items = bsn_list! { #A -- #B -- #C }; // or bsn! if container takes a `impl Scene`
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -550,14 +562,16 @@
 //! fn container(contents: impl SceneList) -> impl Scene {
 //!     bsn! {
 //!         Children [
-//!             #Header,
-//!             {contents},
-//!             #Footer,
+//!             #Header
+//!             --
+//!             {contents}
+//!             --
+//!             #Footer
 //!         ]
 //!     }
 //! }
 //!
-//! let items = bsn_list![#A, #B, #C]; // or bsn! if container takes a `impl Scene`
+//! let items = bsn_list! { #A -- #B -- #C }; // or bsn! if container takes a `impl Scene`
 //! commands.spawn_scene(container(items));
 //! ```
 //!
@@ -616,8 +630,9 @@
 //!         bsn! {
 //!             #Player
 //!             Children [
-//!                 #RightHand Sword,
-//!                 #LeftHand Shield,
+//!                 #RightHand Sword
+//!                 --
+//!                 #LeftHand Shield
 //!             ]
 //!         }
 //!     }
@@ -1259,18 +1274,15 @@ mod tests {
             bsn! {
                 #A
                 Children [
-                    (
-                        #B
-                        Children [
-                            #X
-                        ]
-                    ),
-                    (
-                        #C
-                        Children [
-                            #Y
-                        ]
-                    )
+                    #B
+                    Children [
+                        #X
+                    ]
+                    --
+                    #C
+                    Children [
+                        #Y
+                    ]
                 ]
             }
         }
@@ -1343,7 +1355,7 @@ mod tests {
             bsn! {
                 #X
                 Children [
-                    (@b() Reference(#X))
+                    @b() Reference(#X)
                 ]
             }
         }
@@ -1353,8 +1365,9 @@ mod tests {
             bsn! {
                 #X
                 Children [
-                    Reference(#X),
-                    (@{inline} Reference(#X)),
+                    Reference(#X)
+                    --
+                    @{inline} Reference(#X)
                 ]
             }
         }
@@ -1403,8 +1416,10 @@ mod tests {
             bsn! {
                 Reference(#Last)
                 Children [
-                    #First,
-                    #Second,
+                    #First
+                    --
+                    #Second
+                    --
                     #Last
                 ]
             }
@@ -1434,24 +1449,21 @@ mod tests {
         }
 
         fn a() -> impl SceneList {
-            bsn_list![
-                (
-                    #X
+            bsn_list! {
+                #X
+                Reference(#Y)
+                Children [
+                    #Z Reference(#X)
+                ]
+                --
+                #Y
+                Reference(#X)
+                Children [
                     Reference(#Y)
-                    Children [
-                        (#Z Reference(#X))
-                    ]
-
-                ),
-                (
-                    #Y
-                    Reference(#X)
-                    Children [
-                        Reference(#Y)
-                    ]
-                ),
-                (@b() #Z)
-            ]
+                ]
+                --
+                #Z @b()
+            }
         }
 
         let ids = world.spawn_scene_list(a()).unwrap();
@@ -1670,7 +1682,8 @@ mod tests {
         let world = app.world_mut();
         let entities = world
             .spawn_scene_list(bsn_list! {
-                #A,
+                #A
+                --
                 target(#A)
             })
             .unwrap();
@@ -1962,18 +1975,21 @@ mod tests {
             bsn! {
                 #Root
                 Children [
-                    #First,
-                    {items},
+                    #First
+                    --
+                    {items}
+                    --
                     #Last
                 ]
             }
         }
         let mut app = test_app();
         let world = app.world_mut();
-        let items = bsn_list![
-            #Second,
+        let items = bsn_list! {
+            #Second
+            --
             #Third
-        ];
+        };
         let id = world.spawn_scene(container(items)).unwrap().id();
         let children = world.entity(id).get::<Children>().unwrap();
         let names: Vec<_> = children
@@ -1988,18 +2004,20 @@ mod tests {
             bsn! {
                 #Root
                 Children [
-                    #First,
-                    @{item},
+                    #First
+                    --
+                    @{item}
+                    --
                     #Last
                 ]
             }
         }
         let mut app = test_app();
         let world = app.world_mut();
-        let items = bsn![
+        let item = bsn! {
             #Second
-        ];
-        let id = world.spawn_scene(container(items)).unwrap().id();
+        };
+        let id = world.spawn_scene(container(item)).unwrap().id();
         let children = world.entity(id).get::<Children>().unwrap();
         let names: Vec<_> = children
             .iter()
@@ -2020,7 +2038,11 @@ mod tests {
             let scene: Box<dyn Scene> = if is_boss {
                 Box::new(bsn! {
                     Boss
-                    Children [ @unit(false, level - 1) #Grunt1, @unit(false, level - 1) #Grunt2]
+                    Children [
+                        #Grunt1 @unit(false, level - 1)
+                        --
+                        #Grunt2 @unit(false, level - 1)
+                    ]
                 })
             } else {
                 Box::new(bsn! { Grunt })
@@ -2209,8 +2231,10 @@ mod tests {
         let world = app.world_mut();
         let entities = world
             .spawn_scene_list(bsn_list! {
-                #A,
-                Foo::Entity(#A),
+                #A
+                --
+                Foo::Entity(#A)
+                --
                 Bar { foo: FooTemplate::Entity(#A) }
             })
             .unwrap();
@@ -2363,8 +2387,9 @@ mod tests {
 
         fn scene(root: Entity) -> impl SceneList {
             bsn_list! {
-                ( #Child1 ChildOf(root) ),
-                ( #Child2 ChildOf(#Child1) ),
+                #Child1 ChildOf(root)
+                --
+                #Child2 ChildOf(#Child1)
             }
         }
 
@@ -2391,17 +2416,20 @@ mod tests {
         fn root(children: impl SceneList) -> impl Scene {
             bsn! {
                 Children [
-                    #A,
-                    {children},
+                    #A
+                    --
+                    {children}
+                    --
                     #D
                 ]
             }
         }
 
-        let children = bsn_list! [
-            #B,
-            #C,
-        ];
+        let children = bsn_list! {
+            #B
+            --
+            #C
+        };
 
         let id = world.spawn_scene(root(children)).unwrap().id();
         let root = world.entity(id);
@@ -2590,11 +2618,11 @@ mod tests {
         }
 
         fn scene1() -> impl Scene {
-            bsn!(SpawnOnInsert)
+            bsn! { SpawnOnInsert }
         }
 
         fn scene2() -> impl Scene {
-            bsn!(#Name)
+            bsn! { #Name }
         }
 
         let mut app = test_app();
@@ -2763,7 +2791,7 @@ mod tests {
         let scene = bsn! {
             #Name
             Children [
-                @Widget{
+                @Widget {
                     entity: #Name
                 }
             ]
@@ -2823,8 +2851,7 @@ mod tests {
             #Root
             Name({format!("Foo{i}")})
             Children [
-                #Name
-                @widget(#Root)
+                #Name @widget(#Root)
             ]
         };
         let entity = world.spawn_scene(pass_name_expr).unwrap().id();
@@ -3072,7 +3099,7 @@ mod tests {
         impl Default for Props2 {
             fn default() -> Self {
                 Self {
-                    items: Box::new(bsn_list!()),
+                    items: Box::new(bsn_list! {}),
                 }
             }
         }
@@ -3097,27 +3124,24 @@ mod tests {
             })
             Children [                   // spawning multiple related entities using a RelationshipTarget component
                 #Child1 ComponentA       // whitespace doesn't have to be newlines
-                ,                        // entities are comma-separated
-                (@other_scene() #Child3), // parentheses around a single entity are optional
-                Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
+                --                       // entities are -- separated
+                Link(#SomeName)          // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
                 @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
                     @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
                     normal_field: 5      // while normal fields are the actual fields of the component
-                },
-                (
-                    Node {
-                        width: some_var      // you can directly use variables without {}
+                }
+                --
+                Node {
+                    width: some_var      // you can directly use variables without {}
+                }
+                ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
+                @Container {
+                    @items: bsn_list! {               // sometimes you may need to nest macro calls
+                        #Item1 SomeComponent          // note: the name #item1 here is in its own scope
+                        --
+                        #Item2 @some_scene()
                     }
-                    ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-                    @Container {
-                        @items: {
-                            bsn_list![                // sometimes you may need to nest macro calls
-                                #item1 SomeComponent, // note: the name #item1 here is in its own scope
-                                @some_scene() #item2
-                            ]
-                        }
-                    }
-                )
+                }
             ]
         };
         // just checking it spawns correctly
@@ -3228,8 +3252,9 @@ mod tests {
         fn make_scene(config: &Config) -> impl Scene {
             bsn! {
                 Children [
-                    (FontSource::Handle { value: { config.value.clone() } }),
-                    (FontSource::Handle { value: { config.value.clone() } }),
+                    FontSource::Handle { value: { config.value.clone() } }
+                    --
+                    FontSource::Handle { value: { config.value.clone() } }
                 ]
             }
         }
@@ -3374,9 +3399,9 @@ mod tests {
         struct Ref(Entity);
 
         let patch = bsn! {
-            #patch
+            #Patch
             Children [
-                Ref(#patch)
+                Ref(#Patch)
             ]
         };
 
@@ -3410,7 +3435,7 @@ mod tests {
         fn child() -> impl Scene {
             bsn! {
                 Foo(1)
-                Children [ Foo(2), Foo(3) ]
+                Children [Foo(2) -- Foo(3) ]
             }
         }
 
@@ -3540,5 +3565,166 @@ mod tests {
         ) -> Result<Self::Asset, Self::Error> {
             Ok(ScenePatch::load_with(load_context, (self.0)()))
         }
+    }
+
+    #[test]
+    fn arrays_in_bsn() {
+        #[derive(Component)]
+        struct Foo(Vec<Entity>);
+
+        impl FromTemplate for Foo {
+            type Template = FooTemplate;
+        }
+
+        struct FooTemplate(Vec<bevy_ecs::template::EntityTemplate>);
+
+        impl Template for FooTemplate {
+            type Output = Foo;
+
+            fn build_template(
+                &self,
+                context: &mut bevy_ecs::template::TemplateContext,
+            ) -> Result<Self::Output> {
+                self.0
+                    .iter()
+                    .map(|template| template.build_template(context))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Foo)
+            }
+
+            fn clone_template(&self) -> Self {
+                FooTemplate(self.0.clone())
+            }
+        }
+
+        impl FooTemplate {
+            fn new<const N: usize>(
+                entities: [bevy_ecs::template::EntityTemplate; N],
+            ) -> FooTemplate {
+                FooTemplate(entities.to_vec())
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                Foo::new([#A, #B])
+                --
+                #A
+                --
+                #B
+            })
+            .unwrap();
+        let foo = world.entity(entities[0]).get::<Foo>().unwrap();
+        assert_eq!(foo.0, entities[1..]);
+    }
+
+    #[test]
+    fn array_argument_allows_trailing_tokens() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(usize);
+
+        fn count_scene(len: usize) -> impl Scene {
+            bsn! { Marker({ len }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @count_scene([1, 2, 3].len()) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn array_argument_preserves_plain_rust_struct_literal() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(u32);
+
+        #[derive(Clone, Copy)]
+        struct Pair {
+            a: u32,
+            b: u32,
+        }
+
+        fn pair_scene(pairs: [Pair; 1]) -> impl Scene {
+            bsn! { Marker({ pairs[0].a + pairs[0].b }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @pair_scene([Pair { a: 7, b: 8 }]) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
+    }
+
+    // Tests the usage of `..Default::default()` in bsn.
+    #[test]
+    fn struct_default_construction() {
+        #[derive(Clone, Copy, Component, Default)]
+        struct Sprite {
+            color: Color,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        enum Color {
+            Rgba(Rgba),
+        }
+
+        impl Default for Color {
+            fn default() -> Self {
+                Color::Rgba(Rgba::default())
+            }
+        }
+
+        #[derive(Debug, Clone, Copy, Default, PartialEq)]
+        struct Rgba {
+            r: u32,
+            g: u32,
+            b: u32,
+            a: u32,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Sprite {
+                    color: Color::Rgba(Rgba { r: 1, g: 241, b: 49, a: 255 })
+                }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world.entity(entity).get::<Sprite>().unwrap().color,
+            Color::Rgba(Rgba {
+                r: 1,
+                g: 241,
+                b: 49,
+                a: 255
+            })
+        );
+
+        #[derive(Clone, Copy, Component, Default)]
+        struct Outer {
+            inner: Inner,
+        }
+
+        #[derive(Clone, Copy, Debug, Default, PartialEq)]
+        struct Inner {
+            a: u32,
+        }
+
+        // validates a niche interaction
+        let _entity2 = world
+            .spawn_scene(bsn! {
+                Outer { inner: Inner { a: 2, ..Inner { a: 1 } } }
+            })
+            .unwrap()
+            .id();
     }
 }

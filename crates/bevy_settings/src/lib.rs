@@ -1,10 +1,23 @@
 //! Framework for saving and loading user settings files in Bevy
 //! applications.
 //!
+//! The core of the framework is [`SettingsPlugin`], which
+//! loads and synchronizes settings with the filesystem or browser
+//! local storage, depending on platform.
+//!
+//! Settings are loaded into resources that implement [`SettingsGroup`](trait@SettingsGroup),
+//! which is best implemented using the derive macro [`SettingsGroup`](derive@SettingsGroup).
+//! In addition, the resource must have the `#[reflect(SettingsGroup, Default)]` annotation in
+//! order to be saved and loaded by the plugin.
+//!
+//! Once all these conditions are met, and when [`SettingsPlugin`] is added, systems can query
+//! for settings using [`Res`] and [`ResMut`] like any other resource.
+//!
 //! Refer to [`SettingsPlugin`] for detailed usage information.
 
 use core::any::TypeId;
 use core::time::Duration;
+use serde::ser::SerializeMap;
 use std::collections::HashMap;
 
 use bevy_app::{App, Plugin, PostUpdate};
@@ -18,10 +31,11 @@ use bevy_ecs::{
 pub use bevy_ecs_macros::SettingsGroup;
 use bevy_log::warn;
 use bevy_reflect::{
+    enums::DynamicEnum,
     prelude::ReflectDefault,
-    serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, ReflectMut, TypeInfo, TypePath, TypeRegistration,
-    TypeRegistry,
+    serde::{ReflectSerializerProcessor, TypedReflectDeserializer, TypedReflectSerializer},
+    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -40,6 +54,13 @@ use store_wasm::SettingsStore;
 
 /// Plugin to orchestrate loading and saving settings.
 ///
+/// When added to an app, `SettingsPlugin` will load settings from storage (either the filesystem
+/// or browser local storage) into resources that implement the [`SettingsGroup`](trait@SettingsGroup),
+/// [`Default`], and [`Reflect`] traits, and, in
+/// addition, are also annotated with `#[reflect(Default, SettingsGroup)]`. The plugin can also be used
+/// to write these settings back to storage after they are changed by sending the [`SaveSettingsDeferred`]
+/// or [`SaveSettingsSync`] commands.
+///
 /// You are required to provide a unique application name, so that your settings don't overwrite
 /// those of other apps. To ensure global uniqueness, it is recommended to use a
 /// [reverse domain name](https://en.wikipedia.org/wiki/Reverse_domain_name_notation),
@@ -47,7 +68,7 @@ use store_wasm::SettingsStore;
 /// appropriate filesystem location (depending on platform) for app settings. For platforms
 /// without filesystems, other storage mechanisms will be used.
 ///
-/// If you are do not have a domain name and cannot
+/// If you do not have a domain name and cannot
 /// afford one, use a reverse domain based on the URL of your repo (GitHub, GitLab, Codeberg
 /// and so on).
 ///
@@ -154,6 +175,9 @@ impl Plugin for SettingsPlugin {
 
 /// Trait which identifies a type as corresponding to a section with a settings file.
 ///
+/// In order for [`SettingsPlugin`] to do anything with types that implement this trait, the type must also
+/// be annotated with `#[reflect(SettingsGroup, Default)]`.
+///
 /// You can override the name of the section with `settings_group(group = "<name>")`.
 /// For enum `SettingGroup`s, you can also override the name of its key with `settings_group(key = "<name>")`
 /// The name should be in ``snake_case`` to be consistent with TOML style.
@@ -164,7 +188,11 @@ impl Plugin for SettingsPlugin {
 /// `settings_group(file = "<filename>")`. This should be the base name of the file without the
 /// extension. The default name is `settings`, which will cause the settings to be written out
 /// to `settings.toml` in the app's settings directory.
-pub trait SettingsGroup: Resource {
+///
+/// Since these resources are loaded from storage, it is possible for them to be modified by hand by users,
+/// so it's important to not rely on the validity of the data. In particular, it is important to ensure you do not
+/// rely on any invariants of the input data to ensure safety elsewhere in your code.
+pub trait SettingsGroup: Resource + Reflect + Default {
     /// The name of the logical section within the settings file.
     fn settings_group_name() -> &'static str;
 
@@ -188,6 +216,23 @@ pub struct ReflectSettingsGroup {
     settings_key_name: Option<&'static str>,
     /// The name of the settings file, defaults to "settings".
     settings_source: Option<&'static str>,
+}
+
+impl ReflectSettingsGroup {
+    /// Returns the groups's name.
+    pub fn settings_group_name(&self) -> &'static str {
+        self.settings_group_name
+    }
+
+    /// Returns the key name within the settings file of this group. Should only be `Some` for enums.
+    pub fn settings_key_name(&self) -> Option<&'static str> {
+        self.settings_key_name
+    }
+
+    /// Returns the name of this group's settings file.
+    pub fn settings_source(&self) -> Option<&'static str> {
+        self.settings_source
+    }
 }
 
 impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
@@ -334,6 +379,41 @@ fn has_settings_changed(world: &World, manifest: &SettingsFileManifest) -> bool 
     })
 }
 
+struct SettingsSerializerProcessor;
+
+impl ReflectSerializerProcessor for SettingsSerializerProcessor {
+    fn try_serialize<S>(
+        &self,
+        value: &dyn PartialReflect,
+        _registry: &TypeRegistry,
+        serializer: S,
+    ) -> Result<Result<S::Ok, S>, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let Some(type_info) = value.get_represented_type_info() else {
+            return Ok(Err(serializer));
+        };
+
+        let is_option = type_info.type_path_table().module_path() == Some("core::option")
+            && type_info.type_path_table().ident() == Some("Option");
+
+        let is_none = is_option
+            && value
+                .reflect_ref()
+                .as_enum()
+                .is_ok_and(|enum_value| enum_value.variant_name() == "None");
+
+        // If the value is None, serialize as an empty map
+        if is_none {
+            let map = serializer.serialize_map(Some(0))?;
+            return Ok(Ok(SerializeMap::end(map)?));
+        }
+
+        Ok(Err(serializer))
+    }
+}
+
 fn resources_to_toml(
     world: &World,
     types: &TypeRegistry,
@@ -367,7 +447,11 @@ fn resources_to_toml(
             continue;
         };
 
-        let serializer = TypedReflectSerializer::new(reflect.as_partial_reflect(), types);
+        let serializer = TypedReflectSerializer::with_processor(
+            reflect.as_partial_reflect(),
+            types,
+            &SettingsSerializerProcessor,
+        );
 
         let toml_value = if let Some(settings_key) = settings_key {
             // convert toml value into a key value pair if settings_key is set. settings_key is only set for enums
@@ -420,14 +504,22 @@ fn build_settings_registry(
     };
     file_index.save_timer.pause(); // Ensure timer is initially paused
 
+    let mut errors = Vec::new();
     // Scan through types looking for resources that have the necessary traits and
     // annotations.
     for ty in types.iter() {
-        if !ty.contains::<ReflectDefault>() {
+        // All types that are relevant
+        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
             continue;
         };
 
-        let Some(reflect_group) = ty.data::<ReflectSettingsGroup>() else {
+        if !ty.contains::<ReflectDefault>() {
+            // Collect all the errors into a single list so that a user can see all of them at once rather than chasing them
+            // down one by one as they fix the errors.
+            errors.push(format!(
+                "Type {} has #[reflect(SettingsGroup)], which requires #[reflect(Default)] in order to save or load.",
+                ty.type_info().type_path()
+            ));
             continue;
         };
 
@@ -442,6 +534,9 @@ fn build_settings_registry(
             });
         pending_file.last_save = last_save;
         pending_file.resource_types.push(ty.type_id());
+    }
+    if !errors.is_empty() {
+        panic!("{}", errors.join("\n"));
     }
 
     file_index
@@ -538,6 +633,11 @@ fn apply_settings_to_world(
     }
 }
 
+fn is_option_type(type_info: &TypeInfo) -> bool {
+    type_info.type_path_table().module_path() == Some("core::option")
+        && type_info.type_path_table().ident() == Some("Option")
+}
+
 fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types: &TypeRegistry) {
     let Some(tinfo) = resource.get_represented_type_info() else {
         return;
@@ -554,11 +654,22 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                         && let Some(field_info) = stinfo.field_at(idx)
                         && let Some(field_type) = types.get(field_info.type_id())
                     {
-                        let deserializer = TypedReflectDeserializer::new(field_type, types);
-                        if let Ok(field_value) = deserializer.deserialize(toml_field_value.clone())
+                        let field = st_reflect.field_at_mut(idx).unwrap();
+                        if is_option_type(field_type.type_info())
+                            && toml_field_value
+                                .as_table()
+                                .is_some_and(toml::Table::is_empty)
                         {
-                            // Should be safe to unwrap here since we know the field exists (above).
-                            st_reflect.field_at_mut(idx).unwrap().apply(&*field_value);
+                            let mut none = DynamicEnum::new_with_index(0, "None", ());
+                            none.set_represented_type(Some(field_type.type_info()));
+                            field.apply(none.as_partial_reflect());
+                        } else {
+                            let deserializer = TypedReflectDeserializer::new(field_type, types);
+                            if let Ok(field_value) =
+                                deserializer.deserialize(toml_field_value.clone())
+                            {
+                                field.apply(&*field_value);
+                            }
                         }
                     }
                 }
@@ -660,6 +771,12 @@ mod tests {
     #[settings_group(file = "audio")]
     struct AudioSettings {
         volume: f32,
+    }
+
+    #[derive(Resource, SettingsGroup, Reflect, Default)]
+    #[reflect(Resource, SettingsGroup, Default)]
+    struct OptionalSettings {
+        value: Option<u32>,
     }
 
     #[test]
@@ -1110,5 +1227,28 @@ mod tests {
 
         let registry = world.resource::<SettingsFileRegistry>();
         assert!(registry.save_timer.just_finished());
+    }
+
+    #[test]
+    fn test_none_value_apply_settings() {
+        let mut world = World::new();
+        let mut other_world = World::new();
+        let mut types = TypeRegistry::default();
+
+        types.register::<OptionalSettings>();
+
+        let manifest = SettingsFileManifest {
+            last_save: Tick::new(0),
+            resource_types: vec![TypeId::of::<OptionalSettings>()],
+        };
+
+        world.insert_resource(OptionalSettings { value: None });
+        let table = resources_to_toml(&world, &types, &manifest);
+
+        other_world.insert_resource(OptionalSettings { value: Some(12) });
+        apply_settings_to_world(&mut other_world, Some(&table), &manifest, &types);
+
+        let settings = other_world.get_resource::<OptionalSettings>().unwrap();
+        assert_eq!(settings.value, None);
     }
 }

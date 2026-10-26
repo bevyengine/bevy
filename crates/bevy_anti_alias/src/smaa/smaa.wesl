@@ -459,23 +459,23 @@ const SMAA_CORNER_ROUNDING_NORM: f32 = f32(SMAA_CORNER_ROUNDING) / 100.0;
 //-----------------------------------------------------------------------------
 // WGSL-Specific Functions
 
-// This vertex shader produces the following, when drawn using indices 0..3:
-//
-//  1 |  0-----x.....2
-//  0 |  |  s  |  . ´
-// -1 |  x_____x´
-// -2 |  :  .´
-// -3 |  1´
-//    +---------------
-//      -1  0  1  2  3
-//
-// The axes are clip-space x and y. The region marked s is the visible region.
-// The digits in the corners of the right-angled triangle are the vertex
-// indices.
-//
-// The top-left has UV 0,0, the bottom-left has 0,2, and the top-right has 2,0.
-// This means that the UV gets interpolated to 1,1 at the bottom-right corner
-// of the clip-space rectangle that is at 1,-1 in clip space.
+/// This vertex shader produces the following, when drawn using indices 0..3:
+///
+///  1 |  0-----x.....2
+///  0 |  |  s  |  . ´
+/// -1 |  x_____x´
+/// -2 |  :  .´
+/// -3 |  1´
+///    +---------------
+///      -1  0  1  2  3
+///
+/// The axes are clip-space x and y. The region marked s is the visible region.
+/// The digits in the corners of the right-angled triangle are the vertex
+/// indices.
+///
+/// The top-left has UV 0,0, the bottom-left has 0,2, and the top-right has 2,0.
+/// This means that the UV gets interpolated to 1,1 at the bottom-right corner
+/// of the clip-space rectangle that is at 1,-1 in clip space.
 fn calculate_vertex_varyings(vertex_index: u32) -> VertexVaryings {
     // See the explanation above for how this works
     let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
@@ -489,9 +489,7 @@ fn calculate_vertex_varyings(vertex_index: u32) -> VertexVaryings {
 
 @if(SMAA_EDGE_DETECTION)
 
-/**
- * Edge Detection Vertex Shader
- */
+/// Edge Detection Vertex Shader
 @vertex
 fn edge_detection_vertex_main(@builtin(vertex_index) vertex_index: u32) -> EdgeDetectionVaryings {
     let varyings = calculate_vertex_varyings(vertex_index);
@@ -513,9 +511,7 @@ fn edge_detection_vertex_main(@builtin(vertex_index) vertex_index: u32) -> EdgeD
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
 
-/**
- * Blend Weight Calculation Vertex Shader
- */
+/// Blend Weight Calculation Vertex Shader
 @vertex
 fn blending_weight_calculation_vertex_main(@builtin(vertex_index) vertex_index: u32)
         -> BlendingWeightCalculationVaryings {
@@ -542,9 +538,7 @@ fn blending_weight_calculation_vertex_main(@builtin(vertex_index) vertex_index: 
 
 @if(SMAA_NEIGHBORHOOD_BLENDING)
 
-/**
- * Neighborhood Blending Vertex Shader
- */
+/// Neighborhood Blending Vertex Shader
 @vertex
 fn neighborhood_blending_vertex_main(@builtin(vertex_index) vertex_index: u32)
         -> NeighborhoodBlendingVaryings {
@@ -563,12 +557,10 @@ fn neighborhood_blending_vertex_main(@builtin(vertex_index) vertex_index: u32)
 
 @if(SMAA_EDGE_DETECTION)
 
-/**
- * Luma Edge Detection
- *
- * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
- * thus 'color_texture' should be a non-sRGB texture.
- */
+/// Luma Edge Detection
+///
+/// IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
+/// thus 'color_texture' should be a non-sRGB texture.
 @fragment
 fn luma_edge_detection_fragment_main(in: EdgeDetectionVaryings) -> @location(0) vec4<f32> {
     // Calculate the threshold:
@@ -621,9 +613,7 @@ fn luma_edge_detection_fragment_main(in: EdgeDetectionVaryings) -> @location(0) 
 
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
 
-/**
- * Allows to decode two binary values from a bilinear-filtered access.
- */
+/// Allows to decode two binary values from a bilinear-filtered access.
 fn decode_diag_bilinear_access_2(in_e: vec2<f32>) -> vec2<f32> {
     // Bilinear access for fetching 'e' have a 0.25 offset, and we are
     // interested in the R and G edges:
@@ -686,10 +676,8 @@ fn search_diag_2(tex_coord: vec2<f32>, dir: vec2<f32>, e: ptr<function, vec2<f32
     return coord.zw;
 }
 
-/**
- * Similar to SMAAArea, this calculates the area corresponding to a certain
- * diagonal distance and crossing edges 'e'.
- */
+/// Similar to SMAAArea, this calculates the area corresponding to a certain
+/// diagonal distance and crossing edges 'e'.
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
 fn area_diag(dist: vec2<f32>, e: vec2<f32>, offset: f32) -> vec2<f32> {
     var tex_coord = vec2(SMAA_AREATEX_MAX_DISTANCE_DIAG) * e + dist;
@@ -707,9 +695,7 @@ fn area_diag(dist: vec2<f32>, e: vec2<f32>, offset: f32) -> vec2<f32> {
     return textureSampleLevel(area_texture, edges_sampler, tex_coord, 0.0).rg;
 }
 
-/**
- * This searches for diagonal patterns and returns the corresponding weights.
- */
+/// This searches for diagonal patterns and returns the corresponding weights.
 @if(SMAA_BLENDING_WEIGHT_CALCULATION && !SMAA_DISABLE_DIAG_DETECTION)
 fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices: vec4<f32>)
         -> vec2<f32> {
@@ -791,12 +777,10 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
 //-----------------------------------------------------------------------------
 // Horizontal/Vertical Search Functions
 
-/**
- * This allows to determine how much length should we add in the last step
- * of the searches. It takes the bilinearly interpolated edge (see
- * @PSEUDO_GATHER4), and adds 0, 1 or 2, depending on which edges and
- * crossing edges are active.
- */
+/// This allows to determine how much length should we add in the last step
+/// of the searches. It takes the bilinearly interpolated edge (see
+/// @PSEUDO_GATHER4), and adds 0, 1 or 2, depending on which edges and
+/// crossing edges are active.
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
 fn search_length(e: vec2<f32>, offset: f32) -> f32 {
     // The texture is flipped vertically, with left and right cases taking half
@@ -817,9 +801,7 @@ fn search_length(e: vec2<f32>, offset: f32) -> f32 {
     return textureSampleLevel(search_texture, edges_sampler, scale * e + bias, 0.0).r;
 }
 
-/**
- * Horizontal/vertical search functions for the 2nd pass.
- */
+/// Horizontal/vertical search functions for the 2nd pass.
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
 fn search_x_left(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     var tex_coord = in_tex_coord;
@@ -887,10 +869,8 @@ fn search_y_down(in_tex_coord: vec2<f32>, end: f32) -> f32 {
     return -smaa_info.rt_metrics.y * offset + tex_coord.y;
 }
 
-/**
- * Ok, we have the distance and both crossing edges. So, what are the areas
- * at each side of current edge?
- */
+/// Ok, we have the distance and both crossing edges. So, what are the areas
+/// at each side of current edge?
 @if(SMAA_BLENDING_WEIGHT_CALCULATION)
 fn area(dist: vec2<f32>, e1: f32, e2: f32, offset: f32) -> vec2<f32> {
     // Rounding prevents precision errors of bilinear filtering:

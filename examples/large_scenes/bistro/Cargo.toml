@@ -22,3 +22,6 @@ pbr_transmission_textures = ["bevy/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = ["bevy/pbr_multi_layer_material_textures"]
 pbr_anisotropy_texture = ["bevy/pbr_anisotropy_texture"]
 pbr_specular_textures = ["bevy/pbr_specular_textures"]
+
+[lints]
+workspace = true

@@ -1,7 +1,7 @@
 import bevy_pbr::render::pbr_lighting::D_GGX;
-import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u};
+import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u, sample_uniform_sphere};
 import bevy_render::maths::{PI_2, orthonormalize};
-import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, point_lights, rect_lights, environment_map, environment_map_sampler, environment_map_light, LightSource, light_source_kind, emissive_mesh_triangle_count, LIGHT_SOURCE_KIND_EMISSIVE_MESH, LIGHT_SOURCE_KIND_DIRECTIONAL, LIGHT_SOURCE_KIND_POINT, LIGHT_SOURCE_KIND_RECT, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 
@@ -14,11 +14,13 @@ fn balance_heuristic(f: f32, g: f32) -> f32 {
     if f == 0.0 {
         return 0.0;
     }
-    return max(0.0, 1.0 / (1.0 + (g / f)));
+    // When NaN, fall back to even weights of 0.5 : 0.5
+    let weight = 1.0 / (1.0 + (g / f));
+    return select(weight, 0.5, isnan(weight));
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
-// Result is invalid when output.z <= 0.0, and must be discarded
+/// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+/// Result is invalid when output.z <= 0.0, and must be discarded
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
@@ -47,12 +49,12 @@ fn ggx_vndf_sample_invalid(ray_tangent: vec3<f32>) -> bool {
     return !(ray_tangent.z > 0.0);
 }
 
-// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+/// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
 fn ggx_vndf_pdf(wi_tangent: vec3<f32>, wo_tangent: vec3<f32>, roughness: f32) -> f32 {
     // Mirror BRDF case
     if roughness <= MIRROR_ROUGHNESS_THRESHOLD {
         let mirror_wo = vec3(-wi_tangent.xy, wi_tangent.z);
-        if all(abs(mirror_wo - wo_tangent) < vec3(0.0001)) {
+        if distance(mirror_wo, wo_tangent) < 0.0001 {
             return bitcast<f32>(0x7F800000u); // INF
         } else {
             return 0.0;
@@ -96,19 +98,38 @@ struct LightSample {
     seed: u32,
 }
 
+/// A point on (or direction to) a light, resolved independently of any shading point.
+///
+/// Every kind of light is described by the same data, and shaded by the same formula in
+/// `calculate_resolved_light_contribution`.
 struct ResolvedLightSample {
+    /// If w = 1, the sample is a point on a light. If w = 0, it's a direction towards a light.
     world_position: vec4<f32>,
+    /// The emitting surface's normal. Unused when `emission_cosine_exponent` is 0.
     world_normal: vec3<f32>,
     radiance: vec3<f32>,
+    /// inverse_pdf may not be in solid angle measure (e.g. area measure)
     inverse_pdf: f32,
+    /// Axis of the emission cone, see `emission_cone_attenuation`.
+    emission_axis: vec3<f32>,
+    /// Cosines of the emission cone's inner and outer angles. `cos_outer <= -1` means no cone.
+    cone_cos_inner: f32,
+    cone_cos_outer: f32,
+    /// 1 if emission falls off with the cosine of the angle to `world_normal`, e.g. emissive triangles, rect lights, and sphere lights.
+    /// 0 if emission is the same in every direction, e.g. point and spot lights with no radius.
+    emission_cosine_exponent: f32,
+    /// Whether rays can hit this light, needed for MIS between NEE and BRDF sampling.
+    /// Only emissive meshes can be hit. Analytic lights (directional, point, spot, rect) can only be found via NEE.
+    brdf_rays_can_hit: bool,
 }
 
 struct LightContribution {
     radiance: vec3<f32>,
     inverse_pdf: f32,
-    // inverse_pdf may not be in solid angle measure (e.g. area measure)
-    // but inverse_solid_angle_pdf is always in solid angle measure
-    // for cases where it's required, e.g. MIS between light sampling techniques
+    /// inverse_pdf may not be in solid angle measure (e.g. area measure)
+    /// but inverse_solid_angle_pdf is always in solid angle measure
+    /// for cases where it's required, e.g. MIS between light sampling techniques.
+    /// Only meaningful when `brdf_rays_can_hit` is true.
     inverse_solid_angle_pdf: f32,
     wi: vec3<f32>,
     brdf_rays_can_hit: bool,
@@ -132,6 +153,16 @@ fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: 
     return area_pdf * (ray_distance * ray_distance) / NdotV;
 }
 
+fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
+    if environment_map_light.intensity == 0.0 { return vec3(0.0); }
+
+    var sample_direction = environment_map_light.light_from_world * world_direction;
+    sample_direction.z = -sample_direction.z;
+
+    // Hardcoded to sample mip 0 (unfiltered radiance)
+    return textureSampleLevel(environment_map, environment_map_sampler, sample_direction, 0.0).rgb * environment_map_light.intensity;
+}
+
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
@@ -139,9 +170,8 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
     let light_source = light_sources[light_id];
 
     var triangle_id = 0u;
-    if light_source.kind != LIGHT_SOURCE_KIND_DIRECTIONAL {
-        let triangle_count = light_source.kind >> 1u;
-        triangle_id = rand_range_u(triangle_count, rng);
+    if light_source_kind(light_source) == LIGHT_SOURCE_KIND_EMISSIVE_MESH {
+        triangle_id = rand_range_u(emissive_mesh_triangle_count(light_source), rng);
     }
 
     let seed = rand_u(rng);
@@ -154,7 +184,8 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
 }
 
 fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
-    if light_source.kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
+    let kind = light_source_kind(light_source);
+    if kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
         let directional_light = directional_lights[light_source.id];
 
         var direction_to_light: vec3<f32>;
@@ -177,13 +208,66 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
 }
 
         return ResolvedLightSample(
-        vec4(direction_to_light, 0.0),
-        -direction_to_light,
-        directional_light.luminance,
-        directional_light.inverse_pdf,
-    );
-} else {
-        let triangle_count = light_source.kind >> 1u;
+            vec4(direction_to_light, 0.0),
+            -direction_to_light,
+            directional_light.luminance,
+            directional_light.inverse_pdf,
+            -direction_to_light,
+            NO_EMISSION_CONE,
+            NO_EMISSION_CONE,
+            1.0,
+            false,
+        );
+    } else if kind == LIGHT_SOURCE_KIND_POINT {
+        let point_light = point_lights[light_source.id];
+
+        if point_light.radius == 0.0 {
+            return ResolvedLightSample(
+                vec4(point_light.position, 1.0),
+                point_light.axis,
+                point_light.intensity,
+                1.0,
+                point_light.axis,
+                point_light.cos_inner,
+                point_light.cos_outer,
+                0.0,
+                false,
+            );
+        }
+
+        var rng = light_sample.seed;
+        let sphere_normal = sample_uniform_sphere(&rng);
+        return ResolvedLightSample(
+            vec4(point_light.position + point_light.radius * sphere_normal, 1.0),
+            sphere_normal,
+            4.0 * point_light.intensity,
+            1.0,
+            point_light.axis,
+            point_light.cos_inner,
+            point_light.cos_outer,
+            1.0,
+            false,
+        );
+    } else if kind == LIGHT_SOURCE_KIND_RECT {
+        let rect_light = rect_lights[light_source.id];
+
+        var rng = light_sample.seed;
+        let uv = rand_vec2f(&rng) - 0.5;
+        let world_normal = normalize(cross(rect_light.edge_y, rect_light.edge_x));
+
+        return ResolvedLightSample(
+            vec4(rect_light.center + uv.x * rect_light.edge_x + uv.y * rect_light.edge_y, 1.0),
+            world_normal,
+            rect_light.radiance,
+            rect_light.area,
+            world_normal,
+            NO_EMISSION_CONE,
+            NO_EMISSION_CONE,
+            1.0,
+            false,
+        );
+    } else {
+        let triangle_count = emissive_mesh_triangle_count(light_source);
         let triangle_id = light_sample.light_id & 0xFFFFu;
         let barycentrics = triangle_barycentrics(light_sample.seed);
         let triangle_data = resolve_triangle_data_full(light_source.id, triangle_id, barycentrics);
@@ -193,10 +277,18 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
             triangle_data.world_normal,
             triangle_data.material.emissive.rgb,
             f32(triangle_count) * triangle_data.triangle_area,
+            triangle_data.world_normal,
+            NO_EMISSION_CONE,
+            NO_EMISSION_CONE,
+            1.0,
+            true,
         );
     }
 }
 
+/// Shades every kind of light with the same formula:
+///
+/// `radiance * saturate(dot(-wi, world_normal))^emission_cosine_exponent * cone(dot(-wi, emission_axis)) / d^2`
 fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
     let ray = resolved_light_sample.world_position.xyz - (resolved_light_sample.world_position.w * ray_origin);
     let light_distance = length(ray);
@@ -204,12 +296,24 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
 
     let cos_theta_light = saturate(dot(-wi, resolved_light_sample.world_normal));
     let light_distance_squared = light_distance * light_distance;
-    let denominator = cos_theta_light / light_distance_squared;
 
-    let radiance = resolved_light_sample.radiance * denominator;
-    let inverse_solid_angle_pdf = resolved_light_sample.inverse_pdf * denominator;
+    var emission = select(1.0, cos_theta_light, resolved_light_sample.emission_cosine_exponent == 1.0);
+    emission *= emission_cone_attenuation(dot(-wi, resolved_light_sample.emission_axis), resolved_light_sample.cone_cos_inner, resolved_light_sample.cone_cos_outer);
 
-    return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi, resolved_light_sample.world_position.w == 1.0);
+    let radiance = resolved_light_sample.radiance * (emission / light_distance_squared);
+    let inverse_solid_angle_pdf = resolved_light_sample.inverse_pdf * (cos_theta_light / light_distance_squared);
+
+    return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi, resolved_light_sample.brdf_rays_can_hit);
+}
+
+const NO_EMISSION_CONE = -1.0;
+
+fn emission_cone_attenuation(cos_theta: f32, cos_inner: f32, cos_outer: f32) -> f32 {
+    if cos_outer <= NO_EMISSION_CONE { return 1.0; }
+
+    let scale = 1.0 / max(cos_inner - cos_outer, 1e-4);
+    let attenuation = saturate((cos_theta - cos_outer) * scale);
+    return attenuation * attenuation;
 }
 
 fn trace_visibility(ray_origin: vec3<f32>, point: vec4<f32>) -> f32 {
@@ -246,7 +350,7 @@ fn trace_visibility_previous_frame(ray_origin: vec3<f32>, point: vec4<f32>) -> f
     return f32(ray_hit.kind == RAY_QUERY_INTERSECTION_NONE);
 }
 
-// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec22%3A297
 fn triangle_barycentrics(seed: u32) -> vec3<f32> {
     var rng = seed;
     var barycentrics = rand_vec2f(&rng);

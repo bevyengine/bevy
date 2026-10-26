@@ -39,6 +39,9 @@ compressed_image_saver_universal = [
 # Texture compression asset processor (BCn for desktop, ASTC for mobile via env var)
 compressed_image_saver = ["bevy_image/compressed_image_saver"]
 
+# Equirectangular (lat-long) panorama to cubemap conversion
+equirectangular_cubemap = ["bevy_image/equirectangular_cubemap"]
+
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
@@ -132,6 +135,7 @@ serialize = [
   "bevy_time/serialize",
   "bevy_transform/serialize",
   "bevy_ui?/serialize",
+  "bevy_ui_widgets?/serialize",
   "bevy_utils/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
@@ -220,8 +224,13 @@ webgpu = [
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
+render_dev_tools = ["bevy_dev_tools/render"]
+
 # Enable glTF animation loading
 gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+# Enables loading glTF files that use KHR_meshopt_compression or EXT_meshopt_compression
+gltf_meshopt = ["bevy_gltf?/meshopt"]
 
 # Enables support for morph target weights in bevy_mesh
 morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
@@ -278,6 +287,7 @@ bevy_sprite_render = [
 bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
 # Feathers ships its built-in icons as PNGs, so enable the PNG feature
 bevy_feathers = ["dep:bevy_feathers", "png"]
+bevy_inspector = ["dep:bevy_inspector", "bevy_feathers"]
 bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera", "bevy_light?/bevy_gizmos"]
 bevy_gizmos_render = ["dep:bevy_gizmos_render", "bevy_gizmos"]
@@ -290,6 +300,9 @@ dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
 
+# Enable Feral Interactive's `GameMode` integration on Linux
+linux_game_mode = ["bevy_winit/linux_game_mode"]
+
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
 
@@ -301,6 +314,9 @@ default_font = ["bevy_text?/default_font"]
 
 # Allows for discovery of preloaded system fonts
 system_font_discovery = ["bevy_text?/system_font_discovery"]
+
+# Enables dictionary-based segmentation for complex scripts (CJK, Thai, Khmer, Lao, Myanmar), at the cost of a larger binary
+complex_script_segmentation = ["bevy_text?/complex_script_segmentation"]
 
 # Enables downloading assets from HTTP sources
 http = ["bevy_asset?/http"]
@@ -324,6 +340,7 @@ embedded_watcher = ["bevy_asset?/embedded_watcher"]
 bevy_debug_stepping = [
   "bevy_ecs/bevy_debug_stepping",
   "bevy_app/bevy_debug_stepping",
+  "bevy_remote?/bevy_debug_stepping",
 ]
 
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
@@ -334,6 +351,7 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
+bevy_audio = ["dep:bevy_audio", "bevy_dev_tools?/bevy_audio"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
@@ -341,12 +359,21 @@ free_camera = ["bevy_camera_controller/free_camera"]
 pan_camera = ["bevy_camera_controller/pan_camera"]
 pan_orbit_camera = [
   "bevy_camera_controller/pan_orbit_camera",
-  "bevy_camera_controller/extension_anchor_indicator",
   "bevy_camera_controller/extension_independent_skybox",
+]
+
+pan_orbit_gizmo = [
+  "bevy_gizmos",
+  "bevy_camera_controller/extension_anchor_indicator",
 ]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
+bevy_remote_client = [
+  "bevy_remote",
+  "bevy_remote/client",
+  "bevy_inspector?/remote",
+]
 
 # Provides picking functionality without any backend
 bevy_picking = ["dep:bevy_picking"]
@@ -406,9 +433,6 @@ custom_cursor = [
   "bevy_winit/custom_cursor",
   "bevy_picking/custom_cursor",
 ]
-
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_ui/ghost_nodes"]
 
 # Allows access to the `std` crate. Enabling this feature will prevent compilation
 # on `no_std` targets, but provides access to certain additional features on
@@ -494,10 +518,11 @@ screenrecording = ["bevy_dev_tools/screenrecording"]
 schedule_data = ["bevy_dev_tools/schedule_data"]
 
 # Keep feature for bevy-settings as bevy_settings
-bevy_settings = ["bevy-settings"]
+bevy_settings = ["bevy-settings", "bevy_feathers?/bevy_settings"]
 
 [dependencies]
 # bevy (no_std)
+bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev", default-features = false }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
@@ -548,6 +573,7 @@ bevy_curve = { path = "../bevy_curve", optional = true, version = "0.20.0-dev", 
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.20.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.20.0-dev" }
+bevy_bsn = { path = "../bevy_bsn", optional = true, version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.20.0-dev", default-features = false, features = [
   "alloc",
   "bevy_reflect",
@@ -563,6 +589,7 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.20.0-dev"
 bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.20.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.20.0-dev" }
+bevy_inspector = { path = "../bevy_inspector", optional = true, version = "0.20.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.20.0-dev" }
 bevy_shader = { path = "../bevy_shader", optional = true, version = "0.20.0-dev" }
 bevy_material = { path = "../bevy_material", optional = true, version = "0.20.0-dev" }

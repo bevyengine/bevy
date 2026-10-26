@@ -74,8 +74,6 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    warn!(include_str!("warning_string.txt"));
-
     let mut app = App::new();
 
     app.add_plugins((
@@ -91,6 +89,7 @@ fn main() {
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings::continuous())
+    .add_systems(Startup, || warn!(include_str!("warning_string.txt")))
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     if !args.no_camera {
@@ -362,6 +361,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                     Camera2d,
                     Camera {
                         order: (column * args.buttons + row) as isize + 1,
+                        clear_color: ClearColorConfig::None,
                         ..Default::default()
                     },
                 ))

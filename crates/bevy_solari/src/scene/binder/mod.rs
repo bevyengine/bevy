@@ -8,24 +8,29 @@ mod tlas_build;
 
 use self::assets::{AssetState, MAX_TEXTURE_COUNT};
 pub use self::bind_group::prepare_raytracing_scene_bind_group;
-use self::bind_group::BindGroupCacheState;
+use self::bind_group::{BindGroupCacheState, GpuEnvironmentMapLight};
 use self::instances::{
     ChangedInstanceFilter, InstanceInputs, InstanceQueryData, InstanceState, MAX_MESH_SLAB_COUNT,
 };
 use self::lights::LightState;
 use self::tlas::TlasState;
 pub use self::tlas::{build_raytracing_tlas, TlasInstanceSetupPipeline};
-use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d};
-use crate::realtime::SolariLighting;
+use super::{
+    blas::{BlasKey, BlasManager, BlasOpacity},
+    extract::{
+        ExtractedRaytracingDirectionalLight, ExtractedRaytracingPointLight,
+        ExtractedRaytracingRectLight, ExtractedRaytracingSpotLight, StandardMaterialAssets,
+    },
+    RaytracingMesh3d,
+};
 use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
-    query::With,
+    query::Changed,
     resource::Resource,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_pbr::ExtractedDirectionalLight;
 use bevy_render::{
     mesh::allocator::MeshAllocator,
     render_asset::{ExtractedAssets, RenderAssets},
@@ -35,6 +40,14 @@ use bevy_render::{
 };
 use tracing::info_span;
 
+/// Insert this resource into the render world to make the raytracing scene retain the previous
+/// frame's TLAS and the light id translation table that maps into it.
+///
+/// This is useful for temporal techniques that need last frame's data. Retaining it costs a second
+/// TLAS allocation and rebuild, so the scene only does so while something asks for it.
+#[derive(Resource, Default)]
+pub struct RaytracingSceneNeedsPreviousFrameData;
+
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
@@ -42,6 +55,8 @@ pub struct RaytracingSceneBindings {
     assets: AssetState,
     instances: InstanceState,
     lights: LightState,
+    environment_map_light_sampler: Sampler,
+    environment_map_light_buffer: StorageBuffer<GpuEnvironmentMapLight>,
     tlas: TlasState,
     bind_groups: BindGroupCacheState,
 }
@@ -75,14 +90,33 @@ impl FromWorld for RaytracingSceneBindings {
                     storage_buffer_read_only_sized(false, None),
                     storage_buffer_read_only_sized(false, None),
                     storage_buffer_read_only_sized(false, None),
-                    storage_buffer_read_only_sized(false, None),
-                    storage_buffer_read_only_sized(false, None),
-                    storage_buffer_read_only_sized(false, None),
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    texture_cube(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
                 ),
             ),
         );
+
+        let environment_map_light_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("solari_environment_map_light_sampler"),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+
+        let mut environment_map_light_buffer = StorageBuffer::<GpuEnvironmentMapLight>::default();
+        environment_map_light_buffer.set_label(Some("solari_environment_map_light"));
 
         Self {
             bind_group: None,
@@ -90,6 +124,8 @@ impl FromWorld for RaytracingSceneBindings {
             assets: AssetState::new(),
             instances: InstanceState::new(),
             lights: LightState::new(),
+            environment_map_light_sampler,
+            environment_map_light_buffer,
             tlas: TlasState::new(render_device),
             bind_groups: BindGroupCacheState::new(render_device),
         }
@@ -101,8 +137,29 @@ pub fn prepare_raytracing_scene_resources(
     instances: Query<InstanceQueryData>,
     changed_instances: Query<Entity, ChangedInstanceFilter>,
     mut removed_instances: RemovedComponents<RaytracingMesh3d>,
-    directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
-    lighting_views: Query<(), With<SolariLighting>>,
+    (
+        changed_directional_lights,
+        mut removed_directional_lights,
+        changed_point_lights,
+        mut removed_point_lights,
+        changed_spot_lights,
+        mut removed_spot_lights,
+        changed_rect_lights,
+        mut removed_rect_lights,
+    ): (
+        Query<
+            (Entity, &ExtractedRaytracingDirectionalLight),
+            Changed<ExtractedRaytracingDirectionalLight>,
+        >,
+        RemovedComponents<ExtractedRaytracingDirectionalLight>,
+        Query<(Entity, &ExtractedRaytracingPointLight), Changed<ExtractedRaytracingPointLight>>,
+        RemovedComponents<ExtractedRaytracingPointLight>,
+        Query<(Entity, &ExtractedRaytracingSpotLight), Changed<ExtractedRaytracingSpotLight>>,
+        RemovedComponents<ExtractedRaytracingSpotLight>,
+        Query<(Entity, &ExtractedRaytracingRectLight), Changed<ExtractedRaytracingRectLight>>,
+        RemovedComponents<ExtractedRaytracingRectLight>,
+    ),
+    needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
     material_assets: Res<StandardMaterialAssets>,
@@ -115,9 +172,11 @@ pub fn prepare_raytracing_scene_resources(
     mut bindings: ResMut<RaytracingSceneBindings>,
 ) {
     let bindings = &mut *bindings;
+    let needs_previous_frame_data = needs_previous_frame_data.is_some();
 
     // Roll light ids over before any removal or compaction writes this frame's translations
-    bindings.lights.begin_frame(!lighting_views.is_empty());
+    bindings.lights.begin_frame(needs_previous_frame_data);
+    bindings.instances.begin_frame();
 
     // Update material and texture assets
     bindings
@@ -147,7 +206,18 @@ pub fn prepare_raytracing_scene_resources(
     );
 
     // Update the light set, now that emissive instances are resolved
-    bindings.lights.update(&directional_lights);
+    {
+        let _span = info_span!("update_lights").entered();
+        let lights = &mut bindings.lights;
+        lights.update_directional_lights(
+            &changed_directional_lights,
+            removed_directional_lights.read(),
+        );
+        lights.update_point_lights(&changed_point_lights, removed_point_lights.read());
+        lights.update_spot_lights(&changed_spot_lights, removed_spot_lights.read());
+        lights.update_rect_lights(&changed_rect_lights, removed_rect_lights.read());
+        lights.finish_update();
+    }
 
     // Upload the above writes
     write_sparse_buffers(bindings, &render_device, &render_queue);
@@ -163,6 +233,7 @@ pub fn prepare_raytracing_scene_resources(
         &mut bindings.bind_groups,
         &render_device,
         build_ready,
+        needs_previous_frame_data,
     );
 }
 
@@ -176,32 +247,31 @@ fn write_sparse_buffers(
     let _span = info_span!("write_buffers").entered();
 
     let assets = &mut bindings.assets;
-    assets.materials.grow(1);
-    assets.materials.write_buffers(device, queue);
+    assets.materials.write_buffers_non_empty(device, queue);
 
     let instances = &mut bindings.instances;
-    instances.transforms.grow(1);
-    instances.transforms.write_buffers(device, queue);
-    instances.previous_frame_transforms.grow(1);
+    instances.transforms.write_buffers_non_empty(device, queue);
     instances
         .previous_frame_transforms
-        .write_buffers(device, queue);
-    instances.geometry_ids.grow(1);
-    instances.geometry_ids.write_buffers(device, queue);
-    instances.material_ids.grow(1);
-    instances.material_ids.write_buffers(device, queue);
+        .write_buffers_non_empty(device, queue);
+    instances
+        .geometry_ids
+        .write_buffers_non_empty(device, queue);
+    instances
+        .material_ids
+        .write_buffers_non_empty(device, queue);
     if bindings.tlas.uses_raw_build() {
-        instances.blas_refs.grow(1);
-        instances.blas_refs.write_buffers(device, queue);
+        instances.blas_refs.write_buffers_non_empty(device, queue);
     }
 
     let lights = &mut bindings.lights;
-    lights.sources.grow(1);
-    lights.sources.write_buffers(device, queue);
-    lights.directional_lights.grow(1);
-    lights.directional_lights.write_buffers(device, queue);
-    lights.previous_frame_id_translations.grow(1);
+    lights.sources.write_buffers_non_empty(device, queue);
+    lights
+        .directional_lights
+        .write_buffers_non_empty(device, queue);
+    lights.point_lights.write_buffers_non_empty(device, queue);
+    lights.rect_lights.write_buffers_non_empty(device, queue);
     lights
         .previous_frame_id_translations
-        .write_buffers(device, queue);
+        .write_buffers_non_empty(device, queue);
 }
