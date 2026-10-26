@@ -33,13 +33,13 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             let remote_ty = remote.type_path();
             quote! {{
                 let concrete = dynamic.into_concrete()?;
-                let value = <dyn #bevy_reflect_path::Reflect>::downcast::<#remote_ty>(concrete).ok()?;
-                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(*value)
+                let value = <dyn #bevy_reflect_path::Reflect>::take::<#remote_ty>(concrete).ok()?;
+                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(value)
             }}
         }
         None => quote! {{
             let concrete = dynamic.into_concrete()?;
-            *<dyn #bevy_reflect_path::Reflect>::downcast::<#type_path #ty_generics>(concrete).ok()?
+            <dyn #bevy_reflect_path::Reflect>::take::<#type_path #ty_generics>(concrete).ok()?
         }},
     };
 
@@ -90,7 +90,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 let mut #dynamic_value = match #dynamic_value {
                     #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_value) => #dynamic_value,
                     #bevy_reflect_path::dynamic::DynamicValue::Concrete(concrete) => {
-                        return concrete.downcast().ok().map(|v| *v);
+                        return concrete.take().ok();
                     }
                     _ => return #FQOption::None,
                 };
@@ -196,7 +196,7 @@ fn impl_struct_internal(
                 let mut #dynamic_struct = match #dynamic_struct {
                     #bevy_reflect_path::dynamic::DynamicValue::#dynamic_struct_type(#dynamic_struct) => #dynamic_struct,
                     #bevy_reflect_path::dynamic::DynamicValue::Concrete(concrete) => {
-                        return concrete.downcast().ok().map(|v| *v);
+                        return concrete.take().ok();
                     }
                     _ => return #FQOption::None,
                 };

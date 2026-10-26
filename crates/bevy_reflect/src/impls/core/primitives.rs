@@ -527,7 +527,7 @@ impl<T: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration, const N: usiz
     fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
         let dynamic = match dynamic {
             DynamicValue::Array(dynamic) => dynamic,
-            DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+            DynamicValue::Concrete(concrete) => return concrete.take().ok(),
             _ => return None,
         };
 

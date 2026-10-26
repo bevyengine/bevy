@@ -277,7 +277,7 @@ macro_rules! impl_reflect_for_hashmap {
                     let dynamic = match dynamic {
                         $crate::dynamic::DynamicValue::Map(dynamic) => dynamic,
                         $crate::dynamic::DynamicValue::Concrete(concrete) => {
-                            return concrete.downcast().ok().map(|v| *v)
+                            return concrete.take().ok()
                         }
                         _ => return None,
                     };

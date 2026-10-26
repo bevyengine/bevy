@@ -212,7 +212,7 @@ macro_rules! impl_reflect_for_veclike {
                     let dynamic = match dynamic {
                         $crate::dynamic::DynamicValue::List(dynamic) => dynamic,
                         $crate::dynamic::DynamicValue::Concrete(concrete) => {
-                            return concrete.downcast().ok().map(|v| *v)
+                            return concrete.take().ok()
                         }
                         _ => return None,
                     };

@@ -234,7 +234,7 @@ impl<T: FromDynamic + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromD
     fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
         let dynamic = match dynamic {
             DynamicValue::List(dynamic) => dynamic,
-            DynamicValue::Concrete(concrete) => return concrete.downcast().ok().map(|v| *v),
+            DynamicValue::Concrete(concrete) => return concrete.take().ok(),
             _ => return None,
         };
 
