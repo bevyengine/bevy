@@ -93,7 +93,6 @@ impl System for SystemWithAccess {
         unsafe { self.system.run_unsafe(input, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -184,7 +183,6 @@ impl System for ConditionWithAccess {
         unsafe { self.condition.run_unsafe(input, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.condition.refresh_hotpatch();

@@ -1838,6 +1838,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         F: ArchetypeFilter,
     {
         debug_assert!(self.is_dense);
+        // The caller ensures a batch size of at least 1.
+        debug_assert!(batch_size > 0);
 
         // The maximum number of tables we can accumulate before we must flush
         // them into a batch.
@@ -1873,7 +1875,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut accum = init_accum();
                     for (table_id, range) in queue {
                         let table = &tables[table_id];
-                        D::set_table(&mut fetch, &self.fetch_state, table);
+                        D::set_table(&mut fetch, &self.fetch_state, table_id, table);
                         let item = D::fetch_contiguous(
                             &self.fetch_state,
                             &mut fetch,
@@ -1900,10 +1902,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         queue_entity_count = 0;
                     }
 
-                    // Can we include the entire remainder of the table, or do
-                    // we need to split it?
-                    if queue_entity_count + row_count - row_start_offset > batch_size {
-                        // We need to split the table. Push the portion that fits.
+                    // Can the remaining rows fill the batch?
+                    // Submit exact fits too, so the next table cannot add an empty range
+                    // to a full batch.
+                    if queue_entity_count + row_count - row_start_offset >= batch_size {
+                        // Push enough rows to fill the batch.
                         let row_end_offset = row_start_offset + (batch_size - queue_entity_count);
                         batch_queue.push((table_id, row_start_offset..row_end_offset));
                         row_start_offset = row_end_offset;
