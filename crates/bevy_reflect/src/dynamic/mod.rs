@@ -59,8 +59,8 @@ pub enum DynamicValue {
 impl DynamicValue {
     /// Creates a dynamically-typed value equivalent to the provided [`Reflect`].
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if the
-    /// original type does not implement [`Clone`].
+    /// This function first attempts to clone the reflected value, and then falls back to
+    /// dynamically representing the value.
     pub fn try_from_reflect(value: &dyn Reflect) -> Result<Self, ReflectCloneError> {
         let clone_err;
         match value.reflect_clone() {
@@ -79,9 +79,30 @@ impl DynamicValue {
             ReflectRef::Array(value) => Self::Array(DynamicArray::try_from_reflect(value)?),
             ReflectRef::Map(value) => Self::Map(DynamicMap::try_from_reflect(value)?),
             ReflectRef::Set(value) => Self::Set(DynamicSet::try_from_reflect(value)?),
-            ReflectRef::Enum(value) => Self::Enum(DynamicEnum::try_from_ref(value)?),
+            ReflectRef::Enum(value) => Self::Enum(DynamicEnum::try_from_reflect(value)?),
             // We already tried to clone earlier and failed. Just return that error.
             ReflectRef::Opaque(_) => return Err(clone_err),
+        })
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn Reflect) -> Result<Self, ReflectCloneError> {
+        Ok(match value.reflect_ref() {
+            ReflectRef::Struct(value) => Self::Struct(DynamicStruct::try_from_reflect_deep(value)?),
+            ReflectRef::TupleStruct(value) => {
+                Self::TupleStruct(DynamicTupleStruct::try_from_reflect_deep(value)?)
+            }
+            ReflectRef::Tuple(value) => Self::Tuple(DynamicTuple::try_from_reflect_deep(value)?),
+            ReflectRef::List(value) => Self::List(DynamicList::try_from_reflect_deep(value)?),
+            ReflectRef::Array(value) => Self::Array(DynamicArray::try_from_reflect_deep(value)?),
+            ReflectRef::Map(value) => Self::Map(DynamicMap::try_from_reflect_deep(value)?),
+            // Sets don't impl try_from_reflect_deep on purpose.
+            ReflectRef::Set(value) => Self::Set(DynamicSet::try_from_reflect(value)?),
+            ReflectRef::Enum(value) => Self::Enum(DynamicEnum::try_from_reflect_deep(value)?),
+            ReflectRef::Opaque(value) => Self::Concrete(value.reflect_clone()?),
         })
     }
 
@@ -908,15 +929,30 @@ pub struct DynamicStruct {
 impl DynamicStruct {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
     pub fn try_from_reflect(value: &dyn Struct) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn Struct) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
+    }
+
+    fn try_from_reflect_internal(
+        value: &dyn Struct,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
         let mut fields = Vec::with_capacity(value.field_len());
         let mut field_names = Vec::with_capacity(value.field_len());
         let mut field_indices = HashMap::new();
         for (index, (name, value)) in value.iter_fields().enumerate() {
-            fields.push(DynamicValue::try_from_reflect(value)?);
+            fields.push(clone(value)?);
             field_names.push(name.to_string().into());
             field_indices.insert(name.to_string().into(), index);
         }
@@ -1185,14 +1221,29 @@ pub struct DynamicTupleStruct {
 impl DynamicTupleStruct {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
     pub fn try_from_reflect(value: &dyn TupleStruct) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn TupleStruct) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
+    }
+
+    fn try_from_reflect_internal(
+        value: &dyn TupleStruct,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
 
         let mut fields = Vec::with_capacity(value.field_len());
         for field in value.iter_fields() {
-            fields.push(DynamicValue::try_from_reflect(field)?);
+            fields.push(clone(field)?);
         }
 
         Ok(Self {
@@ -1347,14 +1398,29 @@ pub struct DynamicTuple {
 impl DynamicTuple {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
     pub fn try_from_reflect(value: &dyn Tuple) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn Tuple) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
+    }
+
+    fn try_from_reflect_internal(
+        value: &dyn Tuple,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
 
         let mut fields = Vec::with_capacity(value.field_len());
         for field in value.iter_fields() {
-            fields.push(DynamicValue::try_from_reflect(field)?);
+            fields.push(clone(field)?);
         }
 
         Ok(Self {
@@ -1500,14 +1566,29 @@ pub struct DynamicList {
 impl DynamicList {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
     pub fn try_from_reflect(value: &dyn List) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn List) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
+    }
+
+    fn try_from_reflect_internal(
+        value: &dyn List,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
 
         let mut values = Vec::with_capacity(value.len());
         for value in value.iter() {
-            values.push(DynamicValue::try_from_reflect(value)?);
+            values.push(clone(value)?);
         }
 
         Ok(Self {
@@ -1694,14 +1775,29 @@ pub struct DynamicArray {
 impl DynamicArray {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
     pub fn try_from_reflect(value: &dyn Array) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn Array) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
+    }
+
+    fn try_from_reflect_internal(
+        value: &dyn Array,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
 
         let mut values = Vec::with_capacity(value.len());
         for value in value.iter() {
-            values.push(DynamicValue::try_from_reflect(value)?);
+            values.push(clone(value)?);
         }
 
         Ok(Self {
@@ -1872,19 +1968,35 @@ pub struct DynamicMap {
 impl DynamicMap {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
     pub fn try_from_reflect(value: &dyn Map) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
+    }
+
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
+    ///
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn Map) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
+    }
+
+    fn try_from_reflect_internal(
+        value: &dyn Map,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
 
         Ok(Self {
             represented_type,
-            hash_table: Self::create_hash_table_from_iter(value.iter().map(|(key, value)| {
-                Ok((
-                    DynamicValue::try_from_reflect(key)?,
-                    DynamicValue::try_from_reflect(value)?,
-                ))
-            }))?,
+            hash_table: Self::create_hash_table_from_iter(
+                value
+                    .iter()
+                    // Keys should always prefer being cloned, since their concrete value affects
+                    // the hash and eq implementations used.
+                    .map(|(key, value)| Ok((DynamicValue::try_from_reflect(key)?, clone(value)?))),
+            )?,
         })
     }
 
@@ -2144,8 +2256,10 @@ pub struct DynamicSet {
 impl DynamicSet {
     /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This function clones opaque fields out of the original `value`, which can fail if a field
-    /// does not implement [`Clone`].
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
+    // Note: we don't have a deep variant, since the hash and eq implementations depend on the
+    // concrete values.
     pub fn try_from_reflect(value: &dyn Set) -> Result<Self, ReflectCloneError> {
         let represented_type = Some(value.reflect_type_info());
 

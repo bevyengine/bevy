@@ -91,13 +91,13 @@ mod tests {
     fn dynamic_enum_should_set_variant_fields() {
         // === Unit === //
         let mut value = MyEnum::A;
-        let dyn_enum = DynamicEnum::try_from(MyEnum::A).unwrap();
+        let dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::A).unwrap();
         dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::A, value);
 
         // === Tuple === //
         let mut value = MyEnum::B(0, 0);
-        let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
+        let dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::B(123, 321)).unwrap();
         dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
@@ -106,7 +106,7 @@ mod tests {
             foo: 0.0,
             bar: false,
         };
-        let dyn_enum = DynamicEnum::try_from(MyEnum::C {
+        let dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::C {
             foo: 1.23,
             bar: true,
         })
@@ -160,7 +160,7 @@ mod tests {
         let mut value = MyEnum::A;
 
         // === MyEnum::A -> MyEnum::B === //
-        let mut dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
+        let mut dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::B(123, 321)).unwrap();
         dyn_enum
             .dynamic_clone()
             .unwrap()

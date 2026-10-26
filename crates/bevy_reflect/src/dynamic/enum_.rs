@@ -5,7 +5,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::{
     dynamic::{DynamicStruct, DynamicTuple, DynamicValue, DynamicValueRef},
     enums::{Enum, EnumInfo, VariantType},
-    ApplyError, DynamicTypePath, ReflectCloneError, TypeInfo,
+    ApplyError, DynamicTypePath, Reflect, ReflectCloneError, TypeInfo,
 };
 
 use alloc::{format, string::String};
@@ -173,45 +173,26 @@ impl DynamicEnum {
         &mut self.variant
     }
 
-    /// Create a [`DynamicEnum`] from an existing one.
+    /// Creates an equivalent dynamic representation of `value`.
     ///
-    /// This is functionally the same as [`DynamicEnum::from_ref`] except it takes an owned value.
-    #[deprecated(
-        since = "0.20.0",
-        note = "Use `DynamicEnum::try_from` instead, which returns a Result."
-    )]
-    pub fn from<TEnum: Enum>(value: TEnum) -> Self {
-        Self::try_from(value).unwrap()
+    /// This function first attempts to clone the reflected fields/values, and then falls back to
+    /// dynamically representing the field/value.
+    pub fn try_from_reflect(value: &dyn Enum) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect)
     }
 
-    /// Create a [`DynamicEnum`] from an existing one.
+    /// Creates a "deep" dynamically-typed value equivalent to the provided [`Reflect`].
     ///
-    /// This is functionally the same as [`DynamicEnum::try_from_ref`] except it takes an owned value.
-    ///
-    /// Returns an error if any field of the active variant cannot be converted via
-    /// [`Reflect::to_dynamic`].
-    pub fn try_from<TEnum: Enum>(value: TEnum) -> Result<Self, ReflectCloneError> {
-        Self::try_from_ref(&value)
+    /// Unlike [`Self::try_from_reflect`], this function only attempts to clone opaque values,
+    /// representing all "composite" types dynamically.
+    pub fn try_from_reflect_deep(value: &dyn Enum) -> Result<Self, ReflectCloneError> {
+        Self::try_from_reflect_internal(value, DynamicValue::try_from_reflect_deep)
     }
 
-    /// Create a [`DynamicEnum`] from an existing one.
-    ///
-    /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
-    #[deprecated(
-        since = "0.20.0",
-        note = "Use `DynamicEnum::try_from_ref` instead, which returns a Result."
-    )]
-    pub fn from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Self {
-        Self::try_from_ref(value).unwrap()
-    }
-
-    /// Create a [`DynamicEnum`] from an existing one.
-    ///
-    /// This is functionally the same as [`DynamicEnum::try_from`] except it takes a reference.
-    ///
-    /// Returns an error if any field of the active variant cannot be converted via
-    /// [`Reflect::to_dynamic`].
-    pub fn try_from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Result<Self, ReflectCloneError> {
+    fn try_from_reflect_internal(
+        value: &dyn Enum,
+        mut clone: impl FnMut(&dyn Reflect) -> Result<DynamicValue, ReflectCloneError>,
+    ) -> Result<Self, ReflectCloneError> {
         let type_info = value.reflect_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
@@ -222,7 +203,7 @@ impl DynamicEnum {
             VariantType::Tuple => {
                 let mut data = DynamicTuple::default();
                 for field in value.iter_fields() {
-                    data.insert(DynamicValue::try_from_reflect(field.value())?);
+                    data.insert(clone(field.value())?);
                 }
                 DynamicEnum::new_with_index(
                     value.variant_index(),
@@ -234,7 +215,7 @@ impl DynamicEnum {
                 let mut data = DynamicStruct::default();
                 for field in value.iter_fields() {
                     let name = field.name().unwrap();
-                    data.insert(name, DynamicValue::try_from_reflect(field.value())?);
+                    data.insert(name, clone(field.value())?);
                 }
                 DynamicEnum::new_with_index(
                     value.variant_index(),

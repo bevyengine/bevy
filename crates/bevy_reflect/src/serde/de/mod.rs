@@ -446,7 +446,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::Unit).unwrap();
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::Unit).unwrap();
         assert!(
             DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
         );
@@ -459,7 +459,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::NewType(123)).unwrap();
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::NewType(123)).unwrap();
         assert!(
             DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
         );
@@ -472,7 +472,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::Tuple(1.23, 3.21)).unwrap();
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::Tuple(1.23, 3.21)).unwrap();
         assert!(
             DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
         );
@@ -487,7 +487,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::Struct {
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::Struct {
             value: String::from("I <3 Enums"),
         })
         .unwrap();
