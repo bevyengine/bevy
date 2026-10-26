@@ -223,8 +223,7 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     }
 
     fn place_most_recent(&mut self, index: usize) {
-        if !self.is_empty() {
-            let index = index.min(self.len() - 1);
+        if index < self.len() {
             self[index..].rotate_right(1);
         }
     }
@@ -353,8 +352,7 @@ impl OrderedRelationshipSourceCollection for UniqueEntityVec {
     }
 
     fn place_most_recent(&mut self, index: usize) {
-        if !self.is_empty() {
-            let index = index.min(self.len() - 1);
+        if index < self.len() {
             self[index..].rotate_right(1);
         }
     }
