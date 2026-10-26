@@ -127,7 +127,7 @@ impl<'a> TypeSchema<'a> {
     /// come after the indexed ones, sorted by name.
     ///
     /// A newtype, whose schema is a `$ref` to its inner type, has a single field `0` that
-    /// carries the newtype's annotations.
+    /// carries the newtype's annotations, merged from its type and field annotations.
     pub fn fields(&self) -> impl Iterator<Item = SchemaField<'a>> + use<'a> {
         let fields = match (&self.schema.kind, &self.schema.reference) {
             (SchemaKind::Struct, _) => self.registry.named_fields(self.schema.properties.iter()),
@@ -564,10 +564,9 @@ mod tests {
         let labeled = index.get(Labeled::type_path()).unwrap();
         let field = labeled.fields().next().unwrap();
         assert_eq!(field.ty.unwrap().type_path(), Inner::type_path());
-        assert_eq!(
-            field.annotations.and_then(|a| a.tooltip),
-            Some("Newtype tooltip".to_owned())
-        );
+        let annotations = field.annotations.unwrap();
+        assert_eq!(annotations.tooltip.as_deref(), Some("Newtype tooltip"));
+        assert_eq!(annotations.unit.as_deref(), Some("m"));
     }
 
     #[test]

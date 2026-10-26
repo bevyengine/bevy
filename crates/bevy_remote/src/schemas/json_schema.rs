@@ -92,15 +92,6 @@ fn with_annotations(mut schema: Value, annotations: Option<SchemaAnnotations>) -
     schema
 }
 
-/// Annotations from `primary`, or from `fallback` when `primary` has none.
-fn annotations_or(
-    primary: &CustomAttributes,
-    fallback: &CustomAttributes,
-) -> Option<SchemaAnnotations> {
-    SchemaAnnotations::from_attributes(primary)
-        .or_else(|| SchemaAnnotations::from_attributes(fallback))
-}
-
 /// Schema of an enum variant that serializes as `{"<name>": value}`.
 fn variant_wrapper(name: &str, value: Value) -> Value {
     json!({
@@ -174,13 +165,16 @@ impl
                 relationship_kind,
             }
         });
+        let serialization_data = reg.data::<SerializationData>();
+        let is_serialized =
+            |index: usize| !serialization_data.is_some_and(|data| data.is_field_skipped(index));
         let is_newtype = matches!(t, TypeInfo::TupleStruct(info) if info.field_len() == 1)
-            && reg.data::<SerializationData>().is_none();
+            && serialization_data.is_none();
         typed_schema.set_annotations(match t {
             TypeInfo::Struct(info) => SchemaAnnotations::from_attributes(info.custom_attributes()),
-            TypeInfo::TupleStruct(info) if is_newtype => annotations_or(
-                info.custom_attributes(),
-                info.field_at(0).unwrap().custom_attributes(),
+            TypeInfo::TupleStruct(info) if is_newtype => SchemaAnnotations::merged(
+                SchemaAnnotations::from_attributes(info.custom_attributes()),
+                SchemaAnnotations::from_attributes(info.field_at(0).unwrap().custom_attributes()),
             ),
             TypeInfo::TupleStruct(info) => {
                 SchemaAnnotations::from_attributes(info.custom_attributes())
@@ -193,12 +187,17 @@ impl
                 typed_schema.properties = info
                     .iter()
                     .enumerate()
+                    .filter(|(index, _)| is_serialized(*index))
                     .map(|(index, field)| (field.name().to_owned(), field.property(index)))
                     .collect();
                 typed_schema.required = info
                     .iter()
-                    .filter(|field| !field.type_path().starts_with("core::option::Option"))
-                    .map(|f| f.name().to_owned())
+                    .enumerate()
+                    .filter(|(index, field)| {
+                        is_serialized(*index)
+                            && !field.type_path().starts_with("core::option::Option")
+                    })
+                    .map(|(_, field)| field.name().to_owned())
                     .collect::<Vec<_>>();
                 typed_schema.additional_properties = Some(false.into());
                 typed_schema.schema_type = Some(SchemaType::Object);
@@ -222,7 +221,9 @@ impl
                         let (schema, kind) = match variant {
                             VariantInfo::Unit(_) if is_option => (json!({ "type": "null" }), None),
                             VariantInfo::Tuple(v) if is_option => {
-                                (v.field_at(0).unwrap().ref_type(), Some("Tuple"))
+                                let mut schema = v.field_at(0).unwrap().ref_type();
+                                schema["not"] = json!({ "type": "null" });
+                                (schema, Some("Tuple"))
                             }
                             VariantInfo::Unit(_) => (json!({ "const": name }), None),
                             VariantInfo::Struct(v) => (
@@ -292,7 +293,9 @@ impl
                 typed_schema.kind = SchemaKind::TupleStruct;
                 typed_schema.prefix_items = info
                     .iter()
-                    .map(SchemaJsonReference::ref_type)
+                    .enumerate()
+                    .filter(|(index, _)| is_serialized(*index))
+                    .map(|(_, field)| field.ref_type())
                     .collect::<Vec<_>>();
                 typed_schema.items = Some(false.into());
             }
@@ -377,6 +380,7 @@ pub struct JsonSchemaBevyType {
     ///
     /// `None` when the schema is a [`reference`](Self::reference) or the value can take more
     /// than one JSON type, as with `Option<T>`.
+    /// Also `None` for opaque types with custom serialization, such as `Entity` or `Duration`.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none", default)]
     pub schema_type: Option<SchemaType>,
     /// A reference to the schema of another type that this type serializes as,
@@ -515,6 +519,22 @@ impl SchemaAnnotations {
                 .map(|name| name.0.to_owned()),
         };
         (annotations != Self::default()).then_some(annotations)
+    }
+
+    /// Merges `primary` and `fallback` per key, preferring `primary` where both are set.
+    pub fn merged(primary: Option<Self>, fallback: Option<Self>) -> Option<Self> {
+        let (primary, fallback) = match (primary, fallback) {
+            (Some(primary), Some(fallback)) => (primary, fallback),
+            (primary, fallback) => return primary.or(fallback),
+        };
+        Some(Self {
+            range: primary.range.or(fallback.range),
+            step: primary.step.or(fallback.step),
+            unit: primary.unit.or(fallback.unit),
+            read_only: primary.read_only || fallback.read_only,
+            tooltip: primary.tooltip.or(fallback.tooltip),
+            display_name: primary.display_name.or(fallback.display_name),
+        })
     }
 }
 
@@ -1321,6 +1341,7 @@ mod tests {
         });
         assert_eq!(value, json!({ "kept": 1.0 }));
         assert_eq!(schema["required"], json!(["kept"]));
+        assert!(schema["properties"].get("skipped").is_none());
     }
 
     #[test]
@@ -1515,6 +1536,7 @@ mod tests {
                 },
                 {
                     "$ref": "#/f32",
+                    "not": { "type": "null" },
                     "kind": "Tuple",
                     "typePath": "core::option::Option<f32>::Some",
                     "shortPath": "Some",

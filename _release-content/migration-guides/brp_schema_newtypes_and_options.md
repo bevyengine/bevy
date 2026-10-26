@@ -7,8 +7,9 @@ pull_requests: [26308]
 
 - Tuple structs with exactly one field (and no skipped fields) serialize as their bare inner value.
   Their schema keeps `kind: "TupleStruct"`, but has a `$ref` to the inner type instead of `type: "array"`, `prefixItems` and `items`.
+- Fields marked `#[reflect(skip_serializing)]` are no longer listed in `properties`, `required` or `prefixItems`.
 - `Option<T>` serializes as the inner value or `null`.
-  Its schema has no top-level `type`, its `None` entry in `oneOf` has `type: "null"`, and its `Some` entry has a `$ref` to `T`.
+  Its schema has no top-level `type`, its `None` entry in `oneOf` has `type: "null"`, and its `Some` entry has a `$ref` to `T` and `not: {"type": "null"}`.
 - Enum variants with data serialize as `{"Variant": value}`.
   Each such entry in `oneOf` is now an object schema with a single required `Variant` property.
   The variant's fields moved into that property: struct variant fields are under `properties.<Variant>.properties`, tuple variant items under `properties.<Variant>.prefixItems`, and a single-field tuple variant is a `$ref` to the field type.
