@@ -438,10 +438,12 @@ pub struct JsonSchemaBevyType {
     /// array elements have been evaluated against this keyword's subschema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub items: Option<Value>,
-    /// The minimum number of items in an array instance.
+    /// The minimum number of items in an array-like value: a tuple, tuple struct,
+    /// tuple variant or fixed-size array.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub min_items: Option<usize>,
-    /// The maximum number of items in an array instance.
+    /// The maximum number of items in an array-like value: a tuple, tuple struct,
+    /// tuple variant or fixed-size array.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_items: Option<usize>,
     /// The default value of the type, serialized the same way as BRP component values.
