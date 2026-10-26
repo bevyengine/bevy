@@ -45,7 +45,7 @@ impl NodePaintLayer {
 }
 
 /// List of the local Z layers for node.
-/// UI elements are drawn in the order of this list, back-to-front.
+/// Layers are painted in list order, so each layer appears on top of the layers before it.
 /// If the label for a builtin renderable element from `NodePlayerLayer` isn't present, that
 /// element won't be drawn.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
@@ -54,7 +54,11 @@ pub struct PaintOrder(pub IndexSet<Interned<dyn PaintLayer>>);
 
 impl<P: PaintLayer> FromIterator<P> for PaintOrder {
     fn from_iter<I: IntoIterator<Item = P>>(layers: I) -> Self {
-        Self(layers.into_iter().map(|layer| layer.intern()).collect())
+        let mut paint_order = Self(IndexSet::new());
+        for layer in layers {
+            paint_order.insert_top(layer.intern());
+        }
+        paint_order
     }
 }
 
@@ -113,6 +117,18 @@ impl PaintOrder {
         let index = self.get_layer_index(existing_layer.intern())?;
         self.0.insert_before(index + 1, new_layer.intern());
         Ok(())
+    }
+
+    /// Adds a layer at the end of the list. It will be painted last, above everything else.
+    /// If the layer is already present, it is moved.
+    pub fn insert_top(&mut self, layer: impl PaintLayer) {
+        self.0.insert_before(self.len(), layer.intern());
+    }
+
+    /// Adds a layer at the start of the list. It will be painted first, behind everything else.
+    /// If the layer is already present, it is moved.
+    pub fn insert_bottom(&mut self, layer: impl PaintLayer) {
+        self.0.insert_before(0, layer.intern());
     }
 
     /// Removes a layer, preserving the order of the remaining layers.
