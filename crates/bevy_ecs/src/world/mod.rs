@@ -1340,7 +1340,17 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        self.get_entity(entity).ok()?.get()
+        let location = self.entities().get_spawned_location(entity)?;
+        // SAFETY:
+        // - `location` is the location of `entity`
+        // - `&self` gives read access to every component, and no mutable reference to one can exist
+        unsafe {
+            unsafe_world_cell::get_component_typed(
+                self.as_unsafe_world_cell_readonly(),
+                entity,
+                location,
+            )
+        }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -1364,7 +1374,23 @@ impl World {
         &mut self,
         entity: Entity,
     ) -> Option<Mut<'_, T>> {
-        self.get_entity_mut(entity).ok()?.into_mut()
+        let location = self.entities().get_spawned_location(entity)?;
+        let last_run = self.last_change_tick();
+        let this_run = self.change_tick();
+        // SAFETY:
+        // - `location` is the location of `entity`
+        // - `&mut self` gives mutable access to every component, and no other reference to one
+        //   can exist
+        // - `T` is mutable
+        unsafe {
+            unsafe_world_cell::get_component_mut_typed(
+                self.as_unsafe_world_cell(),
+                entity,
+                location,
+                last_run,
+                this_run,
+            )
+        }
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and

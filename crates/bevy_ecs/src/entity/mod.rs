@@ -930,6 +930,20 @@ impl Entities {
             ))
     }
 
+    /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid and spawned. Returns `None`
+    /// both for an entity that is invalid and for one that is valid but not spawned
+    ///
+    /// For an index without a meta, it returns `None` right away, so it does not need
+    /// `EntityMeta::FRESH`.
+    #[inline]
+    pub fn get_spawned_location(&self, entity: Entity) -> Option<EntityLocation> {
+        let meta = self.meta.get(entity.index_u32() as usize)?;
+        if entity.generation() != meta.generation {
+            return None;
+        }
+        meta.location
+    }
+
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid.
     /// The location will be `None` if the entity is not spawned.
     /// If you expect the entity to be spawned, use [`get_spawned`](Self::get_spawned).

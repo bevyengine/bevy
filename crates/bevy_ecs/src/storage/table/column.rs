@@ -1,5 +1,7 @@
 use crate::{
-    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    change_detection::{
+        AtomicTick, CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick,
+    },
     component::ComponentInfo,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr, TableRow},
 };
@@ -482,6 +484,24 @@ impl Column {
         ComponentTicks {
             added: self.added_ticks.get_unchecked(row.index()).read(),
             changed: self.changed_ticks.get_unchecked(row.index()).read(),
+        }
+    }
+
+    /// Fetches the [`ComponentTickCells`] for the value at `row`.
+    /// This function does not do any bounds checking.
+    ///
+    /// # Safety
+    /// `row` must be within the range `[0, self.len())`.
+    #[inline]
+    pub(crate) unsafe fn get_tick_cells_unchecked(&self, row: TableRow) -> ComponentTickCells<'_> {
+        // SAFETY: Upheld by caller
+        unsafe {
+            ComponentTickCells {
+                added: self.get_added_tick_unchecked(row),
+                changed: self.get_changed_tick_unchecked(row),
+                changed_by: self.get_changed_by_unchecked(row),
+                summary_tick: self.get_summary_tick(),
+            }
         }
     }
 
