@@ -192,6 +192,7 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_gpu_resource::<LinearSampler>()
                 .init_gpu_resource::<MeshCullingDataBuffer>()
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
@@ -883,12 +884,12 @@ impl_atomic_pod!(
     field(
         material_bindings_index: MaterialBindingId,
         material_bindings_index,
-        set_material_bindings_index
+        set_material_bindings_index,
     ),
     field(
         lightmap_slab_index: LightmapSlabIndexFlat,
         lightmap_slab_index_flat,
-        set_lightmap_slab_index_flat
+        set_lightmap_slab_index_flat,
     ),
     field(tag: u32, tag, set_tag),
     field(flags: RenderMeshInstanceFlags, flags, set_flags),

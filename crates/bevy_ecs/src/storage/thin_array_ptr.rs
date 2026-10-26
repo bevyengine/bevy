@@ -1,4 +1,3 @@
-use crate::query::DebugCheckedUnwrap;
 use alloc::alloc::{alloc, handle_alloc_error, realloc};
 use core::{
     alloc::Layout,
@@ -102,7 +101,7 @@ impl<T> ThinArrayPtr<T> {
                 realloc(
                     self.data.cast().as_ptr(),
                     // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
-                    Layout::array::<T>(current_capacity.get()).debug_checked_unwrap(),
+                    Layout::array::<T>(current_capacity.get()).unwrap_unchecked(),
                     new_layout.size(),
                 )
             })
@@ -189,7 +188,7 @@ impl<T> ThinArrayPtr<T> {
         unsafe {
             ptr.as_ref()
                 // SAFETY: We can use `unwrap_unchecked` because the pointer isn't null)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 

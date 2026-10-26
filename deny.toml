@@ -4,6 +4,13 @@ all-features = true
 [advisories]
 version = 2
 ignore = [
+  # zvariant, zbus_names, and zvariant_derive were merged into zbus 6.
+  # Ignore their unmaintained advisories until AccessKit and AT-SPI migrate.
+  # See: https://github.com/z-galaxy/zbus/issues/2043
+  # https://github.com/AccessKit/accesskit/pull/834
+  "RUSTSEC-2026-0370",
+  "RUSTSEC-2026-0371",
+  "RUSTSEC-2026-0372",
   # quick-xml advisory is low priority, and will be resolved
   # whenever the accesskit and winit dependencies
   # are updated with the fix.
