@@ -153,10 +153,10 @@ impl Plugin for InspectorPlugin {
                 (
                     connection_panel::init_address_input,
                     connection_panel::sync_connection_status,
-                    remote::stepping::sync_stepping_controls,
+                    remote::stepping::sync_stepping_controls
+                        .after(remote::stepping::poll_remote_stepping),
                 )
                     .after(remote::poll_remote_connection)
-                    .after(remote::stepping::poll_remote_stepping)
                     .before(UiSystems::Prepare),
             );
     }
