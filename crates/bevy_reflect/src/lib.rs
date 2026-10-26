@@ -3688,7 +3688,7 @@ bevy_reflect::tests::Test {
         #[reflect_remote(external_crate::TheirType)]
         #[derive(Clone, Debug, Default)]
         #[reflect(opaque)]
-        #[reflect(Debug, Default)]
+        #[reflect(Clone, Debug, Default)]
         struct MyType {
             pub value: String,
         }
