@@ -80,7 +80,7 @@ impl PaintOrder {
     pub fn get_layer_index(&self, layer: impl PaintLayer) -> Result<usize, PaintLayerError> {
         let layer = layer.intern();
         self.get_index_of(&layer)
-            .ok_or(PaintLayerError::UnrecognisedLayer(layer))
+            .ok_or(PaintLayerError::UnrecognizedLayer(layer))
     }
 
     /// Returns the z-offset corresponding to the given paint layer.
@@ -140,7 +140,7 @@ impl PaintOrder {
 
 #[derive(Debug)]
 pub enum PaintLayerError {
-    UnrecognisedLayer(Interned<dyn PaintLayer>),
+    UnrecognizedLayer(Interned<dyn PaintLayer>),
 }
 
 #[cfg(test)]
