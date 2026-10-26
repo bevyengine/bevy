@@ -1220,12 +1220,12 @@ mod test {
         let reflect = reflect_from_ptr.arc_as_reflect(any).unwrap();
 
         // We can use reflection to access the "a" field.
-        match reflect.reflect_ref() {
+        match reflect.deref().reflect_ref() {
             crate::ReflectRef::Struct(strukt) => {
                 let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
                 assert_eq!(*a, 1.0);
             }
-            _ => panic!("unexpected meta-type"),
+            r => panic!("unexpected meta-type: {}", r.kind()),
         }
     }
 

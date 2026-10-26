@@ -922,7 +922,7 @@ mod tests {
 
         let array_src = [8, 0, 8];
 
-        let result = DynamicValue::try_from_reflect(&enum_target)
+        let result = DynamicValue::try_from_reflect_deep(&enum_target)
             .unwrap()
             .try_apply(&mut struct_target);
         assert!(
@@ -936,7 +936,7 @@ mod tests {
             "result was {result:?}"
         );
 
-        let result = DynamicValue::try_from_reflect(&array_src)
+        let result = DynamicValue::try_from_reflect_deep(&array_src)
             .unwrap()
             .try_apply(&mut enum_target);
         assert!(
@@ -1789,16 +1789,16 @@ mod tests {
         // There's no difference between the reflected data of these enum variants - they are named
         // the same, so we are able to convert them.
         assert_eq!(
-            A::from_dynamic(DynamicValue::try_from_reflect(&B::Hot).unwrap()),
+            A::from_dynamic(DynamicValue::try_from_reflect_deep(&B::Hot).unwrap()),
             Some(A::Hot)
         );
         assert_eq!(
-            A::from_dynamic(DynamicValue::try_from_reflect(&B::Cold).unwrap()),
+            A::from_dynamic(DynamicValue::try_from_reflect_deep(&B::Cold).unwrap()),
             Some(A::Cold)
         );
         // This variant doesn't exist in `A`, so it should not be converted.
         assert_eq!(
-            A::from_dynamic(DynamicValue::try_from_reflect(&B::Warm).unwrap()),
+            A::from_dynamic(DynamicValue::try_from_reflect_deep(&B::Warm).unwrap()),
             None
         );
     }
@@ -4288,7 +4288,7 @@ bevy_reflect::tests::Test {
 
             let mut result = Quat::default();
 
-            result.apply(dynamic_struct.as_partial_reflect());
+            dynamic_struct.try_apply(&mut result).unwrap();
 
             assert_eq!(result, quat(1.0, 2.0, 3.0, 4.0));
         }
@@ -4337,7 +4337,7 @@ bevy_reflect::tests::Test {
 
             let mut result = Vec3::default();
 
-            result.apply(dynamic_struct.as_partial_reflect());
+            dynamic_struct.try_apply(&mut result).unwrap();
 
             assert_eq!(result, vec3(12.0, 3.0, -6.9));
         }
@@ -4358,16 +4358,13 @@ bevy_reflect::tests::Test {
             let mut v = vec3(1.0, 2.0, 3.0);
 
             assert_eq!(
-                *v.reflect_path("x")
-                    .unwrap()
-                    .try_downcast_ref::<f32>()
-                    .unwrap(),
+                *v.reflect_path("x").unwrap().downcast_ref::<f32>().unwrap(),
                 1.0
             );
 
             *v.reflect_path_mut("y")
                 .unwrap()
-                .try_downcast_mut::<f32>()
+                .downcast_mut::<f32>()
                 .unwrap() = 6.0;
 
             assert_eq!(v.y, 6.0);
@@ -4382,7 +4379,7 @@ bevy_reflect::tests::Test {
             d.insert("y", 2.0f32);
             d.insert("z", 1.0f32);
 
-            v.apply(&d);
+            d.try_apply(&mut v).unwrap();
 
             assert_eq!(v, vec3(4.0, 2.0, 1.0));
         }

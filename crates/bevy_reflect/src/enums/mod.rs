@@ -319,7 +319,7 @@ mod tests {
         let mut target = MyEnumAnalogue::A(0);
 
         // === Tuple === //
-        let result = DynamicValue::try_from_reflect(&MyEnum::B(0, 1))
+        let result = DynamicValue::try_from_reflect_deep(&MyEnum::B(0, 1))
             .unwrap()
             .try_apply(&mut target);
         assert!(
@@ -329,7 +329,7 @@ mod tests {
 
         // === Struct === //
         target = MyEnumAnalogue::C { foo: 0.0, bar: 1 };
-        let result = DynamicValue::try_from_reflect(&MyEnum::C {
+        let result = DynamicValue::try_from_reflect_deep(&MyEnum::C {
             foo: 1.0,
             bar: true,
         })
