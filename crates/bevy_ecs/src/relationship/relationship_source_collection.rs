@@ -223,18 +223,25 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     }
 
     fn place_most_recent(&mut self, index: usize) {
-        if let Some(entity) = self.pop() {
-            let index = index.min(self.len());
-            self.insert(index, entity);
+        if !self.is_empty() {
+            let index = index.min(self.len() - 1);
+            self[index..].rotate_left(1);
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            Vec::remove(self, current);
-            let index = index.min(self.len());
-            self.insert(index, entity);
-        };
+            // We cannot insert in a position bigger than the last element.
+            // We know that `self` contains `entity` so `self.len()` must be at least 1 thus
+            // `self.len() - 1` cannot overflow.
+            let index = index.min(self.len() - 1);
+
+            match index.cmp(&current) {
+                Ordering::Less => self[index..=current].rotate_right(1),
+                Ordering::Greater => self[current..=index].rotate_left(1),
+                Ordering::Equal => {}
+            }
+        }
     }
 }
 
