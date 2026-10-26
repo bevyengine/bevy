@@ -27,23 +27,21 @@ pub enum NodePaintLayers {
 }
 
 impl NodePaintLayers {
-    /// Returns a list of all the builtin paint layers in their default paint order.
-    pub fn all() -> [Self; 12] {
-        [
-            NodePaintLayers::BoxShadow,
-            NodePaintLayers::BackgroundColor,
-            NodePaintLayers::Border,
-            NodePaintLayers::Gradient,
-            NodePaintLayers::BorderGradient,
-            NodePaintLayers::Image,
-            NodePaintLayers::Material,
-            NodePaintLayers::TextSelection,
-            NodePaintLayers::Text,
-            NodePaintLayers::TextStrikethrough,
-            NodePaintLayers::TextCursor,
-            NodePaintLayers::InlineImage,
-        ]
-    }
+    // The builtin paint layers in their default paint order.
+    pub const ALL: [Self; 12] = [
+        NodePaintLayers::BoxShadow,
+        NodePaintLayers::BackgroundColor,
+        NodePaintLayers::Border,
+        NodePaintLayers::Gradient,
+        NodePaintLayers::BorderGradient,
+        NodePaintLayers::Image,
+        NodePaintLayers::Material,
+        NodePaintLayers::TextSelection,
+        NodePaintLayers::Text,
+        NodePaintLayers::TextStrikethrough,
+        NodePaintLayers::TextCursor,
+        NodePaintLayers::InlineImage,
+    ];
 }
 
 /// List of the local Z layers for node.
@@ -54,15 +52,21 @@ impl NodePaintLayers {
 #[extract_app(RenderApp)]
 pub struct PaintOrder(pub IndexSet<Interned<dyn PaintLayer>>);
 
-impl<'a, P: PaintLayer, I: IntoIterator<Item = &'a P>> From<I> for PaintOrder {
-    fn from(layers: I) -> Self {
+impl<P: PaintLayer> FromIterator<P> for PaintOrder {
+    fn from_iter<I: IntoIterator<Item = P>>(layers: I) -> Self {
         Self(layers.into_iter().map(|layer| layer.intern()).collect())
+    }
+}
+
+impl<P: PaintLayer, const N: usize> From<[P; N]> for PaintOrder {
+    fn from(layers: [P; N]) -> Self {
+        Self::from_iter(layers)
     }
 }
 
 impl Default for PaintOrder {
     fn default() -> Self {
-        Self::from(NodePaintLayers::all().iter())
+        Self::from(NodePaintLayers::ALL)
     }
 }
 
@@ -85,27 +89,29 @@ impl PaintOrder {
             .map(|index| index as f32 / self.len() as f32)
     }
 
-    /// Insert a new layer immediately before the given layer.
+    /// Inserts a layer immediately before an existing layer.
+    /// If the inserted layer already exists in the `PaintOrder`, it is moved.
     /// Returns an error if the before label isn't present in the list of layers.
-    pub fn insert_before(
+    pub fn insert_before_layer(
         &mut self,
         existing_layer: impl PaintLayer,
         new_layer: impl PaintLayer,
     ) -> Result<(), PaintLayerError> {
         let index = self.get_layer_index(existing_layer.intern())?;
-        self.shift_insert(index, new_layer.intern());
+        self.0.insert_before(index, new_layer.intern());
         Ok(())
     }
 
-    /// Insert a new layer immediately after the given layer.
+    /// Insert a layer immediately after the given layer.
+    /// If the inserted layer already exists in the `PaintOrder`, it is moved.
     /// Returns an error if the after label isn't present in the list.
-    pub fn insert_after(
+    pub fn insert_after_layer(
         &mut self,
         existing_layer: impl PaintLayer,
         new_layer: impl PaintLayer,
     ) -> Result<(), PaintLayerError> {
         let index = self.get_layer_index(existing_layer.intern())?;
-        self.shift_insert(index + 1, new_layer.intern());
+        self.0.insert_before(index + 1, new_layer.intern());
         Ok(())
     }
 }
