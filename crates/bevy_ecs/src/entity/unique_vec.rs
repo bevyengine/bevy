@@ -40,7 +40,7 @@ use super::{
 /// When `T` is [`Entity`], use the [`UniqueEntityVec`] alias.
 #[repr(transparent)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::TypePath))]
 pub struct UniqueEntityEquivalentVec<T: EntityEquivalent>(Vec<T>);
 
 /// A `Vec` that contains only unique [`Entity`].
@@ -1168,3 +1168,250 @@ impl<'a, T: EntityEquivalent> UniqueEntityIter<vec::Drain<'a, T>> {
 /// This struct is created by [`UniqueEntityEquivalentVec::splice`].
 /// See its documentation for more.
 pub type Splice<'a, I> = UniqueEntityIter<vec::Splice<'a, I>>;
+
+#[cfg(feature = "bevy_reflect")]
+const _: () = {
+    use bevy_reflect::{
+        list::{self, List},
+        utility, ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped,
+        PartialReflect, Reflect, ReflectCloneError, ReflectFromPtr, ReflectFromReflect,
+        ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath,
+        TypeRegistration, TypeRegistry, Typed,
+    };
+    use core::any::Any;
+    use core::cmp::Ordering;
+
+    impl<
+            T: EntityEquivalent + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        > List for UniqueEntityEquivalentVec<T>
+    {
+        #[inline]
+        fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
+            <[T]>::get(self, index).map(|value| value as &dyn PartialReflect)
+        }
+
+        #[inline]
+        fn get_mut(&mut self, _index: usize) -> Option<&mut dyn PartialReflect> {
+            // TODO: Make `get_mut` return an `Err`
+            panic!("UniqueEntityEquivalentVec does not support List::get_mut");
+        }
+
+        fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
+            let value = value.try_take::<T>().unwrap_or_else(|value| {
+                T::from_reflect(&*value).unwrap_or_else(|| {
+                    panic!(
+                        "Attempted to insert invalid value of type {}.",
+                        value.reflect_type_path()
+                    )
+                })
+            });
+
+            let current = self.get_or_push(value);
+            match index.cmp(&current) {
+                Ordering::Less => self[index..=current].rotate_right(1),
+                Ordering::Greater => self[current..=index].rotate_left(1),
+                Ordering::Equal => {}
+            }
+        }
+
+        fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
+            Box::new(self.remove(index))
+        }
+
+        #[inline]
+        fn swap(&mut self, a: usize, b: usize) {
+            <UniqueEntityEquivalentSlice<T>>::swap(self, a, b);
+        }
+
+        fn push(&mut self, value: Box<dyn PartialReflect>) {
+            let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+                panic!(
+                    "Attempted to push invalid value of type {}.",
+                    value.reflect_type_path()
+                )
+            });
+
+            self.get_or_push(value);
+        }
+
+        fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+            self.pop()
+                .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+        }
+
+        #[inline]
+        fn len(&self) -> usize {
+            <[T]>::len(self)
+        }
+
+        #[inline]
+        fn iter(&self) -> list::ListIter<'_> {
+            list::ListIter::new(self)
+        }
+
+        #[inline]
+        fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+            self.drain(..)
+                .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+                .collect()
+        }
+    }
+
+    impl<
+            T: EntityEquivalent + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        > PartialReflect for UniqueEntityEquivalentVec<T>
+    {
+        #[inline]
+        fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+            Some(<Self as Typed>::type_info())
+        }
+
+        fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+            self
+        }
+
+        #[inline]
+        fn as_partial_reflect(&self) -> &dyn PartialReflect {
+            self
+        }
+
+        #[inline]
+        fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+            self
+        }
+
+        fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+            Ok(self)
+        }
+
+        fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+            Some(self)
+        }
+
+        fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+            Some(self)
+        }
+
+        fn reflect_kind(&self) -> ReflectKind {
+            ReflectKind::List
+        }
+
+        fn reflect_ref(&self) -> ReflectRef<'_> {
+            ReflectRef::List(self)
+        }
+
+        fn reflect_mut(&mut self) -> ReflectMut<'_> {
+            ReflectMut::List(self)
+        }
+
+        fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+            ReflectOwned::List(self)
+        }
+
+        fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+            Ok(Box::new(
+                <UniqueEntityEquivalentSlice<_>>::iter(self)
+                    .map(|value| value.reflect_clone_and_take())
+                    .collect::<Result<Self, ReflectCloneError>>()?,
+            ))
+        }
+
+        fn reflect_hash(&self) -> Option<u64> {
+            list::list_hash(self)
+        }
+
+        fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+            list::list_partial_eq(self, value)
+        }
+
+        fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+            list::list_partial_cmp(self, value)
+        }
+
+        fn apply(&mut self, value: &dyn PartialReflect) {
+            list::list_apply(self, value);
+        }
+
+        fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+            list::list_try_apply(self, value)
+        }
+    }
+
+    impl<
+            T: EntityEquivalent + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        > Reflect for UniqueEntityEquivalentVec<T>
+    {
+        fn into_any(self: Box<Self>) -> Box<dyn Any> {
+            self
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
+
+        fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+            self
+        }
+
+        fn as_reflect(&self) -> &dyn Reflect {
+            self
+        }
+
+        fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+            self
+        }
+
+        fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+            *self = <dyn Reflect>::take(value)?;
+            Ok(())
+        }
+    }
+
+    impl<
+            T: EntityEquivalent + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        > Typed for UniqueEntityEquivalentVec<T>
+    {
+        fn type_info() -> &'static TypeInfo {
+            static CELL: utility::GenericTypeInfoCell = utility::GenericTypeInfoCell::new();
+            CELL.get_or_insert::<Self, _>(|| {
+                TypeInfo::List(
+                    list::ListInfo::new::<Self, T>()
+                        .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")])),
+                )
+            })
+        }
+    }
+
+    impl<
+            T: EntityEquivalent + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        > GetTypeRegistration for UniqueEntityEquivalentVec<T>
+    {
+        fn get_type_registration() -> TypeRegistration {
+            let mut registration = TypeRegistration::of::<UniqueEntityEquivalentVec<T>>();
+            registration.register_type_data::<ReflectFromPtr, UniqueEntityEquivalentVec<T>>();
+            registration.register_type_data::<ReflectFromReflect, UniqueEntityEquivalentVec<T>>();
+            registration
+        }
+
+        fn register_type_dependencies(registry: &mut TypeRegistry) {
+            registry.register::<T>();
+        }
+    }
+
+    impl<T: EntityEquivalent + FromReflect + MaybeTyped + TypePath + GetTypeRegistration>
+        FromReflect for UniqueEntityEquivalentVec<T>
+    {
+        fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+            let ref_list = reflect.reflect_ref().as_list().ok()?;
+
+            ref_list
+                .iter()
+                .map(|field| T::from_reflect(field))
+                .collect::<Option<Self>>()
+        }
+    }
+};
