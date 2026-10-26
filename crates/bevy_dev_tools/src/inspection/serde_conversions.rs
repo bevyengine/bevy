@@ -247,10 +247,7 @@ where
 
 /// Serializes a reflected value to JSON using the world's [`AppTypeRegistry`].
 /// Returns [`None`] if the type is unregistered or cannot be serialized.
-pub fn reflect_to_json_value(
-    world: &World,
-    value: &dyn Reflect,
-) -> Option<serde_json::Value> {
+pub fn reflect_to_json_value(world: &World, value: &dyn Reflect) -> Option<serde_json::Value> {
     let type_registry = world.get_resource::<AppTypeRegistry>()?;
     let type_registry = type_registry.read();
     let serializer = TypedReflectSerializer::new(value, &type_registry);
