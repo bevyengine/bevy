@@ -704,7 +704,7 @@ pub fn extract_gradients(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_gradient(
-    sub_layers: Res<UiSubZLayerList>,
+    sub_layers: Res<PaintOrder>,
     extracted_gradients: ResMut<ExtractedGradients>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,

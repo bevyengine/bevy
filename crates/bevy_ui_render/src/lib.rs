@@ -92,7 +92,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::clipping::clip_polygon;
 use crate::shader_flags::INVERT;
-use crate::sub_z_layers::{UiSubZLayerList, UiSubZLayers};
+use crate::sub_z_layers::{PaintOrder, UiSubZLayers};
 use crate::text::{calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor};
 
 pub mod prelude {
@@ -190,7 +190,7 @@ impl Plugin for UiRenderPlugin {
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<GlobalUiDebugOptions>();
 
-        app.init_resource::<UiSubZLayerList>();
+        app.init_resource::<PaintOrder>();
 
         app.add_systems(
             PostUpdate,
@@ -280,7 +280,7 @@ impl Plugin for UiRenderPlugin {
             );
 
         app.add_plugins(bevy_render::extract_resource::ExtractResourcePlugin::<
-            UiSubZLayerList,
+            PaintOrder,
         >::default());
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
@@ -419,7 +419,7 @@ type UiNodeQueryFilter = (
 pub fn extract_uinode_changes(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     all_uinodes_query: Extract<Query<Entity, UiNodeQueryFilter>>,
     changed_uinodes_query: Extract<
         Query<
@@ -701,7 +701,7 @@ pub fn extract_uinode_changes(
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -822,7 +822,7 @@ pub fn extract_uinode_background_colors(
 
 pub fn extract_inline_images(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -906,7 +906,7 @@ pub fn extract_inline_images(
 
 pub fn extract_uinode_images(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
@@ -1076,7 +1076,7 @@ pub fn bevel_colors(colors: [LinearRgba; 4], bevel: Bevel) -> [LinearRgba; 4] {
 
 pub fn extract_uinode_borders(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1543,7 +1543,7 @@ pub fn extract_ui_camera_view(
 
 pub fn extract_viewport_nodes(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<(&Camera, &RenderTarget)>>,
     uinode_query: Extract<
@@ -1633,7 +1633,7 @@ pub fn extract_viewport_nodes(
 
 pub fn extract_text_sections(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1781,7 +1781,7 @@ pub fn extract_text_sections(
 
 pub fn extract_text_shadows(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -1964,7 +1964,7 @@ pub fn extract_text_shadows(
 
 pub fn extract_text_decorations(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(

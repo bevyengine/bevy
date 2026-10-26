@@ -39,7 +39,7 @@ use crate::{
 };
 
 use super::{UiCameraView, QUAD_VERTEX_POSITIONS};
-use crate::sub_z_layers::{UiSubZLayerList, UiSubZLayers};
+use crate::sub_z_layers::{PaintOrder, UiSubZLayers};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -402,7 +402,7 @@ pub fn extract_shadows(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_shadows(
-    sub_layers: Res<UiSubZLayerList>,
+    sub_layers: Res<PaintOrder>,
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,

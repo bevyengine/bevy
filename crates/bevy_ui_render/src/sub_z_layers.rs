@@ -31,9 +31,9 @@ pub enum UiSubZLayers {
 /// element won't be drawn.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
 #[extract_app(RenderApp)]
-pub struct UiSubZLayerList(pub Vec<Interned<dyn UiSubZLayer>>);
+pub struct PaintOrder(pub Vec<Interned<dyn UiSubZLayer>>);
 
-impl Default for UiSubZLayerList {
+impl Default for PaintOrder {
     fn default() -> Self {
         Self(vec![
             UiSubZLayers::BoxShadow.intern(),
@@ -52,7 +52,7 @@ impl Default for UiSubZLayerList {
     }
 }
 
-impl UiSubZLayerList {
+impl PaintOrder {
     /// Get the z-offset for a layer.
     /// The offsets are in the half-open range `0.0..1.0`, increasing from back to front.
     /// The returned offset should be added to the extracted item's stack index to get the final z value.

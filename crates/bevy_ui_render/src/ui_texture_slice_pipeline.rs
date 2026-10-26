@@ -414,7 +414,7 @@ pub fn extract_ui_texture_slices(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_ui_slices(
-    sub_layers: Res<UiSubZLayerList>,
+    sub_layers: Res<PaintOrder>,
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,

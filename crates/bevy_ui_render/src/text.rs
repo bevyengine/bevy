@@ -13,7 +13,7 @@ use bevy_ui::{
 };
 
 use crate::{
-    sub_z_layers::{UiSubZLayerList, UiSubZLayers},
+    sub_z_layers::{PaintOrder, UiSubZLayers},
     ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
 };
 
@@ -37,7 +37,7 @@ pub(crate) fn calculate_text_scroll_clip(
 
 pub fn extract_text_cursor(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     text_node_query: Extract<
         Query<(
@@ -231,7 +231,7 @@ pub fn extract_text_cursor(
 
 pub fn extract_preedit_underlines(
     mut commands: Commands,
-    sub_layers: Extract<Res<UiSubZLayerList>>,
+    sub_layers: Extract<Res<PaintOrder>>,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     text_node_query: Extract<
         Query<

@@ -667,7 +667,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 }
 
 pub fn queue_ui_material_nodes<M: UiMaterial>(
-    sub_layers: Res<UiSubZLayerList>,
+    sub_layers: Res<PaintOrder>,
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
