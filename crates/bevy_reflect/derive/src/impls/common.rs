@@ -7,6 +7,12 @@ use crate::derive_data::ReflectMeta;
 pub fn impl_reflect_casts(meta: &ReflectMeta<'_>) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
 
+    let deref_this = if meta.is_remote_wrapper() {
+        quote! { self.0 }
+    } else {
+        quote! { *self }
+    };
+
     let any_impls = if meta.is_remote_wrapper() {
         quote! {
             #[inline]
@@ -66,7 +72,7 @@ pub fn impl_reflect_casts(meta: &ReflectMeta<'_>) -> proc_macro2::TokenStream {
             &mut self,
             value: #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>
         ) -> #FQResult<(), #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>> {
-            *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
+            #deref_this = <dyn #bevy_reflect_path::Reflect>::take(value)?;
             #FQResult::Ok(())
         }
     }
