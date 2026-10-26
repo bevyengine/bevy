@@ -27,10 +27,9 @@ pub enum NodePaintLayer {
 }
 ```
 
-
 `UiRenderPlugin` initializes `PaintOrder` with all the builtin layers in the correct order.
 
-### Custom layers
+# Custom layers
 
 To create a new `PaintLayer`, you derive `PaintLayer`:
 
@@ -50,7 +49,7 @@ pub enum MyPaintLayers {
 }
 ```
 
-### Ordering
+# Ordering
 
 - `insert_before_layer` / `insert_after_layer` place a layer directly below or above an existing layer.
 - `insert_top` / `insert_bottom` place a layer above or below all the other layers.
@@ -62,7 +61,7 @@ It defaults to `NodePaintLayer::Material`.
 
 `PaintOrder` just newtypes an `IndexSet`, so you can also use the `IndexSet` methods to reorder it arbitrarily.
 
-### Extraction
+# Extraction
 
 Extraction functions should look up the z-offsets for their elements layer with `PaintOrder::get_offset`, which returns a value in the range `0.0..1.0`. The z-offset should be looked up once at the start of the extraction function, and shouldn't be looked up per node if at all possible.
 
