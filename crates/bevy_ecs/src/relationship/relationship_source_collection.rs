@@ -225,7 +225,7 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     fn place_most_recent(&mut self, index: usize) {
         if !self.is_empty() {
             let index = index.min(self.len() - 1);
-            self[index..].rotate_left(1);
+            self[index..].rotate_right(1);
         }
     }
 
@@ -355,7 +355,7 @@ impl OrderedRelationshipSourceCollection for UniqueEntityVec {
     fn place_most_recent(&mut self, index: usize) {
         if !self.is_empty() {
             let index = index.min(self.len() - 1);
-            self[index..].rotate_left(1);
+            self[index..].rotate_right(1);
         }
     }
 
@@ -943,22 +943,29 @@ mod tests {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
 
         let mut v: Vec<Entity> = vec![];
         OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
         assert_eq!(v, vec![a]);
         OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
         assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, c);
+        assert_eq!(v, vec![a, b, c]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 0);
-        assert_eq!(v, vec![b, a]);
+        assert_eq!(v, vec![b, a, c]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 10);
-        assert_eq!(v, vec![a, b]);
+        assert_eq!(v, vec![a, c, b]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 10);
-        assert_eq!(v, vec![a, b]);
+        assert_eq!(v, vec![a, c, b]);
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
-        assert_eq!(v, vec![b, a]);
+        assert_eq!(v, vec![b, a, c]);
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
-        assert_eq!(v, vec![b, a]);
+        assert_eq!(v, vec![b, a, c]);
+
+        // Test no panic
+        v.clear();
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
     }
 
     #[test]
@@ -966,22 +973,29 @@ mod tests {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
 
         let mut v = UniqueEntityVec::new();
         OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
         assert_eq!(v, vec![a]);
         OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
         assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, c);
+        assert_eq!(v, vec![a, b, c]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 0);
-        assert_eq!(v, vec![b, a]);
+        assert_eq!(v, vec![b, a, c]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 10);
-        assert_eq!(v, vec![a, b]);
+        assert_eq!(v, vec![a, c, b]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 10);
-        assert_eq!(v, vec![a, b]);
+        assert_eq!(v, vec![a, c, b]);
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
-        assert_eq!(v, vec![b, a]);
+        assert_eq!(v, vec![b, a, c]);
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
-        assert_eq!(v, vec![b, a]);
+        assert_eq!(v, vec![b, a, c]);
+
+        // Test no panic
+        v.clear();
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
     }
 
     #[test]
