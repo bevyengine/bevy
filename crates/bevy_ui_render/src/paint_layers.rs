@@ -53,7 +53,7 @@ impl Default for PaintOrder {
 }
 
 impl PaintOrder {
-    /// Get the z-offset for a paint layer.
+    /// Returns the z-offset corresponding to the given paint layer.
     /// The offsets are in the half-open range `0.0..1.0`, increasing from back to front.
     /// The returned offset should be added to the extracted item's stack index to get the final z value.
     ///
