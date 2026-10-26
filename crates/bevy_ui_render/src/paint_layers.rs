@@ -215,6 +215,28 @@ mod tests {
     }
 
     #[test]
+    fn insert_top_adds_or_moves_layer_to_end() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        paint_order.insert_top(X);
+        assert_order(&paint_order, [A, B, C, X]);
+
+        paint_order.insert_top(A);
+        assert_order(&paint_order, [B, C, X, A]);
+    }
+
+    #[test]
+    fn insert_bottom_adds_or_moves_layer_to_start() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        paint_order.insert_bottom(X);
+        assert_order(&paint_order, [X, A, B, C]);
+
+        paint_order.insert_bottom(C);
+        assert_order(&paint_order, [C, X, A, B]);
+    }
+
+    #[test]
     fn remove_layer_preserves_order() {
         let mut paint_order = PaintOrder::from([A, B, C]);
 
