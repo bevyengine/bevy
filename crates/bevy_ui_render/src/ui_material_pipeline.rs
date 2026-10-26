@@ -680,7 +680,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let Ok(sub_z_layer_offset) = sub_layers.get_offset(M::sub_z_layer()) else {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(M::paint_layer()) else {
         return;
     };
 

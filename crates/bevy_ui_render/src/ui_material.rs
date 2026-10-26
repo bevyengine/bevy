@@ -116,7 +116,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    fn sub_z_layer() -> impl PaintLayer {
+    fn paint_layer() -> impl PaintLayer {
         NodePaintLayer::Material
     }
 
