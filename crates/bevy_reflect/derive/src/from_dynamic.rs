@@ -77,6 +77,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         }
     };
 
+    let value_ident = Ident::new("value", Span::call_site());
+    let wrap_value = maybe_wrap_remote(reflect_enum.meta(), &value_ident);
+
     let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 
     // Add FromDynamic bound for each active field
@@ -90,7 +93,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 let mut #dynamic_value = match #dynamic_value {
                     #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_value) => #dynamic_value,
                     #bevy_reflect_path::dynamic::DynamicValue::Concrete(concrete) => {
-                        return concrete.take().ok();
+                        let #value_ident = concrete.take().ok()?;
+                        return #FQOption::Some(#wrap_value);
                     }
                     _ => return #FQOption::None,
                 };
@@ -185,6 +189,9 @@ fn impl_struct_internal(
         .generics()
         .split_for_impl();
 
+    let value_ident = Ident::new("value", Span::call_site());
+    let wrap_value = maybe_wrap_remote(reflect_struct.meta(), &value_ident);
+
     // Add FromDynamic bound for each active field
     let where_from_dynamic_clause = reflect_struct
         .where_clause_options()
@@ -196,7 +203,8 @@ fn impl_struct_internal(
                 let mut #dynamic_struct = match #dynamic_struct {
                     #bevy_reflect_path::dynamic::DynamicValue::#dynamic_struct_type(#dynamic_struct) => #dynamic_struct,
                     #bevy_reflect_path::dynamic::DynamicValue::Concrete(concrete) => {
-                        return concrete.take().ok();
+                        let #value_ident = concrete.take().ok()?;
+                        return #FQOption::Some(#wrap_value);
                     }
                     _ => return #FQOption::None,
                 };
@@ -327,5 +335,16 @@ fn get_field_accessor(field: &Field, index: usize, is_tuple: bool) -> Lit {
             .as_ref()
             .map(|ident| Lit::Str(LitStr::new(&ident.to_string(), Span::call_site())))
             .unwrap_or_else(|| Lit::Str(LitStr::new(&index.to_string(), Span::call_site())))
+    }
+}
+
+/// Wraps `ident` in its remote wrapper, if the type is a remote type.
+fn maybe_wrap_remote(meta: &ReflectMeta<'_>, ident: &Ident) -> proc_macro2::TokenStream {
+    let bevy_reflect_path = meta.bevy_reflect_path();
+
+    if meta.is_remote_wrapper() {
+        quote! { <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#ident) }
+    } else {
+        quote! { #ident }
     }
 }
