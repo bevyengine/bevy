@@ -54,7 +54,9 @@ impl Default for UiSubZLayerList {
 
 impl UiSubZLayerList {
     /// Get the z-offset for a layer.
-    /// Returned offsets are between 0. (back) and 1. (front).
+    /// The offsets are in the half-open range `0.0..1.0`, increasing from back to front.
+    /// The returned offset should be added to the extracted item's stack index to get the final z value.
+    ///
     /// Returns an error if the layer label isn't present in the list.
     pub fn get_offset(&self, layer: impl UiSubZLayer) -> Result<f32, UiSubZLayerError> {
         let layer = layer.intern();
