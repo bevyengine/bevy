@@ -127,9 +127,28 @@ pub enum PaintLayerError {
     UnrecognisedLayer(Interned<dyn PaintLayer>),
 }
 
+#[cfg(test)]
 mod tests {
     use crate::paint_layers::NodePaintLayer;
+    use crate::paint_layers::PaintLayer;
     use crate::paint_layers::PaintOrder;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
+    enum TestLayer {
+        A,
+        B,
+        C,
+        X,
+    }
+
+    use TestLayer::*;
+
+    #[track_caller]
+    fn assert_order<const N: usize>(paint_order: &PaintOrder, expected: [TestLayer; N]) {
+        let actual: Vec<_> = paint_order.iter().copied().collect();
+        let expected: Vec<_> = expected.into_iter().map(|layer| layer.intern()).collect();
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn default_paint_order_matches_node_paint_layer_order() {
@@ -139,5 +158,79 @@ mod tests {
         for (index, layer) in NodePaintLayer::ALL.into_iter().enumerate() {
             assert_eq!(paint_order.get_layer_index(layer).unwrap(), index);
         }
+    }
+
+    #[test]
+    fn insert_after_layer_moves_existing_layer_to_end() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        paint_order.insert_after_layer(C, A).unwrap();
+
+        assert_order(&paint_order, [B, C, A]);
+    }
+
+    #[test]
+    fn insert_after_layer_moves_existing_layer_backward() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        paint_order.insert_after_layer(A, C).unwrap();
+
+        assert_order(&paint_order, [A, C, B]);
+    }
+
+    #[test]
+    fn insert_layer_relative_to_itself_does_nothing() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        paint_order.insert_before_layer(B, B).unwrap();
+        paint_order.insert_after_layer(B, B).unwrap();
+
+        assert_order(&paint_order, [A, B, C]);
+    }
+
+    #[test]
+    fn insert_relative_to_missing_layer_is_error() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        assert!(paint_order.insert_before_layer(X, A).is_err());
+        assert!(paint_order.insert_after_layer(X, A).is_err());
+
+        assert_order(&paint_order, [A, B, C]);
+    }
+
+    #[test]
+    fn remove_layer_preserves_order() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        assert!(paint_order.remove_layer(A));
+
+        assert_order(&paint_order, [B, C]);
+    }
+
+    #[test]
+    fn remove_missing_layer_returns_false() {
+        let mut paint_order = PaintOrder::from([A, B, C]);
+
+        assert!(!paint_order.remove_layer(X));
+
+        assert_order(&paint_order, [A, B, C]);
+    }
+
+    #[test]
+    fn from_array_keeps_first_of_duplicate_layers() {
+        let paint_order = PaintOrder::from([A, B, A]);
+
+        assert_order(&paint_order, [A, B]);
+    }
+
+    #[test]
+    fn from_array_accepts_mixed_label_types() {
+        let paint_order = PaintOrder::from([NodePaintLayer::Text.intern(), A.intern()]);
+
+        assert_eq!(
+            paint_order.get_layer_index(NodePaintLayer::Text).unwrap(),
+            0
+        );
+        assert_eq!(paint_order.get_layer_index(A).unwrap(), 1);
     }
 }
