@@ -20,9 +20,11 @@ use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
     ButtonInput,
 };
-use bevy_input_focus::{FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems};
+use bevy_input_focus::{
+    AcquireFocus, FocusGained, FocusLost, FocusedInput, InputFocus, InputFocusSystems,
+};
 use bevy_log::{warn, warn_once};
-use bevy_math::{ops, Rot2};
+use bevy_math::Rot2;
 use bevy_picking::{
     cursor::EntityCursor,
     events::{
@@ -30,7 +32,7 @@ use bevy_picking::{
     },
     hover::{Hovered, PointerCaptureMap},
     pointer::PointerButton,
-    PickingSystems,
+    Pickable, PickingSystems,
 };
 use bevy_platform::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -55,8 +57,8 @@ use crate::{
     display::icon,
     rounded_corners::RoundedCorners,
     theme::{
-        SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor, ThemeContext, ThemeTextColor,
-        ThemeToken, UiTheme,
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext, ThemeTextColor, ThemeToken, ThemedText, UiTheme,
     },
     tokens,
 };
@@ -107,6 +109,12 @@ pub struct FeathersNumberInputProps {
     /// A caption to be placed on the left side of the input, next to the colored stripe.
     /// Usually one of "X", "Y" or "Z".
     pub label_text: Option<&'static str>,
+    /// A caption to be placed inside the input, left-justified, with the value right-justified.
+    /// The caption is hidden while the value is being edited.
+    ///
+    /// This saves space in dense, compact layouts where there's no room for a separate label
+    /// next to each input, such as the property fields in Blender's node graph editor.
+    pub interior_label_text: Option<&'static str>,
 }
 
 impl Default for FeathersNumberInputProps {
@@ -114,9 +122,21 @@ impl Default for FeathersNumberInputProps {
         Self {
             sigil_color: tokens::TEXT_INPUT_LABEL_BG,
             label_text: None,
+            interior_label_text: None,
         }
     }
 }
+
+/// Width of the clickable strip for each step chevron.
+const CHEVRON_WIDTH: f32 = 16.0;
+
+/// Horizontal inset of the interior label and value, which leaves room for the chevrons.
+const INTERIOR_LABEL_INSET: f32 = CHEVRON_WIDTH + 4.0;
+
+/// Marks the interior label of a number input.
+#[derive(Component, Clone, Default, Reflect)]
+#[reflect(Component)]
+struct NumberInputInteriorLabel;
 
 /// Marks the decrement (left-end) chevron of a number input.
 #[derive(Component, Clone, Default, Reflect)]
@@ -163,7 +183,7 @@ impl FeathersNumberInput {
                             Children [
                                 Text(text)
                                 TextFont {
-                                    font: FontSourceTemplate::Handle(fonts::REGULAR),
+                                    font: FontSourceTemplate::Families(fonts::SANS),
                                     font_size: size::COMPACT_FONT,
                                 }
                                 PropagateOver<TextFont>
@@ -189,13 +209,27 @@ impl FeathersNumberInput {
                             RoundedCorners::All.to_border_radius(4.0)
                         }
                     },
+                    padding: {
+                        if props.interior_label_text.is_some() {
+                            UiRect::horizontal(px(INTERIOR_LABEL_INSET))
+                        } else {
+                            UiRect::DEFAULT
+                        }
+                    },
                 }
                 Hovered
                 LineHeight::Px(24.0) // TODO: Make const for this
                 TextLayout {
-                    justify: Justify::Center,
+                    justify: {
+                        if props.interior_label_text.is_some() {
+                            Justify::Right
+                        } else {
+                            Justify::Center
+                        }
+                    },
                 }
                 ThemeTextColor(tokens::TEXT_INPUT_TEXT)
+                InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
                 // Use a gradient to draw the moving bar, this lets us round corners
                 BackgroundGradient(vec![Gradient::Linear(LinearGradient {
                     angle: PI * 0.5,
@@ -215,6 +249,27 @@ impl FeathersNumberInput {
                 on(number_input_hovered)
                 on(update_chevron_visibility)
                 Children [
+                    {
+                        // Interior label, overlaid on the left of the editable text and hidden
+                        // while editing.
+                        props.interior_label_text.map(|text| {
+                            bsn! {
+                                Text(text)
+                                Node {
+                                    position_type: PositionType::Absolute,
+                                    left: px(INTERIOR_LABEL_INSET),
+                                }
+                                TextFont {
+                                    font: FontSourceTemplate::Families(fonts::SANS),
+                                    font_size: size::COMPACT_FONT,
+                                }
+                                ThemedText
+                                NumberInputInteriorLabel
+                                Pickable::IGNORE
+                            }
+                        })
+                    }
+                    --
                     // Invisible child on top of input field which intercepts drag
                     // events (conditionally) and handles scrubbing gestures.
                     Node {
@@ -232,10 +287,13 @@ impl FeathersNumberInput {
                     on(scrubber_on_drag_cancel)
                     --
                     // The decrement chevron of a number input
+                    @number_input_chevron(if props.label_text.is_some() {
+                        RoundedCorners::None
+                    } else {
+                        RoundedCorners::Left
+                    })
                     Node {
-                        position_type: PositionType::Absolute,
-                        display: Display::None,
-                        left: px(4),
+                        left: px(0),
                     }
                     NumberInputDecrement
                     Children [
@@ -246,10 +304,9 @@ impl FeathersNumberInput {
                     ]
                     --
                     // The increment chevron of a number input
+                    @number_input_chevron(RoundedCorners::Right)
                     Node {
-                        position_type: PositionType::Absolute,
-                        display: Display::None,
-                        right: px(4),
+                        right: px(0),
                     }
                     NumberInputIncrement
                     Children [
@@ -258,6 +315,29 @@ impl FeathersNumberInput {
                 ]
             ]
         }
+    }
+}
+
+/// Common parts of the increment and decrement chevrons: a full-height clickable strip at one end
+/// of the input, hidden until the input is hovered.
+fn number_input_chevron(corners: RoundedCorners) -> impl Scene {
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            display: Display::None,
+            top: px(0),
+            bottom: px(0),
+            width: px(CHEVRON_WIDTH),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border_radius: {corners.to_border_radius(4.0)},
+        }
+        Hovered
+        ThemeBackgroundColor(tokens::BUTTON_PLAIN_BG)
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        on(chevron_on_press)
+        on(chevron_on_acquire_focus)
+        on(chevron_on_hover)
     }
 }
 
@@ -326,29 +406,23 @@ impl HardLimit {
 /// The value in this component represents the number of decimal places of desired precision, so a
 /// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
 /// thousand.
+///
+/// Precision is measured in display units (see [`UnitsFormat`]), so for an angle displayed in
+/// degrees, a precision of 1 rounds to the nearest tenth of a degree.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct NumberInputPrecision(pub i32);
 
 impl NumberInputPrecision {
-    fn round_f32(&self, value: f32) -> f32 {
-        let factor = ops::powf(10.0_f32, self.0 as f32);
-        (value * factor).round() / factor
-    }
-
     fn round_f64(&self, value: f64) -> f64 {
         let factor = f64::powf(10.0_f64, self.0 as f64);
         (value * factor).round() / factor
     }
 
-    fn round(&self, value: NumericValue) -> NumericValue {
-        match value {
-            NumericValue::F32(v) => NumericValue::F32(self.round_f32(v)),
-            NumericValue::F64(v) => NumericValue::F64(self.round_f64(v)),
-            // Decimal-place rounding only affects integers at negative precision
-            // (round to 10/100/...); left as identity for now.
-            other => other,
-        }
+    /// Round the value in display units, then convert back to canonical units.
+    fn round(&self, units: &dyn UnitsFormat, value: NumericValue) -> NumericValue {
+        let display = self.round_f64(units.canonical_to_display(value.as_f64()));
+        NumericValue::from_f64(units.display_to_canonical(display), value.format())
     }
 }
 
@@ -360,6 +434,9 @@ impl Default for NumberInputPrecision {
 
 /// A component which controls the step size when incrementing or decrementing the value.
 /// This also is used as a heuristic to determine drag speed when there is no soft limit present.
+///
+/// The step is measured in display units (see [`UnitsFormat`]), so for an angle displayed in
+/// degrees, a step of 1 is one degree.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct NumberInputStep(pub f64);
@@ -490,10 +567,12 @@ fn number_input_on_insert_value(
             None => input_value,
         };
         let (mut editable_text, mut gradient, drag_state) = q_text_input.get_mut(text_id).unwrap();
-        let new_digits = units_registry
-            .resolve(units)
-            .format(clamped_value, drag_state.mode == EditMode::Editing);
-        if editable_text.value() != &new_digits {
+        let new_digits = format_value(
+            units_registry.resolve(units),
+            clamped_value,
+            drag_state.mode == EditMode::Editing,
+        );
+        if editable_text.value() != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
@@ -610,11 +689,12 @@ fn number_input_init(
         && let Ok((input_value, limit, is_disabled, theme_context, units)) =
             q_number_input.get(root_id)
     {
-        let new_digits = units_registry
-            .resolve(units)
-            .format(*input_value, drag_state.mode == EditMode::Editing);
-        let old_digits = editable_text.value().to_string();
-        if old_digits != new_digits {
+        let new_digits = format_value(
+            units_registry.resolve(units),
+            *input_value,
+            drag_state.mode == EditMode::Editing,
+        );
+        if editable_text.value() != new_digits {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
@@ -682,6 +762,8 @@ fn number_input_on_enter_key(
         With<FeathersNumberInput>,
     >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    q_children: Query<&Children>,
+    mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
@@ -697,8 +779,9 @@ fn number_input_on_enter_key(
         && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
-        let text_value = editable_text.value().to_string();
+        let text_value = editable_text.value().into_owned();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
+        show_interior_label(text_id, true, &q_children, &mut q_label);
         commands
             .entity(text_id)
             .insert(TextReadWriteMode::Static) // Hide selection
@@ -715,6 +798,24 @@ fn number_input_on_enter_key(
             &mut commands,
             true,
         );
+    }
+}
+
+/// Shows or hides the interior label, if there is one. It is hidden while editing.
+fn show_interior_label(
+    text_id: Entity,
+    visible: bool,
+    q_children: &Query<&Children>,
+    q_label: &mut Query<&mut Node, With<NumberInputInteriorLabel>>,
+) {
+    for child in q_children.iter_descendants(text_id) {
+        if let Ok(mut node) = q_label.get_mut(child) {
+            node.display = if visible {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        }
     }
 }
 
@@ -740,6 +841,8 @@ fn number_input_on_focus_lost(
         With<FeathersNumberInput>,
     >,
     mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    q_children: Query<&Children>,
+    mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
@@ -749,7 +852,7 @@ fn number_input_on_focus_lost(
         && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
         && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
-        let text_value = editable_text.value().to_string();
+        let text_value = editable_text.value().into_owned();
         emit_value_change(
             text_value,
             input_value.format(),
@@ -762,6 +865,7 @@ fn number_input_on_focus_lost(
         );
 
         drag_state.mode = EditMode::Idle;
+        show_interior_label(editable_text_id, true, &q_children, &mut q_label);
 
         // Restore cursor and rwmode back to normal.
         commands
@@ -816,6 +920,8 @@ fn scrubber_on_release(
     )>,
     q_parent: Query<&ChildOf>,
     q_units: Query<(&NumericValue, Option<&NumberInputUnits>), Without<InteractionDisabled>>,
+    q_children: Query<&Children>,
+    mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     ui_scale: Res<UiScale>,
     units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
@@ -854,6 +960,7 @@ fn scrubber_on_release(
             };
 
             drag_state.mode = EditMode::Editing;
+            show_interior_label(text_id, false, &q_children, &mut q_label);
             commands
                 .entity(text_id)
                 .insert(TextReadWriteMode::Editable)
@@ -861,9 +968,8 @@ fn scrubber_on_release(
 
             // Replace the text before editing; this lets us change the degree symbol (°), which
             // is hard to type, into `d`, which is easier.
-            let editable_digits = units_registry.resolve(units).format(*value, true);
-            let old_digits = editable_text.value().to_string();
-            if old_digits != editable_digits {
+            let editable_digits = format_value(units_registry.resolve(units), *value, true);
+            if editable_text.value() != editable_digits {
                 editable_text.queue_edit(TextEdit::SelectAll);
                 editable_text.queue_edit(TextEdit::Insert(editable_digits.into()));
             }
@@ -882,17 +988,19 @@ fn scrubber_on_drag_start(
         Option<&NumberInputStep>,
         Has<InteractionDisabled>,
         Option<&ThemeContext>,
+        Option<&NumberInputUnits>,
     )>,
     mut q_text_input: Query<(&mut BackgroundGradient, &mut DragState)>,
     mut q_scrubber: Query<&ComputedNode>,
     q_parent: Query<&ChildOf>,
     input_focus: Res<InputFocus>,
     theme: Res<UiTheme>,
+    units_registry: Res<UnitsRegistry>,
     mut commands: Commands,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_start.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((input_value, soft_limit, precision, step, disabled, theme_context)) =
+        && let Ok((input_value, soft_limit, precision, step, disabled, theme_context, units)) =
             q_root.get(root_id)
         && let Ok((mut gradient, mut drag)) = q_text_input.get_mut(text_id)
         && !disabled
@@ -910,13 +1018,16 @@ fn scrubber_on_drag_start(
         drag.max_distance = 0.0;
         drag.value_offset = 0.0f64;
         // Use various heuristics to determine drag speed based on which components are present.
+        // Drag speed is in display units per pixel.
+        let units = units_registry.resolve(units);
         drag.drag_speed = if let Some(SoftLimit(nrange)) = soft_limit {
-            match nrange {
-                NumericRange::F32(range) => (range.end() - range.start()) as f64 / slider_size,
-                NumericRange::F64(range) => (range.end() - range.start()) / slider_size,
-                NumericRange::I32(range) => (range.end() - range.start()) as f64 / slider_size,
-                NumericRange::I64(range) => (range.end() - range.start()) as f64 / slider_size,
-            }
+            let (start, end) = match nrange {
+                NumericRange::F32(range) => (*range.start() as f64, *range.end() as f64),
+                NumericRange::F64(range) => (*range.start(), *range.end()),
+                NumericRange::I32(range) => (*range.start() as f64, *range.end() as f64),
+                NumericRange::I64(range) => (*range.start() as f64, *range.end() as f64),
+            };
+            (units.canonical_to_display(end) - units.canonical_to_display(start)) / slider_size
         } else if let Some(NumberInputStep(step)) = step {
             *step * BASE_DRAG_SPEED
         } else if matches!(
@@ -931,7 +1042,7 @@ fn scrubber_on_drag_start(
         } else {
             // No clues present, so we'll have to guess. Use an adaptive algorithm based on
             // present value; this determines the nearest power of 10 to the current magnitude.
-            let m = input_value.as_f64().abs();
+            let m = units.canonical_to_display(input_value.as_f64()).abs();
             let decade = if m >= 1.0 { m.log10().floor() } else { 0.0 };
             BASE_DRAG_SPEED * 10f64.powf(decade)
         };
@@ -958,6 +1069,7 @@ fn scrubber_on_drag(
         Option<&NumberInputPrecision>,
         Has<InteractionDisabled>,
         Option<&NumberInputWrap>,
+        Option<&NumberInputUnits>,
     )>,
     mut q_text_input: Query<&mut DragState>,
     mut q_scrubber: Query<&UiGlobalTransform>,
@@ -965,10 +1077,11 @@ fn scrubber_on_drag(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
     keys: Res<ButtonInput<Key>>,
+    units_registry: Res<UnitsRegistry>,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, wrap)) = q_root.get(root_id)
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, units)) = q_root.get(root_id)
         && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
         && let Ok(transform) = q_scrubber.get_mut(drag.entity)
         && drag_state.mode == EditMode::Scrubbing
@@ -985,6 +1098,7 @@ fn scrubber_on_drag(
             emit_drag_value_change(
                 &mut commands,
                 root_id,
+                units_registry.resolve(units),
                 soft_limit,
                 hard_limit,
                 precision,
@@ -1006,15 +1120,17 @@ fn scrubber_on_drag_end(
         Has<InteractionDisabled>,
         Option<&NumberInputWrap>,
         Option<&ThemeContext>,
+        Option<&NumberInputUnits>,
     )>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient, &mut DragState)>,
     q_parent: Query<&ChildOf>,
     mut commands: Commands,
     theme: Res<UiTheme>,
+    units_registry: Res<UnitsRegistry>,
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context)) =
+        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context, units)) =
             q_root.get(root_id)
         && let Ok((&Hovered(hovered), mut gradient, mut drag_state)) = q_text_input.get_mut(text_id)
         && drag_state.mode == EditMode::Scrubbing
@@ -1024,6 +1140,7 @@ fn scrubber_on_drag_end(
             emit_drag_value_change(
                 &mut commands,
                 root_id,
+                units_registry.resolve(units),
                 soft_limit,
                 hard_limit,
                 precision,
@@ -1157,12 +1274,15 @@ fn set_slidebar_styles(
     commands
         .entity(slidebar_id)
         .try_insert(EntityCursor::System(cursor_shape))
-        .try_insert(ThemeTextColor(font_color_token));
+        .try_insert(ThemeTextColor(font_color_token.clone()))
+        // Also pass the color down to the interior label.
+        .try_insert(InheritableThemeTextColor(font_color_token));
 }
 
 fn emit_drag_value_change(
     commands: &mut Commands,
     source: Entity,
+    units: &dyn UnitsFormat,
     soft_limit: Option<&SoftLimit>,
     hard_limit: Option<&HardLimit>,
     precision: Option<&NumberInputPrecision>,
@@ -1170,18 +1290,31 @@ fn emit_drag_value_change(
     drag_state: &mut DragState,
     is_final: bool,
 ) {
-    // Relative scrub: always measured from the value at drag start.
-    let mut value = drag_state.base_value.offset_by(drag_state.value_offset);
+    // Relative scrub, in display units: always measured from the value at drag start.
+    let base = drag_state.base_value;
+    let display = units.canonical_to_display(base.as_f64()) + drag_state.value_offset;
+    let mut value = NumericValue::from_f64(units.display_to_canonical(display), base.format());
 
     // Dragging is confined to the soft range; typing can still exceed it.
     if let Some(SoftLimit(range)) = soft_limit {
         value = range.clamp(value);
     }
     if let Some(precision) = precision {
-        value = precision.round(value);
+        value = precision.round(units, value);
     }
     // Hard limit is absolute and always applied last.
-    let value = match (wrap, hard_limit) {
+    let value = apply_hard_limit(value, hard_limit, wrap);
+
+    trigger_value_change(commands, value, source, is_final);
+}
+
+/// Clamp or wrap the value to the hard limit, if there is one.
+fn apply_hard_limit(
+    value: NumericValue,
+    hard_limit: Option<&HardLimit>,
+    wrap: Option<&NumberInputWrap>,
+) -> NumericValue {
+    match (wrap, hard_limit) {
         (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(value),
         (Some(NumberInputWrap::Wrap), None) => {
             warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
@@ -1189,9 +1322,7 @@ fn emit_drag_value_change(
         }
         (_, Some(HardLimit(range))) => range.clamp(value),
         (_, None) => value,
-    };
-
-    trigger_value_change(commands, value, source, is_final);
+    }
 }
 
 fn emit_value_change(
@@ -1209,21 +1340,13 @@ fn emit_value_change(
         return;
     }
 
-    let Ok(new_value) = units.parse(text_value.to_owned(), format) else {
+    let Ok(new_value) = parse_value(units, text_value, format) else {
         // TODO: should handle errors better than this
         warn!("number input parsing failed, invalid format");
         return;
     };
 
-    let value = match (wrap, hard_limit) {
-        (Some(NumberInputWrap::Wrap), Some(HardLimit(range))) => range.wrap(new_value),
-        (Some(NumberInputWrap::Wrap), None) => {
-            warn_once!("NumberInputWrap::Wrap specified without a HardLimit; ignoring wrap");
-            new_value
-        }
-        (_, Some(HardLimit(range))) => range.clamp(new_value),
-        (_, None) => new_value,
-    };
+    let value = apply_hard_limit(new_value, hard_limit, wrap);
 
     trigger_value_change(commands, value, source, is_final);
 }
@@ -1382,12 +1505,77 @@ fn update_chevron_visibility(
         if let Ok((mut node, is_dec, is_inc)) = q_chevron.get_mut(child) {
             let disabled_by_limit = (is_at_min && is_dec) || (is_at_max && is_inc);
             node.display = if base_visible && !disabled_by_limit {
-                Display::Block
+                Display::Flex
             } else {
                 Display::None
             };
         }
     }
+}
+
+// Increments or decrements the value by the step size when a chevron is pressed.
+fn chevron_on_press(
+    mut press: On<PointerPress>,
+    q_chevron: Query<Has<NumberInputIncrement>>,
+    q_parent: Query<&ChildOf>,
+    q_number_input: Query<
+        (
+            &NumericValue,
+            Option<&HardLimit>,
+            Option<&NumberInputStep>,
+            Option<&NumberInputWrap>,
+            Has<InteractionDisabled>,
+            Option<&NumberInputUnits>,
+        ),
+        With<FeathersNumberInput>,
+    >,
+    units_registry: Res<UnitsRegistry>,
+    mut commands: Commands,
+) {
+    // Don't let the press reach the text input or the scrubber.
+    press.propagate(false);
+    if press.button != PointerButton::Primary {
+        return;
+    }
+
+    let chevron_id = press.event_target();
+    if let Ok(is_increment) = q_chevron.get(chevron_id)
+        && let Ok(&ChildOf(text_id)) = q_parent.get(chevron_id)
+        && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
+        && let Ok((&value, hard_limit, step, wrap, disabled, units)) = q_number_input.get(root_id)
+        && !disabled
+    {
+        // Step in display units.
+        let units = units_registry.resolve(units);
+        let step = step.copied().unwrap_or_default().0;
+        let display =
+            units.canonical_to_display(value.as_f64()) + if is_increment { step } else { -step };
+        let value = NumericValue::from_f64(units.display_to_canonical(display), value.format());
+        let value = apply_hard_limit(value, hard_limit, wrap);
+        trigger_value_change(&mut commands, value, root_id, true);
+    }
+}
+
+// Highlights a chevron while the pointer is over it.
+fn chevron_on_hover(
+    hover: On<Insert<Hovered>>,
+    q_chevron: Query<&Hovered>,
+    mut commands: Commands,
+) {
+    if let Ok(&Hovered(hovered)) = q_chevron.get(hover.entity) {
+        commands
+            .entity(hover.entity)
+            .insert(ThemeBackgroundColor(if hovered {
+                tokens::BUTTON_PLAIN_BG_HOVER
+            } else {
+                tokens::BUTTON_PLAIN_BG
+            }));
+    }
+}
+
+// Prevents clicking a chevron from focusing the text input.
+fn chevron_on_acquire_focus(mut acquire_focus: On<AcquireFocus>) {
+    acquire_focus.propagate(false);
 }
 
 // Checks if the value is at the minimum limit of the range.
@@ -1420,6 +1608,13 @@ fn is_at_limit_max(value: &NumericValue, range: &NumericRange) -> bool {
 ///
 /// A [`UnitsFormat`] must be added to the [`UnitsRegistry`] resource before it can be used.
 /// Widgets reference the units indirectly by id, allowing them to be serialized.
+///
+/// There are two unit spaces: the *canonical* units that the value is stored in (and that
+/// [`ValueChange`], [`SoftLimit`] and [`HardLimit`] use), and the *display* units that the user
+/// sees and types. [`UnitsFormat::canonical_to_display`] and [`UnitsFormat::display_to_canonical`] map between
+/// them; formatting and parsing deal only in display units. The number input applies
+/// [`NumberInputPrecision`] and [`NumberInputStep`] in display units, so a precision of 1 on an
+/// angle means tenths of a degree, not tenths of a radian.
 pub trait UnitsFormat: Send + Sync {
     /// Unique id of this format, e.g. ``"length_meters"``. This will be stored in the
     /// [`NumberInputUnits`] component and used to locate this object in the units registry.
@@ -1428,15 +1623,77 @@ pub trait UnitsFormat: Send + Sync {
     /// `length_meters`, `time_seconds`, or `angle_degrees`.
     fn id(&self) -> &'static str;
 
-    /// Format the value as a string, with the default units. The `editing` parameter allows us
-    /// to format the string differently when the user is editing than when displaying or scrubbing.
-    /// This can be used, for example, to transform the unicode degree symbol, (°), which is hard
-    /// to type, into something easier.
-    fn format(&self, value: NumericValue, editing: bool) -> String;
+    /// Convert a value in canonical units to display units. This conversion must be a monotonically
+    /// increasing function: higher input values must lead to a higher return value. The default conversion function is the identity function, returning the input `value` directly.
+    fn canonical_to_display(&self, value: f64) -> f64 {
+        value
+    }
 
-    /// Parse the input value into a numerical quantity. If the string includes a units signifier,
-    /// convert the value into the canonical units.
-    fn parse(&self, value: String, fmt: NumericFormat) -> Result<NumericValue, String>;
+    /// Convert a value in display units to canonical units. This is the inverse of
+    /// [`UnitsFormat::canonical_to_display`].
+    fn display_to_canonical(&self, display: f64) -> f64 {
+        display
+    }
+
+    /// Format a value, already converted to display units, as a string. `fmt` is the format of
+    /// the stored value, which tells how many digits are meaningful; see
+    /// [`format_display_value`]. The `editing` parameter allows us to format the string
+    /// differently when the user is editing than when displaying or scrubbing. This can be used,
+    /// for example, to transform the unicode degree symbol, (°), which is hard to type, into
+    /// something easier.
+    fn format(&self, display: f64, fmt: NumericFormat, editing: bool) -> String;
+
+    /// Parse the input text into a value in display units. If the text includes a units
+    /// signifier for some other unit, convert the value into display units.
+    fn parse(&self, text: &str) -> Result<f64, String>;
+}
+
+/// Formats a number that has been converted from canonical to display units, removing the
+/// noise introduced by the conversion. For example, 0.01° stored as an `f32` radian converts
+/// back to 0.0099999998°; this formats it as 0.01.
+///
+/// The number is rounded to the significant digits that the stored format can reliably hold
+/// (6 for `f32`, 15 for the others), then printed in the shortest form.
+pub fn format_display_value(display: f64, fmt: NumericFormat) -> String {
+    match fmt {
+        NumericFormat::F32 => format!("{:.5e}", display)
+            .parse::<f32>()
+            .unwrap_or(display as f32)
+            .to_string(),
+        _ => format!("{:.14e}", display)
+            .parse::<f64>()
+            .unwrap_or(display)
+            .to_string(),
+    }
+}
+
+/// Converts a value to display units and formats it.
+fn format_value(units: &dyn UnitsFormat, value: NumericValue, editing: bool) -> String {
+    units.format(
+        units.canonical_to_display(value.as_f64()),
+        value.format(),
+        editing,
+    )
+}
+
+/// Parses text in display units and converts it to a canonical value of the given format.
+fn parse_value(
+    units: &dyn UnitsFormat,
+    text: &str,
+    fmt: NumericFormat,
+) -> Result<NumericValue, String> {
+    let display = units.parse(text)?;
+    Ok(NumericValue::from_f64(
+        units.display_to_canonical(display),
+        fmt,
+    ))
+}
+
+/// Parses a plain number, with no units suffix.
+fn parse_number(text: &str) -> Result<f64, String> {
+    text.trim()
+        .parse::<f64>()
+        .map_err(|_| format!("Could not parse '{}' as a number", text))
 }
 
 /// A [`UnitsFormat`] meaning "no units", which is the default units. This just does straight-up
@@ -1448,12 +1705,13 @@ impl UnitsFormat for Dimensionless {
         "none"
     }
 
-    fn format(&self, value: NumericValue, _editing: bool) -> String {
-        value.to_string()
+    fn format(&self, display: f64, fmt: NumericFormat, _editing: bool) -> String {
+        // No conversion, so the value is exact; format it at its native precision.
+        NumericValue::from_f64(display, fmt).to_string()
     }
 
-    fn parse(&self, value: String, fmt: NumericFormat) -> Result<NumericValue, String> {
-        NumericValue::parse_from(value.as_str(), fmt)
+    fn parse(&self, text: &str) -> Result<f64, String> {
+        parse_number(text)
     }
 }
 
@@ -1517,35 +1775,46 @@ impl<S: StandardUnitKind> UnitsFormat for S {
         Self::ID
     }
 
-    fn format(&self, value: NumericValue, editing: bool) -> String {
+    fn canonical_to_display(&self, value: f64) -> f64 {
         let units_table = self.units();
-        let display_unit = &units_table[if editing {
+        value * units_table[self.canonical_index()].scale / units_table[self.display_index()].scale
+    }
+
+    fn display_to_canonical(&self, display: f64) -> f64 {
+        let units_table = self.units();
+        display * units_table[self.display_index()].scale
+            / units_table[self.canonical_index()].scale
+    }
+
+    fn format(&self, display: f64, fmt: NumericFormat, editing: bool) -> String {
+        let units_table = self.units();
+        let display_unit = &units_table[self.display_index()];
+        let shown_unit = &units_table[if editing {
             self.editing_index()
         } else {
             self.display_index()
         }];
-        let canonical_unit = &units_table[self.canonical_index()];
 
-        // Convert from canonical units to display units. This is the inverse of the scaling
-        // applied in `parse`, which multiplies by `editing.scale / canonical.scale`.
-        let scale = canonical_unit.scale / display_unit.scale;
-
-        // Format at the value's native precision.
-        let display_value = match value {
-            NumericValue::F32(v) => format!("{}", (v as f64 * scale) as f32),
-            NumericValue::F64(v) => format!("{}", v * scale),
-            NumericValue::I32(v) => format!("{}", v as f64 * scale),
-            NumericValue::I64(v) => format!("{}", v as f64 * scale),
+        // The editing unit is normally just a different spelling of the display unit, but
+        // rescale in case it isn't.
+        let shown = display * display_unit.scale / shown_unit.scale;
+        let digits = if display_unit.scale == units_table[self.canonical_index()].scale
+            && shown_unit.scale == display_unit.scale
+        {
+            // No conversion, so the value is exact.
+            NumericValue::from_f64(shown, fmt).to_string()
+        } else {
+            format_display_value(shown, fmt)
         };
 
         // Append the display suffix
-        format!("{}{}", display_value, display_unit.suffixes[0])
+        format!("{}{}", digits, shown_unit.suffixes[0])
     }
 
-    fn parse(&self, value: String, fmt: NumericFormat) -> Result<NumericValue, String> {
+    fn parse(&self, text: &str) -> Result<f64, String> {
         // Parse the input string, isolate the units token, find matching unit in table.
         // This will eventually be a parser to support complex exprs.
-        let trimmed = value.trim();
+        let trimmed = text.trim();
 
         // Find where the numeric part ends (after the last digit, decimal point, or exponent)
         let mut magnitude_end = 0;
@@ -1580,15 +1849,15 @@ impl<S: StandardUnitKind> UnitsFormat for S {
         let suffix_str = trimmed[magnitude_end..].trim();
 
         // Parse the magnitude
-        let magnitude = NumericValue::parse_from(magnitude_str, fmt)?;
+        let magnitude = parse_number(magnitude_str)?;
 
         // Find matching unit suffix
         let units_table = self.units();
-        let canonical_unit = &units_table[self.canonical_index()];
+        let display_unit = &units_table[self.display_index()];
 
-        let editing_unit = if suffix_str.is_empty() {
+        let typed_unit = if suffix_str.is_empty() {
             // If no suffix provided, use the default display unit
-            &units_table[self.display_index()]
+            display_unit
         } else {
             // Search for matching suffix in any unit
             units_table
@@ -1597,9 +1866,8 @@ impl<S: StandardUnitKind> UnitsFormat for S {
                 .ok_or_else(|| format!("Unknown unit suffix: '{}'", suffix_str))?
         };
 
-        // Scale by editing units
-        let scale_factor = editing_unit.scale / canonical_unit.scale;
-        Ok(magnitude.scale_by(scale_factor))
+        // Convert from the typed units to display units.
+        Ok(magnitude * typed_unit.scale / display_unit.scale)
     }
 }
 
@@ -1709,6 +1977,33 @@ impl StandardUnitKind for AngleDegrees {
     }
 }
 
+/// Unit representing a fraction, displayed as a percentage: 0.4 shows as 40%. Typed text is read
+/// as a percentage, with or without the sign.
+pub struct RatioPercent;
+
+impl StandardUnitKind for RatioPercent {
+    const ID: &'static str = "ratio_percent";
+
+    fn units(&self) -> &'static [StandardUnitItem] {
+        &[
+            // The stored ratio; no suffix, since nobody types one.
+            StandardUnitItem {
+                suffixes: &[],
+                scale: 1.0,
+            },
+            StandardUnitItem {
+                suffixes: &["%"],
+                scale: 0.01,
+            },
+        ]
+    }
+
+    /// Display as a percentage, not a ratio.
+    fn display_index(&self) -> usize {
+        1
+    }
+}
+
 /// Resource which contains registry of various units, which allows unit definitions to be serialized
 /// and references in the editor.
 #[derive(Resource, Default)]
@@ -1749,6 +2044,7 @@ impl Plugin for NumberInputPlugin {
         registry.insert(&LengthMeters);
         registry.insert(&TimeSeconds);
         registry.insert(&AngleDegrees);
+        registry.insert(&RatioPercent);
         app.insert_resource(registry);
 
         app.add_systems(
@@ -1771,14 +2067,14 @@ mod tests {
     fn test_length_meters_format() {
         let length = LengthMeters;
         let value = NumericValue::F64(100.0);
-        let formatted = length.format(value, false);
+        let formatted = format_value(&length, value, false);
         assert_eq!(formatted, "100m");
     }
 
     #[test]
     fn test_length_meters_parse() {
         let length = LengthMeters;
-        let result = length.parse("100m".to_string(), NumericFormat::F64);
+        let result = parse_value(&length, "100m", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - 100.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1788,7 +2084,7 @@ mod tests {
     #[test]
     fn test_length_meters_convert_km_to_m() {
         let length = LengthMeters;
-        let result = length.parse("1km".to_string(), NumericFormat::F64);
+        let result = parse_value(&length, "1km", NumericFormat::F64);
         assert!(result.is_ok());
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - 1000.0).abs() < 1e-6),
@@ -1799,7 +2095,7 @@ mod tests {
     #[test]
     fn test_length_meters_convert_mm_to_m() {
         let length = LengthMeters;
-        let result = length.parse("1mm".to_string(), NumericFormat::F64);
+        let result = parse_value(&length, "1mm", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - 0.001).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1810,17 +2106,17 @@ mod tests {
     fn test_angle_degrees_format() {
         let angle = AngleDegrees;
         let value = NumericValue::F64(std::f64::consts::PI / 4.0); // 45 degrees in radians
-        let formatted = angle.format(value, false);
+        let formatted = format_value(&angle, value, false);
         assert_eq!(formatted, "45°");
 
-        let formatted = angle.format(value, true);
+        let formatted = format_value(&angle, value, true);
         assert_eq!(formatted, "45d");
     }
 
     #[test]
     fn test_angle_degrees_parse() {
         let angle = AngleDegrees;
-        let result = angle.parse("45d".to_string(), NumericFormat::F64);
+        let result = parse_value(&angle, "45d", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - std::f64::consts::PI / 4.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1830,7 +2126,7 @@ mod tests {
     #[test]
     fn test_angle_degrees_convert_rad_to_deg() {
         let angle = AngleDegrees;
-        let result = angle.parse("1rad".to_string(), NumericFormat::F64);
+        let result = parse_value(&angle, "1rad", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - 1.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1840,7 +2136,7 @@ mod tests {
     #[test]
     fn test_angle_degrees_parse_deg_suffix() {
         let angle = AngleDegrees;
-        let result = angle.parse("90deg".to_string(), NumericFormat::F64);
+        let result = parse_value(&angle, "90deg", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - std::f64::consts::PI / 2.0).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
@@ -1850,17 +2146,72 @@ mod tests {
     #[test]
     fn test_parse_negative_numbers() {
         let length = LengthMeters;
-        let result = length.parse("-100".to_string(), NumericFormat::F64);
+        let result = parse_value(&length, "-100", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - (-100.0)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
 
-        let result = length.parse("-50.5cm".to_string(), NumericFormat::F64);
+        let result = parse_value(&length, "-50.5cm", NumericFormat::F64);
         match result.unwrap() {
             NumericValue::F64(val) => assert!((val - (-0.505)).abs() < 1e-6),
             _ => panic!("Expected F64 variant"),
         }
+    }
+
+    #[test]
+    fn precision_rounds_in_display_units() {
+        // 0.31 rad is about 17.761973°; precision 2 should round to hundredths of a degree.
+        let rounded = NumberInputPrecision(2).round(&AngleDegrees, NumericValue::F32(0.31));
+        assert_eq!(format_value(&AngleDegrees, rounded, false), "17.76°");
+
+        // Negative precision rounds integers to tens.
+        let rounded = NumberInputPrecision(-1).round(&Dimensionless, NumericValue::I32(1234));
+        assert_eq!(rounded, NumericValue::I32(1230));
+    }
+
+    #[test]
+    fn converted_values_format_without_noise() {
+        for hundredths in -36000..=36000 {
+            let degrees = hundredths as f64 / 100.0;
+            let value =
+                parse_value(&AngleDegrees, &format!("{degrees}d"), NumericFormat::F32).unwrap();
+            assert_eq!(
+                format_value(&AngleDegrees, value, false),
+                format!("{}°", degrees as f32)
+            );
+        }
+    }
+
+    #[test]
+    fn ratio_percent_formats_and_parses() {
+        for (ratio, shown) in [(0.3, "30%"), (0.07, "7%"), (0.955, "95.5%"), (1.0, "100%")] {
+            let value = NumericValue::F32(ratio);
+            assert_eq!(format_value(&RatioPercent, value, false), shown);
+            for typed in [shown, shown.trim_end_matches('%'), &format!("{shown} ")] {
+                let read = parse_value(&RatioPercent, typed, NumericFormat::F32);
+                assert_eq!(read, Ok(value), "{typed:?}");
+            }
+        }
+
+        // Precision 1 rounds to tenths of a percent.
+        let rounded = NumberInputPrecision(1).round(&RatioPercent, NumericValue::F32(0.12345));
+        assert_eq!(format_value(&RatioPercent, rounded, false), "12.3%");
+    }
+
+    #[test]
+    fn unconverted_values_format_exactly() {
+        // No conversion, so all of the f32's digits are shown.
+        let value = NumericValue::F32(12.345678);
+        assert_eq!(format_value(&Dimensionless, value, false), "12.345678");
+        assert_eq!(format_value(&LengthMeters, value, false), "12.345678m");
+    }
+
+    #[test]
+    fn parse_converts_to_display_units() {
+        assert_eq!(AngleDegrees.parse("45"), Ok(45.0));
+        assert_eq!(AngleDegrees.parse("1rad"), Ok(180.0 / std::f64::consts::PI));
+        assert_eq!(LengthMeters.parse("2km"), Ok(2000.0));
     }
 
     #[test]

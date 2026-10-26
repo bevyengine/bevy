@@ -86,13 +86,6 @@ impl<'a> BsnCodegenCtx<'a> {
         } else if let Some(remaining) = source_text.strip_prefix(BSN) {
             (BSN, remaining)
         } else {
-            #[expect(
-                clippy::print_stderr,
-                reason = "The `bsn!` macro cannot know the caller's logging setup."
-            )]
-            {
-                eprintln!("Unknown macro root! {}", source_text);
-            }
             return;
         };
 
@@ -690,9 +683,14 @@ impl BsnType {
                     .map(|struct_update| quote! { #struct_update })
                     .unwrap_or_else(|| quote! {..#FQDefault::default()});
                 quote! {
-                    #template_path {
-                      #(#assigns)*
-                      #struct_update
+                    {
+                        // Needed because otherwise `..Default::default()` can emit a warning.
+                        #[allow(clippy::needless_update)]
+                        let value = #template_path {
+                            #(#assigns)*
+                            #struct_update
+                        };
+                        value
                     }
                 }
             }

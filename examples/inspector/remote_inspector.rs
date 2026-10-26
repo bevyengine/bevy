@@ -12,7 +12,7 @@
 //! ```
 //!
 //! The address defaults to `127.0.0.1:15702` and can be overridden with the `BRP_HOST` and
-//! `BRP_PORT` environment variables.
+//! `BRP_PORT` environment variables, or changed in the connection bar at the top.
 
 use bevy::{
     feathers::{
@@ -22,6 +22,7 @@ use bevy::{
         FeathersPlugins,
     },
     inspector::{
+        connection_panel::connection_panel,
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
         remote::RemoteSource,
@@ -68,8 +69,11 @@ fn inspector_ui() -> impl Scene {
             padding: px(12),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::FlexStart,
+            row_gap: px(8),
         }
         Children [
+            @connection_panel()
+            --
             @FeathersSplitPane
             Node {
                 width: px(720),
