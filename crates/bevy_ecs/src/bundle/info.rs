@@ -16,7 +16,6 @@ use crate::{
         ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
     },
     entity::Entity,
-    query::DebugCheckedUnwrap as _,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 
@@ -267,7 +266,7 @@ impl BundleInfo {
                     let column =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
+                        unsafe { table.get_column_mut(component_id).unwrap_unchecked() };
                     match (status, insert_mode) {
                         // SAFETY:
                         // - table_row valid per preconditions
@@ -294,7 +293,7 @@ impl BundleInfo {
                     let sparse_set =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
-                        unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
+                        unsafe { sparse_sets.get_mut(component_id).unwrap_unchecked() };
                     match (status, insert_mode) {
                         // SAFETY: component_ptr valid per unsafe bundle impl
                         (ComponentStatus::Added, _) | (_, InsertMode::Replace) => unsafe {
@@ -364,11 +363,11 @@ impl BundleInfo {
         unsafe {
             match storage_type {
                 StorageType::Table => {
-                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
+                    let column = table.get_column_mut(component_id).unwrap_unchecked();
                     column.initialize(table_row, component_ptr, change_tick, caller);
                 }
                 StorageType::SparseSet => {
-                    let sparse_set = sparse_sets.get_mut(component_id).debug_checked_unwrap();
+                    let sparse_set = sparse_sets.get_mut(component_id).unwrap_unchecked();
                     sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
@@ -526,22 +525,14 @@ impl Bundles {
     /// via [`init_component_info`](Self::init_dynamic_info)
     pub(crate) unsafe fn get_storage_unchecked(&self, id: BundleId) -> StorageType {
         // SAFETY: Added in `init_component_info`
-        *unsafe {
-            self.dynamic_component_storages
-                .get(&id)
-                .debug_checked_unwrap()
-        }
+        *unsafe { self.dynamic_component_storages.get(&id).unwrap_unchecked() }
     }
 
     /// # Safety
     /// This [`BundleId`] must have been initialized via [`init_dynamic_info`](Self::init_dynamic_info)
     pub(crate) unsafe fn get_storages_unchecked(&mut self, id: BundleId) -> &mut Vec<StorageType> {
         // SAFETY: Added in `init_dynamic_info`
-        unsafe {
-            self.dynamic_bundle_storages
-                .get_mut(&id)
-                .debug_checked_unwrap()
-        }
+        unsafe { self.dynamic_bundle_storages.get_mut(&id).unwrap_unchecked() }
     }
 
     /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`].
