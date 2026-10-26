@@ -567,18 +567,24 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
     }
 
     fn place_most_recent(&mut self, index: usize) {
-        if let Some(entity) = self.pop() {
-            let index = index.min(self.len());
-            self.insert(index, entity);
+        if index < self.len() {
+            self[index..].rotate_right(1);
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            SmallVec::<[Entity; N]>::remove(self, current);
-            let index = index.min(self.len());
-            self.insert(index, entity);
-        };
+            // We cannot insert in a position bigger than the last element.
+            // We know that `self` contains `entity` so `self.len()` must be at least 1 thus
+            // `self.len() - 1` cannot overflow.
+            let index = index.min(self.len() - 1);
+
+            match index.cmp(&current) {
+                Ordering::Less => self[index..=current].rotate_right(1),
+                Ordering::Greater => self[current..=index].rotate_left(1),
+                Ordering::Equal => {}
+            }
+        }
     }
 }
 
@@ -962,6 +968,10 @@ mod tests {
         assert_eq!(v, vec![b, a, c]);
 
         // Test no panic
+
+        let len = v.len();
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, len);
+        assert_eq!(v, vec![b, a, c]);
         v.clear();
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
     }
@@ -992,6 +1002,10 @@ mod tests {
         assert_eq!(v, vec![b, a, c]);
 
         // Test no panic
+
+        let len = v.len();
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, len);
+        assert_eq!(v, vec![b, a, c]);
         v.clear();
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
     }
@@ -1001,22 +1015,33 @@ mod tests {
         let mut world = World::new();
         let a = world.spawn_empty().id();
         let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
 
         let mut v = SmallVec::<[Entity; 2]>::new();
         OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
         assert_eq!(v.as_ref(), vec![a]);
         OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
         assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, c);
+        assert_eq!(v.as_ref(), vec![a, b, c]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 0);
-        assert_eq!(v.as_ref(), vec![b, a]);
+        assert_eq!(v.as_ref(), vec![b, a, c]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 10);
-        assert_eq!(v.as_ref(), vec![a, b]);
+        assert_eq!(v.as_ref(), vec![a, c, b]);
         OrderedRelationshipSourceCollection::place(&mut v, b, 10);
-        assert_eq!(v.as_ref(), vec![a, b]);
+        assert_eq!(v.as_ref(), vec![a, c, b]);
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
-        assert_eq!(v.as_ref(), vec![b, a]);
+        assert_eq!(v.as_ref(), vec![b, a, c]);
         OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
-        assert_eq!(v.as_ref(), vec![b, a]);
+        assert_eq!(v.as_ref(), vec![b, a, c]);
+
+        // Test no panic
+
+        let len = v.len();
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, len);
+        assert_eq!(v.as_ref(), vec![b, a, c]);
+        v.clear();
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
     }
 
     #[test]
