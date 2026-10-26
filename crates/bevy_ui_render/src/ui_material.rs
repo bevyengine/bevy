@@ -1,5 +1,5 @@
 use crate::{
-    sub_z_layers::{NodePaintLayers, PaintLayer},
+    paint_layers::{NodePaintLayers, PaintLayer},
     Node,
 };
 use bevy_asset::{Asset, AssetId, Handle};

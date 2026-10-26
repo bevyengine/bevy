@@ -13,7 +13,7 @@ use bevy_ui::{
 };
 
 use crate::{
-    sub_z_layers::{PaintOrder, NodePaintLayers},
+    paint_layers::{NodePaintLayers, PaintOrder},
     ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
 };
 
