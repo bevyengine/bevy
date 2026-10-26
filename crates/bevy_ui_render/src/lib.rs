@@ -91,8 +91,8 @@ pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::clipping::clip_polygon;
+use crate::paint_layers::{NodePaintLayers, PaintOrder};
 use crate::shader_flags::INVERT;
-use crate::sub_z_layers::{NodePaintLayers, PaintOrder};
 use crate::text::{calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor};
 
 pub mod prelude {
