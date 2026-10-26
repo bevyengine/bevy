@@ -704,7 +704,7 @@ pub fn extract_gradients(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_gradient(
-    sub_layers: Res<PaintOrder>,
+    paint_order: Res<PaintOrder>,
     extracted_gradients: ResMut<ExtractedGradients>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
@@ -742,7 +742,7 @@ pub fn queue_gradient(
             continue;
         };
         for (render_entity, gradient) in sub_gradients.iter() {
-            let Ok(sub_z_layer_offset) = sub_layers.get_offset(match gradient.node_type {
+            let Ok(paint_offset) = paint_order.get_offset(match gradient.node_type {
                 NodeType::Rect | NodeType::Inverted => NodePaintLayer::Gradient,
                 NodeType::Border(_) => NodePaintLayer::BorderGradient,
             }) else {
@@ -763,7 +763,7 @@ pub fn queue_gradient(
                 draw_function,
                 pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(gradient.stack_index as f32 + sub_z_layer_offset),
+                sort_key: FloatOrd(gradient.stack_index as f32 + paint_offset),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,

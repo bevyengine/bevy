@@ -46,7 +46,7 @@ impl NodePaintLayer {
 
 /// List of the local Z layers for node.
 /// UI elements are drawn in the order of this list, back-to-front.
-/// If the label for a builtin renderable element from `UiSubZlayers` isn't present, that
+/// If the label for a builtin renderable element from `NodePlayerLayer` isn't present, that
 /// element won't be drawn.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
 #[extract_app(RenderApp)]

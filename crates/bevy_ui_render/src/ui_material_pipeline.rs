@@ -667,7 +667,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 }
 
 pub fn queue_ui_material_nodes<M: UiMaterial>(
-    sub_layers: Res<PaintOrder>,
+    paint_order: Res<PaintOrder>,
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
@@ -680,7 +680,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let Ok(sub_z_layer_offset) = sub_layers.get_offset(M::paint_layer()) else {
+    let Ok(paint_offset) = paint_order.get_offset(M::paint_layer()) else {
         return;
     };
 
@@ -736,7 +736,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 draw_function,
                 pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + sub_z_layer_offset),
+                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + paint_offset),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: false,

@@ -402,7 +402,7 @@ pub fn extract_shadows(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_shadows(
-    sub_layers: Res<PaintOrder>,
+    paint_order: Res<PaintOrder>,
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
@@ -412,7 +412,7 @@ pub fn queue_shadows(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let Ok(sub_z_layer_offset) = sub_layers.get_offset(NodePaintLayer::BoxShadow) else {
+    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::BoxShadow) else {
         return;
     };
 
@@ -457,7 +457,7 @@ pub fn queue_shadows(
                 draw_function,
                 pipeline: *pipeline,
                 entity: (*entity, *main_entity),
-                sort_key: FloatOrd(extracted_shadow.stack_index as f32 + sub_z_layer_offset),
+                sort_key: FloatOrd(extracted_shadow.stack_index as f32 + paint_offset),
 
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
