@@ -743,8 +743,8 @@ pub fn queue_gradient(
         };
         for (render_entity, gradient) in sub_gradients.iter() {
             let Ok(sub_z_layer_offset) = sub_layers.get_offset(match gradient.node_type {
-                NodeType::Rect | NodeType::Inverted => NodePaintLayers::Gradient,
-                NodeType::Border(_) => NodePaintLayers::BorderGradient,
+                NodeType::Rect | NodeType::Inverted => NodePaintLayer::Gradient,
+                NodeType::Border(_) => NodePaintLayer::BorderGradient,
             }) else {
                 continue;
             };

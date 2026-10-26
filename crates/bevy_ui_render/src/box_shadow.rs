@@ -39,7 +39,7 @@ use crate::{
 };
 
 use super::{UiCameraView, QUAD_VERTEX_POSITIONS};
-use crate::paint_layers::{NodePaintLayers, PaintOrder};
+use crate::paint_layers::{NodePaintLayer, PaintOrder};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -412,7 +412,7 @@ pub fn queue_shadows(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let Ok(sub_z_layer_offset) = sub_layers.get_offset(NodePaintLayers::BoxShadow) else {
+    let Ok(sub_z_layer_offset) = sub_layers.get_offset(NodePaintLayer::BoxShadow) else {
         return;
     };
 

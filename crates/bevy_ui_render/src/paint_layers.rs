@@ -11,7 +11,7 @@ define_label!(PaintLayer);
 
 /// The list of paint layers used to render the builtin UI elements.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
-pub enum NodePaintLayers {
+pub enum NodePaintLayer {
     BoxShadow,
     BackgroundColor,
     Border,
@@ -26,21 +26,21 @@ pub enum NodePaintLayers {
     InlineImage,
 }
 
-impl NodePaintLayers {
+impl NodePaintLayer {
     // The builtin paint layers in their default paint order.
     pub const ALL: [Self; 12] = [
-        NodePaintLayers::BoxShadow,
-        NodePaintLayers::BackgroundColor,
-        NodePaintLayers::Border,
-        NodePaintLayers::Gradient,
-        NodePaintLayers::BorderGradient,
-        NodePaintLayers::Image,
-        NodePaintLayers::Material,
-        NodePaintLayers::TextSelection,
-        NodePaintLayers::Text,
-        NodePaintLayers::TextStrikethrough,
-        NodePaintLayers::TextCursor,
-        NodePaintLayers::InlineImage,
+        NodePaintLayer::BoxShadow,
+        NodePaintLayer::BackgroundColor,
+        NodePaintLayer::Border,
+        NodePaintLayer::Gradient,
+        NodePaintLayer::BorderGradient,
+        NodePaintLayer::Image,
+        NodePaintLayer::Material,
+        NodePaintLayer::TextSelection,
+        NodePaintLayer::Text,
+        NodePaintLayer::TextStrikethrough,
+        NodePaintLayer::TextCursor,
+        NodePaintLayer::InlineImage,
     ];
 }
 
@@ -66,7 +66,7 @@ impl<P: PaintLayer, const N: usize> From<[P; N]> for PaintOrder {
 
 impl Default for PaintOrder {
     fn default() -> Self {
-        Self::from(NodePaintLayers::ALL)
+        Self::from(NodePaintLayer::ALL)
     }
 }
 
@@ -114,9 +114,30 @@ impl PaintOrder {
         self.0.insert_before(index + 1, new_layer.intern());
         Ok(())
     }
+
+    /// Removes a layer, preserving the order of the remaining layers.
+    /// Returns `true` if the layer was present.
+    pub fn remove_layer(&mut self, layer: impl PaintLayer) -> bool {
+        self.0.shift_remove(&layer.intern())
+    }
 }
 
 #[derive(Debug)]
 pub enum PaintLayerError {
     UnrecognisedLayer(Interned<dyn PaintLayer>),
+}
+
+mod tests {
+    use crate::paint_layers::NodePaintLayer;
+    use crate::paint_layers::PaintOrder;
+
+    #[test]
+    fn default_paint_order_matches_node_paint_layer_order() {
+        let paint_order = PaintOrder::default();
+
+        assert_eq!(paint_order.len(), NodePaintLayer::ALL.len());
+        for (index, layer) in NodePaintLayer::ALL.into_iter().enumerate() {
+            assert_eq!(paint_order.get_layer_index(layer).unwrap(), index);
+        }
+    }
 }
