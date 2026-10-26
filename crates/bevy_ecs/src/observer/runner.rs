@@ -7,7 +7,6 @@ use crate::{
     event::{EventPattern, EventTriggerState, Trigger},
     observer::TriggerContext,
     prelude::*,
-    query::DebugCheckedUnwrap,
     system::{ObserverSystem, RunSystemError},
     world::DeferredWorld,
 };
@@ -42,9 +41,9 @@ pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E
     let world = world.as_unsafe_world_cell();
 
     // SAFETY: Observer was triggered so must still exist in world
-    let observer_cell = unsafe { world.get_entity(observer).debug_checked_unwrap() };
+    let observer_cell = unsafe { world.get_entity(observer).unwrap_unchecked() };
     // SAFETY: Observer was triggered so must have an `Observer`
-    let mut state = unsafe { observer_cell.get_mut::<Observer>().debug_checked_unwrap() };
+    let mut state = unsafe { observer_cell.get_mut::<Observer>().unwrap_unchecked() };
 
     // TODO: Move this check into the observer cache to avoid dynamic dispatch
     let last_trigger = world.last_trigger_id();
@@ -84,8 +83,8 @@ pub(super) unsafe fn observer_system_runner<E: EventPattern, S: ObserverSystem<E
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
     let system: *mut dyn ObserverSystem<E> = unsafe {
-        let system: &mut dyn Any = state.system.as_deref_mut().debug_checked_unwrap();
-        let system = system.downcast_mut::<S>().debug_checked_unwrap();
+        let system: &mut dyn Any = state.system.as_deref_mut().unwrap_unchecked();
+        let system = system.downcast_mut::<S>().unwrap_unchecked();
         &mut *system
     };
 
