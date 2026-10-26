@@ -233,10 +233,10 @@ mod tests {
     }
 
     #[test]
-    fn from_array_keeps_first_of_duplicate_layers() {
+    fn from_array_keeps_second_of_duplicate_layers() {
         let paint_order = PaintOrder::from([A, B, A]);
 
-        assert_order(&paint_order, [A, B]);
+        assert_order(&paint_order, [B, A]);
     }
 
     #[test]
