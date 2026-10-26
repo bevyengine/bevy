@@ -27,7 +27,8 @@ pub enum NodePaintLayers {
 }
 
 impl NodePaintLayers {
-    pub fn all() -> [Self; _] {
+    /// Returns a list of all the builtin paint layers in their default paint order.
+    pub fn all() -> [Self; 12] {
         [
             NodePaintLayers::BoxShadow,
             NodePaintLayers::BackgroundColor,
@@ -53,14 +54,15 @@ impl NodePaintLayers {
 #[extract_app(RenderApp)]
 pub struct PaintOrder(pub IndexSet<Interned<dyn PaintLayer>>);
 
+impl<'a, P: PaintLayer, I: IntoIterator<Item = &'a P>> From<I> for PaintOrder {
+    fn from(layers: I) -> Self {
+        Self(layers.into_iter().map(|layer| layer.intern()).collect())
+    }
+}
+
 impl Default for PaintOrder {
     fn default() -> Self {
-        Self(
-            NodePaintLayers::all()
-                .iter()
-                .map(|layer| layer.intern())
-                .collect(),
-        )
+        Self::from(NodePaintLayers::all().iter())
     }
 }
 
