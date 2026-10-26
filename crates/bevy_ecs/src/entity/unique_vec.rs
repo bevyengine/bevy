@@ -441,6 +441,16 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         // SAFETY: `self` and thus `range` contains only unique elements.
         unsafe { UniqueEntityIter::from_iter_unchecked(self.0.splice(range, replace_with)) }
     }
+
+    /// Searches for a value equal to `entity` and return its position if found. Otherwise pushes
+    /// `entity` and returns its position.
+    pub fn get_or_push(&mut self, entity: T) -> usize {
+        self.iter().position(|e| e == &entity).unwrap_or_else(|| {
+            // SAFETY: We just looked for an entity equal to `entity` in `self` and found none.
+            unsafe { self.push(entity) }
+            self.len() - 1
+        })
+    }
 }
 
 impl<T: EntityEquivalent> Default for UniqueEntityEquivalentVec<T> {

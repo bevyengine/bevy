@@ -261,13 +261,13 @@ impl RelationshipSourceCollection for UniqueEntityVec {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        if self.contains(&entity) {
-            false
-        } else {
-            // SAFETY: we just checked that `self` doesn't contain `entity`.
-            unsafe { self.push(entity) }
-            true
-        }
+        // Store the current length for later.
+        let old_len = self.len();
+        // Find or push `entity`.
+        let position = self.get_or_push(entity);
+        // If the position we inserted `entity` is equal to the old length then
+        // it was just pushed, otherwise it was already present in the list.
+        position == old_len
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
@@ -306,11 +306,7 @@ impl OrderedRelationshipSourceCollection for UniqueEntityVec {
     fn insert(&mut self, index: usize, entity: Entity) {
         // Find the index of `entity` or push it and return its index.
         // After this we know for sure that `entity` is in `self` at index `current_index`.
-        let current_index = self.iter().rposition(|e| e == entity).unwrap_or_else(|| {
-            // SAFETY: If we're in this branch then no entity in `self` was equal to `entity`.
-            unsafe { self.push(entity) }
-            self.len() - 1
-        });
+        let current_index = self.get_or_push(entity);
 
         // We cannot insert in a position bigger than the last element.
         // We know that `self` contains `entity` so `self.len()` must be at least 1 thus
@@ -329,11 +325,7 @@ impl OrderedRelationshipSourceCollection for UniqueEntityVec {
     fn insert_stable(&mut self, index: usize, entity: Entity) {
         // Find the index of `entity` or push it and return its index.
         // After this we know for sure that `entity` is in `self` at index `current`.
-        let current = self.iter().rposition(|e| e == entity).unwrap_or_else(|| {
-            // SAFETY: If we're in this branch then no entity in `self` was equal to `entity`.
-            unsafe { self.push(entity) }
-            self.len() - 1
-        });
+        let current = self.get_or_push(entity);
 
         // We cannot insert in a position bigger than the last element.
         // We know that `self` contains `entity` so `self.len()` must be at least 1 thus
