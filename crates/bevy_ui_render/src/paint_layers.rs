@@ -4,13 +4,13 @@ use bevy_ecs::define_label;
 use bevy_ecs::intern::Interned;
 use bevy_ecs::resource::Resource;
 use bevy_render::{extract_resource::ExtractResource, RenderApp};
-pub use bevy_ui_render_macros::UiSubZLayer;
+pub use bevy_ui_render_macros::PaintLayer;
 
-define_label!(UiSubZLayer);
+define_label!(PaintLayer);
 
-/// Sub Z layers used by Bevy UI's builtin renderable elements
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, UiSubZLayer)]
-pub enum NodePaintSteps {
+/// The list of paint layers used to render the builtin UI elements.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
+pub enum NodePaintLayers {
     BoxShadow,
     BackgroundColor,
     Border,
@@ -31,54 +31,54 @@ pub enum NodePaintSteps {
 /// element won't be drawn.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
 #[extract_app(RenderApp)]
-pub struct PaintOrder(pub Vec<Interned<dyn UiSubZLayer>>);
+pub struct PaintOrder(pub Vec<Interned<dyn PaintLayer>>);
 
 impl Default for PaintOrder {
     fn default() -> Self {
         Self(vec![
-            NodePaintSteps::BoxShadow.intern(),
-            NodePaintSteps::BackgroundColor.intern(),
-            NodePaintSteps::Border.intern(),
-            NodePaintSteps::Gradient.intern(),
-            NodePaintSteps::BorderGradient.intern(),
-            NodePaintSteps::Image.intern(),
-            NodePaintSteps::Material.intern(),
-            NodePaintSteps::TextSelection.intern(),
-            NodePaintSteps::Text.intern(),
-            NodePaintSteps::TextStrikethrough.intern(),
-            NodePaintSteps::TextCursor.intern(),
-            NodePaintSteps::InlineImage.intern(),
+            NodePaintLayers::BoxShadow.intern(),
+            NodePaintLayers::BackgroundColor.intern(),
+            NodePaintLayers::Border.intern(),
+            NodePaintLayers::Gradient.intern(),
+            NodePaintLayers::BorderGradient.intern(),
+            NodePaintLayers::Image.intern(),
+            NodePaintLayers::Material.intern(),
+            NodePaintLayers::TextSelection.intern(),
+            NodePaintLayers::Text.intern(),
+            NodePaintLayers::TextStrikethrough.intern(),
+            NodePaintLayers::TextCursor.intern(),
+            NodePaintLayers::InlineImage.intern(),
         ])
     }
 }
 
 impl PaintOrder {
-    /// Get the z-offset for a layer.
+    /// Get the z-offset for a paint layer.
     /// The offsets are in the half-open range `0.0..1.0`, increasing from back to front.
     /// The returned offset should be added to the extracted item's stack index to get the final z value.
     ///
     /// Returns an error if the layer label isn't present in the list.
-    pub fn get_offset(&self, layer: impl UiSubZLayer) -> Result<f32, UiSubZLayerError> {
+    pub fn get_offset(&self, layer: impl PaintLayer) -> Result<f32, PaintLayerError> {
         let layer = layer.intern();
         self.iter()
             .position(|&label| label == layer)
             .map(|index| index as f32 / self.len() as f32)
-            .ok_or(UiSubZLayerError::NoSuchLayer)
+            .ok_or(PaintLayerError::UnrecognisedLayer)
     }
 
     /// Insert a new layer immediately before the given layer.
     /// Returns an error if the before label isn't present in the list.
     pub fn insert_before(
         &mut self,
-        before: impl UiSubZLayer,
-        new_layer: impl UiSubZLayer,
-    ) -> Result<(), UiSubZLayerError> {
+        before: impl PaintLayer,
+        new_layer: impl PaintLayer,
+    ) -> Result<(), PaintLayerError> {
         let before = before.intern();
         let new_layer = new_layer.intern();
         let index = self
             .iter()
             .position(|&label| label == before)
-            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+            .ok_or(PaintLayerError::UnrecognisedLayer)?;
         self.insert(index, new_layer.intern());
         Ok(())
     }
@@ -87,20 +87,20 @@ impl PaintOrder {
     /// Returns an error if the after label isn't present in the list.
     pub fn insert_after(
         &mut self,
-        after: impl UiSubZLayer,
-        new_layer: impl UiSubZLayer,
-    ) -> Result<(), UiSubZLayerError> {
+        after: impl PaintLayer,
+        new_layer: impl PaintLayer,
+    ) -> Result<(), PaintLayerError> {
         let after = after.intern();
         let new_layer = new_layer.intern();
         let index = self
             .iter()
             .position(|&label| label == after)
-            .ok_or(UiSubZLayerError::NoSuchLayer)?;
+            .ok_or(PaintLayerError::UnrecognisedLayer)?;
         self.insert(index + 1, new_layer.intern());
         Ok(())
     }
 }
 
-pub enum UiSubZLayerError {
-    NoSuchLayer,
+pub enum PaintLayerError {
+    UnrecognisedLayer,
 }
