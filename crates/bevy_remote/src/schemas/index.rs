@@ -13,16 +13,22 @@ use bevy_reflect::TypeRegistry;
 use serde_json::Value;
 
 use crate::schemas::{
-    json_schema::{export_type, JsonSchemaBevyType, SchemaAnnotations, SchemaKind},
+    json_schema::{
+        export_type, JsonSchemaBevyType, SchemaAnnotations, SchemaKind, STRUCTURAL_KEYWORDS,
+    },
     SchemaTypesMetadata,
 };
 
 const REF_PREFIX: &str = "#/";
 
 /// A set of [`JsonSchemaBevyType`] schemas indexed by type path, resolving `$ref`s between them.
+///
+/// Types are read by their reflected structure, from `reflectSchema` when a type declares its
+/// serialized form with [`ReflectBrpJsonSchema`](crate::schemas::json_schema::ReflectBrpJsonSchema).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SchemaRegistry {
     schemas: HashMap<String, JsonSchemaBevyType>,
+    reflected: HashMap<String, JsonSchemaBevyType>,
 }
 
 impl SchemaRegistry {
@@ -31,9 +37,12 @@ impl SchemaRegistry {
     /// For a `registry.schema` response, pass the `schema` map of the parsed
     /// [`BrpJsonSchemaResponse`](crate::builtin_methods::BrpJsonSchemaResponse).
     pub fn from_schemas(schemas: impl IntoIterator<Item = (String, JsonSchemaBevyType)>) -> Self {
-        Self {
-            schemas: schemas.into_iter().collect(),
-        }
+        let schemas: HashMap<_, _> = schemas.into_iter().collect();
+        let reflected = schemas
+            .iter()
+            .filter_map(|(path, schema)| Some((path.clone(), reflected_view(schema)?)))
+            .collect();
+        Self { schemas, reflected }
     }
 
     /// Builds an index of every type in a local [`TypeRegistry`].
@@ -50,9 +59,10 @@ impl SchemaRegistry {
 
     /// Returns the schema of the type with the given type path.
     pub fn get(&self, type_path: &str) -> Option<TypeSchema<'_>> {
-        self.schemas.get(type_path).map(|schema| TypeSchema {
+        self.schemas.get(type_path).map(|wire| TypeSchema {
             registry: self,
-            schema,
+            schema: self.reflected.get(type_path).unwrap_or(wire),
+            wire,
         })
     }
 
@@ -99,6 +109,20 @@ impl SchemaRegistry {
     }
 }
 
+/// The schema with its structural keywords replaced by those in `reflectSchema`, if any.
+fn reflected_view(schema: &JsonSchemaBevyType) -> Option<JsonSchemaBevyType> {
+    let reflect_schema = schema.reflect_schema.clone()?;
+    let Value::Object(mut object) = serde_json::to_value(schema).ok()? else {
+        return None;
+    };
+    for keyword in STRUCTURAL_KEYWORDS {
+        object.remove(keyword);
+    }
+    object.remove("reflectSchema");
+    object.extend(reflect_schema);
+    serde_json::from_value(Value::Object(object)).ok()
+}
+
 fn annotations(value: &Value) -> Option<SchemaAnnotations> {
     serde_json::from_value(value.get("annotations")?.clone()).ok()
 }
@@ -108,6 +132,7 @@ fn annotations(value: &Value) -> Option<SchemaAnnotations> {
 pub struct TypeSchema<'a> {
     registry: &'a SchemaRegistry,
     schema: &'a JsonSchemaBevyType,
+    wire: &'a JsonSchemaBevyType,
 }
 
 impl<'a> TypeSchema<'a> {
@@ -119,6 +144,19 @@ impl<'a> TypeSchema<'a> {
     /// The kind of the type.
     pub fn kind(&self) -> &'a SchemaKind {
         &self.schema.kind
+    }
+
+    /// The exported schema, whose top-level keywords describe the serialized value.
+    ///
+    /// For types with a declared serialized form, such as `Vec3` serializing as `[x, y, z]`,
+    /// this differs from the reflected structure read by [`fields`](Self::fields).
+    pub fn wire(&self) -> &'a JsonSchemaBevyType {
+        self.wire
+    }
+
+    /// Whether the type serializes to JSON of unknown shape.
+    pub fn raw_json(&self) -> bool {
+        self.wire.raw_json
     }
 
     /// The fields of a struct, tuple struct or tuple, in declaration order.
@@ -600,6 +638,58 @@ mod tests {
             .unwrap()
             .default_value()
             .is_none());
+    }
+
+    #[test]
+    fn declared_wire_format_keeps_reflected_fields() {
+        use crate::schemas::json_schema::{register_brp_json_schemas, SchemaType};
+        use bevy_ecs::name::Name;
+        use bevy_math::Vec3;
+        use bevy_reflect::ReflectSerialize;
+
+        #[derive(Reflect, Clone, serde::Serialize)]
+        #[reflect(opaque, Clone, Serialize)]
+        struct Blob(u8, u8);
+
+        let registry = AppTypeRegistry::default();
+        {
+            let mut registry = registry.write();
+            register_brp_json_schemas(&mut registry);
+            registry.register::<Blob>();
+        }
+        let local = SchemaRegistry::from_type_registry(
+            &registry.read(),
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+        );
+        let json = serde_json::to_string(&local.schemas).expect("Should serialize");
+        let remote = SchemaRegistry::from_schemas(
+            serde_json::from_str::<HashMap<String, JsonSchemaBevyType>>(&json)
+                .expect("Should deserialize"),
+        );
+        assert_eq!(local, remote);
+
+        let vec3 = remote.get(Vec3::type_path()).unwrap();
+        assert_eq!(vec3.kind(), &SchemaKind::Struct);
+        assert_eq!(
+            describe_fields(vec3.fields()),
+            [
+                ("x".to_owned(), Some(0), "f32"),
+                ("y".to_owned(), Some(1), "f32"),
+                ("z".to_owned(), Some(2), "f32"),
+            ]
+        );
+        assert_eq!(vec3.wire().schema_type, Some(SchemaType::Array));
+        assert_eq!(vec3.wire().prefix_items.len(), 3);
+        assert!(!vec3.raw_json());
+
+        let name = remote.get(Name::type_path()).unwrap();
+        assert_eq!(field_names(name.fields()), ["0"]);
+        assert_eq!(name.wire().schema_type, Some(SchemaType::String));
+
+        let blob = remote.get(Blob::type_path()).unwrap();
+        assert!(blob.raw_json());
+        assert!(blob.wire().schema_type.is_none());
     }
 
     #[test]

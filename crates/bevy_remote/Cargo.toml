@@ -55,6 +55,10 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 ] }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev", optional = true }
 bevy_log = { path = "../bevy_log", version = "0.20.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = false, features = [
+  "std",
+  "bevy_reflect",
+] }
 
 # other
 anyhow = "1"

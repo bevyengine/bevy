@@ -646,6 +646,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     observer::On,
+    reflect::AppTypeRegistry,
     resource::Resource,
     schedule::{
         InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
@@ -1042,6 +1043,10 @@ impl Plugin for RemotePlugin {
             .world_mut()
             .resource_mut::<MainScheduleOrder>()
             .insert_after(Last, RemoteLast);
+
+        schemas::json_schema::register_brp_json_schemas(
+            &mut app.world().resource::<AppTypeRegistry>().write(),
+        );
 
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
