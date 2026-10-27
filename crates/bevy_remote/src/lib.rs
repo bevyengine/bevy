@@ -717,6 +717,7 @@ use bevy_ecs::{
     entity::Entity,
     message::Messages,
     observer::On,
+    reflect::AppTypeRegistry,
     resource::Resource,
     schedule::{
         common_conditions::resource_exists, InternedScheduleLabel, IntoScheduleConfigs,
@@ -1137,6 +1138,10 @@ impl Plugin for RemotePlugin {
             .world_mut()
             .resource_mut::<MainScheduleOrder>()
             .insert_after(Last, RemoteLast);
+
+        schemas::json_schema::register_brp_json_schemas(
+            &mut app.world().resource::<AppTypeRegistry>().write(),
+        );
 
         app.insert_resource(remote_methods)
             .init_resource::<schemas::SchemaTypesMetadata>()
