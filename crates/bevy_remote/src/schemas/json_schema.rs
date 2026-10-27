@@ -5,9 +5,11 @@ use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
 use bevy_reflect::{
-    attributes::CustomAttributes, enums::VariantInfo, serde::TypedReflectSerializer,
-    std_traits::ReflectDefault, GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo,
-    TypeRegistration, TypeRegistry,
+    attributes::CustomAttributes,
+    enums::VariantInfo,
+    serde::{SerializationData, TypedReflectSerializer},
+    std_traits::ReflectDefault,
+    GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -69,15 +71,43 @@ fn default_value(reg: &TypeRegistration, registry: &TypeRegistry) -> Option<Valu
     .ok()
 }
 
-/// Adds an `annotations` key to `schema` when `attributes` contain any annotation.
-fn with_annotations(mut schema: Value, attributes: &CustomAttributes) -> Value {
-    if let (Some(annotations), Some(object)) = (
-        SchemaAnnotations::from_attributes(attributes),
-        schema.as_object_mut(),
-    ) {
+/// Adds the `annotations` key and the matching standard keywords to `schema`.
+fn with_annotations(mut schema: Value, annotations: Option<SchemaAnnotations>) -> Value {
+    if let (Some(annotations), Some(object)) = (annotations, schema.as_object_mut()) {
+        if let Some([minimum, maximum]) = annotations.range {
+            object.insert("minimum".into(), json!(minimum));
+            object.insert("maximum".into(), json!(maximum));
+        }
+        if annotations.read_only {
+            object.insert("readOnly".into(), true.into());
+        }
+        if let Some(title) = &annotations.display_name {
+            object.insert("title".into(), json!(title));
+        }
+        if let Some(description) = &annotations.tooltip {
+            object.insert("description".into(), json!(description));
+        }
         object.insert("annotations".into(), json!(annotations));
     }
     schema
+}
+
+/// Schema of an enum variant that serializes as `{"<name>": value}`.
+fn variant_wrapper(name: &str, value: Value) -> Value {
+    json!({
+        "type": "object",
+        "properties": { name: value },
+        "required": [name],
+        "additionalProperties": false,
+    })
+}
+
+/// Type paths of the unsigned integer primitives.
+const UNSIGNED_INTEGERS: [&str; 6] = ["u8", "u16", "u32", "u64", "u128", "usize"];
+
+/// A `$ref` to the schema of the type with the given type path.
+fn type_ref(type_path: &str) -> String {
+    format!("#/{type_path}")
 }
 
 impl
@@ -135,113 +165,159 @@ impl
                 relationship_kind,
             }
         });
-        typed_schema.annotations = match t {
+        let serialization_data = reg.data::<SerializationData>();
+        let is_serialized =
+            |index: usize| !serialization_data.is_some_and(|data| data.is_field_skipped(index));
+        let is_newtype = matches!(t, TypeInfo::TupleStruct(info) if info.field_len() == 1)
+            && serialization_data.is_none();
+        typed_schema.set_annotations(match t {
             TypeInfo::Struct(info) => SchemaAnnotations::from_attributes(info.custom_attributes()),
+            TypeInfo::TupleStruct(info) if is_newtype => SchemaAnnotations::merged(
+                SchemaAnnotations::from_attributes(info.custom_attributes()),
+                SchemaAnnotations::from_attributes(info.field_at(0).unwrap().custom_attributes()),
+            ),
             TypeInfo::TupleStruct(info) => {
                 SchemaAnnotations::from_attributes(info.custom_attributes())
             }
             TypeInfo::Enum(info) => SchemaAnnotations::from_attributes(info.custom_attributes()),
             _ => None,
-        };
+        });
         match t {
             TypeInfo::Struct(info) => {
                 typed_schema.properties = info
                     .iter()
                     .enumerate()
+                    .filter(|(index, _)| is_serialized(*index))
                     .map(|(index, field)| (field.name().to_owned(), field.property(index)))
                     .collect();
                 typed_schema.required = info
                     .iter()
-                    .filter(|field| !field.type_path().starts_with("core::option::Option"))
-                    .map(|f| f.name().to_owned())
+                    .enumerate()
+                    .filter(|(index, field)| {
+                        is_serialized(*index)
+                            && !field.type_path().starts_with("core::option::Option")
+                    })
+                    .map(|(_, field)| field.name().to_owned())
                     .collect::<Vec<_>>();
-                typed_schema.additional_properties = Some(false);
-                typed_schema.schema_type = SchemaType::Object;
+                typed_schema.additional_properties = Some(false.into());
+                typed_schema.schema_type = Some(SchemaType::Object);
                 typed_schema.kind = SchemaKind::Struct;
             }
             TypeInfo::Enum(info) => {
                 typed_schema.kind = SchemaKind::Enum;
+                let is_option = binding.module_path() == Some("core::option")
+                    && binding.ident() == Some("Option");
 
-                let simple = info
+                if info
                     .iter()
-                    .all(|variant| matches!(variant, VariantInfo::Unit(_)));
-                if simple {
-                    typed_schema.schema_type = SchemaType::String;
-                    typed_schema.one_of = info
-                        .iter()
-                        .map(|variant| match variant {
-                            VariantInfo::Unit(v) => v.name().into(),
-                            _ => unreachable!(),
-                        })
-                        .collect::<Vec<_>>();
-                } else {
-                    typed_schema.schema_type = SchemaType::Object;
-                    typed_schema.one_of = info
-                .iter()
-                .map(|variant| with_annotations(match variant {
-                    VariantInfo::Struct(v) => json!({
-                        "type": "object",
-                        "kind": "Struct",
-                        "typePath": format!("{}::{}", type_path, v.name()),
-                        "shortPath": v.name(),
-                        "properties": v
-                            .iter()
-                            .enumerate()
-                            .map(|(index, field)| (field.name().to_owned(), field.property(index)))
-                            .collect::<Map<_, _>>(),
-                        "additionalProperties": false,
-                        "required": v
-                            .iter()
-                            .filter(|field| !field.type_path().starts_with("core::option::Option"))
-                            .map(NamedField::name)
-                            .collect::<Vec<_>>(),
-                    }),
-                    VariantInfo::Tuple(v) => json!({
-                        "type": "array",
-                        "kind": "Tuple",
-                        "typePath": format!("{}::{}", type_path, v.name()),
-                        "shortPath": v.name(),
-                        "prefixItems": v
-                            .iter()
-                            .map(SchemaJsonReference::ref_type)
-                            .collect::<Vec<_>>(),
-                        "items": false,
-                    }),
-                    VariantInfo::Unit(v) => json!({
-                        "typePath": format!("{}::{}", type_path, v.name()),
-                        "shortPath": v.name(),
-                    }),
-                }, variant.custom_attributes()))
-                .collect::<Vec<_>>();
+                    .all(|variant| matches!(variant, VariantInfo::Unit(_)))
+                {
+                    typed_schema.schema_type = Some(SchemaType::String);
                 }
+                typed_schema.one_of = info
+                    .iter()
+                    .map(|variant| {
+                        let name = variant.name();
+                        let (schema, kind) = match variant {
+                            VariantInfo::Unit(_) if is_option => (json!({ "type": "null" }), None),
+                            VariantInfo::Tuple(v) if is_option => {
+                                let mut schema = v.field_at(0).unwrap().ref_type();
+                                schema["not"] = json!({ "type": "null" });
+                                (schema, Some("Tuple"))
+                            }
+                            VariantInfo::Unit(_) => (json!({ "const": name }), None),
+                            VariantInfo::Struct(v) => (
+                                variant_wrapper(
+                                    name,
+                                    json!({
+                                        "type": "object",
+                                        "properties": v
+                                            .iter()
+                                            .enumerate()
+                                            .map(|(index, field)| {
+                                                (field.name().to_owned(), field.property(index))
+                                            })
+                                            .collect::<Map<_, _>>(),
+                                        "additionalProperties": false,
+                                        "required": v
+                                            .iter()
+                                            .filter(|field| {
+                                                !field.type_path().starts_with("core::option::Option")
+                                            })
+                                            .map(NamedField::name)
+                                            .collect::<Vec<_>>(),
+                                    }),
+                                ),
+                                Some("Struct"),
+                            ),
+                            VariantInfo::Tuple(v) if v.field_len() == 1 => (
+                                variant_wrapper(name, v.field_at(0).unwrap().ref_type()),
+                                Some("Tuple"),
+                            ),
+                            VariantInfo::Tuple(v) => (
+                                variant_wrapper(
+                                    name,
+                                    json!({
+                                        "type": "array",
+                                        "prefixItems": v
+                                            .iter()
+                                            .map(SchemaJsonReference::ref_type)
+                                            .collect::<Vec<_>>(),
+                                        "items": false,
+                                    }),
+                                ),
+                                Some("Tuple"),
+                            ),
+                        };
+                        let mut schema = with_annotations(
+                            schema,
+                            SchemaAnnotations::from_attributes(variant.custom_attributes()),
+                        );
+                        if let Some(object) = schema.as_object_mut() {
+                            if let Some(kind) = kind {
+                                object.insert("kind".into(), kind.into());
+                            }
+                            object.insert("typePath".into(), format!("{type_path}::{name}").into());
+                            object.insert("shortPath".into(), name.into());
+                        }
+                        schema
+                    })
+                    .collect::<Vec<_>>();
+            }
+            TypeInfo::TupleStruct(info) if is_newtype => {
+                typed_schema.reference = Some(type_ref(info.field_at(0).unwrap().type_path()));
+                typed_schema.kind = SchemaKind::TupleStruct;
             }
             TypeInfo::TupleStruct(info) => {
-                typed_schema.schema_type = SchemaType::Array;
+                typed_schema.schema_type = Some(SchemaType::Array);
                 typed_schema.kind = SchemaKind::TupleStruct;
                 typed_schema.prefix_items = info
                     .iter()
-                    .map(SchemaJsonReference::ref_type)
+                    .enumerate()
+                    .filter(|(index, _)| is_serialized(*index))
+                    .map(|(_, field)| field.ref_type())
                     .collect::<Vec<_>>();
                 typed_schema.items = Some(false.into());
             }
             TypeInfo::List(info) => {
-                typed_schema.schema_type = SchemaType::Array;
+                typed_schema.schema_type = Some(SchemaType::Array);
                 typed_schema.kind = SchemaKind::List;
                 typed_schema.items = info.item_ty().ref_type().into();
             }
             TypeInfo::Array(info) => {
-                typed_schema.schema_type = SchemaType::Array;
+                typed_schema.schema_type = Some(SchemaType::Array);
                 typed_schema.kind = SchemaKind::Array;
                 typed_schema.items = info.item_ty().ref_type().into();
             }
             TypeInfo::Map(info) => {
-                typed_schema.schema_type = SchemaType::Object;
+                typed_schema.schema_type = Some(SchemaType::Object);
                 typed_schema.kind = SchemaKind::Map;
                 typed_schema.key_type = info.key_ty().ref_type().into();
                 typed_schema.value_type = info.value_ty().ref_type().into();
+                typed_schema.additional_properties = info.value_ty().ref_type().into();
             }
             TypeInfo::Tuple(info) => {
-                typed_schema.schema_type = SchemaType::Array;
+                typed_schema.schema_type = Some(SchemaType::Array);
                 typed_schema.kind = SchemaKind::Tuple;
                 typed_schema.prefix_items = info
                     .iter()
@@ -250,12 +326,14 @@ impl
                 typed_schema.items = Some(false.into());
             }
             TypeInfo::Set(info) => {
-                typed_schema.schema_type = SchemaType::Set;
+                typed_schema.schema_type = Some(SchemaType::Array);
+                typed_schema.unique_items = true;
                 typed_schema.kind = SchemaKind::Set;
                 typed_schema.items = info.value_ty().ref_type().into();
             }
             TypeInfo::Opaque(info) => {
                 typed_schema.schema_type = info.map_json_type();
+                typed_schema.minimum = UNSIGNED_INTEGERS.contains(&info.type_path()).then_some(0.0);
                 typed_schema.kind = SchemaKind::Value;
             }
         };
@@ -267,6 +345,9 @@ impl
 /// It tries to follow this standard: <https://json-schema.org/specification>
 ///
 /// To take the full advantage from info provided by Bevy registry it provides extra fields
+///
+/// Non-finite floats (NaN and infinity) serialize as `null` in JSON, so they will not validate
+/// against `number` schemas.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonSchemaBevyType {
@@ -296,14 +377,24 @@ pub struct JsonSchemaBevyType {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value_type: Option<Value>,
     /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
-    #[serde(rename = "type")]
-    pub schema_type: SchemaType,
+    ///
+    /// `None` when the schema is a [`reference`](Self::reference) or the value can take more
+    /// than one JSON type, as with `Option<T>`.
+    /// Also `None` for opaque types with custom serialization, such as `Entity` or `Duration`.
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none", default)]
+    pub schema_type: Option<SchemaType>,
+    /// A reference to the schema of another type that this type serializes as,
+    /// such as the inner type of a newtype tuple struct.
+    #[serde(rename = "$ref", skip_serializing_if = "Option::is_none", default)]
+    pub reference: Option<String>,
     /// The behavior of this keyword depends on the presence and annotation results of "properties"
     /// and "patternProperties" within the same schema object.
     /// Validation with "additionalProperties" applies only to the child
     /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
+    ///
+    /// `false` for structs, or the value type schema for maps.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub additional_properties: Option<bool>,
+    pub additional_properties: Option<Value>,
     /// Additional metadata if this schema represents a component.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub component_info: Option<ComponentMetadata>,
@@ -354,6 +445,38 @@ pub struct JsonSchemaBevyType {
     /// Fields and enum variants carry the same object under their own `annotations` key.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub annotations: Option<SchemaAnnotations>,
+    /// Display name of the type, from [`SchemaAnnotations::display_name`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub title: Option<String>,
+    /// Help text for the type, from [`SchemaAnnotations::tooltip`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub description: Option<String>,
+    /// Inclusive lower bound, from [`SchemaAnnotations::range`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub minimum: Option<f64>,
+    /// Inclusive upper bound, from [`SchemaAnnotations::range`].
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub maximum: Option<f64>,
+    /// Whether tools should not edit the value, from [`SchemaAnnotations::read_only`].
+    #[serde(skip_serializing_if = "is_false", default)]
+    pub read_only: bool,
+    /// Whether array items must be unique, as with sets.
+    #[serde(skip_serializing_if = "is_false", default)]
+    pub unique_items: bool,
+}
+
+impl JsonSchemaBevyType {
+    /// Sets [`annotations`](Self::annotations) and the standard keywords derived from them.
+    fn set_annotations(&mut self, annotations: Option<SchemaAnnotations>) {
+        if let Some(annotations) = &annotations {
+            self.title.clone_from(&annotations.display_name);
+            self.description.clone_from(&annotations.tooltip);
+            self.minimum = annotations.range.map(|range| range[0]);
+            self.maximum = annotations.range.map(|range| range[1]);
+            self.read_only = annotations.read_only;
+        }
+        self.annotations = annotations;
+    }
 }
 
 /// Annotations read from [`bevy_annotations`] on a type, field or enum variant.
@@ -396,6 +519,22 @@ impl SchemaAnnotations {
                 .map(|name| name.0.to_owned()),
         };
         (annotations != Self::default()).then_some(annotations)
+    }
+
+    /// Merges `primary` and `fallback` per key, preferring `primary` where both are set.
+    pub fn merged(primary: Option<Self>, fallback: Option<Self>) -> Option<Self> {
+        let (primary, fallback) = match (primary, fallback) {
+            (Some(primary), Some(fallback)) => (primary, fallback),
+            (primary, fallback) => return primary.or(fallback),
+        };
+        Some(Self {
+            range: primary.range.or(fallback.range),
+            step: primary.step.or(fallback.step),
+            unit: primary.unit.or(fallback.unit),
+            read_only: primary.read_only || fallback.read_only,
+            tooltip: primary.tooltip.or(fallback.tooltip),
+            display_name: primary.display_name.or(fallback.display_name),
+        })
     }
 }
 
@@ -441,14 +580,11 @@ pub enum SchemaType {
     /// Represents a string value.
     String,
 
-    /// Represents a floating-point number.
-    Float,
+    /// Represents any number.
+    Number,
 
-    /// Represents an unsigned integer.
-    Uint,
-
-    /// Represents a signed integer.
-    Int,
+    /// Represents an integer.
+    Integer,
 
     /// Represents an object with key-value pairs.
     Object,
@@ -458,9 +594,6 @@ pub enum SchemaType {
 
     /// Represents a boolean value (true or false).
     Boolean,
-
-    /// Represents a set of unique values.
-    Set,
 
     /// Represents a null value.
     #[default]
@@ -534,15 +667,18 @@ pub trait SchemaJsonType {
     /// Bevy Reflect type path
     fn get_type_path(&self) -> &'static str;
 
-    /// JSON Schema type keyword from Bevy reflect type path into
-    fn map_json_type(&self) -> SchemaType {
+    /// JSON Schema type keyword from Bevy reflect type path into.
+    ///
+    /// `None` when the JSON type is not known, as with opaque types that use their own
+    /// serialization.
+    fn map_json_type(&self) -> Option<SchemaType> {
         match self.get_type_path() {
-            "bool" => SchemaType::Boolean,
-            "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => SchemaType::Uint,
-            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => SchemaType::Int,
-            "f32" | "f64" => SchemaType::Float,
-            "char" | "str" | "alloc::string::String" => SchemaType::String,
-            _ => SchemaType::Object,
+            "bool" => Some(SchemaType::Boolean),
+            path if UNSIGNED_INTEGERS.contains(&path) => Some(SchemaType::Integer),
+            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => Some(SchemaType::Integer),
+            "f32" | "f64" => Some(SchemaType::Number),
+            "char" | "str" | "alloc::string::String" => Some(SchemaType::String),
+            _ => None,
         }
     }
 }
@@ -555,17 +691,15 @@ impl SchemaJsonType for OpaqueInfo {
 
 impl SchemaJsonReference for &bevy_reflect::Type {
     fn ref_type(self) -> Value {
-        let path = self.path();
-        json!({ "$ref": format!("#/{path}") }) // Reference to another schema according json schema specification.
+        json!({ "$ref": type_ref(self.path()) })
     }
 }
 
 impl SchemaJsonReference for &bevy_reflect::UnnamedField {
     fn ref_type(self) -> Value {
-        let path = self.type_path();
         with_annotations(
-            json!({ "$ref": format!("#/{path}") }), // Reference to another schema according json schema specification.,
-            self.custom_attributes(),
+            json!({ "$ref": type_ref(self.type_path()) }),
+            SchemaAnnotations::from_attributes(self.custom_attributes()),
         )
     }
 }
@@ -578,13 +712,12 @@ trait SchemaJsonProperty {
 
 impl SchemaJsonProperty for &NamedField {
     fn property(self, index: usize) -> Value {
-        let type_path = self.type_path();
         with_annotations(
             json!({
-                "$ref": format!("#/{type_path}"), // Reference to another schema according json schema specification.
-                "fieldIndex": index, // Non-standard fields are ignored by schema validators
+                "$ref": type_ref(self.type_path()),
+                "fieldIndex": index,
             }),
-            self.custom_attributes(),
+            SchemaAnnotations::from_attributes(self.custom_attributes()),
         )
     }
 }
@@ -918,7 +1051,7 @@ mod tests {
         assert!(schema.properties["a"].get("typePath").is_none());
 
         let schema = export(TypeId::of::<UnorderedEnum>());
-        let properties = &schema.one_of[0]["properties"];
+        let properties = &schema.one_of[0]["properties"]["Variant"]["properties"];
         assert_eq!(properties["y"]["fieldIndex"], 0);
         assert_eq!(properties["x"]["fieldIndex"], 1);
         assert_eq!(properties["x"]["$ref"], "#/i32");
@@ -1121,12 +1254,335 @@ mod tests {
         let schema = export(TypeId::of::<Shape>());
         let circle = &schema["oneOf"][0];
         assert_eq!(circle["annotations"], json!({ "tooltip": "A circle" }));
+        let fields = &circle["properties"]["Circle"]["properties"];
         assert_eq!(
-            circle["properties"]["radius"]["annotations"],
+            fields["radius"]["annotations"],
             json!({ "range": [0.0, 10.0] })
         );
-        assert!(circle["properties"]["plain"].get("annotations").is_none());
+        assert!(fields["plain"].get("annotations").is_none());
         assert!(schema["oneOf"][1].get("annotations").is_none());
+    }
+
+    fn export_schema_and_value<T: Reflect + GetTypeRegistration>(value: &T) -> (Value, Value) {
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<T>();
+        let type_registry = atr.read();
+        let (_, schema) = export_type(
+            type_registry
+                .get(TypeId::of::<T>())
+                .expect("SHOULD BE REGISTERED"),
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+            &type_registry,
+        );
+        let schema = serde_json::to_value(&schema).expect("Should serialize");
+        let value = serde_json::to_value(TypedReflectSerializer::new(value, &type_registry))
+            .expect("Value should serialize");
+        (schema, value)
+    }
+
+    #[test]
+    fn reflect_export_newtype_struct_refs_inner_type() {
+        #[derive(Reflect, Default)]
+        #[reflect(Default)]
+        struct Cube(#[reflect(@Unit("m"))] f32);
+
+        let (schema, value) = export_schema_and_value(&Cube(1.5));
+        assert_eq!(value, json!(1.5));
+        assert_normalized_values(
+            schema,
+            json!({
+                "shortPath": "Cube",
+                "typePath": "bevy_remote::schemas::json_schema::tests::Cube",
+                "modulePath": "bevy_remote::schemas::json_schema::tests",
+                "crateName": "bevy_remote",
+                "reflectTypes": ["Default"],
+                "kind": "TupleStruct",
+                "$ref": "#/f32",
+                "default": 0.0,
+                "annotations": { "unit": "m" },
+            }),
+        );
+    }
+
+    #[test]
+    fn reflect_export_skipped_field_tuple_struct_stays_array() {
+        #[derive(Reflect)]
+        struct Wrapper(#[reflect(skip_serializing)] f32);
+
+        let (schema, value) = export_schema_and_value(&Wrapper(1.5));
+        assert_eq!(value, json!([]));
+        assert_eq!(schema["type"], "array");
+        assert!(schema.get("$ref").is_none());
+    }
+
+    #[test]
+    fn reflect_export_skipped_tuple_struct_field_is_not_an_item() {
+        #[derive(Reflect)]
+        struct Wrapper(#[reflect(skip_serializing)] u8, f32);
+
+        let (schema, value) = export_schema_and_value(&Wrapper(2, 1.5));
+        assert_eq!(value, json!([1.5]));
+        assert_eq!(schema["prefixItems"], json!([{ "$ref": "#/f32" }]));
+    }
+
+    #[test]
+    fn reflect_export_skipped_struct_field_is_not_required() {
+        #[derive(Reflect)]
+        struct Settings {
+            kept: f32,
+            #[reflect(skip_serializing)]
+            skipped: f32,
+        }
+
+        let (schema, value) = export_schema_and_value(&Settings {
+            kept: 1.0,
+            skipped: 2.0,
+        });
+        assert_eq!(value, json!({ "kept": 1.0 }));
+        assert_eq!(schema["required"], json!(["kept"]));
+        assert!(schema["properties"].get("skipped").is_none());
+    }
+
+    #[test]
+    fn reflect_export_newtype_keeps_type_and_field_annotations() {
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("Top speed"))]
+        struct Speed(#[reflect(@0.0..=10.0, @Unit("m/s"))] f32);
+
+        let (schema, _) = export_schema_and_value(&Speed(1.0));
+        assert_eq!(
+            schema["annotations"],
+            json!({ "tooltip": "Top speed", "range": [0.0, 10.0], "unit": "m/s" })
+        );
+        assert_eq!(schema["minimum"], 0.0);
+    }
+
+    #[test]
+    fn reflect_export_option_some_excludes_null() {
+        use bevy_ecs::entity::Entity;
+
+        let (schema, value) = export_schema_and_value(&None::<Entity>);
+        assert_eq!(value, Value::Null);
+        assert_eq!(schema["oneOf"][1]["not"], json!({ "type": "null" }));
+    }
+
+    #[test]
+    fn reflect_export_enum_variants_match_serialized_values() {
+        #[derive(Reflect)]
+        enum Shape {
+            Circle(#[reflect(@Unit("m"))] f32),
+            Pair(f32, f32),
+            Rect { w: f32 },
+            Point,
+        }
+
+        let path = "bevy_remote::schemas::json_schema::tests::Shape";
+        let (schema, circle) = export_schema_and_value(&Shape::Circle(2.0));
+        let (_, pair) = export_schema_and_value(&Shape::Pair(1.0, 2.0));
+        let (_, rect) = export_schema_and_value(&Shape::Rect { w: 3.0 });
+        let (_, point) = export_schema_and_value(&Shape::Point);
+        assert_eq!(circle, json!({ "Circle": 2.0 }));
+        assert_eq!(pair, json!({ "Pair": [1.0, 2.0] }));
+        assert_eq!(rect, json!({ "Rect": { "w": 3.0 } }));
+        assert_eq!(point, json!("Point"));
+        assert!(schema.get("type").is_none());
+        assert_eq!(
+            schema["oneOf"],
+            json!([
+                {
+                    "type": "object",
+                    "properties": {
+                        "Circle": { "$ref": "#/f32", "annotations": { "unit": "m" } },
+                    },
+                    "required": ["Circle"],
+                    "additionalProperties": false,
+                    "kind": "Tuple",
+                    "typePath": format!("{path}::Circle"),
+                    "shortPath": "Circle",
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "Pair": {
+                            "type": "array",
+                            "prefixItems": [{ "$ref": "#/f32" }, { "$ref": "#/f32" }],
+                            "items": false,
+                        },
+                    },
+                    "required": ["Pair"],
+                    "additionalProperties": false,
+                    "kind": "Tuple",
+                    "typePath": format!("{path}::Pair"),
+                    "shortPath": "Pair",
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "Rect": {
+                            "type": "object",
+                            "properties": { "w": { "$ref": "#/f32", "fieldIndex": 0 } },
+                            "required": ["w"],
+                            "additionalProperties": false,
+                        },
+                    },
+                    "required": ["Rect"],
+                    "additionalProperties": false,
+                    "kind": "Struct",
+                    "typePath": format!("{path}::Rect"),
+                    "shortPath": "Rect",
+                },
+                {
+                    "const": "Point",
+                    "typePath": format!("{path}::Point"),
+                    "shortPath": "Point",
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn reflect_export_unit_enum_is_string_constants() {
+        #[derive(Reflect)]
+        enum Mode {
+            On,
+            Off,
+        }
+
+        let (schema, value) = export_schema_and_value(&Mode::Off);
+        assert_eq!(value, json!("Off"));
+        assert_eq!(schema["type"], "string");
+        assert_eq!(
+            schema["oneOf"],
+            json!([
+                {
+                    "const": "On",
+                    "typePath": "bevy_remote::schemas::json_schema::tests::Mode::On",
+                    "shortPath": "On",
+                },
+                {
+                    "const": "Off",
+                    "typePath": "bevy_remote::schemas::json_schema::tests::Mode::Off",
+                    "shortPath": "Off",
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn reflect_export_standard_json_types() {
+        #[derive(Reflect, Clone, Serialize)]
+        #[reflect(opaque, Clone, Serialize)]
+        struct Custom(u8, u8);
+
+        let (schema, value) = export_schema_and_value(&7_u8);
+        assert_eq!(value, json!(7));
+        assert_eq!(schema["type"], "integer");
+        assert_eq!(schema["minimum"], 0.0);
+        let (schema, _) = export_schema_and_value(&-7_i32);
+        assert_eq!(schema["type"], "integer");
+        assert!(schema.get("minimum").is_none());
+        let (schema, _) = export_schema_and_value(&1.5_f32);
+        assert_eq!(schema["type"], "number");
+        let (schema, _) = export_schema_and_value(&true);
+        assert_eq!(schema["type"], "boolean");
+        let (schema, _) = export_schema_and_value(&String::from("text"));
+        assert_eq!(schema["type"], "string");
+
+        let set = bevy_platform::collections::HashSet::from([1_u32]);
+        let (schema, value) = export_schema_and_value(&set);
+        assert_eq!(value, json!([1]));
+        assert_eq!(schema["type"], "array");
+        assert_eq!(schema["uniqueItems"], true);
+        assert_eq!(schema["kind"], "Set");
+        assert_eq!(schema["items"], json!({ "$ref": "#/u32" }));
+
+        let (schema, value) = export_schema_and_value(&Custom(1, 2));
+        assert_eq!(value, json!([1, 2]));
+        assert_eq!(schema["kind"], "Value");
+        assert!(schema.get("type").is_none());
+    }
+
+    #[test]
+    fn reflect_export_map_is_object_of_value_type() {
+        let map = bevy_platform::collections::HashMap::from([(String::from("a"), 1.5_f32)]);
+        let (schema, value) = export_schema_and_value(&map);
+        assert_eq!(value, json!({ "a": 1.5 }));
+        assert_eq!(schema["type"], "object");
+        assert_eq!(schema["kind"], "Map");
+        assert_eq!(schema["additionalProperties"], json!({ "$ref": "#/f32" }));
+        assert_eq!(
+            schema["keyType"],
+            json!({ "$ref": "#/alloc::string::String" })
+        );
+        assert_eq!(schema["valueType"], json!({ "$ref": "#/f32" }));
+    }
+
+    #[test]
+    fn reflect_export_option_is_inner_type_or_null() {
+        let (schema, none) = export_schema_and_value(&None::<f32>);
+        let (_, some) = export_schema_and_value(&Some(3.0_f32));
+        assert_eq!(none, Value::Null);
+        assert_eq!(some, json!(3.0));
+        assert_eq!(schema["kind"], "Enum");
+        assert!(schema.get("type").is_none());
+        assert_eq!(
+            schema["oneOf"],
+            json!([
+                {
+                    "type": "null",
+                    "typePath": "core::option::Option<f32>::None",
+                    "shortPath": "None",
+                },
+                {
+                    "$ref": "#/f32",
+                    "not": { "type": "null" },
+                    "kind": "Tuple",
+                    "typePath": "core::option::Option<f32>::Some",
+                    "shortPath": "Some",
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn reflect_export_standard_keywords() {
+        use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip};
+
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("Movement settings"), @DisplayName("Movement"), @ReadOnly)]
+        struct Movement {
+            #[reflect(@0.0..=20.0, @Step(0.5), @DisplayName("Speed"), @Tooltip("Top speed"))]
+            speed: f32,
+            plain: f32,
+        }
+
+        #[derive(Reflect)]
+        struct Pair(#[reflect(@ReadOnly, @0..=9)] u8, f32);
+
+        let (schema, _) = export_schema_and_value(&Movement {
+            speed: 1.0,
+            plain: 0.0,
+        });
+        assert_eq!(schema["title"], "Movement");
+        assert_eq!(schema["description"], "Movement settings");
+        assert_eq!(schema["readOnly"], true);
+        let speed = &schema["properties"]["speed"];
+        assert_eq!(speed["minimum"], 0.0);
+        assert_eq!(speed["maximum"], 20.0);
+        assert_eq!(speed["title"], "Speed");
+        assert_eq!(speed["description"], "Top speed");
+        assert!(speed.get("multipleOf").is_none());
+        assert_eq!(speed["annotations"]["step"], 0.5);
+        let plain = schema["properties"]["plain"].as_object().unwrap();
+        assert_eq!(plain.keys().collect::<Vec<_>>(), ["$ref", "fieldIndex"]);
+
+        let (schema, _) = export_schema_and_value(&Pair(1, 2.0));
+        let first = &schema["prefixItems"][0];
+        assert_eq!(first["readOnly"], true);
+        assert_eq!(first["minimum"], 0.0);
+        assert_eq!(first["maximum"], 9.0);
+        assert!(schema["prefixItems"][1].get("readOnly").is_none());
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.
