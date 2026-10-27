@@ -20,21 +20,44 @@ impl PaintLayer {
     }
 }
 
+/// The paint layer for box shadows.
 pub const BOX_SHADOW_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.box_shadow");
+
+/// The paint layer for background colors.
 pub const BACKGROUND_COLOR_PAINT_LAYER: PaintLayer =
     PaintLayer::new_static("paint_layer.background_color");
+
+/// The paint layer for borders.
 pub const BORDER_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.border");
+
+/// The paint layer for background gradients.
 pub const GRADIENT_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.gradient");
+
+/// The paint layer for border gradients.
 pub const BORDER_GRADIENT_PAINT_LAYER: PaintLayer =
     PaintLayer::new_static("paint_layer.border_gradient");
+
+/// The paint layer for images.
 pub const IMAGE_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.image");
+
+/// The paint layer for UI materials.
 pub const MATERIAL_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.material");
+
+/// The paint layer for text selection highlights.
 pub const TEXT_SELECTION_PAINT_LAYER: PaintLayer =
     PaintLayer::new_static("paint_layer.text_selection");
+
+/// The paint layer for text.
 pub const TEXT_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.text");
+
+/// The paint layer for text strikethroughs.
 pub const TEXT_STRIKETHROUGH_PAINT_LAYER: PaintLayer =
     PaintLayer::new_static("paint_layer.text_strikethrough");
+
+/// The paint layer for text cursors.
 pub const TEXT_CURSOR_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.text_cursor");
+
+/// The paint layer for inline images.
 pub const INLINE_IMAGE_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.inline_image");
 
 const DEFAULT_PAINT_LAYERS: [PaintLayer; 12] = [
