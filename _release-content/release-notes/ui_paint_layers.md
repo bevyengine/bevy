@@ -18,15 +18,16 @@ To create a new `PaintLayer`, give it a string name:
 pub const MY_PAINT_LAYER: PaintLayer = PaintLayer::new_static("my_plugin.overlay");
 ```
 
+The `PaintOrder` resource exposes `IndexSet`’s methods through dereferencing, plus these helpers:
+
 - `insert_before_layer` / `insert_after_layer` place a layer directly below or above an existing layer.
 - `insert_top` / `insert_bottom` place a layer above or below all the other layers.
 - `remove_layer` removes a layer. A built-in element whose layer is removed isn't drawn.
-The insert methods move the layer if it's already present.
+
+The insert methods move a layer if it is already present.
 
 The `UiMaterial` trait has a new `paint_layer()` method that chooses the layer the layer the material is drawn to.
 It defaults to `MATERIAL_PAINT_LAYER`.
-
-`PaintOrder` just newtypes an `IndexSet`, so you can also use the `IndexSet` methods to reorder it arbitrarily.
 
 Extraction functions should look up the z-offsets for their elements layer with `PaintOrder::get_offset`, which returns a value in the range `0.0..1.0`. The z-offset should be looked up once at the start of the extraction function, and shouldn't be looked up per node if at all possible.
 
