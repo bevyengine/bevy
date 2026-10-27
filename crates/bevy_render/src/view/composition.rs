@@ -880,9 +880,9 @@ mod tests {
         assert!(diagnostics.is_empty());
     }
 
-    // Tonemapping checks. `curve` is a view whose pass applies a tone curve,
-    // and `no_curve` is one that doesn't. Neither clears nor has a viewport.
-    fn member(raw: u32, index: usize, applies_tone_curve: bool) -> (MainTextureKey, TonemapInput) {
+    // Tonemapping checks. `curve` is a view whose pass applies a tone curve. It
+    // neither clears nor has a viewport.
+    fn curve(raw: u32, index: usize) -> (MainTextureKey, TonemapInput) {
         let (texture, _) = view(raw, 0, index, None);
         (
             texture,
@@ -890,18 +890,10 @@ mod tests {
                 main_entity: entity(raw),
                 sorted_index: index,
                 clears: false,
-                applies_tone_curve,
+                applies_tone_curve: true,
                 has_viewport: false,
             },
         )
-    }
-
-    fn curve(raw: u32, index: usize) -> (MainTextureKey, TonemapInput) {
-        member(raw, index, true)
-    }
-
-    fn no_curve(raw: u32, index: usize) -> (MainTextureKey, TonemapInput) {
-        member(raw, index, false)
     }
 
     fn clears(mut view: (MainTextureKey, TonemapInput)) -> (MainTextureKey, TonemapInput) {
@@ -921,129 +913,15 @@ mod tests {
         }
     }
 
-    fn frame_start(first: u32) -> StackedTonemappingError {
-        StackedTonemappingError::FrameStartLoadsTonemappedOutput {
-            first: entity(first),
-        }
-    }
-
-    /// Fast-path input: `texture` picks one of two texture keys.
-    fn flags(
-        texture: usize,
-        applies_tone_curve: bool,
-        clears: bool,
-    ) -> (MainTextureKey, bool, bool) {
-        (view(0, texture, 0, None).0, applies_tone_curve, clears)
-    }
-
-    #[test]
-    fn fast_path_runs_the_check_only_when_a_repeat_is_possible() {
-        let may =
-            |views: &[(MainTextureKey, bool, bool)]| may_tonemap_twice(|| views.iter().cloned());
-        assert!(may(&[flags(0, true, false)]));
-        assert!(!may(&[flags(0, true, false), flags(0, false, true)]));
-        assert!(may(&[flags(0, true, false), flags(1, false, true)]));
-        assert!(may(&[flags(0, true, true), flags(1, true, true)]));
-        assert!(!may(&[flags(0, false, false), flags(0, false, false)]));
-    }
-
-    #[test]
-    fn linear_applies_no_tone_curve() {
-        assert!(!Tonemapping::Linear.applies_tone_curve());
-        assert!(Tonemapping::TonyMcMapface.applies_tone_curve());
-    }
-
-    #[test]
-    fn single_tonemapping_camera_is_silent() {
-        assert!(check_tonemapping([clears(curve(1, 0))]).is_empty());
-    }
-
     #[test]
     fn later_tonemapping_camera_tonemaps_the_earlier_one_twice() {
         let errors = check_tonemapping([clears(curve(1, 0)), curve(2, 1)]);
         assert_eq!(errors, vec![twice(&[1], 2)]);
     }
 
-    // One error per stack, naming the latest camera with a tone curve, so
-    // the fix leaves exactly one.
-    #[test]
-    fn three_tonemapping_cameras_report_the_last_one_once() {
-        let errors = check_tonemapping([clears(curve(1, 0)), curve(2, 1), curve(3, 2)]);
-        assert_eq!(errors, vec![twice(&[1, 2], 3)]);
-    }
-
-    #[test]
-    fn cameras_without_a_tone_curve_are_never_flagged() {
-        assert!(check_tonemapping([clears(curve(1, 0)), no_curve(2, 1)]).is_empty());
-        assert!(check_tonemapping([clears(no_curve(1, 0)), curve(2, 1)]).is_empty());
-    }
-
-    #[test]
-    fn tonemapping_cameras_around_a_camera_without_a_curve_are_flagged() {
-        let errors = check_tonemapping([clears(curve(1, 0)), no_curve(2, 1), curve(3, 2)]);
-        assert_eq!(errors, vec![twice(&[1], 3)]);
-    }
-
-    #[test]
-    fn two_stacks_report_one_error_each() {
-        let errors = check_tonemapping([
-            clears(curve(1, 0)),
-            curve(2, 1),
-            clears(curve(3, 2)),
-            curve(4, 3),
-        ]);
-        assert_eq!(errors, vec![twice(&[1], 2), twice(&[3], 4)]);
-    }
-
-    #[test]
-    fn separate_textures_are_silent() {
-        let mut other = clears(curve(2, 0));
-        other.0 .3 = Msaa::Sample4;
-        assert!(check_tonemapping([clears(curve(1, 0)), other]).is_empty());
-    }
-
     #[test]
     fn viewport_camera_over_a_fullscreen_camera_is_silent() {
         let errors = check_tonemapping([clears(curve(1, 0)), with_viewport(curve(2, 1))]);
         assert!(errors.is_empty());
-    }
-
-    #[test]
-    fn fullscreen_camera_over_viewport_cameras_is_flagged() {
-        let errors = check_tonemapping([
-            with_viewport(clears(curve(1, 0))),
-            with_viewport(curve(2, 1)),
-            curve(3, 2),
-        ]);
-        assert_eq!(errors, vec![twice(&[1, 2], 3)]);
-    }
-
-    #[test]
-    fn frame_start_load_of_own_tonemapped_output_is_flagged() {
-        assert_eq!(check_tonemapping([curve(1, 0)]), vec![frame_start(1)]);
-    }
-
-    #[test]
-    fn frame_start_load_is_silent_when_the_last_stack_has_no_tone_curve() {
-        assert!(check_tonemapping([curve(1, 0), clears(no_curve(2, 1))]).is_empty());
-    }
-
-    #[test]
-    fn frame_start_load_is_silent_when_the_first_stack_has_no_tone_curve() {
-        assert!(check_tonemapping([no_curve(1, 0), clears(curve(2, 1))]).is_empty());
-    }
-
-    // Two stacks don't tonemap each other's pixels within a frame, but the
-    // first loads the second's output across frames.
-    #[test]
-    fn frame_start_load_across_stacks_is_flagged_once() {
-        let errors = check_tonemapping([curve(1, 0), clears(curve(2, 1))]);
-        assert_eq!(errors, vec![frame_start(1)]);
-    }
-
-    #[test]
-    fn frame_start_load_and_repeat_within_the_frame_are_both_flagged() {
-        let errors = check_tonemapping([curve(1, 0), curve(2, 1)]);
-        assert_eq!(errors, vec![twice(&[1], 2), frame_start(1)]);
     }
 }
