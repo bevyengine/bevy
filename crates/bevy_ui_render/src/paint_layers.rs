@@ -1,22 +1,36 @@
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::resource::Resource;
+use bevy_reflect::Reflect;
 use bevy_render::{extract_resource::ExtractResource, RenderApp};
 use indexmap::IndexSet;
 use smol_str::SmolStr;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serialize", serde(transparent))]
+/// A string identifier for a UI paint layer, ordered by [`PaintOrder`].
+#[derive(Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct PaintLayer(SmolStr);
 
 impl PaintLayer {
-    pub fn new(name: impl Into<SmolStr>) -> Self {
-        Self(name.into())
+    /// Construct a new [`PaintLayer`] from a [`SmolStr`].
+    pub const fn new(name: SmolStr) -> Self {
+        Self(name)
     }
 
+    /// Construct a new [`PaintLayer`] from a static string.
     pub const fn new_static(name: &'static str) -> Self {
         Self(SmolStr::new_static(name))
+    }
+}
+
+impl core::fmt::Display for PaintLayer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl core::fmt::Debug for PaintLayer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "PaintLayer({:?})", self.0)
     }
 }
 
@@ -289,7 +303,7 @@ mod tests {
 
     #[test]
     fn from_array_accepts_builtin_and_custom_layers() {
-        let paint_order = PaintOrder::from([PaintLayer::new(String::from("paint_layer.text")), A]);
+        let paint_order = PaintOrder::from([PaintLayer::new_static("paint_layer.text"), A]);
 
         assert_eq!(paint_order.get_layer_index(TEXT_PAINT_LAYER).unwrap(), 0);
         assert_eq!(paint_order.get_layer_index(A).unwrap(), 1);
