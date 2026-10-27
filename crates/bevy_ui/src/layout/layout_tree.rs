@@ -13,11 +13,12 @@ use bevy_text::{ComputedTextBlock, FontCx};
 use bevy_utils::default;
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
-    compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
+    compute_hidden_layout, compute_leaf_layout, compute_oof_layout, compute_root_layout,
+    round_layout,
     style::{AvailableSpace, Display, Style},
-    Cache, CacheTree, Layout, LayoutBlockContainer, LayoutFlexboxContainer, LayoutGridContainer,
-    LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode, TraversePartialTree,
-    TraverseTree,
+    Cache, CacheTree, Layout, LayoutBlockContainer, LayoutContainingBlock, LayoutFlexboxContainer,
+    LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
+    TraversePartialTree, TraverseTree,
 };
 
 use crate::{
@@ -48,6 +49,7 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
     display: Display::Grid,
     item_is_table: false,
     item_is_replaced: false,
+    item_is_compressible_replaced: false,
     box_sizing: taffy::BoxSizing::BorderBox,
     direction: taffy::Direction::Ltr,
     overflow: taffy::Point {
@@ -68,12 +70,12 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
     margin: taffy::Rect::zero(),
     padding: taffy::Rect::zero(),
     border: taffy::Rect::zero(),
-    align_items: Some(taffy::AlignItems::START),
+    align_items: taffy::AlignItems::START,
     align_self: None,
-    justify_items: Some(taffy::JustifyItems::START),
+    justify_items: taffy::JustifyItems::START,
     justify_self: None,
-    align_content: None,
-    justify_content: None,
+    align_content: taffy::AlignContent::NORMAL,
+    justify_content: taffy::AlignContent::NORMAL,
     gap: taffy::Size::zero(),
     text_align: taffy::TextAlign::Auto,
     flex_direction: taffy::FlexDirection::Row,
@@ -160,6 +162,8 @@ pub struct ComputedLayout {
     is_layout_root: bool,
     /// List of this UI Node's children (either directly or transitively via `GhostNode`s) that are also valid UI nodes. Non-UI nodes shouldn't be in this list.
     ui_children: Vec<NodeId>,
+    /// List of this UI Nodes's out-of-flow children (absolute or fixed positioned)
+    hoisted_children: Vec<NodeId>,
     /// If true, the layout returned from `Taffy` changed since the last frame.
     /// Set to `false` each frame in `UiSystems::Prepare` by the `clear_transient_dirty_flags` system.
     layout_dirty: bool,
@@ -186,6 +190,7 @@ impl ComputedLayout {
         self.rounded = None;
         self.cache.clear();
         self.ui_children.clear();
+        self.hoisted_children.clear();
         self.reached_in_full_walk = false;
         self.is_layout_root = false;
         self.layout_dirty = false;
@@ -534,6 +539,7 @@ fn sync_layout_tree(
     let children_changed = computed_layout.ui_children != new_children;
     if children_changed {
         computed_layout.ui_children.clear();
+        computed_layout.hoisted_children.clear();
         computed_layout.ui_children.extend_from_slice(new_children);
     }
 
@@ -644,7 +650,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
             let has_children = 0 < tree.child_count(node_id);
             let style = tree.style(node_id);
 
-            match (style.display, has_children) {
+            let mut output = match (style.display, has_children) {
                 (Display::None, _) => compute_hidden_layout(tree, node_id),
                 (Display::Block, true) => compute_block_layout(tree, node_id, inputs, block_ctx),
                 (Display::Flex, true) => compute_flexbox_layout(tree, node_id, inputs),
@@ -665,7 +671,13 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                         )
                     },
                 ),
+            };
+
+            if inputs.run_mode == RunMode::PerformLayout {
+                compute_oof_layout(tree, node_id, &mut output);
             }
+
+            output
         })
     }
 }
@@ -811,6 +823,38 @@ impl RoundTree for UiLayoutTree<'_, '_, '_> {
         }
 
         self.layout_mut(node_id).set_rounded(*layout);
+    }
+
+    fn is_out_of_flow(&self, node_id: NodeId) -> bool {
+        self.style(node_id).position.is_out_of_flow()
+    }
+
+    fn hoisted_child_count(&self, node_id: NodeId) -> usize {
+        self.layout(node_id).hoisted_children.len()
+    }
+
+    fn get_hoisted_child_id(&self, node_id: NodeId, index: usize) -> NodeId {
+        self.layout(node_id).hoisted_children[index]
+    }
+}
+
+impl<'tree, 'w, 's> LayoutContainingBlock for UiLayoutTree<'tree, 'w, 's> {
+    type OofItemStyle<'a>
+        = &'a Style
+    where
+        Self: 'a;
+    fn get_oof_item_style(&self, node_id: NodeId) -> Self::OofItemStyle<'_> {
+        self.style(node_id)
+    }
+
+    fn clear_hoisted_children(&mut self, node_id: NodeId) {
+        self.layout_mut(node_id).hoisted_children.clear();
+    }
+
+    fn add_hoisted_children(&mut self, node_id: NodeId, children: &[NodeId]) {
+        self.layout_mut(node_id)
+            .hoisted_children
+            .extend_from_slice(children);
     }
 }
 
