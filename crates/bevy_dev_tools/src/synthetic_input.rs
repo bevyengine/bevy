@@ -182,8 +182,12 @@ fn locate(world: &mut World, entity: Entity) -> Result<(Entity, Vec2), ClickErro
     ) else {
         return Err(ClickError::NotANode(entity));
     };
-    let center = transform.translation;
     let camera = camera.get();
+    let center = transform.translation
+        + camera
+            .and_then(|camera| world.get::<Camera>(camera))
+            .and_then(Camera::physical_viewport_rect)
+            .map_or(Vec2::ZERO, |viewport| viewport.min.as_vec2());
     let primary = world
         .query_filtered::<Entity, With<PrimaryWindow>>()
         .single(world)
@@ -228,7 +232,8 @@ fn scroll_into_view(world: &mut World, entity: Entity) -> bool {
 pub fn write_due_input(
     mut queue: ResMut<InputQueue>,
     frame: Res<FrameCount>,
-    nodes: Query<&UiGlobalTransform>,
+    nodes: Query<(&UiGlobalTransform, &ComputedUiTargetCamera)>,
+    cameras: Query<&Camera>,
     mut window_events: MessageWriter<WindowEvent>,
 ) {
     while queue.events.front().is_some_and(|(due, _)| *due <= frame.0) {
@@ -243,7 +248,14 @@ pub fn write_due_input(
             } => {
                 let position = node
                     .and_then(|node| nodes.get(node).ok())
-                    .map_or(position, |transform| transform.translation);
+                    .map_or(position, |(transform, camera)| {
+                        transform.translation
+                            + camera
+                                .get()
+                                .and_then(|camera| cameras.get(camera).ok())
+                                .and_then(Camera::physical_viewport_rect)
+                                .map_or(Vec2::ZERO, |viewport| viewport.min.as_vec2())
+                    });
                 WindowEvent::CursorMoved(RawCursorMoved {
                     window,
                     physical_position: position.as_dvec2(),
