@@ -712,7 +712,7 @@ impl Tables {
     /// # Safety
     /// - `id` must represent a valid [`Table`] for this [`Tables`].
     #[inline]
-    pub(crate) unsafe fn get_unchecked(&self, id: TableId) -> &Table {
+    pub unsafe fn get_unchecked(&self, id: TableId) -> &Table {
         // SAFETY:
         // - The caller ensures that `id` is in-bounds.
         unsafe { self.tables.get_unchecked(id.as_usize()) }
