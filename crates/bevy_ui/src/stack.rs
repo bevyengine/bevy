@@ -60,7 +60,7 @@ pub fn ui_stack_system(
     >,
     zindex_global_node_query: Query<
         (Entity, Ref<GlobalZIndex>, Option<Ref<ZIndex>>),
-        With<ComputedStackIndex>,
+        (With<ComputedStackIndex>, With<ChildOf>),
     >,
     ui_children: Query<
         (
@@ -80,7 +80,6 @@ pub fn ui_stack_system(
 
     ui_stack.partition.clear();
     ui_stack.uinodes.clear();
-    visited_stack_roots.clear();
 
     for (id, maybe_global_zindex, maybe_zindex, _) in
         root_node_query.iter_many(ui_root_nodes.iter()).matched()
@@ -99,15 +98,10 @@ pub fn ui_stack_system(
                 partition: None,
             },
         ));
-        visited_stack_roots.insert(id);
     }
     let ui_root_count = stack_roots.len();
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
-        if visited_stack_roots.contains(&id) {
-            continue;
-        }
-
         let previous = stack_root_order.get(&id).copied();
         stack_roots.push((
             id,
