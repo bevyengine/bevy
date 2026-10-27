@@ -8,7 +8,7 @@
 use alloc::collections::VecDeque;
 use core::fmt::{self, Display, Formatter};
 
-use bevy_camera::{NormalizedRenderTarget, RenderTarget};
+use bevy_camera::{Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     entity::{ContainsEntity, Entity},
