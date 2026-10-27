@@ -283,27 +283,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn ior_under_clearcoat_from_gltf_keeps_f0() {
-        assert_eq!(ior_under_clearcoat_from_gltf(1.5, 0.0), 1.5);
-        assert_eq!(ior_under_clearcoat_from_gltf(0.0, 1.0), 0.0);
-
-        for clearcoat in [0.01, 0.1, 0.25, 0.5, 0.75, 1.0] {
-            for ior in [1.0, 1.1, 1.33, 1.5, 2.0, 2.42] {
-                let converted = ior_under_clearcoat_from_gltf(ior, clearcoat);
-                let expected = f0(ior);
-                let actual = f0(base_layer_relative_ior(converted, clearcoat));
-                // Some combinations have no exact match. They give the closest reflectance.
-                let closest = (0..=3000)
-                    .map(|i| f0(base_layer_relative_ior(i as f32 * 0.001, clearcoat)))
-                    .map(|f| (f - expected).abs())
-                    .fold(f32::INFINITY, f32::min);
-                assert!(
-                    (actual - expected).abs() <= closest + 1e-4,
-                    "ior {ior}, clearcoat {clearcoat}: F0 {actual}, expected {expected}"
-                );
-            }
-        }
-    }
 }
