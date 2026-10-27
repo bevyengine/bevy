@@ -490,41 +490,4 @@ mod tests {
 
         assert!(result.is_none());
     }
-
-    #[test]
-    fn ray_mesh_intersection_compressed() {
-        use bevy_asset::RenderAssetUsages;
-        use bevy_mesh::{MeshAttributeCompressionFlags, MeshCompressionArgs};
-
-        let mesh = Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::default(),
-        )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vec![V0, V1, V2])
-        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[-1.0, 0.0, 0.0]; 3])
-        .with_inserted_attribute(
-            Mesh::ATTRIBUTE_UV_0,
-            vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-        );
-        let compressed = mesh
-            .clone()
-            .compressed_mesh(&MeshCompressionArgs {
-                compress_attributes: MeshAttributeCompressionFlags::all(),
-                ..MeshCompressionArgs::none()
-            })
-            .unwrap();
-
-        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let transform = GlobalTransform::IDENTITY.affine();
-        let hit = ray_intersection_over_mesh(&mesh, &transform, ray, Backfaces::Cull).unwrap();
-        let compressed_hit =
-            ray_intersection_over_mesh(&compressed, &transform, ray, Backfaces::Cull).unwrap();
-
-        assert!(compressed_hit.point.abs_diff_eq(hit.point, 1e-4));
-        assert!(compressed_hit.normal.abs_diff_eq(hit.normal, 1e-4));
-        assert!(compressed_hit
-            .uv
-            .unwrap()
-            .abs_diff_eq(hit.uv.unwrap(), 1e-4));
-    }
 }

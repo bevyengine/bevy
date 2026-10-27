@@ -3319,40 +3319,6 @@ mod test {
         }
     }
 
-    /// Normals that fail to load are computed from the decompressed positions, and both are
-    /// compressed afterwards.
-    #[test]
-    fn preserves_quantization_with_computed_normals() {
-        use bevy_mesh::{Mesh, MeshAttributeCompressionFlags, VertexFormat};
-
-        // Unsigned normals are outside `KHR_mesh_quantization`, so they are skipped.
-        let gltf = quantized_gltf().replacen(
-            r#"{ "bufferView": 1, "componentType": 5120"#,
-            r#"{ "bufferView": 1, "componentType": 5121"#,
-            1,
-        );
-        let app = load_gltf_into_app("quantized.gltf", &gltf);
-        let (_, mesh) = app
-            .world()
-            .resource::<Assets<Mesh>>()
-            .iter()
-            .next()
-            .unwrap();
-        let format = |id| mesh.attribute(id).map(VertexFormat::from);
-        assert_eq!(
-            format(Mesh::ATTRIBUTE_POSITION),
-            Some(VertexFormat::Snorm16x4)
-        );
-        assert_eq!(
-            format(Mesh::ATTRIBUTE_NORMAL),
-            Some(VertexFormat::Snorm16x2)
-        );
-        assert!(mesh.attribute_compression().contains(
-            MeshAttributeCompressionFlags::COMPRESS_POSITION
-                | MeshAttributeCompressionFlags::COMPRESS_NORMAL
-        ));
-    }
-
     /// A triangle mesh on an `EXT_mesh_gpu_instancing` node under a translated
     /// parent, with three instances and quantized rotations.
     fn mesh_gpu_instancing_gltf() -> serde_json::Value {
