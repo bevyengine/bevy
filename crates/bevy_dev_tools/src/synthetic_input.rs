@@ -1,4 +1,4 @@
-//! Input written as a window backend writes it, for tools that drive an app from outside, such as
+//! Mocked input, simulated as if it came from a windowing backend, designed for tools that drive an app from outside, such as
 //! end-to-end tests.
 //!
 //! [`click`] queues a click in [`InputQueue`], as [`WindowEvent`]s one frame apart, and
