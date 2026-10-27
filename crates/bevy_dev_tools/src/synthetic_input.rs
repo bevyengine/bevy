@@ -278,7 +278,10 @@ pub fn write_due_input(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_camera::Viewport;
     use bevy_ecs::{message::Messages, observer::On};
+    use bevy_math::UVec2;
+    use bevy_reflect::structs::GetField;
 
     /// A world at frame 10, with a primary window.
     fn world() -> (World, Entity) {
@@ -440,6 +443,42 @@ mod tests {
                 (12, "Pressed Left"),
                 (13, "Released Left")
             ])
+        );
+    }
+
+    #[test]
+    fn a_node_in_an_offset_viewport_is_clicked_in_window_coordinates() {
+        let (mut world, _) = world();
+        let camera = world
+            .spawn((
+                Camera {
+                    viewport: Some(Viewport {
+                        physical_position: UVec2::new(200, 100),
+                        physical_size: UVec2::new(400, 300),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                RenderTarget::default(),
+            ))
+            .id();
+        let start = node(&mut world, 50.0, 40.0);
+        // `bevy_ui` sets this while propagating target cameras, which needs its plugins.
+        *world
+            .get_mut::<ComputedUiTargetCamera>(start)
+            .unwrap()
+            .get_field_mut::<Option<Entity>>("camera")
+            .unwrap() = Some(camera);
+
+        click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1).unwrap();
+        // Moved before the cursor event is written, which follows it.
+        world
+            .entity_mut(start)
+            .insert(UiGlobalTransform::from_translation(Vec2::new(60.0, 40.0)));
+
+        assert_eq!(
+            frames_through(&mut world, 10),
+            events(&[(10, "move 260 140")])
         );
     }
 
