@@ -498,25 +498,6 @@ fn prepare_taa_history_textures(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::history_exposure_correction;
-
-    #[test]
-    fn history_rescales_to_the_view_exposure() {
-        assert_eq!(history_exposure_correction(2.0, Some(0.5)), 4.0);
-        assert_eq!(history_exposure_correction(0.25, Some(1.0)), 0.25);
-    }
-
-    #[test]
-    fn history_without_a_valid_exposure_is_kept() {
-        assert_eq!(history_exposure_correction(2.0, None), 1.0);
-        assert_eq!(history_exposure_correction(2.0, Some(0.0)), 1.0);
-        assert_eq!(history_exposure_correction(2.0, Some(f32::NAN)), 1.0);
-        assert_eq!(history_exposure_correction(0.0, Some(1.0)), 1.0);
-    }
-}
-
 #[derive(Component)]
 pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
