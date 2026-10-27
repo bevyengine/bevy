@@ -6,7 +6,7 @@ use bevy_render::{extract_resource::ExtractResource, RenderApp};
 use indexmap::IndexSet;
 use smol_str::SmolStr;
 
-/// A string identifier for a UI paint layer, ordered by [`PaintOrder`].
+/// Identifies a paint layer by name.
 #[derive(Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct PaintLayer(SmolStr);
 
