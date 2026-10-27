@@ -585,10 +585,7 @@ fn number_input_on_insert_value(
 fn number_input_on_insert_disabled(
     insert: On<Insert<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<
-        (Has<InteractionDisabled>, Option<&ThemeContext>),
-        With<FeathersNumberInput>,
-    >,
+    q_number_input: Query<Option<&ThemeContext>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -600,13 +597,13 @@ fn number_input_on_insert_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok((is_disabled, theme_context)) = q_number_input.get(insert.event_target())
+        && let Ok(theme_context) = q_number_input.get(insert.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
             theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
-            is_disabled,
+            true,
             false,
             hovered,
             input_focus.get() == Some(text_id),
@@ -623,10 +620,7 @@ fn number_input_on_insert_disabled(
 fn number_input_on_remove_disabled(
     remove: On<Remove<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<
-        (Has<InteractionDisabled>, Option<&ThemeContext>),
-        With<FeathersNumberInput>,
-    >,
+    q_number_input: Query<Option<&ThemeContext>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -638,13 +632,13 @@ fn number_input_on_remove_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok((is_disabled, theme_context)) = q_number_input.get(remove.event_target())
+        && let Ok(theme_context) = q_number_input.get(remove.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
             theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
-            is_disabled,
+            false,
             false,
             hovered,
             input_focus.get() == Some(text_id),
