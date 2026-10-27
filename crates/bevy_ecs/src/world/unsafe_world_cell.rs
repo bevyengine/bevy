@@ -1353,13 +1353,13 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // - caller ensures `location` is the location of `entity`
             // - caller ensures aliasing rules
             let table = unsafe { world.fetch_table(location) };
-            // SAFETY: `component_id` is the id of `T`, so its column holds `T` values
-            let values = unsafe { table.get_data_slice_for::<T>(component_id) }?;
             // SAFETY:
+            // - `component_id` is the component id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
-            //   number of entities in `table`, which is the length of `values`
-            // - caller ensures aliasing rules
-            Some(unsafe { values.get_unchecked(location.table_row.index()).deref() })
+            //   number of entities in `table`
+            let value = unsafe { table.get_typed::<T>(component_id, location.table_row) }?;
+            // SAFETY: caller ensures aliasing rules
+            Some(unsafe { value.deref() })
         }
         StorageType::SparseSet => {
             // SAFETY: caller ensures aliasing rules
@@ -1397,20 +1397,11 @@ pub(crate) unsafe fn get_component_mut_typed<T: Component>(
             // - caller ensures `location` is the location of `entity`
             // - caller ensures aliasing rules
             let table = unsafe { world.fetch_table(location) };
-            let column = table.get_column(component_id)?;
-            let row = location.table_row;
             // SAFETY:
-            // - `component_id` is the id of `T`, so `column` holds `T` values
-            // - the length of `column` is the number of entities in `table`
-            // - `row` is the row of `entity` in `table`, so it is below that number
-            unsafe {
-                (
-                    column
-                        .get_data_slice::<T>(table.entity_count() as usize)
-                        .get_unchecked(row.index()),
-                    column.get_tick_cells_unchecked(row),
-                )
-            }
+            // - `component_id` is the id of `T`, so its column holds `T` values
+            // - `location.table_row` is the row of `entity` in `table`, so it is below the
+            //   number of entities in `table`
+            unsafe { table.get_with_ticks_typed::<T>(component_id, location.table_row) }?
         }
         StorageType::SparseSet => {
             // SAFETY: caller ensures aliasing rules

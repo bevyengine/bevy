@@ -307,7 +307,7 @@ impl ComponentSparseSet {
     }
 
     /// Returns a reference to the value that `entity` has for the component this sparse set
-    /// stores. It computes the address of the value with the size of `T`.
+    /// stores. Since the type `T` is statically known, it is more efficient than the untyped version.
     ///
     /// Returns `None` if `entity` does not have that component.
     ///

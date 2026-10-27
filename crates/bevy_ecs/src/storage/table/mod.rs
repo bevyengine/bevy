@@ -3,7 +3,9 @@ mod column;
 pub use column::Column;
 
 use crate::{
-    change_detection::{AtomicTick, CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    change_detection::{
+        AtomicTick, CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick,
+    },
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -592,6 +594,64 @@ impl Table {
     ) -> Option<Ptr<'_>> {
         self.get_column(component_id)
             .map(|col| col.get_data_unchecked(row))
+    }
+
+    /// Returns a reference to the value in `row` for the component matching `component_id`.
+    /// Since the type `T` is statically known, it is more efficient than the untyped version.
+    ///
+    /// Returns `None` if this table does not store that component.
+    ///
+    /// # Safety
+    /// - `T` must be the type of the component matching `component_id`.
+    /// - `row` must be below the number of entities in this table.
+    #[inline]
+    pub unsafe fn get_typed<T>(
+        &self,
+        component_id: ComponentId,
+        row: TableRow,
+    ) -> Option<&UnsafeCell<T>> {
+        let column = self.get_column(component_id)?;
+        // SAFETY:
+        // - the caller ensures that `T` is the type of the values in `column`
+        // - the length of `column` is the number of entities in this table
+        // - the caller ensures that `row` is below that number
+        unsafe {
+            Some(
+                column
+                    .get_data_slice::<T>(self.entity_count() as usize)
+                    .get_unchecked(row.index()),
+            )
+        }
+    }
+
+    /// Returns references to the value in `row` for the component matching `component_id`, and
+    /// to the [`ComponentTickCells`] of that value. It computes the address of the value with the
+    /// size of `T`.
+    ///
+    /// Returns `None` if this table does not store that component.
+    ///
+    /// # Safety
+    /// - `T` must be the type of the component matching `component_id`.
+    /// - `row` must be below the number of entities in this table.
+    #[inline]
+    pub unsafe fn get_with_ticks_typed<T>(
+        &self,
+        component_id: ComponentId,
+        row: TableRow,
+    ) -> Option<(&UnsafeCell<T>, ComponentTickCells<'_>)> {
+        let column = self.get_column(component_id)?;
+        // SAFETY:
+        // - the caller ensures that `T` is the type of the values in `column`
+        // - the length of `column` is the number of entities in this table
+        // - the caller ensures that `row` is below that number
+        unsafe {
+            Some((
+                column
+                    .get_data_slice::<T>(self.entity_count() as usize)
+                    .get_unchecked(row.index()),
+                column.get_tick_cells_unchecked(row),
+            ))
+        }
     }
 
     /// Returns a reference to this table's summary tick for the given
