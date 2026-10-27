@@ -24,7 +24,13 @@ fn ior_corrected_roughness(roughness: f32, ior: f32) -> f32 {
     return roughness * clamp(ior * 2.0 - 2.0, 0.0, 1.0);
 }
 
-fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+struct RefractedRay {
+    direction: vec3<f32>,
+    offset_position: vec2<f32>,
+}
+
+// Compute the refracted direction and matching screen-space UV offset for a given IOR.
+fn refracted_ray(world_position: vec4<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32, thickness: f32) -> RefractedRay {
     // Calculate the ratio between refraction indexes. Assume air/vacuum for the space outside the mesh
     let eta = 1.0 / ior;
 
@@ -44,16 +50,47 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
 
     // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
     let subview_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;
-    let viewport_origin = view_bindings::view.viewport.xy;
-    let viewport_size = view_bindings::view.viewport.zw;
+    let viewport_origin = view_bindings::view.main_pass_viewport.xy;
+    let viewport_size = view_bindings::view.main_pass_viewport.zw;
     let full_size = vec2<f32>(textureDimensions(view_bindings::view_transmission_texture));
     let offset_position = (subview_position * viewport_size + viewport_origin) / full_size;
+    return RefractedRay(T, offset_position);
+}
+
+fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, dispersion: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+    let refracted = refracted_ray(world_position, N, V, ior, thickness);
+    let T = refracted.direction;
+    let offset_position = refracted.offset_position;
 
     // Fetch background color
     var background_color: vec4<f32>;
     let transmission_roughness = ior_corrected_roughness(perceptual_roughness, ior);
-    if transmission_roughness == 0.0 {
-        // If transmission roughness is zero, we can use a faster approach without the blur.
+    if dispersion > 0.0 {
+        // Dispersion will spread out the ior values for each r,g,b channel
+        let half_spread = (ior - 1.0) * 0.025 * dispersion;
+        let ior_r = max(ior - half_spread, 1.0);
+        let offset_r = refracted_ray(world_position, N, V, ior_r, thickness).offset_position;
+        let offset_b = refracted_ray(world_position, N, V, ior + half_spread, thickness).offset_position;
+
+        var r: vec4<f32>;
+        var g: vec4<f32>;
+        var b: vec4<f32>;
+        if transmission_roughness == 0.0 {
+             // If transmission roughness is zero, we can use a faster approach without the blur.
+            r = fetch_transmissive_background_non_rough(offset_r, frag_coord);
+            g = fetch_transmissive_background_non_rough(offset_position, frag_coord);
+            b = fetch_transmissive_background_non_rough(offset_b, frag_coord);
+        } else {
+            r = fetch_transmissive_background(offset_r, frag_coord, view_z, transmission_roughness);
+            g = fetch_transmissive_background(offset_position, frag_coord, view_z, transmission_roughness);
+            b = fetch_transmissive_background(offset_b, frag_coord, view_z, transmission_roughness);
+        }
+        // Each channel samples a different offset and so has its own depth-rejection alpha, but we
+        // reuse the green sample's alpha 'g.a' for all three. Per-channel rejection would only differ in a
+        // 1-2 pixel fringe at depth discontinuities and isn't worth the added complexity.
+        background_color = vec4<f32>(r.r, g.g, b.b, g.a);
+    } else if transmission_roughness == 0.0 {
+         // If transmission roughness is zero, we can use a faster approach without the blur.
         background_color = fetch_transmissive_background_non_rough(offset_position, frag_coord);
     } else {
         background_color = fetch_transmissive_background(offset_position, frag_coord, view_z, transmission_roughness);
@@ -82,7 +119,7 @@ fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coor
 
     @if(DEPTH_PREPASS && !WEBGL2)
     // Use depth prepass data to reject values that are in front of the current fragment
-    if prepass_utils::prepass_depth(vec4<f32>(offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
+    if prepass_utils::prepass_depth(vec4<f32>(offset_position * vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture)), 0.0, 0.0), 0u) > frag_coord.z {
         background_color.a = 0.0;
     }
 
@@ -94,7 +131,9 @@ fn fetch_transmissive_background_non_rough(offset_position: vec2<f32>, frag_coor
 
 fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f32>, view_z: f32, transmission_roughness: f32) -> vec4<f32> {
     // Calculate view aspect ratio, used to scale offset so that it's proportionate
-    let aspect = view_bindings::view.viewport.z / view_bindings::view.viewport.w;
+    let viewport_size = view_bindings::view.main_pass_viewport.zw;
+    let aspect = viewport_size.x / viewport_size.y;
+    let viewport_to_texture = viewport_size / vec2<f32>(textureDimensions(view_bindings::view_transmission_texture));
 
     // Calculate how “blurry” the transmission should be.
     // Blur is more or less eyeballed to look approximately “right”, since the “correct”
@@ -166,7 +205,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
         let rotated_spiral_offset = (rotation_matrix * spiral_offset) * vec2(1.0, aspect);
 
         // Calculate final offset position, with blur and spiral offset
-        let modified_offset_position = offset_position + rotated_spiral_offset * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
+        let modified_offset_position = offset_position + rotated_spiral_offset * viewport_to_texture * blur_intensity * (1.0 - f32(pixel_checkboard) * 0.1);
 
         // Sample the view transmission texture at the offset position + noise offset, to get the background color
         var sample = textureSampleLevel(
@@ -178,7 +217,7 @@ fn fetch_transmissive_background(offset_position: vec2<f32>, frag_coord: vec3<f3
 
         @if(DEPTH_PREPASS && !WEBGL2)
         // Use depth prepass data to reject values that are in front of the current fragment
-        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * view_bindings::view.viewport.zw, 0.0, 0.0), 0u) > frag_coord.z {
+        if prepass_utils::prepass_depth(vec4<f32>(modified_offset_position * vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture)), 0.0, 0.0), 0u) > frag_coord.z {
             sample = vec4<f32>(0.0);
         }
 

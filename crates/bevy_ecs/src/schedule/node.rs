@@ -836,7 +836,9 @@ impl SystemSets {
 
     /// Remove a set with a [`SystemSetKey`]
     pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
-        self.sets.remove(key);
+        if let Some(set) = self.sets.remove(key) {
+            self.ids.remove(&set);
+        }
         self.conditions.remove(key);
         self.uninit.retain(|uninit| uninit.key != key);
         true

@@ -2,7 +2,6 @@ use crate::{
     change_detection::{CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, ComponentInfo},
     entity::{Entity, EntityIndex},
-    query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, Column, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -459,7 +458,7 @@ impl ComponentSparseSet {
                 // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
                 // been inserted and in bounds.
                 unsafe {
-                    *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index;
+                    *self.sparse.get_mut(index).unwrap_unchecked() = dense_index;
                 }
                 // SAFETY: The above check ensures that `dense_index` and the last element are not
                 // overlapping, and thus also within bounds.
@@ -507,7 +506,7 @@ impl ComponentSparseSet {
                     // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
                     // been inserted and in bounds.
                     unsafe {
-                        *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index;
+                        *self.sparse.get_mut(index).unwrap_unchecked() = dense_index;
                     }
                     // SAFETY: The above check ensures that `dense_index` and the last element are not
                     // overlapping, and thus also within bounds.

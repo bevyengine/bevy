@@ -218,10 +218,14 @@ fn decode_view(
         Mode::Triangles => ffi::meshopt_decodeIndexBuffer,
         Mode::Indices => ffi::meshopt_decodeIndexSequence,
     };
+    #[expect(
+        unsafe_code,
+        reason = "Decode directly into glTF buffers without an intermediate allocation or copy"
+    )]
     // SAFETY: `dst` is `count * stride` bytes. The
     // stride, TRIANGLES count and alignment meet the decoder's preconditions,
-    // and the decoders are safe for untrusted `src`.
-    #[expect(unsafe_code, reason = "meshopt only exposes these decoders over FFI")]
+    // and the decoders are safe for untrusted `src`. The source and destination
+    // slices come from disjoint buffers and stay alive for the call.
     let result = unsafe {
         decoder(
             dst.as_mut_ptr().cast(),
@@ -244,9 +248,12 @@ fn decode_view(
         Filter::Exponential => ffi::meshopt_decodeFilterExp,
         Filter::Color => ffi::meshopt_decodeFilterColor,
     };
+    #[expect(
+        unsafe_code,
+        reason = "Filter glTF data in place with validated stride and alignment"
+    )]
     // SAFETY: `dst` is `count * stride` bytes, and the stride and alignment
     // meet the filter's preconditions.
-    #[expect(unsafe_code, reason = "meshopt only exposes the filters over FFI")]
     unsafe {
         filter(dst.as_mut_ptr().cast(), ext.count, stride);
     }
@@ -258,8 +265,6 @@ fn decode_view(
 /// loader tests.
 #[cfg(test)]
 pub(crate) mod fixture {
-    use core::ffi::c_int;
-
     use super::KHR_MESHOPT_COMPRESSION;
 
     /// Positions whose x coordinate is half the vertex index.
@@ -290,29 +295,8 @@ pub(crate) mod fixture {
     }
 
     pub fn encode_vertices<T>(extension: &str, vertices: &[T]) -> Vec<u8> {
-        let version = c_int::from(extension == KHR_MESHOPT_COMPRESSION);
-        let size = size_of::<T>();
-        #[expect(
-            unsafe_code,
-            reason = "meshopt only exposes the versioned encoder over FFI"
-        )]
-        // SAFETY: `encoded` holds the encoder's bound for `vertices`, which
-        // holds `len * size` bytes.
-        let encoded = unsafe {
-            let mut encoded =
-                vec![0; meshopt::ffi::meshopt_encodeVertexBufferBound(vertices.len(), size)];
-            let len = meshopt::ffi::meshopt_encodeVertexBufferLevel(
-                encoded.as_mut_ptr(),
-                encoded.len(),
-                vertices.as_ptr().cast(),
-                vertices.len(),
-                size,
-                2,
-                version,
-            );
-            encoded.truncate(len);
-            encoded
-        };
+        let version = i32::from(extension == KHR_MESHOPT_COMPRESSION);
+        let encoded = meshopt::encode_vertex_buffer_level(vertices, 2, Some(version)).unwrap();
         assert!(!encoded.is_empty());
         encoded
     }

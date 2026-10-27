@@ -8,7 +8,6 @@ use crate::{
     },
     component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
-    query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -577,7 +576,7 @@ impl Table {
         row: TableRow,
     ) -> OwningPtr<'_> {
         self.get_column_mut(component_id)
-            .debug_checked_unwrap()
+            .unwrap_unchecked()
             .get_data_unchecked(row)
             .assert_unique()
             .promote()
