@@ -119,9 +119,6 @@ impl<'w> BundleRemover<'w> {
             // SAFETY:
             // - we have exclusive ownership of the world and hold no references to command queue or component data
             // - as this goes through `DeferredWorld`, our pointers will not be invalidated
-            // SAFETY:
-            // - we have exclusive ownership of the world and hold no references to command queue or component data
-            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
             let mut world = unsafe { remover.world.into_deferred() };
             // SAFETY: the ARCHETYPE_CREATED event_key corresponds to the ArchetypeCreated event's type
             unsafe {
@@ -167,50 +164,72 @@ impl<'w> BundleRemover<'w> {
         ) -> (bool, T),
     ) -> (EntityLocation, T) {
         // Hooks
-        // SAFETY: all bundle components exist in World
-        unsafe {
+        {
             // SAFETY: We only keep access to archetype/bundle data.
-            let mut deferred_world = self.world.into_deferred();
-            let removed = self.removed.as_ref();
-            if self.old_archetype.as_ref().has_discard_observer() {
+            let mut deferred_world = unsafe { self.world.into_deferred() };
+            // SAFETY:
+            // - `removed` points into the edges of `old_archetype`, see `BundleRemoval::removed`.
+            // - `old_archetype` and `new_archetype` are valid for 'w.
+            // - A `DeferredWorld` cannot make structural changes, so hooks and observers
+            //   cannot invalidate these references, which are only live for this block.
+            let (removed, old_archetype, new_archetype) = unsafe {
+                (
+                    self.removed.as_ref(),
+                    self.old_archetype.as_ref(),
+                    self.new_archetype.as_ref(),
+                )
+            };
+            if old_archetype.has_discard_observer() {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
-                deferred_world.trigger_raw(
-                    DISCARD,
-                    &mut DiscardEvent { entity },
-                    &mut EntityComponentsTrigger {
-                        components: removed,
-                        old_archetype: Some(self.old_archetype.as_ref()),
-                        new_archetype: Some(self.new_archetype.as_ref()),
-                    },
+                unsafe {
+                    deferred_world.trigger_raw(
+                        DISCARD,
+                        &mut DiscardEvent { entity },
+                        &mut EntityComponentsTrigger {
+                            components: removed,
+                            old_archetype: Some(old_archetype),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+            }
+            // SAFETY: `removed` only holds components that `old_archetype` contains,
+            // so they exist in the world.
+            unsafe {
+                deferred_world.trigger_on_discard(
+                    old_archetype,
+                    entity,
+                    removed.iter().copied(),
                     caller,
+                    self.relationship_hook_mode,
                 );
             }
-            deferred_world.trigger_on_discard(
-                self.old_archetype.as_ref(),
-                entity,
-                removed.iter().copied(),
-                caller,
-                self.relationship_hook_mode,
-            );
-            if self.old_archetype.as_ref().has_remove_observer() {
+            if old_archetype.has_remove_observer() {
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
-                deferred_world.trigger_raw(
-                    REMOVE,
-                    &mut RemoveEvent { entity },
-                    &mut EntityComponentsTrigger {
-                        components: removed,
-                        old_archetype: Some(self.old_archetype.as_ref()),
-                        new_archetype: Some(self.new_archetype.as_ref()),
-                    },
+                unsafe {
+                    deferred_world.trigger_raw(
+                        REMOVE,
+                        &mut RemoveEvent { entity },
+                        &mut EntityComponentsTrigger {
+                            components: removed,
+                            old_archetype: Some(old_archetype),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+            }
+            // SAFETY: `removed` only holds components that `old_archetype` contains,
+            // so they exist in the world.
+            unsafe {
+                deferred_world.trigger_on_remove(
+                    old_archetype,
+                    entity,
+                    removed.iter().copied(),
                     caller,
                 );
             }
-            deferred_world.trigger_on_remove(
-                self.old_archetype.as_ref(),
-                entity,
-                removed.iter().copied(),
-                caller,
-            );
         }
 
         // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
@@ -366,8 +385,9 @@ pub(crate) struct BundleRemoval {
     /// The target archetype. This could be the source archetype, in the event that removing the
     /// bundle does not result in an [`Archetype`] change.
     archetype_id: ArchetypeId,
-    /// The [`ArchetypeAfterBundleRemove::removed`] cached in the source archetype's edges,
-    /// which live as long as the [`Archetypes`].
+    /// The [`ArchetypeAfterBundleRemove::removed`] cached in the source archetype's edges.
+    /// It stays valid as long as the [`Archetypes`]: archetypes are never removed, an edge is
+    /// never replaced once cached, and the boxed slice does not move when the edges grow.
     removed: ConstNonNull<[ComponentId]>,
     /// Whether the target archetype was created by this removal.
     is_new_created: bool,

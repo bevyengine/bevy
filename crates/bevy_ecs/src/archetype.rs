@@ -167,8 +167,9 @@ impl ArchetypeAfterBundleInsert {
 pub(crate) struct ArchetypeAfterBundleRemove {
     /// The target archetype after the bundle is removed from the source archetype.
     pub archetype_id: ArchetypeId,
-    /// The explicit components of the bundle that the source archetype contains,
-    /// in the same order as the source [`Bundle`](crate::bundle::Bundle).
+    /// The explicit components of the bundle that the source archetype contains.
+    ///
+    /// This **must** be in the same order as the source [`Bundle`](crate::bundle::Bundle).
     pub removed: Box<[ComponentId]>,
 }
 
