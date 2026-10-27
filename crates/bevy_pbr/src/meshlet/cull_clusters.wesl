@@ -73,7 +73,7 @@ fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
     var screen_aabb = ScreenAabb(vec3<f32>(0.0), vec3<f32>(0.0));
     var sw_raster = project_aabb(clip_from_local, near, aabb, &screen_aabb);
     if sw_raster {
-        let aabb_size = (screen_aabb.max.xy - screen_aabb.min.xy) * view.viewport.zw;
+        let aabb_size = (screen_aabb.max.xy - screen_aabb.min.xy) * view.main_pass_viewport.zw;
         sw_raster = all(aabb_size <= vec2<f32>(64.0));
     }
 
