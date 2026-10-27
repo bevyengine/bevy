@@ -4,7 +4,6 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
-    query::DebugCheckedUnwrap,
     relationship::{RelationshipAccessor, RelationshipHookMode},
     world::World,
 };
@@ -641,7 +640,7 @@ impl EntityCloner {
                 // - There are no other mutable references to source entity.
                 // - `component` is from `source_entity`'s archetype
                 let source_component_ptr =
-                    unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
+                    unsafe { source_entity.get_by_id(component).unwrap_unchecked() };
 
                 let source_component = SourceComponent {
                     id: component,
