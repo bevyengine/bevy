@@ -29,8 +29,8 @@ The insert methods move a layer if it is already present.
 The `UiMaterial` trait has a new `paint_layer()` method that chooses the layer the layer the material is drawn to.
 It defaults to `MATERIAL_PAINT_LAYER`.
 
-Extraction functions should look up the z-offsets for their elements layer with `PaintOrder::get_offset`, which returns a value in the range `0.0..1.0`. The z-offset should be looked up once at the start of the extraction function, and shouldn't be looked up per node if at all possible.
+UI render items are sorted using `UiSortKey`, first by `ComputedStackIndex` and then by paint-layer index. 
 
-The `PaintOrder` resource is also extracted separately, so the offsets can be applied in some queue functions instead for some elements. This is because extraction isn't as centralized as it should be.
+Extraction functions should look up their layer index with `PaintOrder::get_layer_index` once at the start of the function. Extracted items store `ComputedStackIndex` directly, and `ExtractedUiNode` also stores the paint-layer index. Queue functions construct the sort key with `UiSortKey::new(stack_index, paint_layer)`. The `PaintOrder` resource is also extracted separately, so some queue functions look up the layer index there instead.
 
-Changing `PaintOrder` at all is expensive as it triggers a reextraction of all elements.
+Changing `PaintOrder` at all is expensive, as it triggers a reextraction of all elements.
