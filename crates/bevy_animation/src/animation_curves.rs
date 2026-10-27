@@ -502,7 +502,7 @@ where
                         ]
                         .into_iter(),
                     );
-                } else {
+                } else if current_weight != 0.0 {
                     current_value = A::interpolate(
                         &current_value,
                         &value_to_blend,
@@ -842,5 +842,31 @@ mod tests {
             .downcast::<Vec3>()
             .unwrap();
         assert_eq!(*value, Vec3::new(1., 0., 0.));
+    }
+
+    #[test]
+    fn zero_weight_inputs_blend_without_nan() {
+        let mut evaluator = BasicAnimationCurveEvaluator::<f32>::default();
+        let nodes = [1, 2, 3].map(AnimationNodeIndex::new);
+        // The stack pops last first, so both zero-weight inputs are combined
+        // before the weighted one.
+        for (value, weight, graph_node) in [
+            (3.0, 1.0, nodes[2]),
+            (2.0, 0.0, nodes[1]),
+            (1.0, 0.0, nodes[0]),
+        ] {
+            evaluator
+                .stack
+                .push(BasicAnimationCurveEvaluatorStackElement {
+                    value,
+                    weight,
+                    graph_node,
+                });
+        }
+        for node in nodes {
+            evaluator.combine(node, false).unwrap();
+        }
+
+        assert_eq!(evaluator.blend_register.map(|(value, _)| value), Some(3.0));
     }
 }

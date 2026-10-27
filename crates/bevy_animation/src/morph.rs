@@ -165,7 +165,7 @@ impl WeightsCurveEvaluator {
                 {
                     if additive {
                         *dest += src * weight_to_blend;
-                    } else {
+                    } else if *current_weight != 0.0 {
                         *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
                     }
                 }
