@@ -931,7 +931,7 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid and spawned. Returns `None`
-    /// both for an entity that is invalid and for one that is valid but not spawned
+    /// for an entity that is invalid or for one that is valid but not spawned
     ///
     /// For an index without a meta, it returns `None` right away, so it does not need
     /// `EntityMeta::FRESH`.
