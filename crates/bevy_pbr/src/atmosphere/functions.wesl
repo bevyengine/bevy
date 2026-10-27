@@ -195,7 +195,8 @@ const PHASE_MAPPING_N: f32 = 0.5;
 /// Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
-    let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(1.0 - abs(neg_LdotV), PHASE_MAPPING_N));
+    // `neg_LdotV` can round past 1 when looking at the light, where `pow` is NaN.
+    let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(saturate(1.0 - abs(neg_LdotV)), PHASE_MAPPING_N));
     let uv = vec2(1.0 - normalized_altitude, phase_uv);
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
