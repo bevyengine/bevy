@@ -25,7 +25,6 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::{Event, EventKey},
     observer::Observers,
-    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -160,7 +159,7 @@ impl ArchetypeAfterBundleInsert {
         unsafe {
             self.components
                 .get(..self.removed_sparse_start_idx as usize)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
@@ -169,7 +168,7 @@ impl ArchetypeAfterBundleInsert {
         unsafe {
             self.components
                 .get(..self.existing_start_idx as usize)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
@@ -178,7 +177,7 @@ impl ArchetypeAfterBundleInsert {
         unsafe {
             self.components
                 .get(self.existing_start_idx as usize..self.removed_sparse_start_idx as usize)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
@@ -187,7 +186,7 @@ impl ArchetypeAfterBundleInsert {
         unsafe {
             self.components
                 .get(self.removed_sparse_start_idx as usize..)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
@@ -196,7 +195,7 @@ impl ArchetypeAfterBundleInsert {
         unsafe {
             self.components
                 .get(self.removed_sparse_start_idx as usize..self.removed_table_start_idx as usize)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
@@ -205,7 +204,7 @@ impl ArchetypeAfterBundleInsert {
         unsafe {
             self.components
                 .get(self.removed_table_start_idx as usize..)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 }

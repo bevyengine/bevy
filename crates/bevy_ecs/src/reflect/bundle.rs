@@ -15,9 +15,7 @@ use crate::{
     relationship::RelationshipHookMode,
     world::{EntityMut, EntityWorldMut},
 };
-use bevy_reflect::{
-    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
-};
+use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry};
 
 use super::{from_reflect_with_fallback, ReflectComponent};
 
@@ -57,7 +55,7 @@ impl ReflectBundleFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + FromReflect + TypePath + BundleFromComponents>() -> Self {
+    pub fn new<T: Bundle + Reflect + TypePath + BundleFromComponents>() -> Self {
         <ReflectBundle as CreateTypeData<T>>::create_type_data(()).0
     }
 }

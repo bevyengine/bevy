@@ -4,7 +4,6 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -42,15 +41,6 @@ pub enum ControlOrientation {
     /// Vertical orientation (stretching from top to bottom)
     #[default]
     Vertical,
-}
-
-/// An event which indicates that we want to scroll the specified item into view (adjusting
-/// the scroll position of it's parent).
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
-#[entity_event(propagate)]
-pub struct ScrollIntoView {
-    /// The activated entity.
-    pub entity: Entity,
 }
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.

@@ -19,7 +19,6 @@ use crate::{
         RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
-    query::DebugCheckedUnwrap as _,
     relationship::{
         MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
     },
@@ -78,13 +77,13 @@ impl ComponentInfo {
         self.descriptor.layout
     }
 
-    #[inline]
     /// Get the function which should be called to clean up values of
     /// the underlying component type. This maps to the
     /// [`Drop`] implementation for 'normal' Rust components
     ///
     /// Returns `None` if values of the underlying component type don't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
+    #[inline]
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
@@ -416,7 +415,7 @@ impl Components {
             self.components.resize_with(least_len, || None);
         }
         // SAFETY: We just extended the vec to make this index valid.
-        let slot = unsafe { self.components.get_mut(id.0).debug_checked_unwrap() };
+        let slot = unsafe { self.components.get_mut(id.0).unwrap_unchecked() };
         // Caller ensures id is unique
         debug_assert!(slot.is_none());
         *slot = Some(info);
@@ -538,9 +537,9 @@ impl Components {
         unsafe {
             self.components
                 .get(id.0)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .as_ref()
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
