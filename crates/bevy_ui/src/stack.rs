@@ -1222,29 +1222,6 @@ mod tests {
     }
 
     #[test]
-    fn global_zindex_below_non_ui_parent_preserves_ancestor_order() {
-        let mut world = World::default();
-        world.init_resource::<UiStack>();
-
-        let mut schedule = Schedule::default();
-        schedule.add_systems(ui_stack_system);
-
-        let p = world.spawn_empty().id();
-        let r = world
-            .spawn((Node::default(), ChildOf(p), GlobalZIndex(1)))
-            .id();
-        let a = world.spawn((Node::default(), ChildOf(r))).id();
-        let g = world
-            .spawn((GhostNode, ChildOf(r), GlobalZIndex(1), ZIndex(-1)))
-            .id();
-        let b = world.spawn((Node::default(), ChildOf(g))).id();
-
-        schedule.run(&mut world);
-
-        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
-    }
-
-    #[test]
     fn computed_stack_indices_update_after_global_zindex_changes() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
@@ -1294,5 +1271,52 @@ mod tests {
         assert_eq!(world.get::<ComputedStackIndex>(r).unwrap().0, 0);
         assert_eq!(world.get::<ComputedStackIndex>(b).unwrap().0, 1);
         assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().0, 2);
+    }
+
+    #[test]
+    fn global_zindex_below_non_ui_parent_is_not_added_to_uistack() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let e = world.spawn_empty().id();
+        world.spawn((Node::default(), ChildOf(e), GlobalZIndex(0)));
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r]));
+    }
+
+    #[test]
+    fn changed_nested_global_zindex_stays_below_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn(Node::default()).id();
+        let c = world
+            .spawn((Node::default(), ChildOf(a), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn((Node::default(), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, c, b]));
+
+        world.entity_mut(c).insert(GlobalZIndex(1));
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([a, c, b]));
     }
 }
