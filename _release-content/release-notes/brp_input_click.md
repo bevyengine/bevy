@@ -1,11 +1,11 @@
 ---
-title: Clicking over the Bevy Remote Protocol
+title: Clicking and typing over the Bevy Remote Protocol
 authors: ["@viridia"]
 pull_requests: [26333]
 ---
 
-The Bevy Remote Protocol has a new method, `input.click`, which clicks on a UI node in a running app.
-This is meant for tools that drive an app from outside, such as end-to-end tests:
+The Bevy Remote Protocol has new methods for sending input to a running app: `input.click` clicks on a UI node, `input.key` presses keys, and `input.type` types text.
+These are meant for tools that drive an app from outside, such as end-to-end tests:
 
 ```json
 {
@@ -14,10 +14,20 @@ This is meant for tools that drive an app from outside, such as end-to-end tests
 }
 ```
 
-The click arrives as a window backend would report it: the cursor moves to the node's center, then the button is pressed and released, each on its own frame, so picking and widgets respond just as they would to a real mouse.
-A node hidden inside a scrolled view is scrolled into view first.
+```json
+{
+    "method": "input.type",
+    "params": { "text": "Hello!" }
+}
+```
+
+Input arrives as a window backend would report it, one event per frame, so picking, widgets and text fields respond just as they would to a real mouse and keyboard.
+A click moves the cursor to the node's center, then presses and releases the button; a node hidden inside a scrolled view is scrolled into view first.
 You can also click at a point in a window, choose the mouse button, and hold it down for several frames.
 
-The response names the frame that reads the release, so a client can wait for exactly that frame before checking what the click did.
+`input.type` types each character as a US keyboard would, holding Shift where a character needs it.
+`input.key` presses a single key, by its `KeyCode`; its logical key and text come from a US layout unless you give them, and a key can be pressed and released in separate calls to hold a modifier.
 
-The same machinery is available in Rust as `bevy::dev_tools::synthetic_input::click`, for tools that run inside the app.
+Each response names the frame that reads the last event, so a client can wait for exactly that frame before checking what the input did.
+
+The same machinery is available in Rust as `click`, `key` and `type_text` in `bevy::dev_tools::synthetic_input`, for tools that run inside the app.
