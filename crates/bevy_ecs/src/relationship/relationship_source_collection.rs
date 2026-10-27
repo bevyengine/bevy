@@ -297,7 +297,7 @@ impl RelationshipSourceCollection for UniqueEntityVec {
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        self.extend(entities);
+        self.extend_slow(entities);
     }
 }
 
