@@ -1311,7 +1311,7 @@ const _: () = {
         fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
             Ok(Box::new(
                 <UniqueEntityEquivalentSlice<_>>::iter(self)
-                    .map(|value| value.reflect_clone_and_take())
+                    .map(PartialReflect::reflect_clone_and_take)
                     .collect::<Result<Self, ReflectCloneError>>()?,
             ))
         }
