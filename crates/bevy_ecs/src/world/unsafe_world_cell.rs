@@ -1278,7 +1278,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - `location` must be the location of an entity in this world.
     /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `Table` is only used in ways that would not conflict with any existing borrows of world data.
-    unsafe fn fetch_table(self, location: EntityLocation) -> &'w Table {
+    unsafe fn fetch_table_unchecked(self, location: EntityLocation) -> &'w Table {
         // SAFETY:
         // - caller ensures returned data is not misused and we have not created any borrows of component/resource data
         // - caller ensures `location` is the location of an entity, so it contains a valid `TableId`
@@ -1286,8 +1286,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             self.storages()
                 .tables
-                .get(location.table_id)
-                .debug_checked_unwrap()
+                .get_unchecked(location.table_id)
         }
     }
 
@@ -1326,7 +1325,7 @@ unsafe fn get_component(
     unsafe {
         match storage_type {
             StorageType::Table => world
-                .fetch_table(location)
+                .fetch_table_unchecked(location)
                 .get_component(component_id, location.table_row),
             StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
         }
@@ -1352,7 +1351,7 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // SAFETY:
             // - caller ensures `location` is the location of `entity`
             // - caller ensures aliasing rules
-            let table = unsafe { world.fetch_table(location) };
+            let table = unsafe { world.fetch_table_unchecked(location) };
             // SAFETY:
             // - `component_id` is the component id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
@@ -1396,7 +1395,7 @@ pub(crate) unsafe fn get_component_mut_typed<T: Component>(
             // SAFETY:
             // - caller ensures `location` is the location of `entity`
             // - caller ensures aliasing rules
-            let table = unsafe { world.fetch_table(location) };
+            let table = unsafe { world.fetch_table_unchecked(location) };
             // SAFETY:
             // - `component_id` is the id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
@@ -1436,7 +1435,7 @@ unsafe fn get_component_and_ticks(
     match storage_type {
         StorageType::Table => {
             // SAFETY: caller upholds aliasing rules and ensures `location` is the location of `entity`
-            let table = unsafe { world.fetch_table(location) };
+            let table = unsafe { world.fetch_table_unchecked(location) };
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(unsafe {
@@ -1487,7 +1486,7 @@ unsafe fn get_ticks(
     unsafe {
         match storage_type {
             StorageType::Table => {
-                let table = world.fetch_table(location);
+                let table = world.fetch_table_unchecked(location);
                 table.get_ticks_unchecked(component_id, location.table_row)
             }
             StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
@@ -1519,7 +1518,7 @@ unsafe fn get_changed_by(
     let caller = unsafe {
         match storage_type {
             StorageType::Table => world
-                .fetch_table(location)
+                .fetch_table_unchecked(location)
                 .get_changed_by(component_id, location.table_row),
             StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_changed_by(entity),
         }
