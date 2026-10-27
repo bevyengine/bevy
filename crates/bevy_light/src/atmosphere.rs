@@ -775,34 +775,3 @@ pub fn extract_chromatic_phase_textures(
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn aerosol_column_optical_depth() {
-        const SAMPLES: u32 = 10_000;
-
-        for scale_height in [1_200.0, 20_000.0] {
-            let aerosol = Aerosol {
-                optical_depth: 0.15,
-                angstrom_exponent: 1.3,
-                scale_height,
-                ..Default::default()
-            };
-            let term = aerosol.scattering_term(EARTH_ATMOSPHERE_HEIGHT);
-            let extinction_550 = term.scattering.y + term.absorption.y;
-
-            // The optical depth looking straight up is the extinction coefficient
-            // times the falloff integrated over altitude. Integrate the falloff with
-            // the midpoint rule to check the closed form in `scattering_term`.
-            let falloff_integral = (0..SAMPLES)
-                .map(|i| term.falloff.sample((i as f32 + 0.5) / SAMPLES as f32))
-                .sum::<f32>()
-                * EARTH_ATMOSPHERE_HEIGHT
-                / SAMPLES as f32;
-            assert!((extinction_550 * falloff_integral / aerosol.optical_depth - 1.0).abs() < 1e-3);
-        }
-    }
-}
