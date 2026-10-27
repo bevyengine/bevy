@@ -29,7 +29,7 @@ The insert methods move a layer if it is already present.
 The `UiMaterial` trait has a new `paint_layer()` method that chooses the layer the layer the material is drawn to.
 It defaults to `MATERIAL_PAINT_LAYER`.
 
-UI render items are sorted using `UiSortKey`, first by `ComputedStackIndex` and then by paint-layer index. 
+UI render items are sorted using `UiSortKey`, first by `ComputedStackIndex` and then by paint-layer index.
 
 Extraction functions should look up their layer index with `PaintOrder::get_layer_index` once at the start of the function. Extracted items store `ComputedStackIndex` directly, and `ExtractedUiNode` also stores the paint-layer index. Queue functions construct the sort key with `UiSortKey::new(stack_index, paint_layer)`. The `PaintOrder` resource is also extracted separately, so some queue functions look up the layer index there instead.
 
