@@ -208,7 +208,7 @@ fn update_uistack_recursive<'a>(
     child_buffer: &mut Vec<(Entity, i32, Option<&'a Children>, bool, Option<i32>)>,
     children: &'a Children,
     stack_root: Option<StackRoot>,
-    hoist: bool,
+    use_child_zindex: bool,
     ui_children: &'a Query<
         (
             Option<&Children>,
@@ -232,7 +232,7 @@ fn update_uistack_recursive<'a>(
                     child_buffer,
                     children,
                     None,
-                    hoist,
+                    use_child_zindex,
                     ui_children,
                     stack_roots,
                     visited_stack_roots,
@@ -256,7 +256,7 @@ fn update_uistack_recursive<'a>(
     for index in start..end {
         let (child_entity, zindex, maybe_children, is_ghost, global_zindex) = child_buffer[index];
         let mut child_root = stack_root;
-        if hoist {
+        if use_child_zindex {
             child_root.local_z = zindex;
         }
         if let Some(global_zindex) = global_zindex {
@@ -864,7 +864,7 @@ mod tests {
     }
 
     #[test]
-    fn ghost_zindex_overrides_the_hoisted_ordering_but_not_the_local_ordering() {
+    fn ghost_zindex_overrides_the_flattened_ordering_but_not_the_local_ordering() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
