@@ -1,7 +1,7 @@
 ---
 title: Clicking over the Bevy Remote Protocol
 authors: ["@viridia"]
-pull_requests: []
+pull_requests: [26333]
 ---
 
 The Bevy Remote Protocol has a new method, `input.click`, which clicks on a UI node in a running app.
