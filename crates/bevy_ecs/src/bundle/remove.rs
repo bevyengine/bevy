@@ -25,7 +25,7 @@ use crate::{
 pub(crate) struct BundleRemover<'w> {
     world: UnsafeWorldCell<'w>,
     bundle_info: ConstNonNull<BundleInfo>,
-    /// The explicit components of the bundle that `old_archetype` contains, cached in its edges.
+    /// The explicit components of the bundle that `old_archetype` contains but `new_archetype` does not, cached in its edges.
     removed: ConstNonNull<[ComponentId]>,
     old_and_new_table: Option<(TableId, TableId)>,
     old_archetype: NonNull<Archetype>,
