@@ -78,8 +78,10 @@ struct View {
     view_from_clip: mat4x4<f32>,
     world_position: vec3<f32>,
     exposure: f32,
-    /// viewport(x_origin, y_origin, width, height)
+    /// Output viewport (x_origin, y_origin, width, height), in physical pixels.
     viewport: vec4<f32>,
+    /// Prepass and main pass viewport, before upscaling, in physical pixels.
+    /// Textures may be larger; use textureDimensions when converting to texture UVs.
     main_pass_viewport: vec4<f32>,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.

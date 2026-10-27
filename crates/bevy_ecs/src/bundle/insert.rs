@@ -14,7 +14,6 @@ use crate::{
     event::{EntityComponentsTrigger, GlobalTrigger},
     lifecycle::{AddEvent, DiscardEvent, InsertEvent, ADD, DISCARD, INSERT},
     observer::Observers,
-    query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -85,7 +84,7 @@ impl<'w> BundleInserter<'w> {
             archetype
                 .edges()
                 .get_archetype_after_bundle_insert_internal(bundle_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .into()
         };
 
@@ -225,7 +224,7 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get_spawned(swapped_entity).debug_checked_unwrap() };
+                        unsafe { entities.get_spawned(swapped_entity).unwrap_unchecked() };
                     // SAFETY: entity already existed, its archetype_row just changed
                     unsafe {
                         entities.update_existing_location(
@@ -266,7 +265,7 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get_spawned(swapped_entity).debug_checked_unwrap() };
+                        unsafe { entities.get_spawned(swapped_entity).unwrap_unchecked() };
                     // SAFETY: Existing entity has changed archetype row
                     unsafe {
                         entities.update_existing_location(
@@ -308,7 +307,7 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = move_result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get_spawned(swapped_entity).debug_checked_unwrap() };
+                        unsafe { entities.get_spawned(swapped_entity).unwrap_unchecked() };
 
                     // SAFETY: Existing entity has changed archetype row
                     unsafe {
