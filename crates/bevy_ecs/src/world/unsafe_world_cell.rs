@@ -1357,7 +1357,7 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // - `component_id` is the component id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
             //   number of entities in `table`
-            let value = unsafe { table.get_typed::<T>(component_id, location.table_row) }?;
+            let value = unsafe { table.get_component_typed::<T>(component_id, location.table_row) }?;
             // SAFETY: caller ensures aliasing rules
             Some(unsafe { value.deref() })
         }
@@ -1365,7 +1365,7 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // SAFETY: caller ensures aliasing rules
             let sparse_set = unsafe { world.fetch_sparse_set(component_id) }?;
             // SAFETY: `component_id` is the id of `T`, so the sparse set holds `T` values
-            let value = unsafe { sparse_set.get_typed::<T>(entity) }?;
+            let value = unsafe { sparse_set.get_component_typed::<T>(entity) }?;
             // SAFETY: caller ensures aliasing rules
             Some(unsafe { value.deref() })
         }

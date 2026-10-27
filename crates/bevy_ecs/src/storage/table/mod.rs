@@ -605,7 +605,7 @@ impl Table {
     /// - `T` must be the type of the component matching `component_id`.
     /// - `row` must be below the number of entities in this table.
     #[inline]
-    pub unsafe fn get_typed<T>(
+    pub unsafe fn get_component_typed<T>(
         &self,
         component_id: ComponentId,
         row: TableRow,
