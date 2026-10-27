@@ -125,12 +125,18 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>, jitter: f32) -> vec4<f32
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+    // Copy pixels outside this viewport because the texture swap replaces the full target.
+    let fragment = textureLoad(color_texture, vec2<i32>(in.position.xy), 0);
+    if any(in.position.xy < view.main_pass_viewport.xy) ||
+        any(in.position.xy >= view.main_pass_viewport.xy + view.main_pass_viewport.zw) {
+        return fragment;
+    }
+
     // Sample the depth.
     var frag_coord = in.position;
     frag_coord.z = prepass_utils::prepass_depth(in.position, 0u);
 
     // Load the G-buffer data.
-    let fragment = textureLoad(color_texture, vec2<i32>(frag_coord.xy), 0);
     let gbuffer = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
     let pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, gbuffer);
 

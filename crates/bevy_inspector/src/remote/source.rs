@@ -540,7 +540,7 @@ fn query_params(types: &PollTypes, full: bool) -> Value {
         },
         filter: BrpQueryFilter {
             without: alloc::vec![IS_RESOURCE.to_string()],
-            with: Vec::new(),
+            ..Default::default()
         },
         strict: false,
     };
