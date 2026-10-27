@@ -310,7 +310,7 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use crate::{GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
+    use crate::{ComputedUiTargetCamera, GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::{ui_stack_system, ComputedStackIndex};
 
@@ -1007,5 +1007,292 @@ mod tests {
 
             assert!(world.resource::<UiStack>().iter().eq([r, a, c, d, b]));
         }
+    }
+
+    #[test]
+    fn inserting_ghost_zindex_groups_its_children() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r), ZIndex(1))).id();
+        let g = world.spawn((GhostNode, ChildOf(r))).id();
+        let b = world.spawn((Node::default(), ChildOf(g), ZIndex(2))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+
+        world.entity_mut(g).insert(ZIndex(0));
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+    }
+
+    #[test]
+    fn removing_ghost_zindex_restores_flattened_ordering() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r), ZIndex(1))).id();
+        let g = world.spawn((GhostNode, ChildOf(r), ZIndex(0))).id();
+        let b = world.spawn((Node::default(), ChildOf(g), ZIndex(2))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+
+        world.entity_mut(g).remove::<ZIndex>();
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+    }
+
+    #[test]
+    fn inserting_ghost_global_zindex_moves_its_children() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn((Node::default(), GlobalZIndex(1))).id();
+        let a = world.spawn((Node::default(), ChildOf(r))).id();
+        let g = world.spawn((GhostNode, ChildOf(r))).id();
+        let b = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+
+        world.entity_mut(g).insert(GlobalZIndex(-1));
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([b, r, a]));
+    }
+
+    #[test]
+    fn removing_ghost_global_zindex_restores_inherited_layer() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn((Node::default(), GlobalZIndex(1))).id();
+        let a = world.spawn((Node::default(), ChildOf(r))).id();
+        let g = world.spawn((GhostNode, ChildOf(r), GlobalZIndex(-1))).id();
+        let b = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, r, a]));
+
+        world.entity_mut(g).remove::<GlobalZIndex>();
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+    }
+
+    #[test]
+    fn root_ghost_zindex_orders_its_children_as_a_group() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn((Node::default(), ZIndex(1))).id();
+        let g = world.spawn((GhostNode, ZIndex(2))).id();
+        let a = world.spawn((Node::default(), ChildOf(g), ZIndex(10))).id();
+        let b = world.spawn((Node::default(), ChildOf(g), ZIndex(-10))).id();
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+    }
+
+    #[test]
+    fn root_ghost_global_zindex_sets_its_childrens_layer() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn((Node::default(), GlobalZIndex(1))).id();
+        let g = world.spawn((GhostNode, GlobalZIndex(2))).id();
+        let a = world.spawn((Node::default(), ChildOf(g), ZIndex(10))).id();
+        let b = world.spawn((Node::default(), ChildOf(g), ZIndex(-10))).id();
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+    }
+
+    #[test]
+    fn reordering_children_reorders_their_same_layer_descendants() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r))).id();
+        let b = world.spawn((Node::default(), ChildOf(r))).id();
+        let c = world
+            .spawn((Node::default(), ChildOf(a), GlobalZIndex(1)))
+            .id();
+        let d = world
+            .spawn((Node::default(), ChildOf(b), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b, c, d]));
+
+        world.entity_mut(r).replace_children(&[b, a]);
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a, d, c]));
+    }
+
+    #[test]
+    fn reparenting_a_node_updates_its_same_layer_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((GhostNode, ChildOf(r), GlobalZIndex(1))).id();
+        let b = world.spawn((GhostNode, ChildOf(r), GlobalZIndex(1))).id();
+        let c = world.spawn((Node::default(), ChildOf(a))).id();
+        let d = world.spawn((Node::default(), ChildOf(b))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, c, d]));
+
+        world.entity_mut(c).insert(ChildOf(b));
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, d, c]));
+    }
+
+    #[test]
+    fn partitions_do_not_mix_camera_targets() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let camera_a = ComputedUiTargetCamera {
+            camera: Some(world.spawn_empty().id()),
+        };
+        let camera_b = ComputedUiTargetCamera {
+            camera: Some(world.spawn_empty().id()),
+        };
+        let r = world.spawn((Node::default(), ZIndex(0), camera_a)).id();
+        let a = world.spawn((Node::default(), ChildOf(r), camera_a)).id();
+        let b = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(2), camera_a))
+            .id();
+        let g = world.spawn((GhostNode, ZIndex(1), camera_b)).id();
+        let c = world.spawn((Node::default(), ChildOf(g), camera_b)).id();
+        let d = world.spawn((Node::default(), ChildOf(c), camera_b)).id();
+        let e = world
+            .spawn((Node::default(), ChildOf(g), GlobalZIndex(2), camera_b))
+            .id();
+
+        schedule.run(&mut world);
+
+        let ui_stack = world.resource::<UiStack>();
+        assert!(ui_stack.iter().eq([r, a, c, d, b, e]));
+        for nodes in &ui_stack.partition {
+            let camera = world.get::<ComputedUiTargetCamera>(nodes[0]).unwrap();
+            assert!(nodes
+                .iter()
+                .all(|entity| world.get::<ComputedUiTargetCamera>(*entity).unwrap() == camera));
+        }
+    }
+
+    #[test]
+    fn global_zindex_below_non_ui_parent_preserves_ancestor_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let p = world.spawn_empty().id();
+        let r = world
+            .spawn((Node::default(), ChildOf(p), GlobalZIndex(1)))
+            .id();
+        let a = world.spawn((Node::default(), ChildOf(r))).id();
+        let g = world
+            .spawn((GhostNode, ChildOf(r), GlobalZIndex(1), ZIndex(-1)))
+            .id();
+        let b = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+    }
+
+    #[test]
+    fn computed_stack_indices_update_after_global_zindex_changes() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(-1)))
+            .id();
+        let b = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, r, b]));
+
+        world.entity_mut(a).insert(GlobalZIndex(2));
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+        assert_eq!(world.get::<ComputedStackIndex>(r).unwrap().0, 0);
+        assert_eq!(world.get::<ComputedStackIndex>(b).unwrap().0, 1);
+        assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().0, 2);
+    }
+
+    #[test]
+    fn computed_stack_indices_update_after_reordering_children() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r))).id();
+        let b = world.spawn((Node::default(), ChildOf(r))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+
+        world.entity_mut(r).replace_children(&[b, a]);
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+        assert_eq!(world.get::<ComputedStackIndex>(r).unwrap().0, 0);
+        assert_eq!(world.get::<ComputedStackIndex>(b).unwrap().0, 1);
+        assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().0, 2);
     }
 }
