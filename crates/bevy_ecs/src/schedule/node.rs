@@ -93,7 +93,6 @@ impl System for SystemWithAccess {
         unsafe { self.system.run_unsafe(input, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -184,7 +183,6 @@ impl System for ConditionWithAccess {
         unsafe { self.condition.run_unsafe(input, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.condition.refresh_hotpatch();
@@ -838,7 +836,9 @@ impl SystemSets {
 
     /// Remove a set with a [`SystemSetKey`]
     pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
-        self.sets.remove(key);
+        if let Some(set) = self.sets.remove(key) {
+            self.ids.remove(&set);
+        }
         self.conditions.remove(key);
         self.uninit.retain(|uninit| uninit.key != key);
         true

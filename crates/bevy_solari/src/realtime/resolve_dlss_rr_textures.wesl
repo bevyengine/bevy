@@ -49,7 +49,9 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let depth = textureLoad(depth_buffer, pixel_id, 0);
-    var guides = GuideBuffers(depth, vec3(0.0), vec3(0.5), vec4(0.0, 0.0, 1.0, 0.0), load_motion_vector(pixel_id));
+    // The DLSS-RR integration guide's sky defaults: diffuse albedo 0.5, and specular albedo,
+    // normal and roughness 0.
+    var guides = GuideBuffers(depth, vec3(0.5), vec3(0.0), vec4(0.0), load_motion_vector(pixel_id));
 
     if depth != 0.0 {
         let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
