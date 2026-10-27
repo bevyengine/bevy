@@ -75,7 +75,7 @@ pub const TEXT_CURSOR_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_la
 pub const INLINE_IMAGE_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.inline_image");
 
 /// Paint layers for built-in UI elements, ordered from back to front.
-const DEFAULT_PAINT_LAYERS: [PaintLayer; 12] = [
+pub const DEFAULT_PAINT_LAYERS: [PaintLayer; 12] = [
     BOX_SHADOW_PAINT_LAYER,
     BACKGROUND_COLOR_PAINT_LAYER,
     BORDER_PAINT_LAYER,
