@@ -2,10 +2,7 @@
 
 use crate::{GhostNode, GlobalZIndex, ZIndex};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
-    prelude::*,
-};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
@@ -51,21 +48,10 @@ pub fn ui_stack_system(
     mut stack_list_order: Local<Vec<usize>>,
     mut node_buffers: Local<Vec<Vec<Entity>>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
-    mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: Query<Entity, (With<ComputedStackIndex>, Without<ChildOf>)>,
-    root_node_query: Query<
-        (
-            Entity,
-            Option<Ref<GlobalZIndex>>,
-            Option<Ref<ZIndex>>,
-            Option<&ChildOf>,
-        ),
-        With<ComputedStackIndex>,
-    >,
-    zindex_global_node_query: Query<
-        (Entity, Ref<GlobalZIndex>, Option<Ref<ZIndex>>),
-        (With<ComputedStackIndex>, With<ChildOf>),
+    ui_root_nodes: Query<
+        (Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>),
+        (With<ComputedStackIndex>, Without<ChildOf>),
     >,
     ui_children: Query<
         (
@@ -88,9 +74,7 @@ pub fn ui_stack_system(
         node_buffers[order] = nodes;
     }
 
-    for (id, maybe_global_zindex, maybe_zindex, _) in
-        root_node_query.iter_many(ui_root_nodes.iter()).matched()
-    {
+    for (id, maybe_global_zindex, maybe_zindex) in ui_root_nodes.iter() {
         let previous = stack_root_order.get(&id).copied();
         stack_roots.push((
             id,
@@ -105,56 +89,13 @@ pub fn ui_stack_system(
             },
         ));
     }
-    let ui_root_count = stack_roots.len();
+    stack_roots
+        .sort_unstable_by_key(|(_, root)| (root.local_z, root.new_or_changed, root.previous_index));
 
-    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
-        let previous = stack_root_order.get(&id).copied();
-        stack_roots.push((
-            id,
-            StackRoot {
-                global_z: global_zindex.0,
-                local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
-                new_or_changed: previous.is_none()
-                    || global_zindex.is_changed()
-                    || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
-                previous_index: previous.unwrap_or(usize::MAX),
-                partition: None,
-            },
-        ));
-    }
-
-    let root_count = stack_roots.len();
-    let (ui_roots, global_roots) = stack_roots.split_at_mut(ui_root_count);
-    for roots in [ui_roots, global_roots] {
-        roots.sort_unstable_by_key(|(_, root)| {
-            (root.local_z, root.new_or_changed, root.previous_index)
-        });
-    }
-    visited_stack_roots.clear();
-
-    for index in 0..root_count {
-        let (mut root_entity, mut stack_root) = stack_roots[index];
-        if visited_stack_roots.contains(&root_entity) {
-            continue;
-        }
-        if index >= ui_root_count {
-            let mut ancestor = root_entity;
-            while let Ok((id, global_zindex, zindex, parent)) = root_node_query.get(ancestor) {
-                if let Some(global_zindex) = global_zindex {
-                    root_entity = id;
-                    stack_root.global_z = global_zindex.0;
-                    stack_root.local_z = zindex.map_or(0, |z| z.0);
-                }
-                let Some(parent) = parent else {
-                    break;
-                };
-                ancestor = parent.parent();
-            }
-        }
+    for (index, (root_entity, mut stack_root)) in stack_roots.iter().copied().enumerate() {
         let Ok((children, is_ghost, global_zindex, zindex)) = ui_children.get(root_entity) else {
             continue;
         };
-        visited_stack_roots.insert(root_entity);
         stack_root.new_or_changed = false;
         stack_root.previous_index = index;
         if !is_ghost {
@@ -176,7 +117,6 @@ pub fn ui_stack_system(
                 &ui_children,
                 &mut stack_lists,
                 &mut node_buffers,
-                &mut visited_stack_roots,
             );
         }
     }
@@ -220,7 +160,6 @@ fn update_uistack_recursive<'a>(
     >,
     stack_lists: &mut Vec<(StackRoot, usize, Vec<Entity>)>,
     node_buffers: &mut Vec<Vec<Entity>>,
-    visited_stack_roots: &mut EntityHashSet,
 ) {
     let start = child_buffer.len();
     for &child_entity in children {
@@ -237,7 +176,6 @@ fn update_uistack_recursive<'a>(
                     ui_children,
                     stack_lists,
                     node_buffers,
-                    visited_stack_roots,
                 );
             }
         } else {
@@ -264,7 +202,6 @@ fn update_uistack_recursive<'a>(
         if let Some(global_zindex) = global_zindex {
             child_root.global_z = global_zindex;
             child_root.partition = None;
-            visited_stack_roots.insert(child_entity);
         }
         if !is_ghost {
             child_root.partition.get_or_insert(child_entity);
@@ -291,7 +228,6 @@ fn update_uistack_recursive<'a>(
                 ui_children,
                 stack_lists,
                 node_buffers,
-                visited_stack_roots,
             );
         }
     }
