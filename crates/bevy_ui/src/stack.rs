@@ -8,7 +8,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use core::ops::Range;
 
 /// The order of the node in the UI layout.
 /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -20,15 +19,19 @@ pub struct ComputedStackIndex(pub u32);
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
-/// The first entry is the furthest node from the camera and is the first one to get rendered
-/// while the last entry is the first node to receive interactions.
+/// The first node yielded by [`UiStack::iter`] is the furthest node from the camera and is the first one to get rendered
+/// while the last node is the first node to receive interactions.
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource, Default)]
 pub struct UiStack {
-    /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
-    pub partition: Vec<Range<usize>>,
-    /// List of UI nodes ordered from back-to-front
-    pub uinodes: Vec<Entity>,
+    /// Lists of UI nodes ordered from back-to-front, each sharing the same camera target.
+    pub partition: Vec<Vec<Entity>>,
+}
+
+impl UiStack {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> + '_ {
+        self.partition.iter().flatten().copied()
+    }
 }
 
 #[derive(Clone, Copy, Ord, PartialOrd, PartialEq, Eq)]
@@ -44,8 +47,9 @@ pub(crate) struct StackRoot {
 pub fn ui_stack_system(
     mut local_cache: Local<Vec<(Entity, i32, Option<&'static Children>, bool, Option<i32>)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
-    mut stack_ranges: Local<Vec<(StackRoot, Range<usize>)>>,
-    mut node_buffer: Local<Vec<Entity>>,
+    mut stack_lists: Local<Vec<(StackRoot, usize, Vec<Entity>)>>,
+    mut stack_list_order: Local<Vec<usize>>,
+    mut node_buffers: Local<Vec<Vec<Entity>>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
@@ -79,8 +83,10 @@ pub fn ui_stack_system(
         .map(|_| unreachable!())
         .collect();
 
-    ui_stack.partition.clear();
-    ui_stack.uinodes.clear();
+    for (order, mut nodes) in stack_list_order.drain(..).zip(ui_stack.partition.drain(..)) {
+        nodes.clear();
+        node_buffers[order] = nodes;
+    }
 
     for (id, maybe_global_zindex, maybe_zindex, _) in
         root_node_query.iter_many(ui_root_nodes.iter()).matched()
@@ -153,9 +159,13 @@ pub fn ui_stack_system(
         stack_root.previous_index = index;
         if !is_ghost {
             stack_root.partition = Some(root_entity);
-            let start = node_buffer.len();
-            node_buffer.push(root_entity);
-            stack_ranges.push((stack_root, start..start + 1));
+            let order = stack_lists.len();
+            if order == node_buffers.len() {
+                node_buffers.push(Vec::new());
+            }
+            let mut nodes = core::mem::take(&mut node_buffers[order]);
+            nodes.push(root_entity);
+            stack_lists.push((stack_root, order, nodes));
         }
         if let Some(children) = children {
             update_uistack_recursive(
@@ -164,8 +174,8 @@ pub fn ui_stack_system(
                 Some(stack_root),
                 is_ghost && global_zindex.is_none() && zindex.is_none(),
                 &ui_children,
-                &mut stack_ranges,
-                &mut node_buffer,
+                &mut stack_lists,
+                &mut node_buffers,
                 &mut visited_stack_roots,
             );
         }
@@ -175,31 +185,17 @@ pub fn ui_stack_system(
     for (index, (entity, _)) in stack_roots.drain(..).enumerate() {
         stack_root_order.insert(entity, index);
     }
-    stack_ranges.sort_unstable_by_key(|(root, range)| {
-        (
-            root.global_z,
-            root.local_z,
-            root.previous_index,
-            range.start,
-        )
+    stack_lists.sort_unstable_by_key(|(root, order, _)| {
+        (root.global_z, root.local_z, root.previous_index, *order)
     });
 
-    let mut previous_partition = None;
-    for (stack_root, range) in stack_ranges.drain(..) {
-        let start = ui_stack.uinodes.len();
-        ui_stack.uinodes.extend_from_slice(&node_buffer[range]);
-        let end = ui_stack.uinodes.len();
-        if previous_partition == stack_root.partition {
-            ui_stack.partition.last_mut().unwrap().end = end;
-        } else {
-            ui_stack.partition.push(start..end);
-            previous_partition = stack_root.partition;
-        }
+    for (_, order, nodes) in stack_lists.drain(..) {
+        stack_list_order.push(order);
+        ui_stack.partition.push(nodes);
     }
-    node_buffer.clear();
 
-    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok(mut stack_index) = update_query.get_mut(*entity) {
+    for (i, entity) in ui_stack.iter().enumerate() {
+        if let Ok(mut stack_index) = update_query.get_mut(entity) {
             stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
     }
@@ -222,8 +218,8 @@ fn update_uistack_recursive<'a>(
         ),
         With<ComputedStackIndex>,
     >,
-    stack_ranges: &mut Vec<(StackRoot, Range<usize>)>,
-    node_buffer: &mut Vec<Entity>,
+    stack_lists: &mut Vec<(StackRoot, usize, Vec<Entity>)>,
+    node_buffers: &mut Vec<Vec<Entity>>,
     visited_stack_roots: &mut EntityHashSet,
 ) {
     let start = child_buffer.len();
@@ -239,8 +235,8 @@ fn update_uistack_recursive<'a>(
                     None,
                     use_child_zindex,
                     ui_children,
-                    stack_ranges,
-                    node_buffer,
+                    stack_lists,
+                    node_buffers,
                     visited_stack_roots,
                 );
             }
@@ -272,14 +268,18 @@ fn update_uistack_recursive<'a>(
         }
         if !is_ghost {
             child_root.partition.get_or_insert(child_entity);
-            let start = node_buffer.len();
-            node_buffer.push(child_entity);
-            if let Some((root, range)) = stack_ranges.last_mut()
+            if let Some((root, _, nodes)) = stack_lists.last_mut()
                 && *root == child_root
             {
-                range.end = start + 1;
+                nodes.push(child_entity);
             } else {
-                stack_ranges.push((child_root, start..start + 1));
+                let order = stack_lists.len();
+                if order == node_buffers.len() {
+                    node_buffers.push(Vec::new());
+                }
+                let mut nodes = core::mem::take(&mut node_buffers[order]);
+                nodes.push(child_entity);
+                stack_lists.push((child_root, order, nodes));
             }
         }
         if let Some(children) = maybe_children {
@@ -289,8 +289,8 @@ fn update_uistack_recursive<'a>(
                 Some(child_root),
                 false,
                 ui_children,
-                stack_ranges,
-                node_buffer,
+                stack_lists,
+                node_buffers,
                 visited_stack_roots,
             );
         }
@@ -312,7 +312,7 @@ mod tests {
 
     use crate::{GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
 
-    use super::ui_stack_system;
+    use super::{ui_stack_system, ComputedStackIndex};
 
     #[derive(Component, PartialEq, Debug, Clone)]
     struct Label(&'static str);
@@ -408,9 +408,8 @@ mod tests {
         let mut query = world.query::<&Label>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
-            .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
             (Label("1-2-1")), // GlobalZIndex(-3)
@@ -437,11 +436,12 @@ mod tests {
         // Test partitioning
         let last_part = ui_stack.partition.last().unwrap();
         assert_eq!(last_part.len(), 1);
-        let last_entity = ui_stack.uinodes[last_part.start];
+        let last_entity = last_part[0];
         assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
 
-        let actual_result = ui_stack.uinodes[ui_stack.partition[4].clone()]
+        let actual_result = ui_stack.partition[5..7]
             .iter()
+            .flatten()
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
@@ -485,9 +485,8 @@ mod tests {
         let mut query = world.query::<&Label>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
-            .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, entity).unwrap().clone())
             .collect::<Vec<_>>();
 
         let expected_result = vec![
@@ -505,9 +504,51 @@ mod tests {
         assert_eq!(actual_result, expected_result);
 
         assert_eq!(ui_stack.partition.len(), expected_result.len());
-        for (i, part) in ui_stack.partition.iter().enumerate() {
-            assert_eq!(*part, i..i + 1);
+        for part in &ui_stack.partition {
+            assert_eq!(part.len(), 1);
         }
+    }
+
+    #[test]
+    fn stack_iteration_after_despawning_nodes() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let root = world.spawn(Node::default()).id();
+        let child = world
+            .spawn((Node::default(), ChildOf(root), GlobalZIndex(1)))
+            .id();
+        let leaf = world.spawn((Node::default(), ChildOf(child))).id();
+        let sibling = world.spawn((Node::default(), ChildOf(root))).id();
+
+        schedule.run(&mut world);
+
+        let ui_stack = world.resource::<UiStack>();
+        assert!(ui_stack.iter().eq([root, sibling, child, leaf]));
+        assert!(ui_stack.iter().rev().eq([leaf, child, sibling, root]));
+        for (index, entity) in ui_stack.iter().enumerate() {
+            assert_eq!(
+                world.get::<ComputedStackIndex>(entity).unwrap().0,
+                index as u32
+            );
+        }
+
+        world.despawn(child);
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([root, sibling]));
+
+        world.despawn(root);
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().partition.is_empty());
+        assert!(world.resource::<UiStack>().iter().next().is_none());
+
+        let replacement = world.spawn(Node::default()).id();
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([replacement]));
+        assert_eq!(world.get::<ComputedStackIndex>(replacement).unwrap().0, 0);
     }
 
     #[test]
@@ -526,7 +567,7 @@ mod tests {
 
         schedule.run(&mut world);
 
-        let uinodes = world.resource::<UiStack>().uinodes.clone();
+        let uinodes = world.resource::<UiStack>().iter().collect::<Vec<_>>();
 
         for marked_entity in uinodes.iter().take(3) {
             world.entity_mut(*marked_entity).insert(Marker);
@@ -534,7 +575,7 @@ mod tests {
 
         schedule.run(&mut world);
 
-        assert_eq!(uinodes, world.resource::<UiStack>().uinodes);
+        assert!(world.resource::<UiStack>().iter().eq(uinodes));
     }
 
     #[test]
@@ -551,21 +592,27 @@ mod tests {
 
         schedule.run(&mut world);
 
-        let first = world.resource::<UiStack>().uinodes[0];
+        let first = world.resource::<UiStack>().iter().next().unwrap();
 
         world.entity_mut(first).insert(GlobalZIndex(0));
 
         schedule.run(&mut world);
 
-        assert_eq!(first, *world.resource::<UiStack>().uinodes.last().unwrap());
+        assert_eq!(
+            first,
+            world.resource::<UiStack>().iter().next_back().unwrap()
+        );
 
-        let first = world.resource::<UiStack>().uinodes[0];
+        let first = world.resource::<UiStack>().iter().next().unwrap();
 
         world.entity_mut(first).insert(ZIndex(0));
 
         schedule.run(&mut world);
 
-        assert_eq!(first, *world.resource::<UiStack>().uinodes.last().unwrap());
+        assert_eq!(
+            first,
+            world.resource::<UiStack>().iter().next_back().unwrap()
+        );
     }
 
     #[test]
@@ -585,7 +632,7 @@ mod tests {
 
         schedule.run(&mut world);
 
-        let uinodes = world.resource::<UiStack>().uinodes.clone();
+        let uinodes = world.resource::<UiStack>().iter().collect::<Vec<_>>();
 
         for marked_entity in uinodes.iter().filter(|entity| **entity != parent).take(3) {
             world.entity_mut(*marked_entity).insert(Marker);
@@ -593,7 +640,7 @@ mod tests {
 
         schedule.run(&mut world);
 
-        assert_eq!(uinodes, world.resource::<UiStack>().uinodes);
+        assert!(world.resource::<UiStack>().iter().eq(uinodes));
     }
 
     #[test]
@@ -613,13 +660,13 @@ mod tests {
             .id();
 
         schedule.run(&mut world);
-        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b]);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
 
         world.entity_mut(a).insert(GlobalZIndex(1));
 
         for _ in 0..2 {
             schedule.run(&mut world);
-            assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b]);
+            assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
         }
     }
 
@@ -643,12 +690,12 @@ mod tests {
 
         schedule.run(&mut world);
 
-        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b, c, d]);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b, c, d]));
 
         world.entity_mut(b).insert(ZIndex(-1));
         schedule.run(&mut world);
 
-        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, b, a, d, c]);
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a, d, c]));
     }
 
     #[test]
@@ -677,9 +724,8 @@ mod tests {
         let mut query = world.query::<&Label>();
         let result = world
             .resource::<UiStack>()
-            .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, entity).unwrap().clone())
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -706,13 +752,12 @@ mod tests {
         let mut query = world.query::<&Label>();
         let result = world
             .resource::<UiStack>()
-            .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, entity).unwrap().clone())
             .collect::<Vec<_>>();
 
         assert_eq!(result, vec![Label("root")]);
-        assert_eq!(world.resource::<UiStack>().partition, vec![0..1]);
+        assert_eq!(world.resource::<UiStack>().partition.len(), 1);
     }
 
     #[test]
@@ -752,9 +797,8 @@ mod tests {
         let mut query = world.query::<&Label>();
         let result = world
             .resource::<UiStack>()
-            .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, entity).unwrap().clone())
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -818,9 +862,8 @@ mod tests {
         let mut query = world.query::<&Label>();
         let result = world
             .resource::<UiStack>()
-            .uinodes
             .iter()
-            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .map(|entity| query.get(&world, entity).unwrap().clone())
             .collect::<Vec<_>>();
 
         assert_eq!(
@@ -836,8 +879,13 @@ mod tests {
             ]
         );
         assert_eq!(
-            world.resource::<UiStack>().partition,
-            (0..7).map(|i| i..i + 1).collect::<Vec<_>>()
+            world
+                .resource::<UiStack>()
+                .partition
+                .iter()
+                .map(Vec::len)
+                .collect::<Vec<_>>(),
+            vec![1; 7]
         );
     }
 
@@ -870,10 +918,17 @@ mod tests {
 
             let ui_stack = world.resource::<UiStack>();
             assert_eq!(
-                ui_stack.uinodes,
+                ui_stack.iter().collect::<Vec<_>>(),
                 vec![root, before, after, global, global_child, child, grandchild]
             );
-            assert_eq!(ui_stack.partition, vec![0..3, 3..5, 5..7]);
+            assert_eq!(
+                ui_stack.partition,
+                vec![
+                    vec![root, before, after],
+                    vec![global, global_child],
+                    vec![child, grandchild]
+                ]
+            );
         }
     }
 
@@ -896,7 +951,7 @@ mod tests {
 
         schedule.run(&mut world);
 
-        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, b, d, e, c, a]);
+        assert!(world.resource::<UiStack>().iter().eq([r, b, d, e, c, a]));
     }
 
     #[test]
@@ -921,12 +976,12 @@ mod tests {
 
         schedule.run(&mut world);
 
-        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, b, c, d]);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b, c, d]));
 
         world.entity_mut(b).insert(GlobalZIndex(2));
         schedule.run(&mut world);
 
-        assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, c, d, b]);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c, d, b]));
     }
 
     #[test]
@@ -950,7 +1005,7 @@ mod tests {
         for _ in 0..2 {
             schedule.run(&mut world);
 
-            assert_eq!(world.resource::<UiStack>().uinodes, vec![r, a, c, d, b]);
+            assert!(world.resource::<UiStack>().iter().eq([r, a, c, d, b]));
         }
     }
 }
