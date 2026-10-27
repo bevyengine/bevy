@@ -360,7 +360,7 @@ fn apply_pbr_lighting(
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_N = in.clearcoat_N;
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_NdotV = clamp(dot(clearcoat_N, in.V), 0.0001,1.0);
+    let clearcoat_NdotV = clamp(dot(clearcoat_N, in.V), 0.0001, 1.0);
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_R = reflect(-in.V, clearcoat_N);
 
