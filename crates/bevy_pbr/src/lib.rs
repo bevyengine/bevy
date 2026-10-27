@@ -376,6 +376,7 @@ impl Plugin for PbrPlugin {
                 ExtractSchedule,
                 (
                     extract_lights,
+                    extract_lights_render_layers_meta,
                     extract_ambient_light_resource,
                     extract_ambient_light,
                     extract_shadow_filtering_method,
