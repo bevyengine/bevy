@@ -9,8 +9,8 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{
         access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, ErasedQueryState, FilteredAccess, FilteredAccessSet,
-        QueryFilter, QueryState, WorldQuery,
+        Access, ErasedQueryState, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
+        WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableId, TableRow},
     system::Query,
@@ -714,7 +714,7 @@ unsafe impl QueryData for EntityLocation {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
+        Some(unsafe { fetch.get_spawned(entity).unwrap_unchecked() })
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -1314,7 +1314,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
             fetch
                 .world
                 .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
         // SAFETY: Read-only access to every component has been registered.
         Some(unsafe { EntityRef::new(cell) })
@@ -1442,7 +1442,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
             fetch
                 .world
                 .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { EntityMut::new(cell) })
@@ -1588,7 +1588,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
             fetch
                 .world
                 .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityRef::new(cell, access) })
@@ -1729,7 +1729,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
             fetch
                 .world
                 .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityMut::new(cell, access) })
@@ -2117,9 +2117,9 @@ unsafe impl QueryData for &Archetype {
     ) -> Option<Self::Item<'w, 's>> {
         let (entities, archetypes) = *fetch;
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let location = unsafe { entities.get_spawned(entity).debug_checked_unwrap() };
+        let location = unsafe { entities.get_spawned(entity).unwrap_unchecked() };
         // SAFETY: The assigned archetype for a living entity must always be valid.
-        Some(unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() })
+        Some(unsafe { archetypes.get(location.archetype_id).unwrap_unchecked() })
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2235,7 +2235,7 @@ unsafe impl QueryData for &Table {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: the caller guarantees that set_table/set_archetype were called, which set fetch to Some.
-        Some(unsafe { fetch.debug_checked_unwrap() })
+        Some(unsafe { fetch.unwrap_unchecked() })
     }
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
@@ -2270,7 +2270,7 @@ impl ContiguousQueryData for &Table {
         _range: Range<u32>,
     ) -> Self::Contiguous<'w, 's> {
         // SAFETY: the caller guarantees that set_table/set_archetype were called, which set fetch to Some.
-        unsafe { fetch.debug_checked_unwrap() }
+        unsafe { fetch.unwrap_unchecked() }
     }
 }
 
@@ -2361,7 +2361,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         let table_data = Some(
             table
                 .get_data_slice_for(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -2425,19 +2425,14 @@ unsafe impl<T: Component> QueryData for &T {
         Some(fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY: Caller ensures `table_row` is in range.
                 let item = unsafe { table.get_unchecked(table_row.index()) };
                 item.deref()
             },
             |sparse_set| {
                 // SAFETY: Caller ensures `entity` is in range.
-                let item = unsafe {
-                    sparse_set
-                        .debug_checked_unwrap()
-                        .get(entity)
-                        .debug_checked_unwrap()
-                };
+                let item = unsafe { sparse_set.unwrap_unchecked().get(entity).unwrap_unchecked() };
                 item.deref()
             },
         ))
@@ -2464,7 +2459,7 @@ impl<T: Component> ContiguousQueryData for &T {
         fetch.components.extract(
             |table| {
                 // SAFETY: The caller ensures `set_table` was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY:
                 // - `table` is `entities.len()` long
                 // - `UnsafeCell<T>` has the same layout as `T`
@@ -2599,7 +2594,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         _table_id: TableId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
+        let column = table.get_column(component_id).unwrap_unchecked();
         let table_data = Some((
             column.get_data_slice(table.entity_count() as usize).into(),
             column
@@ -2675,7 +2670,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, _summary_tick, callers) =
-                    unsafe { table.debug_checked_unwrap() };
+                    unsafe { table.unwrap_unchecked() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get_unchecked(table_row.index()) };
@@ -2702,9 +2697,9 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
                 let (component, ticks) = unsafe {
                     sparse_set
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                         .get_with_ticks(entity)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 Ref {
@@ -2758,7 +2753,7 @@ impl<T: Component> ContiguousQueryData for Ref<'_, T> {
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
-                    unsafe { table.debug_checked_unwrap() };
+                    unsafe { table.unwrap_unchecked() };
 
                 let range = (range.start as usize)..(range.end as usize);
 
@@ -2888,7 +2883,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         _table_id: TableId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).debug_checked_unwrap();
+        let column = table.get_column(component_id).unwrap_unchecked();
         let table_data = Some((
             column.get_data_slice(table.entity_count() as usize).into(),
             column
@@ -2964,7 +2959,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
-                    unsafe { table.debug_checked_unwrap() };
+                    unsafe { table.unwrap_unchecked() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get_unchecked(table_row.index()) };
@@ -2978,7 +2973,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 // Make it statically known whether the atomic tick is present or not.
                 let summary_tick = if T::HAS_SUMMARY_TICK {
                     // SAFETY: Summary tick presence always matches `T::HAS_SUMMARY_TICK`.
-                    Some(unsafe { summary_tick.debug_checked_unwrap() })
+                    Some(unsafe { summary_tick.unwrap_unchecked() })
                 } else {
                     None
                 };
@@ -2999,9 +2994,9 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 // SAFETY: The caller ensures `entity` is in range and has the component.
                 let (component, ticks) = unsafe {
                     sparse_set
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                         .get_with_ticks(entity)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 Mut {
@@ -3048,7 +3043,7 @@ impl<T: Component<Mutability = Mutable>> ContiguousQueryData for &mut T {
             |table| {
                 // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, summary_tick, callers) =
-                    unsafe { table.debug_checked_unwrap() };
+                    unsafe { table.unwrap_unchecked() };
 
                 let range = (range.start as usize)..(range.end as usize);
 
