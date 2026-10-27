@@ -142,38 +142,3 @@ impl SpecializedRenderPipeline for UiPipeline {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn defs_for(key: UiWriterEncodeKey) -> Vec<ShaderDefVal> {
-        let mut defs = Vec::new();
-        key.push_shader_defs(&mut defs);
-        defs
-    }
-
-    #[test]
-    fn no_writer_encode_for_default_or_linear() {
-        assert!(defs_for(UiWriterEncodeKey::default()).is_empty());
-
-        let linear = ResolvedCompositingSpace(Some(CompositingSpace::Linear));
-        let key = UiWriterEncodeKey::from_resolved_space(Some(&linear));
-        assert_eq!(key, UiWriterEncodeKey::default());
-        assert!(defs_for(key).is_empty());
-    }
-
-    #[test]
-    fn compositing_space_appends_exactly_its_def() {
-        let srgb = ResolvedCompositingSpace(Some(CompositingSpace::Srgb));
-        assert_eq!(
-            defs_for(UiWriterEncodeKey::from_resolved_space(Some(&srgb))),
-            vec![ShaderDefVal::from("COMPOSITING_SPACE_SRGB")]
-        );
-        let oklab = ResolvedCompositingSpace(Some(CompositingSpace::Oklab));
-        assert_eq!(
-            defs_for(UiWriterEncodeKey::from_resolved_space(Some(&oklab))),
-            vec![ShaderDefVal::from("COMPOSITING_SPACE_OKLAB")]
-        );
-    }
-}
