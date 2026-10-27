@@ -626,6 +626,18 @@
 //! `result`: An object with a `frame` field: the frame on which the app receives the last key
 //! event.
 //!
+//! To test with another keyboard layout, give `logical_key` and `text` as that layout produces
+//! them. On a Russian keyboard, for example, the WASD keys type `ц`, `ф`, `ы` and `в`. A game that
+//! binds movement to physical keys sees the same `key_code`, while anything that reads text or
+//! logical keys sees the Russian letter:
+//!
+//! ```json
+//! { "key_code": "KeyW", "logical_key": { "Character": "ц" }, "text": "ц" }
+//! ```
+//!
+//! `input.type` always types as a US keyboard would, so to type text in another layout, send each
+//! key with `input.key`.
+//!
 //! ### `input.type`
 //!
 //! Type text as a US keyboard would. Each character becomes a press and a release of its key,

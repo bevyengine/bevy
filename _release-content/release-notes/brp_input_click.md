@@ -1,7 +1,7 @@
 ---
 title: Clicking and typing over the Bevy Remote Protocol
 authors: ["@viridia"]
-pull_requests: [26333]
+pull_requests: [26333, 26342]
 ---
 
 The Bevy Remote Protocol has new methods for sending input to a running app: `input.click` clicks on a UI node, `input.key` presses keys, and `input.type` types text.
