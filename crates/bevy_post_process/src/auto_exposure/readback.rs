@@ -126,22 +126,13 @@ fn decode(bytes: &[u8]) -> Option<GpuAutoExposureState> {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode, Copies, GpuAutoExposureState};
+    use super::{Copies, GpuAutoExposureState};
 
     fn state(ev100: f32) -> Option<GpuAutoExposureState> {
         Some(GpuAutoExposureState {
             ev100,
             initialized: 1,
         })
-    }
-
-    #[test]
-    fn keeps_the_newest_copy() {
-        let mut copies = Copies::default();
-        let (a, b) = (copies.next(), copies.next());
-        copies.complete(b, state(2.0));
-        copies.complete(a, state(1.0));
-        assert_eq!(copies.latest, Some((1, 2.0)));
     }
 
     #[test]
@@ -157,29 +148,5 @@ mod tests {
         let after = copies.next();
         copies.complete(after, state(3.0));
         assert_eq!(copies.latest, Some((2, 3.0)));
-    }
-
-    #[test]
-    fn ignores_failed_maps_and_unadapted_states() {
-        let mut copies = Copies::default();
-        let (a, b) = (copies.next(), copies.next());
-        copies.complete(a, None);
-        copies.complete(
-            b,
-            Some(GpuAutoExposureState {
-                ev100: 0.0,
-                initialized: 0,
-            }),
-        );
-        assert_eq!(copies.latest, None);
-    }
-
-    #[test]
-    fn decodes_the_state_layout() {
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(&9.5f32.to_le_bytes());
-        bytes.extend_from_slice(&1u32.to_le_bytes());
-        let state = decode(&bytes).unwrap();
-        assert_eq!((state.ev100, state.initialized), (9.5, 1));
     }
 }

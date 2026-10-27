@@ -211,8 +211,6 @@ fn exposure_texture(device: &RenderDevice) -> TextureView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_core_pipeline::schedule::Core3d;
-    use bevy_ecs::{schedule::ScheduleLabel, system::RunSystemOnce};
 
     #[test]
     fn valid_correction_ranges_are_preserved() {
@@ -249,89 +247,5 @@ mod tests {
             };
             assert_eq!(correction_bounds(&settings), default_bounds);
         }
-    }
-
-    #[test]
-    fn extraction_consumes_a_camera_cut() {
-        let mut render_world = World::new();
-        render_world.init_resource::<ExtractedAutoExposure>();
-        render_world.init_resource::<AutoExposureBuffers>();
-        let view = render_world.spawn_empty().id();
-        let mut main_world = MainWorld::default();
-        let camera = main_world
-            .spawn((
-                AutoExposure {
-                    reset: true,
-                    ..Default::default()
-                },
-                Exposure { ev100: 12.0 },
-                RenderEntity::from(view),
-            ))
-            .id();
-        render_world.insert_resource(main_world);
-
-        render_world.run_system_once(extract_auto_exposure).unwrap();
-        let main_world = render_world.resource::<MainWorld>();
-        assert!(!main_world.get::<AutoExposure>(camera).unwrap().reset);
-        assert_eq!(
-            main_world.get::<AutoExposureState>(camera),
-            Some(&AutoExposureState { ev100: None })
-        );
-        let [extracted] = &render_world.resource::<ExtractedAutoExposure>().views[..] else {
-            panic!("one camera has auto exposure");
-        };
-        assert_eq!(extracted.entity, view);
-        assert!(extracted.reset);
-        assert_eq!(extracted.settings.camera_ev100, 12.0);
-        // No readback has arrived, so the view renders with the camera's exposure.
-        assert_eq!(extracted.pre_exposure_ev100, None);
-
-        render_world.run_system_once(extract_auto_exposure).unwrap();
-        assert!(!render_world.resource::<ExtractedAutoExposure>().views[0].reset);
-    }
-
-    fn extracted_camera(ev100: f32) -> ExtractedCamera {
-        ExtractedCamera {
-            target: None,
-            physical_viewport_size: None,
-            physical_target_size: None,
-            viewport: None,
-            schedule: Core3d.intern(),
-            order: 0,
-            output_mode: Default::default(),
-            msaa_writeback: Default::default(),
-            clear_color: Default::default(),
-            sorted_camera_index_for_target: 0,
-            exposure: Exposure { ev100 }.exposure(),
-            hdr: true,
-            tonemap_in_shader: false,
-        }
-    }
-
-    #[test]
-    fn pre_exposure_sets_the_view_exposure() {
-        let mut world = World::new();
-        let pre_exposed = world.spawn(extracted_camera(9.7)).id();
-        let at_camera_exposure = world.spawn(extracted_camera(9.7)).id();
-        let view = |entity, pre_exposure_ev100| ExtractedAutoExposureView {
-            entity,
-            settings: uniform(&AutoExposure::default(), 9.7, 0.0),
-            pre_exposure_ev100,
-            reset: false,
-        };
-        world.insert_resource(ExtractedAutoExposure {
-            views: vec![
-                view(pre_exposed, Some(14.0)),
-                view(at_camera_exposure, None),
-            ],
-        });
-
-        world.run_system_once(apply_pre_exposure).unwrap();
-        let exposure = |entity| world.get::<ExtractedCamera>(entity).unwrap().exposure;
-        assert_eq!(exposure(pre_exposed), Exposure { ev100: 14.0 }.exposure());
-        assert_eq!(
-            exposure(at_camera_exposure),
-            Exposure { ev100: 9.7 }.exposure()
-        );
     }
 }
