@@ -399,9 +399,9 @@ impl HardLimit {
 /// A component which controls the rounding of the number value during dragging. This is also used
 /// as a heuristic to determine drag speed when there is no soft limit or step size specified.
 ///
-/// Stepping is not affected, although presumably the step size will be an integer multiple of the
-/// rounding factor. This also doesn't prevent the edited value from being set to non-rounded values
-/// by other means, such as manually entering digits via a numeric input field.
+/// When dragged values snap to the step (see [`NumberInputSnapToStep`]), snapping happens first,
+/// and precision rounding then removes floating point noise. The chevron buttons are not affected, and values
+/// entered by typing are not rounded.
 ///
 /// The value in this component represents the number of decimal places of desired precision, so a
 /// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
@@ -433,7 +433,8 @@ impl Default for NumberInputPrecision {
 }
 
 /// A component which controls the step size when incrementing or decrementing the value.
-/// This also is used as a heuristic to determine drag speed when there is no soft limit present.
+/// This also is used as a heuristic to determine drag speed when there is no soft limit present,
+/// and dragged values snap to the step when [`NumberInputSnapToStep`] is present.
 ///
 /// The step is measured in display units (see [`UnitsFormat`]), so for an angle displayed in
 /// degrees, a step of 1 is one degree.
@@ -441,11 +442,30 @@ impl Default for NumberInputPrecision {
 #[reflect(Component, Default)]
 pub struct NumberInputStep(pub f64);
 
+impl NumberInputStep {
+    /// Snap the value to the nearest multiple of the step in display units, then convert back to
+    /// canonical units. Steps that are not positive and finite leave the value unchanged.
+    fn snap(&self, units: &dyn UnitsFormat, value: NumericValue) -> NumericValue {
+        if !(self.0.is_finite() && self.0 > 0.0) {
+            return value;
+        }
+        let display = units.canonical_to_display(value.as_f64());
+        let snapped = (display / self.0).round() * self.0;
+        NumericValue::from_f64(units.display_to_canonical(snapped), value.format())
+    }
+}
+
 impl Default for NumberInputStep {
     fn default() -> Self {
         Self(1.0f64)
     }
 }
+
+/// Marker component which makes dragged values snap to the nearest multiple of the
+/// [`NumberInputStep`]. Without it, dragging is only rounded by [`NumberInputPrecision`].
+#[derive(Component, Default, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub struct NumberInputSnapToStep;
 
 /// Indicates whether the number input should wrap around the min/max value.
 /// This component only applies to [`HardLimit`].
@@ -1067,6 +1087,8 @@ fn scrubber_on_drag(
         Option<&SoftLimit>,
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
+        Option<&NumberInputStep>,
+        Has<NumberInputSnapToStep>,
         Has<InteractionDisabled>,
         Option<&NumberInputWrap>,
         Option<&NumberInputUnits>,
@@ -1081,7 +1103,8 @@ fn scrubber_on_drag(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, units)) = q_root.get(root_id)
+        && let Ok((soft_limit, hard_limit, precision, step, snap_to_step, disabled, wrap, units)) =
+            q_root.get(root_id)
         && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
         && let Ok(transform) = q_scrubber.get_mut(drag.entity)
         && drag_state.mode == EditMode::Scrubbing
@@ -1102,6 +1125,8 @@ fn scrubber_on_drag(
                 soft_limit,
                 hard_limit,
                 precision,
+                step,
+                snap_to_step,
                 wrap,
                 &mut drag_state,
                 false,
@@ -1117,6 +1142,8 @@ fn scrubber_on_drag_end(
         Option<&SoftLimit>,
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
+        Option<&NumberInputStep>,
+        Has<NumberInputSnapToStep>,
         Has<InteractionDisabled>,
         Option<&NumberInputWrap>,
         Option<&ThemeContext>,
@@ -1130,8 +1157,17 @@ fn scrubber_on_drag_end(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context, units)) =
-            q_root.get(root_id)
+        && let Ok((
+            soft_limit,
+            hard_limit,
+            precision,
+            step,
+            snap_to_step,
+            disabled,
+            wrap,
+            theme_context,
+            units,
+        )) = q_root.get(root_id)
         && let Ok((&Hovered(hovered), mut gradient, mut drag_state)) = q_text_input.get_mut(text_id)
         && drag_state.mode == EditMode::Scrubbing
     {
@@ -1144,6 +1180,8 @@ fn scrubber_on_drag_end(
                 soft_limit,
                 hard_limit,
                 precision,
+                step,
+                snap_to_step,
                 wrap,
                 &mut drag_state,
                 true,
@@ -1286,26 +1324,52 @@ fn emit_drag_value_change(
     soft_limit: Option<&SoftLimit>,
     hard_limit: Option<&HardLimit>,
     precision: Option<&NumberInputPrecision>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
     wrap: Option<&NumberInputWrap>,
     drag_state: &mut DragState,
     is_final: bool,
 ) {
-    // Relative scrub, in display units: always measured from the value at drag start.
-    let base = drag_state.base_value;
-    let display = units.canonical_to_display(base.as_f64()) + drag_state.value_offset;
+    let value = dragged_value(
+        units,
+        drag_state.base_value,
+        drag_state.value_offset,
+        soft_limit,
+        step,
+        snap_to_step,
+        precision,
+    );
+    // Hard limit is absolute and always applied last.
+    let value = apply_hard_limit(value, hard_limit, wrap);
+
+    trigger_value_change(commands, value, source, is_final);
+}
+
+/// Compute a scrubbed value from the value at drag start and an offset in display units, before
+/// the hard limit is applied. The value snaps to `step` only when `snap_to_step` is true.
+fn dragged_value(
+    units: &dyn UnitsFormat,
+    base: NumericValue,
+    value_offset: f64,
+    soft_limit: Option<&SoftLimit>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+    precision: Option<&NumberInputPrecision>,
+) -> NumericValue {
+    let display = units.canonical_to_display(base.as_f64()) + value_offset;
     let mut value = NumericValue::from_f64(units.display_to_canonical(display), base.format());
 
     // Dragging is confined to the soft range; typing can still exceed it.
     if let Some(SoftLimit(range)) = soft_limit {
         value = range.clamp(value);
     }
+    if snap_to_step && let Some(step) = step {
+        value = step.snap(units, value);
+    }
     if let Some(precision) = precision {
         value = precision.round(units, value);
     }
-    // Hard limit is absolute and always applied last.
-    let value = apply_hard_limit(value, hard_limit, wrap);
-
-    trigger_value_change(commands, value, source, is_final);
+    value
 }
 
 /// Clamp or wrap the value to the hard limit, if there is one.
@@ -2197,6 +2261,133 @@ mod tests {
         // Precision 1 rounds to tenths of a percent.
         let rounded = NumberInputPrecision(1).round(&RatioPercent, NumericValue::F32(0.12345));
         assert_eq!(format_value(&RatioPercent, rounded, false), "12.3%");
+    }
+
+    #[test]
+    fn step_snaps_to_nearest_multiple() {
+        let step = NumberInputStep(0.5);
+        assert_eq!(
+            step.snap(&Dimensionless, NumericValue::F64(78.09567)),
+            NumericValue::F64(78.0)
+        );
+        assert_eq!(
+            step.snap(&Dimensionless, NumericValue::F64(78.3)),
+            NumericValue::F64(78.5)
+        );
+        assert_eq!(
+            step.snap(&Dimensionless, NumericValue::F64(-1.3)),
+            NumericValue::F64(-1.5)
+        );
+        assert_eq!(
+            step.snap(&Dimensionless, NumericValue::I32(7)),
+            NumericValue::I32(7)
+        );
+    }
+
+    #[test]
+    fn step_snap_then_precision_removes_noise() {
+        let snapped = NumberInputStep(0.05).snap(&Dimensionless, NumericValue::F64(0.138));
+        assert!((snapped.as_f64() - 0.15).abs() < 1e-12);
+        let rounded = NumberInputPrecision(2).round(&Dimensionless, snapped);
+        assert_eq!(rounded, NumericValue::F64(0.15));
+    }
+
+    #[test]
+    fn step_snaps_in_display_units() {
+        let snapped = NumberInputStep(5.0).snap(&AngleDegrees, NumericValue::F32(0.31));
+        assert_eq!(format_value(&AngleDegrees, snapped, false), "20°");
+
+        let snapped = NumberInputStep(10.0).snap(&RatioPercent, NumericValue::F32(0.437));
+        assert_eq!(format_value(&RatioPercent, snapped, false), "40%");
+    }
+
+    #[test]
+    fn drag_snaps_to_step_then_hard_limit() {
+        let base = NumericValue::F64(78.0);
+        let step = NumberInputStep(0.5);
+        let precision = NumberInputPrecision(2);
+
+        let value = dragged_value(
+            &Dimensionless,
+            base,
+            0.09567,
+            None,
+            None,
+            true,
+            Some(&precision),
+        );
+        assert_eq!(value, NumericValue::F64(78.1));
+
+        let value = dragged_value(&Dimensionless, base, 0.09567, None, Some(&step), true, None);
+        assert_eq!(value, NumericValue::F64(78.0));
+
+        let value = dragged_value(
+            &Dimensionless,
+            base,
+            0.3,
+            None,
+            Some(&step),
+            true,
+            Some(&precision),
+        );
+        assert_eq!(value, NumericValue::F64(78.5));
+
+        let hard_limit = HardLimit::f64(0.0..=78.3);
+        assert_eq!(
+            apply_hard_limit(value, Some(&hard_limit), None),
+            NumericValue::F64(78.3)
+        );
+    }
+
+    #[test]
+    fn drag_snaps_integers_to_step() {
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::I32(10),
+            13.4,
+            None,
+            Some(&NumberInputStep(5.0)),
+            true,
+            None,
+        );
+        assert_eq!(value, NumericValue::I32(25));
+    }
+
+    #[test]
+    fn drag_without_snap_marker_only_rounds() {
+        let base = NumericValue::F64(78.0);
+        let step = NumberInputStep(0.5);
+        let precision = NumberInputPrecision(2);
+
+        let value = dragged_value(
+            &Dimensionless,
+            base,
+            0.3,
+            None,
+            Some(&step),
+            false,
+            Some(&precision),
+        );
+        assert_eq!(value, NumericValue::F64(78.3));
+
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::I32(10),
+            13.4,
+            None,
+            Some(&NumberInputStep(5.0)),
+            false,
+            None,
+        );
+        assert_eq!(value, NumericValue::I32(23));
+    }
+
+    #[test]
+    fn invalid_step_leaves_value_unchanged() {
+        for step in [0.0, -1.0, f64::NAN] {
+            let value = NumericValue::F64(1.2345);
+            assert_eq!(NumberInputStep(step).snap(&Dimensionless, value), value);
+        }
     }
 
     #[test]
