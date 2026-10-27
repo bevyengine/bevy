@@ -1091,8 +1091,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.world
                     .storages()
                     .tables
-                    .get(location.table_id)
-                    .unwrap_unchecked()
+                    .get_unchecked(location.table_id)
             };
             // SAFETY: Archetype and table are from the same world used to initialize state and fetch.
             // Table corresponds to archetype. State is the same state used to init fetch above.

@@ -1908,8 +1908,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .world
                 .storages()
                 .tables
-                .get(location.table_id)
-                .unwrap_unchecked();
+                .get_unchecked(location.table_id);
             D::set_archetype(
                 &mut fetch,
                 &self.state.fetch_state,
