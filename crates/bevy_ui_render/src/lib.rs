@@ -53,7 +53,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec4, Vec2};
+use bevy_math::{proj, Affine2, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -339,7 +339,8 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
 }
 
 pub struct ExtractedUiNode {
-    pub z_order: f32,
+    pub stack_index: ComputedStackIndex,
+    pub paint_layer: usize,
     pub image: AssetId<Image>,
     pub clip: Option<CalculatedClip>,
     pub item: ExtractedUiItem,
@@ -721,7 +722,7 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(BACKGROUND_COLOR_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(BACKGROUND_COLOR_PAINT_LAYER) else {
         return;
     };
 
@@ -773,7 +774,8 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + paint_offset,
+                    stack_index: *stack_index,
+                    paint_layer,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -800,7 +802,8 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + paint_offset,
+                    stack_index: *stack_index,
+                    paint_layer,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -842,7 +845,7 @@ pub fn extract_inline_images(
     inline_image_query: Extract<Query<&InlineImage, With<InlineBox>>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(INLINE_IMAGE_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(INLINE_IMAGE_PAINT_LAYER) else {
         return;
     };
 
@@ -883,7 +886,8 @@ pub fn extract_inline_images(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + paint_offset,
+                        stack_index: *stack_index,
+                        paint_layer,
                         clip: clip.cloned(),
                         image: image.image.id(),
                         transform: Affine2::from(*transform)
@@ -927,7 +931,7 @@ pub fn extract_uinode_images(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(IMAGE_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(IMAGE_PAINT_LAYER) else {
         return;
     };
 
@@ -1031,7 +1035,8 @@ pub fn extract_uinode_images(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + paint_offset,
+                    stack_index: *stack_index,
+                    paint_layer,
                     clip: clip.cloned(),
                     image: image.image.id(),
                     transform: Affine2::from(*transform)
@@ -1096,7 +1101,7 @@ pub fn extract_uinode_borders(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(BORDER_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(BORDER_PAINT_LAYER) else {
         return;
     };
 
@@ -1148,7 +1153,8 @@ pub fn extract_uinode_borders(
             let node_ctx = BorderNodeContext {
                 entity: entity.into(),
                 camera_entity: extracted_camera_entity,
-                z_order: stack_index.0 as f32 + paint_offset,
+                stack_index: *stack_index,
+                paint_layer,
                 clip: maybe_clip.cloned(),
             };
             let base_transform: Affine2 = transform.into();
@@ -1240,7 +1246,8 @@ pub fn extract_uinode_borders(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + paint_offset,
+                        stack_index: *stack_index,
+                        paint_layer,
                         image,
                         clip: maybe_clip.cloned(),
                         transform: transform.into(),
@@ -1284,7 +1291,8 @@ pub fn shrink_border_radius(
 pub struct BorderNodeContext {
     entity: MainEntity,
     camera_entity: Entity,
-    z_order: f32,
+    stack_index: ComputedStackIndex,
+    paint_layer: usize,
     clip: Option<CalculatedClip>,
 }
 
@@ -1333,7 +1341,8 @@ pub fn push_border_ring(
         completed_flags |= border_flags;
 
         let extracted_node = ExtractedUiNode {
-            z_order: node.z_order,
+            stack_index: node.stack_index,
+            paint_layer: node.paint_layer,
             image,
             clip: node.clip.clone(),
             transform: ring.transform,
@@ -1563,7 +1572,7 @@ pub fn extract_viewport_nodes(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(IMAGE_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(IMAGE_PAINT_LAYER) else {
         return;
     };
 
@@ -1612,7 +1621,8 @@ pub fn extract_viewport_nodes(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + paint_offset,
+                    stack_index: *stack_index,
+                    paint_layer,
                     clip: clip.cloned(),
                     image: image.id(),
                     transform: transform.into(),
@@ -1657,7 +1667,7 @@ pub fn extract_text_sections(
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(TEXT_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(TEXT_PAINT_LAYER) else {
         return;
     };
 
@@ -1768,7 +1778,8 @@ pub fn extract_text_sections(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1804,7 +1815,7 @@ pub fn extract_text_shadows(
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(TEXT_PAINT_LAYER) else {
+    let Ok(paint_layer) = paint_order.get_layer_index(TEXT_PAINT_LAYER) else {
         return;
     };
 
@@ -1876,7 +1887,8 @@ pub fn extract_text_shadows(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             transform: node_transform,
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1909,7 +1921,8 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1940,7 +1953,8 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1993,8 +2007,8 @@ pub fn extract_text_decorations(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let text_offset = paint_order.get_offset(TEXT_PAINT_LAYER);
-    let strikethrough_offset = paint_order.get_offset(TEXT_STRIKETHROUGH_PAINT_LAYER);
+    let text_layer = paint_order.get_layer_index(TEXT_PAINT_LAYER);
+    let strikethrough_layer = paint_order.get_layer_index(TEXT_STRIKETHROUGH_PAINT_LAYER);
 
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
@@ -2051,7 +2065,7 @@ pub fn extract_text_decorations(
             };
 
             if let Some(text_background_color) = text_background_color
-                && let Ok(paint_offset) = text_offset
+                && let Ok(paint_layer) = text_layer
             {
                 extracted_uinodes
                     .uinodes
@@ -2061,7 +2075,8 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(run.bounds.center()),
@@ -2083,7 +2098,7 @@ pub fn extract_text_decorations(
             }
 
             if maybe_strikethrough.is_some()
-                && let Ok(paint_offset) = strikethrough_offset
+                && let Ok(paint_layer) = strikethrough_layer
             {
                 let color = maybe_strikethrough_color
                     .map(|sc| sc.0)
@@ -2098,7 +2113,8 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform
@@ -2121,7 +2137,7 @@ pub fn extract_text_decorations(
             }
 
             if maybe_underline.is_some()
-                && let Ok(paint_offset) = strikethrough_offset
+                && let Ok(paint_layer) = strikethrough_layer
             {
                 let color = maybe_underline_color
                     .map(|uc| uc.0)
@@ -2136,7 +2152,8 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + paint_offset,
+                            stack_index: *stack_index,
+                            paint_layer,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform
@@ -2286,7 +2303,10 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline: *pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_uinode.z_order),
+                sort_key: UiSortKey::new(
+                    extracted_uinode.stack_index,
+                    extracted_uinode.paint_layer,
+                ),
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,

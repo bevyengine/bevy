@@ -120,21 +120,13 @@ impl Default for PaintOrder {
 }
 
 impl PaintOrder {
-    /// Get the index of the layer.
+    /// Get the index of the paint layer to be used with [`UiSortKey`](`bevy_ui_render::render_pass::UiSortKey`).
+    ///
+    /// Returns an error if the layer label isn't present in the list.
     #[inline]
     pub fn get_layer_index(&self, layer: PaintLayer) -> Result<usize, PaintLayerError> {
         self.get_index_of(&layer)
             .ok_or(PaintLayerError::UnrecognizedLayer(layer))
-    }
-
-    /// Returns the z-offset corresponding to the given paint layer.
-    /// The offsets are in the half-open range `0.0..1.0`, increasing from back to front.
-    /// The returned offset should be added to the extracted item's stack index to get the final z value.
-    ///
-    /// Returns an error if the layer label isn't present in the list.
-    pub fn get_offset(&self, layer: PaintLayer) -> Result<f32, PaintLayerError> {
-        self.get_layer_index(layer)
-            .map(|index| index as f32 / self.len() as f32)
     }
 
     /// Inserts a layer immediately before an existing layer.
