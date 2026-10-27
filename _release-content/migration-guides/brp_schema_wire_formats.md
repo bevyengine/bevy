@@ -1,6 +1,6 @@
 ---
 title: "`registry.schema` describes custom serialized forms"
-pull_requests: []
+pull_requests: [26337]
 ---
 
 BRP serializes types that register `ReflectSerialize` with their `Serialize` implementation, which does not always follow their reflected structure.
