@@ -6,6 +6,7 @@ use core::{
 
 use super::shader_flags::BORDER_ALL;
 use crate::clipping::clip_polygon;
+use crate::paint_layers::{BORDER_GRADIENT_PAINT_LAYER, GRADIENT_PAINT_LAYER};
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Okhsla, Oklaba, Oklcha, Srgba};
@@ -743,8 +744,8 @@ pub fn queue_gradient(
         };
         for (render_entity, gradient) in sub_gradients.iter() {
             let Ok(paint_offset) = paint_order.get_offset(match gradient.node_type {
-                NodeType::Rect | NodeType::Inverted => NodePaintLayer::Gradient,
-                NodeType::Border(_) => NodePaintLayer::BorderGradient,
+                NodeType::Rect | NodeType::Inverted => GRADIENT_PAINT_LAYER,
+                NodeType::Border(_) => BORDER_GRADIENT_PAINT_LAYER,
             }) else {
                 continue;
             };

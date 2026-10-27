@@ -1,5 +1,5 @@
 use crate::{
-    paint_layers::{NodePaintLayer, PaintLayer},
+    paint_layers::{PaintLayer, MATERIAL_PAINT_LAYER},
     Node,
 };
 use bevy_asset::{Asset, AssetId, Handle};
@@ -116,8 +116,8 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    fn paint_layer() -> impl PaintLayer {
-        NodePaintLayer::Material
+    fn paint_layer() -> PaintLayer {
+        MATERIAL_PAINT_LAYER
     }
 
     #[expect(

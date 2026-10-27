@@ -91,7 +91,10 @@ pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::clipping::clip_polygon;
-use crate::paint_layers::{NodePaintLayer, PaintOrder};
+use crate::paint_layers::{
+    PaintOrder, BACKGROUND_COLOR_PAINT_LAYER, BORDER_PAINT_LAYER, IMAGE_PAINT_LAYER,
+    INLINE_IMAGE_PAINT_LAYER, TEXT_PAINT_LAYER, TEXT_STRIKETHROUGH_PAINT_LAYER,
+};
 use crate::shader_flags::INVERT;
 use crate::text::{calculate_text_scroll_clip, extract_preedit_underlines, extract_text_cursor};
 
@@ -718,7 +721,7 @@ pub fn extract_uinode_background_colors(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::BackgroundColor) else {
+    let Ok(paint_offset) = paint_order.get_offset(BACKGROUND_COLOR_PAINT_LAYER) else {
         return;
     };
 
@@ -839,7 +842,7 @@ pub fn extract_inline_images(
     inline_image_query: Extract<Query<&InlineImage, With<InlineBox>>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::InlineImage) else {
+    let Ok(paint_offset) = paint_order.get_offset(INLINE_IMAGE_PAINT_LAYER) else {
         return;
     };
 
@@ -924,7 +927,7 @@ pub fn extract_uinode_images(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::Image) else {
+    let Ok(paint_offset) = paint_order.get_offset(IMAGE_PAINT_LAYER) else {
         return;
     };
 
@@ -1093,7 +1096,7 @@ pub fn extract_uinode_borders(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::Border) else {
+    let Ok(paint_offset) = paint_order.get_offset(BORDER_PAINT_LAYER) else {
         return;
     };
 
@@ -1560,7 +1563,7 @@ pub fn extract_viewport_nodes(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::Image) else {
+    let Ok(paint_offset) = paint_order.get_offset(IMAGE_PAINT_LAYER) else {
         return;
     };
 
@@ -1654,7 +1657,7 @@ pub fn extract_text_sections(
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::Text) else {
+    let Ok(paint_offset) = paint_order.get_offset(TEXT_PAINT_LAYER) else {
         return;
     };
 
@@ -1801,7 +1804,7 @@ pub fn extract_text_shadows(
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::Text) else {
+    let Ok(paint_offset) = paint_order.get_offset(TEXT_PAINT_LAYER) else {
         return;
     };
 
@@ -1990,8 +1993,8 @@ pub fn extract_text_decorations(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let text_offset = paint_order.get_offset(NodePaintLayer::Text);
-    let strikethrough_offset = paint_order.get_offset(NodePaintLayer::TextStrikethrough);
+    let text_offset = paint_order.get_offset(TEXT_PAINT_LAYER);
+    let strikethrough_offset = paint_order.get_offset(TEXT_STRIKETHROUGH_PAINT_LAYER);
 
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();

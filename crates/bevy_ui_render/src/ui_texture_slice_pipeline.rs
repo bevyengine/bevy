@@ -424,7 +424,7 @@ pub fn queue_ui_slices(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::Image) else {
+    let Ok(paint_offset) = paint_order.get_offset(IMAGE_PAINT_LAYER) else {
         return;
     };
 

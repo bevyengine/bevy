@@ -13,7 +13,10 @@ use bevy_ui::{
 };
 
 use crate::{
-    paint_layers::{NodePaintLayer, PaintOrder},
+    paint_layers::{
+        PaintOrder, TEXT_CURSOR_PAINT_LAYER, TEXT_SELECTION_PAINT_LAYER,
+        TEXT_STRIKETHROUGH_PAINT_LAYER,
+    },
     ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
 };
 
@@ -57,8 +60,8 @@ pub fn extract_text_cursor(
     camera_map: Extract<UiCameraMap>,
     input_focus: Extract<Option<Res<InputFocus>>>,
 ) {
-    let selection_offset = paint_order.get_offset(NodePaintLayer::TextSelection);
-    let cursor_offset = paint_order.get_offset(NodePaintLayer::TextCursor);
+    let selection_offset = paint_order.get_offset(TEXT_SELECTION_PAINT_LAYER);
+    let cursor_offset = paint_order.get_offset(TEXT_CURSOR_PAINT_LAYER);
 
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
@@ -252,7 +255,7 @@ pub fn extract_preedit_underlines(
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Ok(paint_offset) = paint_order.get_offset(NodePaintLayer::TextStrikethrough) else {
+    let Ok(paint_offset) = paint_order.get_offset(TEXT_STRIKETHROUGH_PAINT_LAYER) else {
         return;
     };
 

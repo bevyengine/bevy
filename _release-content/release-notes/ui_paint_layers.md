@@ -8,43 +8,14 @@ pull_requests: [26260]
 
 The `PaintOrder` resource holds the list of paint layers, in the order they’re drawn from back to front.
 
-The built-in layers are identified by the `NodePaintLayer` enum:
-
-``` rust
-pub enum NodePaintLayer {
-    BoxShadow,
-    BackgroundColor,
-    Border,
-    Gradient,
-    BorderGradient,
-    Image,
-    Material,
-    TextSelection,
-    Text,
-    TextStrikethrough,
-    TextCursor,
-    InlineImage,
-}
-```
+The built-in layers are identified by named `PaintLayer` constants such as `BOX_SHADOW_PAINT_LAYER` and `TEXT_PAINT_LAYER`.
 
 `UiRenderPlugin` initializes `PaintOrder` with all the builtin layers in the correct order.
 
-To create a new `PaintLayer`, you derive `PaintLayer`:
+To create a new `PaintLayer`, give it a string name:
 
 ```rust
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
-pub struct MyPaintLayer;
-```
-
-Or you can define multiple layers at once with an enum:
-
-```rust
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
-pub enum MyPaintLayers {
-    Back,
-    Middle,
-    Front,
-}
+pub const MY_PAINT_LAYER: PaintLayer = PaintLayer::new_static("my_plugin.overlay");
 ```
 
 - `insert_before_layer` / `insert_after_layer` place a layer directly below or above an existing layer.
@@ -53,7 +24,7 @@ pub enum MyPaintLayers {
 The insert methods move the layer if it's already present.
 
 The `UiMaterial` trait has a new `paint_layer()` method that chooses the layer the layer the material is drawn to.
-It defaults to `NodePaintLayer::Material`.
+It defaults to `MATERIAL_PAINT_LAYER`.
 
 `PaintOrder` just newtypes an `IndexSet`, so you can also use the `IndexSet` methods to reorder it arbitrarily.
 

@@ -1,84 +1,91 @@
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
-use bevy_ecs::define_label;
-use bevy_ecs::intern::Interned;
 use bevy_ecs::resource::Resource;
 use bevy_render::{extract_resource::ExtractResource, RenderApp};
-pub use bevy_ui_render_macros::PaintLayer;
 use indexmap::IndexSet;
+use smol_str::SmolStr;
 
-define_label!(PaintLayer);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(transparent))]
+pub struct PaintLayer(SmolStr);
 
-/// The list of paint layers used to render the builtin UI elements.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
-pub enum NodePaintLayer {
-    BoxShadow,
-    BackgroundColor,
-    Border,
-    Gradient,
-    BorderGradient,
-    Image,
-    Material,
-    TextSelection,
-    Text,
-    TextStrikethrough,
-    TextCursor,
-    InlineImage,
+impl PaintLayer {
+    pub fn new(name: impl Into<SmolStr>) -> Self {
+        Self(name.into())
+    }
+
+    pub const fn new_static(name: &'static str) -> Self {
+        Self(SmolStr::new_static(name))
+    }
 }
 
-impl NodePaintLayer {
-    // The builtin paint layers in their default paint order.
-    pub const ALL: [Self; 12] = [
-        NodePaintLayer::BoxShadow,
-        NodePaintLayer::BackgroundColor,
-        NodePaintLayer::Border,
-        NodePaintLayer::Gradient,
-        NodePaintLayer::BorderGradient,
-        NodePaintLayer::Image,
-        NodePaintLayer::Material,
-        NodePaintLayer::TextSelection,
-        NodePaintLayer::Text,
-        NodePaintLayer::TextStrikethrough,
-        NodePaintLayer::TextCursor,
-        NodePaintLayer::InlineImage,
-    ];
-}
+pub const BOX_SHADOW_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.box_shadow");
+pub const BACKGROUND_COLOR_PAINT_LAYER: PaintLayer =
+    PaintLayer::new_static("paint_layer.background_color");
+pub const BORDER_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.border");
+pub const GRADIENT_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.gradient");
+pub const BORDER_GRADIENT_PAINT_LAYER: PaintLayer =
+    PaintLayer::new_static("paint_layer.border_gradient");
+pub const IMAGE_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.image");
+pub const MATERIAL_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.material");
+pub const TEXT_SELECTION_PAINT_LAYER: PaintLayer =
+    PaintLayer::new_static("paint_layer.text_selection");
+pub const TEXT_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.text");
+pub const TEXT_STRIKETHROUGH_PAINT_LAYER: PaintLayer =
+    PaintLayer::new_static("paint_layer.text_strikethrough");
+pub const TEXT_CURSOR_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.text_cursor");
+pub const INLINE_IMAGE_PAINT_LAYER: PaintLayer = PaintLayer::new_static("paint_layer.inline_image");
+
+const DEFAULT_PAINT_LAYERS: [PaintLayer; 12] = [
+    BOX_SHADOW_PAINT_LAYER,
+    BACKGROUND_COLOR_PAINT_LAYER,
+    BORDER_PAINT_LAYER,
+    GRADIENT_PAINT_LAYER,
+    BORDER_GRADIENT_PAINT_LAYER,
+    IMAGE_PAINT_LAYER,
+    MATERIAL_PAINT_LAYER,
+    TEXT_SELECTION_PAINT_LAYER,
+    TEXT_PAINT_LAYER,
+    TEXT_STRIKETHROUGH_PAINT_LAYER,
+    TEXT_CURSOR_PAINT_LAYER,
+    INLINE_IMAGE_PAINT_LAYER,
+];
 
 /// List of the local Z layers for node.
 /// Layers are painted in list order, so each layer appears on top of the layers before it.
-/// If the label for a builtin renderable element from `NodePlayerLayer` isn't present, that
+/// If the layer for a builtin renderable element isn't present, that
 /// element won't be drawn.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
 #[extract_app(RenderApp)]
-pub struct PaintOrder(pub IndexSet<Interned<dyn PaintLayer>>);
+pub struct PaintOrder(pub IndexSet<PaintLayer>);
 
-impl<P: PaintLayer> FromIterator<P> for PaintOrder {
-    fn from_iter<I: IntoIterator<Item = P>>(layers: I) -> Self {
+impl FromIterator<PaintLayer> for PaintOrder {
+    fn from_iter<I: IntoIterator<Item = PaintLayer>>(layers: I) -> Self {
         let mut paint_order = Self(IndexSet::new());
         for layer in layers {
-            paint_order.insert_top(layer.intern());
+            paint_order.insert_top(layer);
         }
         paint_order
     }
 }
 
-impl<P: PaintLayer, const N: usize> From<[P; N]> for PaintOrder {
-    fn from(layers: [P; N]) -> Self {
+impl<const N: usize> From<[PaintLayer; N]> for PaintOrder {
+    fn from(layers: [PaintLayer; N]) -> Self {
         Self::from_iter(layers)
     }
 }
 
 impl Default for PaintOrder {
     fn default() -> Self {
-        Self::from(NodePaintLayer::ALL)
+        Self::from(DEFAULT_PAINT_LAYERS)
     }
 }
 
 impl PaintOrder {
     /// Get the index of the layer.
     #[inline]
-    pub fn get_layer_index(&self, layer: impl PaintLayer) -> Result<usize, PaintLayerError> {
-        let layer = layer.intern();
+    pub fn get_layer_index(&self, layer: PaintLayer) -> Result<usize, PaintLayerError> {
         self.get_index_of(&layer)
             .ok_or(PaintLayerError::UnrecognizedLayer(layer))
     }
@@ -88,8 +95,8 @@ impl PaintOrder {
     /// The returned offset should be added to the extracted item's stack index to get the final z value.
     ///
     /// Returns an error if the layer label isn't present in the list.
-    pub fn get_offset(&self, layer: impl PaintLayer) -> Result<f32, PaintLayerError> {
-        self.get_layer_index(layer.intern())
+    pub fn get_offset(&self, layer: PaintLayer) -> Result<f32, PaintLayerError> {
+        self.get_layer_index(layer)
             .map(|index| index as f32 / self.len() as f32)
     }
 
@@ -98,11 +105,11 @@ impl PaintOrder {
     /// Returns an error if the before label isn't present in the list of layers.
     pub fn insert_before_layer(
         &mut self,
-        existing_layer: impl PaintLayer,
-        new_layer: impl PaintLayer,
+        existing_layer: PaintLayer,
+        new_layer: PaintLayer,
     ) -> Result<(), PaintLayerError> {
-        let index = self.get_layer_index(existing_layer.intern())?;
-        self.0.insert_before(index, new_layer.intern());
+        let index = self.get_layer_index(existing_layer)?;
+        self.0.insert_before(index, new_layer);
         Ok(())
     }
 
@@ -111,58 +118,53 @@ impl PaintOrder {
     /// Returns an error if the after label isn't present in the list.
     pub fn insert_after_layer(
         &mut self,
-        existing_layer: impl PaintLayer,
-        new_layer: impl PaintLayer,
+        existing_layer: PaintLayer,
+        new_layer: PaintLayer,
     ) -> Result<(), PaintLayerError> {
-        let index = self.get_layer_index(existing_layer.intern())?;
-        self.0.insert_before(index + 1, new_layer.intern());
+        let index = self.get_layer_index(existing_layer)?;
+        self.0.insert_before(index + 1, new_layer);
         Ok(())
     }
 
     /// Adds a layer at the end of the list. It will be painted last, above everything else.
     /// If the layer is already present, it is moved.
-    pub fn insert_top(&mut self, layer: impl PaintLayer) {
-        self.0.insert_before(self.len(), layer.intern());
+    pub fn insert_top(&mut self, layer: PaintLayer) {
+        self.0.insert_before(self.len(), layer);
     }
 
     /// Adds a layer at the start of the list. It will be painted first, behind everything else.
     /// If the layer is already present, it is moved.
-    pub fn insert_bottom(&mut self, layer: impl PaintLayer) {
-        self.0.insert_before(0, layer.intern());
+    pub fn insert_bottom(&mut self, layer: PaintLayer) {
+        self.0.insert_before(0, layer);
     }
 
     /// Removes a layer, preserving the order of the remaining layers.
     /// Returns `true` if the layer was present.
-    pub fn remove_layer(&mut self, layer: impl PaintLayer) -> bool {
-        self.0.shift_remove(&layer.intern())
+    pub fn remove_layer(&mut self, layer: PaintLayer) -> bool {
+        self.0.shift_remove(&layer)
     }
 }
 
 #[derive(Debug)]
 pub enum PaintLayerError {
-    UnrecognizedLayer(Interned<dyn PaintLayer>),
+    UnrecognizedLayer(PaintLayer),
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::paint_layers::NodePaintLayer;
     use crate::paint_layers::PaintLayer;
     use crate::paint_layers::PaintOrder;
+    use crate::paint_layers::{DEFAULT_PAINT_LAYERS, TEXT_PAINT_LAYER};
 
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, PaintLayer)]
-    enum TestLayer {
-        A,
-        B,
-        C,
-        X,
-    }
-
-    use TestLayer::*;
+    const A: PaintLayer = PaintLayer::new_static("test.a");
+    const B: PaintLayer = PaintLayer::new_static("test.b");
+    const C: PaintLayer = PaintLayer::new_static("test.c");
+    const X: PaintLayer = PaintLayer::new_static("test.x");
 
     #[track_caller]
-    fn assert_order<const N: usize>(paint_order: &PaintOrder, expected: [TestLayer; N]) {
-        let actual: Vec<_> = paint_order.iter().copied().collect();
-        let expected: Vec<_> = expected.into_iter().map(|layer| layer.intern()).collect();
+    fn assert_order<const N: usize>(paint_order: &PaintOrder, expected: [PaintLayer; N]) {
+        let actual: Vec<_> = paint_order.iter().cloned().collect();
+        let expected: Vec<_> = expected.into_iter().collect();
         assert_eq!(actual, expected);
     }
 
@@ -170,8 +172,8 @@ mod tests {
     fn default_paint_order_matches_node_paint_layer_order() {
         let paint_order = PaintOrder::default();
 
-        assert_eq!(paint_order.len(), NodePaintLayer::ALL.len());
-        for (index, layer) in NodePaintLayer::ALL.into_iter().enumerate() {
+        assert_eq!(paint_order.len(), DEFAULT_PAINT_LAYERS.len());
+        for (index, layer) in DEFAULT_PAINT_LAYERS.into_iter().enumerate() {
             assert_eq!(paint_order.get_layer_index(layer).unwrap(), index);
         }
     }
@@ -262,13 +264,10 @@ mod tests {
     }
 
     #[test]
-    fn from_array_accepts_mixed_label_types() {
-        let paint_order = PaintOrder::from([NodePaintLayer::Text.intern(), A.intern()]);
+    fn from_array_accepts_builtin_and_custom_layers() {
+        let paint_order = PaintOrder::from([PaintLayer::new(String::from("paint_layer.text")), A]);
 
-        assert_eq!(
-            paint_order.get_layer_index(NodePaintLayer::Text).unwrap(),
-            0
-        );
+        assert_eq!(paint_order.get_layer_index(TEXT_PAINT_LAYER).unwrap(), 0);
         assert_eq!(paint_order.get_layer_index(A).unwrap(), 1);
     }
 }
