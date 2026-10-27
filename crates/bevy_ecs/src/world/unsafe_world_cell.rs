@@ -1282,11 +1282,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures returned data is not misused and we have not created any borrows of component/resource data
         // - caller ensures `location` is the location of an entity, so it contains a valid `TableId`
         //   and getting the table won't fail
-        unsafe {
-            self.storages()
-                .tables
-                .get_unchecked(location.table_id)
-        }
+        unsafe { self.storages().tables.get_unchecked(location.table_id) }
     }
 
     #[inline]
@@ -1355,7 +1351,8 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // - `component_id` is the component id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
             //   number of entities in `table`
-            let value = unsafe { table.get_component_typed::<T>(component_id, location.table_row) }?;
+            let value =
+                unsafe { table.get_component_typed::<T>(component_id, location.table_row) }?;
             // SAFETY: caller ensures aliasing rules
             Some(unsafe { value.deref() })
         }

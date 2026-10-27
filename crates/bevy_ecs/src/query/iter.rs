@@ -189,7 +189,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
             let table_id = unsafe { storage.table_id };
             // SAFETY: Matched table IDs are guaranteed to still exist.
-             let table = unsafe { self.tables.get_unchecked(table_id) };
+            let table = unsafe { self.tables.get_unchecked(table_id) };
 
             let range = range.unwrap_or(0..table.entity_count());
             accum =
