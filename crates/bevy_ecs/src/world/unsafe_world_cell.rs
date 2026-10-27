@@ -1365,7 +1365,7 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // SAFETY: caller ensures aliasing rules
             let sparse_set = unsafe { world.fetch_sparse_set(component_id) }?;
             // SAFETY: `component_id` is the id of `T`, so the sparse set holds `T` values
-            let value = unsafe { sparse_set.get_component_typed::<T>(entity) }?;
+            let value = unsafe { sparse_set.get_typed::<T>(entity) }?;
             // SAFETY: caller ensures aliasing rules
             Some(unsafe { value.deref() })
         }

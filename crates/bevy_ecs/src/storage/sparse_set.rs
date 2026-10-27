@@ -314,7 +314,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// `T` must be the type of the component that this sparse set stores.
     #[inline]
-    pub unsafe fn get_component_typed<T>(&self, entity: Entity) -> Option<&UnsafeCell<T>> {
+    pub unsafe fn get_typed<T>(&self, entity: Entity) -> Option<&UnsafeCell<T>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.index()]);
