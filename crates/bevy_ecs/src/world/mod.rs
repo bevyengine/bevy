@@ -1345,8 +1345,8 @@ impl World {
         // - `location` is the location of `entity`
         // - `&self` gives read access to every component, and no mutable reference to one can exist
         unsafe {
-            self.as_unsafe_world_cell_readonly()
-                .get_component_typed(
+            unsafe_world_cell::get_component_typed(
+                self.as_unsafe_world_cell_readonly(),
                 entity,
                 location,
             )
@@ -1383,9 +1383,8 @@ impl World {
         //   can exist
         // - `T` is mutable
         unsafe {
-            self.as_unsafe_world_cell()
-                .get_component_mut_typed(
-                
+            unsafe_world_cell::get_component_mut_typed(
+                self.as_unsafe_world_cell(),
                 entity,
                 location,
                 last_run,
