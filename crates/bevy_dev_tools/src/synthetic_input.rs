@@ -246,16 +246,17 @@ pub fn write_due_input(
                 node,
                 position,
             } => {
-                let position = node
-                    .and_then(|node| nodes.get(node).ok())
-                    .map_or(position, |(transform, camera)| {
+                let position = node.and_then(|node| nodes.get(node).ok()).map_or(
+                    position,
+                    |(transform, camera)| {
                         transform.translation
                             + camera
                                 .get()
                                 .and_then(|camera| cameras.get(camera).ok())
                                 .and_then(Camera::physical_viewport_rect)
                                 .map_or(Vec2::ZERO, |viewport| viewport.min.as_vec2())
-                    });
+                    },
+                );
                 WindowEvent::CursorMoved(RawCursorMoved {
                     window,
                     physical_position: position.as_dvec2(),
