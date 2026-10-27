@@ -37,7 +37,6 @@ pub(crate) struct StackRoot {
     local_z: i32,
     new_or_changed: bool,
     previous_index: usize,
-    stack_index: usize,
     partition: Option<Entity>,
 }
 
@@ -45,6 +44,8 @@ pub(crate) struct StackRoot {
 pub fn ui_stack_system(
     mut local_cache: Local<Vec<(Entity, i32, Option<&'static Children>, bool, Option<i32>)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
+    mut stack_ranges: Local<Vec<(StackRoot, Range<usize>)>>,
+    mut node_buffer: Local<Vec<Entity>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
@@ -94,7 +95,6 @@ pub fn ui_stack_system(
                     || maybe_global_zindex.as_ref().is_some_and(Ref::is_changed)
                     || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
                 previous_index: previous.unwrap_or(usize::MAX),
-                stack_index: 0,
                 partition: None,
             },
         ));
@@ -112,7 +112,6 @@ pub fn ui_stack_system(
                     || global_zindex.is_changed()
                     || maybe_zindex.as_ref().is_some_and(Ref::is_changed),
                 previous_index: previous.unwrap_or(usize::MAX),
-                stack_index: 0,
                 partition: None,
             },
         ));
@@ -152,10 +151,11 @@ pub fn ui_stack_system(
         visited_stack_roots.insert(root_entity);
         stack_root.new_or_changed = false;
         stack_root.previous_index = index;
-        stack_root.stack_index = stack_roots.len();
         if !is_ghost {
             stack_root.partition = Some(root_entity);
-            stack_roots.push((root_entity, stack_root));
+            let start = node_buffer.len();
+            node_buffer.push(root_entity);
+            stack_ranges.push((stack_root, start..start + 1));
         }
         if let Some(children) = children {
             update_uistack_recursive(
@@ -164,29 +164,39 @@ pub fn ui_stack_system(
                 Some(stack_root),
                 is_ghost && global_zindex.is_none() && zindex.is_none(),
                 &ui_children,
-                &mut stack_roots,
+                &mut stack_ranges,
+                &mut node_buffer,
                 &mut visited_stack_roots,
             );
         }
     }
 
     stack_root_order.clear();
-    for (index, (entity, _)) in stack_roots.drain(..root_count).enumerate() {
+    for (index, (entity, _)) in stack_roots.drain(..).enumerate() {
         stack_root_order.insert(entity, index);
     }
-    stack_roots.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
+    stack_ranges.sort_unstable_by_key(|(root, range)| {
+        (
+            root.global_z,
+            root.local_z,
+            root.previous_index,
+            range.start,
+        )
+    });
 
     let mut previous_partition = None;
-    for (entity, stack_root) in stack_roots.drain(..) {
+    for (stack_root, range) in stack_ranges.drain(..) {
         let start = ui_stack.uinodes.len();
-        ui_stack.uinodes.push(entity);
+        ui_stack.uinodes.extend_from_slice(&node_buffer[range]);
+        let end = ui_stack.uinodes.len();
         if previous_partition == stack_root.partition {
-            ui_stack.partition.last_mut().unwrap().end = start + 1;
+            ui_stack.partition.last_mut().unwrap().end = end;
         } else {
-            ui_stack.partition.push(start..start + 1);
+            ui_stack.partition.push(start..end);
             previous_partition = stack_root.partition;
         }
     }
+    node_buffer.clear();
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok(mut stack_index) = update_query.get_mut(*entity) {
@@ -212,7 +222,8 @@ fn update_uistack_recursive<'a>(
         ),
         With<ComputedStackIndex>,
     >,
-    stack_roots: &mut Vec<(Entity, StackRoot)>,
+    stack_ranges: &mut Vec<(StackRoot, Range<usize>)>,
+    node_buffer: &mut Vec<Entity>,
     visited_stack_roots: &mut EntityHashSet,
 ) {
     let start = child_buffer.len();
@@ -228,7 +239,8 @@ fn update_uistack_recursive<'a>(
                     None,
                     use_child_zindex,
                     ui_children,
-                    stack_roots,
+                    stack_ranges,
+                    node_buffer,
                     visited_stack_roots,
                 );
             }
@@ -258,10 +270,17 @@ fn update_uistack_recursive<'a>(
             child_root.partition = None;
             visited_stack_roots.insert(child_entity);
         }
-        child_root.stack_index = stack_roots.len();
         if !is_ghost {
             child_root.partition.get_or_insert(child_entity);
-            stack_roots.push((child_entity, child_root));
+            let start = node_buffer.len();
+            node_buffer.push(child_entity);
+            if let Some((root, range)) = stack_ranges.last_mut()
+                && *root == child_root
+            {
+                range.end = start + 1;
+            } else {
+                stack_ranges.push((child_root, start..start + 1));
+            }
         }
         if let Some(children) = maybe_children {
             update_uistack_recursive(
@@ -270,7 +289,8 @@ fn update_uistack_recursive<'a>(
                 Some(child_root),
                 false,
                 ui_children,
-                stack_roots,
+                stack_ranges,
+                node_buffer,
                 visited_stack_roots,
             );
         }
