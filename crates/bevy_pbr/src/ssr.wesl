@@ -65,9 +65,9 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     // Use VNDF sampling for the half-vector.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
-    let NdotL = max(dot(N, wi), 0.0001);
-    let NdotV = max(dot(N, wo), 0.0001);
-    let VdotH = max(dot(wo, H), 0.0001);
+    let NdotL = clamp(dot(N, wi), 0.0001, 1.0);
+    let NdotV = clamp(dot(N, wo), 0.0001, 1.0);
+    let VdotH = clamp(dot(wo, H), 0.0001, 1.0);
 
     let F = lighting::F_Schlick_vec(F0, 1.0, VdotH);
 

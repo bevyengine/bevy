@@ -305,7 +305,7 @@ fn V_Kelemen(LdotH: f32) -> f32 {
 /// F_Schlick(v,h,f_0,f_90) = f_0 + (f_90 − f_0) (1 − v⋅h)^5
 fn F_Schlick_vec(f0: vec3<f32>, f90: f32, VdotH: f32) -> vec3<f32> {
     // not using mix to keep the vec3 and float versions identical
-    return f0 + (f90 - f0) * pow(1.0 - VdotH, 5.0);
+    return f0 + (f90 - f0) * pow(saturate(1.0 - VdotH), 5.0);
 }
 
 /// Fresnel function
@@ -313,7 +313,7 @@ fn F_Schlick_vec(f0: vec3<f32>, f90: f32, VdotH: f32) -> vec3<f32> {
 /// F_Schlick(v,h,f_0,f_90) = f_0 + (f_90 − f_0) (1 − v⋅h)^5
 fn F_Schlick(f0: f32, f90: f32, VdotH: f32) -> f32 {
     // not using mix to keep the vec3 and float versions identical
-    return f0 + (f90 - f0) * pow(1.0 - VdotH, 5.0);
+    return f0 + (f90 - f0) * pow(saturate(1.0 - VdotH), 5.0);
 }
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
