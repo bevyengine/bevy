@@ -1148,7 +1148,8 @@ impl<'a, T: EntityEquivalent> UniqueEntityIter<vec::Drain<'a, T>> {
 pub type Splice<'a, I> = UniqueEntityIter<vec::Splice<'a, I>>;
 
 #[cfg(feature = "bevy_reflect")]
-const _: () = {
+mod reflect_impls {
+    use super::*;
     use bevy_reflect::{
         list::{self, List},
         utility, ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped,
@@ -1392,4 +1393,4 @@ const _: () = {
                 .collect::<Option<Self>>()
         }
     }
-};
+}
