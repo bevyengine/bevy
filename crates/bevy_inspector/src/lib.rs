@@ -135,7 +135,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<remote::RemoteSnapshot>()
             .init_resource::<remote::RemoteWorld>()
             .init_resource::<remote::stepping::RemoteStepping>()
-            .init_resource::<remote::stepping::SteppingState>()
+            .init_resource::<remote::stepping::SteppingStatus>()
             .add_systems(
                 PostUpdate,
                 (

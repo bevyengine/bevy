@@ -52,13 +52,13 @@ const STATUS_INTERVAL: Duration = Duration::from_secs(1);
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, Default, Clone, PartialEq)]
 pub enum SteppingCall {
-    /// Reads the stepping state of the remote app.
+    /// Reads the stepping status of the remote app.
     #[default]
     Status,
     /// Pauses the remote app at the start of its stepping frame.
-    Enable,
+    Pause,
     /// Resumes the remote app.
-    Disable,
+    Resume,
     /// Runs the next system of the paused remote app.
     StepFrame,
     /// Runs the rest of the stepping frame of the paused remote app.
@@ -70,26 +70,26 @@ impl SteppingCall {
     pub fn method(self) -> &'static str {
         match self {
             SteppingCall::Status => BRP_STEPPING_STATUS,
-            SteppingCall::Enable => BRP_STEPPING_ENABLE,
-            SteppingCall::Disable => BRP_STEPPING_DISABLE,
+            SteppingCall::Pause => BRP_STEPPING_ENABLE,
+            SteppingCall::Resume => BRP_STEPPING_DISABLE,
             SteppingCall::StepFrame => BRP_STEPPING_STEP_FRAME,
             SteppingCall::ContinueFrame => BRP_STEPPING_CONTINUE_FRAME,
         }
     }
 }
 
-/// The stepping state of the remote app, as last reported by a `stepping.*` call.
+/// The stepping status of the remote app, as last reported by a `stepping.*` call.
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub enum SteppingState {
+pub enum SteppingStatus {
     /// No `stepping.*` call has been answered yet.
     #[default]
     Unknown,
     /// The remote app has no `stepping.*` methods, or no `Stepping` resource.
     Unavailable,
-    /// The remote app reported its stepping state.
+    /// The remote app reported its stepping status.
     Known {
         /// Whether the remote app is paused for stepping.
-        enabled: bool,
+        paused: bool,
         /// The schedule and system the stepping cursor sits at, if any.
         cursor: Option<BrpSteppingCursor>,
     },
@@ -135,13 +135,13 @@ pub fn stepping_controls() -> impl Scene {
             weight: FontWeight::NORMAL,
         }
         Children [
-            @stepping_button(SteppingCall::Enable, "Pause")
+            @stepping_button(SteppingCall::Pause, "Pause")
             --
             @stepping_button(SteppingCall::StepFrame, "Step")
             --
             @stepping_button(SteppingCall::ContinueFrame, "Continue")
             --
-            @stepping_button(SteppingCall::Disable, "Resume")
+            @stepping_button(SteppingCall::Resume, "Resume")
             --
             SteppingCursorLabel
             @caption("")
@@ -182,7 +182,7 @@ pub fn poll_remote_stepping(
     time: Option<Res<Time<Real>>>,
     connection: Res<RemoteConnection>,
     mut stepping: ResMut<RemoteStepping>,
-    mut state: ResMut<SteppingState>,
+    mut status: ResMut<SteppingStatus>,
 ) {
     let now = time.map(|time| time.elapsed()).unwrap_or_default();
     let stepping = &mut *stepping;
@@ -192,7 +192,7 @@ pub fn poll_remote_stepping(
         stepping.pending = None;
         stepping.requested = None;
         stepping.next_status = Duration::ZERO;
-        state.set_if_neq(SteppingState::Unknown);
+        status.set_if_neq(SteppingStatus::Unknown);
     }
     let Some(client) = connection.client().filter(|_| connected) else {
         return;
@@ -200,7 +200,7 @@ pub fn poll_remote_stepping(
 
     if let Some(mut pending) = stepping.pending.take() {
         match block_on(poll_once(&mut pending.task)) {
-            Some(result) => finish_stepping_call(&mut state, pending.call, result),
+            Some(result) => finish_stepping_call(&mut status, pending.call, result),
             None if now.saturating_sub(pending.started) >= REQUEST_TIMEOUT => {
                 warn!("the remote app did not answer `{}`", pending.call.method());
             }
@@ -211,7 +211,7 @@ pub fn poll_remote_stepping(
         }
     }
 
-    if *state == SteppingState::Unavailable {
+    if *status == SteppingStatus::Unavailable {
         stepping.requested = None;
         return;
     }
@@ -231,15 +231,15 @@ pub fn poll_remote_stepping(
 }
 
 fn finish_stepping_call(
-    state: &mut SteppingState,
+    status: &mut SteppingStatus,
     call: SteppingCall,
     result: Result<Value, BrpClientError>,
 ) {
     match result.map(serde_json::from_value::<BrpSteppingStatusResponse>) {
-        Ok(Ok(status)) => {
-            *state = SteppingState::Known {
-                enabled: status.enabled,
-                cursor: status.cursor,
+        Ok(Ok(response)) => {
+            *status = SteppingStatus::Known {
+                paused: response.enabled,
+                cursor: response.cursor,
             };
         }
         Ok(Err(error)) => warn!(
@@ -250,23 +250,23 @@ fn finish_stepping_call(
             if code == error_codes::METHOD_NOT_FOUND || code == error_codes::RESOURCE_ERROR =>
         {
             info!("the remote app cannot be stepped: {message}");
-            *state = SteppingState::Unavailable;
+            *status = SteppingStatus::Unavailable;
         }
         Err(error) => warn!("the remote app rejected `{}`: {error}", call.method()),
     }
 }
 
-/// Enables the stepping buttons that apply to the current [`SteppingState`], and shows the cursor.
+/// Enables the stepping buttons that apply to the current [`SteppingStatus`], and shows the cursor.
 pub fn sync_stepping_controls(
-    state: Res<SteppingState>,
+    status: Res<SteppingStatus>,
     buttons: Query<(Entity, &SteppingButton, Has<InteractionDisabled>)>,
     mut labels: Query<&mut Text, With<SteppingCursorLabel>>,
     mut commands: Commands,
 ) {
     for (entity, button, disabled) in &buttons {
-        let active = match (&*state, button.0) {
-            (SteppingState::Known { enabled, .. }, SteppingCall::Enable) => !enabled,
-            (SteppingState::Known { enabled, .. }, _) => *enabled,
+        let active = match (&*status, button.0) {
+            (SteppingStatus::Known { paused, .. }, SteppingCall::Pause) => !paused,
+            (SteppingStatus::Known { paused, .. }, _) => *paused,
             _ => false,
         };
         if active == disabled {
@@ -278,12 +278,12 @@ pub fn sync_stepping_controls(
         }
     }
 
-    let cursor = match &*state {
-        SteppingState::Known {
+    let cursor = match &*status {
+        SteppingStatus::Known {
             cursor: Some(BrpSteppingCursor { schedule, system }),
             ..
         } => format!("{schedule} / {system}"),
-        SteppingState::Unavailable => String::from("Stepping unavailable"),
+        SteppingStatus::Unavailable => String::from("Stepping unavailable"),
         _ => String::new(),
     };
     for mut text in &mut labels {
@@ -302,8 +302,8 @@ mod tests {
     use bevy_scene::WorldSceneExt;
     use serde_json::json;
 
-    fn finish(state: &mut SteppingState, result: Result<Value, BrpClientError>) {
-        finish_stepping_call(state, SteppingCall::Status, result);
+    fn finish(status: &mut SteppingStatus, result: Result<Value, BrpClientError>) {
+        finish_stepping_call(status, SteppingCall::Status, result);
     }
 
     fn cursor() -> BrpSteppingCursor {
@@ -315,9 +315,9 @@ mod tests {
 
     #[test]
     fn reads_the_stepping_status() {
-        let mut state = SteppingState::Unknown;
+        let mut status = SteppingStatus::Unknown;
         finish(
-            &mut state,
+            &mut status,
             Ok(json!({
                 "enabled": true,
                 "schedules": ["Update"],
@@ -325,21 +325,21 @@ mod tests {
             })),
         );
         assert_eq!(
-            state,
-            SteppingState::Known {
-                enabled: true,
+            status,
+            SteppingStatus::Known {
+                paused: true,
                 cursor: Some(cursor()),
             }
         );
 
         finish(
-            &mut state,
+            &mut status,
             Ok(json!({ "enabled": false, "schedules": [], "cursor": null })),
         );
         assert_eq!(
-            state,
-            SteppingState::Known {
-                enabled: false,
+            status,
+            SteppingStatus::Known {
+                paused: false,
                 cursor: None,
             }
         );
@@ -347,38 +347,38 @@ mod tests {
 
     #[test]
     fn a_missing_method_makes_stepping_unavailable() {
-        let mut state = SteppingState::Unknown;
+        let mut status = SteppingStatus::Unknown;
         finish(
-            &mut state,
+            &mut status,
             Err(BrpClientError::Remote(BrpError {
                 code: error_codes::METHOD_NOT_FOUND,
                 message: "no method".to_string(),
                 data: None,
             })),
         );
-        assert_eq!(state, SteppingState::Unavailable);
+        assert_eq!(status, SteppingStatus::Unavailable);
 
-        let mut state = SteppingState::Unknown;
+        let mut status = SteppingStatus::Unknown;
         finish(
-            &mut state,
+            &mut status,
             Err(BrpClientError::Remote(BrpError {
                 code: error_codes::RESOURCE_ERROR,
                 message: "no Stepping resource".to_string(),
                 data: None,
             })),
         );
-        assert_eq!(state, SteppingState::Unavailable);
+        assert_eq!(status, SteppingStatus::Unavailable);
 
-        let mut state = SteppingState::Unknown;
+        let mut status = SteppingStatus::Unknown;
         finish(
-            &mut state,
+            &mut status,
             Err(BrpClientError::InvalidResponse("dropped".to_string())),
         );
-        assert_eq!(state, SteppingState::Unknown);
+        assert_eq!(status, SteppingStatus::Unknown);
     }
 
     #[test]
-    fn buttons_follow_the_stepping_state() {
+    fn buttons_follow_the_stepping_status() {
         let mut app = App::new();
         app.add_plugins((
             TaskPoolPlugin::default(),
@@ -387,7 +387,7 @@ mod tests {
         ));
         app.init_asset::<bevy_image::Image>();
         app.init_asset::<bevy_text::Font>();
-        app.init_resource::<SteppingState>();
+        app.init_resource::<SteppingStatus>();
         app.add_systems(bevy_app::Update, sync_stepping_controls);
         app.world_mut().spawn_scene(stepping_controls()).unwrap();
 
@@ -414,15 +414,15 @@ mod tests {
         );
         assert!(active(&mut app).is_empty());
 
-        app.insert_resource(SteppingState::Known {
-            enabled: false,
+        app.insert_resource(SteppingStatus::Known {
+            paused: false,
             cursor: None,
         });
         app.update();
-        assert_eq!(active(&mut app), [SteppingCall::Enable]);
+        assert_eq!(active(&mut app), [SteppingCall::Pause]);
 
-        app.insert_resource(SteppingState::Known {
-            enabled: true,
+        app.insert_resource(SteppingStatus::Known {
+            paused: true,
             cursor: Some(cursor()),
         });
         app.update();
@@ -430,7 +430,7 @@ mod tests {
             active(&mut app),
             [
                 SteppingCall::ContinueFrame,
-                SteppingCall::Disable,
+                SteppingCall::Resume,
                 SteppingCall::StepFrame,
             ]
         );
@@ -442,7 +442,7 @@ mod tests {
             "Update / demo::system"
         );
 
-        app.insert_resource(SteppingState::Unavailable);
+        app.insert_resource(SteppingStatus::Unavailable);
         app.update();
         assert!(active(&mut app).is_empty());
     }
