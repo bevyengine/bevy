@@ -418,12 +418,6 @@ impl NumberInputPrecision {
         let factor = f64::powf(10.0_f64, self.0 as f64);
         (value * factor).round() / factor
     }
-
-    /// Round the value in display units, then convert back to canonical units.
-    fn round(&self, units: &dyn UnitsFormat, value: NumericValue) -> NumericValue {
-        let display = self.round_f64(units.canonical_to_display(value.as_f64()));
-        NumericValue::from_f64(units.display_to_canonical(display), value.format())
-    }
 }
 
 impl Default for NumberInputPrecision {
@@ -443,15 +437,13 @@ impl Default for NumberInputPrecision {
 pub struct NumberInputStep(pub f64);
 
 impl NumberInputStep {
-    /// Snap the value to the nearest multiple of the step in display units, then convert back to
-    /// canonical units. Steps that are not positive and finite leave the value unchanged.
-    fn snap(&self, units: &dyn UnitsFormat, value: NumericValue) -> NumericValue {
+    /// Snap a value in display units to the nearest multiple of the step. Steps that are not
+    /// positive and finite leave the value unchanged.
+    fn snap_f64(&self, display: f64) -> f64 {
         if !(self.0.is_finite() && self.0 > 0.0) {
-            return value;
+            return display;
         }
-        let display = units.canonical_to_display(value.as_f64());
-        let snapped = (display / self.0).round() * self.0;
-        NumericValue::from_f64(units.display_to_canonical(snapped), value.format())
+        (display / self.0).round() * self.0
     }
 }
 
@@ -1356,18 +1348,18 @@ fn dragged_value(
     snap_to_step: bool,
     precision: Option<&NumberInputPrecision>,
 ) -> NumericValue {
-    let display = units.canonical_to_display(base.as_f64()) + value_offset;
+    let mut display = units.canonical_to_display(base.as_f64()) + value_offset;
+    if snap_to_step && let Some(step) = step {
+        display = step.snap_f64(display);
+    }
+    if let Some(precision) = precision {
+        display = precision.round_f64(display);
+    }
     let mut value = NumericValue::from_f64(units.display_to_canonical(display), base.format());
 
     // Dragging is confined to the soft range; typing can still exceed it.
     if let Some(SoftLimit(range)) = soft_limit {
         value = range.clamp(value);
-    }
-    if snap_to_step && let Some(step) = step {
-        value = step.snap(units, value);
-    }
-    if let Some(precision) = precision {
-        value = precision.round(units, value);
     }
     value
 }
@@ -2223,14 +2215,31 @@ mod tests {
         }
     }
 
+    fn round(units: &dyn UnitsFormat, value: NumericValue, precision: i32) -> NumericValue {
+        let precision = NumberInputPrecision(precision);
+        dragged_value(units, value, 0.0, None, None, false, Some(&precision))
+    }
+
+    fn snap(units: &dyn UnitsFormat, value: NumericValue, step: f64) -> NumericValue {
+        dragged_value(
+            units,
+            value,
+            0.0,
+            None,
+            Some(&NumberInputStep(step)),
+            true,
+            None,
+        )
+    }
+
     #[test]
     fn precision_rounds_in_display_units() {
         // 0.31 rad is about 17.761973°; precision 2 should round to hundredths of a degree.
-        let rounded = NumberInputPrecision(2).round(&AngleDegrees, NumericValue::F32(0.31));
+        let rounded = round(&AngleDegrees, NumericValue::F32(0.31), 2);
         assert_eq!(format_value(&AngleDegrees, rounded, false), "17.76°");
 
         // Negative precision rounds integers to tens.
-        let rounded = NumberInputPrecision(-1).round(&Dimensionless, NumericValue::I32(1234));
+        let rounded = round(&Dimensionless, NumericValue::I32(1234), -1);
         assert_eq!(rounded, NumericValue::I32(1230));
     }
 
@@ -2259,45 +2268,52 @@ mod tests {
         }
 
         // Precision 1 rounds to tenths of a percent.
-        let rounded = NumberInputPrecision(1).round(&RatioPercent, NumericValue::F32(0.12345));
+        let rounded = round(&RatioPercent, NumericValue::F32(0.12345), 1);
         assert_eq!(format_value(&RatioPercent, rounded, false), "12.3%");
     }
 
     #[test]
     fn step_snaps_to_nearest_multiple() {
-        let step = NumberInputStep(0.5);
         assert_eq!(
-            step.snap(&Dimensionless, NumericValue::F64(78.09567)),
+            snap(&Dimensionless, NumericValue::F64(78.09567), 0.5),
             NumericValue::F64(78.0)
         );
         assert_eq!(
-            step.snap(&Dimensionless, NumericValue::F64(78.3)),
+            snap(&Dimensionless, NumericValue::F64(78.3), 0.5),
             NumericValue::F64(78.5)
         );
         assert_eq!(
-            step.snap(&Dimensionless, NumericValue::F64(-1.3)),
+            snap(&Dimensionless, NumericValue::F64(-1.3), 0.5),
             NumericValue::F64(-1.5)
         );
         assert_eq!(
-            step.snap(&Dimensionless, NumericValue::I32(7)),
+            snap(&Dimensionless, NumericValue::I32(7), 0.5),
             NumericValue::I32(7)
         );
     }
 
     #[test]
     fn step_snap_then_precision_removes_noise() {
-        let snapped = NumberInputStep(0.05).snap(&Dimensionless, NumericValue::F64(0.138));
+        let snapped = snap(&Dimensionless, NumericValue::F64(0.138), 0.05);
         assert!((snapped.as_f64() - 0.15).abs() < 1e-12);
-        let rounded = NumberInputPrecision(2).round(&Dimensionless, snapped);
-        assert_eq!(rounded, NumericValue::F64(0.15));
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.138),
+            0.0,
+            None,
+            Some(&NumberInputStep(0.05)),
+            true,
+            Some(&NumberInputPrecision(2)),
+        );
+        assert_eq!(value, NumericValue::F64(0.15));
     }
 
     #[test]
     fn step_snaps_in_display_units() {
-        let snapped = NumberInputStep(5.0).snap(&AngleDegrees, NumericValue::F32(0.31));
+        let snapped = snap(&AngleDegrees, NumericValue::F32(0.31), 5.0);
         assert_eq!(format_value(&AngleDegrees, snapped, false), "20°");
 
-        let snapped = NumberInputStep(10.0).snap(&RatioPercent, NumericValue::F32(0.437));
+        let snapped = snap(&RatioPercent, NumericValue::F32(0.437), 10.0);
         assert_eq!(format_value(&RatioPercent, snapped, false), "40%");
     }
 
@@ -2386,8 +2402,23 @@ mod tests {
     fn invalid_step_leaves_value_unchanged() {
         for step in [0.0, -1.0, f64::NAN] {
             let value = NumericValue::F64(1.2345);
-            assert_eq!(NumberInputStep(step).snap(&Dimensionless, value), value);
+            assert_eq!(snap(&Dimensionless, value, step), value);
         }
+    }
+
+    #[test]
+    fn drag_snaps_within_soft_limit() {
+        let soft_limit = SoftLimit::f64(0.0..=78.2);
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(78.0),
+            0.3,
+            Some(&soft_limit),
+            Some(&NumberInputStep(0.5)),
+            true,
+            None,
+        );
+        assert_eq!(value, NumericValue::F64(78.2));
     }
 
     #[test]
