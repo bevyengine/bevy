@@ -90,10 +90,9 @@ const DEFAULT_PAINT_LAYERS: [PaintLayer; 12] = [
     INLINE_IMAGE_PAINT_LAYER,
 ];
 
-/// List of the local Z layers for node.
+/// Global list of the paint layers available to UI Nodes.
 /// Layers are painted in list order, so each layer appears on top of the layers before it.
-/// If the layer for a builtin renderable element isn't present, that
-/// element won't be drawn.
+/// If the layer for a builtin renderable element isn't present, that element won't be drawn.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource)]
 #[extract_app(RenderApp)]
 pub struct PaintOrder(pub IndexSet<PaintLayer>);
