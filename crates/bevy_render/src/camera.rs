@@ -470,6 +470,8 @@ pub struct ExtractedCamera {
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
+    /// Whether the main texture holds HDR values, because the camera has
+    /// [`Hdr`] or renders to an HDR display target.
     pub hdr: bool,
     /// Whether the camera tonemaps in its material shaders instead of in the
     /// tonemapping pass.
@@ -693,7 +695,7 @@ pub fn extract_cameras(
                     exposure: exposure
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
-                    hdr,
+                    hdr: hdr_output,
                     tonemap_in_shader: in_shader,
                 },
                 ResolvedCompositingSpace(compositing_space.copied()),
