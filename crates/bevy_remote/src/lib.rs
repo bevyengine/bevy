@@ -584,6 +584,25 @@
 //! Clients are expected to fetch this map once and cache it, which is why the server-side
 //! `inspect_cached` method has no remote counterpart.
 //!
+//! ### `input.click`
+//!
+//! Click on a UI node, or at a point in a window, as a window backend would report it. The cursor
+//! moves to the target, then the button is pressed and released, each on its own frame. A click
+//! sent while another is pending follows it. A node hidden by a scrolled ancestor is scrolled into
+//! view first, and the cursor waits a frame for layout to move it.
+//!
+//! `params`:
+//! - `entity`: The ID of a UI node to click at the center of. Give either this, or `window` and
+//!   `position`.
+//! - `window`: The ID of a window to click in.
+//! - `position`: The point to click in `window`, in physical pixels from its top left, as an array
+//!   of two numbers.
+//! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
+//! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
+//!
+//! `result`: An object with a `frame` field: the frame that reads the button's release, as the
+//! `frame_count` diagnostic counts frames.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -643,13 +662,16 @@ extern crate alloc;
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
+use bevy_dev_tools::synthetic_input::{write_due_input, InputQueue};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     entity::Entity,
+    message::Messages,
     observer::On,
     resource::Resource,
     schedule::{
-        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
-        ScheduleLabel, SystemSet,
+        common_conditions::resource_exists, InternedScheduleLabel, IntoScheduleConfigs,
+        ScheduleBuildMetadata, ScheduleBuilt, ScheduleLabel, SystemSet,
     },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
@@ -658,6 +680,7 @@ use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
 use bevy_render::{Render, RenderApp, RenderScheduleOrder, RenderStartup};
 use bevy_utils::prelude::default;
+use bevy_window::WindowEvent;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
@@ -667,6 +690,7 @@ pub mod builtin_methods;
 pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod input_methods;
 pub mod inspection_methods;
 pub mod schemas;
 #[cfg(feature = "bevy_debug_stepping")]
@@ -919,6 +943,19 @@ impl RemotePlugin {
         )
         .add_stepping_methods(to_main)
         .add_inspection_methods(to_main)
+        .add_input_methods(to_main)
+    }
+
+    /// Add the `input.*` BRP methods, which act on the main world only.
+    fn add_input_methods(self, to_main: bool) -> Self {
+        if !to_main {
+            return self;
+        }
+        self.with_method(
+            input_methods::BRP_CLICK_METHOD,
+            input_methods::process_remote_click_request,
+            to_main,
+        )
     }
 
     /// Add the inspection BRP methods.
@@ -1061,6 +1098,22 @@ impl Plugin for RemotePlugin {
                     remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
+
+        if app
+            .world()
+            .resource::<RemoteMethods>()
+            .0
+            .contains_key(input_methods::BRP_CLICK_METHOD)
+        {
+            // After requests, so what a request queues for this frame is written in time.
+            app.init_resource::<InputQueue>().add_systems(
+                RemoteLast,
+                write_due_input
+                    .after(RemoteSystems::ProcessRequests)
+                    .run_if(resource_exists::<FrameCount>)
+                    .run_if(resource_exists::<Messages<WindowEvent>>),
+            );
+        }
 
         #[cfg(feature = "bevy_render")]
         {
