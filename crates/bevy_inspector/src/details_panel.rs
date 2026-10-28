@@ -38,8 +38,8 @@ use bevy_feathers::{
     controls::{
         list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputPrecision,
-        NumberInputStep, OptionIndex, ScrollbarGutter,
+        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputStep, OptionIndex,
+        ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
@@ -334,6 +334,15 @@ impl FieldAnnotations {
         }
     }
 
+    /// Reads the annotations a field inherits from its type, which are those of the type except
+    /// its display name.
+    fn of_field_type(info: Option<&TypeInfo>) -> Self {
+        Self {
+            display_name: None,
+            ..Self::of_type(info)
+        }
+    }
+
     /// The name shown for the enum variant `name`.
     fn variant_label<'a>(&self, name: &'a str) -> &'a str {
         self.variant_names
@@ -592,18 +601,6 @@ pub fn inspector_details_toggled(
 /// `value` maps the value the widget last showed to the new one, or returns `None` to skip the
 /// change. The feathers controls do not update themselves when the user changes them, so the
 /// widget only shows the new value once it is written back.
-/// Rounds dragged values to the decimal places of `step`, so dragging lands on the same grid as
-/// the step buttons.
-fn step_precision(step: f64) -> NumberInputPrecision {
-    let places = (0..=6)
-        .find(|&places| {
-            let scaled = step * 10f64.powi(places);
-            (scaled - scaled.round()).abs() < 1e-9 * scaled.abs().max(1.0)
-        })
-        .unwrap_or(6);
-    NumberInputPrecision(places)
-}
-
 fn emit_field_edit(
     widget: Entity,
     value: impl FnOnce(&FieldValue) -> Option<FieldValue>,
@@ -1762,9 +1759,7 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                 world.entity_mut(entity).insert(HardLimit(limit.clone()));
             }
             if let Some(step) = entry.annotations.step {
-                world
-                    .entity_mut(entity)
-                    .insert((NumberInputStep(step), step_precision(step)));
+                world.entity_mut(entity).insert(NumberInputStep(step));
             }
             FieldWidget {
                 entity,
@@ -2041,10 +2036,7 @@ fn walk_entries(
         );
         return walk.entries;
     }
-    let root = FieldAnnotations {
-        display_name: None,
-        ..FieldAnnotations::of_type(value.get_represented_type_info())
-    };
+    let root = FieldAnnotations::of_field_type(value.get_represented_type_info());
     let (value, path, annotations) = flatten_newtypes(value, String::new(), root);
     let label = |name: &str| annotations.display_name.unwrap_or(name).to_string();
     let editable = !annotations.read_only;
@@ -2162,8 +2154,9 @@ impl Walk<'_> {
         if !on_target {
             return;
         }
-        let annotations =
-            annotations.or(FieldAnnotations::of_type(value.get_represented_type_info()));
+        let annotations = annotations.or(FieldAnnotations::of_field_type(
+            value.get_represented_type_info(),
+        ));
         let (value, path, mut annotations) = flatten_newtypes(value, path, annotations);
         annotations.read_only |= !editable;
         let editable = !annotations.read_only;
@@ -2386,7 +2379,9 @@ fn flatten_newtypes(
             .map(UnnamedField::custom_attributes);
         annotations = annotations
             .or(annotations_of(inner))
-            .or(FieldAnnotations::of_type(field.get_represented_type_info()));
+            .or(FieldAnnotations::of_field_type(
+                field.get_represented_type_info(),
+            ));
         path = join(&path, "0");
         value = field;
     }
@@ -2619,13 +2614,6 @@ fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn step_precision_matches_step_decimals() {
-        assert_eq!(step_precision(1.0).0, 0);
-        assert_eq!(step_precision(0.5).0, 1);
-        assert_eq!(step_precision(0.05).0, 2);
-        assert_eq!(step_precision(0.125).0, 3);
-    }
     use super::*;
     use crate::{column_split::ColumnSplitHandle, entity_tree::InspectorTreeView, InspectorPlugin};
     use alloc::collections::VecDeque;
@@ -5171,12 +5159,6 @@ mod tests {
             world.get::<NumberInputStep>(speed).map(|step| step.0),
             Some(0.5)
         );
-        assert_eq!(
-            world
-                .get::<NumberInputPrecision>(speed)
-                .map(|precision| precision.0),
-            Some(1)
-        );
         assert!(has_text(world, speed, "m/s"));
 
         let jump = widget_at(&app, "jump").unwrap();
@@ -5227,7 +5209,7 @@ mod tests {
         let entries = field_entries(&annotated(), &TypeRegistry::new());
 
         let caps = entry(&entries, "caps");
-        assert_eq!(caps.label, "Limits");
+        assert_eq!(caps.label, "caps");
         assert!(caps.annotations.read_only);
         assert_eq!(
             entry(&entries, "caps.max").value,
@@ -5244,6 +5226,9 @@ mod tests {
         let entity = app.world_mut().spawn(annotated()).id();
         edit_component::<Annotated>(&mut app, entity, "caps.max", float(4.0));
         assert_eq!(app.world().get::<Annotated>(entity).unwrap().caps.max, 0.0);
+        assert!(inspect_components(app.world(), Some(entity))
+            .iter()
+            .any(|component| component.name == "Movement Settings"));
     }
 
     #[test]
