@@ -1,6 +1,8 @@
+import bevy_pbr::atmosphere::functions::directional_light_transmittance;
 import bevy_pbr::render::pbr_lighting::D_GGX;
 import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u, sample_uniform_sphere};
 import bevy_render::maths::{PI_2, orthonormalize};
+import package::scene::atmosphere::{atmosphere, atmosphere_transmittance_lut, atmosphere_transmittance_sampler};
 import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, point_lights, rect_lights, environment_map, environment_map_sampler, environment_map_light, LightSource, light_source_kind, emissive_mesh_triangle_count, LIGHT_SOURCE_KIND_EMISSIVE_MESH, LIGHT_SOURCE_KIND_DIRECTIONAL, LIGHT_SOURCE_KIND_POINT, LIGHT_SOURCE_KIND_RECT, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
@@ -103,7 +105,7 @@ struct LightSample {
 /// Every kind of light is described by the same data, and shaded by the same formula in
 /// `calculate_resolved_light_contribution`.
 struct ResolvedLightSample {
-    /// If w = 1, the sample is a point on a light. If w = 0, it's a direction towards a light.
+    /// If w = 1, the sample is a point on a light. If w = 0, it's a direction towards a directional light.
     world_position: vec4<f32>,
     /// The emitting surface's normal. Unused when `emission_cosine_exponent` is 0.
     world_normal: vec3<f32>,
@@ -289,6 +291,8 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
 /// Shades every kind of light with the same formula:
 ///
 /// `radiance * saturate(dot(-wi, world_normal))^emission_cosine_exponent * cone(dot(-wi, emission_axis)) / d^2`
+///
+/// Directional lights are also attenuated by the view's atmosphere, if it has one.
 fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSample, ray_origin: vec3<f32>, origin_world_normal: vec3<f32>) -> LightContribution {
     let ray = resolved_light_sample.world_position.xyz - (resolved_light_sample.world_position.w * ray_origin);
     let light_distance = length(ray);
@@ -300,7 +304,13 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     var emission = select(1.0, cos_theta_light, resolved_light_sample.emission_cosine_exponent == 1.0);
     emission *= emission_cone_attenuation(dot(-wi, resolved_light_sample.emission_axis), resolved_light_sample.cone_cos_inner, resolved_light_sample.cone_cos_outer);
 
-    let radiance = resolved_light_sample.radiance * (emission / light_distance_squared);
+    var radiance = resolved_light_sample.radiance * (emission / light_distance_squared);
+    // Skips views without an atmosphere, non-directional lights, and lights below the tangent plane, where the BRDF is zero.
+    if atmosphere.outer_radius > 0.0 && resolved_light_sample.world_position.w == 0.0 && dot(wi, origin_world_normal) > 0.0 {
+        // Light samples are points on the sun's disk, so they average to its visible fraction.
+        radiance *= directional_light_transmittance(atmosphere, atmosphere_transmittance_lut, atmosphere_transmittance_sampler, ray_origin, wi, 0.0);
+    }
+
     let inverse_solid_angle_pdf = resolved_light_sample.inverse_pdf * (cos_theta_light / light_distance_squared);
 
     return LightContribution(radiance, resolved_light_sample.inverse_pdf, inverse_solid_angle_pdf, wi, resolved_light_sample.brdf_rays_can_hit);

@@ -1,5 +1,4 @@
 import bevy_render::view::View;
-import bevy_pbr::atmosphere::types::Atmosphere;
 import bevy_pbr::prepass::bindings::PreviousViewUniforms;
 import package::scene::sampling::{LightSample, NULL_LIGHT_ID};
 
@@ -18,10 +17,7 @@ enable wgpu_ray_query;
 @group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
 @group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
-// Views without an atmosphere bind fallbacks with a zero `outer_radius`.
-@group(1) @binding(10) var atmosphere_transmittance_lut: texture_2d<f32>;
-@group(1) @binding(11) var atmosphere_transmittance_sampler: sampler;
-@group(1) @binding(12) var<uniform> atmosphere: Atmosphere;
+// Bindings 10-12 are the atmosphere, see `scene/atmosphere.wesl`.
 
 @if(RESTIR) {
 @group(1) @binding(13) var previous_gbuffer: texture_2d<u32>;
