@@ -13,17 +13,17 @@ use core::ops::Range;
 /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
 ///
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-/// Nodes that aren't part of the [`UiStack`], such as [`GhostNode`]s, are [`ComputedStackIndex::HIDDEN`]:
-/// they are neither displayed nor interactable.
+///
+/// Nodes that aren't part of the layout, such as [`GhostNode`]s, are given [`ComputedStackIndex::HIDDEN`].
 #[derive(Component, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub struct ComputedStackIndex(u32);
 
 impl ComputedStackIndex {
-    /// The stack index of a node that isn't part of the [`UiStack`], and so is neither displayed nor interactable.
+    /// Sentinel value used to represent nodes that aren't part of the layout, which shouldn't be drawn or interacted with.
     pub const HIDDEN: Self = Self(u32::MAX);
 
-    /// The node's index in the [`UiStack`], or `None` if the node is [`ComputedStackIndex::HIDDEN`].
+    /// The node's stack index, or `None` if the node isn't part of the layout.
     pub fn get(&self) -> Option<u32> {
         (*self != Self::HIDDEN).then_some(self.0)
     }
