@@ -2868,6 +2868,16 @@ sure it's recognized as a markdown link."
 ///
 /// Use [`GlobalZIndex`] if you need to order separate UI hierarchies or nodes that are
 /// not siblings in a given UI hierarchy.
+///
+/// Changing or re-inserting the `ZIndex` of a non-root node never reorders it relative to
+/// its siblings. On a root node, `ZIndex` also orders the node's hierarchy against other
+/// hierarchies on the same [`GlobalZIndex`] layer, and adding, changing or removing it brings
+/// the hierarchy to the front of the hierarchies that share its `ZIndex`. See [`GlobalZIndex`]
+/// for details.
+///
+/// On a [`GhostNode`] the presence of the component matters: a `GhostNode` with a `ZIndex`
+/// stacks its children as a group, while one without lets its children stack as if they
+/// were children of the `GhostNode`'s parent.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ZIndex(pub i32);
@@ -2877,16 +2887,27 @@ pub struct ZIndex(pub i32);
 /// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
-/// The order of nodes with the same `GlobalZIndex` is stable between frames.
 ///
-/// Within a UI hierarchy, nodes on the same global layer retain their local stacking order.
-/// Between separate root hierarchies, ties on the same global layer are decided by their roots in order by:
+/// A node with a `GlobalZIndex` is placed on that layer together with its descendants, up to any
+/// nested nodes with their own `GlobalZIndex`. Within a UI hierarchy, nodes on the same layer keep
+/// their hierarchical order: `ZIndex` first, then the order of the `Children`.
 ///
-/// * The node with the higher `ZIndex`.
-/// * The node that was newly added this frame.
-/// * The node with a changed `GlobalZIndex` or `ZIndex`.
+/// The order between separate root hierarchies on the same layer is decided per hierarchy, never per node,
+/// so all the nodes of a hierarchy on a layer move together. Hierarchies are ordered by:
 ///
-/// Otherwise the order is preserved from the previous frame.
+/// * The root's `ZIndex`.
+/// * Hierarchies that are new or changed this frame are placed above those that are not.
+/// * Otherwise, the order from the previous frame is preserved.
+///
+/// A hierarchy counts as changed when a `ZIndex` or `GlobalZIndex` is added to, changed on or removed from
+/// its root, or when a `GlobalZIndex` is added to, changed on or removed from any of its nodes.
+/// Re-inserting a component with the same value counts as a change, so inserting `GlobalZIndex(0)` on a root
+/// brings its hierarchy to the front of its layer. The `ZIndex` of a non-root node only orders it among
+/// its siblings and has no effect on the order between hierarchies.
+///
+/// The children of a root [`GhostNode`] are treated as roots: their `ZIndex` orders them against other root
+/// hierarchies (unless the `GhostNode` has a `ZIndex` of its own), and changes to them, or new children, count as
+/// changes to the `GhostNode`'s hierarchy.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
@@ -3588,6 +3609,13 @@ pub struct FixedNode;
 /// - A `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their nearest non-ghost ancestor,
 ///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
 /// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
+/// - A `GhostNode` is never added to the [`UiStack`](crate::UiStack) and its `ComputedStackIndex` is not updated.
+/// - During z-ordering a `GhostNode` without a `ZIndex` or `GlobalZIndex` is skipped: its children are stacked
+///   as if they were children of the `GhostNode`'s parent.
+/// - A `GhostNode` with a `ZIndex` or `GlobalZIndex` stacks its descendants as a group. The group is ordered among
+///   the `GhostNode`'s siblings by its `ZIndex` and placed on its `GlobalZIndex`'s layer, while the descendants'
+///   own z-indices order them within the group.
+/// - For z-ordering, a root `GhostNode`'s children are treated as root nodes. See [`GlobalZIndex`].
 #[derive(Component, Debug, Copy, Clone, Reflect, Default)]
 #[reflect(Component, Debug, Clone)]
 #[require(Node)]
