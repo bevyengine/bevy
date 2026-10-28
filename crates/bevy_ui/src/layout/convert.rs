@@ -555,7 +555,7 @@ mod tests {
             align_items: AlignItems::Baseline,
             align_self: AlignSelf::Start,
             align_content: AlignContent::SpaceAround,
-            justify_items: JustifyItems::Default,
+            justify_items: JustifyItems::Normal,
             justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
             direction: InlineDirection::Ltr,

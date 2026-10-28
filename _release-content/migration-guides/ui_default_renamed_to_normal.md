@@ -1,9 +1,9 @@
 ---
-title: `AlignItems::Default`, `JustifyItems::Default`, `AlignContent::Default`, and `JustifyContent::Default` are renamed to `::Normal``
+title: "`AlignItems::Default`, `JustifyItems::Default`, `AlignContent::Default`, and `JustifyContent::Default` are renamed to `::Normal``"
 pull_requests: [26344]
 ---
 
-To better match the CSS spec and taffy, we're renaming several enum variants to Normal. 
+To better match the CSS spec and taffy, we're renaming several enum variants to Normal.
 
 `AlignItems::Default` is now `AlignItems::Normal`
 `JustifyItems::Default` is now `JustifyItems::Normal`
