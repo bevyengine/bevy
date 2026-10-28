@@ -3594,7 +3594,7 @@ pub struct FixedNode;
 ///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
 /// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
 /// - A `GhostNode` is never added to the [`UiStack`](crate::UiStack) and its `ComputedStackIndex` is
-///   [`ComputedStackIndex::HIDDEN`](crate::ComputedStackIndex::HIDDEN).
+///   [`ComputedStackIndex::ABSENT`](crate::ComputedStackIndex::ABSENT).
 /// - During z-ordering a `GhostNode` without a `ZIndex` or `GlobalZIndex` is skipped: its children are stacked
 ///   as if they were children of the `GhostNode`'s parent.
 /// - A `GhostNode` with a `ZIndex` or `GlobalZIndex` stacks its descendants as a group. The group is ordered among

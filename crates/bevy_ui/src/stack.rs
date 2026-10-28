@@ -14,24 +14,24 @@ use core::ops::Range;
 ///
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
 ///
-/// Nodes that aren't part of the layout, such as [`GhostNode`]s, are given [`ComputedStackIndex::HIDDEN`].
+/// Nodes that aren't part of the layout, such as [`GhostNode`]s, are given [`ComputedStackIndex::ABSENT`].
 #[derive(Component, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub struct ComputedStackIndex(u32);
 
 impl ComputedStackIndex {
     /// Sentinel value used to represent nodes that aren't part of the layout, which shouldn't be drawn or interacted with.
-    pub const HIDDEN: Self = Self(u32::MAX);
+    pub const ABSENT: Self = Self(u32::MAX);
 
     /// The node's stack index, or `None` if the node isn't part of the layout.
     pub fn get(&self) -> Option<u32> {
-        (*self != Self::HIDDEN).then_some(self.0)
+        (*self != Self::ABSENT).then_some(self.0)
     }
 }
 
 impl Default for ComputedStackIndex {
     fn default() -> Self {
-        Self::HIDDEN
+        Self::ABSENT
     }
 }
 
@@ -194,7 +194,7 @@ pub fn ui_stack_system(
         }
     }
     for mut stack_index in ghost_query.iter_mut() {
-        stack_index.set_if_neq(ComputedStackIndex::HIDDEN);
+        stack_index.set_if_neq(ComputedStackIndex::ABSENT);
     }
 
     child_buffer.clear();
@@ -311,6 +311,55 @@ fn update_uistack_recursive<'a>(
 
     child_buffer.truncate(start);
     changed
+}
+
+#[cfg(test)]
+mod review_repros {
+    use super::*;
+
+    #[test]
+    fn changed_root_ghost_child_with_nonzero_zindex_is_raised() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+        let ghost = world.spawn(GhostNode).id();
+        let child = world
+            .spawn((Node::default(), ChildOf(ghost), ZIndex(1)))
+            .id();
+        schedule.run(&mut world);
+        let root = world.spawn((Node::default(), ZIndex(1))).id();
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![child, root]
+        );
+        world.entity_mut(child).insert(ZIndex(1));
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![root, child]
+        );
+    }
+
+    #[test]
+    fn new_root_above_existing_ghost_child_with_negative_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+        let ghost = world.spawn(GhostNode).id();
+        let child = world
+            .spawn((Node::default(), ChildOf(ghost), ZIndex(-1)))
+            .id();
+        schedule.run(&mut world);
+        let root = world.spawn((Node::default(), ZIndex(-1))).id();
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![child, root]
+        );
+    }
 }
 
 #[cfg(test)]
