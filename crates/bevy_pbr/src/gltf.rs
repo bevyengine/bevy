@@ -83,6 +83,7 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         #[cfg(feature = "pbr_transmission_textures")]
         thickness_texture: material.thickness_texture.clone(),
         ior,
+        dispersion: material.dispersion,
         attenuation_distance: material.attenuation_distance,
         attenuation_color: material.attenuation_color,
         normal_map_channel: material.normal_map_channel.clone(),

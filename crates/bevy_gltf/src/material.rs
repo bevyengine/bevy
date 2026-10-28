@@ -97,6 +97,9 @@ pub struct GltfMaterial {
     /// relative to air even under a clearcoat, as in `KHR_materials_clearcoat`.
     pub ior: f32,
 
+    /// The strength of chromatic dispersion. Corresponds to `KHR_materials_dispersion`.
+    pub dispersion: f32,
+
     /// How far, on average, light travels through the volume beneath the material's
     /// surface before being absorbed.
     pub attenuation_distance: f32,
@@ -219,6 +222,7 @@ impl Default for GltfMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
+            dispersion: 0.0,
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_channel: UvChannel::Uv0,
