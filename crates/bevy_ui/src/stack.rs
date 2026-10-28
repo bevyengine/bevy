@@ -1457,4 +1457,100 @@ mod tests {
         schedule.run(&mut world);
         assert!(world.resource::<UiStack>().iter().eq([b, a]));
     }
+
+    #[test]
+    fn removing_zindex_from_root_with_global_zindex_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world
+            .spawn((Node::default(), GlobalZIndex(0), ZIndex(0)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+
+        world.entity_mut(a).remove::<ZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, a]));
+    }
+
+    #[test]
+    fn removing_global_zindex_from_root_with_zindex_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world
+            .spawn((Node::default(), GlobalZIndex(0), ZIndex(0)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+
+        world.entity_mut(a).remove::<GlobalZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, a]));
+    }
+
+    #[test]
+    fn adding_zindex_to_root_with_global_zindex_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn((Node::default(), GlobalZIndex(0))).id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, a]));
+    }
+
+    #[test]
+    fn adding_global_zindex_to_root_with_zindex_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn((Node::default(), ZIndex(0))).id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+
+        world.entity_mut(a).insert(GlobalZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, a]));
+    }
 }
