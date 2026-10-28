@@ -1553,4 +1553,312 @@ mod tests {
         schedule.run(&mut world);
         assert!(world.resource::<UiStack>().iter().eq([b, a]));
     }
+
+    #[test]
+    fn changed_nested_global_zindex_raises_its_siblings_with_it() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+        let b = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let c = world.spawn((Node::default(), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b, c]));
+
+        world.entity_mut(a).insert(GlobalZIndex(1));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, c, a, b]));
+    }
+
+    #[test]
+    fn changed_nested_zindex_does_not_raise_its_tree() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r), ZIndex(0))).id();
+
+        schedule.run(&mut world);
+
+        let c = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c]));
+
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c]));
+    }
+
+    #[test]
+    fn changed_nested_zindex_does_not_reorder_siblings() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r), ZIndex(0))).id();
+        let b = world.spawn((Node::default(), ChildOf(r), ZIndex(0))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+    }
+
+    #[test]
+    fn changed_zindex_below_transparent_ghost_does_not_raise_its_tree() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let g = world.spawn((GhostNode, ChildOf(r))).id();
+        let a = world.spawn((Node::default(), ChildOf(g), ZIndex(0))).id();
+
+        schedule.run(&mut world);
+
+        let c = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c]));
+
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c]));
+    }
+
+    #[test]
+    fn changed_grouped_root_ghost_child_raises_its_group() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn((GhostNode, ZIndex(0))).id();
+        let w1 = world.spawn((Node::default(), ChildOf(g))).id();
+        let w2 = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([w1, w2, r]));
+
+        world.entity_mut(w1).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, w1, w2]));
+    }
+
+    #[test]
+    fn changed_root_ghost_zindex_raises_its_children_as_a_group() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn((GhostNode, ZIndex(0))).id();
+        let w1 = world.spawn((Node::default(), ChildOf(g))).id();
+        let w2 = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([w1, w2, r]));
+
+        world.entity_mut(g).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, w1, w2]));
+    }
+
+    #[test]
+    fn removing_root_ghost_zindex_raises_its_children_as_a_group() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn((GhostNode, ZIndex(0))).id();
+        let w1 = world.spawn((Node::default(), ChildOf(g))).id();
+        let w2 = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([w1, w2, r]));
+
+        world.entity_mut(g).remove::<ZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, w1, w2]));
+    }
+
+    #[test]
+    fn changed_nested_ghost_global_zindex_raises_its_tree() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let g = world
+            .spawn((GhostNode, ChildOf(r), GlobalZIndex(1)))
+            .id();
+        let a = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+
+        let c = world.spawn((Node::default(), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c]));
+
+        world.entity_mut(g).insert(GlobalZIndex(1));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, c, a]));
+    }
+
+    #[test]
+    fn new_nested_global_zindex_raises_its_tree() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let c = world.spawn((Node::default(), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, c]));
+
+        let b = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, c, a, b]));
+    }
+
+    #[test]
+    fn removing_nested_global_zindex_restores_hierarchy_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+        let b = world.spawn((Node::default(), ChildOf(r))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, b, a]));
+
+        world.entity_mut(a).remove::<GlobalZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a, b]));
+    }
+
+    #[test]
+    fn removing_nested_global_zindex_raises_its_tree() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let d = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, d, a]));
+
+        world.entity_mut(a).remove::<GlobalZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([d, r, a]));
+    }
+
+    #[test]
+    fn changed_root_zindex_raises_its_nested_global_zindex_nodes_too() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let d = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        let c = world.spawn((Node::default(), GlobalZIndex(1))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, d, a, c]));
+
+        world.entity_mut(r).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([d, r, c, a]));
+    }
 }
