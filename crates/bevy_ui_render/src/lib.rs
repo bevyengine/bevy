@@ -755,6 +755,9 @@ pub fn extract_uinode_background_colors(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible backgrounds
         if !inherited_visibility.get()
             || (background_color.is_fully_transparent()
@@ -784,7 +787,7 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    z_order: stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -811,7 +814,7 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    z_order: stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -860,6 +863,9 @@ pub fn extract_inline_images(
             .iter()
             .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible images and empty nodes
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -889,7 +895,7 @@ pub fn extract_inline_images(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
+                        z_order: stack_index as f32 + stack_z_offsets::INLINE_IMAGE,
                         clip: clip.cloned(),
                         image: image.image.id(),
                         transform: Affine2::from(*transform)
@@ -950,6 +956,9 @@ pub fn extract_uinode_images(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         let visual_box = match image.visual_box {
             VisualBox::ContentBox => uinode.content_box(),
             VisualBox::PaddingBox => uinode.padding_box(),
@@ -1032,7 +1041,7 @@ pub fn extract_uinode_images(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    z_order: stack_index as f32 + stack_z_offsets::IMAGE,
                     clip: clip.cloned(),
                     image: image.image.id(),
                     transform: Affine2::from(*transform)
@@ -1115,6 +1124,9 @@ pub fn extract_uinode_borders(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible borders and removed nodes
         if !inherited_visibility.get() || node.is_some_and(|node| node.display == Display::None) {
             continue;
@@ -1144,7 +1156,7 @@ pub fn extract_uinode_borders(
             let node_ctx = BorderNodeContext {
                 entity: entity.into(),
                 camera_entity: extracted_camera_entity,
-                z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                z_order: stack_index as f32 + stack_z_offsets::BORDER,
                 clip: maybe_clip.cloned(),
             };
             let base_transform: Affine2 = transform.into();
@@ -1236,7 +1248,7 @@ pub fn extract_uinode_borders(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                        z_order: stack_index as f32 + stack_z_offsets::BORDER,
                         image,
                         clip: maybe_clip.cloned(),
                         transform: transform.into(),
@@ -1575,6 +1587,9 @@ pub fn extract_viewport_nodes(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1603,7 +1618,7 @@ pub fn extract_viewport_nodes(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    z_order: stack_index as f32 + stack_z_offsets::IMAGE,
                     clip: clip.cloned(),
                     image: image.id(),
                     transform: transform.into(),
@@ -1670,6 +1685,9 @@ pub fn extract_text_sections(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1754,7 +1772,7 @@ pub fn extract_text_sections(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1811,6 +1829,9 @@ pub fn extract_text_shadows(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1857,7 +1878,7 @@ pub fn extract_text_shadows(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             transform: node_transform,
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1890,7 +1911,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1921,7 +1942,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1992,6 +2013,9 @@ pub fn extract_text_decorations(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -2036,7 +2060,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(run.bounds.center()),
@@ -2071,7 +2095,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform
@@ -2107,7 +2131,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform

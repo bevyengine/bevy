@@ -1,7 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use crate::{GhostNode, GlobalZIndex, Node, ZIndex};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
@@ -14,9 +13,27 @@ use core::ops::Range;
 /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
 ///
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
+/// Nodes that aren't part of the [`UiStack`], such as [`GhostNode`]s, are [`ComputedStackIndex::HIDDEN`]:
+/// they are neither displayed nor interactable.
+#[derive(Component, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
-pub struct ComputedStackIndex(pub u32);
+pub struct ComputedStackIndex(u32);
+
+impl ComputedStackIndex {
+    /// The stack index of a node that isn't part of the [`UiStack`], and so is neither displayed nor interactable.
+    pub const HIDDEN: Self = Self(u32::MAX);
+
+    /// The node's index in the [`UiStack`], or `None` if the node is [`ComputedStackIndex::HIDDEN`].
+    pub fn get(&self) -> Option<u32> {
+        (*self != Self::HIDDEN).then_some(self.0)
+    }
+}
+
+impl Default for ComputedStackIndex {
+    fn default() -> Self {
+        Self::HIDDEN
+    }
+}
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -68,7 +85,8 @@ pub fn ui_stack_system(
         ),
         With<ComputedStackIndex>,
     >,
-    mut update_query: Query<&mut ComputedStackIndex>,
+    mut update_query: Query<&mut ComputedStackIndex, Without<GhostNode>>,
+    mut ghost_query: Query<&mut ComputedStackIndex, With<GhostNode>>,
 ) {
     let mut child_buffer = core::mem::take(&mut *local_cache)
         .into_iter()
@@ -157,6 +175,9 @@ pub fn ui_stack_system(
         if let Ok(mut stack_index) = update_query.get_mut(entity) {
             stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
+    }
+    for mut stack_index in ghost_query.iter_mut() {
+        stack_index.set_if_neq(ComputedStackIndex::HIDDEN);
     }
 
     child_buffer.clear();
@@ -1950,5 +1971,27 @@ mod tests {
 
         schedule.run(&mut world);
         assert!(world.resource::<UiStack>().iter().eq([r, w1, w2]));
+    }
+
+    #[test]
+    fn ghost_nodes_have_an_unset_stack_index() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world.spawn((Node::default(), ChildOf(r))).id();
+        assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().get(), None);
+
+        schedule.run(&mut world);
+        assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().get(), Some(1));
+
+        world.entity_mut(a).insert(GhostNode);
+
+        schedule.run(&mut world);
+        assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().get(), None);
+        assert_eq!(world.get::<ComputedStackIndex>(r).unwrap().get(), Some(0));
     }
 }

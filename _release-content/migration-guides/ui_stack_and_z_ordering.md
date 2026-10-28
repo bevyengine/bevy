@@ -19,7 +19,7 @@ for nodes in ui_stack.partition.iter() { /* ... */ }
 
 `ZIndex` is no longer a required component of `Node`. A missing `ZIndex` is still treated as `ZIndex(0)` for ordering, but on a `GhostNode` the presence of a `ZIndex` or `GlobalZIndex` now has a meaning of its own (see below), so `Node` can't insert one by default. Queries such as `Query<&ZIndex, With<Node>>` or `Query<&mut ZIndex>` no longer match nodes that didn't insert a `ZIndex` explicitly. Use `Option<&ZIndex>`, or insert the component on the nodes you need to query.
 
-`GhostNode`s are no longer added to the `UiStack` and their `ComputedStackIndex` is not updated.
+`ComputedStackIndex`'s field is now private and the component no longer implements `Deref` and `DerefMut`. Use `ComputedStackIndex::get`, which returns `None` for nodes that aren't part of the `UiStack`. Those nodes are `ComputedStackIndex::HIDDEN`, meaning they are neither displayed nor interactable, which is also the new `Default`. `GhostNode`s are no longer added to the `UiStack`, so their `ComputedStackIndex` is always `ComputedStackIndex::HIDDEN`.
 
 The rules that order UI nodes on the same `GlobalZIndex` layer have changed:
 

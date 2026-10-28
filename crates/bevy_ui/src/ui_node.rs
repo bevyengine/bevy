@@ -3609,7 +3609,8 @@ pub struct FixedNode;
 /// - A `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their nearest non-ghost ancestor,
 ///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
 /// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
-/// - A `GhostNode` is never added to the [`UiStack`](crate::UiStack) and its `ComputedStackIndex` is not updated.
+/// - A `GhostNode` is never added to the [`UiStack`](crate::UiStack) and its `ComputedStackIndex` is
+///   [`ComputedStackIndex::HIDDEN`](crate::ComputedStackIndex::HIDDEN).
 /// - During z-ordering a `GhostNode` without a `ZIndex` or `GlobalZIndex` is skipped: its children are stacked
 ///   as if they were children of the `GhostNode`'s parent.
 /// - A `GhostNode` with a `ZIndex` or `GlobalZIndex` stacks its descendants as a group. The group is ordered among
