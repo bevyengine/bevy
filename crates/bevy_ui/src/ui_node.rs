@@ -2874,7 +2874,7 @@ sure it's recognized as a markdown link."
 /// the hierarchy to the front of the hierarchies that share its `ZIndex`. See [`GlobalZIndex`]
 /// for details.
 ///
-/// Children of a [`GhostNode`] with a `ZIndex` are stacked as a group,.
+/// Children of a [`GhostNode`] with a `ZIndex` are stacked as a group.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ZIndex(pub i32);
