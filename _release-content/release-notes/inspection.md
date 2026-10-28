@@ -1,7 +1,7 @@
 ---
 title: Entity inspection tools
 authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
-pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26201]
+pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26201, 26184, 26200]
 ---
 
 `bevy_dev_tools::inspection` is gaining a backend for inspecting worlds, entities, components, and resources.
@@ -12,7 +12,7 @@ This note will be completed once the rest of the series lands.
 - Added `diagnostics.list` and `diagnostics.get` to the Bevy Remote Protocol (#25824)
 - Added `WorldSummary` to `bevy_dev_tools` inspection (#25818)
 - Added component inspection to `bevy_dev_tools` (#25823)
-- Added `stepping.*` methods to the Bevy Remote Protocol (#25826)
+- Added `stepping.*` methods to the Bevy Remote Protocol (#25826); the handlers need `bevy_debug_stepping`, while the method names and response types are always available for clients
 - Added a native BRP client behind the `client` feature (#25837)
 - Added entity and resource inspection to `bevy_dev_tools` (#25845)
 - Added serde support and structured values to the inspection types (#25866)
@@ -24,3 +24,5 @@ This note will be completed once the rest of the series lands.
 - `registry.schema` now includes each type's default value when it registers `ReflectDefault`
 - Added a connection panel to the `bevy_inspector` remote source
 - `registry.schema` now includes `bevy_annotations` (range, step, unit, read-only, tooltip and display name) on types, fields and enum variants
+- Added `SchemaRegistry` to `bevy_remote`, an index over `registry.schema` schemas that resolves field, item and map types, so local and remote inspectors can read type structure the same way
+- Added stepping controls to the `bevy_inspector` remote source

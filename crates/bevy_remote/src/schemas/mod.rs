@@ -10,6 +10,7 @@ use bevy_reflect::{
 };
 use core::any::TypeId;
 
+pub mod index;
 pub mod json_schema;
 pub mod open_rpc;
 
