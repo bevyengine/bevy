@@ -1411,4 +1411,50 @@ mod tests {
             .chain(o1.iter().copied().filter(|e| *e != a));
         assert!(world.resource::<UiStack>().iter().eq(expected));
     }
+
+    #[test]
+    fn removing_zindex_from_root_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn((Node::default(), ZIndex(0))).id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+
+        world.entity_mut(a).remove::<ZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, a]));
+    }
+
+    #[test]
+    fn removing_global_zindex_from_root_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn((Node::default(), GlobalZIndex(0))).id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+
+        world.entity_mut(a).remove::<GlobalZIndex>();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([b, a]));
+    }
 }
