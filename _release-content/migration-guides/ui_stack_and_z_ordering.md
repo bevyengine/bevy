@@ -1,6 +1,6 @@
 ---
 title: "`UiStack` and `ComputedStackIndex` changes"
-pull_requests: []
+pull_requests: [26353]
 ---
  `UiStack::uinodes` has been removed and `UiStack::partition` is no longer public. Use the new `UiStack::iter` method to iterate over all nodes back-to-front, `UiStack::partitions` to iterate over the partitions, each a back-to-front slice of nodes sharing the same camera target, and `UiStack::len` for the number of nodes.
 
