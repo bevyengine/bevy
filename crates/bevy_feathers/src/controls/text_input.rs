@@ -17,9 +17,7 @@ use bevy_text::{
     EditableText, FontSourceTemplate, FontWeight, LineBreak, TextCursorStyle, TextFont, TextLayout,
     TextReadWriteMode,
 };
-use bevy_ui::{
-    px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect,
-};
+use bevy_ui::{px, AlignItems, BorderRadius, Display, InteractionDisabled, JustifyContent, Node, UiRect, AlignSelf};
 use bevy_ui_widgets::TextInput;
 
 use crate::{
@@ -49,6 +47,7 @@ impl FeathersTextInputContainer {
                 display: Display::Flex,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                align_self: AlignSelf::Stretch,
                 padding: UiRect {
                     right: px(3.0),
                     left: px(3.0),
