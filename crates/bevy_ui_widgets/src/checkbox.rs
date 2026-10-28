@@ -13,14 +13,13 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::{
-    events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::ActivateOnPointerButton,
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::{ActivateOnPress, ValueChange};
+use crate::{ActivateInput, ActivateOnPress, ValueChange};
 use bevy_ecs::entity::Entity;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
@@ -42,8 +41,7 @@ use bevy_ecs::entity::Entity;
 #[require(
     AccessibilityNode(accesskit::Node::new(Role::CheckBox)),
     Checkable,
-    Focusable,
-    ActivateOnPointerButton
+    Focusable
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -78,12 +76,10 @@ fn checkbox_on_pointer_click(
         (Has<Checked>, Has<InteractionDisabled>),
         (With<Checkbox>, Without<ActivateOnPress>),
     >,
-    q_button_flag: Query<&ActivateOnPointerButton>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
-    if let Ok(button_flag) = q_button_flag.get(click.entity)
-        && !button_flag.allows(click.button)
-    {
+    if !input.allows_pointer_button(click.button) {
         return;
     }
     if let Ok((is_checked, disabled)) = q_checkbox.get(click.entity) {
@@ -112,12 +108,10 @@ fn checkbox_on_pointer_down(
     >,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
-    q_button_flag: Query<&ActivateOnPointerButton>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
-    if let Ok(button_flag) = q_button_flag.get(press.entity)
-        && !button_flag.allows(press.button)
-    {
+    if !input.allows_pointer_button(press.button) {
         return;
     }
     if let Ok((checkbox, disabled, checked, pressed, activate_on_press)) =
@@ -149,12 +143,10 @@ fn checkbox_on_pointer_down(
 fn checkbox_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
-    q_button_flag: Query<&ActivateOnPointerButton>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
-    if let Ok(button_flag) = q_button_flag.get(release.entity)
-        && !button_flag.allows(release.button)
-    {
+    if !input.allows_pointer_button(release.button) {
         return;
     }
     if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(release.entity) {

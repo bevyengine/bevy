@@ -13,14 +13,13 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
-use bevy_picking::{
-    events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
-    pointer::ActivateOnPointerButton,
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::{ActivateOnPress, ValueChange};
+use crate::{ActivateInput, ActivateOnPress, ValueChange};
 
 /// Headless widget implementation for a "radio button group". This component is used to group
 /// multiple [`RadioButton`] components together, allowing them to behave as a single unit. It
@@ -61,11 +60,7 @@ pub struct RadioGroup;
 /// If the [`RadioButton`] is focusable, it can also be checked using the `Enter` or `Space` keys,
 /// in which case the event will likewise be emitted.
 #[derive(Component, Debug, Clone, Default)]
-#[require(
-    AccessibilityNode(accesskit::Node::new(Role::RadioButton)),
-    Checkable,
-    ActivateOnPointerButton
-)]
+#[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct RadioButton;
@@ -212,12 +207,10 @@ fn radio_button_on_click(
         (With<RadioButton>, Without<ActivateOnPress>),
     >,
     q_parents: Query<&ChildOf>,
-    q_button_flag: Query<&ActivateOnPointerButton>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
-    if let Ok(button_flag) = q_button_flag.get(click.entity)
-        && !button_flag.allows(click.button)
-    {
+    if !input.allows_pointer_button(click.button) {
         return;
     }
     let Ok((disabled, checked)) = q_radio.get(click.entity) else {
@@ -254,12 +247,10 @@ fn radio_button_on_pointer_down(
         With<RadioButton>,
     >,
     q_parents: Query<&ChildOf>,
-    q_button_flag: Query<&ActivateOnPointerButton>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
-    if let Ok(button_flag) = q_button_flag.get(press.entity)
-        && !button_flag.allows(press.button)
-    {
+    if !input.allows_pointer_button(press.button) {
         return;
     }
     if let Ok((radio, disabled, checked, pressed, activate_on_press)) =
@@ -283,12 +274,10 @@ fn radio_button_on_pointer_down(
 fn radio_button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
-    q_button_flag: Query<&ActivateOnPointerButton>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
-    if let Ok(button_flag) = q_button_flag.get(release.entity)
-        && !button_flag.allows(release.button)
-    {
+    if !input.allows_pointer_button(release.button) {
         return;
     }
     if let Ok((radio, disabled, pressed)) = q_radio.get_mut(release.entity) {
