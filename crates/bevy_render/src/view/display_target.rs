@@ -2,8 +2,6 @@
 //!
 //! Windows have it as a required component. Other render targets register
 //! one in [`ManualDisplayTargets`].
-//! [`extract_cameras`](crate::camera::extract_cameras) writes the result to
-//! [`ViewDisplayTarget`] every frame.
 
 use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
@@ -14,7 +12,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::{DisplayTarget, ResolvedDisplayTarget, SurfaceColorSpace};
 
 use super::window::ExtractedWindow;
-use crate::RenderApp;
+use crate::{camera::ExtractedCamera, sync_world::MainEntity, RenderApp};
 
 /// Resource that stores the [`DisplayTarget`] of each render target that is
 /// not a [`Window`](bevy_window::Window), keyed by [`NormalizedRenderTarget`].
@@ -31,12 +29,8 @@ pub struct ManualDisplayTargets(HashMap<NormalizedRenderTarget, DisplayTarget>);
 /// The [`ResolvedDisplayTarget`] a view encodes for, after surface
 /// negotiation.
 ///
-/// Required by [`ExtractedCamera`](crate::camera::ExtractedCamera).
-/// [`extract_cameras`](crate::camera::extract_cameras) inserts it every frame
-/// next to [`ExtractedView::target_format`](super::ExtractedView::target_format),
-/// and both describe the color space the window surface negotiated in the
-/// previous frame. A target that cannot be resolved gets the default: SDR
-/// sRGB at 100 nits.
+/// Required by [`ExtractedCamera`]. A target that cannot be resolved gets
+/// the default: SDR sRGB at 100 nits.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Deref, Default)]
 pub struct ViewDisplayTarget(pub ResolvedDisplayTarget);
 
@@ -90,4 +84,20 @@ pub fn resolve_view_display_target<'a>(
         Some(NormalizedRenderTarget::None { .. }) | None => None,
     };
     ViewDisplayTarget(resolved.unwrap_or_default())
+}
+
+/// Updates each view's [`ViewDisplayTarget`] for the color space each window
+/// surface is configured with this frame.
+pub(crate) fn prepare_view_display_targets(
+    windows: Query<(MainEntity, &ExtractedWindow)>,
+    manual_display_targets: Res<ManualDisplayTargets>,
+    mut views: Query<(&ExtractedCamera, &mut ViewDisplayTarget)>,
+) {
+    for (camera, mut view_display_target) in &mut views {
+        view_display_target.set_if_neq(resolve_view_display_target(
+            camera.target.as_ref(),
+            windows.iter(),
+            &manual_display_targets,
+        ));
+    }
 }

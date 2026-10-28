@@ -1,6 +1,9 @@
 use crate::renderer::wgpu_wrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
-use crate::{camera::extract_cameras, renderer::RenderQueue};
+use crate::{
+    camera::extract_cameras, renderer::RenderQueue,
+    view::display_target::prepare_view_display_targets,
+};
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
@@ -65,7 +68,12 @@ impl Plugin for WindowRenderPlugin {
                         .run_if(need_surface_configuration)
                         .before(prepare_windows),
                 )
-                .add_systems(Render, prepare_windows.in_set(RenderSystems::PrepareViews));
+                .add_systems(
+                    Render,
+                    (prepare_windows, prepare_view_display_targets)
+                        .chain()
+                        .in_set(RenderSystems::PrepareViews),
+                );
         }
     }
 }
