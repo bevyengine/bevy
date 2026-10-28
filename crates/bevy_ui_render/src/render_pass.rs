@@ -77,14 +77,14 @@ pub fn ui_pass(
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct UiSortKey {
     pub stack_index: ComputedStackIndex,
-    pub paint_layer: u16,
+    pub paint_layer: u32,
 }
 
 impl UiSortKey {
-    pub const fn new(stack_index: ComputedStackIndex, paint_layer: usize) -> Self {
+    pub const fn new(stack_index: ComputedStackIndex, paint_layer: u32) -> Self {
         Self {
             stack_index,
-            paint_layer: paint_layer as u16,
+            paint_layer,
         }
     }
 }

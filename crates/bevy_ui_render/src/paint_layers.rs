@@ -124,8 +124,9 @@ impl PaintOrder {
     ///
     /// Returns an error if the layer label isn't present in the list.
     #[inline]
-    pub fn get_layer_index(&self, layer: PaintLayer) -> Result<usize, PaintLayerError> {
+    pub fn get_layer_index(&self, layer: PaintLayer) -> Result<u32, PaintLayerError> {
         self.get_index_of(&layer)
+            .map(|index| index as u32)
             .ok_or(PaintLayerError::UnrecognizedLayer(layer))
     }
 
@@ -138,7 +139,7 @@ impl PaintOrder {
         new_layer: PaintLayer,
     ) -> Result<(), PaintLayerError> {
         let index = self.get_layer_index(existing_layer)?;
-        self.0.insert_before(index, new_layer);
+        self.0.insert_before(index as usize, new_layer);
         Ok(())
     }
 
@@ -151,7 +152,7 @@ impl PaintOrder {
         new_layer: PaintLayer,
     ) -> Result<(), PaintLayerError> {
         let index = self.get_layer_index(existing_layer)?;
-        self.0.insert_before(index + 1, new_layer);
+        self.0.insert_before(index as usize + 1, new_layer);
         Ok(())
     }
 
@@ -203,7 +204,7 @@ mod tests {
 
         assert_eq!(paint_order.len(), DEFAULT_PAINT_LAYERS.len());
         for (index, layer) in DEFAULT_PAINT_LAYERS.into_iter().enumerate() {
-            assert_eq!(paint_order.get_layer_index(layer).unwrap(), index);
+            assert_eq!(paint_order.get_layer_index(layer).unwrap(), index as u32);
         }
     }
 

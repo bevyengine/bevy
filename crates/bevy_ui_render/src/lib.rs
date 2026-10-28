@@ -340,7 +340,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
 
 pub struct ExtractedUiNode {
     pub stack_index: ComputedStackIndex,
-    pub paint_layer: usize,
+    pub paint_layer: u32,
     pub image: AssetId<Image>,
     pub clip: Option<CalculatedClip>,
     pub item: ExtractedUiItem,
@@ -1292,7 +1292,7 @@ pub struct BorderNodeContext {
     entity: MainEntity,
     camera_entity: Entity,
     stack_index: ComputedStackIndex,
-    paint_layer: usize,
+    paint_layer: u32,
     clip: Option<CalculatedClip>,
 }
 
