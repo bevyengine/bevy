@@ -399,9 +399,10 @@ impl HardLimit {
 /// A component which controls the rounding of the number value during dragging. This is also used
 /// as a heuristic to determine drag speed when there is no soft limit or step size specified.
 ///
-/// When dragged values snap to the step (see [`NumberInputSnapToStep`]), snapping happens first,
-/// and precision rounding then removes floating point noise. The chevron buttons are not affected, and values
-/// entered by typing are not rounded.
+/// With [`NumberInputSnapToStep`], values snap to the step first and are then rounded to remove
+/// floating point noise, for both dragging and the chevron buttons. Without this component, the
+/// precision is then inferred from the step. Otherwise the chevron buttons are not affected.
+/// Values entered by typing are never rounded.
 ///
 /// The value in this component represents the number of decimal places of desired precision, so a
 /// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
@@ -440,10 +441,44 @@ impl NumberInputStep {
     /// Snap a value in display units to the nearest multiple of the step. Steps that are not
     /// positive and finite leave the value unchanged.
     fn snap_f64(&self, display: f64) -> f64 {
-        if !(self.0.is_finite() && self.0 > 0.0) {
+        if !self.is_valid() {
             return display;
         }
         (display / self.0).round() * self.0
+    }
+
+    /// Move a value in display units to the next multiple of the step in the given direction.
+    /// Values already on a multiple move by one full step.
+    fn step_snapped_f64(&self, display: f64, is_increment: bool) -> f64 {
+        if !self.is_valid() {
+            return display;
+        }
+        let multiples = display / self.0;
+        let tolerance = 1e-9 * multiples.abs().max(1.0);
+        let multiples = if is_increment {
+            (multiples + tolerance).floor() + 1.0
+        } else {
+            (multiples - tolerance).ceil() - 1.0
+        };
+        multiples * self.0
+    }
+
+    /// The number of decimal places in the step, up to 6, or `None` if the step is invalid.
+    fn decimal_places(&self) -> Option<i32> {
+        if !self.is_valid() {
+            return None;
+        }
+        let places = (0..=6)
+            .find(|&places| {
+                let scaled = self.0 * 10f64.powi(places);
+                (scaled - scaled.round()).abs() < 1e-9 * scaled.abs().max(1.0)
+            })
+            .unwrap_or(6);
+        Some(places)
+    }
+
+    fn is_valid(&self) -> bool {
+        self.0.is_finite() && self.0 > 0.0
     }
 }
 
@@ -454,7 +489,10 @@ impl Default for NumberInputStep {
 }
 
 /// Marker component which makes dragged values snap to the nearest multiple of the
-/// [`NumberInputStep`]. Without it, dragging is only rounded by [`NumberInputPrecision`].
+/// [`NumberInputStep`], and chevron buttons step to the next multiple. Without it, dragging is only
+/// rounded by [`NumberInputPrecision`]. If there is no [`NumberInputPrecision`], values are rounded
+/// to the decimal places of the step. Values can still land off the step at a limit that is not a
+/// multiple of the step.
 #[derive(Component, Default, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct NumberInputSnapToStep;
@@ -1352,7 +1390,7 @@ fn dragged_value(
     if snap_to_step && let Some(step) = step {
         display = step.snap_f64(display);
     }
-    if let Some(precision) = precision {
+    if let Some(precision) = effective_precision(precision, step, snap_to_step) {
         display = precision.round_f64(display);
     }
     let mut value = NumericValue::from_f64(units.display_to_canonical(display), base.format());
@@ -1362,6 +1400,47 @@ fn dragged_value(
         value = range.clamp(value);
     }
     value
+}
+
+/// Compute the value after a chevron press, before the hard limit is applied. With
+/// `snap_to_step`, the value moves to the next multiple of the step and is rounded to the
+/// effective precision.
+fn chevron_value(
+    units: &dyn UnitsFormat,
+    value: NumericValue,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+    precision: Option<&NumberInputPrecision>,
+    is_increment: bool,
+) -> NumericValue {
+    let display = units.canonical_to_display(value.as_f64());
+    let step_size = step.copied().unwrap_or_default();
+    let display = if snap_to_step {
+        let display = step_size.step_snapped_f64(display, is_increment);
+        match effective_precision(precision, Some(&step_size), true) {
+            Some(precision) => precision.round_f64(display),
+            None => display,
+        }
+    } else if is_increment {
+        display + step_size.0
+    } else {
+        display - step_size.0
+    };
+    NumericValue::from_f64(units.display_to_canonical(display), value.format())
+}
+
+/// The precision used for rounding: the explicit one if present, otherwise the decimal places of
+/// the step when snapping to it.
+fn effective_precision(
+    precision: Option<&NumberInputPrecision>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+) -> Option<NumberInputPrecision> {
+    precision.copied().or_else(|| {
+        step.filter(|_| snap_to_step)
+            .and_then(NumberInputStep::decimal_places)
+            .map(NumberInputPrecision)
+    })
 }
 
 /// Clamp or wrap the value to the hard limit, if there is one.
@@ -1579,6 +1658,8 @@ fn chevron_on_press(
             &NumericValue,
             Option<&HardLimit>,
             Option<&NumberInputStep>,
+            Has<NumberInputSnapToStep>,
+            Option<&NumberInputPrecision>,
             Option<&NumberInputWrap>,
             Has<InteractionDisabled>,
             Option<&NumberInputUnits>,
@@ -1598,15 +1679,12 @@ fn chevron_on_press(
     if let Ok(is_increment) = q_chevron.get(chevron_id)
         && let Ok(&ChildOf(text_id)) = q_parent.get(chevron_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((&value, hard_limit, step, wrap, disabled, units)) = q_number_input.get(root_id)
+        && let Ok((&value, hard_limit, step, snap_to_step, precision, wrap, disabled, units)) =
+            q_number_input.get(root_id)
         && !disabled
     {
-        // Step in display units.
         let units = units_registry.resolve(units);
-        let step = step.copied().unwrap_or_default().0;
-        let display =
-            units.canonical_to_display(value.as_f64()) + if is_increment { step } else { -step };
-        let value = NumericValue::from_f64(units.display_to_canonical(display), value.format());
+        let value = chevron_value(units, value, step, snap_to_step, precision, is_increment);
         let value = apply_hard_limit(value, hard_limit, wrap);
         trigger_value_change(&mut commands, value, root_id, true);
     }
@@ -2220,6 +2298,17 @@ mod tests {
         dragged_value(units, value, 0.0, None, None, false, Some(&precision))
     }
 
+    fn chevron(value: f64, step: f64, snap_to_step: bool, is_increment: bool) -> NumericValue {
+        chevron_value(
+            &Dimensionless,
+            NumericValue::F64(value),
+            Some(&NumberInputStep(step)),
+            snap_to_step,
+            None,
+            is_increment,
+        )
+    }
+
     fn snap(units: &dyn UnitsFormat, value: NumericValue, step: f64) -> NumericValue {
         dragged_value(
             units,
@@ -2419,6 +2508,106 @@ mod tests {
             None,
         );
         assert_eq!(value, NumericValue::F64(78.2));
+    }
+
+    #[test]
+    fn chevron_snaps_to_next_multiple() {
+        assert_eq!(chevron(78.3, 0.5, true, true), NumericValue::F64(78.5));
+        assert_eq!(chevron(78.3, 0.5, true, false), NumericValue::F64(78.0));
+        assert_eq!(chevron(78.5, 0.5, true, true), NumericValue::F64(79.0));
+        assert_eq!(chevron(78.5, 0.5, true, false), NumericValue::F64(78.0));
+        assert_eq!(chevron(-1.3, 0.5, true, true), NumericValue::F64(-1.0));
+        assert_eq!(chevron(-1.3, 0.5, true, false), NumericValue::F64(-1.5));
+        assert_eq!(chevron(0.15, 0.05, true, true), NumericValue::F64(0.2));
+        assert_eq!(chevron(0.15, 0.05, true, false), NumericValue::F64(0.1));
+    }
+
+    #[test]
+    fn chevron_without_snap_marker_adds_step() {
+        assert_eq!(chevron(78.3, 0.5, false, true), NumericValue::F64(78.8));
+        assert_eq!(chevron(78.3, 0.5, false, false), NumericValue::F64(77.8));
+        assert_eq!(chevron(78.5, 0.5, false, true), NumericValue::F64(79.0));
+    }
+
+    #[test]
+    fn chevron_snaps_in_display_units_then_hard_limit() {
+        let value = chevron_value(
+            &AngleDegrees,
+            NumericValue::F32(0.31),
+            Some(&NumberInputStep(5.0)),
+            true,
+            None,
+            true,
+        );
+        assert_eq!(format_value(&AngleDegrees, value, false), "20°");
+
+        let hard_limit = HardLimit::f64(0.0..=78.7);
+        let value = chevron(78.5, 0.5, true, true);
+        assert_eq!(
+            apply_hard_limit(value, Some(&hard_limit), None),
+            NumericValue::F64(78.7)
+        );
+    }
+
+    #[test]
+    fn step_decimal_places() {
+        assert_eq!(NumberInputStep(5.0).decimal_places(), Some(0));
+        assert_eq!(NumberInputStep(0.5).decimal_places(), Some(1));
+        assert_eq!(NumberInputStep(0.05).decimal_places(), Some(2));
+        assert_eq!(NumberInputStep(0.125).decimal_places(), Some(3));
+        assert_eq!(NumberInputStep(1.0 / 3.0).decimal_places(), Some(6));
+        assert_eq!(NumberInputStep(0.0).decimal_places(), None);
+    }
+
+    #[test]
+    fn drag_infers_precision_from_step() {
+        let step = NumberInputStep(0.05);
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            0.038,
+            None,
+            Some(&step),
+            true,
+            None,
+        );
+        assert_eq!(value, NumericValue::F64(0.15));
+
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            0.038,
+            None,
+            Some(&step),
+            true,
+            Some(&NumberInputPrecision(0)),
+        );
+        assert_eq!(value, NumericValue::F64(0.0));
+
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            0.038,
+            None,
+            Some(&step),
+            false,
+            None,
+        );
+        assert!((value.as_f64() - 0.138).abs() < 1e-12);
+    }
+
+    #[test]
+    fn chevron_precision_override() {
+        let step = NumberInputStep(0.05);
+        let value = chevron_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            Some(&step),
+            true,
+            Some(&NumberInputPrecision(1)),
+            true,
+        );
+        assert_eq!(value, NumericValue::F64(0.2));
     }
 
     #[test]

@@ -9,7 +9,7 @@ A `FeathersNumberInput` with `NumberInputUnits` stores its value in one unit and
 Before, a precision of 2 on an angle rounded to hundredths of a radian, so dragging showed values like `17.761973°`.
 Now it rounds to hundredths of a degree and shows `17.76°`.
 Dragging speed is worked out in display units too, so an angle field moves by sensible amounts of a degree.
-Adding the `NumberInputSnapToStep` marker also makes dragged values snap to multiples of the `NumberInputStep`.
+Adding the `NumberInputSnapToStep` marker also makes dragging and the chevron buttons snap to multiples of the `NumberInputStep`.
 
 Values converted between units also display without floating point noise, so an `f32` angle of 0.01° no longer shows as `0.0099999998°`.
 
