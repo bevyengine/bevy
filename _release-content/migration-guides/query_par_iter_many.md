@@ -1,6 +1,6 @@
 ---
 title: "`Query::par_iter_many` methods only accept slices"
-pull_requests: []
+pull_requests: [26336]
 ---
 
 The `par_iter_many`, `par_iter_many_unique`, and `par_iter_many_unique_mut` methods on `Query`
