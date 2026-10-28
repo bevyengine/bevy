@@ -52,7 +52,7 @@ impl UiStack {
     }
 }
 
-#[derive(Clone, Copy, Ord, PartialOrd, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StackRoot {
     global_z: i32,
     local_z: i32,
@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn test_with_equal_global_zindex_zindex_decides_order() {
+    fn nested_global_zindex_nodes_take_their_roots_order() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
@@ -1974,7 +1974,7 @@ mod tests {
     }
 
     #[test]
-    fn ghost_nodes_have_an_unset_stack_index() {
+    fn ghost_nodes_have_a_hidden_stack_index() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
