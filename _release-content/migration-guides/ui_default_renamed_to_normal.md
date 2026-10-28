@@ -1,5 +1,5 @@
 ---
-title: `AlignItems::Default`, `JustifyItems::Default`, `AlignContent::Default`, and `JustifyContent::DEFAULT` are renamed to `::Normal``
+title: `AlignItems::Default`, `JustifyItems::Default`, `AlignContent::Default`, and `JustifyContent::Default` are renamed to `::Normal``
 pull_requests: [26344]
 ---
 
