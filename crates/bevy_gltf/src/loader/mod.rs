@@ -70,7 +70,10 @@ use crate::{
 #[cfg(feature = "bevy_animation")]
 use self::gltf_ext::scene::collect_path;
 use self::{
-    extensions::{instance_transforms, AnisotropyExtension, ClearcoatExtension, SpecularExtension},
+    extensions::{
+        instance_transforms, AnisotropyExtension, ClearcoatExtension, DispersionExtension,
+        SpecularExtension,
+    },
     gltf_ext::{
         check_for_cycles, get_linear_textures,
         material::{
@@ -1547,6 +1550,9 @@ fn load_material(
     let specular =
         SpecularExtension::parse(material, textures, asset_path.clone()).unwrap_or_default();
 
+    // Parse the `KHR_materials_dispersion` extension data if necessary.
+    let dispersion = DispersionExtension::parse(material).unwrap_or_default();
+
     // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
     let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
     let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1585,6 +1591,7 @@ fn load_material(
         #[cfg(feature = "pbr_transmission_textures")]
         thickness_texture,
         ior,
+        dispersion: dispersion.dispersion,
         attenuation_distance,
         attenuation_color: Color::linear_rgb(
             attenuation_color[0],
