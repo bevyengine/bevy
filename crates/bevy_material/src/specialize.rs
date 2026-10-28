@@ -53,7 +53,7 @@ pub enum SpecializedMeshPipelineError {
     MissingVertexAttribute(#[from] MissingVertexAttributeError),
     #[error(
         "Material requires stencil operations, but the depth-stencil format '{format:?}' lacks a stencil aspect. \
-        Please configure Camera3d with a stencil-compatible depth format such as Depth24PlusStencil8 or Depth32FloatStencil8."
+        Please configure the camera with a stencil-compatible depth format such as Depth24PlusStencil8 or Depth32FloatStencil8."
     )]
     IncompatibleDepthStencilFormat { format: TextureFormat },
 }
