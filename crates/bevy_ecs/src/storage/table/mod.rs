@@ -586,7 +586,7 @@ impl Table {
     ///
     /// # Safety
     /// `row.as_usize()` < `self.len()`
-    pub unsafe fn get_component(
+    pub unsafe fn get_component_untyped(
         &self,
         component_id: ComponentId,
         row: TableRow,
@@ -596,7 +596,8 @@ impl Table {
     }
 
     /// Returns a reference to the value in `row` for the component matching `component_id`.
-    /// Since the type `T` is statically known, it is more efficient than the untyped version.
+    /// Since the type `T` is statically known, it is more efficient than
+    /// [`Self::get_component_untyped`].
     ///
     /// Returns `None` if this table does not store that component.
     ///
@@ -604,7 +605,7 @@ impl Table {
     /// - `T` must be the type of the component matching `component_id`.
     /// - `row` must be below the number of entities in this table.
     #[inline]
-    pub unsafe fn get_component_typed<T>(
+    pub unsafe fn get_component<T>(
         &self,
         component_id: ComponentId,
         row: TableRow,
@@ -633,7 +634,7 @@ impl Table {
     /// - `T` must be the type of the component matching `component_id`.
     /// - `row` must be below the number of entities in this table.
     #[inline]
-    pub unsafe fn get_with_ticks_typed<T>(
+    pub unsafe fn get_with_ticks<T>(
         &self,
         component_id: ComponentId,
         row: TableRow,

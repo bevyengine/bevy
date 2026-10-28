@@ -894,7 +894,7 @@ impl<'w> UnsafeEntityCell<'w> {
         // SAFETY:
         // - `location` is the location of this entity
         // - proper aliasing is promised by caller
-        unsafe { get_component_typed::<T>(self.world, self.entity, self.location) }
+        unsafe { get_component::<T>(self.world, self.entity, self.location) }
     }
 
     /// # Safety
@@ -1048,7 +1048,7 @@ impl<'w> UnsafeEntityCell<'w> {
         // - `location` is the location of this entity
         // - aliasing rules and the mutability of `T` are ensured by caller
         unsafe {
-            get_component_mut_typed::<T>(
+            get_component_mut::<T>(
                 self.world,
                 self.entity,
                 self.location,
@@ -1132,7 +1132,7 @@ impl<'w> UnsafeEntityCell<'w> {
         let info = self.world.components().get_info(component_id)?;
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
-            get_component(
+            get_component_untyped(
                 self.world,
                 component_id,
                 info.storage_type(),
@@ -1306,7 +1306,7 @@ impl<'w> UnsafeWorldCell<'w> {
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
-unsafe fn get_component(
+unsafe fn get_component_untyped(
     world: UnsafeWorldCell<'_>,
     component_id: ComponentId,
     storage_type: StorageType,
@@ -1321,7 +1321,7 @@ unsafe fn get_component(
         match storage_type {
             StorageType::Table => world
                 .fetch_table_unchecked(location)
-                .get_component(component_id, location.table_row),
+                .get_component_untyped(component_id, location.table_row),
             StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
         }
     }
@@ -1335,7 +1335,7 @@ unsafe fn get_component(
 /// - `world` must have permission to read the `T` component of `entity`
 /// - no mutable reference to the `T` component of `entity` may exist at the same time
 #[inline]
-pub(crate) unsafe fn get_component_typed<T: Component>(
+pub(crate) unsafe fn get_component<T: Component>(
     world: UnsafeWorldCell<'_>,
     entity: Entity,
     location: EntityLocation,
@@ -1351,8 +1351,7 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
             // - `component_id` is the component id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
             //   number of entities in `table`
-            let value =
-                unsafe { table.get_component_typed::<T>(component_id, location.table_row) }?;
+            let value = unsafe { table.get_component::<T>(component_id, location.table_row) }?;
             // SAFETY: caller ensures aliasing rules
             Some(unsafe { value.deref() })
         }
@@ -1377,7 +1376,7 @@ pub(crate) unsafe fn get_component_typed<T: Component>(
 /// - no other reference to the `T` component of `entity` may exist at the same time
 /// - the component `T` must be mutable
 #[inline]
-pub(crate) unsafe fn get_component_mut_typed<T: Component>(
+pub(crate) unsafe fn get_component_mut<T: Component>(
     world: UnsafeWorldCell<'_>,
     entity: Entity,
     location: EntityLocation,
@@ -1396,7 +1395,7 @@ pub(crate) unsafe fn get_component_mut_typed<T: Component>(
             // - `component_id` is the id of `T`, so its column holds `T` values
             // - `location.table_row` is the row of `entity` in `table`, so it is below the
             //   number of entities in `table`
-            unsafe { table.get_with_ticks_typed::<T>(component_id, location.table_row) }?
+            unsafe { table.get_with_ticks::<T>(component_id, location.table_row) }?
         }
         StorageType::SparseSet => {
             // SAFETY: caller ensures aliasing rules
@@ -1436,7 +1435,7 @@ unsafe fn get_component_and_ticks(
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(unsafe {
                 (
-                    table.get_component(component_id, location.table_row)?,
+                    table.get_component_untyped(component_id, location.table_row)?,
                     ComponentTickCells {
                         added: table
                             .get_added_tick(component_id, location.table_row)
