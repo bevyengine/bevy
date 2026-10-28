@@ -385,6 +385,7 @@ pub fn radio_self_update(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ActivateInputMapPlugin;
     use bevy_app::App;
     use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
@@ -408,6 +409,7 @@ mod tests {
             InputDispatchPlugin,
             TabNavigationPlugin,
             RadioGroupPlugin,
+            ActivateInputMapPlugin,
         ));
         app.add_observer(radio_self_update);
         let window = app

@@ -306,6 +306,7 @@ pub fn checkbox_self_update(value_change: On<ValueChange<bool>>, mut commands: C
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ActivateInputMapPlugin;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
@@ -336,6 +337,7 @@ mod tests {
             InputDispatchPlugin,
             TabNavigationPlugin,
             CheckboxPlugin,
+            ActivateInputMapPlugin,
         ));
         app.add_observer(checkbox_self_update);
         let window = app

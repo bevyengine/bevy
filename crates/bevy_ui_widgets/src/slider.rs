@@ -778,6 +778,7 @@ impl Plugin for SliderPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ActivateInputMapPlugin;
     use bevy_camera::NormalizedRenderTarget;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_input::keyboard::Key;
@@ -805,6 +806,7 @@ mod tests {
             InputDispatchPlugin,
             TabNavigationPlugin,
             SliderPlugin,
+            ActivateInputMapPlugin,
         ));
         app.add_observer(slider_self_update);
         let window = app
