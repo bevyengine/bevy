@@ -828,12 +828,12 @@ impl Node {
         bottom: Val::Auto,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
-        align_items: AlignItems::DEFAULT,
-        justify_items: JustifyItems::DEFAULT,
+        align_items: AlignItems::Normal,
+        justify_items: JustifyItems::Normal,
         align_self: AlignSelf::DEFAULT,
         justify_self: JustifySelf::DEFAULT,
-        align_content: AlignContent::DEFAULT,
-        justify_content: JustifyContent::DEFAULT,
+        align_content: AlignContent::Normal,
+        justify_content: JustifyContent::Normal,
         direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
@@ -936,7 +936,8 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Normal;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1019,7 +1020,8 @@ pub enum JustifyItems {
 }
 
 impl JustifyItems {
-    pub const DEFAULT: Self = Self::Normal;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1282,7 +1284,8 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Normal;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1383,7 +1386,8 @@ pub enum JustifyContent {
 }
 
 impl JustifyContent {
-    pub const DEFAULT: Self = Self::Normal;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {

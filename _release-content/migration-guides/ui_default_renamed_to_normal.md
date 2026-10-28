@@ -10,8 +10,6 @@ To better match the CSS spec and taffy, we're renaming several enum variants to 
 `AlignContent::Default` is now `AlignContent::Normal`
 `JustifyContent::Default` is now `JustifyContent::Normal`
 
-`::DEFAULT` and `::default()` remain the same for all of these.
-
 ```rust
 // 0.20
 Node { align_items: AlignItems::Default, ..default() }
