@@ -1,14 +1,21 @@
 ---
-title: Feature that broke
-pull_requests: [14791, 15458, 15269]
+title: `AlignItems::Default`, `JustifyItems::Default`, `AlignContent::Default`, and `JustifyContent::DEFAULT` are renamed to `::Normal``
+pull_requests: [26344]
 ---
 
-Copy the contents of this file into a new file in `./migration-guides`, update the metadata, and add migration guide content here.
+To better match the CSS spec and taffy, we're renaming several enum variants to Normal. 
 
-Remember, your aim is to communicate:
+`AlignItems::Default` is now `AlignItems::Normal`
+`JustifyItems::Default` is now `JustifyItems::Normal`
+`AlignContent::Default` is now `AlignContent::Normal`
+`JustifyContent::Default` is now `JustifyContent::Normal`
 
-- What has changed since the last release?
-- Why did we make this breaking change?
-- How can users migrate their existing code?
+`::DEFAULT` and `::default()` remain the same for all of these.
 
-For more specifics about style and content, see the [instructions](./migration_guides.md).
+```rust
+// 0.20
+Node { align_items: AlignItems::Default, ..default() }
+
+// 0.21
+Node { align_items: AlignItems::Normal, ..default() }
+```
