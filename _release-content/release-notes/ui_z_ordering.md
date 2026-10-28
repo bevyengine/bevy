@@ -10,4 +10,4 @@ This makes a root `GhostNode` a convenient container for UI roots that need a fi
 
 The rules for ordering nodes on the same `GlobalZIndex` layer are now the same for `ZIndex` and `GlobalZIndex`. Within a hierarchy the order is always hierarchical: `ZIndex` value, then `Children` order, and changing a nested node's z-index never reorders it against its siblings. Between separate hierarchies, all of a hierarchy's nodes on a layer move together: adding, changing or removing a `ZIndex` or `GlobalZIndex` on the root, or a `GlobalZIndex` anywhere in the hierarchy, brings the whole hierarchy to the front of its layer, keeping its internal order. Re-inserting a component with its current value counts as a change, so `commands.entity(window).insert(GlobalZIndex(0))` is all it takes to bring a window to the front.
 
-`UiStack` has also been reworked: `UiStack::partition` is now a list of per-camera node lists, and `UiStack::iter` walks every node back-to-front.
+`UiStack` has also been reworked: `UiStack::partitions` yields per-camera node lists, and `UiStack::iter` walks every node back-to-front.

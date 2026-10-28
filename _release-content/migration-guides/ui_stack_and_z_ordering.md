@@ -1,9 +1,9 @@
 ---
-title: "`UiStack` and UI z-ordering changes"
+title: "`UiStack` changes"
 pull_requests: []
 ---
 
-`UiStack::uinodes` has been removed and `UiStack::partition` is now a `Vec<Vec<Entity>>` instead of a `Vec<Range<usize>>`. Each inner `Vec` holds the nodes of one partition, back-to-front. Use the new `UiStack::iter` method to iterate over all nodes back-to-front, or index `partition` directly:
+`UiStack`'s fields are now private: `UiStack::uinodes` has been removed and `UiStack::partition` is no longer public. Use the new `UiStack::iter` method to iterate over all nodes back-to-front, `UiStack::partitions` to iterate over the partitions, each a back-to-front slice of nodes sharing the same camera target, and `UiStack::len` for the number of nodes:
 
 ```rust
 // 0.19
@@ -14,7 +14,7 @@ for range in ui_stack.partition.iter() {
 
 // 0.20
 for entity in ui_stack.iter() { /* ... */ }
-for nodes in ui_stack.partition.iter() { /* ... */ }
+for nodes in ui_stack.partitions() { /* ... */ }
 ```
 
 `ZIndex` is no longer a required component of `Node`. A missing `ZIndex` is still treated as `ZIndex(0)` for ordering, but on a `GhostNode` the presence of a `ZIndex` or `GlobalZIndex` now has a meaning of its own (see below), so `Node` can't insert one by default. Queries such as `Query<&ZIndex, With<Node>>` or `Query<&mut ZIndex>` no longer match nodes that didn't insert a `ZIndex` explicitly. Use `Option<&ZIndex>`, or insert the component on the nodes you need to query.

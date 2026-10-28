@@ -43,12 +43,29 @@ impl Default for ComputedStackIndex {
 #[reflect(Resource, Default)]
 pub struct UiStack {
     /// Lists of UI nodes ordered from back-to-front, each sharing the same camera target.
-    pub partition: Vec<Vec<Entity>>,
+    partition: Vec<Vec<Entity>>,
 }
 
 impl UiStack {
+    /// Iterates over all the UI nodes in the stack, back-to-front.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> + '_ {
         self.partition.iter().flatten().copied()
+    }
+
+    /// Iterates over the partitions of the stack, back-to-front.
+    /// Each partition is a list of UI nodes ordered back-to-front that all share the same camera target.
+    pub fn partitions(&self) -> impl DoubleEndedIterator<Item = &[Entity]> + '_ {
+        self.partition.iter().map(Vec::as_slice)
+    }
+
+    /// The number of UI nodes in the stack.
+    pub fn len(&self) -> usize {
+        self.partition.iter().map(Vec::len).sum()
+    }
+
+    /// Returns `true` if the stack has no UI nodes.
+    pub fn is_empty(&self) -> bool {
+        self.partition.is_empty()
     }
 }
 

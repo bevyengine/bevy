@@ -154,7 +154,7 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack.partition.iter().rev() {
+    for uinodes in ui_stack.partitions().rev() {
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
         let Ok(uinode) = node_query.get(uinodes[0]) else {

@@ -190,7 +190,7 @@ pub fn extract_debug_overlay(
 ) {
     let extracted_uinodes = extracted_uinodes.into_inner();
     let mut camera_mapper = camera_map.get_mapper();
-    let node_count = ui_stack.partition.iter().map(Vec::len).sum::<usize>() as u32;
+    let node_count = ui_stack.len() as u32;
 
     for (entity, uinode, stack_index, transform, visibility, maybe_clip, computed_target, debug) in
         extracted_uinodes
