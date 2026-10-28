@@ -617,16 +617,12 @@ impl Parse for BsnValue {
                 PathType::TypeFunction | PathType::Function => {
                     input.parse::<Path>()?;
                     let maybe_macro = input.parse::<Token![!]>().ok();
-                    let args = if input.peek(Paren) {
-                        group_tokens(input, Delimiter::Parenthesis)?
-                    } else if input.peek(Bracket) {
-                        group_tokens(input, Delimiter::Bracket)?
-                    } else if input.peek(Brace) {
-                        group_tokens(input, Delimiter::Brace)?
-                    } else {
-                        return Err(input.error("Unexpected input after function name"));
-                    };
-                    BsnValue::Expr(quote! { #path #maybe_macro #args })
+                    match input.parse::<TokenTree>()? {
+                        TokenTree::Group(group) if group.delimiter() != Delimiter::None => {
+                            BsnValue::Expr(quote! { #path #maybe_macro #group })
+                        }
+                        _ => return Err(input.error("Unexpected input after function name")),
+                    }
                 }
                 PathType::Const => {
                     input.parse::<Path>()?;
