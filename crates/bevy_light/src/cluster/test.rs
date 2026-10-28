@@ -1,6 +1,9 @@
 use bevy_math::UVec2;
 
-use super::{ClusterConfig, Clusters};
+use super::{
+    assign::{calculate_cluster_factors, cluster_far_z},
+    ClusterConfig, Clusters,
+};
 
 fn test_cluster_tiling(config: ClusterConfig, screen_size: UVec2) -> Clusters {
     let dims = config.dimensions_for_screen_size(screen_size);
@@ -49,6 +52,33 @@ fn test_default_cluster_setup_small_x() {
             let screen_size = UVec2::new(y, x);
             let clusters = test_cluster_tiling(ClusterConfig::default(), screen_size);
             assert!(clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096);
+        }
+    }
+}
+
+fn assert_finite_cluster_factors(near: f32, far: f32, is_orthographic: bool) {
+    for z_slices in [1.0, 24.0] {
+        let far = cluster_far_z(near, far, is_orthographic);
+        assert!(far > near, "near {near}, far {far}");
+        let factors = calculate_cluster_factors(near, far, z_slices, is_orthographic);
+        assert!(
+            factors.is_finite(),
+            "near {near}, far {far}, z_slices {z_slices}, is_orthographic {is_orthographic}: {factors}"
+        );
+    }
+}
+
+#[test]
+// no clusterable object reaches past the first slice
+fn test_cluster_factors_finite_when_far_less_than_near() {
+    for near in [0.1, 5.0, 1000.0] {
+        for far in [near, near * 0.5, 0.0, f32::NAN] {
+            assert_finite_cluster_factors(near, far, false);
+        }
+    }
+    for near in [-1000.0, -0.5, 0.0, 0.1, 5.0] {
+        for far in [near, near - 1.0, f32::NAN] {
+            assert_finite_cluster_factors(near, far, true);
         }
     }
 }
