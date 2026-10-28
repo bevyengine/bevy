@@ -1230,7 +1230,7 @@ mod tests {
     }
 
     #[test]
-    fn changed_nested_global_zindex_stays_below_root_with_equal_zindex() {
+    fn changed_nested_global_zindex_is_raised_above_root_with_equal_zindex() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
@@ -1300,5 +1300,115 @@ mod tests {
 
         schedule.run(&mut world);
         assert!(world.resource::<UiStack>().iter().eq([r, a]));
+    }
+
+    #[test]
+    fn new_root_is_raised_above_old_root() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+    }
+
+    #[test]
+    fn new_root_is_raised_above_old_root_with_no_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        let b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq([a, b]));
+    }
+
+    #[test]
+    fn changed_zindex_roots_keep_their_relative_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn(Node::default()).id();
+        let b = world.spawn(Node::default()).id();
+        let c = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        let o1 = world.resource::<UiStack>().iter().collect::<Vec<_>>();
+
+        for e in [a, b, c] {
+            world.entity_mut(e).insert(ZIndex(0));
+        }
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq(o1.iter().copied()));
+
+        for e in [b, c] {
+            world.entity_mut(e).insert(ZIndex(0));
+        }
+
+        schedule.run(&mut world);
+
+        let expected = [a]
+            .into_iter()
+            .chain(o1.iter().copied().filter(|e| *e != a));
+        assert!(world.resource::<UiStack>().iter().eq(expected));
+    }
+
+    #[test]
+    fn changed_global_zindex_roots_keep_their_relative_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let a = world.spawn(Node::default()).id();
+        let b = world.spawn(Node::default()).id();
+        let c = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        let o1 = world.resource::<UiStack>().iter().collect::<Vec<_>>();
+
+        for e in [a, b, c] {
+            world.entity_mut(e).insert(GlobalZIndex(0));
+        }
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq(o1.iter().copied()));
+
+        for e in [b, c] {
+            world.entity_mut(e).insert(GlobalZIndex(0));
+        }
+
+        schedule.run(&mut world);
+
+        let expected = [a]
+            .into_iter()
+            .chain(o1.iter().copied().filter(|e| *e != a));
+        assert!(world.resource::<UiStack>().iter().eq(expected));
     }
 }
