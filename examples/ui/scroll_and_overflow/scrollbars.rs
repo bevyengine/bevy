@@ -38,6 +38,7 @@ fn setup_view_root(mut commands: Commands) {
         TabGroup::default(),
         Children::spawn((
             Spawn(Text::new("Scrolling")),
+            Spawn(subheader("Vertical Scroll Example")),
             Spawn((
                 // Container that centers the scroll area with scrollbars
                 Node {
@@ -46,10 +47,26 @@ fn setup_view_root(mut commands: Commands) {
                     justify_content: JustifyContent::Center,
                     ..Default::default()
                 },
-                Children::spawn(Spawn(scroll_area_demo())),
+                Children::spawn(Spawn(vertical_scroll_area_demo())),
             )),
         )),
     ));
+}
+
+// Spawns centered subheader that precedes each scrolling example
+fn subheader(caption: &str) -> impl Bundle {
+    (
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Center,
+            ..Default::default()
+        },
+        Children::spawn(Spawn((
+            Text::new(caption),
+            TextFont::from_font_size(FontSize::Rem(0.75)),
+        ))),
+    )
 }
 
 /// Create a scrolling area.
@@ -60,7 +77,7 @@ fn setup_view_root(mut commands: Commands) {
 /// - The scroll area is a flex container that contains the scrollable content. This
 ///   is the element that has the `overflow: scroll` property.
 /// - The scrollable content consists of the elements actually displayed in the scrolling area.
-fn scroll_area_demo() -> impl Bundle {
+fn vertical_scroll_area_demo() -> impl Bundle {
     (
         // Frame element which contains the scroll area and scrollbars.
         Node {
