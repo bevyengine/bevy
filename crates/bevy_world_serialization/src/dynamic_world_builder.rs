@@ -1,6 +1,5 @@
 use core::any::TypeId;
 
-use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicWorld, WorldFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::resource::IS_RESOURCE;
@@ -12,7 +11,8 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypeRegistry};
+use bevy_reflect::dynamic::DynamicValue;
+use bevy_reflect::TypeRegistry;
 use bevy_utils::default;
 
 /// A [`DynamicWorld`] builder, used to build a [`DynamicWorld`] from a [`World`] by extracting some entities and resources.
@@ -65,7 +65,7 @@ use bevy_utils::default;
 /// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicWorldBuilder<'w> {
     /// The resources that have been extracted so far.
-    extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
+    extracted_resources: BTreeMap<ComponentId, DynamicValue>,
     /// The entities that have been extracted so far.
     extracted_entities: BTreeMap<Entity, DynamicEntity>,
     /// The filter to determine which components extract.
@@ -327,8 +327,7 @@ impl<'w> DynamicWorldBuilder<'w> {
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
-                    let component =
-                        clone_reflect_value(component.as_partial_reflect(), type_registration);
+                    let component = DynamicValue::try_from_reflect(component).ok()?;
 
                     entry.components.push(component);
                     Some(())
@@ -402,8 +401,7 @@ impl<'w> DynamicWorldBuilder<'w> {
                     .data::<ReflectComponent>()?
                     .reflect(self.original_world.entity(entity))?;
 
-                let component =
-                    clone_reflect_value(component.as_partial_reflect(), type_registration);
+                let component = DynamicValue::try_from_reflect(component).ok()?;
 
                 self.extracted_resources.insert(component_id, component);
                 Some(())
@@ -698,7 +696,7 @@ mod tests {
     }
 
     #[test]
-    fn should_use_from_reflect() {
+    fn should_use_from_dynamic() {
         #[derive(Component, Reflect)]
         #[reflect(Component)]
         struct SomeType(i32);
@@ -722,14 +720,14 @@ mod tests {
 
         let component = &dynamic_world.entities[0].components[0];
         assert!(component
-            .try_as_reflect()
-            .expect("component should be concrete due to `FromReflect`")
+            .as_concrete()
+            .expect("component should be concrete due to `FromDynamic`")
             .is::<SomeType>());
 
         let resource = &dynamic_world.resources[0];
         assert!(resource
-            .try_as_reflect()
-            .expect("resource should be concrete due to `FromReflect`")
+            .as_concrete()
+            .expect("resource should be concrete due to `FromDynamic`")
             .is::<SomeResource>());
     }
 }

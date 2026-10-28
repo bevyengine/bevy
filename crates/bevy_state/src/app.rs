@@ -18,7 +18,7 @@ use crate::{
 };
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromReflect, GetTypeRegistration, Typed};
+use bevy_reflect::{FromDynamic, GetTypeRegistration, Typed};
 
 /// State installation methods for [`App`] and [`SubApp`].
 pub trait AppExtStates {
@@ -70,7 +70,7 @@ pub trait AppExtStates {
     /// This enables reflection code to access the state. For detailed information, see the docs on [`crate::reflect::ReflectState`] .
     fn register_type_state<S>(&mut self) -> &mut Self
     where
-        S: States + FromReflect + GetTypeRegistration + Typed;
+        S: States + FromDynamic + GetTypeRegistration + Typed;
 
     #[cfg(feature = "bevy_reflect")]
     /// Registers the state type `T` using [`App::register_type`],
@@ -80,7 +80,7 @@ pub trait AppExtStates {
     /// For detailed information, see the docs on [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`].
     fn register_type_mutable_state<S>(&mut self) -> &mut Self
     where
-        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed;
+        S: FreelyMutableState + FromDynamic + GetTypeRegistration + Typed;
 }
 
 /// Separate function to only warn once for all state installation methods.
@@ -217,7 +217,7 @@ impl AppExtStates for SubApp {
     #[cfg(feature = "bevy_reflect")]
     fn register_type_state<S>(&mut self) -> &mut Self
     where
-        S: States + FromReflect + GetTypeRegistration + Typed,
+        S: States + FromDynamic + GetTypeRegistration + Typed,
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
@@ -229,7 +229,7 @@ impl AppExtStates for SubApp {
     #[cfg(feature = "bevy_reflect")]
     fn register_type_mutable_state<S>(&mut self) -> &mut Self
     where
-        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed,
+        S: FreelyMutableState + FromDynamic + GetTypeRegistration + Typed,
     {
         self.register_type::<S>();
         self.register_type::<State<S>>();
@@ -309,7 +309,7 @@ impl AppExtStates for App {
     #[cfg(feature = "bevy_reflect")]
     fn register_type_state<S>(&mut self) -> &mut Self
     where
-        S: States + FromReflect + GetTypeRegistration + Typed,
+        S: States + FromDynamic + GetTypeRegistration + Typed,
     {
         self.main_mut().register_type_state::<S>();
         self
@@ -318,7 +318,7 @@ impl AppExtStates for App {
     #[cfg(feature = "bevy_reflect")]
     fn register_type_mutable_state<S>(&mut self) -> &mut Self
     where
-        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed,
+        S: FreelyMutableState + FromDynamic + GetTypeRegistration + Typed,
     {
         self.main_mut().register_type_mutable_state::<S>();
         self

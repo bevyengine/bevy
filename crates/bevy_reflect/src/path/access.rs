@@ -1,14 +1,10 @@
 //! Representation for individual element accesses within a path.
 
 use alloc::{borrow::Cow, boxed::Box, string::String};
-use bevy_reflect_derive::Reflect;
 use core::fmt::{self, Write};
 
 use super::error::AccessErrorKind;
-use crate::{
-    enums::VariantType, map::MapInfo, set::SetInfo, AccessError, PartialReflect, ReflectKind,
-    ReflectMut, ReflectRef, Type,
-};
+use crate::{enums::VariantType, AccessError, Reflect, ReflectKind, ReflectMut, ReflectRef, Type};
 
 type InnerResult<T> = Result<T, AccessErrorKind>;
 
@@ -73,18 +69,15 @@ impl<'a> Access<'a> {
 
     pub(super) fn element<'r>(
         &self,
-        base: &'r dyn PartialReflect,
+        base: &'r dyn Reflect,
         offset: Option<usize>,
-    ) -> Result<&'r dyn PartialReflect, AccessError<'a>> {
+    ) -> Result<&'r dyn Reflect, AccessError<'a>> {
         self.element_inner(base)
             .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.reflect_kind())))
             .map_err(|err| err.with_access(self.clone(), offset))
     }
 
-    fn element_inner<'r>(
-        &self,
-        base: &'r dyn PartialReflect,
-    ) -> InnerResult<Option<&'r dyn PartialReflect>> {
+    fn element_inner<'r>(&self, base: &'r dyn Reflect) -> InnerResult<Option<&'r dyn Reflect>> {
         use ReflectRef::*;
 
         let invalid_variant =
@@ -122,16 +115,11 @@ impl<'a> Access<'a> {
             (&Self::ListIndex(index), List(list)) => Ok(list.get(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get(index)),
             (Self::Key(key), Map(map)) => {
-                let key = to_key(key, map.get_represented_map_info().map(MapInfo::key_ty))?;
+                let key = to_key(key, map.reflect_map_info().key_ty())?;
                 Ok(map.get(key.as_ref()))
             }
             (Self::Key(key), Set(set)) => {
-                let info = set.get_represented_type_info();
-                let key = to_key(
-                    key,
-                    info.and_then(|info| info.as_set().ok())
-                        .map(SetInfo::value_ty),
-                )?;
+                let key = to_key(key, set.reflect_set_info().value_ty())?;
                 Ok(set.get(key.as_ref()))
             }
             (Self::ListIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
@@ -147,9 +135,9 @@ impl<'a> Access<'a> {
 
     pub(super) fn element_mut<'r>(
         &self,
-        base: &'r mut dyn PartialReflect,
+        base: &'r mut dyn Reflect,
         offset: Option<usize>,
-    ) -> Result<&'r mut dyn PartialReflect, AccessError<'a>> {
+    ) -> Result<&'r mut dyn Reflect, AccessError<'a>> {
         let kind = base.reflect_kind();
 
         self.element_inner_mut(base)
@@ -159,8 +147,8 @@ impl<'a> Access<'a> {
 
     fn element_inner_mut<'r>(
         &self,
-        base: &'r mut dyn PartialReflect,
-    ) -> InnerResult<Option<&'r mut dyn PartialReflect>> {
+        base: &'r mut dyn Reflect,
+    ) -> InnerResult<Option<&'r mut dyn Reflect>> {
         use ReflectMut::*;
 
         let invalid_variant =
@@ -198,7 +186,7 @@ impl<'a> Access<'a> {
             (&Self::ListIndex(index), List(list)) => Ok(list.get_mut(index)),
             (&Self::ListIndex(index), Array(list)) => Ok(list.get_mut(index)),
             (Self::Key(key), Map(map)) => {
-                let key = to_key(key, map.get_represented_map_info().map(MapInfo::key_ty))?;
+                let key = to_key(key, map.reflect_map_info().key_ty())?;
                 Ok(map.get_mut(key.as_ref()))
             }
             (Self::Key(_), Set(_)) => Err(AccessErrorKind::MutableSetAccess),
@@ -231,11 +219,10 @@ impl<'a> Access<'a> {
     }
 }
 
-fn to_key(key: &str, ty: Option<Type>) -> InnerResult<Box<dyn PartialReflect>> {
+fn to_key(key: &str, ty: Type) -> InnerResult<Box<dyn Reflect>> {
     let invalid = || AccessErrorKind::InvalidKey {
-        key_type: ty.map(|ty| ty.path()),
+        key_type: ty.path(),
     };
-    let ty = ty.ok_or_else(invalid)?;
     macro_rules! int_keys {
         ($($int:ty),*) => {
             $(if ty.is::<$int>() {

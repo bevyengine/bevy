@@ -1,5 +1,5 @@
 use crate::entity::{EntityMapper, MapEntities};
-use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect};
+use bevy_reflect::{CreateTypeData, FromDynamic, Reflect};
 
 /// For a specific type of value, this maps any fields with values of type [`Entity`] to a new world.
 ///
@@ -12,7 +12,7 @@ use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect};
 /// [`EntityMapper`]: crate::entity::EntityMapper
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut dyn PartialReflect, &mut dyn EntityMapper),
+    map_entities: fn(&mut dyn Reflect, &mut dyn EntityMapper),
 }
 
 impl ReflectMapEntities {
@@ -20,18 +20,19 @@ impl ReflectMapEntities {
     ///
     /// # Panics
     /// Panics if the type of the reflected value doesn't match.
-    pub fn map_entities(&self, reflected: &mut dyn PartialReflect, mapper: &mut dyn EntityMapper) {
+    pub fn map_entities(&self, reflected: &mut dyn Reflect, mapper: &mut dyn EntityMapper) {
         (self.map_entities)(reflected, mapper);
     }
 }
 
-impl<C: PartialReflect + FromReflect + MapEntities> CreateTypeData<C> for ReflectMapEntities {
+impl<C: Reflect + FromDynamic + MapEntities> CreateTypeData<C> for ReflectMapEntities {
     fn create_type_data(_input: ()) -> Self {
         ReflectMapEntities {
             map_entities: |reflected, mut mapper| {
-                let mut concrete = C::from_reflect(reflected).expect("reflected type should match");
+                let concrete = reflected
+                    .downcast_mut::<C>()
+                    .expect("reflected type should match");
                 concrete.map_entities(&mut mapper);
-                reflected.apply(&concrete);
             },
         }
     }

@@ -8,8 +8,9 @@ use futures_lite::AsyncWriteExt;
 use ron::ser::PrettyConfig;
 
 use bevy_reflect::{
+    dynamic::DynamicValue,
     serde::{ReflectDeserializer, ReflectSerializer},
-    Reflect, ReflectFromPtr, TypePath, TypeRegistryArc,
+    Reflect, ReflectFromPtr, TypeInfo, TypePath, TypeRegistryArc,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
@@ -120,30 +121,33 @@ impl AssetLoader for RonLoader {
             .from_bytes_seed(&buffer, reflect_deserializer)
             .map_err(Into::<RonDeserializeError>::into)?;
 
-        // Unwrap is ok because the `ReflectDeserializer` will produce values representing a
-        // particular type.
-        let asset_type_info = reflected_asset.get_represented_type_info().unwrap();
+        // At this point, we need the concrete type. `ReflectDeserializer` internally uses the
+        // `ReflectFromDynamic` for the loaded type to convert into a concrete type. If that fails,
+        // that must mean `ReflectFromDynamic` wasn't registered for the type, so there's nothing we
+        // can do.
+        let DynamicValue::Concrete(reflected_asset) = reflected_asset else {
+            // We're kind of cheating here: the current implementation of `ReflectDeserializer` (at
+            // the time of writing) only doesn't return the concrete type if `ReflectFromDynamic` is
+            // not registered. We return that here for better error messages (even though an
+            // arbitrary implementation might not return the concrete type for other reasons, or
+            // might try other fallbacks).
+            return Err(ReflectedRonDeserializeError::MissingReflectFromDynamic(
+                reflected_asset
+                    .get_represented_type_info()
+                    .map(TypeInfo::type_path)
+                    // Unwrap is ok because the `ReflectDeserializer` will produce values
+                    // representing a particular type.
+                    .unwrap(),
+            ));
+        };
+
+        let asset_type_info = reflected_asset.reflect_type_info();
         let asset_type_id = asset_type_info.type_id();
         // Unwrap is ok because the `ReflectDeserializer` could not have deserialized this value if
         // the type weren't in the registry.
         let type_registration = registry.get(asset_type_id).unwrap();
         let Some(reflect_asset) = type_registration.data::<ReflectAsset>() else {
             return Err(ReflectedRonDeserializeError::MissingReflectAsset(
-                asset_type_info.type_path(),
-            ));
-        };
-
-        // At this point, we need the concrete type. `ReflectDeserializer` internally uses the
-        // `ReflectFromReflect` for the loaded type to convert into a concrete type. If that fails,
-        // that must mean `ReflectFromReflect` wasn't registered for the type, so there's nothing we
-        // can do.
-        let Ok(reflected_asset) = reflected_asset.try_into_reflect() else {
-            // We're kind of cheating here: the current implementation of `ReflectDeserializer` (at
-            // the time of writing) only doesn't return the concrete type if `ReflectFromReflect` is
-            // not registered. We return that here for better error messages (even though an
-            // arbitrary implementation might not return the concrete type for other reasons, or
-            // might try other fallbacks).
-            return Err(ReflectedRonDeserializeError::MissingReflectFromReflect(
                 asset_type_info.type_path(),
             ));
         };
@@ -454,8 +458,8 @@ pub enum RonDeserializeError {
 pub enum ReflectedRonDeserializeError {
     #[error(transparent)]
     Ron(#[from] RonDeserializeError),
-    #[error("Attempted to load type \"{0}\", which does not have `ReflectFromReflect` in the type registry. This may occur for types that have opted-out of `FromReflect`")]
-    MissingReflectFromReflect(&'static str),
+    #[error("Attempted to load type \"{0}\", which does not have `ReflectFromDynamic` in the type registry. This may occur for types that have opted-out of `FromDynamic`")]
+    MissingReflectFromDynamic(&'static str),
     #[error("Attempted to load type \"{0}\", which does not have `ReflectAsset` in the type registry. Make sure to add `#[reflect(Asset)]` to your type")]
     MissingReflectAsset(&'static str),
 }

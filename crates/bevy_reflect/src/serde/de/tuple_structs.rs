@@ -1,6 +1,7 @@
 use crate::{
+    dynamic::DynamicTupleStruct,
     serde::{de::tuple_utils::visit_tuple, SerializationData},
-    tuple_struct::{DynamicTupleStruct, TupleStructInfo},
+    tuple_struct::TupleStructInfo,
     TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
@@ -49,7 +50,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleStructVisitor<'
         let serialization_data = self.registration.data::<SerializationData>();
 
         if let Some(value) = serialization_data.and_then(|data| data.generate_default(0)) {
-            tuple.insert_boxed(value.into_partial_reflect());
+            tuple.insert(value);
             return Ok(tuple);
         }
 
@@ -65,7 +66,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleStructVisitor<'
             TypedReflectDeserializer::new_internal(registration, self.registry, self.processor);
         let value = reflect_deserializer.deserialize(deserializer)?;
 
-        tuple.insert_boxed(value.into_partial_reflect());
+        tuple.insert(value);
 
         Ok(tuple)
     }

@@ -7,7 +7,7 @@ use core::{
 
 use crate::{resource::Resource, world::World};
 use bevy_reflect::{
-    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath,
+    dynamic::DynamicValue, std_traits::ReflectDefault, Reflect, ReflectFromDynamic, TypePath,
     TypeRegistry, TypeRegistryArc,
 };
 
@@ -29,6 +29,7 @@ pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
 pub use message::{ReflectMessage, ReflectMessageFns};
 pub use resource::ReflectResource;
+use thiserror::Error;
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
@@ -89,11 +90,76 @@ impl DerefMut for AppFunctionRegistry {
     }
 }
 
-/// Creates a `T` from a `&dyn PartialReflect`.
+/// Creates a reflected value from a correponding [`DynamicValue`].
 ///
 /// This will try the following strategies, in this order:
 ///
-/// - use the reflected `FromReflect`, if it's present and doesn't fail;
+/// - for concrete values, tries to downcast the value, and fails if the downcast fails;
+/// - use the reflected `FromDynamic`, if it's present and doesn't fail;
+/// - use the reflected `Default`, if it's present, and then call `apply` on the result;
+/// - use the reflected `FromWorld`, just like the `Default`.
+///
+/// The first one that is present and doesn't fail will be used.
+#[inline(never)]
+pub fn from_dynamic_with_fallback_erased(
+    dynamic_value: DynamicValue,
+    world: &mut World,
+    registry: &TypeRegistry,
+    id: TypeId,
+    name: DebugName,
+) -> Result<alloc::boxed::Box<dyn Reflect>, FromDynamicWithFallbackError> {
+    if let DynamicValue::Concrete(concrete) = dynamic_value {
+        if concrete.as_any().type_id() != id {
+            return Err(FromDynamicWithFallbackError::FailedDowncast {
+                concrete_type: concrete.reflect_type_info().type_path().into(),
+                expected_type: name,
+            });
+        }
+        return Ok(concrete);
+    }
+
+    // First, try `FromDynamic`. This is handled differently from the others because
+    // it doesn't need a subsequent `apply` and may fail.
+    // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
+    let (value, source) = if let Some(value) = registry
+        .get_type_data::<ReflectFromDynamic>(id)
+        .and_then(|reflect_from_dynamic| {
+            reflect_from_dynamic.from_dynamic(dynamic_value.dynamic_clone().ok()?)
+        }) {
+        (value, "FromDynamic")
+    }
+    // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
+    else if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(id) {
+        let mut value = reflect_default.default();
+        dynamic_value.try_apply(&mut *value).unwrap();
+        (value, "Default")
+    } else if let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(id) {
+        let mut value = reflect_from_world.from_world(world);
+        dynamic_value.try_apply(&mut *value).unwrap();
+        (value, "FromWorld")
+    } else {
+        panic!(
+            "Couldn't create an instance of `{name}` using the reflected `FromDynamic`, \
+                `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
+                or `#[reflect(FromWorld)]`?",
+        );
+    };
+    if value.as_any().type_id() != id {
+        return Err(FromDynamicWithFallbackError::BadTypeId {
+            concrete_type: value.reflect_type_info().type_path().into(),
+            expected_type: name,
+            trait_source: source,
+        });
+    }
+    Ok(value)
+}
+
+/// Creates a `T` from a [`DynamicValue`].
+///
+/// This will try the following strategies, in this order:
+///
+/// - for concrete values, tries to downcast the value, and fails if the downcast fails;
+/// - use the reflected `FromDynamic`, if it's present and doesn't fail;
 /// - use the reflected `Default`, if it's present, and then call `apply` on the result;
 /// - use the reflected `FromWorld`, just like the `Default`.
 ///
@@ -105,60 +171,43 @@ impl DerefMut for AppFunctionRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
-    reflected: &dyn PartialReflect,
+pub fn from_dynamic_with_fallback<T: Reflect + TypePath>(
+    dynamic_value: DynamicValue,
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
-    #[inline(never)]
-    fn type_erased(
-        reflected: &dyn PartialReflect,
-        world: &mut World,
-        registry: &TypeRegistry,
-        id: TypeId,
-        name: DebugName,
-    ) -> alloc::boxed::Box<dyn core::any::Any> {
-        // First, try `FromReflect`. This is handled differently from the others because
-        // it doesn't need a subsequent `apply` and may fail.
-        // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
-        let (value, source) = if let Some(value) = registry
-            .get_type_data::<ReflectFromReflect>(id)
-            .and_then(|reflect_from_reflect| reflect_from_reflect.from_reflect(reflected))
-        {
-            (value, "FromReflect")
-        }
-        // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
-        else if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(id) {
-            let mut value = reflect_default.default();
-            value.apply(reflected);
-            (value, "Default")
-        } else if let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(id) {
-            let mut value = reflect_from_world.from_world(world);
-            value.apply(reflected);
-            (value, "FromWorld")
-        } else {
-            panic!(
-                "Couldn't create an instance of `{name}` using the reflected `FromReflect`, \
-                `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
-                or `#[reflect(FromWorld)]`?",
-            );
-        };
-        assert_eq!(
-            value.as_any().type_id(),
-            id,
-            "The registration for the reflected `{source}` trait for the type `{name}` produced \
-            a value of a different type",
-        );
-        value
-    }
-    *type_erased(
-        reflected,
+    *from_dynamic_with_fallback_erased(
+        dynamic_value,
         world,
         registry,
         TypeId::of::<T>(),
         // FIXME: once we have unique reflect, use `TypePath`.
         DebugName::type_name::<T>(),
     )
+    .unwrap()
     .downcast::<T>()
     .unwrap()
+}
+
+/// Error type for [`from_dynamic_with_fallback_erased`].
+#[derive(Error, Debug, Clone)]
+pub enum FromDynamicWithFallbackError {
+    /// The concrete value failed to downcast.
+    #[error("the provided concrete value was the wrong type. Expected {expected_type}, got {concrete_type}")]
+    FailedDowncast {
+        /// The concrete type passed in.
+        concrete_type: DebugName,
+        /// The value that was expected to be casted into.
+        expected_type: DebugName,
+    },
+    /// One of the reflected traits successfully converted, but produced a different type.
+    #[error("the reflected trait {trait_source} produced the wrong type. Expected {expected_type}, got {concrete_type}")]
+    BadTypeId {
+        /// The concrete type passed in.
+        concrete_type: DebugName,
+        /// The value that was expected to be casted into.
+        expected_type: DebugName,
+        /// The trait that produced the wrong type.
+        trait_source: &'static str,
+    },
 }

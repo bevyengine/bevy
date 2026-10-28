@@ -7,11 +7,12 @@ use bevy_asset::{
 use bevy_ecs::entity::Entity;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{
+    dynamic::DynamicValue,
     serde::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
         TypedReflectSerializer,
     },
-    PartialReflect, ReflectFromReflect, TypeRegistry,
+    ReflectFromDynamic, TypeRegistry,
 };
 use core::fmt::Formatter;
 use serde::{
@@ -161,7 +162,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// Note: The entries are sorted by type path before they're serialized.
 pub struct WorldMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn PartialReflect>],
+    pub entries: &'a [DynamicValue],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
@@ -179,7 +180,7 @@ impl<'a> Serialize for WorldMapSerializer<'a> {
                 .map(|entry| {
                     (
                         entry.get_represented_type_info().unwrap().type_path(),
-                        entry.as_partial_reflect(),
+                        entry,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -468,7 +469,7 @@ pub struct WorldMapDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for WorldMapDeserializer<'a> {
-    type Value = Vec<Box<dyn PartialReflect>>;
+    type Value = Vec<DynamicValue>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -487,7 +488,7 @@ struct WorldMapVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
-    type Value = Vec<Box<dyn PartialReflect>>;
+    type Value = Vec<DynamicValue>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map of reflect types")
@@ -529,13 +530,13 @@ impl<'a, 'de> Visitor<'de> for WorldMapVisitor<'a> {
                 },
             ))?;
 
-            // Attempt to convert using FromReflect.
+            // Attempt to convert using FromDynamic.
             let value = self
                 .registry
                 .get(registration.type_id())
-                .and_then(|tr| tr.data::<ReflectFromReflect>())
-                .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
-                .map(PartialReflect::into_partial_reflect)
+                .and_then(|tr| tr.data::<ReflectFromDynamic>())
+                .and_then(|fr| fr.from_dynamic(value.dynamic_clone().ok()?))
+                .map(DynamicValue::Concrete)
                 .unwrap_or(value);
 
             entries.push(value);
@@ -1020,8 +1021,8 @@ mod tests {
                     });
 
                 assert!(
-                    expected
-                        .reflect_partial_eq(received.as_ref())
+                    expected.as_ref()
+                        .dynamic_partial_eq(received.as_ref())
                         .unwrap_or_default(),
                     "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
                 );

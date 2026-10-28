@@ -5,7 +5,7 @@ use core::any::TypeId;
 
 use thiserror::Error;
 
-use bevy_reflect::{PartialReflect, Reflect, ReflectFromPtr};
+use bevy_reflect::{Reflect, ReflectFromPtr};
 use bevy_utils::prelude::DebugName;
 
 use crate::{prelude::*, world::ComponentId};
@@ -197,7 +197,7 @@ impl World {
     pub fn insert_reflect_resource(
         &mut self,
         resource_id: ComponentId,
-        reflected_resource: Box<dyn PartialReflect>,
+        reflected_resource: Box<dyn Reflect>,
     ) {
         if let Some(entity) = self.resource_entities().get(resource_id) {
             self.entity_mut(entity).insert_reflect(reflected_resource);

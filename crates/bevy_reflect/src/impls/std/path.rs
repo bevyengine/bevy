@@ -1,10 +1,9 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::ApplyError,
-    type_path::DynamicTypePath,
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize, TypeRegistration,
     },
@@ -29,36 +28,7 @@ impl_reflect_opaque!(::std::path::PathBuf(
     Default
 ));
 
-impl PartialReflect for &'static Path {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl Reflect for &'static Path {
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Opaque
     }
@@ -86,36 +56,22 @@ impl PartialReflect for &'static Path {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
         }
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-            Ok(())
-        } else {
-            Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            })
-        }
-    }
-}
-
-impl Reflect for &'static Path {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -157,47 +113,18 @@ impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 }
 
-impl FromReflect for &'static Path {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+impl FromDynamic for &'static Path {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        dynamic.into_concrete()?.downcast_ref::<Self>().copied()
     }
 }
 
-impl PartialReflect for Cow<'static, Path> {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl Reflect for Cow<'static, Path> {
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Opaque
     }
@@ -225,16 +152,16 @@ impl PartialReflect for Cow<'static, Path> {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
@@ -245,20 +172,6 @@ impl PartialReflect for Cow<'static, Path> {
         fmt::Debug::fmt(&self, f)
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-            Ok(())
-        } else {
-            Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            })
-        }
-    }
-}
-
-impl Reflect for Cow<'static, Path> {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -298,9 +211,9 @@ impl Typed for Cow<'static, Path> {
 
 impl_type_path!(::std::path::Path);
 
-impl FromReflect for Cow<'static, Path> {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<Self>()?.clone())
+impl FromDynamic for Cow<'static, Path> {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        Some(dynamic.into_concrete()?.downcast_ref::<Self>()?.clone())
     }
 }
 
@@ -310,7 +223,7 @@ impl GetTypeRegistration for Cow<'static, Path> {
         registration.register_type_data::<ReflectDeserialize, Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
         registration.register_type_data::<ReflectSerialize, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 }

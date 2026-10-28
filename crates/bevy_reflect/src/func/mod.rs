@@ -10,12 +10,12 @@
 //! via an [`ArgList`].
 //!
 //! This returns a [`FunctionResult`] containing the [`Return`] value,
-//! which can be used to extract a [`PartialReflect`] trait object.
+//! which can be used to extract a [`Reflect`] trait object.
 //!
 //! # Example
 //!
 //! ```
-//! # use bevy_reflect::PartialReflect;
+//! # use bevy_reflect::Reflect;
 //! # use bevy_reflect::func::args::ArgList;
 //! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
@@ -27,10 +27,10 @@
 //!   // Pushing a known type with owned ownership
 //!   .with_owned(25_i32)
 //!   // Pushing a reflected type with owned ownership
-//!   .with_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
+//!   .with_boxed(Box::new(75_i32) as Box<dyn Reflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
-//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
 //! # Types of Functions
@@ -142,14 +142,14 @@
 //! // You can then retrieve and call these functions by name:
 //! let reflect_add = registry.get(core::any::type_name_of_val(&add)).unwrap();
 //! let value = reflect_add.call(ArgList::default().with_owned(10_i32).with_owned(5_i32)).unwrap();
-//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&15));
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&15));
 //!
 //! let reflect_mul = registry.get("mul").unwrap();
 //! let value = reflect_mul.call(ArgList::default().with_owned(10_i32).with_owned(5_i32)).unwrap();
-//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&50));
+//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&50));
 //! ```
 //!
-//! [`PartialReflect`]: crate::PartialReflect
+//! [`Reflect`]: crate::Reflect
 //! [`Reflect`]: crate::Reflect
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
@@ -162,7 +162,6 @@ pub use args::{ArgError, ArgList, ArgValue};
 pub use dynamic_function::*;
 pub use dynamic_function_mut::*;
 pub use error::*;
-pub use function::*;
 pub use info::*;
 pub use into_function::*;
 pub use into_function_mut::*;
@@ -176,7 +175,6 @@ mod dynamic_function;
 mod dynamic_function_internal;
 mod dynamic_function_mut;
 mod error;
-mod function;
 mod info;
 mod into_function;
 mod into_function_mut;

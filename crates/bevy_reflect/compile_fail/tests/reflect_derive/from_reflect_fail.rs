@@ -1,25 +1,25 @@
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromDynamic, Reflect};
 
-// Reason: Cannot have conflicting `from_reflect` attributes
+// Reason: Cannot have conflicting `from_dynamic` attributes
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
-#[reflect(from_reflect = true)]
+#[reflect(from_dynamic = false)]
+#[reflect(from_dynamic = true)]
 //~^ ERROR: already set to false
 struct Foo {
     value: String,
 }
 
-// Reason: Cannot have conflicting `from_reflect` attributes
+// Reason: Cannot have conflicting `from_dynamic` attributes
 #[derive(Reflect)]
-#[reflect(from_reflect = true)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = true)]
+#[reflect(from_dynamic = false)]
 //~^ ERROR: already set to true
 struct Bar {
     value: String,
 }
 
-// Reason: Conflicting `FromReflect` implementations
-#[derive(Reflect, FromReflect)]
+// Reason: Conflicting `FromDynamic` implementations
+#[derive(Reflect, FromDynamic)]
 //~^ ERROR: conflicting implementation
 struct Baz {
     value: String,

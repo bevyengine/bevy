@@ -18,16 +18,16 @@ impl_reflect! {
 #[cfg(test)]
 mod tests {
     use crate::{
+        dynamic::DynamicValue,
         enums::{Enum, VariantInfo, VariantType},
-        FromReflect, PartialReflect, TypeInfo, Typed,
+        FromDynamic, Reflect, TypeInfo, Typed,
     };
-    use bevy_reflect_derive::Reflect;
     use static_assertions::assert_impl_all;
 
     #[test]
     fn should_partial_eq_option() {
-        let a: &dyn PartialReflect = &Some(123);
-        let b: &dyn PartialReflect = &Some(123);
+        let a: &dyn Reflect = &Some(123);
+        let b: &dyn Reflect = &Some(123);
         assert_eq!(Some(true), a.reflect_partial_eq(b));
     }
 
@@ -50,7 +50,7 @@ mod tests {
         if value.is_variant(VariantType::Tuple) {
             if let Some(field) = value
                 .field_at_mut(0)
-                .and_then(|field| field.try_downcast_mut::<usize>())
+                .and_then(|field| field.downcast_mut::<usize>())
             {
                 *field = 321;
             }
@@ -62,12 +62,15 @@ mod tests {
     }
 
     #[test]
-    fn option_should_from_reflect() {
+    fn option_should_from_dynamic() {
         #[derive(Reflect, PartialEq, Debug)]
         struct Foo(usize);
 
         let expected = Some(Foo(123));
-        let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
+        let output = <Option<Foo> as FromDynamic>::from_dynamic(
+            DynamicValue::try_from_reflect(&expected).unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(expected, output);
     }
@@ -80,28 +83,40 @@ mod tests {
         // === None on None === //
         let patch = None::<Foo>;
         let mut value = None::<Foo>;
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "None apply onto None");
 
         // === Some on None === //
         let patch = Some(Foo(123));
         let mut value = None::<Foo>;
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "Some apply onto None");
 
         // === None on Some === //
         let patch = None::<Foo>;
         let mut value = Some(Foo(321));
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "None apply onto Some");
 
         // === Some on Some === //
         let patch = Some(Foo(123));
         let mut value = Some(Foo(321));
-        PartialReflect::apply(&mut value, &patch);
+        DynamicValue::try_from_reflect(&patch)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
 
         assert_eq!(patch, value, "Some apply onto Some");
     }

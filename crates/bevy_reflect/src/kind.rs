@@ -1,11 +1,9 @@
 use alloc::boxed::Box;
 use thiserror::Error;
 
-#[cfg(feature = "functions")]
-use crate::func::Function;
 use crate::{
     array::Array, enums::Enum, list::List, map::Map, set::Set, structs::Struct, tuple::Tuple,
-    tuple_struct::TupleStruct, PartialReflect,
+    tuple_struct::TupleStruct, Reflect,
 };
 
 /// An enumeration of the "kinds" of a reflected type.
@@ -14,7 +12,7 @@ use crate::{
 /// such as [`Struct`] or [`List`],
 /// which itself corresponds to the kind or structure of a type.
 ///
-/// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
+/// A [`ReflectKind`] is obtained via [`Reflect::reflect_kind`],
 /// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ReflectKind {
@@ -50,11 +48,6 @@ pub enum ReflectKind {
     ///
     /// [enum-like]: Enum
     Enum,
-    /// A [function-like] type.
-    ///
-    /// [function-like]: Function
-    #[cfg(feature = "functions")]
-    Function,
     /// An opaque type.
     ///
     /// This most often represents a type where it is either impossible, difficult,
@@ -83,8 +76,6 @@ impl core::fmt::Display for ReflectKind {
             ReflectKind::Map => f.pad("map"),
             ReflectKind::Set => f.pad("set"),
             ReflectKind::Enum => f.pad("enum"),
-            #[cfg(feature = "functions")]
-            ReflectKind::Function => f.pad("function"),
             ReflectKind::Opaque => f.pad("opaque"),
         }
     }
@@ -104,8 +95,6 @@ macro_rules! impl_reflect_kind_conversions {
                     Self::Map(_) => ReflectKind::Map,
                     Self::Set(_) => ReflectKind::Set,
                     Self::Enum(_) => ReflectKind::Enum,
-                    #[cfg(feature = "functions")]
-                    Self::Function(_) => ReflectKind::Function,
                     Self::Opaque(_) => ReflectKind::Opaque,
                 }
             }
@@ -122,8 +111,6 @@ macro_rules! impl_reflect_kind_conversions {
                     $name::Map(_) => Self::Map,
                     $name::Set(_) => Self::Set,
                     $name::Enum(_) => Self::Enum,
-                    #[cfg(feature = "functions")]
-                    $name::Function(_) => Self::Function,
                     $name::Opaque(_) => Self::Opaque,
                 }
             }
@@ -145,7 +132,7 @@ pub struct ReflectKindMismatchError {
 
 macro_rules! impl_cast_method {
     ($name:ident : Opaque => $retval:ty) => {
-        #[doc = "Attempts a cast to a [`PartialReflect`] trait object."]
+        #[doc = "Attempts a cast to a [`Reflect`] trait object."]
         #[doc = "\n\nReturns an error if `self` is not the [`Self::Opaque`] variant."]
         pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
             match self {
@@ -177,7 +164,7 @@ macro_rules! impl_cast_method {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectRef`] is obtained via [`PartialReflect::reflect_ref`].
+/// A [`ReflectRef`] is obtained via [`Reflect::reflect_ref`].
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectRef<'a> {
@@ -213,15 +200,10 @@ pub enum ReflectRef<'a> {
     ///
     /// [enum-like]: Enum
     Enum(&'a dyn Enum),
-    /// An immutable reference to a [function-like] type.
-    ///
-    /// [function-like]: Function
-    #[cfg(feature = "functions")]
-    Function(&'a dyn Function),
     /// An immutable reference to an [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
-    Opaque(&'a dyn PartialReflect),
+    Opaque(&'a dyn Reflect),
 }
 
 impl_reflect_kind_conversions!(ReflectRef<'_>);
@@ -235,7 +217,7 @@ impl<'a> ReflectRef<'a> {
     impl_cast_method!(as_map: Map => &'a dyn Map);
     impl_cast_method!(as_set: Set => &'a dyn Set);
     impl_cast_method!(as_enum: Enum => &'a dyn Enum);
-    impl_cast_method!(as_opaque: Opaque => &'a dyn PartialReflect);
+    impl_cast_method!(as_opaque: Opaque => &'a dyn Reflect);
 }
 
 /// A mutable enumeration of ["kinds"] of a reflected type.
@@ -243,7 +225,7 @@ impl<'a> ReflectRef<'a> {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectMut`] is obtained via [`PartialReflect::reflect_mut`].
+/// A [`ReflectMut`] is obtained via [`Reflect::reflect_mut`].
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectMut<'a> {
@@ -279,15 +261,10 @@ pub enum ReflectMut<'a> {
     ///
     /// [enum-like]: Enum
     Enum(&'a mut dyn Enum),
-    #[cfg(feature = "functions")]
-    /// A mutable reference to a [function-like] type.
-    ///
-    /// [function-like]: Function
-    Function(&'a mut dyn Function),
     /// A mutable reference to an [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
-    Opaque(&'a mut dyn PartialReflect),
+    Opaque(&'a mut dyn Reflect),
 }
 
 impl_reflect_kind_conversions!(ReflectMut<'_>);
@@ -301,7 +278,7 @@ impl<'a> ReflectMut<'a> {
     impl_cast_method!(as_map: Map => &'a mut dyn Map);
     impl_cast_method!(as_set: Set => &'a mut dyn Set);
     impl_cast_method!(as_enum: Enum => &'a mut dyn Enum);
-    impl_cast_method!(as_opaque: Opaque => &'a mut dyn PartialReflect);
+    impl_cast_method!(as_opaque: Opaque => &'a mut dyn Reflect);
 }
 
 /// An owned enumeration of ["kinds"] of a reflected type.
@@ -309,7 +286,7 @@ impl<'a> ReflectMut<'a> {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectOwned`] is obtained via [`PartialReflect::reflect_owned`].
+/// A [`ReflectOwned`] is obtained via [`Reflect::reflect_owned`].
 ///
 /// ["kinds"]: ReflectKind
 pub enum ReflectOwned {
@@ -345,15 +322,10 @@ pub enum ReflectOwned {
     ///
     /// [enum-like]: Enum
     Enum(Box<dyn Enum>),
-    /// An owned [function-like] type.
-    ///
-    /// [function-like]: Function
-    #[cfg(feature = "functions")]
-    Function(Box<dyn Function>),
     /// An owned [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
-    Opaque(Box<dyn PartialReflect>),
+    Opaque(Box<dyn Reflect>),
 }
 
 impl_reflect_kind_conversions!(ReflectOwned);
@@ -367,7 +339,7 @@ impl ReflectOwned {
     impl_cast_method!(into_map: Map => Box<dyn Map>);
     impl_cast_method!(into_set: Set => Box<dyn Set>);
     impl_cast_method!(into_enum: Enum => Box<dyn Enum>);
-    impl_cast_method!(into_value: Opaque => Box<dyn PartialReflect>);
+    impl_cast_method!(into_value: Opaque => Box<dyn Reflect>);
 }
 
 #[cfg(test)]

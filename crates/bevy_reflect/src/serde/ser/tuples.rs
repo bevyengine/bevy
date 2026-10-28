@@ -1,16 +1,16 @@
-use crate::{serde::TypedReflectSerializer, tuple::Tuple, TypeRegistry};
+use crate::{serde::TypedReflectSerializer, tuple::TupleLike, TypeRegistry};
 use serde::{ser::SerializeTuple, Serialize};
 
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`Tuple`] values.
-pub(super) struct TupleSerializer<'a, P> {
-    pub tuple: &'a dyn Tuple,
+pub(super) struct TupleSerializer<'a, T: TupleLike + ?Sized, P> {
+    pub tuple: &'a T,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for TupleSerializer<'_, P> {
+impl<T: TupleLike + ?Sized, P: ReflectSerializerProcessor> Serialize for TupleSerializer<'_, T, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

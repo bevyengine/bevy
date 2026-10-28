@@ -41,7 +41,7 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Query, Res},
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromReflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectFromDynamic};
 
 use crate::{
     color_from_entity,
@@ -94,7 +94,7 @@ pub struct FrustumGizmoConfigGroup {
 
 /// Add this [`Component`] to an entity to draw its [`Frustum`] component.
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, FromReflect, Default)]
+#[reflect(Component, FromDynamic, Default)]
 pub struct ShowFrustumGizmo {
     /// The color of the frustum.
     ///

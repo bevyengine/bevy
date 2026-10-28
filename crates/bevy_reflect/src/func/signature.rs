@@ -74,14 +74,9 @@ impl Equivalent<ArgumentSignature> for ArgListSignature<'_, '_> {
 
 impl<'a, 'b> ArgListSignature<'a, 'b> {
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &Type> {
-        self.0.iter().map(|arg| {
-            arg.value()
-                .get_represented_type_info()
-                .unwrap_or_else(|| {
-                    panic!("no `TypeInfo` found for argument: {:?}", arg);
-                })
-                .ty()
-        })
+        self.0
+            .iter()
+            .map(|arg| arg.value().reflect_type_info().ty())
     }
 
     pub fn len(&self) -> usize {
@@ -100,13 +95,7 @@ impl PartialEq for ArgListSignature<'_, '_> {
 impl Hash for ArgListSignature<'_, '_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.iter().for_each(|arg| {
-            arg.value()
-                .get_represented_type_info()
-                .unwrap_or_else(|| {
-                    panic!("no `TypeInfo` found for argument: {:?}", arg);
-                })
-                .ty()
-                .hash(state);
+            arg.value().reflect_type_info().ty().hash(state);
         });
     }
 }
@@ -187,14 +176,7 @@ impl From<&ArgList<'_>> for ArgumentSignature {
     fn from(args: &ArgList) -> Self {
         Self(
             args.iter()
-                .map(|arg| {
-                    arg.value()
-                        .get_represented_type_info()
-                        .unwrap_or_else(|| {
-                            panic!("no `TypeInfo` found for argument: {:?}", arg);
-                        })
-                        .ty()
-                })
+                .map(|arg| arg.value().reflect_type_info().ty())
                 .copied()
                 .collect(),
         )

@@ -47,7 +47,7 @@ use crate::{
 /// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
 ///
 /// let value = add.reflect_call(args).unwrap().unwrap_owned();
-/// assert_eq!(value.try_take::<i32>().unwrap(), 100);
+/// assert_eq!(value.take::<i32>().unwrap(), 100);
 /// ```
 ///
 /// # Trait Parameters

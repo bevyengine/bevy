@@ -47,7 +47,7 @@ note: required for `Foo<NoReflect>` to implement `bevy_reflect::Struct`
    |
 6  | #[derive(Reflect)]
    |          ^^^^^^^ unsatisfied trait bound introduced in this `derive` macro
-7  | #[reflect(from_reflect = false)]
+7  | #[reflect(from_dynamic = false)]
 8  | struct Foo<T> {
    |        ^^^^^^
    = note: required for the cast from `Box<Foo<NoReflect>>` to `Box<(dyn bevy_reflect::Struct + 'static)>`

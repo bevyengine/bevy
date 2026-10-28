@@ -1,10 +1,10 @@
 use crate::{
-    enums::{DynamicEnum, EnumInfo, VariantInfo},
+    dynamic::{DynamicEnum, DynamicTuple},
+    enums::{EnumInfo, VariantInfo},
     serde::{
         de::{error_utils::make_custom_error, registration_utils::try_get_registration},
         TypedReflectDeserializer,
     },
-    tuple::DynamicTuple,
     TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
@@ -51,7 +51,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for OptionVisitor<'_, P>
                     self.processor,
                 );
                 let mut value = DynamicTuple::default();
-                value.insert_boxed(de.deserialize(deserializer)?);
+                value.insert(de.deserialize(deserializer)?);
                 let mut option = DynamicEnum::default();
                 option.set_variant("Some", value);
                 Ok(option)

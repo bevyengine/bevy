@@ -31,10 +31,10 @@ use bevy_ecs::{
 pub use bevy_ecs_macros::SettingsGroup;
 use bevy_log::warn;
 use bevy_reflect::{
-    enums::DynamicEnum,
+    dynamic::{DynamicEnum, DynamicValue, DynamicValueRef},
     prelude::ReflectDefault,
     serde::{ReflectSerializerProcessor, TypedReflectDeserializer, TypedReflectSerializer},
-    CreateTypeData, FromReflect, PartialReflect, Reflect, ReflectMut, TypeInfo, TypePath,
+    CreateTypeData, FromDynamic, Reflect, ReflectMut, ReflectRef, TypeInfo, TypePath,
     TypeRegistration, TypeRegistry,
 };
 
@@ -235,7 +235,7 @@ impl ReflectSettingsGroup {
     }
 }
 
-impl<T: SettingsGroup + FromReflect + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
+impl<T: SettingsGroup + FromDynamic + TypePath> CreateTypeData<T> for ReflectSettingsGroup {
     fn create_type_data(_input: ()) -> Self {
         ReflectSettingsGroup {
             settings_group_name: T::settings_group_name(),
@@ -384,7 +384,7 @@ struct SettingsSerializerProcessor;
 impl ReflectSerializerProcessor for SettingsSerializerProcessor {
     fn try_serialize<S>(
         &self,
-        value: &dyn PartialReflect,
+        value: DynamicValueRef<'_>,
         _registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -398,11 +398,18 @@ impl ReflectSerializerProcessor for SettingsSerializerProcessor {
         let is_option = type_info.type_path_table().module_path() == Some("core::option")
             && type_info.type_path_table().ident() == Some("Option");
 
-        let is_none = is_option
-            && value
-                .reflect_ref()
-                .as_enum()
-                .is_ok_and(|enum_value| enum_value.variant_name() == "None");
+        fn get_variant_name(value: DynamicValueRef<'_>) -> Option<&str> {
+            match value {
+                DynamicValueRef::Enum(value) => Some(value.variant_name()),
+                DynamicValueRef::Concrete(concrete) => match concrete.reflect_ref() {
+                    ReflectRef::Enum(value) => Some(value.variant_name()),
+                    _ => None,
+                },
+                _ => None,
+            }
+        }
+
+        let is_none = is_option && get_variant_name(value) == Some("None");
 
         // If the value is None, serialize as an empty map
         if is_none {
@@ -447,11 +454,8 @@ fn resources_to_toml(
             continue;
         };
 
-        let serializer = TypedReflectSerializer::with_processor(
-            reflect.as_partial_reflect(),
-            types,
-            &SettingsSerializerProcessor,
-        );
+        let serializer =
+            TypedReflectSerializer::with_processor(reflect, types, &SettingsSerializerProcessor);
 
         let toml_value = if let Some(settings_key) = settings_key {
             // convert toml value into a key value pair if settings_key is set. settings_key is only set for enums
@@ -628,7 +632,7 @@ fn apply_settings_to_world(
             }
 
             // Now add the new resource to the world.
-            reflect_component.insert(&mut res_entity, default_value.as_partial_reflect(), types);
+            reflect_component.insert(&mut res_entity, default_value);
         }
     }
 }
@@ -638,10 +642,8 @@ fn is_option_type(type_info: &TypeInfo) -> bool {
         && type_info.type_path_table().ident() == Some("Option")
 }
 
-fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types: &TypeRegistry) {
-    let Some(tinfo) = resource.get_represented_type_info() else {
-        return;
-    };
+fn load_properties(value: &toml::Value, resource: &mut dyn Reflect, types: &TypeRegistry) {
+    let tinfo = resource.reflect_type_info();
 
     match tinfo {
         TypeInfo::Struct(stinfo) => {
@@ -662,13 +664,13 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                         {
                             let mut none = DynamicEnum::new_with_index(0, "None", ());
                             none.set_represented_type(Some(field_type.type_info()));
-                            field.apply(none.as_partial_reflect());
+                            DynamicValue::Enum(none).try_apply(field).unwrap();
                         } else {
                             let deserializer = TypedReflectDeserializer::new(field_type, types);
                             if let Ok(field_value) =
                                 deserializer.deserialize(toml_field_value.clone())
                             {
-                                field.apply(&*field_value);
+                                field_value.try_apply(field).unwrap();
                             }
                         }
                     }
@@ -689,8 +691,12 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                             if let Ok(field_value) =
                                 deserializer.deserialize(toml_field_value.clone())
                             {
-                                // Should be safe to unwrap here since we know the field exists (above).
-                                tst_reflect.field_mut(idx).unwrap().apply(&*field_value);
+                                field_value
+                                    .try_apply(
+                                        // Should be safe to unwrap here since we know the field exists (above).
+                                        tst_reflect.field_mut(idx).unwrap(),
+                                    )
+                                    .unwrap();
                             }
                         }
                     }
@@ -700,20 +706,24 @@ fn load_properties(value: &toml::Value, resource: &mut dyn PartialReflect, types
                 {
                     let deserializer = TypedReflectDeserializer::new(field_type, types);
                     if let Ok(field_value) = deserializer.deserialize(value.clone()) {
-                        // Should be safe to unwrap here since we know the field exists (above).
-                        tst_reflect.field_mut(0).unwrap().apply(&*field_value);
+                        field_value
+                            .try_apply(
+                                // Should be safe to unwrap here since we know the field exists (above).
+                                tst_reflect.field_mut(0).unwrap(),
+                            )
+                            .unwrap();
                     }
                 }
             }
         }
         TypeInfo::Enum(einfo) => {
-            if let ReflectMut::Enum(en_reflect) = resource.reflect_mut()
+            if let ReflectMut::Enum(_) = resource.reflect_mut()
                 && let Some(variant_type) = types.get(einfo.type_id())
             {
                 let deserializer = TypedReflectDeserializer::new(variant_type, types);
 
                 if let Ok(variant_value) = deserializer.deserialize(value.clone()) {
-                    en_reflect.apply(&*variant_value);
+                    variant_value.try_apply(resource).unwrap();
                 }
             }
         }

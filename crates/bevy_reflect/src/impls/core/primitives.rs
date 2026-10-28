@@ -1,10 +1,10 @@
 use crate::{
     array::{Array, ArrayInfo, ArrayIter},
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::ApplyError,
     type_registry::{
         GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
         TypeRegistration, TypeRegistry,
@@ -317,36 +317,7 @@ impl_reflect_opaque!(f64(
 ));
 impl_type_path!(str);
 
-impl PartialReflect for &'static str {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl Reflect for &'static str {
     fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
@@ -370,16 +341,16 @@ impl PartialReflect for &'static str {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<core::cmp::Ordering> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<core::cmp::Ordering> {
+        if let Some(value) = value.downcast_ref::<Self>() {
             PartialOrd::partial_cmp(self, value)
         } else {
             None
@@ -390,20 +361,6 @@ impl PartialReflect for &'static str {
         fmt::Debug::fmt(&self, f)
     }
 
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            return Err(ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: Self::type_path().into(),
-            });
-        }
-        Ok(())
-    }
-}
-
-impl Reflect for &'static str {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -445,27 +402,27 @@ impl GetTypeRegistration for &'static str {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration.register_type_data::<ReflectSerialize, Self>();
         registration
     }
 }
 
-impl FromReflect for &'static str {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        reflect.try_downcast_ref::<Self>().copied()
+impl FromDynamic for &'static str {
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        dynamic.into_concrete()?.downcast_ref::<Self>().copied()
     }
 }
 
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
-        <[T]>::get(self, index).map(|value| value as &dyn PartialReflect)
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        <[T]>::get(self, index).map(|value| value as &dyn Reflect)
     }
 
     #[inline]
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        <[T]>::get_mut(self, index).map(|value| value as &mut dyn PartialReflect)
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        <[T]>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
     }
 
     #[inline]
@@ -484,45 +441,14 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
     }
 
     #[inline]
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
         self.into_iter()
-            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
             .collect()
     }
 }
 
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> PartialReflect
-    for [T; N]
-{
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Reflect for [T; N] {
     #[inline]
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Array
@@ -549,26 +475,15 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     }
 
     #[inline]
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::array::array_partial_eq(self, value)
     }
 
     #[inline]
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<::core::cmp::Ordering> {
         crate::array::array_partial_cmp(self, value)
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        crate::array::array_apply(self, value);
-    }
-
-    #[inline]
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        crate::array::array_try_apply(self, value)
-    }
-}
-
-impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Reflect for [T; N] {
     #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -606,16 +521,20 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
     }
 }
 
-impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
+impl<T: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromDynamic
     for [T; N]
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_array = reflect.reflect_ref().as_array().ok()?;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let dynamic = match dynamic {
+            DynamicValue::Array(dynamic) => dynamic,
+            DynamicValue::Concrete(concrete) => return concrete.take().ok(),
+            _ => return None,
+        };
 
-        let mut temp_vec = Vec::with_capacity(ref_array.len());
+        let mut temp_vec = Vec::with_capacity(dynamic.len());
 
-        for field in ref_array.iter() {
-            temp_vec.push(T::from_reflect(field)?);
+        for field in dynamic.into_iter() {
+            temp_vec.push(T::from_dynamic(field)?);
         }
 
         temp_vec.try_into().ok()
@@ -698,7 +617,6 @@ impl<T: TypePath + ?Sized> TypePath for &'static mut T {
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
-    use bevy_reflect::{FromReflect, PartialReflect};
     use core::{
         any::TypeId,
         f32::consts::{PI, TAU},
@@ -706,37 +624,38 @@ mod tests {
     };
 
     use crate::{
+        dynamic::DynamicValue,
         prelude::{
             ReflectAdd, ReflectDivAssign, ReflectMulAssign, ReflectRem, ReflectRemAssign,
             ReflectSubAssign,
         },
         std_traits::{ReflectAddAssign, ReflectDiv, ReflectMul, ReflectSub},
-        Reflect, TypeRegistry,
+        FromDynamic, Reflect, TypeRegistry,
     };
 
     #[test]
     fn should_partial_eq_char() {
-        let a: &dyn PartialReflect = &'x';
-        let b: &dyn PartialReflect = &'x';
-        let c: &dyn PartialReflect = &'o';
+        let a: &dyn Reflect = &'x';
+        let b: &dyn Reflect = &'x';
+        let c: &dyn Reflect = &'o';
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_i32() {
-        let a: &dyn PartialReflect = &123_i32;
-        let b: &dyn PartialReflect = &123_i32;
-        let c: &dyn PartialReflect = &321_i32;
+        let a: &dyn Reflect = &123_i32;
+        let b: &dyn Reflect = &123_i32;
+        let c: &dyn Reflect = &321_i32;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_f32() {
-        let a: &dyn PartialReflect = &PI;
-        let b: &dyn PartialReflect = &PI;
-        let c: &dyn PartialReflect = &TAU;
+        let a: &dyn Reflect = &PI;
+        let b: &dyn Reflect = &PI;
+        let c: &dyn Reflect = &TAU;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
@@ -745,8 +664,8 @@ mod tests {
     fn should_partial_cmp_f32() {
         use core::cmp::Ordering;
 
-        let a: &dyn PartialReflect = &1.0_f32;
-        let b: &dyn PartialReflect = &2.0_f32;
+        let a: &dyn Reflect = &1.0_f32;
+        let b: &dyn Reflect = &2.0_f32;
 
         let ord = a.reflect_partial_cmp(b);
         assert_eq!(ord, Some(Ordering::Less));
@@ -760,13 +679,15 @@ mod tests {
     fn reflect_partial_cmp_f32_nan() {
         // NaN comparisons should return None
         let nan = f32::NAN;
-        assert_eq!(PartialReflect::reflect_partial_cmp(&nan, &nan), None);
+        assert_eq!(Reflect::reflect_partial_cmp(&nan, &nan), None);
     }
 
     #[test]
-    fn static_str_should_from_reflect() {
+    fn static_str_should_from_dynamic() {
         let expected = "Hello, World!";
-        let output = <&'static str as FromReflect>::from_reflect(&expected).unwrap();
+        let output =
+            <&'static str as FromDynamic>::from_dynamic(DynamicValue::Concrete(Box::new(expected)))
+                .unwrap();
         assert_eq!(expected, output);
     }
 

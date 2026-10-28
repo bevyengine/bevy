@@ -1,5 +1,6 @@
 use crate::{
-    list::{DynamicList, ListInfo},
+    dynamic::DynamicList,
+    list::ListInfo,
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     TypeRegistry,
 };
@@ -35,7 +36,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ListVisitor<'_, P> {
             self.registry,
             self.processor.as_deref_mut(),
         ))? {
-            list.push_box(value);
+            list.push(value);
         }
         Ok(list)
     }

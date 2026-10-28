@@ -18,13 +18,13 @@ impl_reflect_opaque!(::alloc::string::String(
 #[cfg(test)]
 mod tests {
     use alloc::string::String;
-    use bevy_reflect::PartialReflect;
+    use bevy_reflect::Reflect;
 
     #[test]
     fn should_partial_eq_string() {
-        let a: &dyn PartialReflect = &String::from("Hello");
-        let b: &dyn PartialReflect = &String::from("Hello");
-        let c: &dyn PartialReflect = &String::from("World");
+        let a: &dyn Reflect = &String::from("Hello");
+        let b: &dyn Reflect = &String::from("Hello");
+        let c: &dyn Reflect = &String::from("World");
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }

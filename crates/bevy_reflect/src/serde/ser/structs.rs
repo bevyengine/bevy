@@ -1,6 +1,6 @@
 use crate::{
     serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
-    structs::Struct,
+    structs::StructLike,
     TypeInfo, TypeRegistry,
 };
 use serde::{ser::SerializeStruct, Serialize};
@@ -8,13 +8,15 @@ use serde::{ser::SerializeStruct, Serialize};
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`Struct`] values.
-pub(super) struct StructSerializer<'a, P> {
-    pub struct_value: &'a dyn Struct,
+pub(super) struct StructSerializer<'a, SL: StructLike + ?Sized, P> {
+    pub struct_value: &'a SL,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for StructSerializer<'_, P> {
+impl<SL: StructLike + ?Sized, P: ReflectSerializerProcessor> Serialize
+    for StructSerializer<'_, SL, P>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -22,12 +24,7 @@ impl<P: ReflectSerializerProcessor> Serialize for StructSerializer<'_, P> {
         let type_info = self
             .struct_value
             .get_represented_type_info()
-            .ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "cannot get type info for `{}`",
-                    self.struct_value.reflect_type_path()
-                ))
-            })?;
+            .ok_or_else(|| make_custom_error("cannot get type info for dynamic value"))?;
 
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,

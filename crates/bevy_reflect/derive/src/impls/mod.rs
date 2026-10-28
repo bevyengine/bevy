@@ -11,7 +11,7 @@ mod typed;
 pub(crate) use assertions::impl_assertions;
 #[cfg(feature = "auto_register")]
 pub(crate) use common::reflect_auto_registration;
-pub(crate) use common::{common_partial_reflect_methods, impl_full_reflect};
+pub(crate) use common::{common_reflect_trait_methods, impl_reflect_casts};
 pub(crate) use enums::impl_enum;
 #[cfg(feature = "functions")]
 pub(crate) use func::impl_function_traits;

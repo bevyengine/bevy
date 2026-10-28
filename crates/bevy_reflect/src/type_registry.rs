@@ -1,6 +1,6 @@
 use crate::{
-    convert::ReflectConvert, serde::Serializable, FromReflect, Reflect, TypeData, TypeInfo,
-    TypePath, Typed,
+    convert::ReflectConvert, dynamic::DynamicValue, serde::Serializable, FromDynamic, Reflect,
+    TypeData, TypeInfo, TypePath, Typed,
 };
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
@@ -842,17 +842,17 @@ pub struct ReflectSerialize {
     get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
 
-impl<T: TypePath + FromReflect + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
+impl<T: TypePath + FromDynamic + erased_serde::Serialize> CreateTypeData<T> for ReflectSerialize {
     fn create_type_data(_input: ()) -> Self {
         ReflectSerialize {
             get_serializable: |value| {
                 value
                     .downcast_ref::<T>()
                     .map(|value| Serializable::Borrowed(value))
-                    .or_else(|| T::from_reflect(value.as_partial_reflect()).map(|value| Serializable::Owned(Box::new(value))))
+                    .or_else(|| T::from_dynamic(DynamicValue::try_from_reflect(value).ok()?).map(|value| Serializable::Owned(Box::new(value))))
                     .unwrap_or_else(|| {
                         panic!(
-                            "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
+                            "FromDynamic::from_dynamic failed when called on type `{}` with this value: {value:?}",
                             T::type_path(),
                         );
                     })
@@ -1110,6 +1110,8 @@ impl<T: Reflect> CreateTypeData<T> for ReflectFromPtr {
     reason = "We must interact with pointers here, which are inherently unsafe."
 )]
 mod test {
+    use crate::dynamic::DynamicValue;
+
     use super::*;
 
     #[derive(Reflect, PartialEq, Debug, Clone)]
@@ -1134,7 +1136,9 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect_mut(value) };
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
-                    strukt.field_mut("a").unwrap().apply(&2.0f32);
+                    DynamicValue::Concrete(Box::new(2.0f32))
+                        .try_apply(strukt.field_mut("a").unwrap())
+                        .unwrap();
                 }
                 _ => panic!("invalid reflection"),
             }
@@ -1145,11 +1149,7 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.ptr_as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
-                    let a = strukt
-                        .field("a")
-                        .unwrap()
-                        .try_downcast_ref::<f32>()
-                        .unwrap();
+                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
                     assert_eq!(*a, 2.0);
                 }
                 _ => panic!("invalid reflection"),
@@ -1167,8 +1167,9 @@ mod test {
         let any: &dyn Any = &object;
         let reflect = reflect_from_ptr.as_reflect(any).unwrap();
 
-        let object_from_reflect = Foo::from_reflect(reflect).unwrap();
-        assert_eq!(object_from_reflect, object);
+        let object_from_dynamic =
+            Foo::from_dynamic(DynamicValue::try_from_reflect(reflect).unwrap()).unwrap();
+        assert_eq!(object_from_dynamic, object);
     }
 
     #[test]
@@ -1182,7 +1183,10 @@ mod test {
         let reflect = reflect_from_ptr.as_reflect_mut(any).unwrap();
 
         let replacement = Foo { a: 2.0 };
-        reflect.apply(&replacement);
+        DynamicValue::try_from_reflect(&replacement)
+            .unwrap()
+            .try_apply(reflect)
+            .unwrap();
 
         // We mutated `object` through `reflect` which we casted through `&mut dyn Any`.
         assert_eq!(object, replacement);
@@ -1197,7 +1201,10 @@ mod test {
         let mut reflect = reflect_from_ptr.box_as_reflect(any).unwrap();
 
         let replacement = Foo { a: 2.0 };
-        reflect.apply(&replacement);
+        DynamicValue::try_from_reflect(&replacement)
+            .unwrap()
+            .try_apply(&mut *reflect)
+            .unwrap();
 
         // We consumed the value, which was mutated through reflection.
         let final_object: Foo = reflect.take().unwrap();
@@ -1213,16 +1220,12 @@ mod test {
         let reflect = reflect_from_ptr.arc_as_reflect(any).unwrap();
 
         // We can use reflection to access the "a" field.
-        match reflect.reflect_ref() {
+        match reflect.deref().reflect_ref() {
             crate::ReflectRef::Struct(strukt) => {
-                let a = strukt
-                    .field("a")
-                    .unwrap()
-                    .try_downcast_ref::<f32>()
-                    .unwrap();
+                let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
                 assert_eq!(*a, 1.0);
             }
-            _ => panic!("unexpected meta-type"),
+            r => panic!("unexpected meta-type: {}", r.kind()),
         }
     }
 

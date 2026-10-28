@@ -1,27 +1,25 @@
+use crate::dynamic::DynamicValueRef;
 use crate::serde::ser::error_utils::make_custom_error;
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::serde::ReflectSerializeWithRegistry;
-use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
+use crate::{ReflectSerialize, TypeRegistry};
 use serde::Serializer;
 
-/// Attempts to serialize a [`PartialReflect`] value with custom [`ReflectSerialize`]
+/// Attempts to serialize a [`Reflect`] value with custom [`ReflectSerialize`]
 /// or [`ReflectSerializeWithRegistry`] type data.
 ///
 /// On success, returns the result of the serialization.
 /// On failure, returns the original serializer and the error that occurred.
 pub(super) fn try_custom_serialize<S: Serializer>(
-    value: &dyn PartialReflect,
+    value: DynamicValueRef<'_>,
     type_registry: &TypeRegistry,
     serializer: S,
 ) -> Result<Result<S::Ok, S::Error>, (S, S::Error)> {
-    let Some(value) = value.try_as_reflect() else {
+    let Some(value) = value.as_concrete() else {
         return Err((
             serializer,
-            make_custom_error(format_args!(
-                "type `{}` does not implement `Reflect`",
-                value.reflect_type_path()
-            )),
+            make_custom_error("no custom serialization for dynamic values"),
         ));
     };
 

@@ -526,7 +526,6 @@ mod tests {
 
     use crate::{
         enums::Enum,
-        prelude::*,
         serde::{ReflectDeserializer, ReflectSerializer},
         GetTypeRegistration, TypeRegistry,
     };
@@ -577,7 +576,7 @@ mod tests {
 
         let mut result = EulerRot::default();
 
-        result.apply(dynamic_struct.as_partial_reflect());
+        dynamic_struct.try_apply(&mut result).unwrap();
 
         assert_eq!(result, EulerRot::XZY);
     }

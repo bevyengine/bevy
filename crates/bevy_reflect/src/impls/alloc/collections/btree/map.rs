@@ -1,11 +1,12 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     generics::{Generics, TypeParamInfo},
     info::{MaybeTyped, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
-    map::{map_apply, map_partial_cmp, map_partial_eq, map_try_apply, Map, MapInfo},
+    map::{map_partial_cmp, map_partial_eq, Map, MapInfo},
     prelude::*,
-    reflect::{impl_full_reflect, ApplyError},
+    reflect::impl_reflect_casts,
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::GenericTypeInfoCell,
 };
@@ -15,115 +16,81 @@ use bevy_reflect_derive::impl_type_path;
 
 impl<K, V> Map for ::alloc::collections::BTreeMap<K, V>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
 {
-    fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
-        key.try_downcast_ref::<K>()
-            .and_then(|key| Self::get(self, key))
-            .map(|value| value as &dyn PartialReflect)
+    fn key_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>> {
+        K::from_dynamic(dynamic).map(|value| Box::new(value) as _)
     }
 
-    fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
-        key.try_downcast_ref::<K>()
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>> {
+        V::from_dynamic(dynamic).map(|value| Box::new(value) as _)
+    }
+
+    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
+        key.downcast_ref::<K>()
+            .and_then(|key| Self::get(self, key))
+            .map(|value| value as &dyn Reflect)
+    }
+
+    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
+        key.downcast_ref::<K>()
             .and_then(move |key| Self::get_mut(self, key))
-            .map(|value| value as &mut dyn PartialReflect)
+            .map(|value| value as &mut dyn Reflect)
     }
 
     fn len(&self) -> usize {
         Self::len(self)
     }
 
-    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_> {
+    fn iter(&self) -> Box<dyn Iterator<Item = (&dyn Reflect, &dyn Reflect)> + '_> {
         Box::new(
             self.iter()
-                .map(|(k, v)| (k as &dyn PartialReflect, v as &dyn PartialReflect)),
+                .map(|(k, v)| (k as &dyn Reflect, v as &dyn Reflect)),
         )
     }
 
-    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
+    fn drain(&mut self) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
         // BTreeMap doesn't have a `drain` function. See
         // https://github.com/rust-lang/rust/issues/81074. So we have to fake one by popping
         // elements off one at a time.
         let mut result = Vec::with_capacity(self.len());
         while let Some((k, v)) = self.pop_first() {
             result.push((
-                Box::new(k) as Box<dyn PartialReflect>,
-                Box::new(v) as Box<dyn PartialReflect>,
+                Box::new(k) as Box<dyn Reflect>,
+                Box::new(v) as Box<dyn Reflect>,
             ));
         }
         result
     }
 
-    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn Reflect, &mut dyn Reflect) -> bool) {
         self.retain(move |k, v| f(k, v));
     }
 
     fn insert_boxed(
         &mut self,
-        key: Box<dyn PartialReflect>,
-        value: Box<dyn PartialReflect>,
-    ) -> Option<Box<dyn PartialReflect>> {
-        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
-            panic!(
-                "Attempted to insert invalid key of type {}.",
-                key.reflect_type_path()
-            )
-        });
-        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
-            panic!(
-                "Attempted to insert invalid value of type {}.",
-                value.reflect_type_path()
-            )
-        });
+        key: Box<dyn Reflect>,
+        value: Box<dyn Reflect>,
+    ) -> Option<Box<dyn Reflect>> {
+        let key = *key.downcast::<K>().ok()?;
+        let value = *value.downcast::<V>().ok()?;
         self.insert(key, value)
-            .map(|old_value| Box::new(old_value) as Box<dyn PartialReflect>)
+            .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
     }
 
-    fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
-        let mut from_reflect = None;
-        key.try_downcast_ref::<K>()
-            .or_else(|| {
-                from_reflect = K::from_reflect(key);
-                from_reflect.as_ref()
-            })
+    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+        key.downcast_ref::<K>()
             .and_then(|key| self.remove(key))
-            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 }
 
-impl<K, V> PartialReflect for ::alloc::collections::BTreeMap<K, V>
+impl<K, V> Reflect for ::alloc::collections::BTreeMap<K, V>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
 {
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-    #[inline]
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::Map
     }
@@ -151,34 +118,21 @@ where
         Ok(Box::new(map))
     }
 
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+    fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<::core::cmp::Ordering> {
         map_partial_cmp(self, value)
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        map_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        map_try_apply(self, value)
-    }
+    impl_reflect_casts! {}
 }
-
-impl_full_reflect!(
-    <K, V> for ::alloc::collections::BTreeMap<K, V>
-    where
-        K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-        V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-);
 
 impl<K, V> Typed for ::alloc::collections::BTreeMap<K, V>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -195,13 +149,13 @@ where
 
 impl<K, V> GetTypeRegistration for ::alloc::collections::BTreeMap<K, V>
 where
-    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.register_type_data::<ReflectFromPtr, Self>();
-        registration.register_type_data::<ReflectFromReflect, Self>();
+        registration.register_type_data::<ReflectFromDynamic, Self>();
         registration
     }
 
@@ -211,19 +165,23 @@ where
     }
 }
 
-impl<K, V> FromReflect for ::alloc::collections::BTreeMap<K, V>
+impl<K, V> FromDynamic for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_map = reflect.reflect_ref().as_map().ok()?;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let dynamic = match dynamic {
+            DynamicValue::Concrete(concrete) => return concrete.take().ok(),
+            DynamicValue::Map(dynamic) => dynamic,
+            _ => return None,
+        };
 
         let mut new_map = Self::new();
 
-        for (key, value) in ref_map.iter() {
-            let new_key = K::from_reflect(key)?;
-            let new_value = V::from_reflect(value)?;
+        for (key, value) in dynamic.into_iter() {
+            let new_key = K::from_dynamic(key)?;
+            let new_value = V::from_dynamic(value)?;
             new_map.insert(new_key, new_value);
         }
 
@@ -235,7 +193,7 @@ impl_type_path!(::alloc::collections::BTreeMap<K, V>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::alloc::collections::BTreeMap<K, V>;
     <
-        K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-        V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration
+        K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration
     >
 );

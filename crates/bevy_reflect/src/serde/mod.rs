@@ -12,10 +12,9 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        structs::{DynamicStruct, Struct},
-        tuple_struct::DynamicTupleStruct,
+        dynamic::{DynamicStruct, DynamicTupleStruct, DynamicValueRef},
         type_registry::TypeRegistry,
-        FromReflect, PartialReflect, Reflect,
+        FromDynamic, Reflect,
     };
     use serde::de::DeserializeSeed;
 
@@ -66,8 +65,7 @@ mod tests {
         expected.insert("e", 7);
 
         assert!(
-            expected
-                .reflect_partial_eq(deserialized.as_partial_reflect())
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), deserialized.as_ref())
                 .unwrap(),
             "Deserialization failed: expected {expected:?} found {deserialized:?}"
         );
@@ -79,12 +77,11 @@ mod tests {
             d: -1,
             e: 7,
         };
-        let received =
-            <TestStruct as FromReflect>::from_reflect(deserialized.as_partial_reflect()).unwrap();
+        let received = <TestStruct as FromDynamic>::from_dynamic(deserialized).unwrap();
 
         assert_eq!(
             expected, received,
-            "FromReflect failed: expected {expected:?} found {received:?}"
+            "FromDynamic failed: expected {expected:?} found {received:?}"
         );
     }
 
@@ -127,72 +124,26 @@ mod tests {
         expected.insert(7);
 
         assert!(
-            expected
-                .reflect_partial_eq(deserialized.as_partial_reflect())
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), deserialized.as_ref())
                 .unwrap(),
             "Deserialization failed: expected {expected:?} found {deserialized:?}"
         );
 
         let expected = TestStruct(3, 0, 0, -1, 7);
-        let received =
-            <TestStruct as FromReflect>::from_reflect(deserialized.as_partial_reflect()).unwrap();
+        let received = <TestStruct as FromDynamic>::from_dynamic(deserialized).unwrap();
 
         assert_eq!(
             expected, received,
-            "FromReflect failed: expected {expected:?} found {received:?}"
+            "FromDynamic failed: expected {expected:?} found {received:?}"
         );
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "cannot serialize dynamic value without represented type: `bevy_reflect::DynamicStruct`"
-    )]
-    fn should_not_serialize_unproxied_dynamic() {
-        let registry = TypeRegistry::default();
-
-        let mut value = DynamicStruct::default();
-        value.insert("foo", 123_u32);
-
-        let serializer = ReflectSerializer::new(&value, &registry);
-        ron::ser::to_string(&serializer).unwrap();
-    }
-
-    #[test]
-    fn should_roundtrip_proxied_dynamic() {
-        #[derive(Reflect)]
-        struct TestStruct {
-            a: i32,
-            b: i32,
-        }
-
-        let mut registry = TypeRegistry::default();
-        registry.register::<TestStruct>();
-
-        let value: DynamicStruct = TestStruct { a: 123, b: 456 }.to_dynamic_struct().unwrap();
-
-        let serializer = ReflectSerializer::new(&value, &registry);
-
-        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:456)}"#;
-        let result = ron::ser::to_string(&serializer).unwrap();
-        assert_eq!(expected, result);
-
-        let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
-
-        let expected = value.to_dynamic().unwrap();
-        let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-
-        assert!(expected
-            .reflect_partial_eq(result.as_partial_reflect())
-            .unwrap());
     }
 
     mod type_data {
         use super::*;
-        use crate::from_reflect::FromReflect;
+        use crate::from_dynamic::FromDynamic;
         use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
         use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
-        use crate::{ReflectFromReflect, TypePath};
+        use crate::{ReflectFromDynamic, TypePath};
         use alloc::{format, string::String, vec, vec::Vec};
         use bevy_platform::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
@@ -266,7 +217,7 @@ mod tests {
                 let mut state = serializer.serialize_seq(Some(self.0.len()))?;
                 for enemy in &self.0 {
                     state.serialize_element(&ReflectSerializer::new(
-                        (**enemy).as_partial_reflect(),
+                        &**enemy as &dyn Reflect,
                         registry,
                     ))?;
                 }
@@ -307,9 +258,9 @@ mod tests {
 
                             // 1. Convert any possible dynamic values to concrete ones
                             let enemy = registration
-                                .data::<ReflectFromReflect>()
+                                .data::<ReflectFromDynamic>()
                                 .unwrap()
-                                .from_reflect(&*enemy)
+                                .from_dynamic(enemy)
                                 .unwrap();
 
                             // 2. Convert the concrete value to a boxed trait object
@@ -390,7 +341,7 @@ mod tests {
             let reflect_deserializer = ReflectDeserializer::new(&registry);
             let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-            let output = Level::from_reflect(&*value).unwrap();
+            let output = Level::from_dynamic(value).unwrap();
 
             let expected = Level {
                 name: String::from("Level 1"),
@@ -453,11 +404,12 @@ mod tests {
             let nested_tuple_struct_with_skip =
                 Enum::NestedTupleStructWithSkip(TupleStructWithSkip(6, 7));
 
-            fn assert_serialize<T: Reflect + FromReflect + Serialize + PartialEq + Debug>(
+            fn assert_serialize<T: Reflect + FromDynamic + Serialize + PartialEq + Debug>(
                 value: &T,
                 registry: &TypeRegistry,
             ) {
-                let serializer = TypedReflectSerializer::new(value, registry);
+                let serializer =
+                    TypedReflectSerializer::new(DynamicValueRef::Concrete(value), registry);
                 let reflect_serialize = serde_json::to_string(&serializer).unwrap();
                 let serde_serialize = serde_json::to_string(value).unwrap();
                 assert_eq!(reflect_serialize, serde_serialize);
@@ -467,7 +419,7 @@ mod tests {
 
                 let mut deserializer = serde_json::Deserializer::from_str(&serde_serialize);
                 let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-                let _ = T::from_reflect(&*reflect_value).unwrap();
+                let _ = T::from_dynamic(reflect_value).unwrap();
             }
 
             assert_serialize(&tuple_struct, &registry);

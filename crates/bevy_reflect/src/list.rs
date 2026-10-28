@@ -4,17 +4,18 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
+    cmp::Ordering,
     fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
 };
 
-use bevy_reflect_derive::impl_type_path;
-
-use crate::generics::impl_generic_info_methods;
 use crate::{
-    ty::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectCloneError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Type, TypeInfo, TypePath,
+    dynamic::{DynamicList, DynamicValue, DynamicValueRef},
+    generics::impl_generic_info_methods,
+};
+use crate::{
+    ty::impl_type_methods, utility::reflect_hasher, FromDynamic, Generics, MaybeTyped, Reflect,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -42,13 +43,13 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, list::List};
+/// use bevy_reflect::{Reflect, list::List};
 ///
 /// let foo: &mut dyn List = &mut vec![123_u32, 456_u32, 789_u32];
 /// assert_eq!(foo.len(), 3);
 ///
-/// let last_field: Box<dyn PartialReflect> = foo.pop().unwrap();
-/// assert_eq!(last_field.try_downcast_ref::<u32>(), Some(&789));
+/// let last_field: Box<dyn Reflect> = foo.pop().unwrap();
+/// assert_eq!(last_field.downcast_ref::<u32>(), Some(&789));
 /// ```
 ///
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
@@ -56,26 +57,29 @@ use crate::{
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 // Prevents unexpectedly importing this trait when trying to call, for example, `Vec::iter`
 #[rust_analyzer::completions(ignore_flyimport_methods)]
-pub trait List: PartialReflect {
+pub trait List: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn get(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+
+    /// Constructs a value for this list from a dynamic value representation.
+    fn value_from_dynamic(&self, dynamic: DynamicValue) -> Option<Box<dyn Reflect>>;
 
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///
     /// # Panics
     /// Panics if `index > len`.
-    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>);
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>);
 
     /// Removes and returns the element at position `index` within the list,
     /// shifting all elements before it towards the front of the list.
     ///
     /// # Panics
     /// Panics if `index` is out of bounds.
-    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect>;
 
     /// Swaps two elements in place.
     ///
@@ -84,12 +88,12 @@ pub trait List: PartialReflect {
     fn swap(&mut self, a: usize, b: usize);
 
     /// Appends an element to the _back_ of the list.
-    fn push(&mut self, value: Box<dyn PartialReflect>) {
+    fn push(&mut self, value: Box<dyn Reflect>) {
         self.insert(self.len(), value);
     }
 
     /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
-    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
         if self.is_empty() {
             None
         } else {
@@ -112,24 +116,11 @@ pub trait List: PartialReflect {
     ///
     /// After calling this function, `self` will be empty. The order of items in the returned
     /// [`Vec`] will match the order of items in `self`.
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(&mut self) -> Vec<Box<dyn Reflect>>;
 
-    /// Creates a new [`DynamicList`] from this list.
-    ///
-    /// Returns an error if any element cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_list(&self) -> Result<DynamicList, ReflectCloneError> {
-        Ok(DynamicList {
-            represented_type: self.get_represented_type_info(),
-            values: self
-                .iter()
-                .map(PartialReflect::to_dynamic)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
-        self.get_represented_type_info()?.as_list().ok()
+    /// Returns the [`ListInfo`] for this type.
+    fn reflect_list_info(&self) -> &'static ListInfo {
+        self.reflect_type_info().as_list().unwrap()
     }
 }
 
@@ -146,7 +137,7 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromDynamic + MaybeTyped + TypePath>() -> Self {
         Self {
             ty: Type::of::<TList>(),
             generics: Generics::new(),
@@ -189,214 +180,6 @@ impl ListInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// A list of reflected values.
-#[derive(Default)]
-pub struct DynamicList {
-    represented_type: Option<&'static TypeInfo>,
-    values: Vec<Box<dyn PartialReflect>>,
-}
-
-impl DynamicList {
-    /// Sets the [type] to be represented by this `DynamicList`.
-    /// # Panics
-    ///
-    /// Panics if the given [type] is not a [`TypeInfo::List`].
-    ///
-    /// [type]: TypeInfo
-    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::List(_)),
-                "expected TypeInfo::List but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
-    }
-
-    /// Appends a typed value to the list.
-    pub fn push<T: PartialReflect>(&mut self, value: T) {
-        self.values.push(Box::new(value));
-    }
-
-    /// Appends a [`Reflect`] trait object to the list.
-    pub fn push_box(&mut self, value: Box<dyn PartialReflect>) {
-        self.values.push(value);
-    }
-}
-
-impl List for DynamicList {
-    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.values.get(index).map(|value| &**value)
-    }
-
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.values.get_mut(index).map(|value| &mut **value)
-    }
-
-    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
-        self.values.insert(index, element);
-    }
-
-    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
-        self.values.remove(index)
-    }
-
-    fn push(&mut self, value: Box<dyn PartialReflect>) {
-        DynamicList::push_box(self, value);
-    }
-
-    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
-        self.values.pop()
-    }
-
-    fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    fn iter(&self) -> ListIter<'_> {
-        ListIter::new(self)
-    }
-
-    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
-        core::mem::take(&mut self.values)
-    }
-
-    fn swap(&mut self, a: usize, b: usize) {
-        self.values.swap(a, b);
-    }
-}
-
-impl PartialReflect for DynamicList {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        list_apply(self, value);
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        list_try_apply(self, value)
-    }
-
-    #[inline]
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::List
-    }
-
-    #[inline]
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::List(self)
-    }
-
-    #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::List(self)
-    }
-
-    #[inline]
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::List(self)
-    }
-
-    #[inline]
-    fn reflect_hash(&self) -> Option<u64> {
-        list_hash(self)
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        list_partial_eq(self, value)
-    }
-
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        list_partial_cmp(self, value)
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicList(")?;
-        list_debug(self, f)?;
-        write!(f, ")")
-    }
-
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-}
-
-impl_type_path!((in bevy_reflect) DynamicList);
-
-impl Debug for DynamicList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        self.debug(f)
-    }
-}
-
-impl FromIterator<Box<dyn PartialReflect>> for DynamicList {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
-        Self {
-            represented_type: None,
-            values: values.into_iter().collect(),
-        }
-    }
-}
-
-impl<T: PartialReflect> FromIterator<T> for DynamicList {
-    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
-        values
-            .into_iter()
-            .map(|field| Box::new(field).into_partial_reflect())
-            .collect()
-    }
-}
-
-impl IntoIterator for DynamicList {
-    type Item = Box<dyn PartialReflect>;
-    type IntoIter = alloc::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a DynamicList {
-    type Item = &'a dyn PartialReflect;
-    type IntoIter = ListIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
 /// An iterator over an [`List`].
 pub struct ListIter<'a> {
     list: &'a dyn List,
@@ -412,7 +195,7 @@ impl ListIter<'_> {
 }
 
 impl<'a> Iterator for ListIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a dyn Reflect;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -442,46 +225,53 @@ pub fn list_hash<L: List>(list: &L) -> Option<u64> {
     Some(hasher.finish())
 }
 
-/// Applies the elements of `b` to the corresponding elements of `a`.
-///
-/// If the length of `b` is greater than that of `a`, the excess elements of `b`
-/// are cloned and appended to `a`.
-///
-/// # Panics
-///
-/// This function panics if `b` is not a list.
+/// Returns the `u64` hash of the given [`DynamicList`].
 #[inline]
-pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
-    if let Err(err) = list_try_apply(a, b) {
-        panic!("{err}");
+pub fn dynamic_list_hash(list: &DynamicList) -> Option<u64> {
+    let mut hasher = reflect_hasher();
+    // TODO: This type_id is **not** correct.
+    Any::type_id(list).hash(&mut hasher);
+    list.len().hash(&mut hasher);
+    for value in list.iter() {
+        hasher.write_u64(value.as_ref().dynamic_hash()?);
+    }
+    Some(hasher.finish())
+}
+
+pub(crate) trait ListLike {
+    fn len(&self) -> usize;
+
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
+    fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
+}
+
+impl ListLike for DynamicList {
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.get(index).map(DynamicValue::as_ref)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        self.iter().map(DynamicValue::as_ref)
     }
 }
 
-/// Tries to apply the elements of `b` to the corresponding elements of `a` and
-/// returns a Result.
-///
-/// If the length of `b` is greater than that of `a`, the excess elements of `b`
-/// are cloned and appended to `a`.
-///
-/// # Errors
-///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list or if
-/// applying elements to each other fails.
-#[inline]
-pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    let list_value = b.reflect_ref().as_list()?;
-
-    for (i, value) in list_value.iter().enumerate() {
-        if i < a.len() {
-            if let Some(v) = a.get_mut(i) {
-                v.try_apply(value)?;
-            }
-        } else {
-            List::push(a, value.to_dynamic()?);
-        }
+impl ListLike for dyn List {
+    fn len(&self) -> usize {
+        self.len()
     }
 
-    Ok(())
+    fn get(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.get(index).map(Into::into)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        self.iter().map(|value| DynamicValueRef::from(value))
+    }
 }
 
 /// Compares a [`List`] with a [`Reflect`] value.
@@ -489,21 +279,28 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), 
 /// Returns true if and only if all of the following are true:
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
-/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Option<bool> {
-    let ReflectRef::List(list) = b.reflect_ref() else {
+#[inline(never)]
+pub fn list_partial_eq(a: &dyn List, b: &dyn Reflect) -> Option<bool> {
+    let ReflectRef::List(b) = b.reflect_ref() else {
         return Some(false);
     };
+    list_like_partial_eq(a, b)
+}
 
-    if a.len() != list.len() {
+/// Same as above, but for any two [`ListLike`] types.
+pub(crate) fn list_like_partial_eq<L: ListLike + ?Sized, R: ListLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
+    if a.len() != b.len() {
         return Some(false);
     }
 
-    for (a_value, b_value) in a.iter().zip(list.iter()) {
-        let eq_result = a_value.reflect_partial_eq(b_value);
+    for (a_value, b_value) in a.iter().zip(b.iter()) {
+        let eq_result = a_value.dynamic_partial_eq(b_value);
         if let failed @ (Some(false) | None) = eq_result {
             return failed;
         }
@@ -516,26 +313,30 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-#[inline]
-pub fn list_partial_cmp<L: List + ?Sized>(
-    a: &L,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
-    let ReflectRef::List(list) = b.reflect_ref() else {
+#[inline(never)]
+pub fn list_partial_cmp(a: &dyn List, b: &dyn Reflect) -> Option<Ordering> {
+    let ReflectRef::List(b) = b.reflect_ref() else {
         return None;
     };
+    list_like_partial_cmp(a, b)
+}
 
-    let min_len = core::cmp::min(a.len(), list.len());
+/// Same as above, but for any two [`ListLike`] types.
+pub(crate) fn list_like_partial_cmp<L: ListLike + ?Sized, R: ListLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
+    let min_len = core::cmp::min(a.len(), b.len());
 
-    for (a_value, b_value) in a.iter().zip(list.iter()).take(min_len) {
-        match a_value.reflect_partial_cmp(b_value) {
+    for (a_value, b_value) in a.iter().zip(b.iter()).take(min_len) {
+        match a_value.dynamic_partial_cmp(b_value) {
             None => return None,
-            Some(core::cmp::Ordering::Equal) => continue,
+            Some(Ordering::Equal) => continue,
             Some(ord) => return Some(ord),
         }
     }
 
-    Some(a.len().cmp(&list.len()))
+    Some(a.len().cmp(&b.len()))
 }
 
 /// The default debug formatter for [`List`] types.
@@ -566,25 +367,8 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 
 #[cfg(test)]
 mod tests {
-    use super::DynamicList;
-    use crate::{PartialReflect, Reflect};
+    use crate::Reflect;
     use alloc::{boxed::Box, vec};
-    use core::assert_eq;
-
-    #[test]
-    fn test_into_iter() {
-        let mut list = DynamicList::default();
-        list.push(0usize);
-        list.push(1usize);
-        list.push(2usize);
-        let items = list.into_iter();
-        for (index, item) in items.into_iter().enumerate() {
-            let value = item
-                .try_take::<usize>()
-                .expect("couldn't downcast to usize");
-            assert_eq!(index, value);
-        }
-    }
 
     #[test]
     fn next_index_increment() {
@@ -607,26 +391,5 @@ mod tests {
         assert!(iter.index == SIZE);
         assert!(iter.next().is_none());
         assert!(iter.index == SIZE);
-    }
-
-    #[test]
-    fn test_swap() {
-        let mut list = DynamicList::default();
-        list.push(0usize);
-        list.push(1usize);
-        let list = list.reflect_mut().as_list().unwrap();
-        list.swap(0, 1);
-        assert_eq!(list.get(0).unwrap().try_downcast_ref(), Some(&1usize));
-        assert_eq!(list.get(1).unwrap().try_downcast_ref(), Some(&0usize));
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_swap_oob() {
-        let mut list = DynamicList::default();
-        list.push(0usize);
-        list.push(1usize);
-        let list = list.reflect_mut().as_list().unwrap();
-        list.swap(0, 10);
     }
 }

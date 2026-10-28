@@ -1,17 +1,18 @@
 //! Traits and types used to power [tuple-like] operations via reflection.
 //!
 //! [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
-use bevy_reflect_derive::impl_type_path;
 use variadics_please::all_tuples;
 
+use crate::dynamic::{DynamicTuple, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    ty::impl_type_methods, utility::GenericTypePathCell, ApplyError, FromReflect, Generics,
-    GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
-    Typed, UnnamedField,
+    ty::impl_type_methods, utility::GenericTypePathCell, FromDynamic, Generics,
+    GetTypeRegistration, MaybeTyped, Reflect, ReflectCloneError, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    UnnamedField,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
+use core::cmp::Ordering;
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -29,25 +30,25 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, tuple::Tuple};
+/// use bevy_reflect::{Reflect, tuple::Tuple};
 ///
 /// let foo = (123_u32, true);
 /// assert_eq!(foo.field_len(), 2);
 ///
-/// let field: &dyn PartialReflect = foo.field(0).unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn Reflect = foo.field(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
 /// [reflection]: crate
-pub trait Tuple: PartialReflect {
+pub trait Tuple: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Returns a mutable reference to the value of the field with index `index`
     /// as a `&mut dyn Reflect`.
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
     /// Returns the number of fields in the tuple.
     fn field_len(&self) -> usize;
@@ -56,24 +57,11 @@ pub trait Tuple: PartialReflect {
     fn iter_fields(&self) -> TupleFieldIter<'_>;
 
     /// Drain the fields of this tuple to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
-    /// Creates a new [`DynamicTuple`] from this tuple.
-    ///
-    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_tuple(&self) -> Result<DynamicTuple, ReflectCloneError> {
-        Ok(DynamicTuple {
-            represented_type: self.get_represented_type_info(),
-            fields: self
-                .iter_fields()
-                .map(PartialReflect::to_dynamic)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
-        self.get_represented_type_info()?.as_tuple().ok()
+    /// Returns the [`TupleInfo`] for this type.
+    fn reflect_tuple_info(&self) -> &'static TupleInfo {
+        self.reflect_type_info().as_tuple().unwrap()
     }
 }
 
@@ -94,7 +82,7 @@ impl<'a> TupleFieldIter<'a> {
 }
 
 impl<'a> Iterator for TupleFieldIter<'a> {
-    type Item = &'a dyn PartialReflect;
+    type Item = &'a dyn Reflect;
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple.field(self.index);
@@ -138,24 +126,24 @@ pub trait GetTupleField {
 impl<S: Tuple> GetTupleField for S {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
         self.field(index)
-            .and_then(|value| value.try_downcast_ref::<T>())
+            .and_then(|value| value.downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
-            .and_then(|value| value.try_downcast_mut::<T>())
+            .and_then(|value| value.downcast_mut::<T>())
     }
 }
 
 impl GetTupleField for dyn Tuple {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
         self.field(index)
-            .and_then(|value| value.try_downcast_ref::<T>())
+            .and_then(|value| value.downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
-            .and_then(|value| value.try_downcast_mut::<T>())
+            .and_then(|value| value.downcast_mut::<T>())
     }
 }
 
@@ -224,234 +212,69 @@ impl TupleInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// A tuple which allows fields to be added at runtime.
-#[derive(Default, Debug)]
-pub struct DynamicTuple {
-    represented_type: Option<&'static TypeInfo>,
-    fields: Vec<Box<dyn PartialReflect>>,
+pub(crate) trait TupleLike {
+    fn field_len(&self) -> usize;
+
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>>;
 }
 
-impl DynamicTuple {
-    /// Sets the [type] to be represented by this `DynamicTuple`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given [type] is not a [`TypeInfo::Tuple`].
-    ///
-    /// [type]: TypeInfo
-    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Tuple(_)),
-                "expected TypeInfo::Tuple but received: {represented_type:?}"
-            );
-        }
-        self.represented_type = represented_type;
-    }
-
-    /// Appends an element with value `value` to the tuple.
-    pub fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) {
-        self.represented_type = None;
-        self.fields.push(value);
-    }
-
-    /// Appends a typed element with value `value` to the tuple.
-    pub fn insert<T: PartialReflect>(&mut self, value: T) {
-        self.represented_type = None;
-        self.insert_boxed(Box::new(value));
-    }
-}
-
-impl Tuple for DynamicTuple {
-    #[inline]
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(|field| &**field)
-    }
-
-    #[inline]
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(|field| &mut **field)
-    }
-
-    #[inline]
+impl TupleLike for DynamicTuple {
     fn field_len(&self) -> usize {
-        self.fields.len()
+        self.field_len()
     }
 
-    #[inline]
-    fn iter_fields(&self) -> TupleFieldIter<'_> {
-        TupleFieldIter {
-            tuple: self,
-            index: 0,
-        }
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field(index).map(DynamicValue::as_ref)
     }
 
-    #[inline]
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.fields
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        self.iter_fields().map(DynamicValue::as_ref)
     }
 }
 
-impl PartialReflect for DynamicTuple {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+impl TupleLike for dyn Tuple {
+    fn field_len(&self) -> usize {
+        self.field_len()
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
+    fn field(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field(index).map(Into::into)
     }
 
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        tuple_apply(self, value);
-    }
-
-    #[inline]
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Tuple
-    }
-
-    #[inline]
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::Tuple(self)
-    }
-
-    #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::Tuple(self)
-    }
-
-    #[inline]
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Tuple(self)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        tuple_try_apply(self, value)
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        tuple_partial_eq(self, value)
-    }
-
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        tuple_partial_cmp(self, value)
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicTuple(")?;
-        tuple_debug(self, f)?;
-        write!(f, ")")
-    }
-
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
+    fn iter_fields(&self) -> impl Iterator<Item = DynamicValueRef<'_>> {
+        self.iter_fields().map(|value| DynamicValueRef::from(value))
     }
 }
 
-impl_type_path!((in bevy_reflect) DynamicTuple);
-
-impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
-    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
-        Self {
-            represented_type: None,
-            fields: fields.into_iter().collect(),
-        }
-    }
-}
-
-impl IntoIterator for DynamicTuple {
-    type Item = Box<dyn PartialReflect>;
-    type IntoIter = vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.fields.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a DynamicTuple {
-    type Item = &'a dyn PartialReflect;
-    type IntoIter = TupleFieldIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter_fields()
-    }
-}
-
-/// Applies the elements of `b` to the corresponding elements of `a`.
-///
-/// # Panics
-///
-/// This function panics if `b` is not a tuple.
-#[inline]
-pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) {
-    if let Err(err) = tuple_try_apply(a, b) {
-        panic!("{err}");
-    }
-}
-
-/// Tries to apply the elements of `b` to the corresponding elements of `a` and
-/// returns a Result.
-///
-/// # Errors
-///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
-/// applying elements to each other fails.
-#[inline]
-pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    let tuple = b.reflect_ref().as_tuple()?;
-
-    for (i, value) in tuple.iter_fields().enumerate() {
-        if let Some(v) = a.field_mut(i) {
-            v.try_apply(value)?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Compares a [`Tuple`] with a [`PartialReflect`] value.
+/// Compares a [`Tuple`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a tuple;
 /// - `b` has the same number of elements as `a`;
-/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
-#[inline]
-pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Option<bool> {
+#[inline(never)]
+pub fn tuple_partial_eq(a: &dyn Tuple, b: &dyn Reflect) -> Option<bool> {
     let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return Some(false);
     };
+    tuple_like_partial_eq(a, b)
+}
 
+/// Same as above, but for any two [`TupleLike`] types.
+pub(crate) fn tuple_like_partial_eq<L: TupleLike + ?Sized, R: TupleLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
     if a.field_len() != b.field_len() {
         return Some(false);
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        let eq_result = a_field.reflect_partial_eq(b_field);
+        let eq_result = a_field.dynamic_partial_eq(b_field);
         if let failed @ (Some(false) | None) = eq_result {
             return failed;
         }
@@ -464,27 +287,32 @@ pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Opt
 ///
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
-#[inline]
-pub fn tuple_partial_cmp<T: Tuple + ?Sized>(
-    a: &T,
-    b: &dyn PartialReflect,
-) -> Option<::core::cmp::Ordering> {
+#[inline(never)]
+pub fn tuple_partial_cmp(a: &dyn Tuple, b: &dyn Reflect) -> Option<Ordering> {
     let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return None;
     };
+    tuple_like_partial_cmp(a, b)
+}
+
+/// Same as above, but for any two [`TupleLike`] types.
+pub(crate) fn tuple_like_partial_cmp<L: TupleLike + ?Sized, R: TupleLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
     if a.field_len() != b.field_len() {
         return None;
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        match a_field.reflect_partial_cmp(b_field) {
+        match a_field.dynamic_partial_cmp(b_field) {
             None => return None,
-            Some(core::cmp::Ordering::Equal) => continue,
+            Some(Ordering::Equal) => continue,
             Some(ord) => return Some(ord),
         }
     }
 
-    Some(core::cmp::Ordering::Equal)
+    Some(Ordering::Equal)
 }
 
 /// The default debug formatter for [`Tuple`] types.
@@ -517,17 +345,17 @@ macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
-            fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
+            fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
-                    $($index => Some(&self.$index as &dyn PartialReflect),)*
+                    $($index => Some(&self.$index as &dyn Reflect),)*
                     _ => None,
                 }
             }
 
             #[inline]
-            fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+            fn field_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
                 match index {
-                    $($index => Some(&mut self.$index as &mut dyn PartialReflect),)*
+                    $($index => Some(&mut self.$index as &mut dyn Reflect),)*
                     _ => None,
                 }
             }
@@ -547,43 +375,14 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
                 vec![
                     $(Box::new(self.$index),)*
                 ]
             }
         }
 
-        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
-            fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-                Some(<Self as Typed>::type_info())
-            }
-
-            #[inline]
-            fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-                self
-            }
-
-            fn as_partial_reflect(&self) -> &dyn PartialReflect {
-                self
-            }
-
-            fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-                self
-            }
-
-            fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-                Ok(self)
-            }
-
-            fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-                Some(self)
-            }
-
-            fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-                Some(self)
-            }
-
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn reflect_kind(&self) -> ReflectKind {
                 ReflectKind::Tuple
             }
@@ -600,19 +399,11 @@ macro_rules! impl_reflect_tuple {
                 ReflectOwned::Tuple(self)
             }
 
-            fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
                 crate::tuple::tuple_partial_eq(self, value)
             }
-            fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
+            fn reflect_partial_cmp(&self, value: &dyn Reflect) -> Option<::core::cmp::Ordering> {
                 crate::tuple::tuple_partial_cmp(self, value)
-            }
-
-            fn apply(&mut self, value: &dyn PartialReflect) {
-                crate::tuple::tuple_apply(self, value);
-            }
-
-            fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-                crate::tuple::tuple_try_apply(self, value)
             }
 
             fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
@@ -624,9 +415,7 @@ macro_rules! impl_reflect_tuple {
                     )*
                 )))
             }
-        }
 
-        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
@@ -680,15 +469,18 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
+        impl<$($name: FromDynamic + MaybeTyped + TypePath + GetTypeRegistration),*> FromDynamic for ($($name,)*)
         {
-            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                let _ref_tuple = reflect.reflect_ref().as_tuple().ok()?;
+            fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+                #[allow(unused_mut, reason = "unused for 0-ary tuple")]
+                let DynamicValue::Tuple(mut _dynamic) = dynamic else {
+                    return None;
+                };
 
                 Some(
                     (
                         $(
-                            <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                            <$name as FromDynamic>::from_dynamic(_dynamic.field_mut($index)?.take_dynamic())?,
                         )*
                     )
                 )
@@ -808,7 +600,7 @@ const _: () = {
     macro_rules! impl_from_arg_tuple {
     ($(#[$meta:meta])* $($name: ident),*) => {
         $(#[$meta])*
-        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
@@ -823,7 +615,7 @@ const _: () = {
     macro_rules! impl_into_return_tuple {
     ($(#[$meta:meta])* $($name: ident),+) => {
         $(#[$meta])*
-        $crate::func::impl_into_return!(($($name,)*); <$($name: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::impl_into_return!(($($name,)*); <$($name: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 

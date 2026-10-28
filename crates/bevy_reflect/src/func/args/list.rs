@@ -3,7 +3,7 @@ use crate::{
         args::{Arg, ArgValue, FromArg},
         ArgError,
     },
-    PartialReflect, TypePath,
+    Reflect, TypePath,
 };
 use alloc::{
     boxed::Box,
@@ -74,7 +74,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_ref(&mut self, arg: &'a dyn PartialReflect) {
+    pub fn push_ref(&mut self, arg: &'a dyn Reflect) {
         self.push_arg(ArgValue::Ref(arg));
     }
 
@@ -82,7 +82,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_mut(&mut self, arg: &'a mut dyn PartialReflect) {
+    pub fn push_mut(&mut self, arg: &'a mut dyn Reflect) {
         self.push_arg(ArgValue::Mut(arg));
     }
 
@@ -90,7 +90,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_owned(&mut self, arg: impl PartialReflect) {
+    pub fn push_owned(&mut self, arg: impl Reflect) {
         self.push_arg(ArgValue::Owned(Box::new(arg)));
     }
 
@@ -98,7 +98,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_boxed(&mut self, arg: Box<dyn PartialReflect>) {
+    pub fn push_boxed(&mut self, arg: Box<dyn Reflect>) {
         self.push_arg(ArgValue::Owned(arg));
     }
 
@@ -115,7 +115,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn with_ref(self, arg: &'a dyn PartialReflect) -> Self {
+    pub fn with_ref(self, arg: &'a dyn Reflect) -> Self {
         self.with_arg(ArgValue::Ref(arg))
     }
 
@@ -123,7 +123,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn with_mut(self, arg: &'a mut dyn PartialReflect) -> Self {
+    pub fn with_mut(self, arg: &'a mut dyn Reflect) -> Self {
         self.with_arg(ArgValue::Mut(arg))
     }
 
@@ -131,7 +131,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn with_owned(self, arg: impl PartialReflect) -> Self {
+    pub fn with_owned(self, arg: impl Reflect) -> Self {
         self.with_arg(ArgValue::Owned(Box::new(arg)))
     }
 
@@ -139,7 +139,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn with_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
+    pub fn with_boxed(self, arg: Box<dyn Reflect>) -> Self {
         self.with_arg(ArgValue::Owned(arg))
     }
 

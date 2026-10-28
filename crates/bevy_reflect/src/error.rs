@@ -2,40 +2,40 @@ use crate::FieldId;
 use alloc::{borrow::Cow, format};
 use thiserror::Error;
 
-/// An error that occurs when cloning a type via [`PartialReflect::reflect_clone`].
+/// An error that occurs when cloning a type via [`Reflect::reflect_clone`].
 ///
-/// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
+/// [`Reflect::reflect_clone`]: crate::Reflect::reflect_clone
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum ReflectCloneError {
-    /// The type does not have a custom implementation for [`PartialReflect::reflect_clone`].
+    /// The type does not have a custom implementation for [`Reflect::reflect_clone`].
     ///
-    /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
-    #[error("`PartialReflect::reflect_clone` not implemented for `{type_path}`")]
+    /// [`Reflect::reflect_clone`]: crate::Reflect::reflect_clone
+    #[error("`Reflect::reflect_clone` not implemented for `{type_path}`")]
     NotImplemented {
-        /// The fully qualified path of the type that [`PartialReflect::reflect_clone`](crate::PartialReflect::reflect_clone) is not implemented for.
+        /// The fully qualified path of the type that [`Reflect::reflect_clone`](crate::Reflect::reflect_clone) is not implemented for.
         type_path: Cow<'static, str>,
     },
-    /// The type cannot be cloned via [`PartialReflect::reflect_clone`].
+    /// The type cannot be cloned via [`Reflect::reflect_clone`].
     ///
     /// This type should be returned when a type is intentionally opting out of reflection cloning.
     ///
-    /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
-    #[error("`{type_path}` cannot be made cloneable for `PartialReflect::reflect_clone`")]
+    /// [`Reflect::reflect_clone`]: crate::Reflect::reflect_clone
+    #[error("`{type_path}` cannot be made cloneable for `Reflect::reflect_clone`")]
     NotCloneable {
-        /// The fully qualified path of the type that cannot be cloned via [`PartialReflect::reflect_clone`](crate::PartialReflect::reflect_clone).
+        /// The fully qualified path of the type that cannot be cloned via [`Reflect::reflect_clone`](crate::Reflect::reflect_clone).
         type_path: Cow<'static, str>,
     },
-    /// The field cannot be cloned via [`PartialReflect::reflect_clone`].
+    /// The field cannot be cloned via [`Reflect::reflect_clone`].
     ///
     /// When [deriving `Reflect`], this usually means that a field marked with `#[reflect(ignore)]`
     /// is missing a `#[reflect(clone)]` attribute.
     ///
     /// This may be intentional if the field is not meant/able to be cloned.
     ///
-    /// [`PartialReflect::reflect_clone`]: crate::PartialReflect::reflect_clone
+    /// [`Reflect::reflect_clone`]: crate::Reflect::reflect_clone
     /// [deriving `Reflect`]: derive@crate::Reflect
     #[error(
-        "field `{}` cannot be made cloneable for `PartialReflect::reflect_clone` (are you missing a `#[reflect(clone)]` attribute?)",
+        "field `{}` cannot be made cloneable for `Reflect::reflect_clone` (are you missing a `#[reflect(clone)]` attribute?)",
         full_path(.field, .variant.as_deref(), .container_type_path)
     )]
     FieldNotCloneable {

@@ -1,6 +1,7 @@
 use crate::{
+    dynamic::DynamicStruct,
     serde::de::struct_utils::{visit_struct, visit_struct_seq},
-    structs::{DynamicStruct, StructInfo},
+    structs::StructInfo,
     TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};

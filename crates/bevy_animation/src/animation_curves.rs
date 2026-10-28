@@ -102,7 +102,7 @@ use bevy_curve::{
 };
 use bevy_ecs::component::{Component, Mutable};
 use bevy_platform::hash::Hashed;
-use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
+use bevy_reflect::{FromDynamic, Reflect, Reflectable, TypeInfo, Typed};
 use downcast_rs::{impl_downcast, Downcast};
 
 /// A trait for exposing a value in an entity so that it can be animated.
@@ -283,8 +283,8 @@ impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone +
 ///
 /// [curve]: Curve
 /// [property type]: AnimatableProperty::Property
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect, FromDynamic)]
+#[reflect(from_dynamic = false)]
 pub struct AnimatableCurve<P, C> {
     /// The property selector, which defines what component to access and how to access
     /// a property on that component.

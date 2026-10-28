@@ -1,23 +1,23 @@
 use crate::{
     container_attributes::REFLECT_DEFAULT,
     derive_data::ReflectEnum,
-    enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
+    enum_utility::{EnumVariantOutputData, FromDynamicVariantBuilder, VariantBuilder},
     field_attributes::DefaultBehavior,
     where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
 use bevy_macro_utils::as_member;
-use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{parse_str, Field, Ident, Lit, LitInt, LitStr, Member, Path};
+use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
-/// Implements `FromReflect` for the given struct
+/// Implements `FromDynamic` for the given struct
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     impl_struct_internal(reflect_struct, false)
 }
 
-/// Implements `FromReflect` for the given tuple struct
+/// Implements `FromDynamic` for the given tuple struct
 pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     impl_struct_internal(reflect_struct, true)
 }
@@ -26,49 +26,46 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
-    let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
+    let where_from_dynamic_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
 
     let downcast = match meta.remote_ty() {
         Some(remote) => {
             let remote_ty = remote.type_path();
-            quote! {
-                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect)?
-                    )
-                )
-            }
+            quote! {{
+                let concrete = dynamic.into_concrete()?;
+                let value = <dyn #bevy_reflect_path::Reflect>::take::<#remote_ty>(concrete).ok()?;
+                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(value)
+            }}
         }
-        None => quote! {
-            #FQClone::clone(
-                <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
-            )
-        },
+        None => quote! {{
+            let concrete = dynamic.into_concrete()?;
+            <dyn #bevy_reflect_path::Reflect>::take::<#type_path #ty_generics>(concrete).ok()?
+        }},
     };
 
     quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
+        impl #impl_generics #bevy_reflect_path::FromDynamic for #type_path #ty_generics #where_from_dynamic_clause  {
+            fn from_dynamic(dynamic: #bevy_reflect_path::dynamic::DynamicValue) -> #FQOption<Self> {
                 #FQOption::Some(#downcast)
             }
         }
     }
 }
 
-/// Implements `FromReflect` for the given enum type
+/// Implements `FromDynamic` for the given enum type
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let enum_path = reflect_enum.meta().type_path();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
-    let ref_value = Ident::new("__param0", Span::call_site());
+    let dynamic_value = Ident::new("__param0", Span::call_site());
 
     let EnumVariantOutputData {
         variant_names,
         variant_constructors,
         ..
-    } = FromReflectVariantBuilder::new(reflect_enum).build(&ref_value);
+    } = FromDynamicVariantBuilder::new(reflect_enum).build(&dynamic_value);
 
     let match_branches = if reflect_enum.meta().is_remote_wrapper() {
         quote! {
@@ -80,25 +77,30 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         }
     };
 
+    let value_ident = Ident::new("value", Span::call_site());
+    let wrap_value = maybe_wrap_remote(reflect_enum.meta(), &value_ident);
+
     let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 
-    // Add FromReflect bound for each active field
-    let where_from_reflect_clause = reflect_enum
+    // Add FromDynamic bound for each active field
+    let where_from_dynamic_clause = reflect_enum
         .where_clause_options()
         .extend_where_clause(where_clause);
 
     quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_from_reflect_clause  {
-            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
-                    #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value)
-                {
-                    match #bevy_reflect_path::enums::Enum::variant_name(#ref_value) {
-                        #match_branches
-                        name => #FQOption::None,
+        impl #impl_generics #bevy_reflect_path::FromDynamic for #enum_path #ty_generics #where_from_dynamic_clause  {
+            fn from_dynamic(#dynamic_value: #bevy_reflect_path::dynamic::DynamicValue) -> #FQOption<Self> {
+                let mut #dynamic_value = match #dynamic_value {
+                    #bevy_reflect_path::dynamic::DynamicValue::Enum(#dynamic_value) => #dynamic_value,
+                    #bevy_reflect_path::dynamic::DynamicValue::Concrete(concrete) => {
+                        let #value_ident = concrete.take().ok()?;
+                        return #FQOption::Some(#wrap_value);
                     }
-                } else {
-                    #FQOption::None
+                    _ => return #FQOption::None,
+                };
+                match #dynamic_value.variant_name() {
+                    #match_branches
+                    name => #FQOption::None,
                 }
             }
         }
@@ -125,21 +127,15 @@ fn impl_struct_internal(
     let remote_ty = reflect_struct.meta().remote_ty();
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
-    let ref_struct = Ident::new("__ref_struct", Span::call_site());
-    let (ref_struct_type, ref_struct_path) = if is_tuple {
-        (
-            Ident::new("TupleStruct", Span::call_site()),
-            parse_str("tuple_struct::TupleStruct").expect("should be a valid path"),
-        )
+    let dynamic_struct = Ident::new("__dynamic_struct", Span::call_site());
+    let dynamic_struct_type = if is_tuple {
+        Ident::new("TupleStruct", Span::call_site())
     } else {
-        (
-            Ident::new("Struct", Span::call_site()),
-            parse_str("structs::Struct").expect("should be a valid path"),
-        )
+        Ident::new("Struct", Span::call_site())
     };
 
     let MemberValuePair(active_members, active_values) =
-        get_active_fields(reflect_struct, &ref_struct, &ref_struct_path, is_tuple);
+        get_active_fields(reflect_struct, &dynamic_struct, is_tuple);
 
     let is_defaultable = reflect_struct.meta().attrs().contains(REFLECT_DEFAULT);
 
@@ -193,21 +189,26 @@ fn impl_struct_internal(
         .generics()
         .split_for_impl();
 
-    // Add FromReflect bound for each active field
-    let where_from_reflect_clause = reflect_struct
+    let value_ident = Ident::new("value", Span::call_site());
+    let wrap_value = maybe_wrap_remote(reflect_struct.meta(), &value_ident);
+
+    // Add FromDynamic bound for each active field
+    let where_from_dynamic_clause = reflect_struct
         .where_clause_options()
         .extend_where_clause(where_clause);
 
     quote! {
-        impl #impl_generics #bevy_reflect_path::FromReflect for #struct_path #ty_generics #where_from_reflect_clause {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct)
-                    = #bevy_reflect_path::PartialReflect::reflect_ref(reflect)
-                {
-                    #constructor
-                } else {
-                    #FQOption::None
-                }
+        impl #impl_generics #bevy_reflect_path::FromDynamic for #struct_path #ty_generics #where_from_dynamic_clause {
+            fn from_dynamic(#dynamic_struct: #bevy_reflect_path::dynamic::DynamicValue) -> #FQOption<Self> {
+                let mut #dynamic_struct = match #dynamic_struct {
+                    #bevy_reflect_path::dynamic::DynamicValue::#dynamic_struct_type(#dynamic_struct) => #dynamic_struct,
+                    #bevy_reflect_path::dynamic::DynamicValue::Concrete(concrete) => {
+                        let #value_ident = concrete.take().ok()?;
+                        return #FQOption::Some(#wrap_value);
+                    }
+                    _ => return #FQOption::None,
+                };
+                #constructor
             }
         }
     }
@@ -242,7 +243,6 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
 fn get_active_fields(
     reflect_struct: &ReflectStruct,
     dyn_struct_name: &Ident,
-    struct_type: &Path,
     is_tuple: bool,
 ) -> MemberValuePair {
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -261,7 +261,7 @@ fn get_active_fields(
                 let real_ty = &field.data.ty;
 
                 let get_field = quote! {
-                    #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)
+                    #dyn_struct_name.field_mut(#accessor).map(|v| v.take_dynamic())
                 };
 
                 let into_remote = |value: proc_macro2::TokenStream| {
@@ -284,7 +284,7 @@ fn get_active_fields(
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => {
                         let value = into_remote(quote! {
-                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                            <#ty as #bevy_reflect_path::FromDynamic>::from_dynamic(field)
                         });
                         quote! {
                             if let #FQOption::Some(field) = #get_field {
@@ -296,7 +296,7 @@ fn get_active_fields(
                     }
                     DefaultBehavior::Default => {
                         let value = into_remote(quote! {
-                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                            <#ty as #bevy_reflect_path::FromDynamic>::from_dynamic(field)
                         });
                         quote! {
                             if let #FQOption::Some(field) = #get_field {
@@ -308,7 +308,7 @@ fn get_active_fields(
                     }
                     DefaultBehavior::Required => {
                         let value = into_remote(quote! {
-                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)
+                            <#ty as #bevy_reflect_path::FromDynamic>::from_dynamic(#get_field?)
                         });
                         quote! {
                             #value
@@ -335,5 +335,16 @@ fn get_field_accessor(field: &Field, index: usize, is_tuple: bool) -> Lit {
             .as_ref()
             .map(|ident| Lit::Str(LitStr::new(&ident.to_string(), Span::call_site())))
             .unwrap_or_else(|| Lit::Str(LitStr::new(&index.to_string(), Span::call_site())))
+    }
+}
+
+/// Wraps `ident` in its remote wrapper, if the type is a remote type.
+fn maybe_wrap_remote(meta: &ReflectMeta<'_>, ident: &Ident) -> proc_macro2::TokenStream {
+    let bevy_reflect_path = meta.bevy_reflect_path();
+
+    if meta.is_remote_wrapper() {
+        quote! { <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#ident) }
+    } else {
+        quote! { #ident }
     }
 }

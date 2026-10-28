@@ -6,7 +6,8 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
+use bevy_reflect::dynamic::DynamicValue;
+use bevy_reflect::{TypePath, TypeRegistry};
 
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
@@ -24,7 +25,7 @@ use {crate::serde::DynamicWorldSerializer, serde::Serialize};
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicWorld {
     /// Resources stored in the dynamic world.
-    pub resources: Vec<Box<dyn PartialReflect>>,
+    pub resources: Vec<DynamicValue>,
     /// Entities contained in the dynamic world.
     pub entities: Vec<DynamicEntity>,
 }
@@ -36,8 +37,8 @@ pub struct DynamicEntity {
     /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
-    /// implement the [`PartialReflect`] trait.
-    pub components: Vec<Box<dyn PartialReflect>>,
+    /// implement the [`Reflect`] trait.
+    pub components: Vec<DynamicValue>,
 }
 
 impl DynamicWorld {
@@ -114,11 +115,9 @@ impl DynamicWorld {
 
             // Apply/ add each component to the given entity.
             for component in &dynamic_entity.components {
-                let type_info = component.get_represented_type_info().ok_or_else(|| {
-                    WorldInstanceSpawnError::NoRepresentedType {
-                        type_path: component.reflect_type_path().to_string(),
-                    }
-                })?;
+                let type_info = component
+                    .get_represented_type_info()
+                    .ok_or_else(|| WorldInstanceSpawnError::NoRepresentedType)?;
                 let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
                     WorldInstanceSpawnError::UnregisteredButReflectedType {
                         type_path: type_info.type_path().to_string(),
@@ -145,10 +144,15 @@ impl DynamicWorld {
                     }
                 }
 
+                let component = match component.dynamic_clone() {
+                    Ok(component) => component,
+                    Err(err) => return Err(WorldInstanceSpawnError::ReflectCloneError(err)),
+                };
+
                 SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                     reflect_component.apply_or_insert_mapped(
                         &mut world.entity_mut(entity),
-                        component.as_partial_reflect(),
+                        component,
                         type_registry,
                         mapper,
                         RelationshipHookMode::Skip,
@@ -160,11 +164,9 @@ impl DynamicWorld {
         // Insert resources after all entities have been added to the world.
         // This ensures the entities are available for the resources to reference during mapping.
         for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
-                WorldInstanceSpawnError::NoRepresentedType {
-                    type_path: resource.reflect_type_path().to_string(),
-                }
-            })?;
+            let type_info = resource
+                .get_represented_type_info()
+                .ok_or_else(|| WorldInstanceSpawnError::NoRepresentedType)?;
             let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
                 WorldInstanceSpawnError::UnregisteredButReflectedType {
                     type_path: type_info.type_path().to_string(),
@@ -189,10 +191,15 @@ impl DynamicWorld {
                 world.spawn_empty().id()
             };
 
+            let resource = match resource.dynamic_clone() {
+                Ok(resource) => resource,
+                Err(err) => return Err(WorldInstanceSpawnError::ReflectCloneError(err)),
+            };
+
             SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                 reflect_component.apply_or_insert_mapped(
                     &mut world.entity_mut(entity),
-                    resource.as_partial_reflect(),
+                    resource,
                     type_registry,
                     mapper,
                     RelationshipHookMode::Skip,

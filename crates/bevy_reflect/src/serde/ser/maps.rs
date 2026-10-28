@@ -1,16 +1,16 @@
-use crate::{map::Map, serde::TypedReflectSerializer, TypeRegistry};
+use crate::{map::MapLike, serde::TypedReflectSerializer, TypeRegistry};
 use serde::{ser::SerializeMap, Serialize};
 
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`Map`] values.
-pub(super) struct MapSerializer<'a, P> {
-    pub map: &'a dyn Map,
+pub(super) struct MapSerializer<'a, M: MapLike + ?Sized, P> {
+    pub map: &'a M,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for MapSerializer<'_, P> {
+impl<M: MapLike + ?Sized, P: ReflectSerializerProcessor> Serialize for MapSerializer<'_, M, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

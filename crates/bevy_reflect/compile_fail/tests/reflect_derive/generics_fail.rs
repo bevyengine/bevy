@@ -4,7 +4,7 @@ use bevy_reflect::{
 };
 
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
+#[reflect(from_dynamic = false)]
 struct Foo<T> {
     a: T,
 }

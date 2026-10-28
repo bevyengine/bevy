@@ -1,19 +1,16 @@
 //! This example demonstrates the use of dynamic types in Bevy's reflection system.
 
 use bevy::reflect::{
-    array::DynamicArray,
+    dynamic::{DynamicArray, DynamicList, DynamicStruct, DynamicTuple, DynamicTupleStruct},
     enums::{DynamicEnum, DynamicVariant},
-    list::DynamicList,
     map::DynamicMap,
     reflect_trait,
     serde::TypedReflectDeserializer,
     set::{DynamicSet, Set},
     std_traits::ReflectDefault,
-    structs::DynamicStruct,
-    tuple::DynamicTuple,
-    tuple_struct::DynamicTupleStruct,
-    FromReflect, PartialReflect, Reflect, ReflectFromReflect, TypeRegistry, Typed,
+    FromDynamic, Reflect, ReflectFromDynamic, TypeRegistry, Typed,
 };
+use bevy_reflect::dynamic::DynamicValue;
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};
 
@@ -42,7 +39,7 @@ fn main() {
 
     // When working with reflected types, however, we often "erase" this type information
     // using the `Reflect` trait object.
-    // This trait object also gives us access to all the methods in the `PartialReflect` trait too.
+    // This trait object also gives us access to all the methods in the `Reflect` trait too.
     // The underlying type is still the same (in this case, `Player`),
     // but now we've hidden that information from the compiler.
     let reflected: Box<dyn Reflect> = Box::new(player);
@@ -50,17 +47,17 @@ fn main() {
     // Because it's the same type under the hood, we can still downcast it back to the original type.
     assert!(reflected.downcast_ref::<Player>().is_some());
 
-    // We can attempt to clone our value using `PartialReflect::reflect_clone`.
-    // This will recursively call `PartialReflect::reflect_clone` on all fields of the type.
+    // We can attempt to clone our value using `Reflect::reflect_clone`.
+    // This will recursively call `Reflect::reflect_clone` on all fields of the type.
     // Or, if we had registered `ReflectClone` using `#[reflect(Clone)]`, it would simply call `Clone::clone` directly.
     let cloned: Box<dyn Reflect> = reflected.reflect_clone().unwrap();
     assert_eq!(cloned.downcast_ref::<Player>(), Some(&Player { id: 123 }));
 
     // Another way we can "clone" our data is by converting it to a dynamic type.
-    // Notice here we bind it as a `dyn PartialReflect` instead of `dyn Reflect`.
+    // Notice here we bind it as a `dyn Reflect` instead of `dyn Reflect`.
     // This is because it returns a dynamic type that simply represents the original type.
     // In this case, because `Player` is a struct, it will return a `DynamicStruct`.
-    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
+    let dynamic: Box<dyn Reflect> = reflected.to_dynamic().unwrap();
     assert!(dynamic.is_dynamic());
 
     // And if we try to convert it back to a `dyn Reflect` trait object, we'll get `None`.
@@ -70,7 +67,7 @@ fn main() {
     // Generally dynamic types are used to represent (or "proxy") the original type,
     // so that we can continue to access its fields and overall structure.
     let dynamic_ref = dynamic.reflect_ref().as_struct().unwrap();
-    let id = dynamic_ref.field("id").unwrap().try_downcast_ref::<u32>();
+    let id = dynamic_ref.field("id").unwrap().downcast_ref::<u32>();
     assert_eq!(id, Some(&123));
 
     // It also enables us to create a representation of a type without having compile-time
@@ -85,35 +82,37 @@ fn main() {
         .deserialize(&mut ron::Deserializer::from_str(input).unwrap())
         .unwrap();
 
-    // Our deserialized output is a `DynamicStruct` that proxies/represents a `Player`.
-    assert!(deserialized.represents::<Player>());
+    // Our deserialized output is a `DynamicValue` that proxies/represents a `Player`.
+    assert!(deserialized.as_partial_reflect().represents::<Player>());
 
     // And while this does allow us to access the fields and structure of the type,
     // there may be instances where we need the actual type.
     // For example, if we want to convert our `dyn Reflect` into a `dyn Identifiable`,
-    // we can't use the `DynamicStruct` proxy.
+    // we can't use the `DynamicValue` proxy.
     let reflect_identifiable = registration
         .data::<ReflectIdentifiable>()
         .expect("`ReflectIdentifiable` should be registered");
 
     // Trying to access the registry with our `deserialized` will give a compile error
-    // since it doesn't implement `Reflect`, only `PartialReflect`.
+    // since it doesn't implement `Reflect`, only `Reflect`.
     // Similarly, trying to force the operation will fail.
     // This fails since the underlying type of `deserialized` is `DynamicStruct` and not `Player`.
-    assert!(deserialized
-        .try_as_reflect()
-        .and_then(|reflect_trait_obj| reflect_identifiable.get(reflect_trait_obj))
-        .is_none());
+    assert!(match &deserialized {
+        DynamicValue::Concrete(reflect) => Some(reflect.as_ref()),
+        _ => None,
+    }
+    .and_then(|reflect_trait_obj| reflect_identifiable.get(reflect_trait_obj))
+    .is_none());
 
     // So how can we go from a dynamic type to a concrete type?
     // There are two ways:
 
-    // 1. Using `PartialReflect::apply`.
+    // 1. Using `Reflect::apply`.
     {
         // If you know the type at compile time, you can construct a new value and apply the dynamic
         // value to it.
         let mut value = Player::default();
-        value.apply(deserialized.as_ref());
+        value.apply(deserialized.as_partial_reflect());
         assert_eq!(value.id, 123);
 
         // If you don't know the type at compile time, you need a dynamic way of constructing
@@ -123,34 +122,34 @@ fn main() {
             .expect("`ReflectDefault` should be registered");
 
         let mut value: Box<dyn Reflect> = reflect_default.default();
-        value.apply(deserialized.as_ref());
+        value.apply(deserialized.as_partial_reflect());
 
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
         assert_eq!(identifiable.id(), 123);
     }
 
-    // 2. Using `FromReflect`
+    // 2. Using `FromDynamic`
     {
-        // If you know the type at compile time, you can use the `FromReflect` trait to convert the
+        // If you know the type at compile time, you can use the `FromDynamic` trait to convert the
         // dynamic value into the concrete type directly.
-        let value: Player = Player::from_reflect(deserialized.as_ref()).unwrap();
+        let value: Player = Player::from_dynamic(deserialized.as_partial_reflect()).unwrap();
         assert_eq!(value.id, 123);
 
-        // If you don't know the type at compile time, you can use the `ReflectFromReflect` type data
+        // If you don't know the type at compile time, you can use the `ReflectFromDynamic` type data
         // to perform the conversion dynamically.
-        let reflect_from_reflect = registration
-            .data::<ReflectFromReflect>()
-            .expect("`ReflectFromReflect` should be registered");
+        let reflect_from_dynamic = registration
+            .data::<ReflectFromDynamic>()
+            .expect("`ReflectFromDynamic` should be registered");
 
-        let value: Box<dyn Reflect> = reflect_from_reflect
-            .from_reflect(deserialized.as_ref())
+        let value: Box<dyn Reflect> = reflect_from_dynamic
+            .from_dynamic(deserialized.as_partial_reflect())
             .unwrap();
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
         assert_eq!(identifiable.id(), 123);
     }
 
     // Lastly, while dynamic types are commonly generated via reflection methods like
-    // `PartialReflect::to_dynamic` or via the reflection deserializers,
+    // `Reflect::to_dynamic` or via the reflection deserializers,
     // you can also construct them manually.
     let mut my_dynamic_list = DynamicList::from_iter([1u32, 2u32, 3u32]);
 

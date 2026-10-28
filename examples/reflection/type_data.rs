@@ -214,5 +214,5 @@ fn main() {
     //
     // There are also some that are automatically registered by the `Reflect` derive macro:
     // - `ReflectFromPtr`
-    // - `ReflectFromReflect` (if not `#[reflect(from_reflect = false)]`)
+    // - `ReflectFromDynamic` (if not `#[reflect(from_dynamic = false)]`)
 }

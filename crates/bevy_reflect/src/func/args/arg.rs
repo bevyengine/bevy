@@ -1,6 +1,6 @@
 use crate::{
     func::args::{ArgError, FromArg, Ownership},
-    PartialReflect, Reflect, TypePath,
+    Reflect, TypePath,
 };
 use alloc::{boxed::Box, string::ToString};
 use core::ops::Deref;
@@ -84,7 +84,7 @@ impl<'a> Arg<'a> {
     /// ```
     pub fn take_owned<T: TypePath>(self) -> Result<T, ArgError> {
         match self.value {
-            ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
+            ArgValue::Owned(arg) => arg.take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
                 expected: alloc::borrow::Cow::Borrowed(T::type_path()),
                 received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
@@ -125,13 +125,11 @@ impl<'a> Arg<'a> {
                 received: Ownership::Owned,
             }),
             ArgValue::Ref(arg) => {
-                Ok(arg
-                    .try_downcast_ref()
-                    .ok_or_else(|| ArgError::UnexpectedType {
-                        index: self.index,
-                        expected: alloc::borrow::Cow::Borrowed(T::type_path()),
-                        received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
-                    })?)
+                Ok(arg.downcast_ref().ok_or_else(|| ArgError::UnexpectedType {
+                    index: self.index,
+                    expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                    received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
+                })?)
             }
             ArgValue::Mut(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -170,23 +168,18 @@ impl<'a> Arg<'a> {
             }),
             ArgValue::Mut(arg) => {
                 let received = alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string());
-                Ok(arg
-                    .try_downcast_mut()
-                    .ok_or_else(|| ArgError::UnexpectedType {
-                        index: self.index,
-                        expected: alloc::borrow::Cow::Borrowed(T::type_path()),
-                        received,
-                    })?)
+                Ok(arg.downcast_mut().ok_or_else(|| ArgError::UnexpectedType {
+                    index: self.index,
+                    expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                    received,
+                })?)
             }
         }
     }
 
     /// Returns `true` if the argument is of type `T`.
     pub fn is<T: TypePath>(&self) -> bool {
-        self.value
-            .try_as_reflect()
-            .map(<dyn Reflect>::is::<T>)
-            .unwrap_or_default()
+        self.value.as_reflect().is::<T>()
     }
 }
 
@@ -197,15 +190,15 @@ impl<'a> Arg<'a> {
 #[derive(Debug)]
 pub enum ArgValue<'a> {
     /// An owned argument.
-    Owned(Box<dyn PartialReflect>),
+    Owned(Box<dyn Reflect>),
     /// An immutable reference argument.
-    Ref(&'a dyn PartialReflect),
+    Ref(&'a dyn Reflect),
     /// A mutable reference argument.
-    Mut(&'a mut dyn PartialReflect),
+    Mut(&'a mut dyn Reflect),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn PartialReflect;
+    type Target = dyn Reflect;
 
     fn deref(&self) -> &Self::Target {
         match self {

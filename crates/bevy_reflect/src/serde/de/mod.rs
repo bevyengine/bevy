@@ -25,7 +25,6 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use alloc::{
-        boxed::Box,
         string::{String, ToString},
         vec,
         vec::Vec,
@@ -37,12 +36,12 @@ mod tests {
     use bevy_platform::collections::{HashMap, HashSet};
 
     use crate::{
-        enums::DynamicEnum,
+        dynamic::{DynamicEnum, DynamicValue, DynamicValueRef},
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
         },
-        FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
+        FromDynamic, Reflect, ReflectDeserialize, TypeRegistration, TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -247,7 +246,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output = <MyStruct as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -291,8 +290,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <Foo as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -332,7 +330,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <OptionTest as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output = <OptionTest as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output, "failed to deserialize Options");
 
         // === Implicit Some === //
@@ -354,7 +352,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <OptionTest as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output = <OptionTest as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(
             expected, output,
             "failed to deserialize Options with implicit Some"
@@ -380,7 +378,7 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let output = SomeType::from_reflect(&*output).unwrap();
+        let output = SomeType::from_dynamic(output).unwrap();
         assert_eq!(output.value, 17);
     }
 
@@ -408,7 +406,7 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         // Using the full name is totally fine.
-        let output = some_mod::Ambiguous::from_reflect(&*output).unwrap();
+        let output = some_mod::Ambiguous::from_dynamic(output).unwrap();
         assert_eq!(output.0, 17);
 
         let ambiguous_input = r#"{
@@ -448,8 +446,10 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::Unit).unwrap();
-        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::Unit).unwrap();
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
 
         // === NewType Variant === //
         let input = r#"{
@@ -459,8 +459,10 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::NewType(123)).unwrap();
-        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::NewType(123)).unwrap();
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
 
         // === Tuple Variant === //
         let input = r#"{
@@ -470,10 +472,10 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::Tuple(1.23, 3.21)).unwrap();
-        assert!(expected
-            .reflect_partial_eq(output.as_partial_reflect())
-            .unwrap());
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::Tuple(1.23, 3.21)).unwrap();
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
 
         // === Struct Variant === //
         let input = r#"{
@@ -485,13 +487,13 @@ mod tests {
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let expected = DynamicEnum::try_from(MyEnum::Struct {
+        let expected = DynamicEnum::try_from_reflect_deep(&MyEnum::Struct {
             value: String::from("I <3 Enums"),
         })
         .unwrap();
-        assert!(expected
-            .reflect_partial_eq(output.as_partial_reflect())
-            .unwrap());
+        assert!(
+            DynamicValueRef::dynamic_partial_eq(&From::from(&expected), output.as_ref()).unwrap()
+        );
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/12462
@@ -507,7 +509,7 @@ mod tests {
         let reflect_deserializer = ReflectDeserializer::new(&registry);
         let input2 = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let serializer2 = ReflectSerializer::new(input2.as_partial_reflect(), &registry);
+        let serializer2 = ReflectSerializer::new(input2.as_ref(), &registry);
         let serialized2 = ron::ser::to_string(&serializer2).unwrap();
 
         assert_eq!(serialized1, serialized2);
@@ -534,7 +536,7 @@ mod tests {
             .deserialize(&mut postcard::Deserializer::from_bytes(&input))
             .unwrap();
 
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output = <MyStruct as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -565,7 +567,7 @@ mod tests {
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output = <MyStruct as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -602,13 +604,13 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i64>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(456_i64)))
+                    Ok(Ok(DynamicValue::from(456_i64)))
                 } else {
                     Ok(Err(deserializer))
                 }
@@ -633,8 +635,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <Foo as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -654,16 +655,16 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i32>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(123_i32)))
+                    Ok(Ok(DynamicValue::from(123_i32)))
                 } else if registration.type_id() == TypeId::of::<i64>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(456_i64)))
+                    Ok(Ok(DynamicValue::from(456_i64)))
                 } else {
                     Ok(Err(deserializer))
                 }
@@ -688,8 +689,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
+        let output = <Foo as FromDynamic>::from_dynamic(dynamic_output).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -703,7 +703,7 @@ mod tests {
                 registration: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
@@ -749,13 +749,13 @@ mod tests {
                 _: &TypeRegistration,
                 _: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 let _ = deserializer.deserialize_ignored_any(IgnoredAny)?;
                 *self.values_found += 1;
-                Ok(Ok(Box::new(123_i32)))
+                Ok(Ok(DynamicValue::from(123_i32)))
             }
         }
 
@@ -776,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn should_fail_from_reflect_if_processor_returns_wrong_typed_value() {
+    fn should_fail_from_dynamic_if_processor_returns_wrong_typed_value() {
         #[derive(Reflect, Debug, PartialEq)]
         struct Foo {
             bar: i32,
@@ -791,13 +791,13 @@ mod tests {
                 registration: &TypeRegistration,
                 _registry: &TypeRegistry,
                 deserializer: D,
-            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            ) -> Result<Result<DynamicValue, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i32>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Ok(Box::new(42_i64)))
+                    Ok(Ok(DynamicValue::from(42_i64)))
                 } else {
                     Ok(Err(deserializer))
                 }
@@ -820,55 +820,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_none());
-    }
-
-    #[cfg(feature = "functions")]
-    mod functions {
-        use super::*;
-        use crate::func::DynamicFunction;
-
-        #[test]
-        fn should_not_deserialize_function() {
-            #[derive(Reflect)]
-            #[reflect(from_reflect = false)]
-            struct MyStruct {
-                func: DynamicFunction<'static>,
-            }
-
-            let mut registry = TypeRegistry::new();
-            registry.register::<MyStruct>();
-
-            let input = r#"{
-                "bevy_reflect::serde::de::tests::functions::MyStruct": (
-                    func: (),
-                ),
-            }"#;
-
-            let reflect_deserializer = ReflectDeserializer::new(&registry);
-            let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
-
-            let error = reflect_deserializer
-                .deserialize(&mut ron_deserializer)
-                .unwrap_err();
-
-            #[cfg(feature = "debug_stack")]
-            assert_eq!(
-                error,
-                ron::Error::Message(
-                    "no registration found for type `bevy_reflect::DynamicFunction` (stack: `bevy_reflect::serde::de::tests::functions::MyStruct`)"
-                        .to_string()
-                )
-            );
-
-            #[cfg(not(feature = "debug_stack"))]
-            assert_eq!(
-                error,
-                ron::Error::Message(
-                    "no registration found for type `bevy_reflect::DynamicFunction`".to_string()
-                )
-            );
-        }
+        assert!(<Foo as FromDynamic>::from_dynamic(dynamic_output).is_none());
     }
 
     #[cfg(feature = "debug_stack")]

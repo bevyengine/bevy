@@ -73,16 +73,18 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`TypeId`](core::any::TypeId)
 /// - Component is registered
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
-/// - Component can be cloned via [`PartialReflect::reflect_clone`] _or_ has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
+/// - Component can be cloned via [`Reflect::reflect_clone`] _or_ has one of the following registered: [`ReflectFromDynamic`](bevy_reflect::ReflectFromDynamic),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
 ///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
 ///
-/// [`PartialReflect::reflect_clone`]: bevy_reflect::PartialReflect::reflect_clone
+/// [`Reflect::reflect_clone`]: bevy_reflect::Reflect::reflect_clone
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut ComponentCloneCtx) {
+    use bevy_reflect::dynamic::DynamicValue;
+
     let Some(app_registry) = ctx.type_registry().cloned() else {
         return;
     };
@@ -107,11 +109,11 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         return;
     }
 
-    // Try to clone using ReflectFromReflect
-    if let Some(reflect_from_reflect) =
-        registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
-        && let Some(mut component) =
-            reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+    // Try to clone using ReflectFromDynamic
+    if let Some(reflect_from_dynamic) =
+        registry.get_type_data::<bevy_reflect::ReflectFromDynamic>(type_id)
+        && let Ok(dynamic_value) = DynamicValue::try_from_reflect(source_component_reflect)
+        && let Some(mut component) = reflect_from_dynamic.from_dynamic(dynamic_value)
     {
         if let Some(reflect_component) =
             registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
@@ -126,21 +128,26 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
     // Else, try to clone using ReflectDefault
     if let Some(reflect_default) =
         registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)
+        && let Ok(dynamic_value) = DynamicValue::try_from_reflect(source_component_reflect)
     {
         let mut component = reflect_default.default();
-        component.apply(source_component_reflect.as_partial_reflect());
-        drop(registry);
-        ctx.write_target_component_reflect(component);
-        return;
+        if dynamic_value.try_apply(&mut *component).is_ok() {
+            drop(registry);
+            ctx.write_target_component_reflect(component);
+            return;
+        }
     }
     // Otherwise, try to clone using ReflectFromWorld
     if let Some(reflect_from_world) =
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
+        use bevy_reflect::dynamic::DynamicValue;
+
         use crate::{entity::EntityMapper, world::World};
 
         let reflect_from_world = reflect_from_world.clone();
-        let Ok(source_component_cloned) = source_component_reflect.to_dynamic() else {
+        let Ok(source_component_cloned) = DynamicValue::try_from_reflect(source_component_reflect)
+        else {
             let component_info = ctx.component_info();
 
             log::error!(
@@ -156,7 +163,9 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         ctx.queue_deferred(move |world: &mut World, mapper: &mut dyn EntityMapper| {
             let mut component = reflect_from_world.from_world(world);
             assert_eq!(type_id, (*component).type_id());
-            component.apply(source_component_cloned.as_partial_reflect());
+            // TODO: What should we do with this Err?
+            source_component_cloned.try_apply(&mut *component).unwrap();
+
             if let Some(reflect_component) = app_registry
                 .read()
                 .get_type_data::<crate::reflect::ReflectComponent>(type_id)

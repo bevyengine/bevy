@@ -1,6 +1,6 @@
 use crate::{
     serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
-    tuple_struct::TupleStruct,
+    tuple_struct::TupleStructLike,
     TypeInfo, TypeRegistry,
 };
 use serde::{ser::SerializeTupleStruct, Serialize};
@@ -8,13 +8,15 @@ use serde::{ser::SerializeTupleStruct, Serialize};
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`TupleStruct`] values.
-pub(super) struct TupleStructSerializer<'a, P> {
-    pub tuple_struct: &'a dyn TupleStruct,
+pub(super) struct TupleStructSerializer<'a, T: TupleStructLike + ?Sized, P> {
+    pub tuple_struct: &'a T,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
+impl<T: TupleStructLike + ?Sized, P: ReflectSerializerProcessor> Serialize
+    for TupleStructSerializer<'_, T, P>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -22,12 +24,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
         let type_info = self
             .tuple_struct
             .get_represented_type_info()
-            .ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "cannot get type info for `{}`",
-                    self.tuple_struct.reflect_type_path()
-                ))
-            })?;
+            .ok_or_else(|| make_custom_error("cannot get type info for dynamic value"))?;
 
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,

@@ -21,12 +21,10 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
+        dynamic::DynamicValueRef,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
-        structs::Struct,
-        PartialReflect, Reflect, ReflectSerialize, TypeRegistry,
+        Reflect, ReflectSerialize, TypeRegistry,
     };
-    #[cfg(feature = "functions")]
-    use alloc::boxed::Box;
     use alloc::{
         string::{String, ToString},
         vec,
@@ -397,45 +395,6 @@ mod tests {
     }
 
     #[test]
-    fn should_serialize_dynamic_option() {
-        #[derive(Default, Reflect)]
-        struct OtherStruct {
-            some: Option<SomeStruct>,
-            none: Option<SomeStruct>,
-        }
-
-        let value = OtherStruct {
-            some: Some(SomeStruct { foo: 999999999 }),
-            none: None,
-        };
-        let dynamic = value.to_dynamic_struct().unwrap();
-        let reflect = dynamic.as_partial_reflect();
-
-        let registry = get_registry();
-
-        let serializer = ReflectSerializer::new(reflect, &registry);
-
-        let mut buf = Vec::new();
-
-        let format = serde_json::ser::PrettyFormatter::with_indent(b"    ");
-        let mut ser = serde_json::Serializer::with_formatter(&mut buf, format);
-
-        serializer.serialize(&mut ser).unwrap();
-
-        let output = core::str::from_utf8(&buf).unwrap();
-        let expected = r#"{
-    "bevy_reflect::serde::ser::tests::OtherStruct": {
-        "some": {
-            "foo": 999999999
-        },
-        "none": null
-    }
-}"#;
-
-        assert_eq!(expected, output);
-    }
-
-    #[test]
     fn should_return_error_if_missing_registration() {
         let value = RangeInclusive::<f32>::new(0.0, 1.0);
         let registry = TypeRegistry::new();
@@ -497,14 +456,14 @@ mod tests {
         impl ReflectSerializerProcessor for FooProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: DynamicValueRef<'_>,
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
             where
                 S: Serializer,
             {
-                let Some(value) = value.try_as_reflect() else {
+                let Some(value) = value.as_concrete() else {
                     return Ok(Err(serializer));
                 };
 
@@ -556,14 +515,14 @@ mod tests {
         impl ReflectSerializerProcessor for FooProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: DynamicValueRef<'_>,
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
             where
                 S: Serializer,
             {
-                let Some(value) = value.try_as_reflect() else {
+                let Some(value) = value.as_concrete() else {
                     return Ok(Err(serializer));
                 };
 
@@ -610,14 +569,14 @@ mod tests {
         impl ReflectSerializerProcessor for ErroringProcessor {
             fn try_serialize<S>(
                 &self,
-                value: &dyn PartialReflect,
+                value: DynamicValueRef<'_>,
                 _: &TypeRegistry,
                 serializer: S,
             ) -> Result<Result<S::Ok, S>, S::Error>
             where
                 S: Serializer,
             {
-                let Some(value) = value.try_as_reflect() else {
+                let Some(value) = value.as_concrete() else {
                     return Ok(Err(serializer));
                 };
 
@@ -648,43 +607,6 @@ mod tests {
             error,
             ron::Error::Message("my custom serialize error".to_string())
         );
-    }
-
-    #[cfg(feature = "functions")]
-    mod functions {
-        use super::*;
-        use crate::func::{DynamicFunction, IntoFunction};
-        use alloc::string::ToString;
-
-        #[test]
-        fn should_not_serialize_function() {
-            #[derive(Reflect)]
-            #[reflect(from_reflect = false)]
-            struct MyStruct {
-                func: DynamicFunction<'static>,
-            }
-
-            let value: Box<dyn Reflect> = Box::new(MyStruct {
-                func: String::new.into_function(),
-            });
-
-            let registry = TypeRegistry::new();
-            let serializer = ReflectSerializer::new(value.as_partial_reflect(), &registry);
-
-            let error = ron::ser::to_string(&serializer).unwrap_err();
-
-            #[cfg(feature = "debug_stack")]
-            assert_eq!(
-                error,
-                ron::Error::Message("functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)".to_string())
-            );
-
-            #[cfg(not(feature = "debug_stack"))]
-            assert_eq!(
-                error,
-                ron::Error::Message("functions cannot be serialized".to_string())
-            );
-        }
     }
 
     #[cfg(feature = "debug_stack")]

@@ -8,7 +8,7 @@ mod parse;
 pub use parse::ParseError;
 use parse::PathParser;
 
-use crate::{PartialReflect, Reflect};
+use crate::Reflect;
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::fmt;
@@ -53,22 +53,19 @@ pub trait ReflectPath<'a>: Sized {
     ///
     /// See [`GetPath::reflect_path`] for more details,
     /// see [`element`](Self::element) if you want a typed return value.
-    fn reflect_element(self, root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect>;
+    fn reflect_element(self, root: &dyn Reflect) -> PathResult<'a, &dyn Reflect>;
 
     /// Gets a mutable reference to the specified element on the given [`Reflect`] object.
     ///
     /// See [`GetPath::reflect_path_mut`] for more details.
-    fn reflect_element_mut(
-        self,
-        root: &mut dyn PartialReflect,
-    ) -> PathResult<'a, &mut dyn PartialReflect>;
+    fn reflect_element_mut(self, root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect>;
 
     /// Gets a `&T` to the specified element on the given [`Reflect`] object.
     ///
     /// See [`GetPath::path`] for more details.
-    fn element<T: Reflect>(self, root: &dyn PartialReflect) -> PathResult<'a, &T> {
+    fn element<T: Reflect>(self, root: &dyn Reflect) -> PathResult<'a, &T> {
         self.reflect_element(root).and_then(|p| {
-            p.try_downcast_ref::<T>()
+            p.downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
@@ -76,26 +73,23 @@ pub trait ReflectPath<'a>: Sized {
     /// Gets a `&mut T` to the specified element on the given [`Reflect`] object.
     ///
     /// See [`GetPath::path_mut`] for more details.
-    fn element_mut<T: Reflect>(self, root: &mut dyn PartialReflect) -> PathResult<'a, &mut T> {
+    fn element_mut<T: Reflect>(self, root: &mut dyn Reflect) -> PathResult<'a, &mut T> {
         self.reflect_element_mut(root).and_then(|p| {
-            p.try_downcast_mut::<T>()
+            p.downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
 }
 
 impl<'a> ReflectPath<'a> for &'a str {
-    fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
+    fn reflect_element(self, mut root: &dyn Reflect) -> PathResult<'a, &dyn Reflect> {
         for (access, offset) in PathParser::new(self) {
             let a = access?;
             root = a.element(root, Some(offset))?;
         }
         Ok(root)
     }
-    fn reflect_element_mut(
-        self,
-        mut root: &mut dyn PartialReflect,
-    ) -> PathResult<'a, &mut dyn PartialReflect> {
+    fn reflect_element_mut(self, mut root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect> {
         for (access, offset) in PathParser::new(self) {
             root = access?.element_mut(root, Some(offset))?;
         }
@@ -275,14 +269,12 @@ impl<'a> ReflectPath<'a> for &'a str {
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait GetPath: PartialReflect {
+pub trait GetPath: Reflect {
     /// Returns a reference to the value specified by `path`.
     ///
     /// To retrieve a statically typed reference, use
     /// [`path`][GetPath::path].
-    fn reflect_path<'p>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &dyn PartialReflect> {
-        path.reflect_element(self.as_partial_reflect())
-    }
+    fn reflect_path<'p>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &dyn Reflect>;
 
     /// Returns a mutable reference to the value specified by `path`.
     ///
@@ -291,9 +283,7 @@ pub trait GetPath: PartialReflect {
     fn reflect_path_mut<'p>(
         &mut self,
         path: impl ReflectPath<'p>,
-    ) -> PathResult<'p, &mut dyn PartialReflect> {
-        path.reflect_element_mut(self.as_partial_reflect_mut())
-    }
+    ) -> PathResult<'p, &mut dyn Reflect>;
 
     /// Returns a statically typed reference to the value specified by `path`.
     ///
@@ -301,10 +291,8 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
-    fn path<'p, T: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &T> {
-        path.element(self.as_partial_reflect())
-    }
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
+    fn path<'p, V: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &V>;
 
     /// Returns a statically typed mutable reference to the value specified by `path`.
     ///
@@ -312,14 +300,51 @@ pub trait GetPath: PartialReflect {
     /// The downcast will fail if this value is not of type `T`
     /// (which may be the case when using dynamic types like [`DynamicStruct`]).
     ///
-    /// [`DynamicStruct`]: crate::structs::DynamicStruct
-    fn path_mut<'p, T: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut T> {
-        path.element_mut(self.as_partial_reflect_mut())
+    /// [`DynamicStruct`]: crate::dynamic::DynamicStruct
+    fn path_mut<'p, V: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut V>;
+}
+
+impl<T: Reflect> GetPath for T {
+    fn reflect_path<'p>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &dyn Reflect> {
+        path.reflect_element(self)
+    }
+
+    fn reflect_path_mut<'p>(
+        &mut self,
+        path: impl ReflectPath<'p>,
+    ) -> PathResult<'p, &mut dyn Reflect> {
+        path.reflect_element_mut(self)
+    }
+
+    fn path<'p, V: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &V> {
+        path.element(self)
+    }
+
+    fn path_mut<'p, V: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut V> {
+        path.element_mut(self)
     }
 }
 
-// Implement `GetPath` for `dyn Reflect`
-impl<T: Reflect + ?Sized> GetPath for T {}
+impl GetPath for dyn Reflect {
+    fn reflect_path<'p>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &dyn Reflect> {
+        path.reflect_element(self)
+    }
+
+    fn reflect_path_mut<'p>(
+        &mut self,
+        path: impl ReflectPath<'p>,
+    ) -> PathResult<'p, &mut dyn Reflect> {
+        path.reflect_element_mut(self)
+    }
+
+    fn path<'p, V: Reflect>(&self, path: impl ReflectPath<'p>) -> PathResult<'p, &V> {
+        path.element(self)
+    }
+
+    fn path_mut<'p, V: Reflect>(&mut self, path: impl ReflectPath<'p>) -> PathResult<'p, &mut V> {
+        path.element_mut(self)
+    }
+}
 
 /// An [`Access`] combined with an `offset` for more helpful error reporting.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, Reflect)]
@@ -591,16 +616,13 @@ impl ParsedPath {
 }
 
 impl<'a> ReflectPath<'a> for &'a ParsedPath {
-    fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
+    fn reflect_element(self, mut root: &dyn Reflect) -> PathResult<'a, &dyn Reflect> {
         for OffsetAccess { access, offset } in &self.0 {
             root = access.element(root, *offset)?;
         }
         Ok(root)
     }
-    fn reflect_element_mut(
-        self,
-        mut root: &mut dyn PartialReflect,
-    ) -> PathResult<'a, &mut dyn PartialReflect> {
+    fn reflect_element_mut(self, mut root: &mut dyn Reflect) -> PathResult<'a, &mut dyn Reflect> {
         for OffsetAccess { access, offset } in &self.0 {
             root = access.element_mut(root, *offset)?;
         }
@@ -1013,9 +1035,7 @@ mod tests {
             "\u{e9}t\u{e9}"
         );
 
-        let u32_key = AccessErrorKind::InvalidKey {
-            key_type: Some("u32"),
-        };
+        let u32_key = AccessErrorKind::InvalidKey { key_type: "u32" };
         let not_struct = AccessErrorKind::IncompatibleTypes {
             expected: ReflectKind::Struct,
             actual: ReflectKind::Map,

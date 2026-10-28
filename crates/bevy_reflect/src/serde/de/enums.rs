@@ -1,7 +1,6 @@
 use crate::{
-    enums::{
-        DynamicEnum, DynamicVariant, EnumInfo, StructVariantInfo, TupleVariantInfo, VariantInfo,
-    },
+    dynamic::{DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant},
+    enums::{EnumInfo, StructVariantInfo, TupleVariantInfo, VariantInfo},
     serde::{
         de::{
             error_utils::make_custom_error,
@@ -12,8 +11,6 @@ use crate::{
         },
         TypedReflectDeserializer,
     },
-    structs::DynamicStruct,
-    tuple::DynamicTuple,
     TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
@@ -72,7 +69,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for EnumVisitor<'_, P> {
                         self.processor,
                     ))?;
                 let mut dynamic_tuple = DynamicTuple::default();
-                dynamic_tuple.insert_boxed(value);
+                dynamic_tuple.insert(value);
                 dynamic_tuple.into()
             }
             VariantInfo::Tuple(tuple_info) => variant

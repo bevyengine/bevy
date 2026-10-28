@@ -1,5 +1,4 @@
-use crate::{PartialReflect, TypeRegistration, TypeRegistry};
-use alloc::boxed::Box;
+use crate::{dynamic::DynamicValue, TypeRegistration, TypeRegistry};
 
 /// Allows overriding the default deserialization behavior of
 /// [`ReflectDeserializer`] and [`TypedReflectDeserializer`] for specific
@@ -13,7 +12,7 @@ use alloc::boxed::Box;
 ///
 /// Whenever the deserializer attempts to deserialize a value, it will first
 /// call [`try_deserialize`] on your processor, which may take ownership of the
-/// deserializer and give back a [`Box<dyn PartialReflect>`], or return
+/// deserializer and give back a [`Box<dyn Reflect>`], or return
 /// ownership of the deserializer back, and continue with the default logic.
 ///
 /// The serialization equivalent of this is [`ReflectSerializerProcessor`].
@@ -42,7 +41,8 @@ use alloc::boxed::Box;
 ///
 /// ```
 /// # use bevy_reflect::serde::{ReflectDeserializer, ReflectDeserializerProcessor};
-/// # use bevy_reflect::{PartialReflect, Reflect, TypeData, TypeRegistration, TypeRegistry};
+/// # use bevy_reflect::dynamic::DynamicValue;
+/// # use bevy_reflect::{Reflect, TypeData, TypeRegistration, TypeRegistry};
 /// # use serde::de::{DeserializeSeed, Deserializer, Visitor};
 /// # use std::marker::PhantomData;
 /// #
@@ -100,7 +100,7 @@ use alloc::boxed::Box;
 ///             registration: &TypeRegistration,
 ///             _registry: &TypeRegistry,
 ///             deserializer: D,
-///         ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+///         ) -> Result<Result<DynamicValue, D>, D::Error>
 ///         where
 ///             D: Deserializer<'de>,
 ///         {
@@ -118,7 +118,7 @@ use alloc::boxed::Box;
 ///                 .untyped()
 ///                 .load_asset(asset_path);
 ///             # let _: Result<_, ()> = {
-///             Ok(Box::new(handle))
+///             Ok(DynamicValue::Concrete(Box::new(handle)))
 ///             # };
 ///             # unimplemented!()
 ///         }
@@ -146,8 +146,8 @@ pub trait ReflectDeserializerProcessor {
     /// deserialization, return `Ok(Ok(value))` with the boxed reflected value
     /// that you want to assign this value to. The type inside the box must
     /// be the same one as the `registration` is for, otherwise future
-    /// reflection operations (such as using [`FromReflect`] to convert the
-    /// resulting [`Box<dyn PartialReflect>`] into a concrete type) will fail.
+    /// reflection operations (such as using [`FromDynamic`] to convert the
+    /// resulting [`Box<dyn Reflect>`] into a concrete type) will fail.
     ///
     /// If you don't want to override the deserialization, return ownership of
     /// the deserializer back via `Ok(Err(deserializer))`.
@@ -163,7 +163,7 @@ pub trait ReflectDeserializerProcessor {
     /// deserializer):
     ///
     /// ```
-    /// # use bevy_reflect::{TypeRegistration, PartialReflect, TypeRegistry};
+    /// # use bevy_reflect::{TypeRegistration, Reflect, TypeRegistry, dynamic::DynamicValue};
     /// # use bevy_reflect::serde::ReflectDeserializerProcessor;
     /// # use core::any::TypeId;
     /// use serde::de::IgnoredAny;
@@ -176,13 +176,13 @@ pub trait ReflectDeserializerProcessor {
     ///         registration: &TypeRegistration,
     ///         _registry: &TypeRegistry,
     ///         deserializer: D,
-    ///     ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+    ///     ) -> Result<Result<DynamicValue, D>, D::Error>
     ///     where
     ///         D: serde::Deserializer<'de>
     ///     {
     ///         if registration.type_id() == TypeId::of::<i32>() {
     ///             _ = deserializer.deserialize_ignored_any(IgnoredAny);
-    ///             Ok(Ok(Box::new(42_i32)))
+    ///             Ok(Ok(DynamicValue::from(42_i32)))
     ///         } else {
     ///             Ok(Err(deserializer))
     ///         }
@@ -191,13 +191,13 @@ pub trait ReflectDeserializerProcessor {
     /// ```
     ///
     /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
-    /// [`FromReflect`]: crate::FromReflect
+    /// [`FromDynamic`]: crate::FromDynamic
     fn try_deserialize<'de, D>(
         &mut self,
         registration: &TypeRegistration,
         registry: &TypeRegistry,
         deserializer: D,
-    ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+    ) -> Result<Result<DynamicValue, D>, D::Error>
     where
         D: serde::Deserializer<'de>;
 }
@@ -208,7 +208,7 @@ impl ReflectDeserializerProcessor for () {
         _registration: &TypeRegistration,
         _registry: &TypeRegistry,
         deserializer: D,
-    ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+    ) -> Result<Result<DynamicValue, D>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {

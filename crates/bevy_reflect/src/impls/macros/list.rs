@@ -1,30 +1,51 @@
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
         const _: () = {
-            impl<T: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::list::List for $ty {
+            impl<
+                    T: $crate::Reflect
+                        + $crate::from_dynamic::FromDynamic
+                        + $crate::info::MaybeTyped
+                        + $crate::type_path::TypePath
+                        + $crate::type_registry::GetTypeRegistration,
+                > $crate::list::List for $ty
+            {
                 #[inline]
-                fn get(&self, index: usize) -> Option<&dyn $crate::reflect::PartialReflect> {
-                    <$sub>::get(self, index).map(|value| value as &dyn $crate::reflect::PartialReflect)
+                fn get(&self, index: usize) -> Option<&dyn $crate::reflect::Reflect> {
+                    <$sub>::get(self, index).map(|value| value as &dyn $crate::reflect::Reflect)
                 }
 
                 #[inline]
-                fn get_mut(&mut self, index: usize) -> Option<&mut dyn $crate::reflect::PartialReflect> {
-                    <$sub>::get_mut(self, index).map(|value| value as &mut dyn $crate::reflect::PartialReflect)
+                fn get_mut(&mut self, index: usize) -> Option<&mut dyn $crate::reflect::Reflect> {
+                    <$sub>::get_mut(self, index)
+                        .map(|value| value as &mut dyn $crate::reflect::Reflect)
                 }
 
-                fn insert(&mut self, index: usize, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) {
-                    let value = value.try_take::<T>().unwrap_or_else(|value| {
-                        T::from_reflect(&*value).unwrap_or_else(|| {
-                            panic!(
-                                "Attempted to insert invalid value of type {}.",
-                                value.reflect_type_path()
-                            )
-                        })
+                fn value_from_dynamic(
+                    &self,
+                    dynamic: $crate::dynamic::DynamicValue,
+                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>> {
+                    T::from_dynamic(dynamic)
+                        .map(|value| bevy_platform::prelude::Box::new(value) as _)
+                }
+
+                fn insert(
+                    &mut self,
+                    index: usize,
+                    value: bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                ) {
+                    let value = value.take::<T>().unwrap_or_else(|value| {
+                        panic!(
+                            "Attempted to insert invalid value of type {}.",
+                            value.reflect_type_path()
+                        )
                     });
                     $insert(self, index, value);
                 }
 
-                fn remove(&mut self, index: usize) -> bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect> {
+                fn remove(
+                    &mut self,
+                    index: usize,
+                ) -> bevy_platform::prelude::Box<dyn $crate::reflect::Reflect> {
                     bevy_platform::prelude::Box::new($remove(self, index))
                 }
 
@@ -33,8 +54,11 @@ macro_rules! impl_reflect_for_veclike {
                     <$sub>::swap(self, a, b);
                 }
 
-                fn push(&mut self, value: bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>) {
-                    let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+                fn push(
+                    &mut self,
+                    value: bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                ) {
+                    let value = *value.downcast::<T>().unwrap_or_else(|value| {
                         panic!(
                             "Attempted to push invalid value of type {}.",
                             value.reflect_type_path()
@@ -43,8 +67,13 @@ macro_rules! impl_reflect_for_veclike {
                     $push(self, value);
                 }
 
-                fn pop(&mut self) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    $pop(self).map(|value| bevy_platform::prelude::Box::new(value) as bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>)
+                fn pop(
+                    &mut self,
+                ) -> Option<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>> {
+                    $pop(self).map(|value| {
+                        bevy_platform::prelude::Box::new(value)
+                            as bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>
+                    })
                 }
 
                 #[inline]
@@ -53,52 +82,32 @@ macro_rules! impl_reflect_for_veclike {
                 }
 
                 #[inline]
-                fn iter(&self) -> $crate::list::ListIter<'_>  {
+                fn iter(&self) -> $crate::list::ListIter<'_> {
                     $crate::list::ListIter::new(self)
                 }
 
                 #[inline]
-                fn drain(&mut self) -> alloc::vec::Vec<bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
+                fn drain(
+                    &mut self,
+                ) -> alloc::vec::Vec<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>>
+                {
                     self.drain(..)
-                        .map(|value| bevy_platform::prelude::Box::new(value) as bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>)
+                        .map(|value| {
+                            bevy_platform::prelude::Box::new(value)
+                                as bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>
+                        })
                         .collect()
                 }
             }
 
-            impl<T: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::reflect::PartialReflect for $ty {
-                #[inline]
-                fn get_represented_type_info(&self) -> Option<&'static $crate::info::TypeInfo> {
-                    Some(<Self as $crate::info::Typed>::type_info())
-                }
-
-                fn into_partial_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect> {
-                    self
-                }
-
-                #[inline]
-                fn as_partial_reflect(&self) -> &dyn $crate::reflect::PartialReflect {
-                    self
-                }
-
-                #[inline]
-                fn as_partial_reflect_mut(&mut self) -> &mut dyn $crate::reflect::PartialReflect {
-                    self
-                }
-
-                fn try_into_reflect(
-                    self: bevy_platform::prelude::Box<Self>,
-                ) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
-                    Ok(self)
-                }
-
-                fn try_as_reflect(&self) -> Option<&dyn $crate::reflect::Reflect> {
-                    Some(self)
-                }
-
-                fn try_as_reflect_mut(&mut self) -> Option<&mut dyn $crate::reflect::Reflect> {
-                    Some(self)
-                }
-
+            impl<
+                    T: $crate::Reflect
+                        + $crate::from_dynamic::FromDynamic
+                        + $crate::info::MaybeTyped
+                        + $crate::type_path::TypePath
+                        + $crate::type_registry::GetTypeRegistration,
+                > $crate::reflect::Reflect for $ty
+            {
                 fn reflect_kind(&self) -> $crate::kind::ReflectKind {
                     $crate::kind::ReflectKind::List
                 }
@@ -111,11 +120,18 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::kind::ReflectMut::List(self)
                 }
 
-                fn reflect_owned(self: bevy_platform::prelude::Box<Self>) -> $crate::kind::ReflectOwned {
+                fn reflect_owned(
+                    self: bevy_platform::prelude::Box<Self>,
+                ) -> $crate::kind::ReflectOwned {
                     $crate::kind::ReflectOwned::List(self)
                 }
 
-                fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
+                fn reflect_clone(
+                    &self,
+                ) -> Result<
+                    bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>,
+                    $crate::error::ReflectCloneError,
+                > {
                     Ok(bevy_platform::prelude::Box::new(
                         self.iter()
                             .map(|value| value.reflect_clone_and_take())
@@ -127,45 +143,56 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::list::list_hash(self)
                 }
 
-                fn reflect_partial_eq(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<bool> {
+                fn reflect_partial_eq(&self, value: &dyn $crate::reflect::Reflect) -> Option<bool> {
                     $crate::list::list_partial_eq(self, value)
                 }
 
-                fn reflect_partial_cmp(&self, value: &dyn $crate::reflect::PartialReflect) -> Option<::core::cmp::Ordering> {
+                fn reflect_partial_cmp(
+                    &self,
+                    value: &dyn $crate::reflect::Reflect,
+                ) -> Option<::core::cmp::Ordering> {
                     $crate::list::list_partial_cmp(self, value)
                 }
 
-                fn apply(&mut self, value: &dyn $crate::reflect::PartialReflect) {
-                    $crate::list::list_apply(self, value);
-                }
-
-                fn try_apply(&mut self, value: &dyn $crate::reflect::PartialReflect) -> Result<(), $crate::reflect::ApplyError> {
-                    $crate::list::list_try_apply(self, value)
-                }
+                $crate::impl_reflect_casts! {}
             }
 
-            $crate::impl_full_reflect!(<T> for $ty where T: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration);
-
-            impl<T: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::info::Typed for $ty {
+            impl<
+                    T: $crate::Reflect
+                        + $crate::from_dynamic::FromDynamic
+                        + $crate::info::MaybeTyped
+                        + $crate::type_path::TypePath
+                        + $crate::type_registry::GetTypeRegistration,
+                > $crate::info::Typed for $ty
+            {
                 fn type_info() -> &'static $crate::info::TypeInfo {
-                    static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
+                    static CELL: $crate::utility::GenericTypeInfoCell =
+                        $crate::utility::GenericTypeInfoCell::new();
                     CELL.get_or_insert::<Self, _>(|| {
                         $crate::info::TypeInfo::List(
-                            $crate::list::ListInfo::new::<Self, T>().with_generics($crate::generics::Generics::from_iter([
-                                $crate::generics::TypeParamInfo::new::<T>("T")
-                            ]))
+                            $crate::list::ListInfo::new::<Self, T>().with_generics(
+                                $crate::generics::Generics::from_iter([
+                                    $crate::generics::TypeParamInfo::new::<T>("T"),
+                                ]),
+                            ),
                         )
                     })
                 }
             }
 
-            impl<T: $crate::Reflect + $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::type_registry::GetTypeRegistration
-                for $ty
+            impl<
+                    T: $crate::Reflect
+                        + $crate::from_dynamic::FromDynamic
+                        + $crate::info::MaybeTyped
+                        + $crate::type_path::TypePath
+                        + $crate::type_registry::GetTypeRegistration,
+                > $crate::type_registry::GetTypeRegistration for $ty
             {
                 fn get_type_registration() -> $crate::type_registry::TypeRegistration {
                     let mut registration = $crate::type_registry::TypeRegistration::of::<$ty>();
                     registration.register_type_data::<$crate::type_registry::ReflectFromPtr, $ty>();
-                    registration.register_type_data::<$crate::from_reflect::ReflectFromReflect, $ty>();
+                    registration
+                        .register_type_data::<$crate::from_dynamic::ReflectFromDynamic, $ty>();
                     registration
                 }
 
@@ -174,14 +201,26 @@ macro_rules! impl_reflect_for_veclike {
                 }
             }
 
-            impl<T: $crate::from_reflect::FromReflect + $crate::info::MaybeTyped + $crate::type_path::TypePath + $crate::type_registry::GetTypeRegistration> $crate::from_reflect::FromReflect for $ty {
-                fn from_reflect(reflect: &dyn $crate::reflect::PartialReflect) -> Option<Self> {
-                    let ref_list = reflect.reflect_ref().as_list().ok()?;
+            impl<
+                    T: $crate::from_dynamic::FromDynamic
+                        + $crate::info::MaybeTyped
+                        + $crate::type_path::TypePath
+                        + $crate::type_registry::GetTypeRegistration,
+                > $crate::from_dynamic::FromDynamic for $ty
+            {
+                fn from_dynamic(dynamic: $crate::dynamic::DynamicValue) -> Option<Self> {
+                    let dynamic = match dynamic {
+                        $crate::dynamic::DynamicValue::List(dynamic) => dynamic,
+                        $crate::dynamic::DynamicValue::Concrete(concrete) => {
+                            return concrete.take().ok()
+                        }
+                        _ => return None,
+                    };
 
-                    let mut new_list = Self::with_capacity(ref_list.len());
+                    let mut new_list = Self::with_capacity(dynamic.len());
 
-                    for field in ref_list.iter() {
-                        $push(&mut new_list, T::from_reflect(field)?);
+                    for value in dynamic.into_iter() {
+                        $push(&mut new_list, T::from_dynamic(value)?);
                     }
 
                     Some(new_list)

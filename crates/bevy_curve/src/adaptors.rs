@@ -12,7 +12,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "bevy_reflect")]
 use {
     alloc::format,
-    bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath},
+    bevy_reflect::{utility::GenericTypePathCell, FromDynamic, Reflect, TypePath},
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -28,13 +28,13 @@ use super::CurveExt;
 //
 // Function members of structs pose an obstacle for reflection, because they don't implement
 // reflection traits themselves. Some of these are more problematic than others; for example,
-// `FromReflect` is basically hopeless for function members regardless, so function-containing
-// adaptors will just never be `FromReflect` (at least until function item types implement
+// `FromDynamic` is basically hopeless for function members regardless, so function-containing
+// adaptors will just never be `FromDynamic` (at least until function item types implement
 // Default, if that ever happens). Similarly, they do not implement `TypePath`, and as a result,
 // those adaptors also need custom `TypePath` adaptors which use `type_name` instead.
 //
 // The sum total weirdness of the `Reflect` implementations amounts to this; those adaptors:
-// - are currently never `FromReflect`;
+// - are currently never `FromDynamic`;
 // - have custom `TypePath` implementations which are not fully stable;
 // - have custom `Debug` implementations which display the function only by type name.
 
@@ -85,7 +85,7 @@ where
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(where T: TypePath),
-    reflect(from_reflect = false, type_path = false),
+    reflect(from_dynamic = false, type_path = false),
 )]
 pub struct FunctionCurve<T, F> {
     pub(crate) domain: Interval,
@@ -187,7 +187,7 @@ where
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(where S: TypePath, T: TypePath, C: TypePath),
-    reflect(from_reflect = false, type_path = false),
+    reflect(from_dynamic = false, type_path = false),
 )]
 pub struct MapCurve<S, T, C, F> {
     pub(crate) preimage: C,
@@ -284,7 +284,7 @@ where
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(where T: TypePath, C: TypePath),
-    reflect(from_reflect = false, type_path = false),
+    reflect(from_dynamic = false, type_path = false),
 )]
 pub struct ReparamCurve<T, C, F> {
     pub(crate) domain: Interval,
@@ -378,8 +378,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct LinearReparamCurve<T, C> {
     /// Invariants: The domain of this curve must always be bounded.
@@ -414,8 +414,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct CurveReparamCurve<T, C, D> {
     pub(crate) base: C,
@@ -448,8 +448,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct GraphCurve<T, C> {
     pub(crate) base: C,
@@ -479,8 +479,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct ZipCurve<S, T, C, D> {
     pub(crate) domain: Interval,
@@ -521,8 +521,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct ChainCurve<T, C, D> {
     pub(crate) first: C,
@@ -572,8 +572,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct ReverseCurve<T, C> {
     pub(crate) curve: C,
@@ -614,8 +614,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct RepeatCurve<T, C> {
     pub(crate) domain: Interval,
@@ -674,8 +674,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct ForeverCurve<T, C> {
     pub(crate) curve: C,
@@ -729,8 +729,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct PingPongCurve<T, C> {
     pub(crate) curve: C,
@@ -784,8 +784,8 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
+    derive(Reflect, FromDynamic),
+    reflect(from_dynamic = false)
 )]
 pub struct ContinuationCurve<T, C, D> {
     pub(crate) first: C,

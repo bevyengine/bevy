@@ -50,7 +50,7 @@ mod tests {
         let func = (|a: i32, b: i32| a + b + c).into_function();
         let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_downcast_ref::<i32>(), Some(&123));
+        assert_eq!(result.take::<i32>().ok(), Some(123));
     }
 
     #[test]
@@ -71,7 +71,7 @@ mod tests {
         let mut func = add.into_function_mut();
         let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
+        assert_eq!(result.take::<i32>().ok(), Some(100));
     }
 
     #[test]

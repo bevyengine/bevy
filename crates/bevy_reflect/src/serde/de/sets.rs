@@ -1,6 +1,7 @@
 use crate::{
+    dynamic::DynamicSet,
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
-    set::{DynamicSet, Set, SetInfo},
+    set::SetInfo,
     TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
@@ -35,7 +36,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for SetVisitor<'_, P> {
             self.registry,
             self.processor.as_deref_mut(),
         ))? {
-            dynamic_set.insert_boxed(value);
+            dynamic_set.insert(value);
         }
 
         Ok(dynamic_set)

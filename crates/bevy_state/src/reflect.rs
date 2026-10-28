@@ -1,7 +1,9 @@
 use crate::state::{FreelyMutableState, NextState, State, States};
 
-use bevy_ecs::{reflect::from_reflect_with_fallback, world::World};
-use bevy_reflect::{CreateTypeData, Reflect, TypePath, TypeRegistry};
+use alloc::boxed::Box;
+
+use bevy_ecs::world::World;
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
 ///
@@ -58,9 +60,9 @@ pub struct ReflectFreelyMutableState(ReflectFreelyMutableStateFns);
 #[derive(Clone)]
 pub struct ReflectFreelyMutableStateFns {
     /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state()`].
-    pub set_next_state: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub set_next_state: fn(&mut World, Box<dyn Reflect>),
     /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state_if_different()`].
-    pub set_next_state_if_different: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub set_next_state_if_different: fn(&mut World, Box<dyn Reflect>),
 }
 
 impl ReflectFreelyMutableStateFns {
@@ -76,39 +78,26 @@ impl ReflectFreelyMutableStateFns {
 
 impl ReflectFreelyMutableState {
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`].
-    pub fn set_next_state(&self, world: &mut World, state: &dyn Reflect, registry: &TypeRegistry) {
-        (self.0.set_next_state)(world, state, registry);
+    pub fn set_next_state(&self, world: &mut World, state: Box<dyn Reflect>) {
+        (self.0.set_next_state)(world, state);
     }
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`], skipping state transitions if the target state is the same as the current state.
-    pub fn set_next_state_if_different(
-        &self,
-        world: &mut World,
-        state: &dyn Reflect,
-        registry: &TypeRegistry,
-    ) {
-        (self.0.set_next_state_if_different)(world, state, registry);
+    pub fn set_next_state_if_different(&self, world: &mut World, state: Box<dyn Reflect>) {
+        (self.0.set_next_state_if_different)(world, state);
     }
 }
 
 impl<S: FreelyMutableState + Reflect + TypePath> CreateTypeData<S> for ReflectFreelyMutableState {
     fn create_type_data(_input: ()) -> Self {
         ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
-            set_next_state: |world, reflected_state, registry| {
-                let new_state: S = from_reflect_with_fallback(
-                    reflected_state.as_partial_reflect(),
-                    world,
-                    registry,
-                );
+            set_next_state: |world, state| {
+                let new_state: S = state.take().unwrap();
                 if let Some(mut next_state) = world.get_resource_mut::<NextState<S>>() {
                     next_state.set(new_state);
                 }
             },
-            set_next_state_if_different: |world, reflected_state, registry| {
-                let new_state: S = from_reflect_with_fallback(
-                    reflected_state.as_partial_reflect(),
-                    world,
-                    registry,
-                );
+            set_next_state_if_different: |world, state| {
+                let new_state: S = state.take().unwrap();
                 if let Some(mut next_state) = world.get_resource_mut::<NextState<S>>() {
                     next_state.set_if_different(new_state);
                 }
@@ -124,6 +113,7 @@ mod tests {
         reflect::{ReflectFreelyMutableState, ReflectState},
         state::State,
     };
+    use alloc::boxed::Box;
     use bevy_app::App;
     use bevy_ecs::prelude::AppTypeRegistry;
     use bevy_reflect::Reflect;
@@ -163,7 +153,7 @@ mod tests {
             &StateTest::A
         );
 
-        reflect_mutable_state.set_next_state(app.world_mut(), &StateTest::B, &type_registry);
+        reflect_mutable_state.set_next_state(app.world_mut(), Box::new(StateTest::B));
 
         assert_ne!(
             app.world().resource::<State<StateTest>>().get(),

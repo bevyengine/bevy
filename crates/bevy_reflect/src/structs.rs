@@ -1,16 +1,17 @@
 //! Traits and types used to power [struct-like] operations via reflection.
 //!
 //! [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
+use crate::dynamic::{DynamicStruct, DynamicValue, DynamicValueRef};
 use crate::generics::impl_generic_info_methods;
+use crate::TypeInfo;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     ty::impl_type_methods,
-    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectCloneError, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    Generics, NamedField, Reflect, ReflectRef, Type, TypePath,
 };
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 use bevy_platform::collections::HashMap;
-use bevy_reflect_derive::impl_type_path;
+use core::cmp::Ordering;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -28,7 +29,7 @@ use core::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{PartialReflect, Reflect, structs::Struct};
+/// use bevy_reflect::{Reflect, structs::Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -40,29 +41,29 @@ use core::{
 /// assert_eq!(foo.field_len(), 1);
 /// assert_eq!(foo.name_at(0), Some("bar"));
 ///
-/// let field: &dyn PartialReflect = foo.field("bar").unwrap();
-/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
+/// let field: &dyn Reflect = foo.field("bar").unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
 /// ```
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 /// [reflection]: crate
 /// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
-pub trait Struct: PartialReflect {
+pub trait Struct: Reflect {
     /// Gets a reference to the value of the field named `name` as a `&dyn
-    /// PartialReflect`.
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
+    /// Reflect`.
+    fn field(&self, name: &str) -> Option<&dyn Reflect>;
 
     /// Gets a mutable reference to the value of the field named `name` as a
-    /// `&mut dyn PartialReflect`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
+    /// `&mut dyn Reflect`.
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
 
     /// Gets a reference to the value of the field with index `index` as a
-    /// `&dyn PartialReflect`.
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
+    /// `&dyn Reflect`.
+    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
 
     /// Gets a mutable reference to the value of the field with index `index`
-    /// as a `&mut dyn PartialReflect`.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    /// as a `&mut dyn Reflect`.
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
 
     /// Gets the name of the field with index `index`.
     fn name_at(&self, index: usize) -> Option<&str>;
@@ -76,26 +77,14 @@ pub trait Struct: PartialReflect {
     /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter<'_>;
 
-    /// Creates a new [`DynamicStruct`] from this struct.
-    ///
-    /// Returns an error if any field cannot be converted via [`PartialReflect::to_dynamic`].
-    fn to_dynamic_struct(&self) -> Result<DynamicStruct, ReflectCloneError> {
-        let mut dynamic_struct = DynamicStruct::default();
-        dynamic_struct.set_represented_type(self.get_represented_type_info());
-        for (name, value) in self.iter_fields() {
-            dynamic_struct.insert_boxed(name, value.to_dynamic()?);
-        }
-        Ok(dynamic_struct)
-    }
-
-    /// Will return `None` if [`TypeInfo`] is not available.
-    fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
-        self.get_represented_type_info()?.as_struct().ok()
+    /// Returns the [`StructInfo`] for this type.
+    fn reflect_struct_info(&self) -> &'static StructInfo {
+        self.reflect_type_info().as_struct().unwrap()
     }
 }
 
 impl<'a> IntoIterator for &'a dyn Struct {
-    type Item = (&'a str, &'a dyn PartialReflect);
+    type Item = (&'a str, &'a dyn Reflect);
     type IntoIter = FieldIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -226,7 +215,7 @@ impl<'a> FieldIter<'a> {
 }
 
 impl<'a> Iterator for FieldIter<'a> {
-    type Item = (&'a str, &'a dyn PartialReflect);
+    type Item = (&'a str, &'a dyn Reflect);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(name) = self.struct_val.name_at(self.index)
@@ -279,341 +268,125 @@ pub trait GetField {
 
 impl<S: Struct> GetField for S {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T> {
-        self.field(name)
-            .and_then(|value| value.try_downcast_ref::<T>())
+        self.field(name).and_then(|value| value.downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
-            .and_then(|value| value.try_downcast_mut::<T>())
+            .and_then(|value| value.downcast_mut::<T>())
     }
 }
 
 impl GetField for dyn Struct {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T> {
-        self.field(name)
-            .and_then(|value| value.try_downcast_ref::<T>())
+        self.field(name).and_then(|value| value.downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
-            .and_then(|value| value.try_downcast_mut::<T>())
+            .and_then(|value| value.downcast_mut::<T>())
     }
 }
 
-/// A struct type which allows fields to be added at runtime.
-#[derive(Default)]
-pub struct DynamicStruct {
-    represented_type: Option<&'static TypeInfo>,
-    fields: Vec<Box<dyn PartialReflect>>,
-    field_names: Vec<Cow<'static, str>>,
-    field_indices: HashMap<Cow<'static, str>, usize>,
+pub(crate) trait StructLike {
+    fn field(&self, name: &str) -> Option<DynamicValueRef<'_>>;
+
+    fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>>;
+
+    fn name_at(&self, index: usize) -> Option<&str>;
+
+    fn field_len(&self) -> usize;
+
+    fn iter_fields(&self) -> impl Iterator<Item = (&str, DynamicValueRef<'_>)>;
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 }
 
-impl DynamicStruct {
-    /// Sets the [type] to be represented by this `DynamicStruct`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given [type] is not a [`TypeInfo::Struct`].
-    ///
-    /// [type]: TypeInfo
-    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
-        if let Some(represented_type) = represented_type {
-            assert!(
-                matches!(represented_type, TypeInfo::Struct(_)),
-                "expected TypeInfo::Struct but received: {represented_type:?}"
-            );
-        }
-
-        self.represented_type = represented_type;
+impl StructLike for DynamicStruct {
+    fn field(&self, name: &str) -> Option<DynamicValueRef<'_>> {
+        self.field(name).map(DynamicValue::as_ref)
     }
 
-    /// Inserts a field named `name` with value `value` into the struct.
-    ///
-    /// If the field already exists, it is overwritten.
-    pub fn insert_boxed<'a>(
-        &mut self,
-        name: impl Into<Cow<'a, str>>,
-        field: Box<dyn PartialReflect>,
-    ) {
-        let name: Cow<str> = name.into();
-        if let Some(index) = self.field_indices.get(&name) {
-            self.fields[*index] = field;
-        } else {
-            self.fields.push(field);
-            self.field_indices
-                .insert(Cow::Owned(name.clone().into_owned()), self.fields.len() - 1);
-            self.field_names.push(Cow::Owned(name.into_owned()));
-        }
+    fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field_at(index).map(DynamicValue::as_ref)
     }
 
-    /// Inserts a field named `name` with the typed value `value` into the struct.
-    ///
-    /// If the field already exists, it is overwritten.
-    pub fn insert<'a, T: PartialReflect>(&mut self, name: impl Into<Cow<'a, str>>, field: T) {
-        self.insert_boxed(name, Box::new(field));
-    }
-
-    /// Removes a field at `index`.
-    pub fn remove_at(
-        &mut self,
-        index: usize,
-    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
-        let mut i: usize = 0;
-        let mut extract = self.field_names.extract_if(0..self.field_names.len(), |n| {
-            let mut result = false;
-            if i == index {
-                self.field_indices
-                    .remove(n)
-                    .expect("Invalid name for `field_indices.remove(name)`");
-                result = true;
-            } else if i > index {
-                *self
-                    .field_indices
-                    .get_mut(n)
-                    .expect("Invalid name for `field_indices.get_mut(name)`") -= 1;
-            }
-            i += 1;
-            result
-        });
-
-        let name = extract
-            .nth(0)
-            .expect("Invalid index for `extract.nth(index)`");
-        extract.for_each(drop); // Fully evaluate the rest of the iterator, so we don't short-circuit the extract.
-
-        Some((name, self.fields.remove(index)))
-    }
-
-    /// Removes the first field that satisfies the given predicate, `f`.
-    pub fn remove_if<F>(&mut self, mut f: F) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)>
-    where
-        F: FnMut((&str, &dyn PartialReflect)) -> bool,
-    {
-        if let Some(index) = self
-            .field_names
-            .iter()
-            .zip(self.fields.iter())
-            .position(|(name, field)| f((name.as_ref(), field.as_ref())))
-        {
-            self.remove_at(index)
-        } else {
-            None
-        }
-    }
-
-    /// Removes a field by `name`.
-    pub fn remove_by_name(
-        &mut self,
-        name: &str,
-    ) -> Option<(Cow<'static, str>, Box<dyn PartialReflect>)> {
-        if let Some(index) = self.index_of_name(name) {
-            self.remove_at(index)
-        } else {
-            None
-        }
-    }
-}
-
-impl Struct for DynamicStruct {
-    #[inline]
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
-        self.field_indices
-            .get(name)
-            .map(|index| &*self.fields[*index])
-    }
-
-    #[inline]
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
-        if let Some(index) = self.index_of_name(name) {
-            Some(self.fields[index].as_mut())
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(AsRef::as_ref)
-    }
-
-    #[inline]
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(AsMut::as_mut)
-    }
-
-    #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
-        self.field_names.get(index).map(AsRef::as_ref)
+        self.name_at(index)
     }
 
-    /// Gets the index of the field with the given name.
-    #[inline]
-    fn index_of_name(&self, name: &str) -> Option<usize> {
-        self.field_indices.get(name).copied()
-    }
-
-    #[inline]
     fn field_len(&self) -> usize {
-        self.fields.len()
+        self.field_len()
     }
 
-    #[inline]
-    fn iter_fields(&self) -> FieldIter<'_> {
-        FieldIter::new(self)
-    }
-}
-
-impl PartialReflect for DynamicStruct {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Err(self)
-    }
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        None
-    }
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        None
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        let struct_value = value.reflect_ref().as_struct()?;
-
-        for (name, value) in struct_value {
-            if let Some(v) = self.field_mut(name) {
-                v.try_apply(value)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Struct
-    }
-
-    #[inline]
-    fn reflect_ref(&self) -> ReflectRef<'_> {
-        ReflectRef::Struct(self)
-    }
-
-    #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut<'_> {
-        ReflectMut::Struct(self)
-    }
-
-    #[inline]
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Struct(self)
-    }
-
-    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
-        struct_partial_eq(self, value)
-    }
-
-    fn reflect_partial_cmp(&self, value: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-        struct_partial_cmp(self, value)
-    }
-
-    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "DynamicStruct(")?;
-        struct_debug(self, f)?;
-        write!(f, ")")
-    }
-
-    #[inline]
-    fn is_dynamic(&self) -> bool {
-        true
-    }
-}
-
-impl_type_path!((in bevy_reflect) DynamicStruct);
-
-impl Debug for DynamicStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        self.debug(f)
-    }
-}
-
-impl<'a, N> FromIterator<(N, Box<dyn PartialReflect>)> for DynamicStruct
-where
-    N: Into<Cow<'a, str>>,
-{
-    /// Create a dynamic struct that doesn't represent a type from the
-    /// field name, field value pairs.
-    fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect>)>>(fields: I) -> Self {
-        let mut dynamic_struct = Self::default();
-        for (name, value) in fields.into_iter() {
-            dynamic_struct.insert_boxed(name, value);
-        }
-        dynamic_struct
-    }
-}
-
-impl IntoIterator for DynamicStruct {
-    type Item = (Cow<'static, str>, Box<dyn PartialReflect>);
-    type IntoIter = core::iter::Zip<
-        alloc::vec::IntoIter<Cow<'static, str>>,
-        alloc::vec::IntoIter<Box<dyn PartialReflect>>,
-    >;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.field_names.into_iter().zip(self.fields)
-    }
-}
-
-impl<'a> IntoIterator for &'a DynamicStruct {
-    type Item = (&'a str, &'a dyn PartialReflect);
-    type IntoIter = FieldIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
+    fn iter_fields(&self) -> impl Iterator<Item = (&str, DynamicValueRef<'_>)> {
         self.iter_fields()
+            .map(|(name, value)| (name, value.as_ref()))
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.get_represented_type_info()
     }
 }
 
-/// Compares a [`Struct`] with a [`PartialReflect`] value.
+impl StructLike for dyn Struct {
+    fn field(&self, name: &str) -> Option<DynamicValueRef<'_>> {
+        self.field(name).map(|value| DynamicValueRef::from(value))
+    }
+
+    fn field_at(&self, index: usize) -> Option<DynamicValueRef<'_>> {
+        self.field_at(index)
+            .map(|value| DynamicValueRef::from(value))
+    }
+
+    fn name_at(&self, index: usize) -> Option<&str> {
+        self.name_at(index)
+    }
+
+    fn field_len(&self) -> usize {
+        self.field_len()
+    }
+
+    fn iter_fields(&self) -> impl Iterator<Item = (&str, DynamicValueRef<'_>)> {
+        self.iter_fields()
+            .map(|(name, value)| (name, DynamicValueRef::from(value)))
+    }
+
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(self.reflect_type_info())
+    }
+}
+
+/// Compares a [`Struct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a struct;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline(never)]
-pub fn struct_partial_eq(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool> {
-    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
+pub fn struct_partial_eq(a: &dyn Struct, b: &dyn Reflect) -> Option<bool> {
+    let ReflectRef::Struct(b) = b.reflect_ref() else {
         return Some(false);
     };
 
-    if a.field_len() != struct_value.field_len() {
+    struct_like_partial_eq(a, b)
+}
+
+/// Same as above, but comparing two [`StructLike`] values.
+pub(crate) fn struct_like_partial_eq<L: StructLike + ?Sized, R: StructLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<bool> {
+    if a.field_len() != b.field_len() {
         return Some(false);
     }
 
-    for (name, value) in struct_value {
+    for (name, value) in b.iter_fields() {
         if let Some(field_value) = a.field(name) {
-            let eq_result = field_value.reflect_partial_eq(value);
+            let eq_result = field_value.dynamic_partial_eq(value);
             if let failed @ (Some(false) | None) = eq_result {
                 return failed;
             }
@@ -630,12 +403,19 @@ pub fn struct_partial_eq(a: &dyn Struct, b: &dyn PartialReflect) -> Option<bool>
 /// Returns [`None`] if the comparison couldn't be performed (e.g., kinds mismatch
 /// or an element comparison returns `None`).
 #[inline(never)]
-pub fn struct_partial_cmp(a: &dyn Struct, b: &dyn PartialReflect) -> Option<::core::cmp::Ordering> {
-    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
+pub fn struct_partial_cmp(a: &dyn Struct, b: &dyn Reflect) -> Option<Ordering> {
+    let ReflectRef::Struct(b) = b.reflect_ref() else {
         return None;
     };
 
-    if a.field_len() != struct_value.field_len() {
+    struct_like_partial_cmp(a, b)
+}
+
+pub(crate) fn struct_like_partial_cmp<L: StructLike + ?Sized, R: StructLike + ?Sized>(
+    a: &L,
+    b: &R,
+) -> Option<Ordering> {
+    if a.field_len() != b.field_len() {
         return None;
     }
 
@@ -644,9 +424,9 @@ pub fn struct_partial_cmp(a: &dyn Struct, b: &dyn PartialReflect) -> Option<::co
         a.field_len(),
         |i| a.name_at(i),
         |i| a.field_at(i),
-        |i| struct_value.name_at(i),
-        |i| struct_value.field_at(i),
-        |name| struct_value.field(name),
+        |i| b.name_at(i),
+        |i| b.field_at(i),
+        |name| b.field(name),
     )
 }
 
@@ -669,10 +449,10 @@ pub(crate) fn partial_cmp_by_field_names<'a, NA, FA, NB, FB, FBY>(
 ) -> Option<::core::cmp::Ordering>
 where
     NA: Fn(usize) -> Option<&'a str>,
-    FA: Fn(usize) -> Option<&'a dyn PartialReflect>,
+    FA: Fn(usize) -> Option<DynamicValueRef<'a>>,
     NB: Fn(usize) -> Option<&'a str>,
-    FB: Fn(usize) -> Option<&'a dyn PartialReflect>,
-    FBY: Fn(&str) -> Option<&'a dyn PartialReflect>,
+    FB: Fn(usize) -> Option<DynamicValueRef<'a>>,
+    FBY: Fn(&str) -> Option<DynamicValueRef<'a>>,
 {
     use ::core::cmp::Ordering;
 
@@ -688,7 +468,7 @@ where
         for i in 0..field_len {
             let a_val = field_at_a(i).unwrap();
             let b_val = field_at_b_index(i).unwrap();
-            match a_val.reflect_partial_cmp(b_val) {
+            match a_val.dynamic_partial_cmp(b_val) {
                 None => return None,
                 Some(Ordering::Equal) => continue,
                 Some(ord) => return Some(ord),
@@ -705,7 +485,7 @@ where
         let field_name = name_at_a(i).unwrap();
         let a_val = field_at_a(i).unwrap();
         let b_val = field_b_by_name(field_name)?;
-        match a_val.reflect_partial_cmp(b_val) {
+        match a_val.dynamic_partial_cmp(b_val) {
             None => return None,
             Some(::core::cmp::Ordering::Less) => {
                 all_greater_equal = false;
@@ -751,12 +531,7 @@ where
 /// ```
 #[inline]
 pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt::Result {
-    let mut debug = f.debug_struct(
-        dyn_struct
-            .get_represented_type_info()
-            .map(TypeInfo::type_path)
-            .unwrap_or("_"),
-    );
+    let mut debug = f.debug_struct(dyn_struct.reflect_type_info().type_path());
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();
         debug.field(
@@ -770,134 +545,12 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt
 #[cfg(test)]
 mod tests {
     use crate::{structs::*, *};
-    use alloc::borrow::ToOwned;
 
     #[derive(Reflect, Default)]
     struct MyStruct {
         a: (),
         b: (),
         c: (),
-    }
-
-    #[derive(Reflect, Default)]
-    struct OtherStruct {
-        a: u32,
-        b: u64,
-        c: MyStruct,
-    }
-
-    #[test]
-    fn dynamic_struct_remove_at() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
-
-        assert_eq!(s.field_len(), 3);
-
-        let field_2 = s
-            .remove_at(1)
-            .expect("Invalid index for `s.remove_at(index)`");
-
-        assert_eq!(s.field_len(), 2);
-        assert_eq!(field_2.0, "b");
-
-        let field_3 = s
-            .remove_at(0)
-            .expect("Invalid index for `s.remove_at(index)`");
-
-        assert_eq!(s.field_len(), 1);
-        assert_eq!(field_3.0, "a");
-
-        let field_1 = s
-            .remove_at(0)
-            .expect("Invalid index for `s.remove_at(index)`");
-
-        assert_eq!(s.field_len(), 0);
-        assert_eq!(field_1.0, "c");
-    }
-
-    #[test]
-    fn dynamic_struct_remove_by_name() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
-
-        assert_eq!(s.field_len(), 3);
-
-        let field_3 = s
-            .remove_by_name("b")
-            .expect("Invalid name for `s.remove_by_name(name)`");
-
-        assert_eq!(s.field_len(), 2);
-        assert_eq!(field_3.0, "b");
-
-        let field_2 = s
-            .remove_by_name("c")
-            .expect("Invalid name for `s.remove_by_name(name)`");
-
-        assert_eq!(s.field_len(), 1);
-        assert_eq!(field_2.0, "c");
-
-        let field_1 = s
-            .remove_by_name("a")
-            .expect("Invalid name for `s.remove_by_name(name)`");
-
-        assert_eq!(s.field_len(), 0);
-        assert_eq!(field_1.0, "a");
-    }
-
-    #[test]
-    fn dynamic_struct_remove_if() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
-
-        assert_eq!(s.field_len(), 3);
-
-        let field_3_name = s
-            .name_at(2)
-            .expect("Invalid index for `s.field_at(index)`")
-            .to_owned();
-        let field_3 = s
-            .remove_if(|(name, _field)| name == field_3_name)
-            .expect("No valid name/field found for `s.remove_with(|(name, field)|{})");
-
-        assert_eq!(s.field_len(), 2);
-        assert_eq!(field_3.0, "c");
-    }
-
-    #[test]
-    fn dynamic_struct_remove_combo() {
-        let mut s = OtherStruct::default().to_dynamic_struct().unwrap();
-
-        assert_eq!(s.field_len(), 3);
-
-        let field_2 = s
-            .remove_at(
-                s.index_of_name("b")
-                    .expect("Invalid name for `s.index_of_name(name)`"),
-            )
-            .expect("Invalid index for `s.remove_at(index)`");
-
-        assert_eq!(s.field_len(), 2);
-        assert_eq!(field_2.0, "b");
-
-        let field_3_name = s
-            .name_at(1)
-            .expect("Invalid name for s.name_at(index)")
-            .to_owned();
-
-        let field_3 = s
-            .remove_by_name(field_3_name.as_ref())
-            .expect("Invalid name for `s.remove_by_name(name)`");
-
-        assert_eq!(s.field_len(), 1);
-        assert_eq!(field_3.0, "c");
-
-        let field_1_name = s
-            .name_at(0)
-            .expect("Invalid name for `s.name_at(name)`")
-            .to_owned();
-        let field_1 = s
-            .remove_if(|(name, _field)| name == field_1_name)
-            .expect("No valid name/field found for `s.remove_with(|(name, field)|{})`");
-
-        assert_eq!(s.field_len(), 0);
-        assert_eq!(field_1.0, "a");
     }
 
     #[test]

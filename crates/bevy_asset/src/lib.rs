@@ -223,7 +223,7 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
+use bevy_reflect::{FromDynamic, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
 use tracing::error;
 
@@ -602,7 +602,7 @@ pub trait AssetApp {
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
-        A: Asset + Reflect + FromReflect + GetTypeRegistration;
+        A: Asset + Reflect + FromDynamic + GetTypeRegistration;
     /// Preregisters a loader for the given extensions, that will block asset loads until a real loader
     /// is registered.
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self;
@@ -691,7 +691,7 @@ impl AssetApp for App {
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
     where
-        A: Asset + Reflect + FromReflect + GetTypeRegistration,
+        A: Asset + Reflect + FromDynamic + GetTypeRegistration,
     {
         let type_registry = self.world().resource::<AppTypeRegistry>();
         {

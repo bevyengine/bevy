@@ -53,11 +53,12 @@ use bevy_platform::{
     sync::Arc,
 };
 use bevy_reflect::{
-    enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
+    dynamic::{
+        DynamicEnum, DynamicStruct, DynamicTuple, DynamicValue, DynamicValueRef, DynamicVariant,
+    },
+    enums::{VariantInfo, VariantType},
     prelude::ReflectDefault,
-    structs::DynamicStruct,
-    tuple::DynamicTuple,
-    GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
+    GetPath, Reflect, ReflectRef, TypeInfo, TypeRegistry,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
 use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
@@ -778,7 +779,7 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
 
     let target = component.bypass_change_detection();
     let field = if edit.path.is_empty() {
-        Ok(target.as_partial_reflect_mut())
+        Ok(target)
     } else {
         target.reflect_path_mut(edit.path.as_str())
     };
@@ -786,8 +787,8 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
         Ok(field) => {
             let write = write_field_value(field, &edit.value, &registry);
             let held = write != FieldWrite::Rejected && holds_value(field, &edit.value);
-            let typing_a_char = matches!(edit.value, FieldValue::Text(_))
-                && field.try_downcast_ref::<char>().is_some();
+            let typing_a_char =
+                matches!(edit.value, FieldValue::Text(_)) && field.downcast_ref::<char>().is_some();
             (write, held, typing_a_char)
         }
         Err(_) => (FieldWrite::Rejected, false, false),
@@ -814,8 +815,8 @@ fn refresh_details_panel(world: &mut World) {
 }
 
 /// Whether `field` holds `value`, so that a widget showing `value` is up to date.
-fn holds_value(field: &dyn PartialReflect, value: &FieldValue) -> bool {
-    scalar_value(field).is_some_and(|current| same_value(&current, value))
+fn holds_value(field: &dyn Reflect, value: &FieldValue) -> bool {
+    scalar_value(field.into()).is_some_and(|current| same_value(&current, value))
 }
 
 /// Whether two field values are equal, comparing floats bit for bit so that a NaN equals itself,
@@ -856,12 +857,12 @@ fn assign<T: PartialEq>(target: &mut T, value: T) -> FieldWrite {
 }
 
 fn write_field_value(
-    field: &mut dyn PartialReflect,
+    field: &mut dyn Reflect,
     value: &FieldValue,
     registry: &TypeRegistry,
 ) -> FieldWrite {
     match value {
-        FieldValue::Bool(new) => match field.try_downcast_mut::<bool>() {
+        FieldValue::Bool(new) => match field.downcast_mut::<bool>() {
             Some(target) => assign(target, *new),
             None => FieldWrite::Rejected,
         },
@@ -879,22 +880,22 @@ fn write_field_value(
 /// Writes text into a string or `char` field, allocating only when the text differs.
 ///
 /// A `char` field takes the last character of the text, so that typing replaces it.
-fn write_text_field(field: &mut dyn PartialReflect, text: &str) -> FieldWrite {
-    if let Some(target) = field.try_downcast_mut::<String>() {
+fn write_text_field(field: &mut dyn Reflect, text: &str) -> FieldWrite {
+    if let Some(target) = field.downcast_mut::<String>() {
         if target == text {
             return FieldWrite::Unchanged;
         }
         *target = text.to_string();
         return FieldWrite::Written;
     }
-    if let Some(target) = field.try_downcast_mut::<Cow<'static, str>>() {
+    if let Some(target) = field.downcast_mut::<Cow<'static, str>>() {
         if target == text {
             return FieldWrite::Unchanged;
         }
         *target = Cow::Owned(text.to_string());
         return FieldWrite::Written;
     }
-    if let Some(target) = field.try_downcast_mut::<char>()
+    if let Some(target) = field.downcast_mut::<char>()
         && let Some(last) = text.chars().last()
     {
         return assign(target, last);
@@ -906,7 +907,7 @@ fn write_text_field(field: &mut dyn PartialReflect, text: &str) -> FieldWrite {
 /// field's range.
 ///
 /// Floats are compared bit for bit, so that writing `-0.0` over `0.0` counts as a change.
-fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> FieldWrite {
+fn write_number_field(field: &mut dyn Reflect, value: NumericValue) -> FieldWrite {
     let float = match value {
         NumericValue::F32(value) => value as f64,
         NumericValue::F64(value) => value,
@@ -916,7 +917,7 @@ fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> Fi
     if !float.is_finite() {
         return FieldWrite::Rejected;
     }
-    if let Some(target) = field.try_downcast_mut::<f32>() {
+    if let Some(target) = field.downcast_mut::<f32>() {
         let narrowed = match value {
             NumericValue::F32(value) => value,
             _ => float as f32,
@@ -926,7 +927,7 @@ fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> Fi
         }
         return assign_bits(target, narrowed, f32::to_bits);
     }
-    if let Some(target) = field.try_downcast_mut::<f64>() {
+    if let Some(target) = field.downcast_mut::<f64>() {
         return assign_bits(target, float, f64::to_bits);
     }
 
@@ -937,14 +938,14 @@ fn write_number_field(field: &mut dyn PartialReflect, value: NumericValue) -> Fi
         _ => return FieldWrite::Rejected,
     };
 
-    if let Some(target) = field.try_downcast_mut::<i128>() {
+    if let Some(target) = field.downcast_mut::<i128>() {
         return assign(target, integer);
     }
 
     macro_rules! write_as {
         ($($type:ty),*) => {
             $(
-                if let Some(target) = field.try_downcast_mut::<$type>() {
+                if let Some(target) = field.downcast_mut::<$type>() {
                     return match <$type>::try_from(integer) {
                         Ok(value) => assign(target, value),
                         Err(_) => FieldWrite::Rejected,
@@ -969,13 +970,13 @@ fn assign_bits<T: Copy, B: PartialEq>(target: &mut T, value: T, bits: fn(T) -> B
 }
 
 /// Writes a color into a color field, keeping the field's color space.
-fn write_color_field(field: &mut dyn PartialReflect, color: Color) -> FieldWrite {
-    if let Some(target) = field.try_downcast_mut::<Color>() {
+fn write_color_field(field: &mut dyn Reflect, color: Color) -> FieldWrite {
+    if let Some(target) = field.downcast_mut::<Color>() {
         let value = in_color_space(color, *target);
         return assign(target, value);
     }
 
-    let writers: [fn(&mut dyn PartialReflect, Color) -> Option<FieldWrite>; 13] = [
+    let writers: [fn(&mut dyn Reflect, Color) -> Option<FieldWrite>; 13] = [
         write_color_as::<Srgba>,
         write_color_as::<LinearRgba>,
         write_color_as::<Hsla>,
@@ -998,11 +999,11 @@ fn write_color_field(field: &mut dyn PartialReflect, color: Color) -> FieldWrite
 
 /// Writes `color` into `field` if it is a `T`.
 fn write_color_as<T: From<Color> + PartialEq + Any>(
-    field: &mut dyn PartialReflect,
+    field: &mut dyn Reflect,
     color: Color,
 ) -> Option<FieldWrite> {
     field
-        .try_downcast_mut::<T>()
+        .downcast_mut::<T>()
         .map(|target| assign(target, T::from(color)))
 }
 
@@ -1036,18 +1037,14 @@ fn parse_hex_color(text: &str) -> Option<Color> {
 }
 
 /// Switches an enum field to the variant `name`, building any variant fields from their defaults.
-fn write_variant_field(
-    field: &mut dyn PartialReflect,
-    name: &str,
-    registry: &TypeRegistry,
-) -> FieldWrite {
+fn write_variant_field(field: &mut dyn Reflect, name: &str, registry: &TypeRegistry) -> FieldWrite {
     let ReflectRef::Enum(current) = field.reflect_ref() else {
         return FieldWrite::Rejected;
     };
     if current.variant_name() == name {
         return FieldWrite::Unchanged;
     }
-    let Some(TypeInfo::Enum(info)) = field.get_represented_type_info() else {
+    let TypeInfo::Enum(info) = field.reflect_type_info() else {
         return FieldWrite::Rejected;
     };
     let Some(variant) = info
@@ -1056,7 +1053,7 @@ fn write_variant_field(
     else {
         return FieldWrite::Rejected;
     };
-    match field.try_apply(&DynamicEnum::new(name, variant)) {
+    match DynamicValue::from(DynamicEnum::new(name, variant)).try_apply(field) {
         Ok(()) => FieldWrite::Written,
         Err(_) => FieldWrite::Rejected,
     }
@@ -1066,21 +1063,21 @@ fn default_variant(variant: &VariantInfo, registry: &TypeRegistry) -> Option<Dyn
     let default = |type_id| {
         registry
             .get_type_data::<ReflectDefault>(type_id)
-            .map(|default| default.default().into_partial_reflect())
+            .map(|default| default.default())
     };
     Some(match variant {
         VariantInfo::Unit(_) => DynamicVariant::Unit,
         VariantInfo::Tuple(info) => {
             let mut tuple = DynamicTuple::default();
             for field in info.iter() {
-                tuple.insert_boxed(default(field.type_id())?);
+                tuple.insert(default(field.type_id())?);
             }
             DynamicVariant::Tuple(tuple)
         }
         VariantInfo::Struct(info) => {
             let mut fields = DynamicStruct::default();
             for field in info.iter() {
-                fields.insert_boxed(field.name(), default(field.type_id())?);
+                fields.insert(field.name(), default(field.type_id())?);
             }
             DynamicVariant::Struct(fields)
         }
@@ -1177,9 +1174,9 @@ pub(crate) fn inspect_components(
         .iter()
         .map(|component| {
             let mut fields = component
-                .reflected_value
-                .as_deref()
-                .map(|value| field_entries(value, &registry))
+                .dynamic_value
+                .as_ref()
+                .map(|value| field_entries(value.as_ref(), &registry))
                 .unwrap_or_default();
             let mutable = world
                 .components()
@@ -1786,26 +1783,15 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
 /// Flattens a reflected component value into the rows the details panel renders.
 ///
 /// `registry` decides which enum variants can be built from defaults and so offered for switching.
-pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec<FieldEntry> {
-    let concrete = value
-        .try_as_reflect()
-        .is_none()
-        .then(|| {
-            let info = value.get_represented_type_info()?;
-            registry
-                .get_type_data::<ReflectFromReflect>(info.type_id())?
-                .from_reflect(value)
-        })
-        .flatten();
-    let value = concrete
-        .as_deref()
-        .map(PartialReflect::as_partial_reflect)
-        .unwrap_or(value);
+pub fn field_entries(value: DynamicValueRef<'_>, registry: &TypeRegistry) -> Vec<FieldEntry> {
     let mut walk = Walk {
         registry,
         entries: Vec::new(),
     };
-    if let Some(name) = value.try_downcast_ref::<Name>() {
+    if let Some(name) = value
+        .as_concrete()
+        .and_then(|concrete| concrete.downcast_ref::<Name>())
+    {
         walk.push(
             String::new(),
             "value".to_string(),
@@ -1866,7 +1852,7 @@ impl Walk<'_> {
         path: String,
         label: String,
         depth: usize,
-        value: &dyn PartialReflect,
+        value: DynamicValueRef<'_>,
         scalar: FieldValue,
     ) {
         let limit = match scalar {
@@ -1885,7 +1871,7 @@ impl Walk<'_> {
     /// Adds the rows of `value`, rendering them read-only unless `editable`.
     fn field(
         &mut self,
-        value: &dyn PartialReflect,
+        value: DynamicValueRef<'_>,
         path: String,
         label: String,
         depth: usize,
@@ -1929,7 +1915,86 @@ impl Walk<'_> {
         self.children(value, &path, depth + 1, editable);
     }
 
-    fn children(&mut self, value: &dyn PartialReflect, prefix: &str, depth: usize, editable: bool) {
+    fn children(&mut self, value: DynamicValueRef<'_>, prefix: &str, depth: usize, editable: bool) {
+        let value = match value {
+            DynamicValueRef::Concrete(concrete) => concrete,
+            DynamicValueRef::Struct(value) => {
+                for index in 0..value.field_len() {
+                    let Some(field) = value.field_at(index) else {
+                        continue;
+                    };
+                    let name = value
+                        .name_at(index)
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| index.to_string());
+                    self.field(field.as_ref(), join(prefix, &name), name, depth, editable);
+                }
+                return;
+            }
+            DynamicValueRef::TupleStruct(value) => {
+                for (index, field) in value.iter_fields().enumerate() {
+                    let name = index.to_string();
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
+                }
+                return;
+            }
+            DynamicValueRef::Tuple(value) => {
+                for (index, field) in value.iter_fields().enumerate() {
+                    let name = index.to_string();
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
+                }
+                return;
+            }
+            DynamicValueRef::List(value) => {
+                for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
+                    let path = format!("{prefix}[{index}]");
+                    self.field(item.into(), path, index.to_string(), depth, editable);
+                }
+                return;
+            }
+            DynamicValueRef::Array(value) => {
+                for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
+                    let path = format!("{prefix}[{index}]");
+                    self.field(item.into(), path, index.to_string(), depth, editable);
+                }
+                return;
+            }
+            DynamicValueRef::Map(value) => {
+                for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
+                    let path = entry_path(prefix, key.as_ref(), index);
+                    let editable = editable && key_access(key.as_ref()).is_some();
+                    self.field(
+                        item.into(),
+                        path,
+                        display_value(key.as_ref()),
+                        depth,
+                        editable,
+                    );
+                }
+                return;
+            }
+            DynamicValueRef::Set(value) => {
+                for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
+                    let path = entry_path(prefix, item.as_ref(), index);
+                    self.field(item.into(), path, index.to_string(), depth, false);
+                }
+                return;
+            }
+            DynamicValueRef::Enum(value) => {
+                for index in 0..value.field_len() {
+                    let Some(field) = value.field_at(index) else {
+                        continue;
+                    };
+                    let name = value
+                        .name_at(index)
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| index.to_string());
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
+                }
+                return;
+            }
+        };
+
         match value.reflect_ref() {
             ReflectRef::Struct(value) => {
                 for index in 0..value.field_len() {
@@ -1940,44 +2005,50 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
                 }
             }
             ReflectRef::TupleStruct(value) => {
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
                 }
             }
             ReflectRef::Tuple(value) => {
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
                 }
             }
             ReflectRef::List(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    self.field(item.into(), path, index.to_string(), depth, editable);
                 }
             }
             ReflectRef::Array(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    self.field(item.into(), path, index.to_string(), depth, editable);
                 }
             }
             ReflectRef::Map(value) => {
                 for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
-                    let path = entry_path(prefix, key, index);
-                    let editable = editable && key_access(key).is_some();
-                    self.field(item, path, display_value(key), depth, editable);
+                    let path = entry_path(prefix, key.into(), index);
+                    let editable = editable && key_access(key.into()).is_some();
+                    self.field(
+                        item.into(),
+                        path,
+                        display_value(key.into()),
+                        depth,
+                        editable,
+                    );
                 }
             }
             ReflectRef::Set(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
-                    let path = entry_path(prefix, item, index);
-                    self.field(item, path, index.to_string(), depth, false);
+                    let path = entry_path(prefix, item.into(), index);
+                    self.field(item.into(), path, index.to_string(), depth, false);
                 }
             }
             ReflectRef::Enum(value) => {
@@ -1989,7 +2060,7 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    self.field(field.into(), join(prefix, &name), name, depth, editable);
                 }
             }
             _ => {}
@@ -2000,8 +2071,8 @@ impl Walk<'_> {
 /// The read-only caption of an asset handle, or `None` if `value` is not one.
 ///
 /// Handles are matched by type path, since this crate does not depend on `bevy_asset`.
-fn asset_handle_label(value: &dyn PartialReflect) -> Option<String> {
-    let type_path = value.get_represented_type_info()?.type_path();
+fn asset_handle_label(dynamic: DynamicValueRef<'_>) -> Option<String> {
+    let type_path = dynamic.get_represented_type_info()?.type_path();
     type_path
         .starts_with(ASSET_HANDLE_PREFIX)
         .then(|| ShortName(type_path).to_string())
@@ -2028,14 +2099,31 @@ pub(crate) fn read_only(value: FieldValue) -> FieldValue {
 /// Follows single-field tuple structs down to their inner value, returning it and its path.
 ///
 /// This keeps newtypes from adding a nesting level of their own.
-fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn PartialReflect, String) {
+fn flatten_newtypes(value: DynamicValueRef<'_>, mut path: String) -> (DynamicValueRef<'_>, String) {
     let mut value = value;
-    while let ReflectRef::TupleStruct(tuple) = value.reflect_ref() {
-        if tuple.field_len() != 1 {
-            break;
-        }
-        let Some(field) = tuple.field(0) else {
-            break;
+    loop {
+        let field = match value {
+            DynamicValueRef::TupleStruct(tuple) => {
+                if tuple.field_len() != 1 {
+                    break;
+                }
+                let Some(field) = tuple.field(0) else {
+                    break;
+                };
+                field.as_ref()
+            }
+            DynamicValueRef::Concrete(concrete)
+                if let ReflectRef::TupleStruct(tuple) = concrete.reflect_ref() =>
+            {
+                if tuple.field_len() != 1 {
+                    break;
+                }
+                let Some(field) = tuple.field(0) else {
+                    break;
+                };
+                DynamicValueRef::Concrete(field)
+            }
+            _ => break,
         };
         path = join(&path, "0");
         value = field;
@@ -2044,7 +2132,19 @@ fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn Parti
 }
 
 /// The caption shown on the row of a container value, or `None` if the value has no fields.
-fn summary(value: &dyn PartialReflect) -> Option<String> {
+fn summary(value: DynamicValueRef<'_>) -> Option<String> {
+    let value = match value {
+        DynamicValueRef::Concrete(value) => value,
+        DynamicValueRef::Struct(_)
+        | DynamicValueRef::TupleStruct(_)
+        | DynamicValueRef::Tuple(_) => return Some(String::new()),
+        DynamicValueRef::List(value) => return Some(format!("{} items", value.len())),
+        DynamicValueRef::Array(value) => return Some(format!("{} items", value.len())),
+        DynamicValueRef::Map(value) => return Some(format!("{} items", value.len())),
+        DynamicValueRef::Set(value) => return Some(format!("{} items", value.len())),
+        DynamicValueRef::Enum(value) => return Some(value.variant_name().to_string()),
+    };
+
     Some(match value.reflect_ref() {
         ReflectRef::Struct(_) | ReflectRef::TupleStruct(_) | ReflectRef::Tuple(_) => String::new(),
         ReflectRef::List(value) => format!("{} items", value.len()),
@@ -2052,7 +2152,7 @@ fn summary(value: &dyn PartialReflect) -> Option<String> {
         ReflectRef::Map(value) => format!("{} items", value.len()),
         ReflectRef::Set(value) => format!("{} items", value.len()),
         ReflectRef::Enum(value) => value.variant_name().to_string(),
-        _ => return None,
+        ReflectRef::Opaque(_) => return None,
     })
 }
 
@@ -2061,14 +2161,17 @@ fn summary(value: &dyn PartialReflect) -> Option<String> {
 /// Opaque types without a [`Display`] implementation fall back to their shortened type path.
 ///
 /// [`Display`]: core::fmt::Display
-fn format_fallback(value: &dyn PartialReflect) -> String {
+fn format_fallback(value: DynamicValueRef<'_>) -> String {
     let displayed = format!("{value}");
     let displayed = if displayed.trim().is_empty() {
         format!("{value:?}")
     } else {
         displayed
     };
-    let type_path = value.reflect_type_path();
+    let type_path = value
+        .get_represented_type_info()
+        .map(|v| v.type_path())
+        .unwrap_or("DynamicValue");
     if displayed.trim() == format!("Reflect({type_path})") {
         return ShortName(type_path).to_string();
     }
@@ -2087,7 +2190,7 @@ fn join(prefix: &str, name: &str) -> String {
 ///
 /// Keys that [`key_access`] cannot express get a `[#index]` placeholder, which keeps the row
 /// tracked but never resolves.
-fn entry_path(prefix: &str, key: &dyn PartialReflect, index: usize) -> String {
+fn entry_path(prefix: &str, key: DynamicValueRef<'_>, index: usize) -> String {
     match key_access(key) {
         Some(access) => format!("{prefix}{access}"),
         None => format!("{prefix}[#{index}]"),
@@ -2097,11 +2200,14 @@ fn entry_path(prefix: &str, key: &dyn PartialReflect, index: usize) -> String {
 /// The [`bevy_reflect::GetPath`] access selecting `key` in a map or set.
 ///
 /// Returns `None` for keys other than strings and primitive integers.
-fn key_access(key: &dyn PartialReflect) -> Option<String> {
-    if let Some(key) = key.try_downcast_ref::<String>() {
+fn key_access(key: DynamicValueRef<'_>) -> Option<String> {
+    let Some(key) = key.as_concrete() else {
+        return None;
+    };
+    if let Some(key) = key.downcast_ref::<String>() {
         return Some(quoted_key(key));
     }
-    if let Some(key) = key.try_downcast_ref::<Cow<'static, str>>() {
+    if let Some(key) = key.downcast_ref::<Cow<'static, str>>() {
         return Some(quoted_key(key));
     }
     integer_key(key).map(|integer| quoted_key(&integer))
@@ -2120,11 +2226,11 @@ fn quoted_key(key: &str) -> String {
     quoted
 }
 
-fn integer_key(key: &dyn PartialReflect) -> Option<String> {
+fn integer_key(key: &dyn Reflect) -> Option<String> {
     macro_rules! integers {
         ($($type:ty),*) => {
             $(
-                if let Some(key) = key.try_downcast_ref::<$type>() {
+                if let Some(key) = key.downcast_ref::<$type>() {
                     return Some(key.to_string());
                 }
             )*
@@ -2135,49 +2241,53 @@ fn integer_key(key: &dyn PartialReflect) -> Option<String> {
     None
 }
 
-fn display_value(value: &dyn PartialReflect) -> String {
+fn display_value(value: DynamicValueRef<'_>) -> String {
     format!("{value:?}")
 }
 
-fn scalar_value(value: &dyn PartialReflect) -> Option<FieldValue> {
-    if let Some(value) = value.try_downcast_ref::<bool>() {
+fn scalar_value(dynamic: DynamicValueRef<'_>) -> Option<FieldValue> {
+    let Some(value) = dynamic.as_concrete() else {
+        return None;
+    };
+
+    if let Some(value) = value.downcast_ref::<bool>() {
         return Some(FieldValue::Bool(*value));
     }
-    if let Some(value) = value.try_downcast_ref::<f32>() {
+    if let Some(value) = value.downcast_ref::<f32>() {
         return Some(FieldValue::Number(NumericValue::F32(*value)));
     }
-    if let Some(value) = value.try_downcast_ref::<f64>() {
+    if let Some(value) = value.downcast_ref::<f64>() {
         return Some(FieldValue::Number(NumericValue::F64(*value)));
     }
     if let Some(value) = integer_value(value) {
         return Some(value);
     }
-    if let Some(value) = value.try_downcast_ref::<char>() {
+    if let Some(value) = value.downcast_ref::<char>() {
         return Some(FieldValue::Text(value.to_string()));
     }
-    if let Some(value) = value.try_downcast_ref::<String>() {
+    if let Some(value) = value.downcast_ref::<String>() {
         return Some(FieldValue::Text(value.clone()));
     }
-    if let Some(value) = value.try_downcast_ref::<Cow<'static, str>>() {
+    if let Some(value) = value.downcast_ref::<Cow<'static, str>>() {
         return Some(FieldValue::Text(value.to_string()));
     }
-    if let Some(value) = value.try_downcast_ref::<&'static str>() {
+    if let Some(value) = value.downcast_ref::<&'static str>() {
         return Some(FieldValue::Label(value.to_string()));
     }
-    if let Some(value) = value.try_downcast_ref::<Entity>() {
+    if let Some(value) = value.downcast_ref::<Entity>() {
         return Some(FieldValue::Label(value.to_string()));
     }
-    if let Some(value) = value.try_downcast_ref::<Color>() {
+    if let Some(value) = value.downcast_ref::<Color>() {
         return Some(FieldValue::Color(*value));
     }
     color_value(value)
 }
 
-fn color_value(value: &dyn PartialReflect) -> Option<FieldValue> {
+fn color_value(value: &dyn Reflect) -> Option<FieldValue> {
     macro_rules! color {
         ($($type:ty),*) => {
             $(
-                if let Some(value) = value.try_downcast_ref::<$type>() {
+                if let Some(value) = value.downcast_ref::<$type>() {
                     return Some(FieldValue::Color(Color::from(*value)));
                 }
             )*
@@ -2192,11 +2302,11 @@ fn color_value(value: &dyn PartialReflect) -> Option<FieldValue> {
 }
 
 /// Classifies an integer, falling back to a caption when it does not fit the number input.
-fn integer_value(value: &dyn PartialReflect) -> Option<FieldValue> {
+fn integer_value(value: &dyn Reflect) -> Option<FieldValue> {
     macro_rules! narrow {
         ($($type:ty),*) => {
             $(
-                if let Some(value) = value.try_downcast_ref::<$type>() {
+                if let Some(value) = value.downcast_ref::<$type>() {
                     return Some(FieldValue::Number(NumericValue::I32(i32::from(*value))));
                 }
             )*
@@ -2205,7 +2315,7 @@ fn integer_value(value: &dyn PartialReflect) -> Option<FieldValue> {
     macro_rules! wide {
         ($($type:ty),*) => {
             $(
-                if let Some(value) = value.try_downcast_ref::<$type>() {
+                if let Some(value) = value.downcast_ref::<$type>() {
                     return Some(match i64::try_from(*value) {
                         Ok(value) => FieldValue::Number(NumericValue::I64(value)),
                         Err(_) => FieldValue::Label(value.to_string()),
@@ -2221,11 +2331,13 @@ fn integer_value(value: &dyn PartialReflect) -> Option<FieldValue> {
 }
 
 /// The range of an integer type that is narrower than the number input showing it.
-fn integer_limit(value: &dyn PartialReflect) -> Option<NumericRange> {
+fn integer_limit(value: DynamicValueRef<'_>) -> Option<NumericRange> {
+    let value = value.as_concrete()?;
+
     macro_rules! limit {
         ($variant:ident, $repr:ty, $($type:ty),*) => {
             $(
-                if value.try_downcast_ref::<$type>().is_some() {
+                if value.downcast_ref::<$type>().is_some() {
                     return Some(NumericRange::$variant(
                         <$repr>::try_from(<$type>::MIN).unwrap_or(<$repr>::MIN)
                             ..=<$repr>::try_from(<$type>::MAX).unwrap_or(<$repr>::MAX),
@@ -2244,17 +2356,25 @@ fn integer_limit(value: &dyn PartialReflect) -> Option<NumericRange> {
 /// registered defaults.
 ///
 /// Returns `None` for an enum with data that cannot switch to any other variant.
-fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<FieldValue> {
-    let ReflectRef::Enum(reflected) = value.reflect_ref() else {
+fn variant_value(value: DynamicValueRef<'_>, registry: &TypeRegistry) -> Option<FieldValue> {
+    let (current_variant_name, info) = match value {
+        DynamicValueRef::Enum(value) => {
+            let Some(type_info) = value.get_represented_type_info() else {
+                return None;
+            };
+            (value.variant_name(), type_info)
+        }
+        DynamicValueRef::Concrete(value) if let ReflectRef::Enum(value) = value.reflect_ref() => {
+            (value.variant_name(), value.reflect_type_info())
+        }
+        _ => return None,
+    };
+    let TypeInfo::Enum(info) = info else {
         return None;
     };
-    let TypeInfo::Enum(info) = value.get_represented_type_info()? else {
-        return None;
-    };
-    let current = reflected.variant_name();
     let variants: Vec<String> = info
         .iter()
-        .filter(|variant| variant.name() == current || has_defaults(variant, registry))
+        .filter(|variant| variant.name() == current_variant_name || has_defaults(variant, registry))
         .map(|variant| variant.name().to_string())
         .collect();
     let unit_only = info
@@ -2263,7 +2383,9 @@ fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<
     if !unit_only && variants.len() < 2 {
         return None;
     }
-    let selected = variants.iter().position(|name| name == current)?;
+    let selected = variants
+        .iter()
+        .position(|name| name == current_variant_name)?;
     Some(FieldValue::Variant { variants, selected })
 }
 
@@ -2520,7 +2642,7 @@ mod tests {
             mode: Mode::Idle,
         };
 
-        let entries = field_entries(&subject, &TypeRegistry::new());
+        let entries = field_entries(DynamicValueRef::from(&subject), &TypeRegistry::new());
 
         assert_eq!(
             kinds(&entries),
@@ -2648,7 +2770,10 @@ mod tests {
 
     #[test]
     fn collapses_newtype_tuple_structs() {
-        let entries = field_entries(&Wrapper(Nested { depth: 3 }), &TypeRegistry::new());
+        let entries = field_entries(
+            DynamicValueRef::from(&Wrapper(Nested { depth: 3 })),
+            &TypeRegistry::new(),
+        );
 
         assert_eq!(
             kinds(&entries),
@@ -2797,7 +2922,10 @@ mod tests {
 
     #[test]
     fn renders_a_name_as_a_single_caption() {
-        let entries = field_entries(&Name::new("Left Cube"), &TypeRegistry::new());
+        let entries = field_entries(
+            DynamicValueRef::from(&Name::new("Left Cube")),
+            &TypeRegistry::new(),
+        );
 
         assert_eq!(
             entries.len(),
@@ -2817,7 +2945,7 @@ mod tests {
         registry.register::<Mode>();
         registry.register_type_data::<Mode, ReflectDefault>();
 
-        let entries = field_entries(&Pointer(handle.clone()), &registry);
+        let entries = field_entries(DynamicValueRef::from(&Pointer(handle.clone())), &registry);
         assert_eq!(entries.len(), 1, "{entries:?}");
         assert_eq!(
             entries[0].value,
@@ -2825,11 +2953,11 @@ mod tests {
         );
 
         let entries = field_entries(
-            &Skin {
+            DynamicValueRef::from(&Skin {
                 texture: Texture(handle.clone()),
                 direct: handle,
                 mode: Mode::Idle,
-            },
+            }),
             &registry,
         );
         let label = FieldValue::Label("Handle<Image>".to_string());
@@ -2852,7 +2980,10 @@ mod tests {
 
     #[test]
     fn shortens_opaque_type_paths() {
-        let entries = field_entries(&Holder(Arc::new(StrongHandle)), &TypeRegistry::new());
+        let entries = field_entries(
+            DynamicValueRef::from(&Holder(Arc::new(StrongHandle))),
+            &TypeRegistry::new(),
+        );
 
         assert_eq!(entries.len(), 1);
         assert_eq!(
@@ -3166,10 +3297,11 @@ mod tests {
         refresh(&mut app);
 
         let changing = app.world().get::<Changing>(subject).unwrap();
-        let mut expected: Vec<String> = field_entries(changing, &TypeRegistry::new())
-            .into_iter()
-            .map(|entry| entry.path)
-            .collect();
+        let mut expected: Vec<String> =
+            field_entries(DynamicValueRef::from(changing), &TypeRegistry::new())
+                .into_iter()
+                .map(|entry| entry.path)
+                .collect();
         expected.sort();
         assert_eq!(tracked_paths(&app), expected);
 
@@ -3238,14 +3370,17 @@ mod tests {
     #[test]
     fn distinguishes_variants_of_an_enum_component() {
         assert_ne!(
-            field_entries(&Stage::A(1.0), &TypeRegistry::new()),
-            field_entries(&Stage::B(1.0), &TypeRegistry::new())
+            field_entries(DynamicValueRef::from(&Stage::A(1.0)), &TypeRegistry::new()),
+            field_entries(DynamicValueRef::from(&Stage::B(1.0)), &TypeRegistry::new())
         );
     }
 
     #[test]
     fn summarizes_a_list_component() {
-        let entries = field_entries(&Items((0..20).collect()), &TypeRegistry::new());
+        let entries = field_entries(
+            DynamicValueRef::from(&Items((0..20).collect())),
+            &TypeRegistry::new(),
+        );
 
         assert!(
             entries.iter().any(
@@ -3258,10 +3393,10 @@ mod tests {
     #[test]
     fn does_not_clamp_large_integers() {
         let entries = field_entries(
-            &Large {
+            DynamicValueRef::from(&Large {
                 unsigned: u64::MAX,
                 size: usize::MAX,
-            },
+            }),
             &TypeRegistry::new(),
         );
 
@@ -3270,11 +3405,11 @@ mod tests {
     }
 
     fn unresolved_paths<T: Reflect>(value: &T) -> Vec<String> {
-        field_entries(value, &TypeRegistry::new())
+        field_entries(DynamicValueRef::from(value), &TypeRegistry::new())
             .into_iter()
             .filter_map(|entry| match value.reflect_path(entry.path.as_str()) {
                 Err(error) => Some(format!("{:?}: {error}", entry.path)),
-                Ok(resolved) => match scalar_value(resolved) {
+                Ok(resolved) => match scalar_value(DynamicValueRef::from(resolved)) {
                     Some(scalar) if read_only(scalar.clone()) != read_only(entry.value.clone()) => {
                         Some(format!("{:?}: {scalar:?} != {:?}", entry.path, entry.value))
                     }
@@ -3330,7 +3465,7 @@ mod tests {
     }
 
     fn field_paths<T: Reflect>(value: &T) -> Vec<String> {
-        field_entries(value, &TypeRegistry::new())
+        field_entries(DynamicValueRef::from(value), &TypeRegistry::new())
             .into_iter()
             .map(|entry| entry.path)
             .collect()
@@ -3346,10 +3481,11 @@ mod tests {
         let flags = Flags {
             flags: [(false, 1), (true, 2)].into_iter().collect(),
         };
-        let entries: Vec<FieldEntry> = field_entries(&flags, &TypeRegistry::new())
-            .into_iter()
-            .filter(|entry| entry.path.starts_with("flags["))
-            .collect();
+        let entries: Vec<FieldEntry> =
+            field_entries(DynamicValueRef::from(&flags), &TypeRegistry::new())
+                .into_iter()
+                .filter(|entry| entry.path.starts_with("flags["))
+                .collect();
 
         assert_eq!(entries.len(), 2, "{entries:?}");
         assert_ne!(entries[0].path, entries[1].path);
@@ -3481,7 +3617,7 @@ mod tests {
             ..Default::default()
         };
 
-        let entries = field_entries(&kinds, &registry);
+        let entries = field_entries(DynamicValueRef::from(&kinds), &registry);
 
         assert_eq!(
             entry(&entries, "byte").value,
@@ -3531,9 +3667,9 @@ mod tests {
         );
 
         let linked = field_entries(
-            &Linked {
+            DynamicValueRef::from(&Linked {
                 target: Entity::PLACEHOLDER,
-            },
+            }),
             &registry,
         );
         assert_eq!(linked[0].value.kind(), FieldKind::Label);
@@ -3724,10 +3860,10 @@ mod tests {
     fn does_not_offer_variants_without_defaults() {
         let registry = TypeRegistry::new();
         let entries = field_entries(
-            &Kinds {
+            DynamicValueRef::from(&Kinds {
                 shape: Shape::Custom(Locked(3)),
                 ..Default::default()
-            },
+            }),
             &registry,
         );
 
@@ -3736,7 +3872,7 @@ mod tests {
             variant(&["Empty", "Circle", "Custom"], 2)
         );
 
-        let entries = field_entries(&Kinds::default(), &registry);
+        let entries = field_entries(DynamicValueRef::from(&Kinds::default()), &registry);
         assert_eq!(
             entry(&entries, "shape").value,
             variant(&["Empty", "Circle"], 0)

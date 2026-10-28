@@ -1,19 +1,17 @@
 //! Traits and types used to power [enum-like] operations via reflection.
 //!
 //! [enum-like]: https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html
-mod dynamic_enum;
 mod enum_trait;
 mod helpers;
 mod variants;
 
-pub use dynamic_enum::*;
 pub use enum_trait::*;
 pub use helpers::*;
 pub use variants::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{enums::*, structs::*, tuple::*, *};
+    use crate::{dynamic::*, enums::*, *};
     use alloc::boxed::Box;
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -93,14 +91,14 @@ mod tests {
     fn dynamic_enum_should_set_variant_fields() {
         // === Unit === //
         let mut value = MyEnum::A;
-        let dyn_enum = DynamicEnum::try_from(MyEnum::A).unwrap();
-        value.apply(&dyn_enum);
+        let dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::A).unwrap();
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::A, value);
 
         // === Tuple === //
         let mut value = MyEnum::B(0, 0);
-        let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        value.apply(&dyn_enum);
+        let dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::B(123, 321)).unwrap();
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
         // === Struct === //
@@ -108,12 +106,12 @@ mod tests {
             foo: 0.0,
             bar: false,
         };
-        let dyn_enum = DynamicEnum::try_from(MyEnum::C {
+        let dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::C {
             foo: 1.23,
             bar: true,
         })
         .unwrap();
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
@@ -133,7 +131,7 @@ mod tests {
 
         let mut dyn_enum = DynamicEnum::default();
         dyn_enum.set_variant("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(MyEnum::B(123, 0), value);
 
         // === Struct === //
@@ -147,7 +145,7 @@ mod tests {
 
         let mut dyn_enum = DynamicEnum::default();
         dyn_enum.set_variant("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
@@ -158,33 +156,16 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_enum_should_apply_dynamic_enum() {
-        let mut a = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        let b = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-
-        // Sanity check that equality check works
-        assert!(
-            a.reflect_partial_eq(&b).unwrap_or_default(),
-            "dynamic enums should be equal"
-        );
-
-        a.set_variant("A", ());
-        assert!(
-            !a.reflect_partial_eq(&b).unwrap_or_default(),
-            "dynamic enums should not be equal"
-        );
-
-        a.apply(&b);
-        assert!(a.reflect_partial_eq(&b).unwrap_or_default());
-    }
-
-    #[test]
     fn dynamic_enum_should_change_variant() {
         let mut value = MyEnum::A;
 
         // === MyEnum::A -> MyEnum::B === //
-        let mut dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        value.apply(&dyn_enum);
+        let mut dyn_enum = DynamicEnum::try_from_reflect_deep(&MyEnum::B(123, 321)).unwrap();
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
         // === MyEnum::B -> MyEnum::C === //
@@ -192,7 +173,11 @@ mod tests {
         data.insert("foo", 1.23_f32);
         data.insert("bar", true);
         dyn_enum.set_variant("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
@@ -206,19 +191,21 @@ mod tests {
         data.insert(123_usize);
         data.insert(321_i32);
         dyn_enum.set_variant("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(MyEnum::B(123, 321), value);
 
         // === MyEnum::B -> MyEnum::A === //
         dyn_enum.set_variant("A", ());
-        value.apply(&dyn_enum);
+        dyn_enum
+            .dynamic_clone()
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert_eq!(MyEnum::A, value);
-    }
-
-    #[test]
-    fn dynamic_enum_should_return_is_dynamic() {
-        let dyn_enum = DynamicEnum::try_from(MyEnum::B(123, 321)).unwrap();
-        assert!(dyn_enum.is_dynamic());
     }
 
     #[test]
@@ -311,14 +298,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: MismatchedKinds { from_kind: Tuple, to_kind: Enum }"
-    )]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();
         dyn_tuple.insert((123_usize, 321_i32));
-        value.apply(&dyn_tuple);
+        assert!(DynamicValue::Tuple(dyn_tuple)
+            .try_apply(&mut value)
+            .is_err());
     }
 
     #[test]
@@ -333,7 +319,9 @@ mod tests {
         let mut target = MyEnumAnalogue::A(0);
 
         // === Tuple === //
-        let result = target.try_apply(&MyEnum::B(0, 1));
+        let result = DynamicValue::try_from_reflect_deep(&MyEnum::B(0, 1))
+            .unwrap()
+            .try_apply(&mut target);
         assert!(
             matches!(result, Err(ApplyError::InvalidEnumVariant { .. })),
             "`result` was {result:?}"
@@ -341,10 +329,12 @@ mod tests {
 
         // === Struct === //
         target = MyEnumAnalogue::C { foo: 0.0, bar: 1 };
-        let result = target.try_apply(&MyEnum::C {
+        let result = DynamicValue::try_from_reflect_deep(&MyEnum::C {
             foo: 1.0,
             bar: true,
-        });
+        })
+        .unwrap()
+        .try_apply(&mut target);
         assert!(
             matches!(result, Err(ApplyError::MismatchedTypes { .. })),
             "`result` was {result:?}"
@@ -386,7 +376,7 @@ mod tests {
     #[test]
     fn enum_should_allow_generics() {
         #[derive(Reflect, Debug, PartialEq)]
-        enum TestEnum<T: FromReflect> {
+        enum TestEnum<T: FromDynamic> {
             A,
             B(T),
             C { value: T },
@@ -413,14 +403,14 @@ mod tests {
         let mut data = DynamicTuple::default();
         data.insert(1.23_f32);
         let dyn_enum = DynamicEnum::new("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::B(1.23), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", 1.23_f32);
         let dyn_enum = DynamicEnum::new("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::C { value: 1.23 }, value);
     }
 
@@ -442,14 +432,14 @@ mod tests {
         let mut data = DynamicTuple::default();
         data.insert(TestStruct(123));
         let dyn_enum = DynamicEnum::new("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::B(TestStruct(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", TestStruct(123));
         let dyn_enum = DynamicEnum::new("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             TestEnum::C {
                 value: TestStruct(123)
@@ -480,14 +470,14 @@ mod tests {
         let mut data = DynamicTuple::default();
         data.insert(OtherEnum::B(123));
         let dyn_enum = DynamicEnum::new("B", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(TestEnum::B(OtherEnum::B(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", OtherEnum::C { value: 1.23 });
         let dyn_enum = DynamicEnum::new("C", data);
-        value.apply(&dyn_enum);
+        dyn_enum.try_apply(&mut value).unwrap();
         assert_eq!(
             TestEnum::C {
                 value: OtherEnum::C { value: 1.23 }
@@ -498,29 +488,41 @@ mod tests {
 
     #[test]
     fn enum_should_apply() {
-        let mut value: Box<dyn Reflect> = Box::new(MyEnum::A);
+        let mut value = MyEnum::A;
 
         // === MyEnum::A -> MyEnum::A === //
-        value.apply(&MyEnum::A);
+        DynamicValue::try_from_reflect(&MyEnum::A)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert!(value.reflect_partial_eq(&MyEnum::A).unwrap_or_default());
 
         // === MyEnum::A -> MyEnum::B === //
-        value.apply(&MyEnum::B(123, 321));
+        DynamicValue::try_from_reflect(&MyEnum::B(123, 321))
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert!(value
             .reflect_partial_eq(&MyEnum::B(123, 321))
             .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::B === //
-        value.apply(&MyEnum::B(321, 123));
+        DynamicValue::try_from_reflect(&MyEnum::B(321, 123))
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert!(value
             .reflect_partial_eq(&MyEnum::B(321, 123))
             .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::C === //
-        value.apply(&MyEnum::C {
+        DynamicValue::try_from_reflect(&MyEnum::C {
             foo: 1.23,
             bar: true,
-        });
+        })
+        .unwrap()
+        .try_apply(&mut value)
+        .unwrap();
         assert!(value
             .reflect_partial_eq(&MyEnum::C {
                 foo: 1.23,
@@ -529,10 +531,13 @@ mod tests {
             .unwrap_or_default());
 
         // === MyEnum::C -> MyEnum::C === //
-        value.apply(&MyEnum::C {
+        DynamicValue::try_from_reflect(&MyEnum::C {
             foo: 3.21,
             bar: false,
-        });
+        })
+        .unwrap()
+        .try_apply(&mut value)
+        .unwrap();
         assert!(value
             .reflect_partial_eq(&MyEnum::C {
                 foo: 3.21,
@@ -541,13 +546,19 @@ mod tests {
             .unwrap_or_default());
 
         // === MyEnum::C -> MyEnum::B === //
-        value.apply(&MyEnum::B(123, 321));
+        DynamicValue::try_from_reflect(&MyEnum::B(123, 321))
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert!(value
             .reflect_partial_eq(&MyEnum::B(123, 321))
             .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::A === //
-        value.apply(&MyEnum::A);
+        DynamicValue::try_from_reflect(&MyEnum::A)
+            .unwrap()
+            .try_apply(&mut value)
+            .unwrap();
         assert!(value.reflect_partial_eq(&MyEnum::A).unwrap_or_default());
     }
 
@@ -624,71 +635,71 @@ mod tests {
             C2 { value: f32 },
         }
 
-        let a: &dyn PartialReflect = &TestEnum::A;
-        let b: &dyn PartialReflect = &TestEnum::A;
+        let a: &dyn Reflect = &TestEnum::A;
+        let b: &dyn Reflect = &TestEnum::A;
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A == TestEnum::A"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::A;
-        let b: &dyn PartialReflect = &TestEnum::A1;
+        let a: &dyn Reflect = &TestEnum::A;
+        let b: &dyn Reflect = &TestEnum::A1;
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A != TestEnum::A1"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B(123);
+        let a: &dyn Reflect = &TestEnum::B(123);
+        let b: &dyn Reflect = &TestEnum::B(123);
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) == TestEnum::B(123)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B(321);
+        let a: &dyn Reflect = &TestEnum::B(123);
+        let b: &dyn Reflect = &TestEnum::B(321);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B(321)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B1(123);
+        let a: &dyn Reflect = &TestEnum::B(123);
+        let b: &dyn Reflect = &TestEnum::B1(123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B1(123)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::B(123);
-        let b: &dyn PartialReflect = &TestEnum::B2(123, 123);
+        let a: &dyn Reflect = &TestEnum::B(123);
+        let b: &dyn Reflect = &TestEnum::B2(123, 123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B2(123, 123)"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let a: &dyn Reflect = &TestEnum::C { value: 123 };
+        let b: &dyn Reflect = &TestEnum::C { value: 123 };
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} == TestEnum::C{{value: 123}}"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C { value: 321 };
+        let a: &dyn Reflect = &TestEnum::C { value: 123 };
+        let b: &dyn Reflect = &TestEnum::C { value: 321 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C{{value: 321}}"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C1 { value: 123 };
+        let a: &dyn Reflect = &TestEnum::C { value: 123 };
+        let b: &dyn Reflect = &TestEnum::C1 { value: 123 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C1{{value: 123}}"
         );
 
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let b: &dyn PartialReflect = &TestEnum::C2 { value: 1.23 };
+        let a: &dyn Reflect = &TestEnum::C { value: 123 };
+        let b: &dyn Reflect = &TestEnum::C2 { value: 1.23 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C2{{value: 1.23}}"
@@ -701,8 +712,8 @@ mod tests {
             B(usize, usize),
             C { value: i32, value2: f32 },
         }
-        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
-        let a2: &dyn PartialReflect = &TestEnum2::C {
+        let a: &dyn Reflect = &TestEnum::C { value: 123 };
+        let a2: &dyn Reflect = &TestEnum2::C {
             value: 123,
             value2: 1.23,
         };
@@ -710,7 +721,7 @@ mod tests {
             !a.reflect_partial_eq(a2).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum2::C{{value: 123, value2: 1.23}}"
         );
-        let b: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn Reflect = &TestEnum::B(123);
         let b2 = &TestEnum2::B(123, 321);
         assert!(
             !b.reflect_partial_eq(b2).unwrap_or_default(),

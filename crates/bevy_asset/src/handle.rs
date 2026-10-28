@@ -5,7 +5,7 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
 use bevy_platform::{collections::Equivalent, sync::Mutex};
-use bevy_reflect::{enums::Enum, FromReflect, PartialReflect, Reflect, ReflectRef, TypePath};
+use bevy_reflect::{dynamic::DynamicValue, FromDynamic, Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -111,7 +111,7 @@ impl Drop for StrongHandle {
 ///
 /// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
-#[reflect(Debug, Hash, PartialEq, Clone, Handle, from_reflect = false)]
+#[reflect(Debug, Hash, PartialEq, Clone, Handle, from_dynamic = false)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -121,22 +121,24 @@ pub enum Handle<A: Asset> {
     Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
 }
 
-// `Handle` needs a custom `FromReflect` to do extra type checking - see the
+// `Handle` needs a custom `FromDynamic` to do extra type checking - see the
 // `strong_handle.type_id` check below.
-impl<A: Asset> FromReflect for Handle<A>
+impl<A: Asset> FromDynamic for Handle<A>
 where
     Handle<A>: Send + Sync,
     A: TypePath,
 {
-    fn from_reflect(reflect_value: &dyn PartialReflect) -> Option<Self> {
-        let ReflectRef::Enum(enum_value) = PartialReflect::reflect_ref(reflect_value) else {
-            return None;
+    fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
+        let mut dynamic = match dynamic {
+            DynamicValue::Enum(dynamic) => dynamic,
+            DynamicValue::Concrete(concrete) => return concrete.take().ok(),
+            _ => return None,
         };
 
-        match Enum::variant_name(enum_value) {
+        match dynamic.variant_name() {
             "Strong" => {
-                let strong_field = enum_value.field_at(0usize)?;
-                let strong_handle = Arc::<StrongHandle>::from_reflect(strong_field)?;
+                let strong_field = dynamic.field_at_mut(0usize)?.take_dynamic();
+                let strong_handle = Arc::<StrongHandle>::from_dynamic(strong_field)?;
 
                 // This is necessary as otherwise you could construct Handle<A> via Handle<B>
                 if strong_handle.type_id != TypeId::of::<A>() {
@@ -146,8 +148,8 @@ where
                 Some(Handle::Strong(strong_handle))
             }
             "Uuid" => {
-                let uuid_field = enum_value.field_at(0usize)?;
-                let uuid = Uuid::from_reflect(uuid_field)?;
+                let uuid_field = dynamic.field_at_mut(0usize)?.take_dynamic();
+                let uuid = Uuid::from_dynamic(uuid_field)?;
 
                 Some(Handle::Uuid(uuid, Default::default()))
             }
@@ -708,7 +710,7 @@ pub enum UntypedAssetConversionError {
 mod tests {
     use alloc::boxed::Box;
     use bevy_platform::hash::FixedHasher;
-    use bevy_reflect::{FromReflect, PartialReflect};
+    use bevy_reflect::{dynamic::DynamicValue, FromDynamic, Reflect};
     use core::hash::BuildHasher;
     use uuid::Uuid;
 
@@ -815,7 +817,7 @@ mod tests {
         assert_eq!(handle.id(), AssetId::Uuid { uuid });
     }
 
-    /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
+    /// `Reflect::reflect_clone`/`Reflect::to_dynamic` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
         #[derive(Reflect)]
@@ -849,7 +851,7 @@ mod tests {
                     "Cloning the handle with reflect should increase the strong count to 2"
                 );
 
-                let dynamic_handle: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
+                let dynamic_handle = DynamicValue::try_from_reflect(reflected).unwrap();
 
                 assert_eq!(
                     Arc::strong_count(strong),
@@ -857,12 +859,16 @@ mod tests {
                     "Converting the handle to a dynamic should increase the strong count to 3"
                 );
 
-                let from_reflect_handle: Handle<MyAsset> =
-                    FromReflect::from_reflect(&*dynamic_handle).unwrap();
+                let from_dynamic_handle: Handle<MyAsset> =
+                    FromDynamic::from_dynamic(dynamic_handle).unwrap();
 
-                assert_eq!(Arc::strong_count(strong), 4, "Converting the reflected value back to a handle should increase the strong count to 4");
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    3,
+                    "Converting from a dynamic value should keep the strong count at 3"
+                );
                 assert!(
-                    from_reflect_handle.is_strong(),
+                    from_dynamic_handle.is_strong(),
                     "The cloned handle should still be strong"
                 );
             }
@@ -871,7 +877,7 @@ mod tests {
     }
 
     #[test]
-    fn handle_from_reflect_verifies_type_id() {
+    fn handle_from_dynamic_verifies_type_id() {
         #[derive(Reflect, Asset)]
         struct A;
         #[derive(Reflect, Asset)]
@@ -883,25 +889,25 @@ mod tests {
         let mut assets = app.world_mut().resource_mut::<Assets<A>>();
         let handle_a = assets.add(A);
 
-        let dynamic_handle_a = handle_a.to_dynamic().unwrap();
-        let reflected_handle_a = handle_a.as_partial_reflect();
+        let dynamic_handle_a = DynamicValue::try_from_reflect(&handle_a).unwrap();
+        let reflected_handle_a = DynamicValue::Concrete(Box::new(handle_a));
 
-        let handle_b_from_reflect_dynamic: Option<Handle<B>> =
-            FromReflect::from_reflect(&*dynamic_handle_a);
-        let handle_b_from_reflect: Option<Handle<B>> =
-            FromReflect::from_reflect(reflected_handle_a);
-        let handle_a_from_reflect: Option<Handle<A>> =
-            FromReflect::from_reflect(reflected_handle_a);
+        let handle_b_from_dynamic_dynamic: Option<Handle<B>> =
+            FromDynamic::from_dynamic(dynamic_handle_a);
+        let handle_b_from_dynamic: Option<Handle<B>> =
+            FromDynamic::from_dynamic(reflected_handle_a.dynamic_clone().unwrap());
+        let handle_a_from_dynamic: Option<Handle<A>> =
+            FromDynamic::from_dynamic(reflected_handle_a);
         assert!(
-            handle_b_from_reflect.is_none(),
+            handle_b_from_dynamic.is_none(),
             "Handle<B> should not be constructible from reflected Handle<A>"
         );
         assert!(
-            handle_b_from_reflect_dynamic.is_none(),
+            handle_b_from_dynamic_dynamic.is_none(),
             "Handle<B> should not be constructible from dynamic Handle<A>"
         );
         assert!(
-            handle_a_from_reflect.is_some(),
+            handle_a_from_dynamic.is_some(),
             "Handle<A> should be constructible from reflected Handle<A>"
         );
     }
@@ -920,18 +926,19 @@ mod tests {
         let mut assets_a = app.world_mut().resource_mut::<Assets<A>>();
         let handle_a = assets_a.add(A);
 
-        let reflected_handle_a = handle_a.as_partial_reflect();
-
         let mut assets_b = app.world_mut().resource_mut::<Assets<B>>();
         let mut handle_b = assets_b.add(B);
         assert!(
-            handle_b.try_apply(reflected_handle_a).is_err(),
+            DynamicValue::try_from_reflect(&handle_a)
+                .unwrap()
+                .try_apply(&mut handle_b)
+                .is_err(),
             "Handle<A> should not be applicable to Handle<B>"
         );
     }
 
     #[test]
-    fn handle_from_reflect_and_try_apply() {
+    fn handle_from_dynamic_and_try_apply() {
         #[derive(Reflect, Asset)]
         struct A(i32);
 
@@ -940,15 +947,17 @@ mod tests {
 
         let mut assets = app.world_mut().resource_mut::<Assets<A>>();
         let handle_1 = assets.add(A(1));
-        let reflected_handle_1 = handle_1.as_partial_reflect();
 
-        let handle_1_from_reflect: Handle<A> =
-            FromReflect::from_reflect(reflected_handle_1).unwrap();
-        assert_eq!(handle_1, handle_1_from_reflect);
+        let handle_1_from_dynamic: Handle<A> =
+            FromDynamic::from_dynamic(DynamicValue::try_from_reflect(&handle_1).unwrap()).unwrap();
+        assert_eq!(handle_1, handle_1_from_dynamic);
 
         let mut handle_2 = assets.add(A(2));
         assert_ne!(handle_1, handle_2);
-        handle_2.try_apply(reflected_handle_1).unwrap();
+        DynamicValue::try_from_reflect(&handle_1)
+            .unwrap()
+            .try_apply(&mut handle_2)
+            .unwrap();
         assert_eq!(handle_1, handle_2);
     }
 }

@@ -1,10 +1,10 @@
 use crate::{
+    dynamic::DynamicValue,
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::{impl_full_reflect, ApplyError},
-    type_path::DynamicTypePath,
+    reflect::impl_reflect_casts,
     type_registry::{GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::NonGenericTypeInfoCell,
 };
@@ -24,14 +24,16 @@ macro_rules! impl_reflect_for_atomic {
                 fn get_type_registration() -> TypeRegistration {
                     let mut registration = TypeRegistration::of::<Self>();
                     registration.register_type_data::<ReflectFromPtr, Self>();
-                    registration.register_type_data::<ReflectFromReflect, Self>();
+                    registration.register_type_data::<ReflectFromDynamic, Self>();
                     registration.register_type_data::<ReflectDefault, Self>();
 
                     // Serde only supports atomic types when the "std" feature is enabled
                     #[cfg(feature = "std")]
                     {
-                        registration.register_type_data::<crate::type_registry::ReflectSerialize, Self>();
-                        registration.register_type_data::<crate::type_registry::ReflectDeserialize, Self>();
+                        registration
+                            .register_type_data::<crate::type_registry::ReflectSerialize, Self>();
+                        registration
+                            .register_type_data::<crate::type_registry::ReflectDeserialize, Self>();
                     }
 
                     registration
@@ -48,54 +50,10 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            impl PartialReflect for $ty {
-                #[inline]
-                fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-                    Some(<Self as Typed>::type_info())
-                }
-                #[inline]
-                fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-                    self
-                }
-                #[inline]
-                fn as_partial_reflect(&self) -> &dyn PartialReflect {
-                    self
-                }
-                #[inline]
-                fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-                    self
-                }
-                #[inline]
-                fn try_into_reflect(
-                    self: Box<Self>,
-                ) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-                    Ok(self)
-                }
-                #[inline]
-                fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-                    Some(self)
-                }
-                #[inline]
-                fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-                    Some(self)
-                }
-
+            impl Reflect for $ty {
                 #[inline]
                 fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
                     Ok(Box::new(<$ty>::new(self.load($ordering))))
-                }
-
-                #[inline]
-                fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-                    if let Some(value) = value.try_downcast_ref::<Self>() {
-                        *self = <$ty>::new(value.load($ordering));
-                    } else {
-                        return Err(ApplyError::MismatchedTypes {
-                            from_type: Into::into(DynamicTypePath::reflect_type_path(value)),
-                            to_type: Into::into(<Self as TypePath>::type_path()),
-                        });
-                    }
-                    Ok(())
                 }
                 #[inline]
                 fn reflect_kind(&self) -> ReflectKind {
@@ -116,18 +74,21 @@ macro_rules! impl_reflect_for_atomic {
                 fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     fmt::Debug::fmt(self, f)
                 }
+
+                impl_reflect_casts! {}
             }
 
-            impl FromReflect for $ty {
-                fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+            impl FromDynamic for $ty {
+                fn from_dynamic(dynamic: DynamicValue) -> Option<Self> {
                     Some(<$ty>::new(
-                        reflect.try_downcast_ref::<$ty>()?.load($ordering),
+                        dynamic
+                            .into_concrete()?
+                            .downcast_ref::<$ty>()?
+                            .load($ordering),
                     ))
                 }
             }
         };
-
-        impl_full_reflect!(for $ty);
     };
 }
 

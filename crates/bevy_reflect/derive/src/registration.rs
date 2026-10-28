@@ -27,10 +27,10 @@ pub(crate) fn impl_get_type_registration<'a>(
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
-    let from_reflect_data = if meta.from_reflect().should_auto_derive() {
+    let from_dynamic_data = if meta.from_dynamic().should_auto_derive() {
         Some(quote! {
             registration.insert(
-                <#bevy_reflect_path::ReflectFromReflect as #bevy_reflect_path::CreateTypeData<Self>>::create_type_data(())
+                <#bevy_reflect_path::ReflectFromDynamic as #bevy_reflect_path::CreateTypeData<Self>>::create_type_data(())
             );
         })
     } else {
@@ -68,7 +68,7 @@ pub(crate) fn impl_get_type_registration<'a>(
                 registration.insert(
                     <#bevy_reflect_path::ReflectFromPtr as #bevy_reflect_path::CreateTypeData::<Self>>::create_type_data(())
                 );
-                #from_reflect_data
+                #from_dynamic_data
                 #serialization_data
                 #(#type_data)*
                 registration

@@ -3,7 +3,7 @@ use bevy_reflect_derive::impl_type_path;
 use crate::impls::macros::impl_reflect_for_hashmap;
 #[cfg(feature = "functions")]
 use crate::{
-    from_reflect::FromReflect, info::MaybeTyped, type_path::TypePath,
+    from_dynamic::FromDynamic, info::MaybeTyped, type_path::TypePath,
     type_registry::GetTypeRegistration, Reflect,
 };
 #[cfg(feature = "functions")]
@@ -14,15 +14,15 @@ impl_type_path!(::bevy_platform::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::bevy_platform::collections::HashMap<K, V, S>;
     <
-        K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-        V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        K: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+        V: Reflect + FromDynamic + MaybeTyped + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
     >
 );
 
 #[cfg(test)]
 mod tests {
-    use crate::{PartialReflect, Reflect};
+    use crate::Reflect;
     use static_assertions::assert_impl_all;
 
     #[test]
@@ -33,9 +33,9 @@ mod tests {
         let mut c = <bevy_platform::collections::HashMap<_, _>>::default();
         c.insert(0usize, 3.21_f64);
 
-        let a: &dyn PartialReflect = &a;
-        let b: &dyn PartialReflect = &b;
-        let c: &dyn PartialReflect = &c;
+        let a: &dyn Reflect = &a;
+        let b: &dyn Reflect = &b;
+        let c: &dyn Reflect = &c;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }

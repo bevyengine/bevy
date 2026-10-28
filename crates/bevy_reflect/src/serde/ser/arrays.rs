@@ -1,16 +1,16 @@
-use crate::{array::Array, serde::TypedReflectSerializer, TypeRegistry};
+use crate::{array::ArrayLike, serde::TypedReflectSerializer, TypeRegistry};
 use serde::{ser::SerializeTuple, Serialize};
 
 use super::ReflectSerializerProcessor;
 
 /// A serializer for [`Array`] values.
-pub(super) struct ArraySerializer<'a, P> {
-    pub array: &'a dyn Array,
+pub(super) struct ArraySerializer<'a, A: ArrayLike + ?Sized, P> {
+    pub array: &'a A,
     pub registry: &'a TypeRegistry,
     pub processor: Option<&'a P>,
 }
 
-impl<P: ReflectSerializerProcessor> Serialize for ArraySerializer<'_, P> {
+impl<A: ArrayLike + ?Sized, P: ReflectSerializerProcessor> Serialize for ArraySerializer<'_, A, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
