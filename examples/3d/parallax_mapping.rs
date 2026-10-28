@@ -240,9 +240,9 @@ fn setup(
         Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
         MeshMaterial3d(materials.add(StandardMaterial {
             // standard material derived from dark green, but
-            // with roughness and reflectance set.
+            // with roughness and IOR set.
             perceptual_roughness: 0.45,
-            reflectance: 0.18,
+            ior: 1.155,
             ..Color::srgb_u8(0, 80, 0).into()
         })),
         Transform::from_xyz(0.0, -1.0, 0.0),
