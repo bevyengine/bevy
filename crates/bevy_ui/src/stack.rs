@@ -1629,7 +1629,7 @@ mod tests {
     }
 
     #[test]
-    fn changed_zindex_below_transparent_ghost_does_not_raise_its_tree() {
+    fn changed_zindex_below_ghost_does_not_raise_its_tree() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
@@ -1860,5 +1860,57 @@ mod tests {
 
         schedule.run(&mut world);
         assert!(world.resource::<UiStack>().iter().eq([d, r, c, a]));
+    }
+
+    #[test]
+    fn despawning_nested_global_zindex_does_not_raise_its_tree() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let r = world.spawn(Node::default()).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(r), GlobalZIndex(1)))
+            .id();
+
+        schedule.run(&mut world);
+
+        let d = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, d, a]));
+
+        world.despawn(a);
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, d]));
+    }
+
+    #[test]
+    fn changed_zindex_below_ghost_under_root_ghost_raises_its_group() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn(GhostNode).id();
+        let t = world.spawn((GhostNode, ChildOf(g))).id();
+        let w1 = world.spawn((Node::default(), ChildOf(t))).id();
+        let w2 = world.spawn((Node::default(), ChildOf(t))).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([w1, w2, r]));
+
+        world.entity_mut(w1).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, w1, w2]));
     }
 }
