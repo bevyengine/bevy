@@ -26,6 +26,7 @@
 
 import package::render::mesh_view_bindings as view_bindings;
 import package::prepass::bindings as prepass_bindings;
+import package::render::utils::coords_to_viewport_uv;
 
 // -----------------
 // TO WORLD --------
@@ -217,10 +218,9 @@ fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
 }
 
-/// returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target
-/// [0 .. render target viewport size] eg. [(0.0, 0.0) .. (1280.0, 720.0)] to [(0.0, 0.0) .. (1.0, 1.0)]
+/// Converts fragment coordinates to UVs within the main pass viewport.
 fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
-    return (frag_coord - view_bindings::view.viewport.xy) / view_bindings::view.viewport.zw;
+    return coords_to_viewport_uv(frag_coord, view_bindings::view.main_pass_viewport);
 }
 
 /// Convert frag coord to ndc
@@ -231,5 +231,5 @@ fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
 /// Convert ndc space xy coordinate [-1.0 .. 1.0] to [0 .. render target
 /// viewport size]
 fn ndc_to_frag_coord(ndc: vec2<f32>) -> vec2<f32> {
-    return ndc_to_uv(ndc) * view_bindings::view.viewport.zw;
+    return ndc_to_uv(ndc) * view_bindings::view.main_pass_viewport.zw + view_bindings::view.main_pass_viewport.xy;
 }
