@@ -5,7 +5,7 @@ use bevy::{
     input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
-    ui_widgets::{ControlOrientation, Scrollbar, ScrollbarDragState, ScrollbarThumb},
+    ui_widgets::{ControlOrientation, ScrollArea, Scrollbar, ScrollbarDragState, ScrollbarThumb},
 };
 
 fn main() {
@@ -17,8 +17,16 @@ fn main() {
         .run();
 }
 
-fn setup_view_root(mut commands: Commands) {
+fn setup_view_root(mut commands: Commands, asset_server: Res<AssetServer>) {
     let camera = commands.spawn((Camera::default(), Camera2d)).id();
+
+    // Container that centers the scroll area with scrollbars
+    let scroll_area_container = Node {
+        display: Display::Flex,
+        flex_direction: FlexDirection::Row,
+        justify_content: JustifyContent::Center,
+        ..Default::default()
+    };
 
     commands.spawn((
         Node {
@@ -41,13 +49,13 @@ fn setup_view_root(mut commands: Commands) {
             Spawn(subheader("Vertical Scroll Example")),
             Spawn((
                 // Container that centers the scroll area with scrollbars
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::Center,
-                    ..Default::default()
-                },
+                scroll_area_container.clone(),
                 Children::spawn(Spawn(vertical_scroll_area_demo())),
+            )),
+            Spawn(subheader("\nHorizontal Scroll Example")),
+            Spawn((
+                scroll_area_container.clone(),
+                Children::spawn(Spawn(horizontal_scroll_area_demo(&asset_server))),
             )),
         )),
     ));
@@ -69,7 +77,7 @@ fn subheader(caption: &str) -> impl Bundle {
     )
 }
 
-/// Create a scrolling area.
+/// Create a scrolling area for the vertical scroll demo.
 ///
 /// The "scroll area" is a container that can be scrolled. It has a nested structure which is
 /// three levels deep:
@@ -85,7 +93,7 @@ fn vertical_scroll_area_demo() -> impl Bundle {
             width: px(200),
             height: px(150),
             grid_template_columns: vec![RepeatedGridTrack::flex(1, 1.), RepeatedGridTrack::auto(1)],
-            grid_template_rows: vec![RepeatedGridTrack::flex(1, 1.), RepeatedGridTrack::auto(1)],
+            grid_template_rows: vec![RepeatedGridTrack::flex(1, 1.)],
             row_gap: px(2),
             column_gap: px(2),
             ..default()
@@ -105,6 +113,7 @@ fn vertical_scroll_area_demo() -> impl Bundle {
                     },
                     BackgroundColor(colors::GRAY1.into()),
                     ScrollPosition::default(),
+                    ScrollArea, // enable trackpad/mouse scrolling
                     Children::spawn((
                         // The actual content of the scrolling area
                         Spawn(text_row("Alpha Wolf")),
@@ -133,6 +142,93 @@ fn vertical_scroll_area_demo() -> impl Bundle {
                 },
                 Scrollbar {
                     orientation: ControlOrientation::Vertical,
+                    target: scroll_area_id,
+                    min_thumb_length: 8.0,
+                },
+                Children::spawn(Spawn((
+                    Hovered::default(),
+                    BackgroundColor(colors::GRAY2.into()),
+                    BorderColor::all(colors::GRAY3),
+                    ScrollbarThumb {
+                        border_radius: BorderRadius::all(px(4)),
+                        border: px(1).all(),
+                    },
+                ))),
+            ));
+        }),)),
+    )
+}
+
+// Creates a scrolling area for the horizontal scroll demo
+//
+// The setup is similar to the vertical scrolling demo.
+fn horizontal_scroll_area_demo(asset_server: &AssetServer) -> impl Bundle {
+    // Load handles up front, while we still have access to the asset server.
+    let image = asset_server.load("branding/icon.png");
+    (
+        // Frame element which contains the scroll area and scrollbars.
+        Node {
+            display: Display::Grid,
+            width: px(200),
+            height: px(50),
+            grid_template_columns: vec![RepeatedGridTrack::flex(1, 1.)],
+            grid_template_rows: vec![RepeatedGridTrack::flex(1, 1.), RepeatedGridTrack::auto(1)],
+            row_gap: px(2),
+            column_gap: px(2),
+            ..default()
+        },
+        Children::spawn((SpawnWith(move |parent: &mut RelatedSpawner<ChildOf>| {
+            // Resize the icon, otherwise the scroll area width will expand to fit original icon size
+            let bevy_icon_sized = (
+                Node {
+                    height: px(32),
+                    ..default()
+                },
+                ImageNode::new(image.clone()),
+            );
+            // The actual scrolling area.
+            // Note that we're using `SpawnWith` here because we need to get the entity id of the
+            // scroll area in order to set the target of the scrollbars.
+            let scroll_area_id = parent
+                .spawn((
+                    Node {
+                        display: Display::Flex,
+                        flex_direction: FlexDirection::Row,
+                        padding: UiRect::all(px(4)),
+                        overflow: Overflow::scroll(),
+                        ..default()
+                    },
+                    BackgroundColor(colors::GRAY1.into()),
+                    ScrollPosition::default(),
+                    ScrollArea, // enable trackpad/mouse scrolling
+                    Children::spawn((
+                        // The actual content of the scrolling
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                        Spawn(bevy_icon_sized.clone()),
+                    )),
+                ))
+                .id();
+
+            // Horizontal scrollbar
+            parent.spawn((
+                Node {
+                    min_height: px(8),
+                    grid_row: GridPlacement::start(2),
+                    grid_column: GridPlacement::start(1),
+                    ..default()
+                },
+                Scrollbar {
+                    orientation: ControlOrientation::Horizontal,
                     target: scroll_area_id,
                     min_thumb_length: 8.0,
                 },
