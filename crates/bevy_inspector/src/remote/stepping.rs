@@ -78,7 +78,7 @@ impl SteppingCall {
     }
 }
 
-/// The stepping status of the remote app, as last reported by a `stepping.*` call.
+/// The stepping status of the remote app, as last reported by `stepping.status`.
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub enum SteppingStatus {
     /// No `stepping.*` call has been answered yet.
@@ -176,6 +176,8 @@ pub fn stepping_button_clicked(
 
 /// Sends the requested `stepping.*` call, and polls `stepping.status` while connected.
 ///
+/// A successful call other than `stepping.status` is followed by a `stepping.status` read.
+///
 /// Polling stops once the remote app reports that stepping is unavailable, since it cannot gain
 /// the feature without restarting, and resumes when the connection changes or drops.
 pub fn poll_remote_stepping(
@@ -200,7 +202,11 @@ pub fn poll_remote_stepping(
 
     if let Some(mut pending) = stepping.pending.take() {
         match block_on(poll_once(&mut pending.task)) {
-            Some(result) => finish_stepping_call(&mut status, pending.call, result),
+            Some(result) => {
+                if finish_stepping_call(&mut status, pending.call, result) {
+                    stepping.next_status = now;
+                }
+            }
             None if now.saturating_sub(pending.started) >= REQUEST_TIMEOUT => {
                 warn!("the remote app did not answer `{}`", pending.call.method());
             }
@@ -230,22 +236,29 @@ pub fn poll_remote_stepping(
     });
 }
 
+/// Applies the answer to `call`, returning whether `stepping.status` should be read right away.
+///
+/// Only `stepping.status` answers update `status`, since the other calls take effect on the next
+/// frame of the remote app.
 fn finish_stepping_call(
     status: &mut SteppingStatus,
     call: SteppingCall,
     result: Result<Value, BrpClientError>,
-) {
-    match result.map(serde_json::from_value::<BrpSteppingStatusResponse>) {
-        Ok(Ok(response)) => {
-            *status = SteppingStatus::Known {
-                paused: response.enabled,
-                cursor: response.cursor,
-            };
-        }
-        Ok(Err(error)) => warn!(
-            "the remote app sent an invalid `{}` response: {error}",
-            call.method()
-        ),
+) -> bool {
+    match result {
+        Ok(_) if call != SteppingCall::Status => return true,
+        Ok(value) => match serde_json::from_value::<BrpSteppingStatusResponse>(value) {
+            Ok(response) => {
+                *status = SteppingStatus::Known {
+                    paused: response.enabled,
+                    cursor: response.cursor,
+                };
+            }
+            Err(error) => warn!(
+                "the remote app sent an invalid `{}` response: {error}",
+                call.method()
+            ),
+        },
         Err(BrpClientError::Remote(BrpError { code, message, .. }))
             if code == error_codes::METHOD_NOT_FOUND || code == error_codes::RESOURCE_ERROR =>
         {
@@ -254,6 +267,7 @@ fn finish_stepping_call(
         }
         Err(error) => warn!("the remote app rejected `{}`: {error}", call.method()),
     }
+    false
 }
 
 /// Enables the stepping buttons that apply to the current [`SteppingStatus`], and shows the cursor.
@@ -303,7 +317,7 @@ mod tests {
     use serde_json::json;
 
     fn finish(status: &mut SteppingStatus, result: Result<Value, BrpClientError>) {
-        finish_stepping_call(status, SteppingCall::Status, result);
+        assert!(!finish_stepping_call(status, SteppingCall::Status, result));
     }
 
     fn cursor() -> BrpSteppingCursor {
@@ -343,6 +357,37 @@ mod tests {
                 cursor: None,
             }
         );
+    }
+
+    #[test]
+    fn actions_request_a_status_read() {
+        let known = SteppingStatus::Known {
+            paused: false,
+            cursor: None,
+        };
+        for call in [
+            SteppingCall::Pause,
+            SteppingCall::Resume,
+            SteppingCall::StepFrame,
+            SteppingCall::ContinueFrame,
+        ] {
+            let mut status = known.clone();
+            assert!(finish_stepping_call(&mut status, call, Ok(Value::Null)));
+            assert_eq!(status, known);
+        }
+
+        let mut status = known.clone();
+        let error = BrpClientError::Remote(BrpError {
+            code: error_codes::RESOURCE_ERROR,
+            message: "no Stepping resource".to_string(),
+            data: None,
+        });
+        assert!(!finish_stepping_call(
+            &mut status,
+            SteppingCall::Pause,
+            Err(error)
+        ));
+        assert_eq!(status, SteppingStatus::Unavailable);
     }
 
     #[test]

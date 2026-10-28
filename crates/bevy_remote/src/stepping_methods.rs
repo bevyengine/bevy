@@ -12,15 +12,24 @@ pub use handlers::*;
 pub const BRP_STEPPING_STATUS: &str = "stepping.status";
 
 /// The method path for a `stepping.enable` request.
+///
+/// Responds with `null`. The change applies at the start of the next frame, so call
+/// `stepping.status` to read it.
 pub const BRP_STEPPING_ENABLE: &str = "stepping.enable";
 
 /// The method path for a `stepping.disable` request.
+///
+/// Responds with `null`, like [`BRP_STEPPING_ENABLE`].
 pub const BRP_STEPPING_DISABLE: &str = "stepping.disable";
 
 /// The method path for a `stepping.step_frame` request.
+///
+/// Responds with `null`, like [`BRP_STEPPING_ENABLE`].
 pub const BRP_STEPPING_STEP_FRAME: &str = "stepping.step_frame";
 
 /// The method path for a `stepping.continue_frame` request.
+///
+/// Responds with `null`, like [`BRP_STEPPING_ENABLE`].
 pub const BRP_STEPPING_CONTINUE_FRAME: &str = "stepping.continue_frame";
 
 /// The position of the stepping cursor within the stepping frame.
@@ -33,7 +42,7 @@ pub struct BrpSteppingCursor {
     pub system: String,
 }
 
-/// The response to any of the `stepping.*` requests.
+/// The response to a `stepping.status` request.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
 pub struct BrpSteppingStatusResponse {
     /// Whether system stepping is currently enabled.
@@ -84,13 +93,13 @@ mod handlers {
         update_stepping(world, Stepping::continue_frame)
     }
 
-    /// Applies `update` to the [`Stepping`] resource and responds with the new status.
+    /// Queues `update` on the [`Stepping`] resource, which applies it at the start of the next frame.
     fn update_stepping(world: &mut World, update: fn(&mut Stepping) -> &mut Stepping) -> BrpResult {
         let Some(mut stepping) = world.get_resource_mut::<Stepping>() else {
             return Err(missing_stepping());
         };
         update(&mut stepping);
-        stepping_status(In(None), world)
+        Ok(Value::Null)
     }
 
     fn missing_stepping() -> BrpError {
@@ -137,22 +146,44 @@ mod handlers {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use bevy_ecs::schedule::{Schedule, ScheduleLabel};
+        use alloc::vec::Vec;
+        use bevy_ecs::resource::Resource;
+        use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel};
         use bevy_ecs::system::{ResMut, SystemState};
 
         #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
         struct TestSchedule;
+
+        #[derive(Resource, Default)]
+        struct Runs(Vec<&'static str>);
+
+        fn first_system(mut runs: ResMut<Runs>) {
+            runs.0.push("first");
+        }
+
+        fn second_system(mut runs: ResMut<Runs>) {
+            runs.0.push("second");
+        }
 
         fn status(world: &World) -> BrpSteppingStatusResponse {
             let value = stepping_status(In(None), world).unwrap();
             serde_json::from_value(value).unwrap()
         }
 
+        fn take_runs(world: &mut World) -> Vec<&'static str> {
+            core::mem::take(&mut world.resource_mut::<Runs>().0)
+        }
+
+        fn cursor_system(world: &World) -> Option<String> {
+            status(world).cursor.map(|cursor| cursor.system)
+        }
+
         fn stepping_world() -> World {
             let mut world = World::new();
+            world.init_resource::<Runs>();
 
             let mut schedule = Schedule::new(TestSchedule);
-            schedule.add_systems(|| {});
+            schedule.add_systems((first_system, second_system).chain());
             world.add_schedule(schedule);
 
             let mut stepping = Stepping::new();
@@ -176,37 +207,67 @@ mod handlers {
         }
 
         #[test]
-        fn stepping_enable_reports_schedule() {
+        fn stepping_enable_applies_next_frame() {
             let mut world = stepping_world();
-            stepping_enable(In(None), &mut world).unwrap();
             run_frame(&mut world);
+            assert_eq!(take_runs(&mut world), ["first", "second"]);
 
+            assert_eq!(stepping_enable(In(None), &mut world).unwrap(), Value::Null);
+            assert!(!status(&world).enabled);
+
+            run_frame(&mut world);
             let status = status(&world);
             assert!(status.enabled);
             assert_eq!(status.schedules, vec![format!("{TestSchedule:?}")]);
+            assert!(take_runs(&mut world).is_empty());
         }
 
         #[test]
-        fn stepping_disable_reports_disabled() {
+        fn stepping_disable_applies_next_frame() {
             let mut world = stepping_world();
             stepping_enable(In(None), &mut world).unwrap();
             run_frame(&mut world);
-            stepping_disable(In(None), &mut world).unwrap();
-            run_frame(&mut world);
+            assert!(take_runs(&mut world).is_empty());
 
+            assert_eq!(stepping_disable(In(None), &mut world).unwrap(), Value::Null);
+            assert!(status(&world).enabled);
+
+            run_frame(&mut world);
             assert!(!status(&world).enabled);
+            assert_eq!(take_runs(&mut world), ["first", "second"]);
         }
 
         #[test]
-        fn stepping_frame_controls_succeed() {
+        fn stepping_step_frame_runs_one_system() {
             let mut world = stepping_world();
             stepping_enable(In(None), &mut world).unwrap();
             run_frame(&mut world);
+            assert!(cursor_system(&world).unwrap().ends_with("first_system"));
 
-            assert!(stepping_step_frame(In(None), &mut world).is_ok());
+            assert_eq!(
+                stepping_step_frame(In(None), &mut world).unwrap(),
+                Value::Null
+            );
             run_frame(&mut world);
-            assert!(stepping_continue_frame(In(None), &mut world).is_ok());
+            assert_eq!(take_runs(&mut world), ["first"]);
+            assert!(cursor_system(&world).unwrap().ends_with("second_system"));
+        }
+
+        #[test]
+        fn stepping_continue_frame_runs_the_rest_of_the_frame() {
+            let mut world = stepping_world();
+            stepping_enable(In(None), &mut world).unwrap();
             run_frame(&mut world);
+            stepping_step_frame(In(None), &mut world).unwrap();
+            run_frame(&mut world);
+            assert_eq!(take_runs(&mut world), ["first"]);
+
+            assert_eq!(
+                stepping_continue_frame(In(None), &mut world).unwrap(),
+                Value::Null
+            );
+            run_frame(&mut world);
+            assert_eq!(take_runs(&mut world), ["second"]);
         }
 
         #[test]
