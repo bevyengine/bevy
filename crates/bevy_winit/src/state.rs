@@ -10,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_input::{
     gestures::*,
-    keyboard::{Key, KeyCode, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{trace, warn};
@@ -26,7 +25,6 @@ use winit::{
     event,
     event::{DeviceEvent, DeviceId, Modifiers, StartCause, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    keyboard::ModifiersKeyState,
     window::WindowId,
 };
 
@@ -814,50 +812,11 @@ impl WinitAppRunnerState {
                 continue;
             };
 
-            let state = mods.state();
-            for (key_codes, logical_key, group_pressed) in [
-                (
-                    [
-                        (KeyCode::SuperLeft, mods.lsuper_state()),
-                        (KeyCode::SuperRight, mods.rsuper_state()),
-                    ],
-                    Key::Super,
-                    state.super_key(),
-                ),
-                (
-                    [
-                        (KeyCode::ControlLeft, mods.lcontrol_state()),
-                        (KeyCode::ControlRight, mods.rcontrol_state()),
-                    ],
-                    Key::Control,
-                    state.control_key(),
-                ),
-                (
-                    [
-                        (KeyCode::AltLeft, mods.lalt_state()),
-                        (KeyCode::AltRight, mods.ralt_state()),
-                    ],
-                    Key::Alt,
-                    state.alt_key(),
-                ),
-                (
-                    [
-                        (KeyCode::ShiftLeft, mods.lshift_state()),
-                        (KeyCode::ShiftRight, mods.rshift_state()),
-                    ],
-                    Key::Shift,
-                    state.shift_key(),
-                ),
-            ] {
-                reconcile_modifier_group(
-                    &mut pressed_keys,
-                    window,
-                    key_codes,
-                    logical_key,
-                    group_pressed,
-                    &mut synthesized,
-                );
-            }
+            synthesized.extend(crate::modifier_reconciliation::reconcile_modifiers(
+                &mut pressed_keys.0,
+                window,
+                mods,
+            ));
         }
 
         for event in synthesized {
@@ -887,38 +846,6 @@ impl WinitAppRunnerState {
                 .resource_mut::<Messages<BevyWindowEvent>>()
                 .write_batch(window_events);
         }
-    }
-}
-
-fn reconcile_modifier_group(
-    pressed_keys: &mut WinitWindowPressedKeys,
-    window: Entity,
-    key_codes: [(KeyCode, ModifiersKeyState); 2],
-    logical_key: Key,
-    group_pressed: bool,
-    synthesized: &mut Vec<KeyboardInput>,
-) {
-    for (key_code, pressed) in crate::modifier_reconciliation::transitions(
-        &pressed_keys.0,
-        &logical_key,
-        key_codes,
-        group_pressed,
-    ) {
-        let state = if pressed {
-            pressed_keys.0.insert(key_code, logical_key.clone());
-            bevy_input::ButtonState::Pressed
-        } else {
-            pressed_keys.0.remove(&key_code);
-            bevy_input::ButtonState::Released
-        };
-        synthesized.push(KeyboardInput {
-            key_code,
-            logical_key: logical_key.clone(),
-            state,
-            repeat: false,
-            window,
-            text: None,
-        });
     }
 }
 
@@ -1010,139 +937,18 @@ pub(crate) fn react_to_scale_factor_change(
 #[cfg(test)]
 mod tests {
     use bevy_app::Update;
-    use bevy_input::{ButtonInput, ButtonState, InputPlugin};
+    use bevy_input::{
+        keyboard::{Key, KeyCode, KeyboardInput},
+        ButtonInput, ButtonState, InputPlugin,
+    };
     use bevy_window::{ExitCondition, WindowPlugin};
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use winit::keyboard::ModifiersState;
 
     use super::*;
 
     #[test]
-    fn modifier_reconciliation_preserves_remapped_keys() {
-        for (key_code, logical_key, modifiers) in [
-            (KeyCode::ControlLeft, Key::Alt, ModifiersState::ALT),
-            (KeyCode::ControlRight, Key::Alt, ModifiersState::ALT),
-            (KeyCode::AltLeft, Key::Control, ModifiersState::CONTROL),
-            (KeyCode::AltRight, Key::Control, ModifiersState::CONTROL),
-            (KeyCode::ShiftLeft, Key::Super, ModifiersState::SUPER),
-            (KeyCode::ShiftRight, Key::Super, ModifiersState::SUPER),
-            (KeyCode::SuperLeft, Key::Shift, ModifiersState::SHIFT),
-            (KeyCode::SuperRight, Key::Shift, ModifiersState::SHIFT),
-            (KeyCode::AltRight, Key::AltGraph, ModifiersState::empty()),
-            (
-                KeyCode::ControlLeft,
-                Key::Character("x".into()),
-                ModifiersState::empty(),
-            ),
-            (KeyCode::CapsLock, Key::Control, ModifiersState::CONTROL),
-        ] {
-            let mut app = App::new();
-            let window = app
-                .world_mut()
-                .spawn(WinitWindowPressedKeys(HashMap::from([(
-                    key_code,
-                    logical_key.clone(),
-                )])))
-                .id();
-            let mut runner = WinitAppRunnerState::new(app);
-            runner.pending_modifiers.push((window, modifiers.into()));
-
-            runner.reconcile_pending_modifiers();
-
-            assert!(runner.bevy_window_events.is_empty(), "{key_code:?}");
-            assert_eq!(
-                runner
-                    .world()
-                    .get::<WinitWindowPressedKeys>(window)
-                    .unwrap()
-                    .0,
-                HashMap::from([(key_code, logical_key)])
-            );
-        }
-    }
-
-    #[test]
-    fn modifier_reconciliation_releases_remapped_keys_in_their_own_window() {
-        let mut app = App::new();
-        let window = app
-            .world_mut()
-            .spawn(WinitWindowPressedKeys(HashMap::from([(
-                KeyCode::CapsLock,
-                Key::Control,
-            )])))
-            .id();
-        let other_window = app
-            .world_mut()
-            .spawn(WinitWindowPressedKeys(HashMap::from([(
-                KeyCode::ControlLeft,
-                Key::Alt,
-            )])))
-            .id();
-        let mut runner = WinitAppRunnerState::new(app);
-        runner
-            .pending_modifiers
-            .push((window, ModifiersState::empty().into()));
-
-        runner.reconcile_pending_modifiers();
-
-        assert!(runner
-            .world()
-            .get::<WinitWindowPressedKeys>(window)
-            .unwrap()
-            .0
-            .is_empty());
-        assert_eq!(
-            runner
-                .world()
-                .get::<WinitWindowPressedKeys>(other_window)
-                .unwrap()
-                .0,
-            HashMap::from([(KeyCode::ControlLeft, Key::Alt)])
-        );
-        assert_eq!(
-            runner.bevy_window_events,
-            vec![BevyWindowEvent::KeyboardInput(KeyboardInput {
-                key_code: KeyCode::CapsLock,
-                logical_key: Key::Control,
-                state: ButtonState::Released,
-                repeat: false,
-                window,
-                text: None,
-            })]
-        );
-    }
-
-    fn setup_modifier_input(keys: &[(KeyCode, Key)]) -> (WinitAppRunnerState, Entity) {
-        let mut app = App::new();
-        app.add_plugins((
-            InputPlugin,
-            WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                close_when_requested: false,
-                ..Default::default()
-            },
-        ));
-        let window = app
-            .world_mut()
-            .spawn(WinitWindowPressedKeys(keys.iter().cloned().collect()))
-            .id();
-        let mut runner = WinitAppRunnerState::new(app);
-        for (key_code, logical_key) in keys {
-            runner.bevy_window_events.send(KeyboardInput {
-                key_code: *key_code,
-                logical_key: logical_key.clone(),
-                state: ButtonState::Pressed,
-                repeat: false,
-                window,
-                text: None,
-            });
-        }
-        (runner, window)
-    }
-
-    #[test]
-    fn modifier_reconciliation_updates_button_input_for_remapped_chords() {
+    fn modifier_reconciliation_updates_remapped_chords_in_their_own_window() {
         let modifiers = [
             (KeyCode::ControlLeft, Key::Alt, ModifiersState::ALT),
             (KeyCode::AltLeft, Key::Control, ModifiersState::CONTROL),
@@ -1154,273 +960,116 @@ mod tests {
             .map(|(code, key, _)| (*code, key.clone()))
             .collect();
         keys.push((KeyCode::KeyA, Key::Character("a".into())));
-        for releases in [
-            vec![
-                ModifiersState::ALT,
-                ModifiersState::CONTROL,
-                ModifiersState::SUPER,
-                ModifiersState::SHIFT,
-            ],
-            vec![
-                ModifiersState::ALT | ModifiersState::CONTROL,
-                ModifiersState::SUPER | ModifiersState::SHIFT,
-            ],
-        ] {
-            let (mut runner, window) = setup_modifier_input(&keys);
-            let mut active = ModifiersState::all();
-            runner.pending_modifiers.push((window, active.into()));
-            runner.forward_bevy_events();
-            runner.app.update();
-
-            let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-            let logical = runner.world().resource::<ButtonInput<Key>>();
-            for (code, key) in &keys {
-                assert!(physical.just_pressed(*code));
-                assert!(logical.just_pressed(key.clone()));
-            }
-            assert_eq!(
-                runner
-                    .world()
-                    .get::<WinitWindowPressedKeys>(window)
-                    .unwrap()
-                    .0,
-                keys.iter().cloned().collect()
-            );
-
-            runner.pending_modifiers.push((window, active.into()));
-            runner.forward_bevy_events();
-            runner.app.update();
-            let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-            let logical = runner.world().resource::<ButtonInput<Key>>();
-            assert_eq!(physical.get_pressed().len(), keys.len());
-            assert_eq!(logical.get_pressed().len(), keys.len());
-            assert!(physical.get_just_pressed().next().is_none());
-            assert!(logical.get_just_pressed().next().is_none());
-            assert!(physical.get_just_released().next().is_none());
-            assert!(logical.get_just_released().next().is_none());
-
-            for released in releases {
-                active.remove(released);
-                runner.pending_modifiers.push((window, active.into()));
-                runner.forward_bevy_events();
-                runner.app.update();
-
-                let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-                let logical = runner.world().resource::<ButtonInput<Key>>();
-                let recorded = &runner
-                    .world()
-                    .get::<WinitWindowPressedKeys>(window)
-                    .unwrap()
-                    .0;
-                for (code, key, group) in &modifiers {
-                    assert_eq!(physical.pressed(*code), active.contains(*group));
-                    assert_eq!(logical.pressed(key.clone()), active.contains(*group));
-                    assert_eq!(physical.just_released(*code), released.contains(*group));
-                    assert_eq!(
-                        logical.just_released(key.clone()),
-                        released.contains(*group)
-                    );
-                    assert_eq!(recorded.contains_key(code), active.contains(*group));
-                }
-                assert!(physical.pressed(KeyCode::KeyA));
-                assert!(logical.pressed(Key::Character("a".into())));
-                let events: Vec<_> = runner
-                    .world()
-                    .resource::<Messages<KeyboardInput>>()
-                    .iter_current_update_messages()
-                    .cloned()
-                    .collect();
-                let expected: HashSet<_> = modifiers
-                    .iter()
-                    .filter(|(_, _, group)| released.contains(*group))
-                    .map(|(code, key, _)| KeyboardInput {
-                        key_code: *code,
-                        logical_key: key.clone(),
-                        state: ButtonState::Released,
-                        repeat: false,
-                        window,
-                        text: None,
-                    })
-                    .collect();
-                assert_eq!(events.len(), expected.len());
-                assert_eq!(events.into_iter().collect::<HashSet<_>>(), expected);
-            }
-            runner.pending_modifiers.push((window, active.into()));
-            runner.forward_bevy_events();
-            runner.app.update();
-            let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-            let logical = runner.world().resource::<ButtonInput<Key>>();
-            assert_eq!(
-                physical.get_pressed().copied().collect::<Vec<_>>(),
-                vec![KeyCode::KeyA]
-            );
-            assert_eq!(
-                logical.get_pressed().cloned().collect::<Vec<_>>(),
-                vec![Key::Character("a".into())]
-            );
-            assert!(physical.get_just_released().next().is_none());
-            assert!(logical.get_just_released().next().is_none());
-            assert_eq!(
-                runner
-                    .world()
-                    .resource::<Messages<KeyboardInput>>()
-                    .iter_current_update_messages()
-                    .count(),
-                0
-            );
+        let mut app = App::new();
+        app.add_plugins((
+            InputPlugin,
+            WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                close_when_requested: false,
+                ..Default::default()
+            },
+        ));
+        let recorded: HashMap<_, _> = keys.iter().cloned().collect();
+        let window = app
+            .world_mut()
+            .spawn(WinitWindowPressedKeys(recorded.clone()))
+            .id();
+        let other_window = app
+            .world_mut()
+            .spawn(WinitWindowPressedKeys(recorded.clone()))
+            .id();
+        let mut runner = WinitAppRunnerState::new(app);
+        for (key_code, logical_key) in &keys {
+            runner.bevy_window_events.send(KeyboardInput {
+                key_code: *key_code,
+                logical_key: logical_key.clone(),
+                state: ButtonState::Pressed,
+                repeat: false,
+                window,
+                text: None,
+            });
         }
-    }
-
-    #[test]
-    fn modifier_reconciliation_recovers_presses_through_button_input() {
-        for (logical_key, group, codes) in [
-            (
-                Key::Control,
-                ModifiersState::CONTROL,
-                [KeyCode::ControlLeft, KeyCode::ControlRight],
-            ),
-            (
-                Key::Alt,
-                ModifiersState::ALT,
-                [KeyCode::AltLeft, KeyCode::AltRight],
-            ),
-            (
-                Key::Shift,
-                ModifiersState::SHIFT,
-                [KeyCode::ShiftLeft, KeyCode::ShiftRight],
-            ),
-            (
-                Key::Super,
-                ModifiersState::SUPER,
-                [KeyCode::SuperLeft, KeyCode::SuperRight],
-            ),
-        ] {
-            for (side, &key_code) in codes.iter().enumerate() {
-                let (mut runner, window) = setup_modifier_input(&[]);
-                let mut states = codes.map(|code| (code, ModifiersKeyState::Unknown));
-                states[side].1 = ModifiersKeyState::Pressed;
-                let mut synthesized = Vec::new();
-                for _ in 0..2 {
-                    let mut pressed_keys = runner
-                        .world_mut()
-                        .get_mut::<WinitWindowPressedKeys>(window)
-                        .unwrap();
-                    reconcile_modifier_group(
-                        &mut pressed_keys,
-                        window,
-                        states,
-                        logical_key.clone(),
-                        true,
-                        &mut synthesized,
-                    );
-                }
-                let expected = KeyboardInput {
-                    key_code,
-                    logical_key: logical_key.clone(),
-                    state: ButtonState::Pressed,
+        let mut previous = ModifiersState::empty();
+        for (frame, (active, real_release, event_count)) in [
+            (ModifiersState::all(), false, keys.len()),
+            (ModifiersState::all(), false, 0),
+            (ModifiersState::all() & !ModifiersState::ALT, true, 1),
+            (ModifiersState::empty(), false, 3),
+            (ModifiersState::empty(), false, 0),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            if real_release {
+                runner
+                    .world_mut()
+                    .get_mut::<WinitWindowPressedKeys>(window)
+                    .unwrap()
+                    .0
+                    .remove(&KeyCode::ControlLeft);
+                runner.bevy_window_events.send(KeyboardInput {
+                    key_code: KeyCode::ControlLeft,
+                    logical_key: Key::Alt,
+                    state: ButtonState::Released,
                     repeat: false,
                     window,
                     text: None,
-                };
-                assert_eq!(synthesized, vec![expected.clone()]);
-                assert_eq!(
-                    runner
-                        .world()
-                        .get::<WinitWindowPressedKeys>(window)
-                        .unwrap()
-                        .0,
-                    HashMap::from([(key_code, logical_key.clone())])
-                );
-                for event in synthesized {
-                    runner.bevy_window_events.send(event);
-                }
-                runner.forward_bevy_events();
-                runner.app.update();
-
-                let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-                let logical = runner.world().resource::<ButtonInput<Key>>();
-                assert!(physical.pressed(key_code));
-                assert!(physical.just_pressed(key_code));
-                assert!(logical.pressed(logical_key.clone()));
-                assert!(logical.just_pressed(logical_key.clone()));
-                assert_eq!(
-                    runner
-                        .world()
-                        .resource::<Messages<KeyboardInput>>()
-                        .iter_current_update_messages()
-                        .cloned()
-                        .collect::<Vec<_>>(),
-                    vec![expected]
-                );
-
-                runner.pending_modifiers.push((window, group.into()));
-                runner.forward_bevy_events();
-                runner.app.update();
-                let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-                let logical = runner.world().resource::<ButtonInput<Key>>();
-                assert!(physical.pressed(key_code));
-                assert!(!physical.just_pressed(key_code));
-                assert!(logical.pressed(logical_key.clone()));
-                assert!(!logical.just_pressed(logical_key.clone()));
-
-                runner
-                    .pending_modifiers
-                    .push((window, ModifiersState::empty().into()));
-                runner.forward_bevy_events();
-                runner.app.update();
-                let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-                let logical = runner.world().resource::<ButtonInput<Key>>();
-                assert!(!physical.pressed(key_code));
-                assert!(physical.just_released(key_code));
-                assert!(!logical.pressed(logical_key.clone()));
-                assert!(logical.just_released(logical_key.clone()));
-                assert!(runner
-                    .world()
-                    .get::<WinitWindowPressedKeys>(window)
-                    .unwrap()
-                    .0
-                    .is_empty());
+                });
             }
-        }
-    }
-
-    #[test]
-    fn modifier_reconciliation_does_not_duplicate_real_releases() {
-        let (mut runner, window) = setup_modifier_input(&[(KeyCode::ControlLeft, Key::Alt)]);
-        runner
-            .world_mut()
-            .get_mut::<WinitWindowPressedKeys>(window)
-            .unwrap()
-            .0
-            .clear();
-        runner.bevy_window_events.send(KeyboardInput {
-            key_code: KeyCode::ControlLeft,
-            logical_key: Key::Alt,
-            state: ButtonState::Released,
-            repeat: false,
-            window,
-            text: None,
-        });
-        runner
-            .pending_modifiers
-            .push((window, ModifiersState::empty().into()));
-        runner.forward_bevy_events();
-        runner.app.update();
-
-        let physical = runner.world().resource::<ButtonInput<KeyCode>>();
-        let logical = runner.world().resource::<ButtonInput<Key>>();
-        assert!(!physical.pressed(KeyCode::ControlLeft));
-        assert!(!logical.pressed(Key::Alt));
-        assert!(physical.just_released(KeyCode::ControlLeft));
-        assert!(logical.just_released(Key::Alt));
-        assert_eq!(
-            runner
+            runner.pending_modifiers.push((window, active.into()));
+            runner.forward_bevy_events();
+            runner.app.update();
+            let physical = runner.world().resource::<ButtonInput<KeyCode>>();
+            let logical = runner.world().resource::<ButtonInput<Key>>();
+            let pressed_keys = &runner
+                .world()
+                .get::<WinitWindowPressedKeys>(window)
+                .unwrap()
+                .0;
+            for (code, key, group) in &modifiers {
+                assert_eq!(physical.pressed(*code), active.contains(*group));
+                assert_eq!(logical.pressed(key.clone()), active.contains(*group));
+                assert_eq!(
+                    pressed_keys.get(code),
+                    active.contains(*group).then_some(key)
+                );
+                assert_eq!(physical.just_pressed(*code), frame == 0);
+                assert_eq!(logical.just_pressed(key.clone()), frame == 0);
+                assert_eq!(
+                    physical.just_released(*code),
+                    (previous & !active).contains(*group)
+                );
+                assert_eq!(
+                    logical.just_released(key.clone()),
+                    (previous & !active).contains(*group)
+                );
+            }
+            assert!(physical.pressed(KeyCode::KeyA));
+            assert!(logical.pressed(Key::Character("a".into())));
+            assert_eq!(
+                pressed_keys.get(&KeyCode::KeyA),
+                Some(&Key::Character("a".into()))
+            );
+            assert_eq!(
+                runner
+                    .world()
+                    .get::<WinitWindowPressedKeys>(other_window)
+                    .unwrap()
+                    .0,
+                recorded
+            );
+            let events: Vec<_> = runner
                 .world()
                 .resource::<Messages<KeyboardInput>>()
                 .iter_current_update_messages()
-                .count(),
-            2
-        );
+                .collect();
+            assert_eq!(events.len(), event_count);
+            assert!(events
+                .iter()
+                .all(|event| event.window == window && !event.repeat && event.text.is_none()));
+            previous = active;
+        }
     }
 
     #[test]
