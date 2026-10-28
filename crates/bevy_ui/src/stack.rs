@@ -1,10 +1,8 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use crate::{GhostNode, GlobalZIndex, Node, ZIndex};
-use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
-    prelude::*,
-};
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use core::ops::Range;
@@ -85,7 +83,7 @@ pub fn ui_stack_system(
     mut stack_lists: Local<Vec<(StackRoot, usize, Vec<Entity>)>>,
     mut stack_list_order: Local<Vec<usize>>,
     mut node_buffers: Local<Vec<Vec<Entity>>>,
-    mut stack_root_order: Local<EntityHashMap<usize>>,
+    mut stack_root_order: Local<HashMap<(Entity, i32), usize>>,
     mut removed_zindices: Local<EntityHashSet>,
     mut removed_global_zindices: Local<EntityHashSet>,
     mut zindex_removals: RemovedComponents<ZIndex>,
@@ -125,7 +123,6 @@ pub fn ui_stack_system(
         else {
             continue;
         };
-        let previous = stack_root_order.get(&root_entity).copied();
         let mut stack_root = StackRoot {
             global_z: global_zindex.as_ref().map_or(0, |z| z.0),
             local_z: zindex.as_ref().map_or(0, |z| z.0),
@@ -144,8 +141,7 @@ pub fn ui_stack_system(
             nodes.push(root_entity);
             stack_lists.push((stack_root, order, nodes));
         }
-        let mut changed = previous.is_none()
-            || global_zindex.as_ref().is_some_and(Ref::is_changed)
+        let mut changed = global_zindex.as_ref().is_some_and(Ref::is_changed)
             || zindex.as_ref().is_some_and(Ref::is_changed)
             || removed_zindices.contains(&root_entity)
             || removed_global_zindices.contains(&root_entity);
@@ -163,9 +159,23 @@ pub fn ui_stack_system(
                 &removed_global_zindices,
             );
         }
-        stack_root.new_or_changed = changed;
-        stack_root.previous_index = previous.unwrap_or(usize::MAX);
-        stack_roots.push((root_entity, stack_root, lists_start..stack_lists.len()));
+        let mut start = lists_start;
+        while start < stack_lists.len() {
+            let local_z = stack_lists[start].0.local_z;
+            let end = start
+                + stack_lists[start..]
+                    .iter()
+                    .take_while(|(root, _, _)| root.local_z == local_z)
+                    .count();
+            stack_root.local_z = local_z;
+            stack_root.previous_index = stack_root_order
+                .get(&(root_entity, local_z))
+                .copied()
+                .unwrap_or(usize::MAX);
+            stack_root.new_or_changed = changed || stack_root.previous_index == usize::MAX;
+            stack_roots.push((root_entity, stack_root, start..end));
+            start = end;
+        }
     }
 
     stack_roots.sort_unstable_by_key(|(_, root, _)| {
@@ -173,8 +183,8 @@ pub fn ui_stack_system(
     });
 
     stack_root_order.clear();
-    for (index, (entity, _, lists)) in stack_roots.drain(..).enumerate() {
-        stack_root_order.insert(entity, index);
+    for (index, (entity, root, lists)) in stack_roots.drain(..).enumerate() {
+        stack_root_order.insert((entity, root.local_z), index);
         for (root, _, _) in &mut stack_lists[lists] {
             root.previous_index = index;
         }
@@ -311,55 +321,6 @@ fn update_uistack_recursive<'a>(
 
     child_buffer.truncate(start);
     changed
-}
-
-#[cfg(test)]
-mod review_repros {
-    use super::*;
-
-    #[test]
-    fn changed_root_ghost_child_with_nonzero_zindex_is_raised() {
-        let mut world = World::default();
-        world.init_resource::<UiStack>();
-        let mut schedule = Schedule::default();
-        schedule.add_systems(ui_stack_system);
-        let ghost = world.spawn(GhostNode).id();
-        let child = world
-            .spawn((Node::default(), ChildOf(ghost), ZIndex(1)))
-            .id();
-        schedule.run(&mut world);
-        let root = world.spawn((Node::default(), ZIndex(1))).id();
-        schedule.run(&mut world);
-        assert_eq!(
-            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![child, root]
-        );
-        world.entity_mut(child).insert(ZIndex(1));
-        schedule.run(&mut world);
-        assert_eq!(
-            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![root, child]
-        );
-    }
-
-    #[test]
-    fn new_root_above_existing_ghost_child_with_negative_zindex() {
-        let mut world = World::default();
-        world.init_resource::<UiStack>();
-        let mut schedule = Schedule::default();
-        schedule.add_systems(ui_stack_system);
-        let ghost = world.spawn(GhostNode).id();
-        let child = world
-            .spawn((Node::default(), ChildOf(ghost), ZIndex(-1)))
-            .id();
-        schedule.run(&mut world);
-        let root = world.spawn((Node::default(), ZIndex(-1))).id();
-        schedule.run(&mut world);
-        assert_eq!(
-            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![child, root]
-        );
-    }
 }
 
 #[cfg(test)]
@@ -2059,5 +2020,49 @@ mod tests {
         schedule.run(&mut world);
         assert_eq!(world.get::<ComputedStackIndex>(a).unwrap().get(), None);
         assert_eq!(world.get::<ComputedStackIndex>(r).unwrap().get(), Some(0));
+    }
+
+    #[test]
+    fn changed_root_ghost_child_with_nonzero_zindex_is_raised() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+        let ghost = world.spawn(GhostNode).id();
+        let child = world
+            .spawn((Node::default(), ChildOf(ghost), ZIndex(1)))
+            .id();
+        schedule.run(&mut world);
+        let root = world.spawn((Node::default(), ZIndex(1))).id();
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![child, root]
+        );
+        world.entity_mut(child).insert(ZIndex(1));
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![root, child]
+        );
+    }
+
+    #[test]
+    fn new_root_above_existing_ghost_child_with_negative_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+        let ghost = world.spawn(GhostNode).id();
+        let child = world
+            .spawn((Node::default(), ChildOf(ghost), ZIndex(-1)))
+            .id();
+        schedule.run(&mut world);
+        let root = world.spawn((Node::default(), ZIndex(-1))).id();
+        schedule.run(&mut world);
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![child, root]
+        );
     }
 }
