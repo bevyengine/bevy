@@ -1253,6 +1253,52 @@ mod tests {
 
         schedule.run(&mut world);
 
-        assert!(world.resource::<UiStack>().iter().eq([a, c, b]));
+        assert!(world.resource::<UiStack>().iter().eq([a, b, c]));
+    }
+
+    #[test]
+    fn changed_root_ghost_child_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn(GhostNode).id();
+        let a = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([a, r]));
+
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a]));
+    }
+
+    #[test]
+    fn new_root_ghost_child_is_raised_above_root_with_equal_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn(GhostNode).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        let a = world.spawn((Node::default(), ChildOf(g))).id();
+
+        schedule.run(&mut world);
+        assert!(world.resource::<UiStack>().iter().eq([r, a]));
     }
 }
