@@ -423,7 +423,7 @@ pub fn sync_remote_sources(world: &mut World, mut old_sources: Local<HashSet<Ins
         match inspector_source {
             InspectorSource::Local => {}
             InspectorSource::Remote(rem) => {
-                sync_remote_source(world, rem);
+                clear_remote_source(world, rem);
             }
         }
     }
@@ -457,6 +457,25 @@ fn sync_remote_source(world: &mut World, source: &RemoteSource) {
     connection.next_full = Duration::ZERO;
     connection.client = Some(BrpClient::new(source.host.0, source.port));
     connection.source = Some(*source);
+}
+
+fn clear_remote_source(world: &mut World, source: &RemoteSource) {
+    let mut snapshots = world.resource_mut::<RemoteSnapshots>();
+    if source.subapp == WorldKind::Main {
+        snapshots.main = RemoteSnapshot::default();
+    } else {
+        snapshots.render = RemoteSnapshot::default();
+    }
+    reset_inspected_world(world, source);
+
+    let mut remote_connections = world.resource_mut::<RemoteConnections>();
+    let connection = remote_connections.get_mut(source.subapp);
+    connection.pending = None;
+    connection.state = RemoteConnectionState::Disconnected;
+    connection.next_poll = Duration::ZERO;
+    connection.next_full = Duration::ZERO;
+    connection.client = None;
+    connection.source = None;
 }
 
 /// Rebuilds the [`RemoteWorld`] empty, and clears the state tied to the previous source: the
@@ -950,8 +969,8 @@ pub(crate) mod tests {
         world
     }
 
-    pub(crate) fn remote_source() -> RemoteSource {
-        RemoteSource::new("localhost", DEFAULT_PORT, Main)
+    pub(crate) fn remote_source(port: u16) -> RemoteSource {
+        RemoteSource::new("localhost", port, Main)
     }
 
     pub(crate) fn remote(index: u32) -> Entity {
@@ -1440,7 +1459,7 @@ pub(crate) mod tests {
         world.resource_mut::<RemoteConnections>().main.next_full = Duration::from_secs(60);
         world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
             late,
-            InspectorSource::Remote(remote_source()),
+            InspectorSource::Remote(remote_source(DEFAULT_PORT)),
         ));
 
         apply(
@@ -1466,15 +1485,14 @@ pub(crate) mod tests {
         let mut sync_remote_sources_system = IntoSystem::into_system(sync_remote_sources);
         sync_remote_sources_system.initialize(&mut world);
 
-        sync_remote_sources_system.run((), &mut world);
-        // sync_remote_sources(&mut world, local);
+        let _ = sync_remote_sources_system.run((), &mut world);
 
         apply(
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
         world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(remote(11), InspectorSource::Local));
+            Some(InspectableEntity::new(remote(11), InspectorSource::Remote(remote_source(DEFAULT_PORT))));
         let key = ComponentKey::from("remote::Component");
         world
             .resource_mut::<DetailsCollapsed>()
@@ -1486,8 +1504,7 @@ pub(crate) mod tests {
             .insert(key, 0.3);
 
         world.insert_resource(InspectorSources::local());
-        // sync_remote_sources(&mut world, local);
-        sync_remote_sources_system.run((), &mut world);
+        let _ = sync_remote_sources_system.run((), &mut world);
 
         assert!(world
             .resource_mut::<RemoteWorlds>()
@@ -1517,30 +1534,26 @@ pub(crate) mod tests {
         sync_remote_sources_system.initialize(&mut world);
 
         world.insert_resource(InspectorSources::remote_main("localhost", 1));
-        // sync_remote_sources(&mut world, local);
-        sync_remote_sources_system.run((), &mut world);
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
         world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(local, InspectorSource::Local));
-        // sync_remote_sources(&mut world, local);
-        sync_remote_sources_system.run((), &mut world);
+            Some(InspectableEntity::new(local, InspectorSource::Remote(remote_source(1))));
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(
             world.resource::<InspectorSelection>().0,
-            Some(InspectableEntity::new(local, InspectorSource::Local)),
+            Some(InspectableEntity::new(local, InspectorSource::Remote(remote_source(1)))),
             "an unchanged source keeps the selection"
         );
 
         world.insert_resource(InspectorSources::remote_main("localhost", 3));
-        // sync_remote_sources(&mut world, local);
-        sync_remote_sources_system.run((), &mut world);
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        let rs = InspectorSource::Remote(remote_source());
+        let rs = InspectorSource::Remote(remote_source(1));
         world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, rs));
         world.insert_resource(InspectorSources::local());
-        // sync_remote_sources(&mut world, local);
-        sync_remote_sources_system.run((), &mut world);
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
     }
 
@@ -1590,7 +1603,7 @@ pub(crate) mod tests {
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
         world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(remote(11), InspectorSource::Local));
+            Some(InspectableEntity::new(remote(11), InspectorSource::Remote(remote_source(DEFAULT_PORT))));
 
         world.resource_scope(|world, mut connection: Mut<RemoteConnections>| {
             finish_call(

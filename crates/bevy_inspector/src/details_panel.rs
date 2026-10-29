@@ -744,9 +744,6 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
 fn write_field_edit(world: &mut World, edit: &FieldEdit) {
-    if edit.source == InspectorSource::Local {
-        return;
-    }
     let Some(_inspector_sources) = world.get_resource::<InspectorSources>() else {
         return;
     };
@@ -2292,6 +2289,7 @@ mod tests {
     use bevy_ecs::{component::Component, query::With};
     use bevy_platform::sync::Arc;
     use bevy_reflect::TypePath;
+    use bevy_remote::http::DEFAULT_PORT;
     use core::time::Duration;
 
     #[derive(Reflect, Debug, Default)]
@@ -2421,7 +2419,7 @@ mod tests {
     fn edit_component<C: TypePath>(app: &mut App, entity: Entity, path: &str, value: FieldValue) {
         app.world_mut().trigger(FieldEdit {
             entity,
-            source: InspectorSource::Local,
+            source: InspectorSource::Remote(crate::remote::RemoteSource::localhost(DEFAULT_PORT)),
             component: C::type_path().to_string(),
             path: path.to_string(),
             value,
