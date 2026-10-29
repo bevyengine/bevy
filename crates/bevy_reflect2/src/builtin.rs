@@ -149,6 +149,9 @@ impl dyn Reflect {
     /// The clone has the same type (and variant ... in the case of enums) as `self`, so it has the
     /// same field offsets.
     ///
+    // If an ignored field's clone function panics, the ignored fields that were already cloned
+    // are leaked, which is safe.
+    ///
     /// # Safety
     ///
     /// Together, `fields` and `ignored_fields` must yield every field of `self` (ex: every field of
@@ -195,9 +198,8 @@ impl dyn Reflect {
         // If an ignored field's clone function panics, the ignored fields that were already cloned
         // are leaked, which is safe
         for (offset, vtable) in ignored_fields {
-            let clone = vtable
-                .clone
-                .expect("ignored fields were checked to have `clone`");
+            // ignored fields were checked to have `clone`
+            let clone = vtable.clone.unwrap();
             // SAFETY: the caller guarantees that `offset` is the offset of an ignored field in both
             // `self` and `dst`, and that `clone` is valid for its type
             unsafe { clone(self.ptr().byte_add(offset), dst.as_ptr().add(offset)) };
@@ -205,8 +207,8 @@ impl dyn Reflect {
         mem::forget(guard);
         // SAFETY: `dst` was allocated with `Type::alloc`. The caller guarantees that `fields` and
         // `ignored_fields` yielded every field of `self`, so every field was initialized above, and
-        // that `init_uncovered` initialized every other byte, which makes `dst` a valid, fully owned
-        // value.
+        // that `init_uncovered` initialized every other byte (including the discriminant in the case
+        // of enums), which makes `dst` a valid, fully owned value.
         Some(unsafe { ty.box_from_raw(dst) })
     }
 
@@ -344,12 +346,14 @@ impl dyn Reflect {
                 }
             }
             KindRef::Array(value) => {
-                hasher.write_usize(value.len());
+                // Values of the same array type have the same length, so it isn't hashed
                 for item in value.iter() {
                     item.reflect_hash_into(hasher)?;
                 }
             }
             KindRef::Map(_) | KindRef::Set(_) | KindRef::Primitive(_) => {
+                // Primitives, maps, and sets are either handled above by the custom hash impl, or
+                // they fail to hash
                 return None;
             }
         }
