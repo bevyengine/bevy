@@ -159,6 +159,8 @@ impl Type {
     /// Returns `None` if this type is not a [`Kind::Struct`], is unsized, or has an ignored field
     /// without a `default` function.
     ///
+    /// If `func` panics, the allocation for this type will be leaked.
+    ///
     /// # Safety
     ///
     /// `func` must initialize every pointer to a valid value that matches the type described in each [`Field`].
@@ -177,6 +179,7 @@ impl Type {
             // SAFETY: `ptr` is a unique allocation of this type, and `Type::new` guarantees that
             // `field.offset` is in bounds of it
             let field_ptr = unsafe { PtrMut::new(ptr).byte_add(field.offset) };
+            // If `func` panics, the allocation for this type will be leaked.
             (func)(field, field_ptr);
         }
         // SAFETY: `ptr` was allocated by `alloc_struct`, and the caller guarantees that every
