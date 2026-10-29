@@ -9,8 +9,8 @@
 
 extern crate alloc;
 
-pub mod animatable;
 pub mod animation_curves;
+pub mod blendable;
 pub mod gltf_curves;
 pub mod graph;
 #[cfg(feature = "bevy_mesh")]
@@ -29,12 +29,12 @@ use core::{
     hash::{Hash, Hasher},
     iter, slice,
 };
-use graph::AnimationNodeType;
+use graph::BlendNodeType;
 use prelude::AnimationCurveEvaluator;
 
 use crate::{
-    graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
-    prelude::{AnimatableProperty, EvaluatorId},
+    graph::{BlendGraphHandle, ThreadedBlendGraphs},
+    prelude::{BlendableProperty, EvaluatorId},
 };
 
 use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
@@ -57,14 +57,14 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
-        AnimationPlayer, AnimationPlugin, VariableCurve,
+        animation_curves::*, blendable::*, graph::*, transition::*, AnimationClip, AnimationPlayer,
+        AnimationPlugin, VariableCurve,
     };
 }
 
 use crate::{
     animation_curves::AnimationCurve,
-    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    graph::{BlendGraph, BlendGraphAssetLoader, BlendNodeIndex},
     transition::{advance_transitions, expire_completed_transitions},
 };
 use alloc::sync::Arc;
@@ -353,7 +353,7 @@ impl AnimationClip {
         );
     }
 
-    /// Samples an [`AnimatableProperty`] of a specific [`AnimationTargetId`].
+    /// Samples a [`BlendableProperty`] of a specific [`AnimationTargetId`].
     ///
     /// See [`crate::morph::WeightsCurveSample`] if you want to sample [`crate::morph::WeightsCurve`].
     ///
@@ -366,28 +366,28 @@ impl AnimationClip {
     /// # use bevy_math::Vec3;
     /// # use bevy_transform::components::Transform;
     /// let mut clip = AnimationClip::default();
-    /// let animatable_curve = AnimatableCurve::new(
+    /// let blendable_curve = BlendableCurve::new(
     ///     animated_field!(Transform::translation),
-    ///     AnimatableKeyframeCurve::new([
+    ///     BlendableKeyframeCurve::new([
     ///         (0.0, Vec3::new(0., 0., 1.)),
     ///         (1.0, Vec3::new(1., 0., 0.)),
     ///     ])
     ///     .expect("Failed to create power level curve"),
     /// );
     /// let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
-    /// clip.add_curve_to_target(target_1, animatable_curve);
+    /// clip.add_curve_to_target(target_1, blendable_curve);
     /// let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
     /// assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
     /// ```
-    pub fn sample_clamped<P: AnimatableProperty>(
+    pub fn sample_clamped<P: BlendableProperty>(
         &self,
-        animatable_property: P,
+        blendable_property: P,
         target: AnimationTargetId,
         time: f32,
     ) -> Option<P::Property> {
         let curves = self.curves_for_target(target)?;
         for curve in curves {
-            if curve.0.evaluator_id() == animatable_property.evaluator_id()
+            if curve.0.evaluator_id() == blendable_property.evaluator_id()
                 && let Ok(sample) = curve.0.sample_clamped(time).downcast::<P::Property>()
             {
                 return Some(*sample);
@@ -520,7 +520,7 @@ pub enum AnimationEvaluationError {
 #[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Clone, Default)]
 pub struct ActiveAnimation {
-    /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
+    /// The factor by which the weight from the [`BlendGraph`] is multiplied.
     weight: f32,
     repeat: RepeatAnimation,
     speed: f32,
@@ -746,7 +746,7 @@ impl ActiveAnimation {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationPlayer {
-    active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
+    active_animations: HashMap<BlendNodeIndex, ActiveAnimation>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -872,20 +872,20 @@ impl CurrentEvaluators {
 
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
-    pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
+    pub fn start(&mut self, animation: BlendNodeIndex) -> &mut ActiveAnimation {
         let playing_animation = self.active_animations.entry(animation).or_default();
         playing_animation.replay();
         playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
-    pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
+    pub fn play(&mut self, animation: BlendNodeIndex) -> &mut ActiveAnimation {
         self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
     /// animations.
-    pub fn stop(&mut self, animation: AnimationNodeIndex) -> &mut Self {
+    pub fn stop(&mut self, animation: BlendNodeIndex) -> &mut Self {
         self.active_animations.remove(&animation);
         self
     }
@@ -898,9 +898,7 @@ impl AnimationPlayer {
 
     /// Iterates through all animations that this [`AnimationPlayer`] is
     /// currently playing.
-    pub fn playing_animations(
-        &self,
-    ) -> impl Iterator<Item = (&AnimationNodeIndex, &ActiveAnimation)> {
+    pub fn playing_animations(&self) -> impl Iterator<Item = (&BlendNodeIndex, &ActiveAnimation)> {
         self.active_animations.iter()
     }
 
@@ -908,13 +906,13 @@ impl AnimationPlayer {
     /// currently playing, mutably.
     pub fn playing_animations_mut(
         &mut self,
-    ) -> impl Iterator<Item = (&AnimationNodeIndex, &mut ActiveAnimation)> {
+    ) -> impl Iterator<Item = (&BlendNodeIndex, &mut ActiveAnimation)> {
         self.active_animations.iter_mut()
     }
 
     /// Returns true if the animation is currently playing or paused, or false
     /// if the animation is stopped.
-    pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
+    pub fn is_playing_animation(&self, animation: BlendNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
     }
 
@@ -984,19 +982,19 @@ impl AnimationPlayer {
         self
     }
 
-    /// Returns the [`ActiveAnimation`] associated with the given animation
+    /// Returns the [`ActiveAnimation`] associated with the given blend
     /// node if it's currently playing.
     ///
     /// If the animation isn't currently active, returns `None`.
-    pub fn animation(&self, animation: AnimationNodeIndex) -> Option<&ActiveAnimation> {
+    pub fn animation(&self, animation: BlendNodeIndex) -> Option<&ActiveAnimation> {
         self.active_animations.get(&animation)
     }
 
     /// Returns a mutable reference to the [`ActiveAnimation`] associated with
-    /// the given animation node if it's currently active.
+    /// the given blend node if it's currently active.
     ///
     /// If the animation isn't currently active, returns `None`.
-    pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
+    pub fn animation_mut(&mut self, animation: BlendNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
     }
 }
@@ -1005,8 +1003,8 @@ impl AnimationPlayer {
 fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+    graphs: Res<Assets<BlendGraph>>,
+    players: Query<(Entity, &AnimationPlayer, &BlendGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -1022,8 +1020,8 @@ fn trigger_untargeted_animation_events(
             let Some(clip) = graph
                 .get(*index)
                 .and_then(|node| match &node.node_type {
-                    AnimationNodeType::Clip(handle) => Some(handle),
-                    AnimationNodeType::Blend | AnimationNodeType::Add => None,
+                    BlendNodeType::Clip(handle) => Some(handle),
+                    BlendNodeType::Blend | BlendNodeType::Add => None,
                 })
                 .and_then(|id| clips.get(id))
             else {
@@ -1047,14 +1045,14 @@ fn trigger_untargeted_animation_events(
 pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
+    blend_graphs: Res<Assets<BlendGraph>>,
+    mut players: Query<(&mut AnimationPlayer, &BlendGraphHandle)>,
 ) {
     let delta_seconds = time.delta_secs();
     players
         .par_iter_mut()
         .for_each(|(mut player, graph_handle)| {
-            let Some(animation_graph) = animation_graphs.get(graph_handle) else {
+            let Some(blend_graph) = blend_graphs.get(graph_handle) else {
                 return;
             };
 
@@ -1065,13 +1063,13 @@ pub fn advance_animations(
                 ..
             } = *player;
 
-            for node_index in animation_graph.graph.node_indices() {
-                let node = &animation_graph[node_index];
+            for node_index in blend_graph.graph.node_indices() {
+                let node = &blend_graph[node_index];
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
                     if !active_animation.paused
-                        && let AnimationNodeType::Clip(ref clip_handle) = node.node_type
+                        && let BlendNodeType::Clip(ref clip_handle) = node.node_type
                         && let Some(clip) = animation_clips.get(clip_handle)
                     {
                         active_animation.update(delta_seconds, clip.duration);
@@ -1089,7 +1087,7 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
         AnimationTargetId,
         AnimatedBy,
         AnimationPlayer,
-        AnimationGraphHandle,
+        BlendGraphHandle,
     ),
 >;
 
@@ -1098,9 +1096,9 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
 pub fn animate_targets(
     par_commands: ParallelCommands,
     clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    graphs: Res<Assets<BlendGraph>>,
+    threaded_blend_graphs: Res<ThreadedBlendGraphs>,
+    players: Query<(&AnimationPlayer, &BlendGraphHandle)>,
     mut targets: Query<
         (Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut),
         Without<IsResource>,
@@ -1111,7 +1109,7 @@ pub fn animate_targets(
     targets
         .par_iter_mut()
         .for_each(|(entity, &target_id, &AnimatedBy(player_id), entity_mut)| {
-            let (animation_player, animation_graph_id) =
+            let (animation_player, blend_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
                     (player, graph_handle.id())
                 } else {
@@ -1126,18 +1124,17 @@ pub fn animate_targets(
                 };
 
             // The graph might not have loaded yet. Safely bail.
-            let Some(animation_graph) = graphs.get(animation_graph_id) else {
+            let Some(blend_graph) = graphs.get(blend_graph_id) else {
                 return;
             };
 
-            let Some(threaded_animation_graph) = threaded_animation_graphs
-                .threaded_graphs
-                .get(&animation_graph_id)
+            let Some(threaded_blend_graph) =
+                threaded_blend_graphs.threaded_graphs.get(&blend_graph_id)
             else {
                 return;
             };
 
-            let Some(threaded_animation_subgraph) = threaded_animation_graph
+            let Some(threaded_blend_subgraph) = threaded_blend_graph
                 .animation_target_to_threaded_subgraph
                 .get(&target_id)
             else {
@@ -1149,7 +1146,7 @@ pub fn animate_targets(
             };
 
             // Determine which mask groups this animation target belongs to.
-            let target_mask = animation_graph
+            let target_mask = blend_graph
                 .mask_groups
                 .get(&target_id)
                 .cloned()
@@ -1159,66 +1156,63 @@ pub fn animate_targets(
             let evaluation_state = &mut *evaluation_state;
 
             // Evaluate the graph.
-            for (sorted_node_index, &animation_graph_node_index) in threaded_animation_subgraph
-                .threaded_graph
-                .iter()
-                .enumerate()
+            for (sorted_node_index, &blend_graph_node_index) in
+                threaded_blend_subgraph.threaded_graph.iter().enumerate()
             {
-                let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
-                else {
+                let Some(blend_graph_node) = blend_graph.get(blend_graph_node_index) else {
                     continue;
                 };
 
                 let sorted_edge_range_start =
-                    threaded_animation_subgraph.sorted_edge_list_offsets[sorted_node_index];
-                let sorted_edge_range_end = threaded_animation_subgraph
+                    threaded_blend_subgraph.sorted_edge_list_offsets[sorted_node_index];
+                let sorted_edge_range_end = threaded_blend_subgraph
                     .sorted_edge_list_offsets
                     .get(sorted_node_index + 1)
                     .copied()
-                    .unwrap_or(threaded_animation_subgraph.sorted_edges.len() as u32);
+                    .unwrap_or(threaded_blend_subgraph.sorted_edges.len() as u32);
 
-                match animation_graph_node.node_type {
-                    AnimationNodeType::Blend => {
+                match blend_graph_node.node_type {
+                    BlendNodeType::Blend => {
                         // This is a blend node.
                         for edge_index in sorted_edge_range_start..sorted_edge_range_end {
                             if let Err(err) = evaluation_state.blend_all(
-                                threaded_animation_subgraph.sorted_edges[edge_index as usize],
+                                threaded_blend_subgraph.sorted_edges[edge_index as usize],
                             ) {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
 
                         if let Err(err) = evaluation_state.push_blend_register_all(
-                            animation_graph_node.weight,
-                            animation_graph_node_index,
+                            blend_graph_node.weight,
+                            blend_graph_node_index,
                         ) {
                             warn!("Animation blending failed: {:?}", err);
                         }
                     }
 
-                    AnimationNodeType::Add => {
+                    BlendNodeType::Add => {
                         // This is an additive blend node.
                         for edge_index in sorted_edge_range_start..sorted_edge_range_end {
-                            if let Err(err) = evaluation_state.add_all(
-                                threaded_animation_subgraph.sorted_edges[edge_index as usize],
-                            ) {
+                            if let Err(err) = evaluation_state
+                                .add_all(threaded_blend_subgraph.sorted_edges[edge_index as usize])
+                            {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
 
                         if let Err(err) = evaluation_state.push_blend_register_all(
-                            animation_graph_node.weight,
-                            animation_graph_node_index,
+                            blend_graph_node.weight,
+                            blend_graph_node_index,
                         ) {
                             warn!("Animation blending failed: {:?}", err);
                         }
                     }
 
-                    AnimationNodeType::Clip(ref animation_clip_handle) => {
+                    BlendNodeType::Clip(ref animation_clip_handle) => {
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
-                            .get(&animation_graph_node_index)
+                            .get(&blend_graph_node_index)
                         else {
                             continue;
                         };
@@ -1227,8 +1221,8 @@ pub fn animate_targets(
                         // masked out, stop here.
                         if active_animation.weight == 0.0
                             || (target_mask
-                                & threaded_animation_graph.computed_masks
-                                    [animation_graph_node_index.index()])
+                                & threaded_blend_graph.computed_masks
+                                    [blend_graph_node_index.index()])
                                 != 0
                         {
                             continue;
@@ -1265,7 +1259,7 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        let weight = active_animation.weight * animation_graph_node.weight;
+                        let weight = active_animation.weight * blend_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
@@ -1292,7 +1286,7 @@ pub fn animate_targets(
                                 curve_evaluator,
                                 seek_time,
                                 weight,
-                                animation_graph_node_index,
+                                blend_graph_node_index,
                             ) {
                                 warn!("Animation application failed: {:?}", err);
                             }
@@ -1314,15 +1308,15 @@ pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<AnimationClip>()
-            .init_asset::<AnimationGraph>()
-            .init_asset_loader::<AnimationGraphAssetLoader>()
+            .init_asset::<BlendGraph>()
+            .init_asset_loader::<BlendGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
-            .register_asset_reflect::<AnimationGraph>()
-            .init_resource::<ThreadedAnimationGraphs>()
+            .register_asset_reflect::<BlendGraph>()
+            .init_resource::<ThreadedBlendGraphs>()
             .add_systems(
                 PostUpdate,
                 (
-                    graph::thread_animation_graphs.before(AssetEventSystems),
+                    graph::thread_blend_graphs.before(AssetEventSystems),
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
@@ -1387,10 +1381,7 @@ impl AnimationEvaluationState {
     /// that we've been building up for a single target.
     ///
     /// The given `node_index` is the node that we're evaluating.
-    fn blend_all(
-        &mut self,
-        node_index: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
+    fn blend_all(&mut self, node_index: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
                 .get_mut(curve_evaluator_type)
@@ -1404,7 +1395,7 @@ impl AnimationEvaluationState {
     /// that we've been building up for a single target.
     ///
     /// The given `node_index` is the node that we're evaluating.
-    fn add_all(&mut self, node_index: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn add_all(&mut self, node_index: BlendNodeIndex) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
                 .get_mut(curve_evaluator_type)
@@ -1423,7 +1414,7 @@ impl AnimationEvaluationState {
     fn push_blend_register_all(
         &mut self,
         weight: f32,
-        node_index: AnimationNodeIndex,
+        node_index: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_evaluators.keys() {
             self.evaluators
@@ -1605,7 +1596,7 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 mod tests {
     use crate::{
         self as bevy_animation,
-        prelude::{AnimatableCurve, AnimatableKeyframeCurve},
+        prelude::{BlendableCurve, BlendableKeyframeCurve},
     };
     use bevy_math::Vec3;
     use bevy_reflect::map::{DynamicMap, Map};
@@ -1822,10 +1813,10 @@ mod tests {
     }
 
     #[test]
-    fn test_animation_node_index_as_key_of_dynamic_map() {
+    fn test_blend_node_index_as_key_of_dynamic_map() {
         let mut map = DynamicMap::default();
         map.insert_boxed(
-            Box::new(AnimationNodeIndex::new(0)),
+            Box::new(BlendNodeIndex::new(0)),
             Box::new(ActiveAnimation::default()),
         );
     }
@@ -1876,9 +1867,9 @@ mod tests {
     #[test]
     fn test_sample_at_time() {
         let mut clip = AnimationClip::default();
-        let animatable_curve = AnimatableCurve::new(
+        let blendable_curve = BlendableCurve::new(
             animated_field!(Transform::translation),
-            AnimatableKeyframeCurve::new([
+            BlendableKeyframeCurve::new([
                 (0.0, Vec3::new(0., 0., 1.)),
                 (1.0, Vec3::new(1., 0., 0.)),
             ])
@@ -1886,7 +1877,7 @@ mod tests {
         );
         let target_1 = AnimationTargetId::from_name(&Name::new("Target 1"));
         let target_2 = AnimationTargetId::from_name(&Name::new("Target 2"));
-        clip.add_curve_to_target(target_1, animatable_curve);
+        clip.add_curve_to_target(target_1, blendable_curve);
         let value = clip.sample_clamped(animated_field!(Transform::translation), target_1, 1.0);
         assert_eq!(value, Some(Vec3::new(1., 0., 0.)));
         let value = clip.sample_clamped(animated_field!(Transform::scale), target_1, 1.0);

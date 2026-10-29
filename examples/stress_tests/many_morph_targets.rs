@@ -185,13 +185,13 @@ fn main() {
 #[derive(Resource, Default)]
 struct MorphAssets {
     scene: Handle<WorldAsset>,
-    animations: Vec<(Handle<AnimationGraph>, AnimationNodeIndex)>,
+    animations: Vec<(Handle<BlendGraph>, BlendNodeIndex)>,
 }
 
 #[derive(Component, Clone)]
 struct AnimationToPlay {
-    graph_handle: Handle<AnimationGraph>,
-    index: AnimationNodeIndex,
+    graph_handle: Handle<BlendGraph>,
+    index: BlendNodeIndex,
     speed: f32,
 }
 
@@ -207,7 +207,7 @@ fn setup(
     mut commands: Commands,
     mut assets: ResMut<MorphAssets>,
     asset_server: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
     state: Res<State>,
 ) {
     warn!(include_str!("warning_string.txt"));
@@ -249,7 +249,7 @@ fn setup(
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(ASSET_PATH)),
         animations: (0..3)
             .map(|gltf_index| {
-                let (graph, index) = AnimationGraph::from_clip(
+                let (graph, index) = BlendGraph::from_clip(
                     asset_server.load(GltfAssetLabel::Animation(gltf_index).from_asset(ASSET_PATH)),
                 );
                 (graphs.add(graph), index)
@@ -396,7 +396,7 @@ fn play_animation(
             if let Ok(mut player) = players.get_mut(child) {
                 commands
                     .entity(child)
-                    .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
+                    .insert(BlendGraphHandle(animation_to_play.graph_handle.clone()));
 
                 player
                     .play(animation_to_play.index)
