@@ -1456,6 +1456,44 @@ mod tests {
     }
 
     #[test]
+    fn roots_keep_their_order_when_zindices_become_equal() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        for _ in 0..10 {
+            world.spawn((Node::default(), ZIndex(0)));
+        }
+
+        schedule.run(&mut world);
+        let uinodes = world.resource::<UiStack>().iter().rev().collect::<Vec<_>>();
+
+        for (i, &e) in uinodes.iter().enumerate() {
+            world.entity_mut(e).insert(ZIndex(i as i32 + 1));
+        }
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            uinodes
+        );
+
+        for &e in &uinodes {
+            world.entity_mut(e).insert(ZIndex(0));
+        }
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            uinodes
+        );
+    }
+
+    #[test]
     fn changed_zindex_roots_keep_their_relative_order() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
