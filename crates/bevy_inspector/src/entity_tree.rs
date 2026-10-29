@@ -611,7 +611,7 @@ fn header_row(label: String) -> impl Scene {
     bsn! {
         @FeathersTreeItem {
             @expandable: true,
-            @label: bsn_list! { @row_label({label}) },
+            @label: bsn_list! { @row_label(label) },
         }
     }
 }
@@ -620,7 +620,7 @@ fn entity_row(label: String, expandable: bool) -> impl Scene {
     bsn! {
         @FeathersTreeItem {
             @expandable: {expandable},
-            @label: bsn_list! { @row_label({label}) },
+            @label: bsn_list! { @row_label(label) },
         }
     }
 }
