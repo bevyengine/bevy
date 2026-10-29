@@ -1072,20 +1072,12 @@ pub fn advance_animations(
                 let node = &animation_graph[node_index];
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
-                    match node.node_type {
-                        // Tick the animation if necessary.
-                        AnimationNodeType::Clip(ref clip_handle) => {
-                            if !active_animation.paused
-                                && let Some(clip) = animation_clips.get(clip_handle)
-                            {
-                                active_animation.update(delta_seconds, clip.duration);
-                            }
-                        }
-                        // Blend and additive nodes only carry a weight and have
-                        // nothing to play, so they never hold up `all_finished`.
-                        AnimationNodeType::Blend | AnimationNodeType::Add => {
-                            active_animation.completions = active_animation.completions.max(1);
-                        }
+                    // Tick the animation if necessary.
+                    if !active_animation.paused
+                        && let AnimationNodeType::Clip(ref clip_handle) = node.node_type
+                        && let Some(clip) = animation_clips.get(clip_handle)
+                    {
+                        active_animation.update(delta_seconds, clip.duration);
                     }
                 }
             }
@@ -1841,29 +1833,6 @@ mod tests {
 
         assert_eq!(node.active_weight(Some(&active_animation)), 0.5);
         assert_eq!(node.active_weight(None), 2.0);
-    }
-
-    #[test]
-    fn blend_node_entry_does_not_hold_up_all_finished() {
-        use bevy_app::TaskPoolOptions;
-        use bevy_ecs::system::RunSystemOnce;
-
-        TaskPoolOptions::default().create_default_pools();
-        let mut graph = AnimationGraph::new();
-        let blend = graph.add_blend(1.0, graph.root);
-        let mut graphs = Assets::<AnimationGraph>::default();
-        let graph = graphs.add(graph);
-        let mut player = AnimationPlayer::default();
-        player.play(blend).set_weight(0.5);
-
-        let mut world = World::new();
-        world.insert_resource(graphs);
-        world.init_resource::<Assets<AnimationClip>>();
-        world.init_resource::<Time>();
-        let entity = world.spawn((player, AnimationGraphHandle(graph))).id();
-        world.run_system_once(advance_animations).unwrap();
-
-        assert!(world.get::<AnimationPlayer>(entity).unwrap().all_finished());
     }
 
     #[test]
