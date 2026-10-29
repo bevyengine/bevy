@@ -3,9 +3,11 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::CompositingSpace;
 use bevy_ecs::prelude::*;
+use bevy_math::Mat3;
 use bevy_render::{
+    extract_component::UniformComponentPlugin,
     render_resource::{
-        binding_types::{sampler, texture_2d},
+        binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
@@ -13,6 +15,7 @@ use bevy_render::{
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
+use bevy_window::{SurfaceColorSpace, TransferFunction};
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;
@@ -20,6 +23,7 @@ pub struct BlitPlugin;
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "blit.wesl");
+        app.add_plugins(UniformComponentPlugin::<DisplayTargetUniform>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -38,6 +42,14 @@ pub struct BlitPipeline {
     pub sampler: Sampler,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
+    pub(crate) display_target_layout: BindGroupLayoutDescriptor,
+}
+
+/// The gamut matrix and paper white used to encode a view's HDR output.
+#[derive(Component, ShaderType, Clone, Copy, PartialEq)]
+pub struct DisplayTargetUniform {
+    pub(crate) gamut: Mat3,
+    pub(crate) paper_white_nits: f32,
 }
 
 pub fn init_blit_pipeline(
@@ -57,6 +69,14 @@ pub fn init_blit_pipeline(
         ),
     );
 
+    let display_target_layout = BindGroupLayoutDescriptor::new(
+        "blit_display_target_bind_group_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::FRAGMENT,
+            uniform_buffer::<DisplayTargetUniform>(true),
+        ),
+    );
+
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
     commands.insert_resource(BlitPipeline {
@@ -64,6 +84,7 @@ pub fn init_blit_pipeline(
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wesl"),
+        display_target_layout,
     });
 }
 
@@ -90,6 +111,8 @@ pub struct BlitPipelineKey {
     /// Color space of the source texture. When `Some(Srgb)` or `Some(Oklab)`, the blit converts
     /// to linear RGB before writing to the output target.
     pub source_space: Option<CompositingSpace>,
+    /// The color space to encode for. [`SurfaceColorSpace::Srgb`] writes linear color.
+    pub display_color_space: SurfaceColorSpace,
 }
 
 impl SpecializedRenderPipeline for BlitPipeline {
@@ -103,9 +126,22 @@ impl SpecializedRenderPipeline for BlitPipeline {
             Some(CompositingSpace::Linear) | None => {}
         }
 
+        let mut layout = vec![self.layout.clone()];
+        if key.display_color_space.is_hdr() {
+            shader_defs.push("DISPLAY_ENCODE".into());
+            match key.display_color_space.transfer_function() {
+                TransferFunction::Pq => shader_defs.push("DISPLAY_TRANSFER_PQ".into()),
+                TransferFunction::ExtendedSrgb => {
+                    shader_defs.push("DISPLAY_TRANSFER_EXTENDED_SRGB".into());
+                }
+                TransferFunction::Linear | TransferFunction::Srgb => {}
+            }
+            layout.push(self.display_target_layout.clone());
+        }
+
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
-            layout: vec![self.layout.clone()],
+            layout,
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),

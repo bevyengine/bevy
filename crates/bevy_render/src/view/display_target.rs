@@ -21,6 +21,9 @@ use crate::{camera::ExtractedCamera, sync_world::MainEntity, RenderApp};
 /// negotiate with, so [`DisplayTarget::color_space_override`] is used as is
 /// and [`DisplayTarget::hdr`] alone cannot be honored: a target with `hdr`
 /// and no override resolves to [`SurfaceColorSpace::Srgb`].
+///
+/// A target with an HDR color space receives the encoded signal for that
+/// color space, not linear color.
 #[derive(Default, Clone, Debug, PartialEq, Resource, ExtractResource, Reflect, Deref, DerefMut)]
 #[reflect(Resource, Default, Debug, PartialEq, Clone)]
 #[extract_app(RenderApp)]

@@ -92,6 +92,7 @@ pub mod sync_world {
 #[cfg(test)]
 pub(crate) mod test_utils;
 pub mod texture;
+pub mod transfer_functions;
 pub mod uniform;
 pub mod view;
 
@@ -388,6 +389,7 @@ impl Plugin for RenderPlugin {
         load_shader_library!(app, "view.wesl");
         load_shader_library!(app, "maths.wesl");
         load_shader_library!(app, "color_operations.wesl");
+        load_shader_library!(app, "transfer_functions.wesl");
         load_shader_library!(app, "bindless.wesl");
 
         if insert_future_resources(&self.render_creation, app.world_mut()) {
