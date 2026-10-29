@@ -767,8 +767,7 @@ mod tests {
             }
         }
 
-        let construct =
-            |items: Vec<Box<dyn Reflect>>| <[Counted; 3]>::TYPE.construct_array(items);
+        let construct = |items: Vec<Box<dyn Reflect>>| <[Counted; 3]>::TYPE.construct_array(items);
 
         let array = construct(vec![
             Box::new(Counted(1)),

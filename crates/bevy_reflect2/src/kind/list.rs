@@ -91,10 +91,6 @@ pub unsafe trait ListAccess: Any {
     /// Removes and returns the item at `index`, shifting all items after it. Returns `None` if
     /// `index` is out of bounds.
     fn remove(&mut self, index: usize) -> Option<Box<dyn Reflect>>;
-    /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
-    fn pop(&mut self) -> Option<Box<dyn Reflect>>;
-    /// Clears all items in the list, resulting in an empty list.
-    fn clear(&mut self);
 }
 
 /// Casts the given pointer to a [`ListAccess`] pointer.
@@ -247,13 +243,17 @@ impl<'a> ListMut<'a> {
     /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
     #[inline]
     pub fn pop(&mut self) -> Option<Box<dyn Reflect>> {
-        self.access.pop()
+        let last = self.access.len().checked_sub(1)?;
+        self.access.remove(last)
     }
 
-    /// Clears all items in the list, resulting in an empty list.
-    #[inline]
+    /// Clears all items in the list, resulting in an empty list. Items are removed (and dropped)
+    /// back to front, so no items need to be shifted for vec-like lists.
+    ///
+    /// If this clear is in a "hot" path and you are clearing a large number of items, consider
+    /// building a custom clear implementation and adding it to the [`TypeRegistry`](crate::TypeRegistry).
     pub fn clear(&mut self) {
-        self.access.clear();
+        while self.pop().is_some() {}
     }
 }
 

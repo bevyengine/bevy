@@ -28,14 +28,6 @@ unsafe impl<T: Typed> ListAccess for Vec<T> {
     fn remove(&mut self, index: usize) -> Option<Box<dyn Reflect>> {
         (index < Vec::len(self)).then(|| Box::new(Vec::remove(self, index)) as Box<dyn Reflect>)
     }
-
-    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
-        Vec::pop(self).map(|value| Box::new(value) as Box<dyn Reflect>)
-    }
-
-    fn clear(&mut self) {
-        Vec::clear(self);
-    }
 }
 
 impl_reflect_list!(
@@ -101,6 +93,11 @@ mod tests {
         assert_eq!(value, [0, 10, 3]);
         (&mut value as &mut dyn Reflect).list_mut().unwrap().clear();
         assert!(value.is_empty());
+        assert!((&mut value as &mut dyn Reflect)
+            .list_mut()
+            .unwrap()
+            .pop()
+            .is_none());
     }
 
     #[test]
