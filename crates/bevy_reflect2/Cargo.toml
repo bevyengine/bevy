@@ -28,7 +28,6 @@ auto_register_static = [
   "bevy_reflect2_macros/auto_register_static",
 ]
 std = [
-  "downcast-rs/std",
   "bevy_platform/std",
 ]
 
@@ -48,7 +47,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 bevy_ptr = { path = "../bevy_ptr", version = "0.20.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", default-features = false }
 
-downcast-rs = { version = "2", default-features = false }
 inventory = { version = "0.3", optional = true }
 
 [lints]

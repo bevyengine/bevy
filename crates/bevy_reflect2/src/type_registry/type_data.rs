@@ -1,6 +1,6 @@
 use crate::TypeRegistration;
 use ::alloc::boxed::Box;
-use downcast_rs::{impl_downcast, Downcast};
+use core::any::Any;
 
 /// A trait for representing type metadata.
 ///
@@ -16,11 +16,24 @@ use downcast_rs::{impl_downcast, Downcast};
 /// [`TypeRegistry`]: crate::TypeRegistry
 /// [`TypeRegistration`]: crate::TypeRegistration
 /// [crate-level documentation]: crate
-pub trait TypeData: Downcast + Send + Sync {
+pub trait TypeData: Any + Send + Sync {
     /// Creates a type-erased clone of `self`.
     fn clone_type_data(&self) -> Box<dyn TypeData>;
 }
-impl_downcast!(TypeData);
+
+impl dyn TypeData {
+    /// Returns this type data as a `T` if it is one.
+    #[inline]
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
+
+    /// Returns this type data as a `T` if it is one.
+    #[inline]
+    pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
+        (self as &mut dyn Any).downcast_mut()
+    }
+}
 
 impl<T: Clone + Send + Sync + 'static> TypeData for T {
     fn clone_type_data(&self) -> Box<dyn TypeData> {
