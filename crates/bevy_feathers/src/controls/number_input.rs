@@ -15,6 +15,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
+    world::World,
 };
 use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
@@ -821,7 +822,7 @@ fn number_input_on_enter_key(
     let text_id = key_input.event_target();
     if let Ok(&ChildOf(root)) = q_parent.get(text_id)
         && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
-        && let Ok((mut editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
         let text_value = editable_text.value().into_owned();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
@@ -843,9 +844,7 @@ fn number_input_on_enter_key(
             &mut commands,
             true,
         );
-        // The value observer only rewrites the field when NumericValue changes.
-        // Leaving edit mode without a change must still restore the display form.
-        write_display_text(&mut editable_text, units, *input_value);
+        queue_display_text(&mut commands, root, text_id, units);
     }
 }
 
@@ -898,7 +897,7 @@ fn number_input_on_focus_lost(
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
         && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
-        && let Ok((mut editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
+        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().into_owned();
         let units = units_registry.resolve(units);
@@ -914,7 +913,7 @@ fn number_input_on_focus_lost(
         );
 
         drag_state.mode = EditMode::Idle;
-        write_display_text(&mut editable_text, units, *input_value);
+        queue_display_text(&mut commands, root, editable_text_id, units);
         show_interior_label(editable_text_id, true, &q_children, &mut q_label);
 
         // Restore cursor and rwmode back to normal.
@@ -1818,6 +1817,28 @@ fn write_display_text(
     }
 }
 
+/// Queue [`write_display_text`] with the [`NumericValue`] the root holds once
+/// the commands run.
+///
+/// Queue this after the [`ValueChange`] trigger so it sees the value the app
+/// settled on, whether it accepted, rejected or clamped the change. Writing
+/// the value from before the trigger would overwrite an accepted change.
+fn queue_display_text(
+    commands: &mut Commands,
+    root: Entity,
+    text_id: Entity,
+    units: &'static dyn UnitsFormat,
+) {
+    commands.queue(move |world: &mut World| {
+        let Some(&value) = world.get::<NumericValue>(root) else {
+            return;
+        };
+        if let Some(mut editable_text) = world.get_mut::<EditableText>(text_id) {
+            write_display_text(&mut editable_text, units, value);
+        }
+    });
+}
+
 /// Converts a value to display units and formats it.
 fn format_value(units: &dyn UnitsFormat, value: NumericValue, editing: bool) -> String {
     units.format(
@@ -2212,7 +2233,7 @@ impl Plugin for NumberInputPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::world::World;
+    use bevy_app::App;
 
     #[test]
     fn test_length_meters_format() {
@@ -2676,5 +2697,136 @@ mod tests {
 
         world.despawn(number_input);
         world.flush();
+    }
+
+    /// Spawns a number input with its edit-mode observers, and puts the field
+    /// in edit mode showing `typed`. With `accept`, an app observer stores each
+    /// [`ValueChange`] back into [`NumericValue`]; without it, changes are ignored.
+    fn editing_app(
+        value: NumericValue,
+        units: &'static dyn UnitsFormat,
+        typed: &str,
+        accept: bool,
+    ) -> (App, Entity, Entity) {
+        let mut app = App::new();
+        let mut registry = UnitsRegistry::default();
+        registry.insert(units);
+        // `SelectAll` needs a text layout, which needs a font.
+        let mut font_cx = bevy_text::FontCx::default();
+        let font = bevy_text::Font::from_bytes(
+            include_bytes!("../assets/fonts/FiraSans-Regular.ttf").to_vec(),
+        );
+        font_cx.collection.register_fonts(font.data, None);
+        font_cx.set_sans_serif_family("Fira Sans").unwrap();
+        app.insert_resource(registry)
+            .insert_resource(font_cx)
+            .init_resource::<bevy_text::LayoutCx>()
+            .init_resource::<bevy_clipboard::Clipboard>()
+            .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
+
+        let text_id = app
+            .world_mut()
+            .spawn((
+                EditableText::default(),
+                DragState {
+                    mode: EditMode::Editing,
+                    ..Default::default()
+                },
+                BackgroundGradient(Vec::new()),
+            ))
+            .observe(number_input_on_enter_key)
+            .observe(number_input_on_focus_lost)
+            .id();
+        let root = app
+            .world_mut()
+            .spawn((FeathersNumberInput, value, NumberInputUnits::new(units)))
+            .add_child(text_id)
+            .observe(number_input_on_insert_value)
+            .id();
+        if accept {
+            app.world_mut().entity_mut(root).observe(
+                |change: On<ValueChange<i32>>, mut commands: Commands| {
+                    commands
+                        .entity(change.source)
+                        .insert(NumericValue::I32(change.value));
+                },
+            );
+        }
+
+        let mut editable_text = app.world_mut().get_mut::<EditableText>(text_id).unwrap();
+        editable_text.queue_edit(TextEdit::Insert(typed.into()));
+        app.update();
+        (app, root, text_id)
+    }
+
+    fn press_enter(app: &mut App, text_id: Entity) {
+        let window = app.world_mut().spawn_empty().id();
+        app.world_mut().trigger(FocusedInput::new(
+            text_id,
+            KeyboardInput {
+                key_code: KeyCode::Enter,
+                logical_key: Key::Enter,
+                state: bevy_input::ButtonState::Pressed,
+                text: None,
+                repeat: false,
+                window,
+            },
+            window,
+        ));
+    }
+
+    fn lose_focus(app: &mut App, text_id: Entity) {
+        app.world_mut().trigger(FocusLost { entity: text_id });
+    }
+
+    fn field_text(app: &App, text_id: Entity) -> String {
+        app.world()
+            .get::<EditableText>(text_id)
+            .unwrap()
+            .value()
+            .into_owned()
+    }
+
+    #[test]
+    fn leaving_edit_mode_shows_accepted_value() {
+        for leave in [press_enter, lose_focus] {
+            let (mut app, root, text_id) =
+                editing_app(NumericValue::I32(20), &Dimensionless, "25", true);
+            leave(&mut app, text_id);
+            app.world_mut().flush();
+            app.update();
+
+            assert_eq!(
+                app.world().get::<NumericValue>(root),
+                Some(&NumericValue::I32(25))
+            );
+            assert_eq!(field_text(&app, text_id), "25");
+        }
+    }
+
+    #[test]
+    fn leaving_edit_mode_shows_unchanged_value() {
+        for leave in [press_enter, lose_focus] {
+            let (mut app, _, text_id) =
+                editing_app(NumericValue::I32(20), &Dimensionless, "25", false);
+            leave(&mut app, text_id);
+            app.world_mut().flush();
+            app.update();
+
+            assert_eq!(field_text(&app, text_id), "20");
+        }
+    }
+
+    #[test]
+    fn leaving_edit_mode_restores_display_form() {
+        let value = NumericValue::F64(20f64.to_radians());
+        for leave in [press_enter, lose_focus] {
+            let (mut app, _, text_id) = editing_app(value, &AngleDegrees, "20d", false);
+            leave(&mut app, text_id);
+            app.world_mut().flush();
+            app.update();
+
+            assert_eq!(field_text(&app, text_id), "20°");
+        }
     }
 }

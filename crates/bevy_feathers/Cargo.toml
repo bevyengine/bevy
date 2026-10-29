@@ -44,6 +44,9 @@ smol_str = { version = "0.2", default-features = false }
 # other
 accesskit = "0.25"
 
+[dev-dependencies]
+bevy_clipboard = { path = "../bevy_clipboard", version = "0.20.0-dev", default-features = false }
+
 [features]
 default = []
 bevy_settings = ["dep:bevy-settings"]
