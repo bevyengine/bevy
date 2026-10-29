@@ -635,10 +635,7 @@ fn number_input_on_insert_value(
 fn number_input_on_insert_disabled(
     insert: On<Insert<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<
-        (Has<InteractionDisabled>, Option<&ThemeContext>),
-        With<FeathersNumberInput>,
-    >,
+    q_number_input: Query<Option<&ThemeContext>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -650,13 +647,13 @@ fn number_input_on_insert_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok((is_disabled, theme_context)) = q_number_input.get(insert.event_target())
+        && let Ok(theme_context) = q_number_input.get(insert.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
             theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
-            is_disabled,
+            true,
             false,
             hovered,
             input_focus.get() == Some(text_id),
@@ -673,10 +670,7 @@ fn number_input_on_insert_disabled(
 fn number_input_on_remove_disabled(
     remove: On<Remove<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<
-        (Has<InteractionDisabled>, Option<&ThemeContext>),
-        With<FeathersNumberInput>,
-    >,
+    q_number_input: Query<Option<&ThemeContext>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -688,13 +682,13 @@ fn number_input_on_remove_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok((is_disabled, theme_context)) = q_number_input.get(remove.event_target())
+        && let Ok(theme_context) = q_number_input.get(remove.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
             theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
-            is_disabled,
+            false,
             false,
             hovered,
             input_focus.get() == Some(text_id),
@@ -811,7 +805,7 @@ fn number_input_on_enter_key(
         ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    mut q_text_input: Query<(&mut EditableText, &mut DragState)>,
     q_children: Query<&Children>,
     mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
@@ -827,7 +821,7 @@ fn number_input_on_enter_key(
     let text_id = key_input.event_target();
     if let Ok(&ChildOf(root)) = q_parent.get(text_id)
         && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
-        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
+        && let Ok((mut editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
         let text_value = editable_text.value().into_owned();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
@@ -838,16 +832,20 @@ fn number_input_on_enter_key(
             .insert(EntityCursor::System(
                 bevy_window::SystemCursorIcon::ColResize,
             ));
+        let units = units_registry.resolve(units);
         emit_value_change(
             text_value,
             input_value.format(),
-            units_registry.resolve(units),
+            units,
             root,
             hard_limit,
             wrap,
             &mut commands,
             true,
         );
+        // The value observer only rewrites the field when NumericValue changes.
+        // Leaving edit mode without a change must still restore the display form.
+        write_display_text(&mut editable_text, units, *input_value);
     }
 }
 
@@ -890,7 +888,7 @@ fn number_input_on_focus_lost(
         ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    mut q_text_input: Query<(&mut EditableText, &mut DragState)>,
     q_children: Query<&Children>,
     mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
@@ -900,13 +898,14 @@ fn number_input_on_focus_lost(
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
         && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
-        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
+        && let Ok((mut editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().into_owned();
+        let units = units_registry.resolve(units);
         emit_value_change(
             text_value,
             input_value.format(),
-            units_registry.resolve(units),
+            units,
             root,
             hard_limit,
             wrap,
@@ -915,6 +914,7 @@ fn number_input_on_focus_lost(
         );
 
         drag_state.mode = EditMode::Idle;
+        write_display_text(&mut editable_text, units, *input_value);
         show_interior_label(editable_text_id, true, &q_children, &mut q_label);
 
         // Restore cursor and rwmode back to normal.
@@ -1798,6 +1798,23 @@ pub fn format_display_value(display: f64, fmt: NumericFormat) -> String {
             .parse::<f64>()
             .unwrap_or(display)
             .to_string(),
+    }
+}
+
+/// Replace the field text with the non-editing form of `value`.
+///
+/// Edit mode shows a typeable stand-in (for example `20d` instead of `20°`).
+/// Exiting edit mode has to put the display form back even when the number
+/// itself did not change, because nothing else rewrites the text in that case.
+fn write_display_text(
+    editable_text: &mut EditableText,
+    units: &dyn UnitsFormat,
+    value: NumericValue,
+) {
+    let display = format_value(units, value, false);
+    if editable_text.value() != display {
+        editable_text.queue_edit(TextEdit::SelectAll);
+        editable_text.queue_edit(TextEdit::Insert(display.into()));
     }
 }
 
