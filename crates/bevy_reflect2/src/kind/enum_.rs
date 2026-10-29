@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use core::any::Any;
 
 use bevy_ptr::{Ptr, PtrMut};
 
@@ -143,7 +142,7 @@ pub struct EnumIgnoredField {
 /// at the given index of that variant, or `None` if the index is out of bounds. Unsafe code accesses
 /// fields at these offsets, using the types described in [`Variant::fields`] and
 /// [`Variant::ignored_fields`].
-pub unsafe trait EnumAccess: Any {
+pub unsafe trait EnumAccess: 'static {
     /// Returns the index of the current variant.
     fn variant(&self) -> usize;
     /// Returns the offset in bytes (from the start of the enum) of the field at `index` of the

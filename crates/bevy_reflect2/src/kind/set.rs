@@ -1,7 +1,6 @@
 use crate::{Reflect, TypeRef};
 use alloc::boxed::Box;
 use bevy_ptr::{Ptr, PtrMut};
-use core::any::Any;
 
 /// Describes a collection of unique values (ex: `HashSet<T>`).
 ///
@@ -70,7 +69,7 @@ impl Set {
     clippy::len_without_is_empty,
     reason = "`is_empty` is provided by the `Ref` / `Mut` wrappers"
 )]
-pub unsafe trait SetAccess: Any {
+pub unsafe trait SetAccess: 'static {
     /// Returns the number of items in the set.
     fn len(&self) -> usize;
     /// Returns a reference to the value in the set that is equal to `value` (if it exists).

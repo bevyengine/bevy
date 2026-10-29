@@ -1,7 +1,6 @@
 use crate::{Reflect, TypeRef};
 use alloc::boxed::Box;
 use bevy_ptr::{Ptr, PtrMut};
-use core::any::Any;
 
 /// Describes a collection of key-value pairs with unique keys (ex: `HashMap<K, V>`).
 ///
@@ -84,7 +83,7 @@ pub type RejectedEntry = (Box<dyn Reflect>, Box<dyn Reflect>);
     clippy::len_without_is_empty,
     reason = "`is_empty` is provided by the `Ref` / `Mut` wrappers"
 )]
-pub unsafe trait MapAccess: Any {
+pub unsafe trait MapAccess: 'static {
     /// Returns the number of items in the map.
     fn len(&self) -> usize;
     /// Returns a reference to the value in the map whose key is equal to `key` (if it exists).

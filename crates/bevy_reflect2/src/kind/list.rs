@@ -1,7 +1,6 @@
 use crate::{Reflect, TypeRef};
 use alloc::boxed::Box;
 use bevy_ptr::{Ptr, PtrMut};
-use core::any::Any;
 
 /// Describes a grow-able, ordered sequence of items (ex: `Vec<T>`).
 ///
@@ -72,7 +71,7 @@ impl List {
     clippy::len_without_is_empty,
     reason = "`is_empty` is provided by the `Ref` / `Mut` wrappers"
 )]
-pub unsafe trait ListAccess: Any {
+pub unsafe trait ListAccess: 'static {
     /// Returns the number of items in the list.
     fn len(&self) -> usize;
     /// Returns a reference to the value in the list at the `index`, if it exists. Otherwise returns [`None`].
