@@ -26,4 +26,4 @@ This note will be completed once the rest of the series lands.
 - `registry.schema` now includes `bevy_annotations` (range, step, unit, read-only, tooltip and display name) on types, fields and enum variants
 - Added `SchemaRegistry` to `bevy_remote`, an index over `registry.schema` schemas that resolves field, item and map types, so local and remote inspectors can read type structure the same way
 - Added stepping controls to the `bevy_inspector` remote source
-- The `bevy_inspector` details panel now honors `bevy_annotations` on fields and component types: display names, read-only values, value ranges, steps and units
+- The `bevy_inspector` details panel now honors `bevy_annotations` on fields and component types: display names, read-only values, value ranges, steps and units. Ranges, steps and units also apply to the items of a collection and to the payload of an `Option`

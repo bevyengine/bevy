@@ -343,6 +343,17 @@ impl FieldAnnotations {
         }
     }
 
+    /// The annotations that also constrain the items of a list, array, map or set, and the
+    /// payload of an `Option`: the range, step and unit.
+    fn value_constraints(&self) -> Self {
+        Self {
+            range: self.range.clone(),
+            step: self.step,
+            unit: self.unit,
+            ..Self::default()
+        }
+    }
+
     /// The name shown for the enum variant `name`.
     fn variant_label<'a>(&self, name: &'a str) -> &'a str {
         self.variant_names
@@ -2052,7 +2063,7 @@ fn walk_entries(
         walk.push_scalar(path, label("value"), 0, value, scalar, &annotations);
     } else if let Some(variant) = variant_value(value, registry) {
         walk.push(path.clone(), label("variant"), 0, variant, &annotations);
-        walk.children(value, &path, 0, editable);
+        walk.children(value, &path, 0, editable, &annotations);
     } else if let Some(summary) = summary(value) {
         if !summary.is_empty() {
             walk.push(
@@ -2063,7 +2074,7 @@ fn walk_entries(
                 &annotations,
             );
         }
-        walk.children(value, &path, 0, editable);
+        walk.children(value, &path, 0, editable, &annotations);
     } else {
         walk.push(
             path,
@@ -2183,7 +2194,7 @@ impl Walk<'_> {
 
         if let Some(variant) = variant_value(value, self.registry) {
             self.push(path.clone(), label, depth, variant, &annotations);
-            self.children(value, &path, depth + 1, editable);
+            self.children(value, &path, depth + 1, editable, &annotations);
             return;
         }
 
@@ -2195,10 +2206,19 @@ impl Walk<'_> {
 
         let summary = FieldValue::Label(summary);
         self.push(path.clone(), label, depth, summary, &annotations);
-        self.children(value, &path, depth + 1, editable);
+        self.children(value, &path, depth + 1, editable, &annotations);
     }
 
-    fn children(&mut self, value: &dyn PartialReflect, prefix: &str, depth: usize, editable: bool) {
+    /// Adds the rows of the fields or items of `value`, whose own annotations are `annotations`.
+    fn children(
+        &mut self,
+        value: &dyn PartialReflect,
+        prefix: &str,
+        depth: usize,
+        editable: bool,
+        annotations: &FieldAnnotations,
+    ) {
+        let constraints = annotations.value_constraints();
         match value.reflect_ref() {
             ReflectRef::Struct(value) => {
                 let info = value.get_represented_struct_info();
@@ -2259,14 +2279,14 @@ impl Walk<'_> {
             ReflectRef::List(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    let annotations = FieldAnnotations::default();
+                    let annotations = constraints.clone();
                     self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Array(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    let annotations = FieldAnnotations::default();
+                    let annotations = constraints.clone();
                     self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
@@ -2274,18 +2294,21 @@ impl Walk<'_> {
                 for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, key, index);
                     let editable = editable && key_access(key).is_some();
-                    let annotations = FieldAnnotations::default();
+                    let annotations = constraints.clone();
                     self.field(item, path, display_value(key), depth, editable, annotations);
                 }
             }
             ReflectRef::Set(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, item, index);
-                    let annotations = FieldAnnotations::default();
+                    let annotations = constraints.clone();
                     self.field(item, path, index.to_string(), depth, false, annotations);
                 }
             }
             ReflectRef::Enum(value) => {
+                let is_option = value
+                    .get_represented_type_info()
+                    .is_some_and(|info| info.type_path().starts_with(OPTION_PREFIX));
                 let variant = value
                     .get_represented_enum_info()
                     .and_then(|info| info.variant(value.variant_name()));
@@ -2297,7 +2320,7 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    let annotations = annotations_of(match variant {
+                    let mut annotations = annotations_of(match variant {
                         Some(VariantInfo::Struct(info)) => {
                             info.field_at(index).map(NamedField::custom_attributes)
                         }
@@ -2306,6 +2329,9 @@ impl Walk<'_> {
                         }
                         _ => None,
                     });
+                    if is_option {
+                        annotations = annotations.or(constraints.clone());
+                    }
                     self.field(
                         field,
                         join(prefix, &name),
@@ -2332,6 +2358,9 @@ fn asset_handle_label(value: &dyn PartialReflect) -> Option<String> {
 }
 
 const ASSET_HANDLE_PREFIX: &str = "bevy_asset::handle::Handle<";
+
+/// The type path prefix of `Option`, whose `Some` payload takes the constraints of its field.
+const OPTION_PREFIX: &str = "core::option::Option<";
 
 /// The read-only caption form of a field value.
 pub(crate) fn read_only(value: FieldValue) -> FieldValue {
@@ -5141,6 +5170,52 @@ mod tests {
 
         edit_component::<Annotated>(&mut app, entity, "speed", float(-1.0));
         assert_eq!(app.world().get::<Annotated>(entity).unwrap().speed, 0.0);
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Wrapped {
+        #[reflect(@ValueRange(0.0..=2.0), @Step(0.25), @Unit("m"), @DisplayName("Reach"))]
+        reach: Option<f32>,
+        #[reflect(@ValueRange(0.0..=1.0))]
+        samples: Vec<f32>,
+    }
+
+    fn wrapped() -> Wrapped {
+        Wrapped {
+            reach: Some(1.0),
+            samples: vec![0.5],
+        }
+    }
+
+    #[test]
+    fn constrains_wrapped_values_with_their_field_annotations() {
+        let entries = field_entries(&wrapped(), &TypeRegistry::new());
+
+        let reach = entry(&entries, "reach.0");
+        assert_eq!(reach.limit, Some(NumericRange::F32(0.0..=2.0)));
+        assert_eq!(reach.annotations.step, Some(0.25));
+        assert_eq!(reach.annotations.unit, Some("m"));
+        assert_eq!(reach.label, "0");
+        assert_eq!(entry(&entries, "reach").label, "Reach");
+        assert_eq!(
+            entry(&entries, "samples[0]").limit,
+            Some(NumericRange::F32(0.0..=1.0))
+        );
+    }
+
+    #[test]
+    fn clamps_edits_to_wrapped_values() {
+        let mut app = test_app();
+        app.register_type::<Wrapped>();
+        let entity = app.world_mut().spawn(wrapped()).id();
+
+        edit_component::<Wrapped>(&mut app, entity, "reach.0", float(5.0));
+        edit_component::<Wrapped>(&mut app, entity, "samples[0]", float(-1.0));
+
+        let wrapped = app.world().get::<Wrapped>(entity).unwrap();
+        assert_eq!(wrapped.reach, Some(2.0));
+        assert_eq!(wrapped.samples, vec![0.0]);
     }
 
     #[test]
