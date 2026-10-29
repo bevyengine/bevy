@@ -235,12 +235,7 @@ pub fn ui_focus_system(
 
     hovered_nodes.clear();
     // reverse the iterator to traverse the tree from closest slice to furthest
-    for uinodes in ui_stack
-        .partition
-        .iter()
-        .rev()
-        .map(|range| &ui_stack.uinodes[range.clone()])
-    {
+    for uinodes in ui_stack.partitions().rev() {
         // Retrieve the first node and resolve its camera target.
         // Only need to do this once per slice, as all the nodes in the slice share the same camera.
         let Ok(root_node) = node_query.get_mut(uinodes[0]) else {

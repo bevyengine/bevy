@@ -293,6 +293,10 @@ pub fn extract_shadows(
             commands.entity(render_entity).despawn();
         }
 
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
+
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
@@ -358,7 +362,7 @@ pub fn extract_shadows(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedBoxShadow {
-                        stack_index: stack_index.0,
+                        stack_index,
                         transform: Affine2::from(transform) * Affine2::from_translation(offset),
                         color: drop_shadow.color.into(),
                         bounds: shadow_size + 6. * blur_radius,

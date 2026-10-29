@@ -75,6 +75,9 @@ pub fn extract_text_cursor(
         .iter()
         .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -164,7 +167,7 @@ pub fn extract_text_cursor(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT_SELECTION,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(selection.center()),
@@ -199,7 +202,7 @@ pub fn extract_text_cursor(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
+                        z_order: stack_index as f32 + stack_z_offsets::TEXT_CURSOR,
                         clip: clip.clone(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(cursor_rect.center()),
@@ -263,6 +266,9 @@ pub fn extract_preedit_underlines(
         .iter()
         .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         if !inherited_visibility.get()
             || uinode.is_empty()
             || text_layout_info.preedit_underline_rects.is_empty()
@@ -291,7 +297,7 @@ pub fn extract_preedit_underlines(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                        z_order: stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                         clip: clip.clone(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(rect.center()),

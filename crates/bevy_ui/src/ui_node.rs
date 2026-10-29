@@ -477,7 +477,6 @@ impl From<BVec2> for IgnoreScroll {
     FocusPolicy,
     ScrollPosition,
     Visibility,
-    ZIndex,
     EmSize,
     UiTreeDirty
 )]
@@ -2869,6 +2868,13 @@ sure it's recognized as a markdown link."
 ///
 /// Use [`GlobalZIndex`] if you need to order separate UI hierarchies or nodes that are
 /// not siblings in a given UI hierarchy.
+///
+/// Changing or re-inserting the `ZIndex` on a root node also reorders the node's hierarchy against other
+/// hierarchies on the same [`GlobalZIndex`] layer. and adding, Changing or removing it brings
+/// the hierarchy to the front of the hierarchies that share its `ZIndex`. See [`GlobalZIndex`]
+/// for details.
+///
+/// Children of a [`GhostNode`] with a `ZIndex` are stacked as a group.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ZIndex(pub i32);
@@ -2878,7 +2884,6 @@ pub struct ZIndex(pub i32);
 /// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
-/// The order of nodes with the same `GlobalZIndex` is stable between frames.
 ///
 /// If two Nodes have the same `GlobalZIndex`, ties are decided in order by:
 ///
@@ -2886,7 +2891,7 @@ pub struct ZIndex(pub i32);
 /// * The node that was newly added this frame.
 /// * The node with a changed `GlobalZIndex` or `ZIndex`.
 ///
-/// Otherwise the order is preserved from the previous frame.
+/// Otherwise the order is stable between frames.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
@@ -3588,6 +3593,14 @@ pub struct FixedNode;
 /// - A `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their nearest non-ghost ancestor,
 ///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
 /// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
+/// - A `GhostNode` is never added to the [`UiStack`](crate::UiStack) and its `ComputedStackIndex` is
+///   [`ComputedStackIndex::ABSENT`](crate::ComputedStackIndex::ABSENT).
+/// - During z-ordering a `GhostNode` without a `ZIndex` or `GlobalZIndex` is skipped: its children are stacked
+///   as if they were children of the `GhostNode`'s parent.
+/// - A `GhostNode` with a `ZIndex` or `GlobalZIndex` stacks its descendants as a group. The group is ordered among
+///   the `GhostNode`'s siblings by its `ZIndex` and placed on its `GlobalZIndex`'s layer, while the descendants'
+///   own z-indices order them within the group.
+/// - For z-ordering, a root `GhostNode`'s children are treated as root nodes. See [`GlobalZIndex`].
 #[derive(Component, Debug, Copy, Clone, Reflect, Default)]
 #[reflect(Component, Debug, Clone)]
 #[require(Node)]
