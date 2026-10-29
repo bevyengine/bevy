@@ -523,8 +523,12 @@ pub fn extract_cameras(
     visibility_extraction_system_param: VisibilityExtractionSystemParam,
     extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
     mut active_cameras_per_target: Local<HashMap<NormalizedRenderTarget, usize>>,
+    // Each HDR render target, with a camera to name in the warning and
+    // whether any of its cameras tonemaps.
+    mut hdr_targets: Local<HashMap<NormalizedRenderTarget, (Entity, bool)>>,
 ) {
     main_pass_formats.clear();
+    hdr_targets.clear();
     let primary_window = primary_window.iter().next();
 
     // Count cameras per render target to make sure tonemapping isn't duplicated.
@@ -636,18 +640,13 @@ pub fn extract_cameras(
             // removed from it.
 
             let target = render_target.normalize(primary_window);
-            let output_texture_format = target
-                .as_ref()
-                .and_then(|target| {
-                    target
-                        .get_texture_view_format(
-                            &extracted_swap_chains,
-                            &images,
-                            &manual_texture_views,
-                        )
-                        .map(|format| normalize_bgra8(target, format))
-                })
-                .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+            let target_texture_format = target.as_ref().and_then(|target| {
+                target
+                    .get_texture_view_format(&extracted_swap_chains, &images, &manual_texture_views)
+                    .map(|format| normalize_bgra8(target, format))
+            });
+            let output_texture_format =
+                target_texture_format.unwrap_or(TextureFormat::Rgba8UnormSrgb);
             // Last frame's negotiated color space, like the swap chain format
             // read above.
             let view_display_target = resolve_view_display_target(
@@ -670,9 +669,27 @@ pub fn extract_cameras(
                 target.as_ref(),
                 shares_target,
             );
+            let runs_tonemapping_pass = tonemapping_enabled && !in_shader;
+            if view_display_target.is_hdr() {
+                if target_texture_format.is_some_and(|format| format.is_srgb()) {
+                    warn_once!(
+                        "A render target in ManualDisplayTargets uses the HDR color space {:?}, \
+                        but its texture format {output_texture_format:?} is sRGB. The GPU applies \
+                        the sRGB curve on top of the HDR encoding, so colors come out wrong. Use \
+                        a format without sRGB, such as Rgba16Float.",
+                        view_display_target.color_space
+                    );
+                }
+                if let Some(target) = &target {
+                    hdr_targets
+                        .entry(target.clone())
+                        .or_insert((main_entity, false))
+                        .1 |= runs_tonemapping_pass || in_shader;
+                }
+            }
             let target_format = main_texture_format(
                 hdr_output,
-                tonemapping_enabled && !in_shader,
+                runs_tonemapping_pass,
                 compositing_space.copied(),
                 output_texture_format,
             );
@@ -754,6 +771,17 @@ pub fn extract_cameras(
                 commands.remove::<NoIndirectDrawing>();
             }
         };
+    }
+
+    for (camera, tonemaps) in hdr_targets.values() {
+        if !tonemaps {
+            warn_once!(
+                "Camera {camera} renders to an HDR display, but no camera on that render target \
+                has tonemapping enabled. Colors above 1.0 reach the display unchanged and can be \
+                far too bright. Give a camera on this render target a Tonemapping method, or \
+                Tonemapping::Linear if the colors already suit the display."
+            );
+        }
     }
 }
 
