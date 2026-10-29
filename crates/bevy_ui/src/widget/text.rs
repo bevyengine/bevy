@@ -242,6 +242,7 @@ impl Measure for TextMeasure {
                 AvailableSpace::MinContent => self.info.min.x,
                 AvailableSpace::MaxContent => self.info.max.x,
             })
+            .ceil()
             .maybe_clamp(width.min, width.max);
 
         let size = height.effective.map_or_else(
