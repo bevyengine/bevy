@@ -4,10 +4,13 @@ use crate::{
         mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
         StaticTransformOptimizations,
     },
-    TransformSystems,
 };
 use bevy_app::{App, Plugin, PostStartup, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
+
+// This does not make much sence to be inside plugins module, but keeping it around here dont break existing code relying on this module path
+#[doc(hidden)]
+pub use crate::systems::TransformSystems;
 
 /// The base plugin for handling [`Transform`](crate::components::Transform) components
 #[derive(Default)]
