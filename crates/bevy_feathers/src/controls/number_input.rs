@@ -619,8 +619,13 @@ fn number_input_on_insert_value(
         let (mut editable_text, mut gradient, drag_state) = q_text_input.get_mut(text_id).unwrap();
         let editing = drag_state.mode == EditMode::Editing;
         let new_digits = format_value(units_registry.resolve(units), clamped_value, editing);
-        // `value()` doesn't include queued edits, such as the rewrite queued when
-        // leaving edit mode, so outside edit mode any pending edit forces a rewrite.
+        // Skip the rewrite if the field already shows the new value. But `value()`
+        // doesn't include queued edits, which are applied later in the frame. When
+        // leaving edit mode, the handler queues a rewrite to the old value; if the app
+        // then accepts the change and inserts the new value, the typed text can already
+        // match it, and skipping would let the stale rewrite land. So outside edit mode,
+        // any pending edit forces a rewrite queued after it. While editing, the pending
+        // edits are the user's keystrokes and must not be overwritten.
         if editable_text.value() != new_digits
             || (!editing && !editable_text.pending_edits.is_empty())
         {
@@ -2717,23 +2722,7 @@ mod tests {
             .insert_resource(font_cx)
             .init_resource::<bevy_text::LayoutCx>()
             .init_resource::<bevy_clipboard::Clipboard>()
-            .init_resource::<StoredValue>()
-            .add_systems(
-                bevy_app::Update,
-                (
-                    |mut stored: ResMut<StoredValue>,
-                     q_root: Query<Entity, With<FeathersNumberInput>>,
-                     mut commands: Commands| {
-                        if let Some(value) = stored.0.take() {
-                            for root in &q_root {
-                                commands.entity(root).insert(NumericValue::I32(value));
-                            }
-                        }
-                    },
-                    bevy_text::apply_text_edits,
-                )
-                    .chain(),
-            );
+            .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
 
         let text_id = app
             .world_mut()
@@ -2770,6 +2759,15 @@ mod tests {
                     |change: On<ValueChange<i32>>, mut stored: ResMut<StoredValue>| {
                         stored.0 = Some(change.value);
                     },
+                );
+                app.init_resource::<StoredValue>().add_systems(
+                    bevy_app::Update,
+                    (move |mut stored: ResMut<StoredValue>, mut commands: Commands| {
+                        if let Some(value) = stored.0.take() {
+                            commands.entity(root).insert(NumericValue::I32(value));
+                        }
+                    })
+                    .before(bevy_text::apply_text_edits),
                 );
             }
         }
