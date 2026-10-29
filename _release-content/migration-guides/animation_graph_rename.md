@@ -1,6 +1,6 @@
 ---
 title: Rename `AnimationGraph` to `BlendGraph`
-pull_requests: [22782]
+pull_requests: [26367]
 ---
 
 The `AnimationGraph` and its related structs/traits have been renamed to use the `Blend` prefix:
