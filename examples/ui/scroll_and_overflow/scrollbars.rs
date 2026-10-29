@@ -112,7 +112,6 @@ fn vertical_scroll_area_demo() -> impl Bundle {
                         ..default()
                     },
                     BackgroundColor(colors::GRAY1.into()),
-                    ScrollPosition::default(),
                     ScrollArea, // enable trackpad/mouse scrolling
                     Children::spawn((
                         // The actual content of the scrolling area
@@ -199,7 +198,6 @@ fn horizontal_scroll_area_demo(asset_server: &AssetServer) -> impl Bundle {
                         ..default()
                     },
                     BackgroundColor(colors::GRAY1.into()),
-                    ScrollPosition::default(),
                     ScrollArea, // enable trackpad/mouse scrolling
                     Children::spawn((
                         // The actual content of the scrolling
