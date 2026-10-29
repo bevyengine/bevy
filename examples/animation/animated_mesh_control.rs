@@ -153,7 +153,7 @@ fn setup_scene(
     // the animations and will get confused if the animations are started
     // directly via the `AnimationPlayer`.
     transitions
-        .play(&mut player, animations.animations[0], Duration::ZERO)
+        .transition(&mut player, animations.animations[0], Duration::ZERO)
         .repeat();
 
     commands
@@ -210,7 +210,7 @@ fn keyboard_control(
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
             transitions
-                .play(
+                .transition(
                     &mut player,
                     animations.animations[*current_animation],
                     Duration::from_millis(250),

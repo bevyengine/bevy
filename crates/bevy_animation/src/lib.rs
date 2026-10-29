@@ -65,7 +65,7 @@ pub mod prelude {
 use crate::{
     animation_curves::AnimationCurve,
     graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
-    transition::{advance_transitions, expire_completed_transitions},
+    transition::{expire_completed_transitions, handle_node_transition},
 };
 use alloc::sync::Arc;
 
@@ -1323,7 +1323,7 @@ impl Plugin for AnimationPlugin {
                 PostUpdate,
                 (
                     graph::thread_animation_graphs.before(AssetEventSystems),
-                    advance_transitions,
+                    handle_node_transition,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
                     // ambiguity testing currently considers it ambiguous with
