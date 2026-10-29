@@ -570,14 +570,14 @@ pub enum ScalingMode {
     /// The argument is the desired height of the projection in world units.
     FixedVertical {
         /// The height of the projection in world units, before [`OrthographicProjection::scale`] is applied.
-        viewport_height: f32
+        viewport_height: f32,
     },
     /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
     ///
     /// The argument is the desired width of the projection in world units.
     FixedHorizontal {
         /// The width of the projection in world units, before [`OrthographicProjection::scale`] is applied.
-        viewport_width: f32
+        viewport_width: f32,
     },
 }
 
