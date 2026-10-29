@@ -22,6 +22,7 @@ import package::{
 import package::render::mesh_view_bindings::globals;
 import package::render::view_transformations::{position_world_to_ndc};
 import bevy_render::maths::{E, powsafe};
+import bevy_render::view::apply_hdr_ceiling;
 
 @if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) import package::transmission;
 
@@ -818,7 +819,11 @@ fn apply_pbr_lighting(
 
 }
 
-    var emissive_light = emissive.rgb * output_color.a;
+    // Emission is capped before alpha scales it, so a premultiplied layer stays under the ceiling
+    // when alpha-blended over others.
+    var emissive_light =
+        apply_hdr_ceiling(emissive.rgb * mix(1.0, view_bindings::view.exposure, emissive.a))
+        * output_color.a;
 
     // "The clearcoat layer is on top of emission in the layering stack.
     // Consequently, the emission is darkened by the Fresnel term."
@@ -828,8 +833,6 @@ fn apply_pbr_lighting(
     let clearcoat_fresnel = lighting::F_Schlick(0.04, 1.0, clearcoat_NdotV);
     emissive_light = emissive_light * (1.0 - clearcoat * clearcoat_fresnel);
     }
-
-    emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
 
 @if(STANDARD_MATERIAL_SPECULAR_TRANSMISSION) {
     transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, in.material.dispersion, specular_transmissive_color, specular_transmitted_environment_light).rgb;
@@ -847,7 +850,9 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
+        apply_hdr_ceiling(
+            (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light
+        ),
         output_color.a
     );
 
@@ -991,6 +996,8 @@ fn main_pass_post_lighting_processing(
             view_bindings::view.world_position.xyz,
             pbr_input.frag_coord.xy,
         );
+        // Fog adds exposed light scattered from directional lights.
+        output_color = vec4(apply_hdr_ceiling(output_color.rgb), output_color.a);
     }
 
 @if(TONEMAP_IN_SHADER) {

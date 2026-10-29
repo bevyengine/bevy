@@ -16,6 +16,12 @@ const MIN_HISTORY_BLEND_RATE: f32 = 0.015; // Minimum blend rate allowed, to ens
 @group(0) @binding(3) var depth: texture_depth_2d;
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
+@group(0) @binding(6) var<uniform> uniforms: TaaUniforms;
+
+struct TaaUniforms {
+    /// The view's exposure divided by the exposure the history was stored at.
+    history_exposure_correction: f32,
+}
 
 struct Output {
     @location(0) view_target: vec4<f32>,
@@ -31,6 +37,11 @@ fn rcp(x: f32) -> f32 { return 1.0 / x; }
 fn max3(x: vec3<f32>) -> f32 { return max(x.r, max(x.g, x.b)); }
 fn tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(max3(color) + 1.0); }
 fn reverse_tonemap(color: vec3<f32>) -> vec3<f32> { return color * rcp(1.0 - max3(color)); }
+// `tonemap(reverse_tonemap(color) * scale)` without the reverse tonemap's division by zero. The
+// saturate keeps filtered values that overshoot 1 finite.
+fn scale_tonemapped(color: vec3<f32>, scale: f32) -> vec3<f32> {
+    return color * scale * rcp(1.0 + (scale - 1.0) * saturate(max3(color)));
+}
 
 // The following 3 functions are from Playdead (MIT-licensed)
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
@@ -138,6 +149,12 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     history_color += sample_history(texel_position_12.x, texel_position_12.y) * w12.x * w12.y;
     history_color += sample_history(texel_position_3.x, texel_position_12.y) * w3.x * w12.y;
     history_color += sample_history(texel_position_12.x, texel_position_3.y) * w12.x * w3.y;
+
+    // Rescale the history to this frame's exposure before clipping it to the current
+    // neighborhood. Without `TONEMAP`, TAA's input is already tonemapped and has no exposure to
+    // correct.
+@if(TONEMAP)
+    history_color = scale_tonemapped(history_color, uniforms.history_exposure_correction);
 
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33

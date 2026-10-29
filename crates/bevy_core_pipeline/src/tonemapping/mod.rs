@@ -328,6 +328,14 @@ pub fn init_tonemapping_pipeline(
     });
 }
 
+/// A view's 1x1 [`TextureFormat::R32Float`] texture holding the factor from absolute scene
+/// luminance to the tonemapping input: the view's exposure times the color grading exposure.
+///
+/// Passes that set the exposure on the GPU write it. Passes that run before them read the previous
+/// frame's value.
+#[derive(Component)]
+pub struct ViewExposureTexture(pub TextureView);
+
 /// A view's specialized tonemapping pipeline and the method it runs.
 #[derive(Component)]
 pub struct ViewTonemappingPipeline {

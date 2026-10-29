@@ -38,7 +38,7 @@ import package::{
     },
 };
 import bevy_render::{
-    view::View,
+    view::{View, apply_hdr_ceiling},
     maths::orthonormalize,
 };
 
@@ -324,5 +324,5 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 }
 
     // Write the results.
-    return vec4(fragment.rgb + indirect_light, fragment.a);
+    return vec4(apply_hdr_ceiling(fragment.rgb + indirect_light), fragment.a);
 }
