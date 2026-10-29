@@ -931,10 +931,10 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid and spawned. Returns `None`
-    /// for an entity that is invalid or for one that is valid but not spawned
+    /// for an entity that is invalid or for one that is valid but not spawned.
     ///
-    /// For an index without a meta, it returns `None` right away, so it does not need
-    /// `EntityMeta::FRESH`.
+    /// Use this method over [`try_location`](Self::try_location) if you do not need to know why the
+    /// entity has no location, as this method is more performant.
     #[inline]
     pub fn location(&self, entity: Entity) -> Option<EntityLocation> {
         let meta = self.meta.get(entity.index_u32() as usize)?;
