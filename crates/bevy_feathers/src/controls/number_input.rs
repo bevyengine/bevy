@@ -620,12 +620,13 @@ fn number_input_on_insert_value(
         let editing = drag_state.mode == EditMode::Editing;
         let new_digits = format_value(units_registry.resolve(units), clamped_value, editing);
         // Skip the rewrite if the field already shows the new value. But `value()`
-        // doesn't include queued edits, which are applied later in the frame. When
-        // leaving edit mode, the handler queues a rewrite to the old value; if the app
-        // then accepts the change and inserts the new value, the typed text can already
-        // match it, and skipping would let the stale rewrite land. So outside edit mode,
-        // any pending edit forces a rewrite queued after it. While editing, the pending
-        // edits are the user's keystrokes and must not be overwritten.
+        // doesn't include queued edits, which are applied later in the frame.
+        // When leaving edit mode, the handler queues a rewrite back to the old value.
+        // Depending on the timing of this event, the typed text could already match the
+        // new value while this old rewrite is still queued. To prevent the old rewrite
+        // from landing, we force a rewrite to the new value outside of edit mode if
+        // there are any pending edits. While editing, the pending edits are the user's
+        // keystrokes and must not be overwritten.
         if editable_text.value() != new_digits
             || (!editing && !editable_text.pending_edits.is_empty())
         {
