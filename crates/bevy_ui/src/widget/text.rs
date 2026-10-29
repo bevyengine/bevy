@@ -414,7 +414,7 @@ pub fn text_system(
                 TextBounds::UNBOUNDED
             } else {
                 let content_box_size = node.content_box().size();
-                TextBounds::new(content_box_size.x, content_box_size.y)
+                TextBounds::new(content_box_size.x.ceil(), content_box_size.y)
             };
 
             match text_pipeline.update_text_layout_info(
