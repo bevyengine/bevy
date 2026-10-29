@@ -10,7 +10,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_math::{Affine2, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::material_bind_groups::FallbackBuffer;
 use bevy_render::storage::GpuShaderBuffer;
@@ -298,7 +298,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 }
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: u32,
+    pub stack_index: ComputedStackIndex,
     pub transform: Affine2,
     pub rect: Rect,
     pub border: BorderRect,
@@ -453,7 +453,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiMaterialNode {
-                    stack_index: stack_index.0,
+                    stack_index: *stack_index,
                     transform: transform.into(),
                     material: handle.id(),
                     rect: Rect {
@@ -667,6 +667,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 }
 
 pub fn queue_ui_material_nodes<M: UiMaterial>(
+    paint_order: Res<PaintOrder>,
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
@@ -679,6 +680,10 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    let Ok(paint_layer) = paint_order.get_layer_index(M::paint_layer()) else {
+        return;
+    };
+
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
@@ -731,7 +736,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 draw_function,
                 pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + M::stack_z_offset()),
+                sort_key: UiSortKey::new(extracted_uinode.stack_index, paint_layer),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: false,

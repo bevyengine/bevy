@@ -15,7 +15,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{vec2, Affine2, FloatOrd, Vec2};
+use bevy_math::{vec2, Affine2, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
@@ -34,11 +34,13 @@ use bevy_ui::{
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 
+use crate::UiSortKey;
 use crate::{
     clipping::clip_polygon, BoxShadowSamples, RenderUiSystems, TransparentUi, UiCameraMap,
 };
 
-use super::{stack_z_offsets, UiCameraView, QUAD_VERTEX_POSITIONS};
+use super::{UiCameraView, QUAD_VERTEX_POSITIONS};
+use crate::paint_layers::{PaintOrder, BOX_SHADOW_PAINT_LAYER};
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
@@ -186,7 +188,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
 
 /// Description of a shadow to be sorted and queued for rendering
 pub struct ExtractedBoxShadow {
-    pub stack_index: u32,
+    pub stack_index: ComputedStackIndex,
     pub transform: Affine2,
     pub bounds: Vec2,
     pub clip: Option<CalculatedClip>,
@@ -358,7 +360,7 @@ pub fn extract_shadows(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedBoxShadow {
-                        stack_index: stack_index.0,
+                        stack_index: *stack_index,
                         transform: Affine2::from(transform) * Affine2::from_translation(offset),
                         color: drop_shadow.color.into(),
                         bounds: shadow_size + 6. * blur_radius,
@@ -401,6 +403,7 @@ pub fn extract_shadows(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_shadows(
+    paint_order: Res<PaintOrder>,
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
@@ -410,6 +413,10 @@ pub fn queue_shadows(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
+    let Ok(paint_layer) = paint_order.get_layer_index(BOX_SHADOW_PAINT_LAYER) else {
+        return;
+    };
+
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
@@ -451,10 +458,7 @@ pub fn queue_shadows(
                 draw_function,
                 pipeline: *pipeline,
                 entity: (*entity, *main_entity),
-                sort_key: FloatOrd(
-                    extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW,
-                ),
-
+                sort_key: UiSortKey::new(extracted_shadow.stack_index, paint_layer),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,

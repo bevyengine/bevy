@@ -1,4 +1,7 @@
-use crate::Node;
+use crate::{
+    paint_layers::{PaintLayer, MATERIAL_PAINT_LAYER},
+    Node,
+};
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
@@ -113,8 +116,8 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
-    fn stack_z_offset() -> f32 {
-        crate::stack_z_offsets::MATERIAL
+    fn paint_layer() -> PaintLayer {
+        MATERIAL_PAINT_LAYER
     }
 
     #[expect(

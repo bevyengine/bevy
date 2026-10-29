@@ -8,7 +8,6 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -18,6 +17,7 @@ use bevy_render::{
     sync_world::MainEntity,
     view::*,
 };
+use bevy_ui::ComputedStackIndex;
 use indexmap::IndexMap;
 use tracing::error;
 
@@ -74,9 +74,24 @@ pub fn ui_pass(
     pass_span.end(&mut render_pass);
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct UiSortKey {
+    pub stack_index: ComputedStackIndex,
+    pub paint_layer: u32,
+}
+
+impl UiSortKey {
+    pub const fn new(stack_index: ComputedStackIndex, paint_layer: u32) -> Self {
+        Self {
+            stack_index,
+            paint_layer,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TransparentUi {
-    pub sort_key: FloatOrd,
+    pub sort_key: UiSortKey,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -122,7 +137,7 @@ impl PhaseItem for TransparentUi {
 }
 
 impl SortedPhaseItem for TransparentUi {
-    type SortKey = FloatOrd;
+    type SortKey = UiSortKey;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
