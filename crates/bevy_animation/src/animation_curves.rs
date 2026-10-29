@@ -502,7 +502,7 @@ where
                         ]
                         .into_iter(),
                     );
-                } else {
+                } else if current_weight != 0.0 {
                     current_value = A::interpolate(
                         &current_value,
                         &value_to_blend,
@@ -538,7 +538,9 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        if let Some((value, _)) = self.blend_register.take() {
+        if let Some((value, blend_register_weight)) = self.blend_register.take()
+            && blend_register_weight != 0.0
+        {
             self.stack.push(BasicAnimationCurveEvaluatorStackElement {
                 value,
                 weight,
@@ -688,8 +690,9 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// Otherwise, this method pushes the current value of the blend register
     /// onto the stack, alongside the weight and graph node supplied to this
     /// function. The weight present in the blend register is discarded; only
-    /// the weight parameter to this function is pushed onto the stack. The
-    /// blend register is emptied after this process.
+    /// the weight parameter to this function is pushed onto the stack. If the
+    /// weight in the blend register is zero, nothing is pushed. The blend
+    /// register is emptied after this process.
     fn push_blend_register(
         &mut self,
         weight: f32,
@@ -842,5 +845,52 @@ mod tests {
             .downcast::<Vec3>()
             .unwrap();
         assert_eq!(*value, Vec3::new(1., 0., 0.));
+    }
+
+    #[test]
+    fn zero_weight_inputs_blend_without_nan() {
+        let mut evaluator = BasicAnimationCurveEvaluator::<f32>::default();
+        let nodes = [1, 2, 3].map(AnimationNodeIndex::new);
+        // The stack pops last first, so both zero-weight inputs are combined
+        // before the weighted one.
+        for (value, weight, graph_node) in [
+            (3.0, 1.0, nodes[2]),
+            (2.0, 0.0, nodes[1]),
+            (1.0, 0.0, nodes[0]),
+        ] {
+            evaluator
+                .stack
+                .push(BasicAnimationCurveEvaluatorStackElement {
+                    value,
+                    weight,
+                    graph_node,
+                });
+        }
+        for node in nodes {
+            evaluator.combine(node, false).unwrap();
+        }
+
+        assert_eq!(evaluator.blend_register.map(|(value, _)| value), Some(3.0));
+    }
+
+    #[test]
+    fn blend_node_with_zero_weight_inputs_is_skipped() {
+        let mut evaluator = BasicAnimationCurveEvaluator::<f32>::default();
+        let [sibling, blend, blend_child] = [1, 2, 3].map(AnimationNodeIndex::new);
+        for (value, weight, graph_node) in [(3.0, 1.0, sibling), (2.0, 0.0, blend_child)] {
+            evaluator
+                .stack
+                .push(BasicAnimationCurveEvaluatorStackElement {
+                    value,
+                    weight,
+                    graph_node,
+                });
+        }
+        evaluator.combine(blend_child, false).unwrap();
+        evaluator.push_blend_register(1.0, blend).unwrap();
+        evaluator.combine(blend, false).unwrap();
+        evaluator.combine(sibling, false).unwrap();
+
+        assert_eq!(evaluator.blend_register.map(|(value, _)| value), Some(3.0));
     }
 }

@@ -165,7 +165,7 @@ impl WeightsCurveEvaluator {
                 {
                     if additive {
                         *dest += src * weight_to_blend;
-                    } else {
+                    } else if *current_weight != 0.0 {
                         *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
                     }
                 }
@@ -190,11 +190,14 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        if self.blend_register_blend_weight.take().is_some() {
-            self.stack_morph_target_weights
-                .append(&mut self.blend_register_morph_target_weights);
-            self.stack_blend_weights_and_graph_nodes
-                .push((weight, graph_node));
+        match self.blend_register_blend_weight.take() {
+            Some(blend_register_weight) if blend_register_weight != 0.0 => {
+                self.stack_morph_target_weights
+                    .append(&mut self.blend_register_morph_target_weights);
+                self.stack_blend_weights_and_graph_nodes
+                    .push((weight, graph_node));
+            }
+            _ => self.blend_register_morph_target_weights.clear(),
         }
         Ok(())
     }
@@ -223,5 +226,28 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
         self.stack_morph_target_weights.clear();
         self.stack_blend_weights_and_graph_nodes.clear();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blend_node_with_zero_weight_inputs_is_skipped() {
+        let [sibling, blend, blend_child] = [1, 2, 3].map(AnimationNodeIndex::new);
+        let mut evaluator = WeightsCurveEvaluator {
+            stack_morph_target_weights: vec![3.0, 3.0, 2.0, 2.0],
+            stack_blend_weights_and_graph_nodes: vec![(1.0, sibling), (0.0, blend_child)],
+            blend_register_morph_target_weights: vec![],
+            blend_register_blend_weight: None,
+            morph_target_count: Some(2),
+        };
+        evaluator.combine(blend_child, false).unwrap();
+        evaluator.push_blend_register(1.0, blend).unwrap();
+        evaluator.combine(blend, false).unwrap();
+        evaluator.combine(sibling, false).unwrap();
+
+        assert_eq!(evaluator.blend_register_morph_target_weights, [3.0, 3.0]);
     }
 }

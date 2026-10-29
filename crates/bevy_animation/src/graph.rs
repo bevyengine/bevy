@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
-use crate::{AnimationClip, AnimationTargetId};
+use crate::{ActiveAnimation, AnimationClip, AnimationTargetId};
 
 /// A graph structure that describes how animation clips are to be blended
 /// together.
@@ -775,6 +775,12 @@ impl AnimationGraphNode {
     /// unless another mask masks those targets out.
     pub fn remove_mask_group(&mut self, group: u32) -> &mut Self {
         self.remove_mask(1 << group)
+    }
+
+    /// This node's weight, scaled by the [`ActiveAnimation`]'s weight if the player
+    /// has an entry for the node.
+    pub(crate) fn active_weight(&self, active_animation: Option<&ActiveAnimation>) -> f32 {
+        self.weight * active_animation.map_or(1.0, ActiveAnimation::weight)
     }
 }
 

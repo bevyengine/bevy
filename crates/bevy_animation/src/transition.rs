@@ -3,6 +3,7 @@
 //! Please note that this is an unstable temporary API. It may be replaced by a
 //! state machine in the future.
 
+use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
     reflect::ReflectComponent,
@@ -12,13 +13,16 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::time::Duration;
 
-use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
+use crate::{
+    graph::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex, AnimationNodeType},
+    ActiveAnimation, AnimationPlayer,
+};
 
 /// Manages fade-out of animation blend factors, allowing for smooth transitions
 /// between animations.
 ///
 /// To use this component, place it on the same entity as the
-/// [`AnimationPlayer`] and [`AnimationGraphHandle`](crate::AnimationGraphHandle). It'll take
+/// [`AnimationPlayer`] and [`AnimationGraphHandle`]. It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
 ///
@@ -28,6 +32,13 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// the [`AnimationPlayer`] directly will cause the [`AnimationTransitions`]
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
+///
+/// Transition away from an animation node has different behavior depending on
+/// the node it's transitioning from:
+/// - Clip: once a transition away from a clip completes, the clip is stopped.
+/// - Blend/Add: nodes are kept at weight 0 instead of being stopped, so playing
+///   one directly through the [`AnimationPlayer`] leaves it silent until
+///   [`ActiveAnimation::set_weight`] is called.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationTransitions {
@@ -144,16 +155,80 @@ pub fn advance_transitions(
 
 /// A system that removed transitions that have completed from the
 /// [`AnimationTransitions`] object.
+///
+/// Expired clips are stopped, but expired Blend/Add nodes are kept at
+/// weight 0 instead, since a node the [`AnimationPlayer`] has no entry for
+/// weighs in at its full graph weight.
 pub fn expire_completed_transitions(
-    mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
+    graphs: Res<Assets<AnimationGraph>>,
+    mut query: Query<(
+        &mut AnimationTransitions,
+        &mut AnimationPlayer,
+        Option<&AnimationGraphHandle>,
+    )>,
 ) {
-    for (mut animation_transitions, mut player) in query.iter_mut() {
+    for (mut animation_transitions, mut player, graph) in query.iter_mut() {
+        let graph = graph.and_then(|graph| graphs.get(graph));
         animation_transitions.transitions.retain(|transition| {
-            let expire = transition.current_weight <= 0.0;
-            if expire {
+            if transition.current_weight > 0.0 {
+                return true;
+            }
+            let node_type = graph
+                .and_then(|graph| graph.get(transition.animation))
+                .map(|node| &node.node_type);
+            // A stopped blend or additive node would weigh in fully again, so it stays
+            // silent instead.
+            if let Some(AnimationNodeType::Blend | AnimationNodeType::Add) = node_type {
+                if let Some(animation) = player.animation_mut(transition.animation) {
+                    animation.set_weight(0.0);
+                }
+            } else {
                 player.stop(transition.animation);
             }
-            !expire
+            false
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_asset::Handle;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+
+    #[test]
+    fn expiring_keeps_blend_nodes_silent_and_stops_clips() {
+        let mut graph = AnimationGraph::new();
+        let blend = graph.add_blend(1.0, graph.root);
+        let clip = graph.add_clip(Handle::default(), 1.0, graph.root);
+        let mut graphs = Assets::<AnimationGraph>::default();
+        let graph = graphs.add(graph);
+
+        let mut player = AnimationPlayer::default();
+        player.play(blend);
+        player.play(clip);
+        let expired = |animation| AnimationTransition {
+            current_weight: 0.0,
+            weight_decline_per_sec: 1.0,
+            animation,
+        };
+        let transitions = AnimationTransitions {
+            main_animation: None,
+            transitions: vec![expired(blend), expired(clip)],
+        };
+
+        let mut world = World::new();
+        world.insert_resource(graphs);
+        let entity = world
+            .spawn((player, transitions, AnimationGraphHandle(graph)))
+            .id();
+        world.run_system_once(expire_completed_transitions).unwrap();
+
+        let player = world.get::<AnimationPlayer>(entity).unwrap();
+        assert_eq!(
+            player.animation(blend).map(ActiveAnimation::weight),
+            Some(0.0)
+        );
+        assert!(player.animation(clip).is_none());
     }
 }
