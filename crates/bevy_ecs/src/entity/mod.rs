@@ -912,7 +912,7 @@ impl Entities {
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
-    pub fn get_spawned(&self, entity: Entity) -> Result<EntityLocation, EntityNotSpawnedError> {
+    pub fn try_location(&self, entity: Entity) -> Result<EntityLocation, EntityNotSpawnedError> {
         let meta = self.meta.get(entity.index_u32() as usize);
         let meta = meta.unwrap_or(&EntityMeta::FRESH);
         if entity.generation() != meta.generation {
@@ -936,7 +936,7 @@ impl Entities {
     /// For an index without a meta, it returns `None` right away, so it does not need
     /// `EntityMeta::FRESH`.
     #[inline]
-    pub fn get_spawned_location(&self, entity: Entity) -> Option<EntityLocation> {
+    pub fn location(&self, entity: Entity) -> Option<EntityLocation> {
         let meta = self.meta.get(entity.index_u32() as usize)?;
         if entity.generation() != meta.generation {
             return None;
@@ -946,14 +946,14 @@ impl Entities {
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid.
     /// The location will be `None` if the entity is not spawned.
-    /// If you expect the entity to be spawned, use [`get_spawned`](Self::get_spawned).
+    /// If you expect the entity to be spawned, use [`try_location`](Self::try_location).
     ///
     /// This will fail if the [`Entity`] is not valid (ex: the generation is mismatched).
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<Option<EntityLocation>, InvalidEntityError> {
-        match self.get_spawned(entity) {
+        match self.try_location(entity) {
             Ok(location) => Ok(Some(location)),
             Err(EntityNotSpawnedError::ValidButNotSpawned { .. }) => Ok(None),
             Err(EntityNotSpawnedError::Invalid(err)) => Err(err),
@@ -994,7 +994,7 @@ impl Entities {
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     pub fn contains_spawned(&self, entity: Entity) -> bool {
-        self.get_spawned(entity).is_ok()
+        self.try_location(entity).is_ok()
     }
 
     /// Provides information regarding if `entity` may be safely spawned.

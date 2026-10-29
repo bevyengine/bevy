@@ -894,7 +894,7 @@ impl World {
         &self,
         entity: Entity,
     ) -> Result<impl Iterator<Item = (ComponentId, &ComponentInfo)>, EntityNotSpawnedError> {
-        let entity_location = self.entities().get_spawned(entity)?;
+        let entity_location = self.entities().try_location(entity)?;
 
         let archetype = self
             .archetypes()
@@ -1120,7 +1120,7 @@ impl World {
 
         if !self.command_queue_is_empty() {
             self.flush();
-            entity_location = self.entities().get_spawned(entity).ok();
+            entity_location = self.entities().try_location(entity).ok();
         }
 
         // SAFETY: The entity and location started as valid.
@@ -1340,7 +1340,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
-        let location = self.entities().get_spawned_location(entity)?;
+        let location = self.entities().location(entity)?;
         // SAFETY:
         // - `location` is the location of `entity`
         // - `&self` gives read access to every component, and no mutable reference to one can exist
@@ -1370,7 +1370,7 @@ impl World {
         &mut self,
         entity: Entity,
     ) -> Option<Mut<'_, T>> {
-        let location = self.entities().get_spawned_location(entity)?;
+        let location = self.entities().location(entity)?;
         let last_run = self.last_change_tick();
         let this_run = self.change_tick();
         // SAFETY:
@@ -2619,7 +2619,7 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            match self.entities().get_spawned(first_entity) {
+            match self.entities().try_location(first_entity) {
                 Err(err) => {
                     panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
                 }
@@ -2650,7 +2650,7 @@ impl World {
                     };
 
                     for (entity, bundle) in batch_iter {
-                        match cache.inserter.entities().get_spawned(entity) {
+                        match cache.inserter.entities().try_location(entity) {
                             Ok(location) => {
                                 if location.archetype_id != cache.archetype_id {
                                     cache = InserterArchetypeCache {
@@ -2771,7 +2771,7 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                if let Ok(first_location) = self.entities().get_spawned(first_entity) {
+                if let Ok(first_location) = self.entities().try_location(first_entity) {
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_bundle_info`
                         inserter: unsafe {
@@ -2811,7 +2811,7 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                if let Ok(location) = cache.inserter.entities().get_spawned(entity) {
+                if let Ok(location) = cache.inserter.entities().try_location(entity) {
                     if location.archetype_id != cache.archetype_id {
                         cache = InserterArchetypeCache {
                             // SAFETY: we initialized this bundle_id in `register_info`

@@ -437,7 +437,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
     #[inline]
     pub fn get_entity(self, entity: Entity) -> Result<UnsafeEntityCell<'w>, EntityNotSpawnedError> {
-        let location = self.entities().get_spawned(entity)?;
+        let location = self.entities().try_location(entity)?;
         Ok(UnsafeEntityCell::new(
             self,
             entity,
@@ -456,7 +456,7 @@ impl<'w> UnsafeWorldCell<'w> {
         last_run: Tick,
         this_run: Tick,
     ) -> Result<UnsafeEntityCell<'w>, EntityNotSpawnedError> {
-        let location = self.entities().get_spawned(entity)?;
+        let location = self.entities().try_location(entity)?;
         Ok(UnsafeEntityCell::new(
             self, entity, location, last_run, this_run,
         ))

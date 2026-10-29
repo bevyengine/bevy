@@ -1387,7 +1387,7 @@ where
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
         unsafe {
-            location = self.entities.get_spawned(entity).unwrap_unchecked();
+            location = self.entities.try_location(entity).unwrap_unchecked();
             archetype = self
                 .archetypes
                 .get(location.archetype_id)
@@ -1565,7 +1565,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
         query_state: &'s QueryState<D, F>,
     ) -> Result<D::Item<'w, 's>, QueryEntityError> {
         let entity = entity_borrow.entity();
-        let location = entities.get_spawned(entity)?;
+        let location = entities.try_location(entity)?;
 
         if !query_state
             .matched_archetypes
@@ -2662,7 +2662,7 @@ impl<
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
         unsafe {
-            location = self.entities.get_spawned(entity).unwrap_unchecked();
+            location = self.entities.try_location(entity).unwrap_unchecked();
             archetype = self
                 .archetypes
                 .get(location.archetype_id)

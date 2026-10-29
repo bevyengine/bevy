@@ -224,7 +224,7 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get_spawned(swapped_entity).unwrap_unchecked() };
+                        unsafe { entities.try_location(swapped_entity).unwrap_unchecked() };
                     // SAFETY: entity already existed, its archetype_row just changed
                     unsafe {
                         entities.update_existing_location(
@@ -265,7 +265,7 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get_spawned(swapped_entity).unwrap_unchecked() };
+                        unsafe { entities.try_location(swapped_entity).unwrap_unchecked() };
                     // SAFETY: Existing entity has changed archetype row
                     unsafe {
                         entities.update_existing_location(
@@ -307,7 +307,7 @@ impl<'w> BundleInserter<'w> {
                 if let Some(swapped_entity) = move_result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
-                        unsafe { entities.get_spawned(swapped_entity).unwrap_unchecked() };
+                        unsafe { entities.try_location(swapped_entity).unwrap_unchecked() };
 
                     // SAFETY: Existing entity has changed archetype row
                     unsafe {

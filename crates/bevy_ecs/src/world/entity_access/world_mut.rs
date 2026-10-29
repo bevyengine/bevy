@@ -65,7 +65,7 @@ impl<'w> EntityWorldMut<'w> {
         panic!(
             "Entity {} {}",
             self.entity,
-            self.world.entities().get_spawned(self.entity).unwrap_err()
+            self.world.entities().try_location(self.entity).unwrap_err()
         );
     }
 
@@ -124,14 +124,14 @@ impl<'w> EntityWorldMut<'w> {
     ///  The `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`.
     ///  If the `entity` is not spawned for any reason (See [`EntityNotSpawnedError`](crate::entity::EntityNotSpawnedError)), the location should be `None`.
     ///
-    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get_spawned(entity).ok()`.
+    ///  The above is trivially satisfied if `location` was sourced from `world.entities().try_location(entity).ok()`.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
         location: Option<EntityLocation>,
     ) -> Self {
-        debug_assert_eq!(world.entities().get_spawned(entity).ok(), location);
+        debug_assert_eq!(world.entities().try_location(entity).ok(), location);
 
         EntityWorldMut {
             world,
@@ -1810,7 +1810,7 @@ impl<'w> EntityWorldMut<'w> {
             let archetype = &mut self.world.archetypes[location.archetype_id];
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                let swapped_location = self.world.entities.get_spawned(swapped_entity).unwrap();
+                let swapped_location = self.world.entities.try_location(swapped_entity).unwrap();
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
@@ -1845,7 +1845,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // Handle displaced entity
         if let Some(moved_entity) = moved_entity {
-            let moved_location = self.world.entities.get_spawned(moved_entity).unwrap();
+            let moved_location = self.world.entities.try_location(moved_entity).unwrap();
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
@@ -1986,7 +1986,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Note that if the entity is not spawned for any reason,
     /// this will have a location of `None`, leading some methods to panic.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get_spawned(self.entity).ok();
+        self.location = self.world.entities().try_location(self.entity).ok();
     }
 
     /// Returns if the entity has been despawned.
