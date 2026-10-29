@@ -105,7 +105,7 @@ struct LightSample {
 /// Every kind of light is described by the same data, and shaded by the same formula in
 /// `calculate_resolved_light_contribution`.
 struct ResolvedLightSample {
-    /// If w = 1, the sample is a point on a light. If w = 0, it's a direction towards a directional light.
+    /// If w = 1, the sample is a point on a light. If w = 0, it's a direction towards a light.
     world_position: vec4<f32>,
     /// The emitting surface's normal. Unused when `emission_cosine_exponent` is 0.
     world_normal: vec3<f32>,
@@ -307,7 +307,8 @@ fn calculate_resolved_light_contribution(resolved_light_sample: ResolvedLightSam
     var radiance = resolved_light_sample.radiance * (emission / light_distance_squared);
     // Skips views without an atmosphere, non-directional lights, and lights below the tangent plane, where the BRDF is zero.
     if atmosphere.outer_radius > 0.0 && resolved_light_sample.world_position.w == 0.0 && dot(wi, origin_world_normal) > 0.0 {
-        // Light samples are points on the sun's disk, so they average to its visible fraction.
+        // Light samples are already spread across the sun, so they average to how much of it is above the horizon.
+        // Passing the sun's size here would count that twice.
         radiance *= directional_light_transmittance(atmosphere, atmosphere_transmittance_lut, atmosphere_transmittance_sampler, ray_origin, wi, 0.0);
     }
 

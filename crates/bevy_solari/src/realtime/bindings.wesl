@@ -17,7 +17,6 @@ enable wgpu_ray_query;
 @group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
 @group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
-// Bindings 10-12 are the atmosphere, see `scene/atmosphere.wesl`.
 
 @if(RESTIR) {
 @group(1) @binding(13) var previous_gbuffer: texture_2d<u32>;
