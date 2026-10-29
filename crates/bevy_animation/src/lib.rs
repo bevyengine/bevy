@@ -353,7 +353,7 @@ impl AnimationClip {
         );
     }
 
-    /// Samples an [`BlendableProperty`] of a specific [`AnimationTargetId`].
+    /// Samples a [`BlendableProperty`] of a specific [`AnimationTargetId`].
     ///
     /// See [`crate::morph::WeightsCurveSample`] if you want to sample [`crate::morph::WeightsCurve`].
     ///
@@ -982,7 +982,7 @@ impl AnimationPlayer {
         self
     }
 
-    /// Returns the [`ActiveAnimation`] associated with the given animation
+    /// Returns the [`ActiveAnimation`] associated with the given blend
     /// node if it's currently playing.
     ///
     /// If the animation isn't currently active, returns `None`.

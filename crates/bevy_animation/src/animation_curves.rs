@@ -150,7 +150,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     }
 ///
 ///
-/// You can then create an [`BlendableCurve`] to animate this property like so:
+/// You can then create a [`BlendableCurve`] to animate this property like so:
 ///
 ///     # use bevy_animation::{VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{BlendableProperty, BlendableKeyframeCurve, BlendableCurve};
@@ -207,16 +207,16 @@ pub trait BlendableProperty: Send + Sync + 'static {
 ///
 /// The best way to create an instance of this type is via the [`animated_field`] macro.
 ///
-/// `C` is the component being animated, `A` is the type of the [`Blendable`] field on the component, and `F` is an accessor
-/// function that accepts a reference to `C` and retrieves the field `A`.
+/// `C` is the component being animated, `B` is the type of the [`Blendable`] field on the component, and `F` is an accessor
+/// function that accepts a reference to `C` and retrieves the field `B`.
 ///
 /// [`animated_field`]: crate::animated_field
 #[derive(Clone)]
-pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
+pub struct AnimatedField<C, B, F: Fn(&mut C) -> &mut B> {
     func: F,
-    /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
+    /// B pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
     evaluator_id: Hashed<(TypeId, usize)>,
-    marker: PhantomData<(C, A)>,
+    marker: PhantomData<(C, B)>,
 }
 
 impl<C, B, F> BlendableProperty for AnimatedField<C, B, F>
@@ -296,10 +296,10 @@ pub struct BlendableCurve<P, C> {
     pub curve: C,
 }
 
-/// An [`BlendableCurveEvaluator`] for [`BlendableProperty`] instances.
+/// A [`BlendableCurveEvaluator`] for [`BlendableProperty`] instances.
 ///
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
-/// will automatically do so when you use an [`BlendableCurve`] instance.
+/// will automatically do so when you use a [`BlendableCurve`] instance.
 #[derive(Reflect)]
 pub struct BlendableCurveEvaluator<B: Blendable> {
     evaluator: BasicAnimationCurveEvaluator<B>,
@@ -311,8 +311,8 @@ where
     P: BlendableProperty,
     C: AnimationCompatibleCurve<P::Property>,
 {
-    /// Create an [`BlendableCurve`] (and thus an [`AnimationCurve`]) from a curve
-    /// valued in an [blendable property].
+    /// Create a [`BlendableCurve`] (and thus an [`AnimationCurve`]) from a curve
+    /// valued in a [blendable property].
     ///
     /// [blendable property]: BlendableProperty::Property
     pub fn new(property: P, curve: C) -> Self {
@@ -427,27 +427,27 @@ impl<B: Blendable> AnimationCurveEvaluator for BlendableCurveEvaluator<B> {
 }
 
 #[derive(Reflect)]
-struct BasicAnimationCurveEvaluator<A>
+struct BasicAnimationCurveEvaluator<B>
 where
-    A: Blendable,
+    B: Blendable,
 {
-    stack: Vec<BasicAnimationCurveEvaluatorStackElement<A>>,
-    blend_register: Option<(A, f32)>,
+    stack: Vec<BasicAnimationCurveEvaluatorStackElement<B>>,
+    blend_register: Option<(B, f32)>,
 }
 
 #[derive(Reflect)]
-struct BasicAnimationCurveEvaluatorStackElement<A>
+struct BasicAnimationCurveEvaluatorStackElement<B>
 where
-    A: Blendable,
+    B: Blendable,
 {
-    value: A,
+    value: B,
     weight: f32,
     graph_node: BlendNodeIndex,
 }
 
-impl<A> Default for BasicAnimationCurveEvaluator<A>
+impl<B> Default for BasicAnimationCurveEvaluator<B>
 where
-    A: Blendable,
+    B: Blendable,
 {
     fn default() -> Self {
         BasicAnimationCurveEvaluator {
@@ -457,9 +457,9 @@ where
     }
 }
 
-impl<A> BasicAnimationCurveEvaluator<A>
+impl<B> BasicAnimationCurveEvaluator<B>
 where
-    A: Blendable,
+    B: Blendable,
 {
     fn combine(
         &mut self,
@@ -487,7 +487,7 @@ where
                 current_weight += weight_to_blend;
 
                 if additive {
-                    current_value = A::blend(
+                    current_value = B::blend(
                         [
                             BlendInput {
                                 weight: 1.0,
@@ -503,7 +503,7 @@ where
                         .into_iter(),
                     );
                 } else {
-                    current_value = A::interpolate(
+                    current_value = B::interpolate(
                         &current_value,
                         &value_to_blend,
                         weight_to_blend / current_weight,
@@ -517,9 +517,9 @@ where
         Ok(())
     }
 
-    fn initialize_blend_register(&mut self, value: A, weight: f32, additive: bool) {
+    fn initialize_blend_register(&mut self, value: B, weight: f32, additive: bool) {
         if additive {
-            let scaled_value = A::blend(
+            let scaled_value = B::blend(
                 [BlendInput {
                     weight,
                     value,
@@ -610,7 +610,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     fn sample_clamped(&self, t: f32) -> Box<dyn Any>;
 }
 
-/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`BlendableProperty`].
+/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for a [`BlendableProperty`].
 /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
 #[derive(Clone, PartialEq, Eq)]
 pub enum EvaluatorId<'a> {

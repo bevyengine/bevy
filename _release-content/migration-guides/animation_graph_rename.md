@@ -26,4 +26,4 @@ The `AnimationGraph` and its related structs/traits have been renamed to use the
 - `AnimatableCurveEvaluator` has been renamed to `BlendableCurveEvaluator`.
 - `AnimatableKeyframeCurve` has been renamed to `BlendableKeyframeCurve`.
 - File extensions `.animgraph` and `.animgraph.ron` have been renamed `.blendgraph` and `.blendgraph.ron`.
-- `animatable.rs` in `bevy_animation` has been renamed `blendable.rs`.
+- The `bevy_animation::animatable` module has been renamed to `bevy_animation::blendable`.

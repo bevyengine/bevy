@@ -31,7 +31,7 @@ use {
 mod number_input_f32;
 
 /// Where to find the serialized blend graph.
-static BLEND_GRAPH_PATH: &str = "animation_graphs/Fox.blendgraph.ron";
+static BLEND_GRAPH_PATH: &str = "blend_graphs/Fox.blendgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];

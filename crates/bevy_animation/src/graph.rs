@@ -102,7 +102,7 @@ use crate::{AnimationClip, AnimationTargetId};
 /// continue to be depicted as holding the object.
 ///
 /// Blend graphs are assets and can be serialized to and loaded from [RON]
-/// files. Canonically, such files have an `.blendgraph.ron` extension.
+/// files. Canonically, such files have a `.blendgraph.ron` extension.
 ///
 /// The blend graph implements [RFC 51]. See that document for more
 /// information.
@@ -150,7 +150,7 @@ impl From<&BlendGraphHandle> for AssetId<BlendGraph> {
     }
 }
 
-/// A type alias for the `petgraph` data structure that defines the animation
+/// A type alias for the `petgraph` data structure that defines the blend
 /// graph.
 pub type BlendDiGraph = DiGraph<BlendGraphNode, (), u32>;
 
@@ -500,7 +500,7 @@ impl BlendGraph {
         }
     }
 
-    /// A convenience function for creating an [`BlendGraph`] from a single
+    /// A convenience function for creating a [`BlendGraph`] from a single
     /// [`AnimationClip`].
     ///
     /// The clip will be a direct child of the root with weight 1.0. Both the
@@ -511,7 +511,7 @@ impl BlendGraph {
         (graph, node_index)
     }
 
-    /// A convenience method to create an [`BlendGraph`]s with an iterator
+    /// A convenience method to create a [`BlendGraph`] with an iterator
     /// of clips.
     ///
     /// All of the animation clips will be direct children of the root with
@@ -568,7 +568,7 @@ impl BlendGraph {
         node_index
     }
 
-    /// A convenience method to add multiple [`AnimationClip`]s to the animation
+    /// A convenience method to add multiple [`AnimationClip`]s to the blend
     /// graph.
     ///
     /// All of the animation clips will have the same weight and will be
