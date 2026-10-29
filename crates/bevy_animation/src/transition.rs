@@ -33,7 +33,7 @@ use crate::{
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
 ///
-/// Transition away from an animation node has different behaviour depending on
+/// Transition away from an animation node has different behavior depending on
 /// the node it's transitioning from:
 /// - Clip: once a transition away from a clip completes, the clip is stopped.
 /// - Blend/Add: nodes are kept at weight 0 instead of being stopped, so playing
