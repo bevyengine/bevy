@@ -6,6 +6,7 @@ use alloc::{
     boxed::Box,
     format,
 };
+use atomicow::CowArc;
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
 use tracing::error;
@@ -119,12 +120,18 @@ impl HttpWasmAssetReader {
 }
 
 impl AssetReader for HttpWasmAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let path = self.root_path.join(path);
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
+        let path = self.root_path.join(&path);
         self.fetch_bytes(path).await
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(&self.root_path.join(path));
         self.fetch_bytes(meta_path).await
     }
