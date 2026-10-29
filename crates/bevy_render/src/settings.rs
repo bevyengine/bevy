@@ -190,7 +190,7 @@ impl RenderResources {
         let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) = self;
 
         let compressed_image_format_support =
-            CompressedImageFormatSupport(CompressedImageFormats::from_features(device.features()));
+            CompressedImageFormatSupport(CompressedImageFormats::from_features(*device.features()));
 
         main_world.insert_resource(device.clone());
         main_world.insert_resource(queue.clone());

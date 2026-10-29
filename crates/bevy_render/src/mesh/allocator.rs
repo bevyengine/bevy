@@ -438,7 +438,7 @@ impl MeshAllocator {
             // Allocate metadata.
             if mesh.final_aabb.is_some() || mesh.final_uv_ranges.iter().any(Option::is_some) {
                 // If storage buffers are unsupported, we allocate uniform buffers for each mesh.
-                if crate::storage_buffers_are_unsupported(&render_device.limits()) {
+                if crate::storage_buffers_are_unsupported(render_device.limits()) {
                     allocation_stage.allocate_large(
                         &MeshAllocationKey::new(*mesh_id, ElementClass::Metadata),
                         ElementLayout::metadata(false),
