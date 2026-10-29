@@ -14,7 +14,7 @@ use bevy_ecs::{
     intern::{Interned, Interner},
     reflect::{AppTypeRegistry, ReflectComponent},
     resource::Resource,
-    system::{Res, ResMut},
+    system::{Local, Res, ResMut},
     world::World,
 };
 use bevy_log::{info, warn};
@@ -383,7 +383,7 @@ impl RemoteSnapshot {
 
 /// Sets the connection up for the current [`InspectorSource`] when it changes, clearing the
 /// [`RemoteWorld`] and the selection.
-pub fn sync_remote_sources(world: &mut World) {
+pub fn sync_remote_sources(world: &mut World, mut old_sources: Local<HashSet<InspectorSource>>) {
     let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
         if let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
             sel.0 = None;
@@ -393,46 +393,44 @@ pub fn sync_remote_sources(world: &mut World) {
     };
 
     let mut spotted_selected = false;
-    let mut spotted_remote_main = false;
-    let mut spotted_remote_render = false;
 
     let mut spotted_source: Option<InspectorSource> = None;
-    if let Some(sel) = world.get_resource::<InspectorSelection>() {
-        if let Some(ref f) = sel.0 {
-            spotted_source = Some(f.source);
-        }
+    if let Some(sel) = world.get_resource::<InspectorSelection>()
+        && let Some(ref f) = sel.0
+    {
+        spotted_source = Some(f.source);
     }
+
+    let next_sources = inspector_sources.sources.clone();
 
     for inspector_source in inspector_sources.sources.clone().iter() {
         if spotted_source == Some(*inspector_source) {
             spotted_selected = true;
         }
 
+        old_sources.remove(inspector_source);
+
         match inspector_source {
             InspectorSource::Local => {}
             InspectorSource::Remote(rem) => {
-                if rem.subapp == WorldKind::Main {
-                    spotted_remote_main = true;
-                } else {
-                    spotted_remote_render = true;
-                }
-
                 sync_remote_source(world, rem);
             }
         }
     }
 
-    if !spotted_remote_main {
-        sync_remote_source(world, &RemoteSource::new("localhost", 1, WorldKind::Main));
-    }
-    if !spotted_remote_render {
-        sync_remote_source(world, &RemoteSource::new("localhost", 1, WorldKind::Render));
-    }
-
-    if !spotted_selected {
-        if let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
-            sel.0 = None;
+    // Clear the old sources
+    for inspector_source in &*old_sources {
+        match inspector_source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(rem) => {
+                sync_remote_source(world, rem);
+            }
         }
+    }
+    *old_sources = next_sources;
+
+    if !spotted_selected && let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
+        sel.0 = None;
     }
 }
 
@@ -925,6 +923,7 @@ pub(crate) mod tests {
         component::Component,
         hierarchy::{ChildOf, Children},
         name::Name,
+        system::{IntoSystem, System as _},
     };
     use bevy_reflect::{TypePath, TypeRegistryArc};
     use serde_json::json;
@@ -1463,7 +1462,13 @@ pub(crate) mod tests {
     #[test]
     fn switching_to_local_resets_the_remote_world() {
         let mut world = test_world();
-        sync_remote_sources(&mut world);
+
+        let mut sync_remote_sources_system = IntoSystem::into_system(sync_remote_sources);
+        sync_remote_sources_system.initialize(&mut world);
+
+        sync_remote_sources_system.run((), &mut world);
+        // sync_remote_sources(&mut world, local);
+
         apply(
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
@@ -1481,7 +1486,8 @@ pub(crate) mod tests {
             .insert(key, 0.3);
 
         world.insert_resource(InspectorSources::local());
-        sync_remote_sources(&mut world);
+        // sync_remote_sources(&mut world, local);
+        sync_remote_sources_system.run((), &mut world);
 
         assert!(world
             .resource_mut::<RemoteWorlds>()
@@ -1500,21 +1506,25 @@ pub(crate) mod tests {
 
     #[test]
     fn every_source_change_clears_the_selection() {
-        let mut world = test_world();
+        let mut world = test_world(); // InspectorSources::remote_main("localhost", DEFAULT_PORT)
         world.insert_resource(InspectorSources::local());
         let local = world.spawn_empty().id();
 
         world.resource_mut::<InspectorSelection>().0 =
             Some(InspectableEntity::new(local, InspectorSource::Local));
 
-        let rs = InspectorSource::Remote(remote_source());
+        let mut sync_remote_sources_system = IntoSystem::into_system(sync_remote_sources);
+        sync_remote_sources_system.initialize(&mut world);
+
         world.insert_resource(InspectorSources::remote_main("localhost", 1));
-        sync_remote_sources(&mut world);
+        // sync_remote_sources(&mut world, local);
+        sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
         world.resource_mut::<InspectorSelection>().0 =
             Some(InspectableEntity::new(local, InspectorSource::Local));
-        sync_remote_sources(&mut world);
+        // sync_remote_sources(&mut world, local);
+        sync_remote_sources_system.run((), &mut world);
         assert_eq!(
             world.resource::<InspectorSelection>().0,
             Some(InspectableEntity::new(local, InspectorSource::Local)),
@@ -1522,12 +1532,15 @@ pub(crate) mod tests {
         );
 
         world.insert_resource(InspectorSources::remote_main("localhost", 3));
-        sync_remote_sources(&mut world);
+        // sync_remote_sources(&mut world, local);
+        sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
+        let rs = InspectorSource::Remote(remote_source());
         world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, rs));
         world.insert_resource(InspectorSources::local());
-        sync_remote_sources(&mut world);
+        // sync_remote_sources(&mut world, local);
+        sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
     }
 
