@@ -324,6 +324,10 @@ pub fn _embedded_asset_path(
 /// 1. The non-default `embedded://` [`AssetSource`](crate::io::AssetSource)
 /// 2. `src` is trimmed from the path
 ///
+/// Call [`embedded_asset!`] before adding plugins or running systems that load the asset.
+/// Plugin construction can already start loading that path. Registering the embedded
+/// asset after a load of that path has failed does not automatically retry the load.
+///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in
 /// `$SOME_WORKSPACE/crates/bevy_rock`. The asset path would remain the same, because [`embedded_asset!`] searches for the
 /// _first instance_ of `bevy_rock/src` in the path.
