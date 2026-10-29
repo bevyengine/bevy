@@ -50,7 +50,6 @@ impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "gbuffer_utils.wesl");
         load_shader_library!(app, "bindings.wesl");
-        load_shader_library!(app, "atmosphere.wesl");
         load_shader_library!(app, "presample_light_tiles.wesl");
         load_shader_library!(app, "initial_path.wesl");
         embedded_asset!(app, "restir.wesl");
