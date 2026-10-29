@@ -1130,6 +1130,12 @@ pub fn sync_details_panel(world: &mut World) {
 
     let inspector_source = selection.clone().map(|s| s.source);
     let Some(inspector_source) = inspector_source else {
+        reset_body(
+            world,
+            body,
+            selection.clone(),
+            Some(EmptyState::NoSelection),
+        );
         return;
     };
     let local = inspector_source == InspectorSource::Local;

@@ -1491,8 +1491,10 @@ pub(crate) mod tests {
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
-        world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(remote(11), InspectorSource::Remote(remote_source(DEFAULT_PORT))));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            remote(11),
+            InspectorSource::Remote(remote_source(DEFAULT_PORT)),
+        ));
         let key = ComponentKey::from("remote::Component");
         world
             .resource_mut::<DetailsCollapsed>()
@@ -1537,12 +1539,17 @@ pub(crate) mod tests {
         let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(local, InspectorSource::Remote(remote_source(1))));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            local,
+            InspectorSource::Remote(remote_source(1)),
+        ));
         let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(
             world.resource::<InspectorSelection>().0,
-            Some(InspectableEntity::new(local, InspectorSource::Remote(remote_source(1)))),
+            Some(InspectableEntity::new(
+                local,
+                InspectorSource::Remote(remote_source(1))
+            )),
             "an unchanged source keeps the selection"
         );
 
@@ -1602,8 +1609,10 @@ pub(crate) mod tests {
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
-        world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(remote(11), InspectorSource::Remote(remote_source(DEFAULT_PORT))));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            remote(11),
+            InspectorSource::Remote(remote_source(DEFAULT_PORT)),
+        ));
 
         world.resource_scope(|world, mut connection: Mut<RemoteConnections>| {
             finish_call(
