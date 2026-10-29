@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use alloc::collections::BTreeMap;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -162,7 +162,7 @@ pub(crate) fn check_keyboard_focus_lost(
             let Ok(mut pressed_keys) = q_windows.get_mut(window) else {
                 continue;
             };
-            for (key_code, logical_key) in pressed_keys.0.drain() {
+            for (key_code, logical_key) in core::mem::take(&mut pressed_keys.0) {
                 let event = KeyboardInput {
                     key_code,
                     logical_key,
@@ -642,4 +642,4 @@ pub(crate) fn changed_cursor_options(
 /// This keeps track of which keys are pressed on each window.
 /// When a window is unfocused, this is used to send key release events for all the currently held keys.
 #[derive(Default, Component)]
-pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);
+pub struct WinitWindowPressedKeys(pub(crate) BTreeMap<KeyCode, Key>);

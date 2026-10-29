@@ -10,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_input::{
     gestures::*,
-    keyboard::{Key, KeyCode, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{trace, warn};
@@ -26,7 +25,6 @@ use winit::{
     event,
     event::{DeviceEvent, DeviceId, Modifiers, StartCause, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    keyboard::ModifiersKeyState,
     window::WindowId,
 };
 
@@ -814,86 +812,11 @@ impl WinitAppRunnerState {
                 continue;
             };
 
-            let state = mods.state();
-            for (key_codes, logical_key, group_pressed) in [
-                (
-                    [
-                        (KeyCode::SuperLeft, mods.lsuper_state()),
-                        (KeyCode::SuperRight, mods.rsuper_state()),
-                    ],
-                    Key::Super,
-                    state.super_key(),
-                ),
-                (
-                    [
-                        (KeyCode::ControlLeft, mods.lcontrol_state()),
-                        (KeyCode::ControlRight, mods.rcontrol_state()),
-                    ],
-                    Key::Control,
-                    state.control_key(),
-                ),
-                (
-                    [
-                        (KeyCode::AltLeft, mods.lalt_state()),
-                        (KeyCode::AltRight, mods.ralt_state()),
-                    ],
-                    Key::Alt,
-                    state.alt_key(),
-                ),
-                (
-                    [
-                        (KeyCode::ShiftLeft, mods.lshift_state()),
-                        (KeyCode::ShiftRight, mods.rshift_state()),
-                    ],
-                    Key::Shift,
-                    state.shift_key(),
-                ),
-            ] {
-                let any_group_keycode_pressed = key_codes
-                    .iter()
-                    .any(|(_, state)| state == &ModifiersKeyState::Pressed);
-
-                for (key_code, state) in key_codes {
-                    let recorded = pressed_keys.0.contains_key(&key_code);
-
-                    // we can only be sure a key has been released if either all group keys
-                    // are released, or the platform provably supports known modifier states
-                    // (only macOS attests them; web, linux and windows currently always
-                    // report `ModifiersKeyState::Unknown`)
-                    let known_released = !group_pressed
-                        || (state == ModifiersKeyState::Unknown && any_group_keycode_pressed);
-
-                    if state == ModifiersKeyState::Pressed && !recorded {
-                        // if this keycode is attested down but we never saw its keydown
-                        // (e.g. it was already held when focus was gained): reapply it.
-                        // if the platform cannot attest modifier state this is unreachable.
-                        pressed_keys.0.insert(key_code, logical_key.clone());
-                        synthesized.push(KeyboardInput {
-                            key_code,
-                            logical_key: logical_key.clone(),
-                            state: bevy_input::ButtonState::Pressed,
-                            repeat: false,
-                            window,
-                            text: None,
-                        });
-                    } else if recorded && known_released {
-                        // this side is provably up but we never saw its keyup
-                        // (e.g. the OS consumed it as part of a shortcut chord):
-                        // release the recorded key.
-                        let Some(logical_key) = pressed_keys.0.remove(&key_code) else {
-                            continue;
-                        };
-                        synthesized.push(KeyboardInput {
-                            key_code,
-                            logical_key,
-                            state: bevy_input::ButtonState::Released,
-                            repeat: false,
-                            window,
-                            text: None,
-                        });
-                    }
-                }
-            }
+            synthesized.extend(crate::modifier_reconciliation::reconcile_modifiers(
+                &mut pressed_keys.0,
+                window,
+                mods,
+            ));
         }
 
         for event in synthesized {
