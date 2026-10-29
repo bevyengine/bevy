@@ -53,6 +53,8 @@ pub struct AnimationTransition {
     old_node: AnimationNodeIndex,
     /// Node to transition into
     new_node: AnimationNodeIndex,
+    /// Flow this transition belongs to
+    flow: usize,
     /// Acts similarly to a local variable, tracks how far into the transition are we, should start from 1. and go to 0
     weight: f32,
 }
@@ -90,22 +92,7 @@ impl AnimationTransitions {
         new_node: AnimationNodeIndex,
         duration: Duration,
     ) -> &'p mut ActiveAnimation {
-        if let Some(old_node) = self.flows.get_mut(0) {
-            // If is first time playing, just say old node equals new node
-            let previous_node = old_node.unwrap_or(new_node);
-            self.transitions.push(AnimationTransition {
-                duration,
-                old_node: previous_node,
-                new_node,
-                weight: 1.0,
-            });
-            *old_node = Some(new_node);
-
-            // Starts new animation, note we wont clear AnimationPlayer active animation hashmap here!
-            player.start(new_node)
-        } else {
-            panic!("Flow position 0 is out of bounds!");
-        }
+        self.transition_flows(player, new_node, 0, duration)
     }
 
     /// Transitions the specified flow from its current node to a new node over a given duration.
@@ -128,6 +115,7 @@ impl AnimationTransitions {
                 duration,
                 old_node: previous_node,
                 new_node,
+                flow: flow_position,
                 weight: 1.0,
             });
             *old_node = Some(new_node);
@@ -146,34 +134,39 @@ pub fn handle_node_transition(
     time: Res<Time>,
 ) {
     for (mut animation_transitions, mut animation_player) in query.iter_mut() {
-        let mut remaining_weight = 1.0;
-        for transition in animation_transitions.iter_mut() {
-            // How much to transition per tick!
-            transition.weight = (transition.weight
-                - 1. / transition.duration.as_secs_f32() * time.delta_secs())
-            .max(0.0);
+        // Each flow distributes its own weight, so transitions in one flow
+        // don't affect the weights of another.
+        let flow_amount = animation_transitions.flows.len();
+        for flow in 0..flow_amount {
+            let mut remaining_weight = 1.0;
+            for transition in animation_transitions.iter_mut().filter(|t| t.flow == flow) {
+                // How much to transition per tick!
+                transition.weight = (transition.weight
+                    - 1. / transition.duration.as_secs_f32() * time.delta_secs())
+                .max(0.0);
 
-            // Handles edge case when duration is zero
-            if transition.duration == Duration::ZERO {
-                transition.weight = 0.0;
-            }
-
-            // Handles edge case first flow
-            if transition.old_node.eq(&transition.new_node) {
-                if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
-                    remaining_weight -= transition.weight * remaining_weight;
-                    old_node.weight = remaining_weight;
+                // Handles edge case when duration is zero
+                if transition.duration == Duration::ZERO {
+                    transition.weight = 0.0;
                 }
-                continue;
-            }
 
-            if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
-                old_node.weight = transition.weight * remaining_weight;
-                remaining_weight -= old_node.weight;
-            }
+                // Handles edge case first flow
+                if transition.old_node.eq(&transition.new_node) {
+                    if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
+                        remaining_weight -= transition.weight * remaining_weight;
+                        old_node.weight = remaining_weight;
+                    }
+                    continue;
+                }
 
-            if let Some(new_node) = animation_player.animation_mut(transition.new_node) {
-                new_node.weight = remaining_weight;
+                if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
+                    old_node.weight = transition.weight * remaining_weight;
+                    remaining_weight -= old_node.weight;
+                }
+
+                if let Some(new_node) = animation_player.animation_mut(transition.new_node) {
+                    new_node.weight = remaining_weight;
+                }
             }
         }
     }
@@ -196,5 +189,92 @@ pub fn expire_completed_transitions(
                 !(should_expire && first_init)
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+
+    fn setup(flow_amount: usize) -> World {
+        let mut world = World::new();
+        world.insert_resource(Time::<()>::default());
+        world.spawn(AnimationTransitions::new_with_flow(flow_amount));
+        world
+    }
+
+    fn transition(world: &mut World, node: AnimationNodeIndex, flow: usize, duration: Duration) {
+        let (mut transitions, mut player) = world
+            .query::<(&mut AnimationTransitions, &mut AnimationPlayer)>()
+            .single_mut(world)
+            .unwrap();
+        transitions.transition_flows(&mut player, node, flow, duration);
+    }
+
+    fn tick(world: &mut World, delta: Duration) {
+        world.resource_mut::<Time>().advance_by(delta);
+        world.run_system_once(handle_node_transition).unwrap();
+        world.run_system_once(expire_completed_transitions).unwrap();
+    }
+
+    #[track_caller]
+    fn assert_weight(world: &mut World, node: AnimationNodeIndex, expected: Option<f32>) {
+        let player = world.query::<&AnimationPlayer>().single(world).unwrap();
+        let weight = player.animation(node).map(ActiveAnimation::weight);
+        match (weight, expected) {
+            (Some(weight), Some(expected)) => assert!(
+                (weight - expected).abs() < 1e-5,
+                "node {node:?}: expected weight {expected}, got {weight}"
+            ),
+            _ => assert_eq!(weight, expected, "node {node:?}"),
+        }
+    }
+
+    #[test]
+    fn transitioning_one_flow_does_not_affect_another() {
+        let [a, b, c] = [1, 2, 3].map(AnimationNodeIndex::new);
+        let mut world = setup(2);
+        transition(&mut world, a, 0, Duration::ZERO);
+        transition(&mut world, b, 1, Duration::ZERO);
+        tick(&mut world, Duration::from_millis(100));
+        assert_weight(&mut world, a, Some(1.0));
+        assert_weight(&mut world, b, Some(1.0));
+
+        // Crossfade flow 0 from a to c, while flow 1 keeps playing b.
+        transition(&mut world, c, 0, Duration::from_secs(1));
+        tick(&mut world, Duration::from_millis(250));
+        assert_weight(&mut world, a, Some(0.75));
+        assert_weight(&mut world, c, Some(0.25));
+        assert_weight(&mut world, b, Some(1.0));
+
+        tick(&mut world, Duration::from_secs(1));
+        assert_weight(&mut world, a, None);
+        assert_weight(&mut world, c, Some(1.0));
+        assert_weight(&mut world, b, Some(1.0));
+    }
+
+    #[test]
+    fn flows_transition_simultaneously_and_independently() {
+        let [a, b, c, d] = [1, 2, 3, 4].map(AnimationNodeIndex::new);
+        let mut world = setup(2);
+        transition(&mut world, a, 0, Duration::ZERO);
+        transition(&mut world, b, 1, Duration::ZERO);
+        tick(&mut world, Duration::from_millis(100));
+
+        // Crossfade both flows at the same time: a -> c and b -> d.
+        transition(&mut world, c, 0, Duration::from_secs(1));
+        transition(&mut world, d, 1, Duration::from_secs(1));
+        tick(&mut world, Duration::from_millis(250));
+        assert_weight(&mut world, a, Some(0.75));
+        assert_weight(&mut world, c, Some(0.25));
+        assert_weight(&mut world, b, Some(0.75));
+        assert_weight(&mut world, d, Some(0.25));
+
+        tick(&mut world, Duration::from_secs(1));
+        assert_weight(&mut world, a, None);
+        assert_weight(&mut world, b, None);
+        assert_weight(&mut world, c, Some(1.0));
+        assert_weight(&mut world, d, Some(1.0));
     }
 }
