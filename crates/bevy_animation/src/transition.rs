@@ -32,6 +32,13 @@ use crate::{
 /// the [`AnimationPlayer`] directly will cause the [`AnimationTransitions`]
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
+///
+/// Transition away from an animation node has different behaviour depending on
+/// the node it's transitioning from:
+/// - Clip: once a transition away from a clip completes, the clip is stopped.
+/// - Blend/Add: nodes are kept at weight 0 instead of being stopped, so playing
+///   one directly through the [`AnimationPlayer`] leaves it silent until
+///   [`ActiveAnimation::set_weight`] is called.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationTransitions {
@@ -148,6 +155,10 @@ pub fn advance_transitions(
 
 /// A system that removed transitions that have completed from the
 /// [`AnimationTransitions`] object.
+///
+/// Expired clips are stopped, but expired Blend/Add nodes are kept at
+/// weight 0 instead, since a node the [`AnimationPlayer`] has no entry for
+/// weighs in at its full graph weight.
 pub fn expire_completed_transitions(
     graphs: Res<Assets<AnimationGraph>>,
     mut query: Query<(
