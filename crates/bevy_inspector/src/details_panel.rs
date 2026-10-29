@@ -2992,7 +2992,10 @@ mod tests {
             .world_mut()
             .spawn((Subject::default(), Wrapper::default()))
             .id();
-        select(&mut app, Some(InspectableEntity::new(other, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(other, InspectorSource::Local)),
+        );
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.group(subject).is_some());
@@ -3452,7 +3455,10 @@ mod tests {
             )
         );
 
-        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.widget(first, "first").is_some());
@@ -3923,7 +3929,10 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn_empty().id();
 
-        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
 
         assert_eq!(
             body_message(&mut app).as_deref(),
@@ -3936,7 +3945,10 @@ mod tests {
         let mut app = test_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
-        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
         assert_eq!(body_message(&mut app), None);
 
         app.world_mut().entity_mut(subject).despawn();
@@ -3956,7 +3968,10 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
         let subject_id = Subject::type_path();
-        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
         let group = app
             .world()
             .resource::<DetailsIndex>()
@@ -4334,7 +4349,10 @@ mod tests {
     fn dragging_an_integer_to_the_same_value_does_not_mark_it_changed() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(InspectableEntity::new(entity, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
         let input = field_widget(&mut app, "byte");
         let changed = |app: &App| {
             app.world()
@@ -4402,7 +4420,10 @@ mod tests {
 
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(InspectableEntity::new(entity, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
 
         assert_eq!(limit(&mut app, "byte"), Some(NumericRange::I32(0..=255)));
         assert_eq!(limit(&mut app, "tiny"), Some(NumericRange::I32(-128..=127)));
@@ -4423,7 +4444,10 @@ mod tests {
     fn reverts_the_widget_after_a_rejected_edit() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(InspectableEntity::new(entity, InspectorSource::Local)));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
         let byte = field_widget(&mut app, "byte");
 
         trigger_change(&mut app, byte, 300_i32);

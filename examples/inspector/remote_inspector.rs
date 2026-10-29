@@ -6,6 +6,8 @@
 //! cargo run --example server --features="bevy_remote"
 //! ```
 //!
+//! Add the `bevy_debug_stepping` feature to the server to enable stepping through systems using controls on the inspector.
+//!
 //! Then run this example in another terminal:
 //! ```bash
 //! cargo run --example remote_inspector --features="bevy_inspector,bevy_remote_client"
@@ -25,6 +27,7 @@ use bevy::{
         connection_panel::connection_panel,
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
+        remote::stepping::stepping_controls,
         InspectorPlugin, InspectorSources,
     },
     prelude::*,
@@ -76,7 +79,18 @@ fn inspector_ui() -> impl Scene {
             row_gap: px(8),
         }
         Children [
-            @connection_panel()
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: px(16),
+                row_gap: px(8),
+            }
+            Children [
+                @connection_panel()
+                --
+                @stepping_controls()
+            ]
             --
             @FeathersSplitPane
             Node {

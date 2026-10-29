@@ -664,7 +664,13 @@ mod tests {
     #[cfg(feature = "remote")]
     #[test]
     fn shows_the_inspected_world_only() {
-        use crate::{WorldKind, remote::{RemoteSource, tests::{apply, row}}};
+        use crate::{
+            remote::{
+                tests::{apply, row},
+                RemoteSource,
+            },
+            WorldKind,
+        };
         use serde_json::json;
 
         let mut app = test_app();
@@ -693,7 +699,10 @@ mod tests {
         let row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(parent, InspectorSource::Remote(RemoteSource::new("localhost", 1, WorldKind::Main)))
+            .row(
+                parent,
+                InspectorSource::Remote(RemoteSource::new("localhost", 1, WorldKind::Main)),
+            )
             .unwrap();
         let label = row_label_entity(app.world(), row).unwrap();
         assert_eq!(app.world().get::<Text>(label).unwrap().0, "Remote");

@@ -53,7 +53,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(500);
 /// The time to wait before reconnecting after a failed request.
 const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 /// The time after which a request without an answer is dropped and the connection marked failed.
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+pub(super) const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// The longest time between two full polls.
 ///
 /// Full polls otherwise only run when unseen entities appear, so this bounds how long a change
@@ -416,7 +416,7 @@ pub fn sync_remote_sources(world: &mut World) {
                 } else {
                     spotted_remote_render = true;
                 }
-                
+
                 sync_remote_source(world, rem);
             }
         }
@@ -1396,7 +1396,10 @@ pub(crate) mod tests {
             names(InspectableEntity::new(parent, InspectorSource::Local)),
             ["Children", "Name"]
         );
-        assert_eq!(names(InspectableEntity::new(child, InspectorSource::Local)), ["ChildOf"]);
+        assert_eq!(
+            names(InspectableEntity::new(child, InspectorSource::Local)),
+            ["ChildOf"]
+        );
     }
 
     #[test]
@@ -1436,7 +1439,10 @@ pub(crate) mod tests {
         );
         apply(&mut world, alloc::vec![row(late, json!({ NAME: "Old" }))]);
         world.resource_mut::<RemoteConnections>().main.next_full = Duration::from_secs(60);
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(late, InspectorSource::Remote(remote_source())));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            late,
+            InspectorSource::Remote(remote_source()),
+        ));
 
         apply(
             &mut world,
@@ -1498,14 +1504,16 @@ pub(crate) mod tests {
         world.insert_resource(InspectorSources::local());
         let local = world.spawn_empty().id();
 
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, InspectorSource::Local));
+        world.resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(local, InspectorSource::Local));
 
         let rs = InspectorSource::Remote(remote_source());
         world.insert_resource(InspectorSources::remote_main("localhost", 1));
         sync_remote_sources(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, InspectorSource::Local));
+        world.resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(local, InspectorSource::Local));
         sync_remote_sources(&mut world);
         assert_eq!(
             world.resource::<InspectorSelection>().0,
