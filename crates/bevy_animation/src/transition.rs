@@ -7,7 +7,6 @@ use crate::{
     graph::{AnimationGraphHandle, AnimationNodeIndex},
     ActiveAnimation, AnimationPlayer,
 };
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     reflect::ReflectComponent,
@@ -44,11 +43,10 @@ use core::{f32, num::NonZeroUsize, time::Duration};
 ///
 /// [animation mask]: crate::graph::AnimationMask
 /// [`AnimationGraph`]: crate::graph::AnimationGraph
-#[derive(Component, Reflect, Deref, DerefMut)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(AnimationGraphHandle, AnimationPlayer)]
 pub struct AnimationTransitions {
-    #[deref]
     transitions: Vec<AnimationTransition>,
     /// The current node of each flow, or `None` if nothing was played on that
     /// flow yet.
@@ -156,12 +154,20 @@ impl AnimationTransitions {
             });
         }
 
-        // If already transitioning away from this node, cancel the transition.
-        // Otherwise the transition ending would incorrectly stop the new node.
+        // If this flow is already transitioning away from this node, cancel the
+        // transition. Otherwise the transition ending would incorrectly stop
+        // the new node.
+        let transitions_amount = self.transitions.len();
         self.transitions
-            .retain(|transition| transition.node != new_node);
+            .retain(|transition| transition.flow != flow_position || transition.node != new_node);
 
-        Some(player.start(new_node))
+        // A node that was being faded out is still playing, so keep it going
+        // instead of restarting it from the beginning.
+        if self.transitions.len() < transitions_amount {
+            Some(player.play(new_node))
+        } else {
+            Some(player.start(new_node))
+        }
     }
 
     /// Like [`AnimationTransitions::transition_flows`], but panics instead of
@@ -233,7 +239,7 @@ pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
     for (mut animation_transitions, mut player) in query.iter_mut() {
-        animation_transitions.retain(|transition| {
+        animation_transitions.transitions.retain(|transition| {
             let expire = transition.current_weight <= 0.0;
             if expire {
                 player.stop(transition.node);
@@ -340,7 +346,7 @@ mod tests {
         assert!(transitions
             .transition_flows(&mut player, a, 1, Duration::ZERO)
             .is_none());
-        assert!(transitions.is_empty());
+        assert!(transitions.transitions.is_empty());
         assert!(!player.is_playing_animation(a));
     }
 
@@ -360,6 +366,11 @@ mod tests {
         let mut world = setup(1);
         transition(&mut world, a, 0, Duration::ZERO);
         tick(&mut world, Duration::from_millis(100));
+        let mut player = world
+            .query::<&mut AnimationPlayer>()
+            .single_mut(&mut world)
+            .unwrap();
+        player.animation_mut(a).unwrap().seek_to(0.5);
 
         // Start fading a out, then go back to it before the fade completes.
         transition(&mut world, c, 0, Duration::from_secs(1));
@@ -370,5 +381,9 @@ mod tests {
 
         assert_weight(&mut world, a, Some(1.0));
         assert_weight(&mut world, c, None);
+
+        // a kept playing from where it was instead of restarting.
+        let player = world.query::<&AnimationPlayer>().single(&world).unwrap();
+        assert_eq!(player.animation(a).unwrap().seek_time(), 0.5);
     }
 }
