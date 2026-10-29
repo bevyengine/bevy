@@ -1,5 +1,7 @@
-//! Animation Transitioning logic goes here!
-//! This struct should in the later run be responsible for handling multi-state Animation Graph nodes.
+//! Crossfading between animations with [`AnimationTransitions`].
+//!
+//! In the future, this is intended to serve as the building block for
+//! animation state machines.
 
 use crate::{
     graph::{AnimationGraphHandle, AnimationNodeIndex},
@@ -14,48 +16,59 @@ use bevy_ecs::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use core::{f32, time::Duration};
+use std::num::NonZeroUsize;
 
-/// Component responsible for managing transitions between multiple nodes or states.
+/// Manages crossfades between animation nodes of an [`AnimationPlayer`].
 ///
-/// It supports multiple independent "flows", where each flow represents a distinct active
-/// animation or state machine. A flow tracks the transition between two states over time.
+/// Transitions are organized into independent *flows*. Each flow has at most
+/// one current node, and transitioning a flow crossfades from its current node
+/// to a new one, without affecting the nodes of any other flow. This allows,
+/// for example, transitioning between locomotion animations in one flow while
+/// another flow transitions between hand poses:
 ///
-/// In the simplest case, `flow_amount` should be set to `1`, indicating a single flow.
-/// However, if multiple state machines or simultaneous animations are needed, `flow_amount`
-/// should be increased accordingly.
+/// - Flow 0: idle, walk, run, etc. Affects the whole body.
+/// - Flow 1: open hand, closed hand, etc. Affects only the hand bones,
+///   through an [animation mask].
 ///
-/// Is worth mentioning, that when using `AnimationTransitions`, you should avoid messing around with player!
-/// As he will do the heavy lifting for you! All you need to worry about is transitioning your flows!
-/// If you do play an additional animation directly via player  this WILL BREAK!
+/// Flows don't know which bones they affect: masking and additive blending are
+/// configured on the [`AnimationGraph`] itself. Keeping track of which flow
+/// controls which nodes is up to the user.
 ///
-/// It is also the user's responsibility to track which flow they are currently operating on
-/// when triggering transitions.
-/// Ex: Flow 0 - Plays idle,walks and so on. Affect whole body
-/// Flow 1 - Plays close hands - Affects only hand bones.
+/// [`AnimationTransitions::new`] creates a single flow, which is enough when
+/// only one animation needs to play at a time. Use
+/// [`AnimationTransitions::new_with_flow`] for more.
+///
+/// When using [`AnimationTransitions`], start animations through it rather than
+/// directly through the [`AnimationPlayer`]. The [`AnimationTransitions`]
+/// component manages the weights of all the animations and will get
+/// confused if the animations are started directly via the [`AnimationPlayer`].
+///
+/// [animation mask]: crate::graph::AnimationMask
+/// [`AnimationGraph`]: crate::graph::AnimationGraph
 #[derive(Component, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 #[require(AnimationGraphHandle, AnimationPlayer)]
 pub struct AnimationTransitions {
     #[deref]
     transitions: Vec<AnimationTransition>,
-    /// Flows represent sequences of animation states.
-    /// For example, in cases such as masked or additive animation scenarios, a user can easily define transitions between previous and new states.
-    /// This concept is similar to "main" animations, but instead of one sole `ActiveAnimation`, we might have multiple active animation being controlled!
+    /// The current node of each flow, or `None` if nothing was played on that
+    /// flow yet.
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
-/// An animation node that is being faded out as part of a transition, note this controls the animations being played!
+/// An in-progress crossfade from one animation node to another within a flow.
 #[derive(Debug, Reflect, Clone)]
 pub struct AnimationTransition {
-    /// How much weight we will decrease according to the given user value
+    /// How long the crossfade takes.
     duration: Duration,
-    /// Node to transition from
+    /// The node being faded out.
     old_node: AnimationNodeIndex,
-    /// Node to transition into
+    /// The node being faded in.
     new_node: AnimationNodeIndex,
-    /// Flow this transition belongs to
+    /// The flow this transition belongs to.
     flow: usize,
-    /// Acts similarly to a local variable, tracks how far into the transition are we, should start from 1. and go to 0
+    /// The remaining weight of the old node, going from 1 to 0 over the
+    /// course of the transition.
     weight: f32,
 }
 
@@ -66,69 +79,93 @@ impl Default for AnimationTransitions {
 }
 
 impl AnimationTransitions {
-    /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once
+    /// Creates an [`AnimationTransitions`] component with a single flow.
     pub fn new() -> Self {
+        Self::new_with_flow(NonZeroUsize::MIN)
+    }
+
+    /// Creates an [`AnimationTransitions`] component with `flow_amount` flows,
+    /// i.e. the number of animations that can be transitioned independently.
+    pub fn new_with_flow(flow_amount: impl Into<NonZeroUsize>) -> Self {
         Self {
-            flows: vec![None; 1_usize],
             transitions: Vec::new(),
+            flows: vec![None; flow_amount.into().get()],
         }
     }
 
-    /// Define your flow amount and initializes your component, renember `flow_amount` is the amount of animation you want to be playing at once
-    pub fn new_with_flow(flow_amount: usize) -> Self {
-        Self {
-            flows: vec![None; flow_amount],
-            // Default transitions are instantaniously cleared
-            transitions: Vec::new(),
-        }
+    /// Returns the current node of the given flow, or `None` if nothing was
+    /// played on it yet or if `flow_position` is out of bounds.
+    pub fn current_node(&self, flow_position: usize) -> Option<AnimationNodeIndex> {
+        self.flows.get(flow_position).cloned().flatten()
     }
 
-    /// Transitions the specified flow from its current node to a new node over a given duration.
+    /// Crossfades flow `0` from its current node to `new_node` over `duration`.
     ///
-    /// This method manages transitions within one single flow.
+    /// See [`AnimationTransitions::transition_flows`] if you want to transition a specific flow.
     pub fn transition<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
         new_node: AnimationNodeIndex,
         duration: Duration,
     ) -> &'p mut ActiveAnimation {
-        self.transition_flows(player, new_node, 0, duration)
+        self.transition_flows_unchecked(player, new_node, 0, duration)
     }
 
-    /// Transitions the specified flow from its current node to a new node over a given duration.
+    /// Crossfades the given flow from its current node to `new_node` over
+    /// `duration`, and starts playing `new_node` on the [`AnimationPlayer`].
     ///
-    /// This method manages transitions within a specific flow, allowing multiple independent
-    /// state machines or animation layers to transition separately. If the flow has no previous node,
-    /// it will treat the `new_node` as both the old and new node during the transition.
+    /// Other flows are not affected. If nothing was played on this flow yet,
+    /// `new_node` starts playing at full weight.
+    ///
+    /// Returns `None` and does nothing if `flow_position` is out of bounds.
+    /// See [`AnimationTransitions::transition_flows_unchecked`] for a variant
+    /// that panics instead.
     pub fn transition_flows<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
         new_node: AnimationNodeIndex,
         flow_position: usize,
         duration: Duration,
-    ) -> &'p mut ActiveAnimation {
-        // Check if flow exists
-        if let Some(old_node) = self.flows.get_mut(flow_position) {
-            // If is first time playing, just say old node equals new node
-            let previous_node = old_node.unwrap_or(new_node);
-            self.transitions.push(AnimationTransition {
-                duration,
-                old_node: previous_node,
-                new_node,
-                flow: flow_position,
-                weight: 1.0,
-            });
-            *old_node = Some(new_node);
+    ) -> Option<&'p mut ActiveAnimation> {
+        let current_node = self.flows.get_mut(flow_position)?;
 
-            // Starts new animation, note we wont clear AnimationPlayer active animation hashmap here!
-            player.start(new_node)
-        } else {
-            panic!("Flow position {flow_position} is out of bounds!");
-        }
+        // If nothing was played on this flow yet, there's nothing to fade
+        // out, so the transition goes from the new node to itself.
+        let old_node = current_node.replace(new_node).unwrap_or(new_node);
+        self.transitions.push(AnimationTransition {
+            duration,
+            old_node,
+            new_node,
+            flow: flow_position,
+            weight: 1.0,
+        });
+
+        Some(player.start(new_node))
+    }
+
+    /// Like [`AnimationTransitions::transition_flows`], but panics instead of
+    /// returning `None` if `flow_position` is out of bounds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `flow_position` is out of bounds.
+    pub fn transition_flows_unchecked<'p>(
+        &mut self,
+        player: &'p mut AnimationPlayer,
+        new_node: AnimationNodeIndex,
+        flow_position: usize,
+        duration: Duration,
+    ) -> &'p mut ActiveAnimation {
+        let flow_amount = self.flows.len();
+        self.transition_flows(player, new_node, flow_position, duration)
+            .unwrap_or_else(|| {
+                panic!("Flow position {flow_position} is out of bounds (flow amount is {flow_amount})!")
+            })
     }
 }
 
-/// System responsible for handling [`AnimationTransitions`] transitioning nodes among each other. According to the pacing defined by user.
+/// A system that advances the crossfades of [`AnimationTransitions`] and
+/// updates the weights of the animations they control.
 pub fn handle_node_transition(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
     time: Res<Time>,
@@ -140,17 +177,15 @@ pub fn handle_node_transition(
         for flow in 0..flow_amount {
             let mut remaining_weight = 1.0;
             for transition in animation_transitions.iter_mut().filter(|t| t.flow == flow) {
-                // How much to transition per tick!
                 transition.weight = (transition.weight
                     - 1. / transition.duration.as_secs_f32() * time.delta_secs())
                 .max(0.0);
 
-                // Handles edge case when duration is zero
                 if transition.duration == Duration::ZERO {
                     transition.weight = 0.0;
                 }
 
-                // Handles edge case first flow
+                // First transition of a flow: there is no old node to fade out.
                 if transition.old_node.eq(&transition.new_node) {
                     if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
                         remaining_weight -= transition.weight * remaining_weight;
@@ -181,7 +216,7 @@ pub fn expire_completed_transitions(
         animation_transitions.retain(|transition| {
             let should_expire = transition.weight <= 0.0;
             let first_init = transition.new_node.eq(&transition.old_node);
-            //We need to handle the edge case of first initialization, we shouldnt stop in that case!
+            // The first transition of a flow has no old node to stop.
             if should_expire && !first_init {
                 animation_player.stop(transition.old_node);
                 false
@@ -200,7 +235,9 @@ mod tests {
     fn setup(flow_amount: usize) -> World {
         let mut world = World::new();
         world.insert_resource(Time::<()>::default());
-        world.spawn(AnimationTransitions::new_with_flow(flow_amount));
+        world.spawn(AnimationTransitions::new_with_flow(
+            NonZeroUsize::new(flow_amount).unwrap(),
+        ));
         world
     }
 
@@ -209,7 +246,7 @@ mod tests {
             .query::<(&mut AnimationTransitions, &mut AnimationPlayer)>()
             .single_mut(world)
             .unwrap();
-        transitions.transition_flows(&mut player, node, flow, duration);
+        transitions.transition_flows_unchecked(&mut player, node, flow, duration);
     }
 
     fn tick(world: &mut World, delta: Duration) {
@@ -276,5 +313,28 @@ mod tests {
         assert_weight(&mut world, b, None);
         assert_weight(&mut world, c, Some(1.0));
         assert_weight(&mut world, d, Some(1.0));
+    }
+
+    #[test]
+    fn transitioning_out_of_bounds_flow_does_nothing() {
+        let a = AnimationNodeIndex::new(1);
+        let mut transitions = AnimationTransitions::new();
+        let mut player = AnimationPlayer::default();
+
+        assert!(transitions
+            .transition_flows(&mut player, a, 1, Duration::ZERO)
+            .is_none());
+        assert!(transitions.is_empty());
+        assert!(!player.is_playing_animation(a));
+    }
+
+    #[test]
+    #[should_panic(expected = "Flow position 1 is out of bounds")]
+    fn transitioning_out_of_bounds_flow_unchecked_panics() {
+        let a = AnimationNodeIndex::new(1);
+        let mut transitions = AnimationTransitions::new();
+        let mut player = AnimationPlayer::default();
+
+        transitions.transition_flows_unchecked(&mut player, a, 1, Duration::ZERO);
     }
 }

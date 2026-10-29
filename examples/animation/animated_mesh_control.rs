@@ -210,11 +210,10 @@ fn keyboard_control(
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
             transitions
-                .transition_flows(
+                .transition(
                     &mut player,
                     animations.animations[*current_animation],
-                    0,
-                    Duration::from_millis(200),
+                    Duration::from_millis(250),
                 )
                 .repeat();
         }

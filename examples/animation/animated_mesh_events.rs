@@ -172,13 +172,17 @@ fn setup_scene_once_loaded(
         running_animation.add_event_to_target(feet.back_left, 0.0, Step);
         running_animation.add_event_to_target(feet.back_right, 0.125, Step);
 
-        // Boot up your transition flows
+        // Start the animation
+
         let mut transitions = AnimationTransitions::new();
 
-        // Make sure to play your new animation!
-        transitions.transition_flows(&mut player, animations.index, 0, Duration::ZERO);
-
-        player.play(animations.index).repeat();
+        // Make sure to start the animation via the `AnimationTransitions`
+        // component. The `AnimationTransitions` component wants to manage all
+        // the animations and will get confused if the animations are started
+        // directly via the `AnimationPlayer`.
+        transitions
+            .transition(&mut player, animations.index, Duration::ZERO)
+            .repeat();
 
         commands
             .entity(entity)
