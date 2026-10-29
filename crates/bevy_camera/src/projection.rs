@@ -215,8 +215,14 @@ impl DerefMut for CustomProjection {
 #[derive(Component, Debug, Clone, Reflect, From)]
 #[reflect(Component, Default, Debug, Clone)]
 pub enum Projection {
+    /// A 3D camera projection in which distant objects appear smaller than close objects.
+    /// See [`PerspectiveProjection`] for more information.
     Perspective(PerspectiveProjection),
+    /// A projection that uses parallel lines, so objects stay the same size regardless
+    /// of their distance from the camera. See [`OrthographicProjection`] for more information.
     Orthographic(OrthographicProjection),
+    /// A custom camera projection, defined by a type that implements [`CameraProjection`].
+    /// Use [`Projection::custom`] to create one.
     Custom(CustomProjection),
 }
 
@@ -535,23 +541,44 @@ pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
     ///
     /// Arguments describe the area of the world that is shown (in world units).
-    Fixed { width: f32, height: f32 },
+    Fixed {
+        /// The width of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        width: f32,
+        /// The height of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        height: f32,
+    },
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     ///
     /// Arguments are in world units.
-    AutoMin { min_width: f32, min_height: f32 },
+    AutoMin {
+        /// The minimum width of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        min_width: f32,
+        /// The minimum height of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        min_height: f32,
+    },
     /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
     ///
     /// Arguments are in world units.
-    AutoMax { max_width: f32, max_height: f32 },
+    AutoMax {
+        /// The maximum width of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        max_width: f32,
+        /// The maximum height of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        max_height: f32,
+    },
     /// Keep the projection's height constant; width will be adjusted to match aspect ratio.
     ///
     /// The argument is the desired height of the projection in world units.
-    FixedVertical { viewport_height: f32 },
+    FixedVertical {
+        /// The height of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        viewport_height: f32
+    },
     /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
     ///
     /// The argument is the desired width of the projection in world units.
-    FixedHorizontal { viewport_width: f32 },
+    FixedHorizontal {
+        /// The width of the projection in world units, before [`OrthographicProjection::scale`] is applied.
+        viewport_width: f32
+    },
 }
 
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
