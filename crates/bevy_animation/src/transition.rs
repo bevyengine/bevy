@@ -32,7 +32,7 @@ use core::{f32, time::Duration};
 /// when triggering transitions.
 /// Ex: Flow 0 - Plays idle,walks and so on. Affect whole body
 /// Flow 1 - Plays close hands - Affects only hand bones.
-#[derive(Component, Default, Reflect, Deref, DerefMut)]
+#[derive(Component, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 #[require(AnimationGraphHandle, AnimationPlayer)]
 pub struct AnimationTransitions {
@@ -56,6 +56,13 @@ pub struct AnimationTransition {
     /// Acts similarly to a local variable, tracks how far into the transition are we, should start from 1. and go to 0
     weight: f32,
 }
+
+impl Default for AnimationTransitions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnimationTransitions {
     /// Initializes the [`AnimationTransitions`] component, with ONE SINGLE flow meaning. It is expected to play only one animation at once
     pub fn new() -> Self {
