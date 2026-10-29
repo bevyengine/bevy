@@ -1328,7 +1328,7 @@ fn populate_demo_branch(
         commands
             .spawn_scene(bsn! {
                 @FeathersTreeItem {
-                    @label: bsn_list! { @caption({name}) },
+                    @label: bsn_list! { @caption(name) },
                 }
             })
             .insert(ChildOf(container));
