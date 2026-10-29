@@ -399,9 +399,10 @@ impl HardLimit {
 /// A component which controls the rounding of the number value during dragging. This is also used
 /// as a heuristic to determine drag speed when there is no soft limit or step size specified.
 ///
-/// Stepping is not affected, although presumably the step size will be an integer multiple of the
-/// rounding factor. This also doesn't prevent the edited value from being set to non-rounded values
-/// by other means, such as manually entering digits via a numeric input field.
+/// With [`NumberInputSnapToStep`], values snap to the step first and are then rounded to remove
+/// floating point noise, for both dragging and the chevron buttons. Without this component, the
+/// precision is then inferred from the step. Otherwise the chevron buttons are not affected.
+/// Values entered by typing are never rounded.
 ///
 /// The value in this component represents the number of decimal places of desired precision, so a
 /// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
@@ -418,12 +419,6 @@ impl NumberInputPrecision {
         let factor = f64::powf(10.0_f64, self.0 as f64);
         (value * factor).round() / factor
     }
-
-    /// Round the value in display units, then convert back to canonical units.
-    fn round(&self, units: &dyn UnitsFormat, value: NumericValue) -> NumericValue {
-        let display = self.round_f64(units.canonical_to_display(value.as_f64()));
-        NumericValue::from_f64(units.display_to_canonical(display), value.format())
-    }
 }
 
 impl Default for NumberInputPrecision {
@@ -433,7 +428,8 @@ impl Default for NumberInputPrecision {
 }
 
 /// A component which controls the step size when incrementing or decrementing the value.
-/// This also is used as a heuristic to determine drag speed when there is no soft limit present.
+/// This also is used as a heuristic to determine drag speed when there is no soft limit present,
+/// and dragged values snap to the step when [`NumberInputSnapToStep`] is present.
 ///
 /// The step is measured in display units (see [`UnitsFormat`]), so for an angle displayed in
 /// degrees, a step of 1 is one degree.
@@ -441,11 +437,65 @@ impl Default for NumberInputPrecision {
 #[reflect(Component, Default)]
 pub struct NumberInputStep(pub f64);
 
+impl NumberInputStep {
+    /// Snap a value in display units to the nearest multiple of the step. Steps that are not
+    /// positive and finite leave the value unchanged.
+    fn snap_f64(&self, display: f64) -> f64 {
+        if !self.is_valid() {
+            return display;
+        }
+        (display / self.0).round() * self.0
+    }
+
+    /// Move a value in display units to the next multiple of the step in the given direction.
+    /// Values already on a multiple move by one full step.
+    fn step_snapped_f64(&self, display: f64, is_increment: bool) -> f64 {
+        if !self.is_valid() {
+            return display;
+        }
+        let multiples = display / self.0;
+        let tolerance = 1e-9 * multiples.abs().max(1.0);
+        let multiples = if is_increment {
+            (multiples + tolerance).floor() + 1.0
+        } else {
+            (multiples - tolerance).ceil() - 1.0
+        };
+        multiples * self.0
+    }
+
+    /// The number of decimal places in the step, up to 6, or `None` if the step is invalid.
+    fn decimal_places(&self) -> Option<i32> {
+        if !self.is_valid() {
+            return None;
+        }
+        let places = (0..=6)
+            .find(|&places| {
+                let scaled = self.0 * 10f64.powi(places);
+                (scaled - scaled.round()).abs() < 1e-9 * scaled.abs().max(1.0)
+            })
+            .unwrap_or(6);
+        Some(places)
+    }
+
+    fn is_valid(&self) -> bool {
+        self.0.is_finite() && self.0 > 0.0
+    }
+}
+
 impl Default for NumberInputStep {
     fn default() -> Self {
         Self(1.0f64)
     }
 }
+
+/// Marker component which makes dragged values snap to the nearest multiple of the
+/// [`NumberInputStep`], and chevron buttons step to the next multiple. Without it, dragging is only
+/// rounded by [`NumberInputPrecision`]. If there is no [`NumberInputPrecision`], values are rounded
+/// to the decimal places of the step. Values can still land off the step at a limit that is not a
+/// multiple of the step.
+#[derive(Component, Default, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
+pub struct NumberInputSnapToStep;
 
 /// Indicates whether the number input should wrap around the min/max value.
 /// This component only applies to [`HardLimit`].
@@ -585,10 +635,7 @@ fn number_input_on_insert_value(
 fn number_input_on_insert_disabled(
     insert: On<Insert<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<
-        (Has<InteractionDisabled>, Option<&ThemeContext>),
-        With<FeathersNumberInput>,
-    >,
+    q_number_input: Query<Option<&ThemeContext>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -600,13 +647,13 @@ fn number_input_on_insert_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok((is_disabled, theme_context)) = q_number_input.get(insert.event_target())
+        && let Ok(theme_context) = q_number_input.get(insert.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
             theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
-            is_disabled,
+            true,
             false,
             hovered,
             input_focus.get() == Some(text_id),
@@ -623,10 +670,7 @@ fn number_input_on_insert_disabled(
 fn number_input_on_remove_disabled(
     remove: On<Remove<InteractionDisabled>>,
     q_children: Query<&Children>,
-    q_number_input: Query<
-        (Has<InteractionDisabled>, Option<&ThemeContext>),
-        With<FeathersNumberInput>,
-    >,
+    q_number_input: Query<Option<&ThemeContext>, With<FeathersNumberInput>>,
     mut q_text_input: Query<(&Hovered, &mut BackgroundGradient)>,
     theme: Res<UiTheme>,
     input_focus: Res<InputFocus>,
@@ -638,13 +682,13 @@ fn number_input_on_remove_disabled(
 
     if let Some(text_id) = text_input_id
         && let Ok((&Hovered(hovered), mut gradient)) = q_text_input.get_mut(text_id)
-        && let Ok((is_disabled, theme_context)) = q_number_input.get(remove.event_target())
+        && let Ok(theme_context) = q_number_input.get(remove.event_target())
     {
         set_slidebar_styles(
             text_id,
             &theme,
             theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base),
-            is_disabled,
+            false,
             false,
             hovered,
             input_focus.get() == Some(text_id),
@@ -761,7 +805,7 @@ fn number_input_on_enter_key(
         ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    mut q_text_input: Query<(&mut EditableText, &mut DragState)>,
     q_children: Query<&Children>,
     mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
@@ -777,7 +821,7 @@ fn number_input_on_enter_key(
     let text_id = key_input.event_target();
     if let Ok(&ChildOf(root)) = q_parent.get(text_id)
         && let Ok((input_value, hard_limit, wrap, units)) = q_number_input.get(root)
-        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
+        && let Ok((mut editable_text, mut drag_state)) = q_text_input.get_mut(text_id)
     {
         let text_value = editable_text.value().into_owned();
         drag_state.mode = EditMode::Idle; // Boot us out of editing mode
@@ -788,16 +832,20 @@ fn number_input_on_enter_key(
             .insert(EntityCursor::System(
                 bevy_window::SystemCursorIcon::ColResize,
             ));
+        let units = units_registry.resolve(units);
         emit_value_change(
             text_value,
             input_value.format(),
-            units_registry.resolve(units),
+            units,
             root,
             hard_limit,
             wrap,
             &mut commands,
             true,
         );
+        // The value observer only rewrites the field when NumericValue changes.
+        // Leaving edit mode without a change must still restore the display form.
+        write_display_text(&mut editable_text, units, *input_value);
     }
 }
 
@@ -840,7 +888,7 @@ fn number_input_on_focus_lost(
         ),
         With<FeathersNumberInput>,
     >,
-    mut q_text_input: Query<(&EditableText, &mut DragState)>,
+    mut q_text_input: Query<(&mut EditableText, &mut DragState)>,
     q_children: Query<&Children>,
     mut q_label: Query<&mut Node, With<NumberInputInteriorLabel>>,
     units_registry: Res<UnitsRegistry>,
@@ -850,13 +898,14 @@ fn number_input_on_focus_lost(
 
     if let Ok(&ChildOf(root)) = q_parent.get(editable_text_id)
         && let Ok((input_value, disabled, hard_limit, wrap, units)) = q_number_input.get(root)
-        && let Ok((editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
+        && let Ok((mut editable_text, mut drag_state)) = q_text_input.get_mut(editable_text_id)
     {
         let text_value = editable_text.value().into_owned();
+        let units = units_registry.resolve(units);
         emit_value_change(
             text_value,
             input_value.format(),
-            units_registry.resolve(units),
+            units,
             root,
             hard_limit,
             wrap,
@@ -865,6 +914,7 @@ fn number_input_on_focus_lost(
         );
 
         drag_state.mode = EditMode::Idle;
+        write_display_text(&mut editable_text, units, *input_value);
         show_interior_label(editable_text_id, true, &q_children, &mut q_label);
 
         // Restore cursor and rwmode back to normal.
@@ -1067,6 +1117,8 @@ fn scrubber_on_drag(
         Option<&SoftLimit>,
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
+        Option<&NumberInputStep>,
+        Has<NumberInputSnapToStep>,
         Has<InteractionDisabled>,
         Option<&NumberInputWrap>,
         Option<&NumberInputUnits>,
@@ -1081,7 +1133,8 @@ fn scrubber_on_drag(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, units)) = q_root.get(root_id)
+        && let Ok((soft_limit, hard_limit, precision, step, snap_to_step, disabled, wrap, units)) =
+            q_root.get(root_id)
         && let Ok(mut drag_state) = q_text_input.get_mut(text_id)
         && let Ok(transform) = q_scrubber.get_mut(drag.entity)
         && drag_state.mode == EditMode::Scrubbing
@@ -1102,6 +1155,8 @@ fn scrubber_on_drag(
                 soft_limit,
                 hard_limit,
                 precision,
+                step,
+                snap_to_step,
                 wrap,
                 &mut drag_state,
                 false,
@@ -1117,6 +1172,8 @@ fn scrubber_on_drag_end(
         Option<&SoftLimit>,
         Option<&HardLimit>,
         Option<&NumberInputPrecision>,
+        Option<&NumberInputStep>,
+        Has<NumberInputSnapToStep>,
         Has<InteractionDisabled>,
         Option<&NumberInputWrap>,
         Option<&ThemeContext>,
@@ -1130,8 +1187,17 @@ fn scrubber_on_drag_end(
 ) {
     if let Ok(&ChildOf(text_id)) = q_parent.get(drag_end.event_target())
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((soft_limit, hard_limit, precision, disabled, wrap, theme_context, units)) =
-            q_root.get(root_id)
+        && let Ok((
+            soft_limit,
+            hard_limit,
+            precision,
+            step,
+            snap_to_step,
+            disabled,
+            wrap,
+            theme_context,
+            units,
+        )) = q_root.get(root_id)
         && let Ok((&Hovered(hovered), mut gradient, mut drag_state)) = q_text_input.get_mut(text_id)
         && drag_state.mode == EditMode::Scrubbing
     {
@@ -1144,6 +1210,8 @@ fn scrubber_on_drag_end(
                 soft_limit,
                 hard_limit,
                 precision,
+                step,
+                snap_to_step,
                 wrap,
                 &mut drag_state,
                 true,
@@ -1286,26 +1354,93 @@ fn emit_drag_value_change(
     soft_limit: Option<&SoftLimit>,
     hard_limit: Option<&HardLimit>,
     precision: Option<&NumberInputPrecision>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
     wrap: Option<&NumberInputWrap>,
     drag_state: &mut DragState,
     is_final: bool,
 ) {
-    // Relative scrub, in display units: always measured from the value at drag start.
-    let base = drag_state.base_value;
-    let display = units.canonical_to_display(base.as_f64()) + drag_state.value_offset;
+    let value = dragged_value(
+        units,
+        drag_state.base_value,
+        drag_state.value_offset,
+        soft_limit,
+        step,
+        snap_to_step,
+        precision,
+    );
+    // Hard limit is absolute and always applied last.
+    let value = apply_hard_limit(value, hard_limit, wrap);
+
+    trigger_value_change(commands, value, source, is_final);
+}
+
+/// Compute a scrubbed value from the value at drag start and an offset in display units, before
+/// the hard limit is applied. The value snaps to `step` only when `snap_to_step` is true.
+fn dragged_value(
+    units: &dyn UnitsFormat,
+    base: NumericValue,
+    value_offset: f64,
+    soft_limit: Option<&SoftLimit>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+    precision: Option<&NumberInputPrecision>,
+) -> NumericValue {
+    let mut display = units.canonical_to_display(base.as_f64()) + value_offset;
+    if snap_to_step && let Some(step) = step {
+        display = step.snap_f64(display);
+    }
+    if let Some(precision) = effective_precision(precision, step, snap_to_step) {
+        display = precision.round_f64(display);
+    }
     let mut value = NumericValue::from_f64(units.display_to_canonical(display), base.format());
 
     // Dragging is confined to the soft range; typing can still exceed it.
     if let Some(SoftLimit(range)) = soft_limit {
         value = range.clamp(value);
     }
-    if let Some(precision) = precision {
-        value = precision.round(units, value);
-    }
-    // Hard limit is absolute and always applied last.
-    let value = apply_hard_limit(value, hard_limit, wrap);
+    value
+}
 
-    trigger_value_change(commands, value, source, is_final);
+/// Compute the value after a chevron press, before the hard limit is applied. With
+/// `snap_to_step`, the value moves to the next multiple of the step and is rounded to the
+/// effective precision.
+fn chevron_value(
+    units: &dyn UnitsFormat,
+    value: NumericValue,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+    precision: Option<&NumberInputPrecision>,
+    is_increment: bool,
+) -> NumericValue {
+    let display = units.canonical_to_display(value.as_f64());
+    let step_size = step.copied().unwrap_or_default();
+    let display = if snap_to_step {
+        let display = step_size.step_snapped_f64(display, is_increment);
+        match effective_precision(precision, Some(&step_size), true) {
+            Some(precision) => precision.round_f64(display),
+            None => display,
+        }
+    } else if is_increment {
+        display + step_size.0
+    } else {
+        display - step_size.0
+    };
+    NumericValue::from_f64(units.display_to_canonical(display), value.format())
+}
+
+/// The precision used for rounding: the explicit one if present, otherwise the decimal places of
+/// the step when snapping to it.
+fn effective_precision(
+    precision: Option<&NumberInputPrecision>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+) -> Option<NumberInputPrecision> {
+    precision.copied().or_else(|| {
+        step.filter(|_| snap_to_step)
+            .and_then(NumberInputStep::decimal_places)
+            .map(NumberInputPrecision)
+    })
 }
 
 /// Clamp or wrap the value to the hard limit, if there is one.
@@ -1523,6 +1658,8 @@ fn chevron_on_press(
             &NumericValue,
             Option<&HardLimit>,
             Option<&NumberInputStep>,
+            Has<NumberInputSnapToStep>,
+            Option<&NumberInputPrecision>,
             Option<&NumberInputWrap>,
             Has<InteractionDisabled>,
             Option<&NumberInputUnits>,
@@ -1542,15 +1679,12 @@ fn chevron_on_press(
     if let Ok(is_increment) = q_chevron.get(chevron_id)
         && let Ok(&ChildOf(text_id)) = q_parent.get(chevron_id)
         && let Ok(&ChildOf(root_id)) = q_parent.get(text_id)
-        && let Ok((&value, hard_limit, step, wrap, disabled, units)) = q_number_input.get(root_id)
+        && let Ok((&value, hard_limit, step, snap_to_step, precision, wrap, disabled, units)) =
+            q_number_input.get(root_id)
         && !disabled
     {
-        // Step in display units.
         let units = units_registry.resolve(units);
-        let step = step.copied().unwrap_or_default().0;
-        let display =
-            units.canonical_to_display(value.as_f64()) + if is_increment { step } else { -step };
-        let value = NumericValue::from_f64(units.display_to_canonical(display), value.format());
+        let value = chevron_value(units, value, step, snap_to_step, precision, is_increment);
         let value = apply_hard_limit(value, hard_limit, wrap);
         trigger_value_change(&mut commands, value, root_id, true);
     }
@@ -1664,6 +1798,23 @@ pub fn format_display_value(display: f64, fmt: NumericFormat) -> String {
             .parse::<f64>()
             .unwrap_or(display)
             .to_string(),
+    }
+}
+
+/// Replace the field text with the non-editing form of `value`.
+///
+/// Edit mode shows a typeable stand-in (for example `20d` instead of `20°`).
+/// Exiting edit mode has to put the display form back even when the number
+/// itself did not change, because nothing else rewrites the text in that case.
+fn write_display_text(
+    editable_text: &mut EditableText,
+    units: &dyn UnitsFormat,
+    value: NumericValue,
+) {
+    let display = format_value(units, value, false);
+    if editable_text.value() != display {
+        editable_text.queue_edit(TextEdit::SelectAll);
+        editable_text.queue_edit(TextEdit::Insert(display.into()));
     }
 }
 
@@ -2159,14 +2310,42 @@ mod tests {
         }
     }
 
+    fn round(units: &dyn UnitsFormat, value: NumericValue, precision: i32) -> NumericValue {
+        let precision = NumberInputPrecision(precision);
+        dragged_value(units, value, 0.0, None, None, false, Some(&precision))
+    }
+
+    fn chevron(value: f64, step: f64, snap_to_step: bool, is_increment: bool) -> NumericValue {
+        chevron_value(
+            &Dimensionless,
+            NumericValue::F64(value),
+            Some(&NumberInputStep(step)),
+            snap_to_step,
+            None,
+            is_increment,
+        )
+    }
+
+    fn snap(units: &dyn UnitsFormat, value: NumericValue, step: f64) -> NumericValue {
+        dragged_value(
+            units,
+            value,
+            0.0,
+            None,
+            Some(&NumberInputStep(step)),
+            true,
+            None,
+        )
+    }
+
     #[test]
     fn precision_rounds_in_display_units() {
         // 0.31 rad is about 17.761973°; precision 2 should round to hundredths of a degree.
-        let rounded = NumberInputPrecision(2).round(&AngleDegrees, NumericValue::F32(0.31));
+        let rounded = round(&AngleDegrees, NumericValue::F32(0.31), 2);
         assert_eq!(format_value(&AngleDegrees, rounded, false), "17.76°");
 
         // Negative precision rounds integers to tens.
-        let rounded = NumberInputPrecision(-1).round(&Dimensionless, NumericValue::I32(1234));
+        let rounded = round(&Dimensionless, NumericValue::I32(1234), -1);
         assert_eq!(rounded, NumericValue::I32(1230));
     }
 
@@ -2195,8 +2374,257 @@ mod tests {
         }
 
         // Precision 1 rounds to tenths of a percent.
-        let rounded = NumberInputPrecision(1).round(&RatioPercent, NumericValue::F32(0.12345));
+        let rounded = round(&RatioPercent, NumericValue::F32(0.12345), 1);
         assert_eq!(format_value(&RatioPercent, rounded, false), "12.3%");
+    }
+
+    #[test]
+    fn step_snaps_to_nearest_multiple() {
+        assert_eq!(
+            snap(&Dimensionless, NumericValue::F64(78.09567), 0.5),
+            NumericValue::F64(78.0)
+        );
+        assert_eq!(
+            snap(&Dimensionless, NumericValue::F64(78.3), 0.5),
+            NumericValue::F64(78.5)
+        );
+        assert_eq!(
+            snap(&Dimensionless, NumericValue::F64(-1.3), 0.5),
+            NumericValue::F64(-1.5)
+        );
+        assert_eq!(
+            snap(&Dimensionless, NumericValue::I32(7), 0.5),
+            NumericValue::I32(7)
+        );
+    }
+
+    #[test]
+    fn step_snap_then_precision_removes_noise() {
+        let snapped = snap(&Dimensionless, NumericValue::F64(0.138), 0.05);
+        assert!((snapped.as_f64() - 0.15).abs() < 1e-12);
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.138),
+            0.0,
+            None,
+            Some(&NumberInputStep(0.05)),
+            true,
+            Some(&NumberInputPrecision(2)),
+        );
+        assert_eq!(value, NumericValue::F64(0.15));
+    }
+
+    #[test]
+    fn step_snaps_in_display_units() {
+        let snapped = snap(&AngleDegrees, NumericValue::F32(0.31), 5.0);
+        assert_eq!(format_value(&AngleDegrees, snapped, false), "20°");
+
+        let snapped = snap(&RatioPercent, NumericValue::F32(0.437), 10.0);
+        assert_eq!(format_value(&RatioPercent, snapped, false), "40%");
+    }
+
+    #[test]
+    fn drag_snaps_to_step_then_hard_limit() {
+        let base = NumericValue::F64(78.0);
+        let step = NumberInputStep(0.5);
+        let precision = NumberInputPrecision(2);
+
+        let value = dragged_value(
+            &Dimensionless,
+            base,
+            0.09567,
+            None,
+            None,
+            true,
+            Some(&precision),
+        );
+        assert_eq!(value, NumericValue::F64(78.1));
+
+        let value = dragged_value(&Dimensionless, base, 0.09567, None, Some(&step), true, None);
+        assert_eq!(value, NumericValue::F64(78.0));
+
+        let value = dragged_value(
+            &Dimensionless,
+            base,
+            0.3,
+            None,
+            Some(&step),
+            true,
+            Some(&precision),
+        );
+        assert_eq!(value, NumericValue::F64(78.5));
+
+        let hard_limit = HardLimit::f64(0.0..=78.3);
+        assert_eq!(
+            apply_hard_limit(value, Some(&hard_limit), None),
+            NumericValue::F64(78.3)
+        );
+    }
+
+    #[test]
+    fn drag_snaps_integers_to_step() {
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::I32(10),
+            13.4,
+            None,
+            Some(&NumberInputStep(5.0)),
+            true,
+            None,
+        );
+        assert_eq!(value, NumericValue::I32(25));
+    }
+
+    #[test]
+    fn drag_without_snap_marker_only_rounds() {
+        let base = NumericValue::F64(78.0);
+        let step = NumberInputStep(0.5);
+        let precision = NumberInputPrecision(2);
+
+        let value = dragged_value(
+            &Dimensionless,
+            base,
+            0.3,
+            None,
+            Some(&step),
+            false,
+            Some(&precision),
+        );
+        assert_eq!(value, NumericValue::F64(78.3));
+
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::I32(10),
+            13.4,
+            None,
+            Some(&NumberInputStep(5.0)),
+            false,
+            None,
+        );
+        assert_eq!(value, NumericValue::I32(23));
+    }
+
+    #[test]
+    fn invalid_step_leaves_value_unchanged() {
+        for step in [0.0, -1.0, f64::NAN] {
+            let value = NumericValue::F64(1.2345);
+            assert_eq!(snap(&Dimensionless, value, step), value);
+        }
+    }
+
+    #[test]
+    fn drag_snaps_within_soft_limit() {
+        let soft_limit = SoftLimit::f64(0.0..=78.2);
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(78.0),
+            0.3,
+            Some(&soft_limit),
+            Some(&NumberInputStep(0.5)),
+            true,
+            None,
+        );
+        assert_eq!(value, NumericValue::F64(78.2));
+    }
+
+    #[test]
+    fn chevron_snaps_to_next_multiple() {
+        assert_eq!(chevron(78.3, 0.5, true, true), NumericValue::F64(78.5));
+        assert_eq!(chevron(78.3, 0.5, true, false), NumericValue::F64(78.0));
+        assert_eq!(chevron(78.5, 0.5, true, true), NumericValue::F64(79.0));
+        assert_eq!(chevron(78.5, 0.5, true, false), NumericValue::F64(78.0));
+        assert_eq!(chevron(-1.3, 0.5, true, true), NumericValue::F64(-1.0));
+        assert_eq!(chevron(-1.3, 0.5, true, false), NumericValue::F64(-1.5));
+        assert_eq!(chevron(0.15, 0.05, true, true), NumericValue::F64(0.2));
+        assert_eq!(chevron(0.15, 0.05, true, false), NumericValue::F64(0.1));
+    }
+
+    #[test]
+    fn chevron_without_snap_marker_adds_step() {
+        assert_eq!(chevron(78.3, 0.5, false, true), NumericValue::F64(78.8));
+        assert_eq!(chevron(78.3, 0.5, false, false), NumericValue::F64(77.8));
+        assert_eq!(chevron(78.5, 0.5, false, true), NumericValue::F64(79.0));
+    }
+
+    #[test]
+    fn chevron_snaps_in_display_units_then_hard_limit() {
+        let value = chevron_value(
+            &AngleDegrees,
+            NumericValue::F32(0.31),
+            Some(&NumberInputStep(5.0)),
+            true,
+            None,
+            true,
+        );
+        assert_eq!(format_value(&AngleDegrees, value, false), "20°");
+
+        let hard_limit = HardLimit::f64(0.0..=78.7);
+        let value = chevron(78.5, 0.5, true, true);
+        assert_eq!(
+            apply_hard_limit(value, Some(&hard_limit), None),
+            NumericValue::F64(78.7)
+        );
+    }
+
+    #[test]
+    fn step_decimal_places() {
+        assert_eq!(NumberInputStep(5.0).decimal_places(), Some(0));
+        assert_eq!(NumberInputStep(0.5).decimal_places(), Some(1));
+        assert_eq!(NumberInputStep(0.05).decimal_places(), Some(2));
+        assert_eq!(NumberInputStep(0.125).decimal_places(), Some(3));
+        assert_eq!(NumberInputStep(1.0 / 3.0).decimal_places(), Some(6));
+        assert_eq!(NumberInputStep(0.0).decimal_places(), None);
+    }
+
+    #[test]
+    fn drag_infers_precision_from_step() {
+        let step = NumberInputStep(0.05);
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            0.038,
+            None,
+            Some(&step),
+            true,
+            None,
+        );
+        assert_eq!(value, NumericValue::F64(0.15));
+
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            0.038,
+            None,
+            Some(&step),
+            true,
+            Some(&NumberInputPrecision(0)),
+        );
+        assert_eq!(value, NumericValue::F64(0.0));
+
+        let value = dragged_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            0.038,
+            None,
+            Some(&step),
+            false,
+            None,
+        );
+        assert!((value.as_f64() - 0.138).abs() < 1e-12);
+    }
+
+    #[test]
+    fn chevron_precision_override() {
+        let step = NumberInputStep(0.05);
+        let value = chevron_value(
+            &Dimensionless,
+            NumericValue::F64(0.1),
+            Some(&step),
+            true,
+            Some(&NumberInputPrecision(1)),
+            true,
+        );
+        assert_eq!(value, NumericValue::F64(0.2));
     }
 
     #[test]

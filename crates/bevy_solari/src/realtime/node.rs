@@ -1,6 +1,9 @@
-use super::prepare::{
-    SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET,
-    WORLD_CACHE_SIZE,
+use super::{
+    prepare::{
+        SolariLightingResources, LIGHT_TILE_BLOCKS, WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET,
+        WORLD_CACHE_SIZE,
+    },
+    SolariLighting,
 };
 use crate::scene::RaytracingSceneBindings;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -11,19 +14,26 @@ use bevy_core_pipeline::prepass::{
     MOTION_VECTOR_PREPASS_FORMAT,
 };
 use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
+use bevy_pbr::{
+    resources::{AtmosphereTextures, GpuAtmosphere},
+    LinearSampler,
+};
 use bevy_render::{
     diagnostic::RecordDiagnostics as _,
     render_resource::{
         binding_types::{
-            storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
-            uniform_buffer_sized,
+            sampler, storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d,
+            uniform_buffer, uniform_buffer_sized,
         },
-        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
-        PipelineCache, RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat,
-        TextureFormatFeatureFlags, TextureSampleType,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, Buffer,
+        BufferInitDescriptor, BufferUsages, CachedComputePipelineId, ComputePassDescriptor,
+        ComputePipelineDescriptor, LoadOp, PipelineCache, RenderPassDescriptor, SamplerBindingType,
+        ShaderStages, ShaderType, StorageTextureAccess, TextureFormat, TextureFormatFeatureFlags,
+        TextureSampleType,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, ViewQuery},
+    texture::FallbackImage,
+    uniform::{ComponentUniforms, DynamicUniformIndex},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -42,13 +52,17 @@ pub struct SolariLightingPipelines {
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
     sample_di_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_di_for_world_cache_force_opaque_pipeline: CachedComputePipelineId,
     sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
+    sample_gi_for_world_cache_force_opaque_pipeline: CachedComputePipelineId,
     blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
     restir: RestirPipelines,
     no_restir: NoRestirPipelines,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
+    /// Zeroed atmosphere uniform for views without an atmosphere.
+    atmosphere_fallback: Buffer,
 }
 
 struct RestirPipelines {
@@ -66,20 +80,26 @@ struct NoRestirPipelines {
 
 #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
 type SolariLightingViewQuery = (
+    &'static SolariLighting,
     &'static SolariLightingResources,
     &'static ViewTarget,
     &'static ViewPrepassTextures,
     &'static ViewUniformOffset,
     &'static PreviousViewUniformOffset,
+    Option<&'static AtmosphereTextures>,
+    Option<&'static DynamicUniformIndex<GpuAtmosphere>>,
 );
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 type SolariLightingViewQuery = (
+    &'static SolariLighting,
     &'static SolariLightingResources,
     &'static ViewTarget,
     &'static ViewPrepassTextures,
     &'static ViewUniformOffset,
     &'static PreviousViewUniformOffset,
+    Option<&'static AtmosphereTextures>,
+    Option<&'static DynamicUniformIndex<GpuAtmosphere>>,
     Option<&'static ViewDlssRayReconstructionTextures>,
 );
 
@@ -90,31 +110,53 @@ pub fn solari_lighting(
     scene_bindings: Res<RaytracingSceneBindings>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
+    atmosphere_uniforms: Option<Res<ComponentUniforms<GpuAtmosphere>>>,
+    linear_sampler: Res<LinearSampler>,
+    fallback_image: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
     mut ctx: RenderContext,
 ) {
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     let (
+        solari_lighting,
         solari_lighting_resources,
         view_target,
         view_prepass_textures,
         view_uniform_offset,
         previous_view_uniform_offset,
+        atmosphere_textures,
+        atmosphere_uniform_index,
     ) = view.into_inner();
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     let (
+        solari_lighting,
         solari_lighting_resources,
         view_target,
         view_prepass_textures,
         view_uniform_offset,
         previous_view_uniform_offset,
+        atmosphere_textures,
+        atmosphere_uniform_index,
         view_dlss_rr_textures,
     ) = view.into_inner();
 
     let Some(pipelines) = solari_pipelines else {
         return;
     };
+
+    let (sample_di_for_world_cache_pipeline_id, sample_gi_for_world_cache_pipeline_id) =
+        if solari_lighting.world_cache_force_opaque {
+            (
+                pipelines.sample_di_for_world_cache_force_opaque_pipeline,
+                pipelines.sample_gi_for_world_cache_force_opaque_pipeline,
+            )
+        } else {
+            (
+                pipelines.sample_di_for_world_cache_pipeline,
+                pipelines.sample_gi_for_world_cache_pipeline,
+            )
+        };
 
     let restir = solari_lighting_resources.reservoirs.as_ref().zip(
         view_prepass_textures
@@ -169,8 +211,8 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
         pipeline_cache
             .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.sample_di_for_world_cache_pipeline),
-        pipeline_cache.get_compute_pipeline(pipelines.sample_gi_for_world_cache_pipeline),
+        pipeline_cache.get_compute_pipeline(sample_di_for_world_cache_pipeline_id),
+        pipeline_cache.get_compute_pipeline(sample_gi_for_world_cache_pipeline_id),
         pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
         pipeline_cache.get_compute_pipeline(initial_pipeline_id),
@@ -183,6 +225,23 @@ pub fn solari_lighting(
     )
     else {
         return;
+    };
+
+    let (atmosphere_transmittance_lut, atmosphere, atmosphere_offset) = match (
+        atmosphere_textures,
+        atmosphere_uniform_index,
+        atmosphere_uniforms.as_ref().and_then(|u| u.binding()),
+    ) {
+        (Some(textures), Some(uniform_index), Some(atmosphere)) => (
+            &textures.transmittance_lut.default_view,
+            atmosphere,
+            uniform_index.index(),
+        ),
+        _ => (
+            &fallback_image.d2.texture_view,
+            pipelines.atmosphere_fallback.as_entire_binding(),
+            0,
+        ),
     };
 
     let spatial_and_shade_pipeline = match spatial_pipeline_id {
@@ -222,6 +281,9 @@ pub fn solari_lighting(
             previous_view_uniforms_binding.clone(),
             s.world_cache.as_entire_binding(),
             s.constants.as_entire_binding(),
+            atmosphere_transmittance_lut,
+            &linear_sampler.0,
+            atmosphere.clone(),
         )),
     );
 
@@ -241,6 +303,9 @@ pub fn solari_lighting(
                     previous_view_uniforms_binding,
                     s.world_cache.as_entire_binding(),
                     s.constants.as_entire_binding(),
+                    atmosphere_transmittance_lut,
+                    &linear_sampler.0,
+                    atmosphere,
                     previous_gbuffer,
                     previous_depth_buffer,
                     reservoirs.a.as_entire_binding(),
@@ -304,6 +369,7 @@ pub fn solari_lighting(
         &[
             view_uniform_offset.offset,
             previous_view_uniform_offset.offset,
+            atmosphere_offset,
         ],
     );
 
@@ -366,6 +432,7 @@ pub fn solari_lighting(
             &[
                 view_uniform_offset.offset,
                 previous_view_uniform_offset.offset,
+                atmosphere_offset,
             ],
         );
     }
@@ -404,6 +471,7 @@ pub fn init_solari_lighting_pipelines(
     scene_bindings: Res<RaytracingSceneBindings>,
     asset_server: Res<AssetServer>,
     render_adapter: Res<RenderAdapter>,
+    render_device: Res<RenderDevice>,
 ) {
     let motion_vectors_storage_read_write = render_adapter
         .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
@@ -430,6 +498,9 @@ pub fn init_solari_lighting_pipelines(
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
                 uniform_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                uniform_buffer::<GpuAtmosphere>(true),
             ),
         ),
     );
@@ -449,6 +520,9 @@ pub fn init_solari_lighting_pipelines(
                 uniform_buffer::<PreviousViewData>(true),
                 storage_buffer_sized(false, None),
                 uniform_buffer_sized(false, None),
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                uniform_buffer::<GpuAtmosphere>(true),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
                 storage_buffer_sized(false, None),
@@ -532,6 +606,12 @@ pub fn init_solari_lighting_pipelines(
         })
     };
 
+    let atmosphere_fallback = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        label: Some("solari_lighting_atmosphere_fallback"),
+        contents: &vec![0; GpuAtmosphere::min_size().get() as usize],
+        usage: BufferUsages::UNIFORM,
+    });
+
     commands.insert_resource(SolariLightingPipelines {
         bind_group_layout: bind_group_layout.clone(),
         bind_group_layout_restir: bind_group_layout_restir.clone(),
@@ -580,6 +660,14 @@ pub fn init_solari_lighting_pipelines(
             ExtraBindGroup::None,
             vec![],
         ),
+        sample_di_for_world_cache_force_opaque_pipeline: create_pipeline(
+            "solari_lighting_sample_di_for_world_cache_force_opaque_pipeline",
+            "sample_di",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
+            false,
+            ExtraBindGroup::None,
+            vec!["WORLD_CACHE_FORCE_OPAQUE".into()],
+        ),
         sample_gi_for_world_cache_pipeline: create_pipeline(
             "solari_lighting_sample_gi_for_world_cache_pipeline",
             "sample_gi",
@@ -587,6 +675,17 @@ pub fn init_solari_lighting_pipelines(
             false,
             ExtraBindGroup::None,
             vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
+        ),
+        sample_gi_for_world_cache_force_opaque_pipeline: create_pipeline(
+            "solari_lighting_sample_gi_for_world_cache_force_opaque_pipeline",
+            "sample_gi",
+            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
+            false,
+            ExtraBindGroup::None,
+            vec![
+                "WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into(),
+                "WORLD_CACHE_FORCE_OPAQUE".into(),
+            ],
         ),
         blend_new_world_cache_samples_pipeline: create_pipeline(
             "solari_lighting_blend_new_world_cache_samples_pipeline",
@@ -659,6 +758,7 @@ pub fn init_solari_lighting_pipelines(
             ExtraBindGroup::DlssRrGuideBuffers,
             vec![],
         ),
+        atmosphere_fallback,
     });
 }
 
