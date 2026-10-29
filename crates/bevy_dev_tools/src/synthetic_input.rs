@@ -1,11 +1,16 @@
 //! Mocked input, simulated as if it came from a windowing backend, designed for tools that drive an app from outside, such as
 //! end-to-end tests.
 //!
-//! [`click`] queues a click in [`InputQueue`], as [`WindowEvent`]s one frame apart, and
-//! [`write_due_input`] writes each when its frame comes. Bevy's remote protocol exposes this as
-//! its `input.click` method.
+//! [`click`], [`key`] and [`type_text`] queue input in [`InputQueue`], as [`WindowEvent`]s one
+//! frame apart, and [`write_due_input`] writes each when its frame comes. Bevy's remote protocol
+//! exposes these as its `input.click`, `input.key` and `input.type` methods.
 
-use alloc::collections::VecDeque;
+mod us_layout;
+
+use alloc::{
+    collections::VecDeque,
+    string::{String, ToString},
+};
 use core::fmt::{self, Display, Formatter};
 
 use bevy_camera::{Camera, NormalizedRenderTarget, RenderTarget};
@@ -20,6 +25,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_input::{
+    keyboard::{Key, KeyCode, KeyboardInput, NativeKeyCode},
     mouse::{MouseButton, MouseButtonInput},
     ButtonState,
 };
@@ -27,7 +33,7 @@ use bevy_math::Vec2;
 use bevy_ui::{ComputedUiTargetCamera, ScrollIntoView, ScrollPosition, UiGlobalTransform};
 use bevy_window::{PrimaryWindow, RawCursorMoved, Window, WindowEvent};
 
-/// Input waiting for [`write_due_input`], each event with the frame that reads it, in order.
+/// Input waiting for [`write_due_input`], each event with the frame on which the app receives it, in order.
 #[derive(Resource, Default)]
 pub struct InputQueue {
     events: VecDeque<(u32, QueuedInput)>,
@@ -46,6 +52,13 @@ enum QueuedInput {
     Button {
         window: Entity,
         button: MouseButton,
+        state: ButtonState,
+    },
+    Key {
+        window: Entity,
+        key_code: KeyCode,
+        logical_key: Key,
+        text: Option<String>,
         state: ButtonState,
     },
 }
@@ -113,7 +126,7 @@ impl core::error::Error for ClickError {}
 /// the cursor to move before the press, and an app may treat a press and release on the same frame
 /// differently from a click. A click queued while another is pending follows it.
 ///
-/// Returns the frame that reads the release, as counted by [`FrameCount`]. This assumes
+/// Returns the frame on which the app receives the release, as counted by [`FrameCount`]. This assumes
 /// [`write_due_input`] runs after [`Last`](bevy_app::Last), where [`FrameCount`] advances, so
 /// events it writes are read on the frame [`FrameCount`] names.
 pub fn click(
@@ -172,6 +185,170 @@ pub fn click(
             state: ButtonState::Released,
         },
     ))
+}
+
+/// What [`key`] does with a key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyAction {
+    /// Presses the key, and releases it `hold` frames later.
+    Tap {
+        /// How many frames the key stays pressed.
+        hold: u32,
+    },
+    /// Presses the key and leaves it pressed, such as a modifier held across other input.
+    Press,
+    /// Releases a pressed key.
+    Release,
+}
+
+/// Why [`key`] or [`type_text`] couldn't queue input.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyError {
+    /// The key was to be held for zero frames.
+    ZeroHold,
+    /// There was no text to type.
+    EmptyText,
+    /// No logical key was given, and the key code isn't one a US keyboard layout maps.
+    UnknownKey(KeyCode),
+    /// No window was given, and there's no primary window.
+    NoPrimaryWindow,
+    /// The target window isn't a window.
+    NotAWindow(Entity),
+}
+
+impl Display for KeyError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroHold => write!(f, "a key is held for at least one frame"),
+            Self::EmptyText => write!(f, "there is no text to type"),
+            Self::UnknownKey(key_code) => write!(
+                f,
+                "{key_code:?} has no logical key on a US keyboard; give one explicitly"
+            ),
+            Self::NoPrimaryWindow => write!(f, "there is no primary window"),
+            Self::NotAWindow(entity) => write!(f, "{entity} is not a window"),
+        }
+    }
+}
+
+impl core::error::Error for KeyError {}
+
+/// Queues a key press, release, or both, in `window` or the primary window.
+///
+/// `logical_key` and `text` are what the key means in the user's keyboard layout. When
+/// `logical_key` is `None`, both come from a US layout, and `text` only overrides the text. Each
+/// event is read on its own frame, after any input already queued.
+///
+/// Returns the frame on which the app receives the last event, as [`click`] does.
+pub fn key(
+    world: &mut World,
+    window: Option<Entity>,
+    key_code: KeyCode,
+    logical_key: Option<Key>,
+    text: Option<&str>,
+    action: KeyAction,
+) -> Result<u32, KeyError> {
+    if action == (KeyAction::Tap { hold: 0 }) {
+        return Err(KeyError::ZeroHold);
+    }
+    let window = keyboard_window(world, window)?;
+    let (logical_key, text) = match logical_key {
+        Some(logical_key) => (logical_key, text.map(ToString::to_string)),
+        None => {
+            let (logical_key, plain) =
+                us_layout::logical_key(key_code).ok_or(KeyError::UnknownKey(key_code))?;
+            let text = text
+                .map(ToString::to_string)
+                .or(plain.map(|plain| plain.to_string()));
+            (logical_key, text)
+        }
+    };
+    let event = |state| QueuedInput::Key {
+        window,
+        key_code,
+        logical_key: logical_key.clone(),
+        text: text.clone(),
+        state,
+    };
+    let earliest = current_frame(world);
+    let mut queue = world.get_resource_or_init::<InputQueue>();
+    Ok(match action {
+        KeyAction::Tap { hold } => {
+            queue.push(earliest, 1, event(ButtonState::Pressed));
+            queue.push(earliest, hold, event(ButtonState::Released))
+        }
+        KeyAction::Press => queue.push(earliest, 1, event(ButtonState::Pressed)),
+        KeyAction::Release => queue.push(earliest, 1, event(ButtonState::Released)),
+    })
+}
+
+/// Queues the key presses that type `text` on a US keyboard, in `window` or the primary window.
+///
+/// Each character is a press and a release of its key, with Shift pressed around it when the
+/// character needs it, each event on its own frame. A character a US keyboard can't type is sent
+/// with an unidentified key code, as its own logical key and text, so it still reaches a text
+/// field.
+///
+/// Returns the frame on which the app receives the last event, as [`click`] does.
+pub fn type_text(world: &mut World, window: Option<Entity>, text: &str) -> Result<u32, KeyError> {
+    if text.is_empty() {
+        return Err(KeyError::EmptyText);
+    }
+    let window = keyboard_window(world, window)?;
+    let earliest = current_frame(world);
+    let mut queue = world.get_resource_or_init::<InputQueue>();
+    let mut frame = earliest;
+    for character in text.chars() {
+        let (key_code, shifted) = us_layout::character_key(character)
+            .unwrap_or((KeyCode::Unidentified(NativeKeyCode::Unidentified), false));
+        let typed = character.to_string();
+        let logical_key = if character == ' ' {
+            Key::Space
+        } else {
+            Key::Character(typed.as_str().into())
+        };
+        let shift = |state| QueuedInput::Key {
+            window,
+            key_code: KeyCode::ShiftLeft,
+            logical_key: Key::Shift,
+            text: None,
+            state,
+        };
+        let event = |state| QueuedInput::Key {
+            window,
+            key_code,
+            logical_key: logical_key.clone(),
+            text: Some(typed.clone()),
+            state,
+        };
+        if shifted {
+            queue.push(earliest, 1, shift(ButtonState::Pressed));
+        }
+        queue.push(earliest, 1, event(ButtonState::Pressed));
+        frame = queue.push(earliest, 1, event(ButtonState::Released));
+        if shifted {
+            frame = queue.push(earliest, 1, shift(ButtonState::Released));
+        }
+    }
+    Ok(frame)
+}
+
+/// `window`, or the primary window.
+fn keyboard_window(world: &mut World, window: Option<Entity>) -> Result<Entity, KeyError> {
+    match window {
+        Some(window) if world.get::<Window>(window).is_some() => Ok(window),
+        Some(window) => Err(KeyError::NotAWindow(window)),
+        None => world
+            .query_filtered::<Entity, With<PrimaryWindow>>()
+            .single(world)
+            .map_err(|_| KeyError::NoPrimaryWindow),
+    }
+}
+
+fn current_frame(world: &World) -> u32 {
+    world
+        .get_resource::<FrameCount>()
+        .map_or(0, |frame| frame.0)
 }
 
 /// The window `entity` is drawn in, and its center in physical pixels.
@@ -271,6 +448,20 @@ pub fn write_due_input(
                 state,
                 window,
             }),
+            QueuedInput::Key {
+                window,
+                key_code,
+                logical_key,
+                text,
+                state,
+            } => WindowEvent::KeyboardInput(KeyboardInput {
+                key_code,
+                logical_key,
+                state,
+                text: text.map(|text| text.as_str().into()),
+                repeat: false,
+                window,
+            }),
         });
     }
 }
@@ -328,6 +519,13 @@ mod tests {
                 format!("move {} {}", at.x, at.y)
             }
             WindowEvent::MouseButtonInput(input) => format!("{:?} {:?}", input.state, input.button),
+            WindowEvent::KeyboardInput(input) => format!(
+                "{:?} {:?} {:?} {:?}",
+                input.state,
+                input.key_code,
+                input.logical_key,
+                input.text.as_deref()
+            ),
             other => format!("{other:?}"),
         }
     }
@@ -510,6 +708,116 @@ mod tests {
         assert_eq!(
             click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1),
             Err(ClickError::NoWindow(start))
+        );
+        assert!(frames_through(&mut world, 12).is_empty());
+    }
+
+    fn tap(world: &mut World, key_code: KeyCode, hold: u32) -> Result<u32, KeyError> {
+        key(world, None, key_code, None, None, KeyAction::Tap { hold })
+    }
+
+    #[test]
+    fn a_key_takes_its_meaning_from_a_us_layout() {
+        let (mut world, _) = world();
+
+        assert_eq!(tap(&mut world, KeyCode::KeyA, 1), Ok(11));
+        assert_eq!(tap(&mut world, KeyCode::Escape, 3), Ok(15));
+
+        assert_eq!(
+            frames_through(&mut world, 15),
+            events(&[
+                (10, r#"Pressed KeyA Character("a") Some("a")"#),
+                (11, r#"Released KeyA Character("a") Some("a")"#),
+                (12, "Pressed Escape Escape None"),
+                (15, "Released Escape Escape None"),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_key_can_be_given_its_meaning_and_pressed_and_released_apart() {
+        let (mut world, window) = world();
+        let mut numpad_plus = |action| {
+            let plus = Key::Character("+".into());
+            key(
+                &mut world,
+                Some(window),
+                KeyCode::NumpadAdd,
+                Some(plus),
+                Some("+"),
+                action,
+            )
+        };
+
+        numpad_plus(KeyAction::Press).unwrap();
+        let frame = numpad_plus(KeyAction::Release);
+
+        assert_eq!(frame, Ok(11));
+        assert_eq!(
+            frames_through(&mut world, 11),
+            events(&[
+                (10, r#"Pressed NumpadAdd Character("+") Some("+")"#),
+                (11, r#"Released NumpadAdd Character("+") Some("+")"#),
+            ])
+        );
+    }
+
+    #[test]
+    fn typing_holds_shift_where_a_character_needs_it() {
+        let (mut world, _) = world();
+
+        let frame = type_text(&mut world, None, "a B");
+
+        assert_eq!(frame, Ok(17));
+        assert_eq!(
+            frames_through(&mut world, 17),
+            events(&[
+                (10, r#"Pressed KeyA Character("a") Some("a")"#),
+                (11, r#"Released KeyA Character("a") Some("a")"#),
+                (12, r#"Pressed Space Space Some(" ")"#),
+                (13, r#"Released Space Space Some(" ")"#),
+                (14, "Pressed ShiftLeft Shift None"),
+                (15, r#"Pressed KeyB Character("B") Some("B")"#),
+                (16, r#"Released KeyB Character("B") Some("B")"#),
+                (17, "Released ShiftLeft Shift None"),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_character_off_the_layout_is_still_typed() {
+        let (mut world, _) = world();
+
+        type_text(&mut world, None, "é").unwrap();
+
+        assert_eq!(
+            frames_through(&mut world, 10),
+            events(&[(
+                10,
+                r#"Pressed Unidentified(Unidentified) Character("é") Some("é")"#
+            )])
+        );
+    }
+
+    #[test]
+    fn key_input_needs_a_window_and_something_to_send() {
+        let (mut world, window) = world();
+        let other = world.spawn_empty().id();
+
+        assert_eq!(tap(&mut world, KeyCode::KeyA, 0), Err(KeyError::ZeroHold));
+        assert_eq!(
+            tap(&mut world, KeyCode::NumpadAdd, 1),
+            Err(KeyError::UnknownKey(KeyCode::NumpadAdd))
+        );
+        assert_eq!(type_text(&mut world, None, ""), Err(KeyError::EmptyText));
+        assert_eq!(
+            type_text(&mut world, Some(other), "a"),
+            Err(KeyError::NotAWindow(other))
+        );
+        world.despawn(window);
+        assert_eq!(
+            type_text(&mut world, None, "a"),
+            Err(KeyError::NoPrimaryWindow)
         );
         assert!(frames_through(&mut world, 12).is_empty());
     }
