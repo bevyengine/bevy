@@ -1,0 +1,3 @@
+template(|ctx| {
+    Ok(Handle::<Image>::default())
+})
