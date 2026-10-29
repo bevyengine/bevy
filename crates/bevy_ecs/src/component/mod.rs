@@ -539,6 +539,22 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
+    /// Set this constant to true if the component should track a summary
+    /// tick.
+    ///
+    /// Summary ticks allow users of contiguous iteration queries to skip
+    /// entire tables if the components that those users are interested in
+    /// haven't changed since the last time they ran the query. Tracking a
+    /// summary tick enables this functionality but adds a small amount of
+    /// overhead to mutations of the component, because the summary tick must be
+    /// updated on each such mutation.
+    ///
+    /// Summary ticks are only valid for table components. If the component is a
+    /// sparse set component, this method must return false.
+    ///
+    /// By default, this constant is set to false.
+    const HAS_SUMMARY_TICK: bool = false;
+
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None
@@ -673,22 +689,6 @@ pub trait Component: Send + Sync + 'static {
     fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
         None
     }
-
-    /// Set this constant to true if the component should track a summary
-    /// tick.
-    ///
-    /// Summary ticks allow users of contiguous iteration queries to skip
-    /// entire tables if the components that those users are interested in
-    /// haven't changed since the last time they ran the query. Tracking a
-    /// summary tick enables this functionality but adds a small amount of
-    /// overhead to mutations of the component, because the summary tick must be
-    /// updated on each such mutation.
-    ///
-    /// Summary ticks are only valid for table components. If the component is a
-    /// sparse set component, this method must return false.
-    ///
-    /// By default, this constant is set to false.
-    const HAS_SUMMARY_TICK: bool = false;
 }
 
 mod private {

@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{
         ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
-        MutUntyped, Tick,
+        MutNoComp, MutUntyped, Tick,
     },
     component::{ComponentId, Components, Mutable, StorageType},
     entity::{
@@ -583,7 +583,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             self.get_resource_mut_by_id(component_id)
                 // `component_id` was gotten from `TypeId::of::<R>()`
-                .map(|ptr| ptr.with_type::<R>())
+                .map(|ptr| ptr.with_type::<R>().into_mut())
         }
     }
 
@@ -626,7 +626,7 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe {
             self.get_resource_mut_by_id(component_id)
                 // `component_id` was gotten from `TypeId::of::<R>()`
-                .map(|ptr| ptr.with_type::<R>())
+                .map(|ptr| ptr.with_type::<R>().into_mut())
         }
     }
 
@@ -637,7 +637,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the data mutably
     /// - no other references to the data exist at the same time
     #[inline]
-    pub unsafe fn get_non_send_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
+    pub unsafe fn get_non_send_mut<R: 'static>(self) -> Option<MutNoComp<'w, R>> {
         self.assert_allows_mutable_access();
         let component_id = self.components().get_valid_id(TypeId::of::<R>())?;
         // SAFETY:
