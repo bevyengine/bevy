@@ -4,16 +4,10 @@ use crate::{
         mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
         StaticTransformOptimizations,
     },
+    TransformSystems,
 };
 use bevy_app::{App, Plugin, PostStartup, PostUpdate, ValidateParentHasComponentPlugin};
-use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
-
-/// Set enum for the systems relating to transform propagation
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum TransformSystems {
-    /// Propagates changes in transform to children's [`GlobalTransform`]
-    Propagate,
-}
+use bevy_ecs::schedule::IntoScheduleConfigs;
 
 /// The base plugin for handling [`Transform`](crate::components::Transform) components
 #[derive(Default)]

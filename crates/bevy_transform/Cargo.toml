@@ -46,7 +46,11 @@ multi_threaded = ["bevy_tasks/multi_threaded"]
 ## systems for transform propagation and more.
 ## This exists because it allows opting out of all of this, leaving only a bare-bones transform struct,
 ## which enables users to depend on that without needing the larger Bevy dependency tree.
-bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_ecs"]
+bevy-support = ["alloc", "bevy_app", "bevy_ecs"]
+
+## Only adds `bevy_ecs` as the dependency without `bevy_app` dependency.
+## Useful when used as external dependency without large bevy dependency but still get the ecs support
+bevy_ecs = ["alloc", "dep:bevy_ecs"]
 
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "bevy_math/serialize"]
