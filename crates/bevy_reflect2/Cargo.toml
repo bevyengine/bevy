@@ -1,0 +1,61 @@
+[package]
+name = "bevy_reflect2"
+version = "0.20.0-dev"
+edition = "2024"
+description = "Dynamically interact with Rust types"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+rust-version = "1.95.0"
+publish = false
+
+[features]
+default = ["std", "auto_register_inventory"]
+# Enables automatic reflect registration. Does nothing by itself,
+# must select `auto_register_inventory` or `auto_register_static` to make it work.
+auto_register = []
+## Enables automatic reflect registration using inventory. Not supported on all platforms.
+auto_register_inventory = [
+  "auto_register",
+  "bevy_reflect2_macros/auto_register_inventory",
+  "dep:inventory",
+]
+## Enable automatic reflect registration without inventory. This feature has precedence over `auto_register_inventory`.
+## See `load_type_registrations` for more info.
+auto_register_static = [
+  "auto_register",
+  "bevy_reflect2_macros/auto_register_static",
+]
+std = [
+  "bevy_platform/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = ["bevy_platform/critical-section"]
+
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = ["bevy_platform/web"]
+
+[dependencies]
+bevy_reflect2_macros = { path = "macros", version = "0.20.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false, features = [
+  "alloc",
+] }
+bevy_ptr = { path = "../bevy_ptr", version = "0.20.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", default-features = false }
+
+inventory = { version = "0.3", optional = true }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
+all-features = true
