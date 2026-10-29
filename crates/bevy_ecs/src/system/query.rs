@@ -1875,7 +1875,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            let location = self.world.entities().get_spawned(entity)?;
+            let location = self.world.entities().try_location(entity)?;
             if !self
                 .state
                 .matched_archetypes
@@ -1908,8 +1908,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .world
                 .storages()
                 .tables
-                .get(location.table_id)
-                .unwrap_unchecked();
+                .get_unchecked(location.table_id);
             D::set_archetype(
                 &mut fetch,
                 &self.state.fetch_state,

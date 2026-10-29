@@ -259,7 +259,7 @@ impl<'w> BundleRemover<'w> {
             unsafe { self.old_archetype.as_mut() }.swap_remove(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
+            let swapped_location = world.entities.try_location(swapped_entity).unwrap();
 
             // SAFETY: entity already existed, it's archetype_row just changed
             unsafe {
@@ -320,7 +320,7 @@ impl<'w> BundleRemover<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
+                let swapped_location = world.entities.try_location(swapped_entity).unwrap();
 
                 // SAFETY: Entity existed but is now at new table row
                 unsafe {
