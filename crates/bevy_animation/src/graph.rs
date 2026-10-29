@@ -779,7 +779,7 @@ impl AnimationGraphNode {
 
     /// This node's weight, scaled by the [`ActiveAnimation`]'s weight if the player
     /// has an entry for the node.
-    pub fn active_weight(&self, active_animation: Option<&ActiveAnimation>) -> f32 {
+    pub(crate) fn active_weight(&self, active_animation: Option<&ActiveAnimation>) -> f32 {
         self.weight * active_animation.map_or(1.0, ActiveAnimation::weight)
     }
 }
