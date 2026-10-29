@@ -152,9 +152,10 @@ fn update_components<C>(
                 if let Some((displaced_entity, displaced_entity_new_tag)) =
                     component_array.remove(&mut buffer, entity)
                 {
+                    // The displaced entity may have been despawned this frame.
                     commands
                         .entity(displaced_entity)
-                        .insert(MeshTag::with_type::<GpuComponentArray<C>>(
+                        .try_insert(MeshTag::with_type::<GpuComponentArray<C>>(
                             displaced_entity_new_tag,
                         ));
                 }
@@ -210,11 +211,10 @@ fn update_components<C>(
         if let Some((displaced_entity, displaced_entity_new_tag)) =
             component_array.remove(&mut buffer, entity)
         {
-            commands
-                .entity(displaced_entity)
-                .insert(MeshTag::with_type::<GpuComponentArray<C>>(
-                    displaced_entity_new_tag,
-                ));
+            // The displaced entity may have been despawned this frame.
+            commands.entity(displaced_entity).try_insert(
+                MeshTag::with_type::<GpuComponentArray<C>>(displaced_entity_new_tag),
+            );
         }
     }
 }
@@ -296,22 +296,21 @@ where
     /// This method swaps in data if needed to fill the gap and returns the
     /// entity and corresponding data that was swapped in if any.
     ///
-    /// If no data was present for this entity, this function may panic.
+    /// If no data was present for this entity, this function does nothing and
+    /// returns `None`. This can happen if the component was added and removed
+    /// before the array was updated.
     fn remove(
         &mut self,
         buffer: &mut ShaderBuffer,
         entity_to_remove: Entity,
     ) -> Option<(Entity, u32)> {
-        debug_assert!(!self.tag_to_entity.is_empty());
+        let tag_to_remove = *self.entity_to_tag.get(&entity_to_remove)?;
 
         let displaced_tag = self.tag_to_entity.len() as u32 - 1;
         let displaced_data = *self.get(buffer, displaced_tag);
         let displaced_entity = *self.tag_to_entity.last().unwrap();
 
-        let tag_to_remove = self
-            .entity_to_tag
-            .remove(&entity_to_remove)
-            .expect("Entity must have been present");
+        self.entity_to_tag.remove(&entity_to_remove);
         let removed_entity = self.tag_to_entity.swap_remove(tag_to_remove as usize);
         debug_assert_eq!(entity_to_remove, removed_entity);
 
@@ -343,7 +342,7 @@ fn round_buffer_size_up(original_size: usize) -> usize {
 mod tests {
     use std::marker::PhantomData;
 
-    use bevy_asset::{Handle, RenderAssetUsages};
+    use bevy_asset::{AssetApp, Handle, RenderAssetUsages};
     use bevy_ecs::{
         component::Component,
         entity::{Entity, EntityHashMap, EntityIndex},
@@ -588,5 +587,64 @@ mod tests {
             (test_data.entity_c, test_data.entity_data_c),
             (test_data.entity_b, test_data.entity_data_b),
         ]);
+    }
+
+    /// A component that is extracted as-is, used to test the main-world system.
+    #[derive(Component, Clone, Copy)]
+    struct SystemTestComponent(u32);
+
+    impl GpuComponentArrayBuffer for SystemTestComponent {
+        type QueryData = bevy_ecs::system::lifetimeless::Read<Self>;
+        type QueryFilter = bevy_ecs::query::Changed<Self>;
+        type Out = u32;
+
+        fn extract_component(data: QueryItem<'_, '_, Self::QueryData>) -> Option<u32> {
+            Some(data.0)
+        }
+    }
+
+    fn system_test_app() -> bevy_app::App {
+        let mut app = bevy_app::App::new();
+        app.add_plugins((
+            bevy_app::TaskPoolPlugin::default(),
+            bevy_asset::AssetPlugin::default(),
+        ))
+        .init_asset::<ShaderBuffer>()
+        .add_plugins(super::GpuComponentArrayBufferPlugin::<SystemTestComponent>::default());
+        app
+    }
+
+    #[test]
+    fn two_instances_leaving_in_one_frame() {
+        let mut app = system_test_app();
+        let entities: Vec<Entity> = (0..3)
+            .map(|i| app.world_mut().spawn(SystemTestComponent(i)).id())
+            .collect();
+        app.update();
+        // Removing the first entity displaces the last one, which is also
+        // despawned this frame.
+        app.world_mut().despawn(entities[0]);
+        app.world_mut().despawn(entities[2]);
+        app.update();
+
+        let array = app
+            .world()
+            .resource::<GpuComponentArray<SystemTestComponent>>();
+        assert_eq!(array.tag_to_entity, vec![entities[1]]);
+    }
+
+    #[test]
+    fn instance_added_and_removed_in_one_frame() {
+        let mut app = system_test_app();
+        let entity = app.world_mut().spawn(SystemTestComponent(0)).id();
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<SystemTestComponent>();
+        app.update();
+
+        let array = app
+            .world()
+            .resource::<GpuComponentArray<SystemTestComponent>>();
+        assert!(array.tag_to_entity.is_empty());
     }
 }
