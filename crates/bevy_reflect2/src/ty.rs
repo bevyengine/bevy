@@ -2,14 +2,13 @@ use bevy_ptr::{Ptr, PtrMut};
 
 use crate::{
     builtin::move_box_into,
-    kind::{Field, Kind, UncoveredBytes},
+    kind::{Field, Kind, Struct, UncoveredBytes},
     reflect::Reflect,
-    TypePath, TypeRef,
+    TypePath,
 };
 use alloc::{
     alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error},
     boxed::Box,
-    vec::Vec,
 };
 use core::{
     alloc::Layout,
@@ -17,6 +16,7 @@ use core::{
     cmp::Ordering,
     fmt::{self, Debug, Formatter},
     hash::{Hash, Hasher},
+    mem,
     ptr::{self, NonNull},
 };
 
@@ -38,7 +38,7 @@ impl Type {
     /// # Safety
     ///
     /// Every argument must accurately describe the type identified by `type_id`:
-    /// - `kind` must match the type's shape (ex: [`Struct`](crate::Struct) field offsets and types).
+    /// - `kind` must match the type's shape (ex: [`Struct`] field offsets and types).
     /// - `layout` must be the layout of the type, or `None` if the type is unsized.
     /// - The functions in `vtable` must be valid for pointers to the type.
     pub const unsafe fn new(
@@ -172,37 +172,60 @@ impl Type {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
         };
-        // Ignored fields without a default would be left uninitialized
-        let ignored_fields = struct_type.ignored_fields();
-        if ignored_fields
-            .iter()
-            .any(|field| field.vtable.default.is_none())
-        {
-            return None;
-        }
-        let ptr = match struct_type.uncovered_bytes() {
-            UncoveredBytes::Padding => self.alloc()?,
-            UncoveredBytes::Zeroed => self.alloc_zeroed()?,
-        };
+        let ptr = self.alloc_struct(struct_type)?;
         for field in struct_type.fields() {
             // SAFETY: `ptr` is a unique allocation of this type, and `Type::new` guarantees that
             // `field.offset` is in bounds of it
             let field_ptr = unsafe { PtrMut::new(ptr).byte_add(field.offset) };
             (func)(field, field_ptr);
         }
-        for field in ignored_fields {
-            if let Some(default) = field.vtable.default {
-                // SAFETY: `Struct::new` guarantees that `field.offset` is the location of the field
-                // in this allocation, and that `default` is valid for the field's type
-                unsafe { default(ptr.as_ptr().add(field.offset)) };
-            }
+        // SAFETY: `ptr` was allocated by `alloc_struct`, and the caller guarantees that every
+        // reflected field is now initialized
+        Some(unsafe { self.finish_struct(struct_type, ptr) })
+    }
+
+    /// Allocates memory for a value of `struct_type` (the [`Kind`] of this type), which is zeroed
+    /// if the struct requires it (see [`UncoveredBytes`]).
+    ///
+    /// Returns `None` if this type is unsized, or has an ignored field without a `default`
+    /// function (which [`Type::finish_struct`] could not initialize).
+    fn alloc_struct(&self, struct_type: &Struct) -> Option<NonNull<u8>> {
+        if struct_type
+            .ignored_fields()
+            .iter()
+            .any(|field| field.vtable.default.is_none())
+        {
+            return None;
+        }
+        match struct_type.uncovered_bytes() {
+            UncoveredBytes::Padding => self.alloc(),
+            UncoveredBytes::Zeroed => self.alloc_zeroed(),
+        }
+    }
+
+    /// Initializes the [ignored fields](Struct::ignored_fields) of the struct at `ptr` with
+    /// their default, and takes ownership of it.
+    ///
+    /// # Safety
+    ///
+    /// `struct_type` must be the [`Kind`] of this type, `ptr` must have been allocated by
+    /// [`Type::alloc_struct`] with it (which ensures that ignored fields without default impls are not allowed),
+    /// and every reflected field of `ptr` must be initialized.
+    unsafe fn finish_struct(&self, struct_type: &Struct, ptr: NonNull<u8>) -> Box<dyn Reflect> {
+        for field in struct_type.ignored_fields() {
+            // Skipping a field would leave it uninitialized, so this panics (leaking `ptr`) instead
+            // `alloc_struct` checked to ensure ignored fields have defaults, so this should never panic.
+            let default = field.vtable.default.unwrap();
+            // SAFETY: `Struct::new` guarantees that `field.offset` is the location of the field in
+            // this allocation, and that `default` is valid for the field's type
+            unsafe { default(ptr.as_ptr().add(field.offset)) };
         }
 
-        // SAFETY: the caller guarantees that every reflected field is now initialized, and every
-        // ignored field was initialized above. `Struct::new` guarantees that these are all of the
-        // struct's fields, and that every other byte is either padding (which doesn't need to be
-        // initialized), or was zeroed above, which `Struct::new` guarantees is valid.
-        Some(unsafe { self.box_from_raw(ptr) })
+        // SAFETY: the caller guarantees that every reflected field is initialized, and every
+        // ignored field was initialized above. `Struct::new` guarantees that these are all of the struct's fields, and that
+        // every other byte is either padding (which doesn't need to be initialized), or was zeroed
+        // by `alloc_struct`, which `Struct::new` guarantees is valid.
+        unsafe { self.box_from_raw(ptr) }
     }
 
     /// Constructs a new value of this struct type from the values of its reflected fields, in the
@@ -219,19 +242,17 @@ impl Type {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
         };
-        let values = values.into_iter().collect::<Vec<_>>();
-        if !types_match(&values, struct_type.fields().iter().map(|field| field.ty)) {
-            return None;
-        }
-        let mut values = values.into_iter();
-        // SAFETY: every field is initialized by moving the value of its type into it (checked
-        // above), in the order of `Struct::fields`
-        unsafe {
-            self.initialize_struct(|_, field_ptr| {
-                let value = values.next().expect("there is a value for each field");
-                move_box_into(value, field_ptr.as_ptr());
-            })
-        }
+        let ptr = self.alloc_struct(struct_type)?;
+        let fields = struct_type
+            .fields()
+            .iter()
+            .map(|field| (field.offset, field.ty.get()));
+        // SAFETY: `ptr` was allocated by `alloc_struct` (which uses `Type::alloc`), and
+        // `Struct::new` guarantees that each field is at its offset in it, with its type
+        unsafe { self.move_values_into(ptr, fields, values)? };
+        // SAFETY: `ptr` was allocated by `alloc_struct`, and every reflected field was initialized
+        // above
+        Some(unsafe { self.finish_struct(struct_type, ptr) })
     }
 
     /// Constructs a new value of this array type from its items.
@@ -245,19 +266,58 @@ impl Type {
         let Kind::Array(array_type) = &self.kind else {
             return None;
         };
-        let items = items.into_iter().collect::<Vec<_>>();
-        if !types_match(&items, (0..array_type.len()).map(|_| array_type.item())) {
-            return None;
-        }
         let dst = self.alloc()?;
-        for (index, item) in items.into_iter().enumerate() {
-            // SAFETY: `Array::new` guarantees that the item at `index` is at `index * stride` in
-            // an array of this type, and `item` was checked to have the item type
-            unsafe { move_box_into(item, dst.as_ptr().add(index * array_type.stride())) };
-        }
+        let item = array_type.item().get();
+        let stride = array_type.stride();
+        let items_layout = (0..array_type.len()).map(move |index| (index * stride, item));
+        // SAFETY: `dst` was allocated with `Type::alloc`, and `Array::new` guarantees that the item
+        // at `index` is at `index * stride` in it, with the item type
+        unsafe { self.move_values_into(dst, items_layout, items)? };
         // SAFETY: `dst` was allocated with `Type::alloc`, and every item was initialized above.
         // Arrays have no bytes other than their items.
         Some(unsafe { self.box_from_raw(dst) })
+    }
+
+    /// Moves one of the `values` into each of the `parts` of `dst` (given as an `(offset, type)`
+    /// pair), in order.
+    ///
+    /// Returns `None` if the number of values doesn't match the number of parts, or a value has the
+    /// wrong type. In that case, the values that were already moved into `dst` are dropped, and
+    /// `dst` is freed.
+    ///
+    /// # Safety
+    ///
+    /// `dst` must have been allocated with [`Type::alloc`] (or [`Type::alloc_zeroed`]), and each
+    /// part must be a distinct, non-overlapping location in it that can hold a value of its type.
+    unsafe fn move_values_into(
+        &self,
+        dst: NonNull<u8>,
+        parts: impl Iterator<Item = (usize, &'static Type)> + Clone,
+        values: impl IntoIterator<Item = Box<dyn Reflect>>,
+    ) -> Option<()> {
+        let mut guard = PartialConstruct {
+            ty: self,
+            dst,
+            parts: parts.clone(),
+            initialized: 0,
+        };
+        let mut values = values.into_iter();
+        for (offset, ty) in parts {
+            let value = values.next()?;
+            if value.ty().type_id() != ty.type_id() {
+                return None;
+            }
+            // SAFETY: the caller guarantees that `offset` is in bounds of `dst` and can hold a
+            // value of `ty`, which `value` was checked to be
+            unsafe { move_box_into(value, dst.as_ptr().add(offset)) };
+            guard.initialized += 1;
+        }
+        if values.next().is_some() {
+            return None;
+        }
+        // Every part was initialized, so the caller now owns them
+        mem::forget(guard);
+        Some(())
     }
 
     /// # Safety
@@ -323,13 +383,26 @@ impl Type {
     }
 }
 
-/// Returns whether `values` has exactly one value of each of the `types`, in order.
-fn types_match(values: &[Box<dyn Reflect>], types: impl ExactSizeIterator<Item = TypeRef>) -> bool {
-    values.len() == types.len()
-        && values
-            .iter()
-            .zip(types)
-            .all(|(value, ty)| value.ty().type_id() == ty.get().type_id())
+/// Cleans up a partially constructed value (see [`Type::move_values_into`]): drops the first
+/// `initialized` `parts`, which were moved into `dst`, and frees `dst`.
+struct PartialConstruct<'a, I: Iterator<Item = (usize, &'static Type)>> {
+    ty: &'a Type,
+    dst: NonNull<u8>,
+    parts: I,
+    initialized: usize,
+}
+
+impl<I: Iterator<Item = (usize, &'static Type)>> Drop for PartialConstruct<'_, I> {
+    fn drop(&mut self) {
+        for (offset, ty) in self.parts.by_ref().take(self.initialized) {
+            let part_ptr = ty.as_reflect_ptr(self.dst.as_ptr().wrapping_add(offset));
+            // SAFETY: the first `initialized` parts were moved into `dst` at their offset, with
+            // their type, and are owned by `dst`
+            unsafe { ptr::drop_in_place(part_ptr.cast_mut()) };
+        }
+        // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
+        unsafe { self.ty.dealloc(self.dst) };
+    }
 }
 
 /// # Safety

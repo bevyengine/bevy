@@ -681,6 +681,139 @@ mod tests {
     }
 
     #[test]
+    fn construct_struct() {
+        use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Counted(u32);
+
+        impl Drop for Counted {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Relaxed);
+            }
+        }
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            a: Counted,
+            b: String,
+            #[reflect(ignore, default)]
+            c: u32,
+            d: Counted,
+        }
+
+        let construct = |values: Vec<Box<dyn Reflect>>| Foo::TYPE.construct_struct(values);
+
+        let foo = construct(vec![
+            Box::new(Counted(1)),
+            Box::new(String::from("x")),
+            Box::new(Counted(2)),
+        ])
+        .unwrap();
+        assert_eq!(
+            foo.take::<Foo>().ok().as_ref(),
+            Some(&Foo {
+                a: Counted(1),
+                b: String::from("x"),
+                c: 0,
+                d: Counted(2),
+            })
+        );
+        // The constructed `Foo` and the expected `Foo` were dropped
+        assert_eq!(DROPS.swap(0, Relaxed), 4);
+
+        // Wrong type: `a` was moved into the struct before the mismatch was found, so it is dropped
+        // along with the remaining values
+        assert!(construct(vec![
+            Box::new(Counted(1)),
+            Box::new(2u32),
+            Box::new(Counted(3)),
+        ])
+        .is_none());
+        assert_eq!(DROPS.swap(0, Relaxed), 2);
+
+        // Too few values
+        assert!(construct(vec![Box::new(Counted(1)), Box::new(String::from("x"))]).is_none());
+        assert_eq!(DROPS.swap(0, Relaxed), 1);
+
+        // Too many values: every field was initialized, but the struct's own drop is not called
+        assert!(construct(vec![
+            Box::new(Counted(1)),
+            Box::new(String::from("x")),
+            Box::new(Counted(2)),
+            Box::new(Counted(3)),
+        ])
+        .is_none());
+        assert_eq!(DROPS.swap(0, Relaxed), 3);
+
+        // Not a struct
+        assert!(u32::TYPE.construct_struct([]).is_none());
+    }
+
+    #[test]
+    fn construct_array() {
+        use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Counted(u32);
+
+        impl Drop for Counted {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Relaxed);
+            }
+        }
+
+        let construct =
+            |items: Vec<Box<dyn Reflect>>| <[Counted; 3]>::TYPE.construct_array(items);
+
+        let array = construct(vec![
+            Box::new(Counted(1)),
+            Box::new(Counted(2)),
+            Box::new(Counted(3)),
+        ])
+        .unwrap();
+        assert_eq!(
+            array.take::<[Counted; 3]>().ok(),
+            Some([Counted(1), Counted(2), Counted(3)])
+        );
+        assert_eq!(DROPS.swap(0, Relaxed), 6);
+
+        // Wrong type: the first two items were moved into the array before the mismatch was found
+        assert!(construct(vec![
+            Box::new(Counted(1)),
+            Box::new(Counted(2)),
+            Box::new(3u32),
+        ])
+        .is_none());
+        assert_eq!(DROPS.swap(0, Relaxed), 2);
+
+        // Too few items
+        assert!(construct(vec![Box::new(Counted(1))]).is_none());
+        assert_eq!(DROPS.swap(0, Relaxed), 1);
+
+        // Too many items
+        assert!(construct(vec![
+            Box::new(Counted(1)),
+            Box::new(Counted(2)),
+            Box::new(Counted(3)),
+            Box::new(Counted(4)),
+        ])
+        .is_none());
+        assert_eq!(DROPS.swap(0, Relaxed), 4);
+
+        // Zero-sized arrays don't allocate
+        let empty = <[u32; 0]>::TYPE.construct_array([]).unwrap();
+        assert_eq!(empty.take::<[u32; 0]>().ok(), Some([]));
+        assert!(<[u32; 0]>::TYPE
+            .construct_array([Box::new(1u32) as Box<dyn Reflect>])
+            .is_none());
+    }
+
+    #[test]
     fn custom_type_data() {
         #[derive(Clone)]
         struct ReflectThing(TypeId);

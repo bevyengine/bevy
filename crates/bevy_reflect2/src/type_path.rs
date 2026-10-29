@@ -267,7 +267,6 @@ macro_rules! const_concat {
 }
 
 /// Finds the byte index of the first instance of the ascii character `delimiter` in the given `s` string.
-/// This is used by [`const_concat`].
 pub const fn find_ascii_char(s: &str, delimiter: u8) -> Option<usize> {
     let bytes = s.as_bytes();
     let mut i = 0;
