@@ -1,7 +1,7 @@
 ---
 title: Clicking, dragging and typing over the Bevy Remote Protocol
 authors: ["@viridia", "@yzn-h"]
-pull_requests: [26333, 26342]
+pull_requests: [26333, 26342, 26366]
 ---
 
 The Bevy Remote Protocol has new methods for sending input to a running app: `input.click` clicks on a UI node, `input.hover` moves the cursor over one, `input.drag` drags one onto another, `input.scroll` turns the mouse wheel, `input.key` presses keys, and `input.type` types text.
