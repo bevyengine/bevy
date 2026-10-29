@@ -744,9 +744,12 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
 fn write_field_edit(world: &mut World, edit: &FieldEdit) {
-    let Some(_inspector_sources) = world.get_resource::<InspectorSources>() else {
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
         return;
     };
+    if !inspector_sources.sources.contains(&edit.source) {
+        return;
+    }
     let Some(registry) = world.get_resource::<AppTypeRegistry>().cloned() else {
         return;
     };
@@ -2295,8 +2298,9 @@ mod tests {
     use bevy_ecs::{component::Component, query::With};
     use bevy_platform::sync::Arc;
     use bevy_reflect::TypePath;
-    use bevy_remote::http::DEFAULT_PORT;
     use core::time::Duration;
+    // #[cfg(feature = "remote")]
+    // use bevy_remote::http::DEFAULT_PORT;
 
     #[derive(Reflect, Debug, Default)]
     struct Nested {
@@ -2425,7 +2429,7 @@ mod tests {
     fn edit_component<C: TypePath>(app: &mut App, entity: Entity, path: &str, value: FieldValue) {
         app.world_mut().trigger(FieldEdit {
             entity,
-            source: InspectorSource::Remote(crate::remote::RemoteSource::localhost(DEFAULT_PORT)),
+            source: InspectorSource::Local,
             component: C::type_path().to_string(),
             path: path.to_string(),
             value,
@@ -4550,10 +4554,12 @@ mod tests {
         assert!(index.widget(component, "0[\"b\"]").is_some());
     }
 
+    #[cfg(feature = "remote")]
     #[test]
     fn ignores_edits_outside_local_mode() {
         let mut app = test_app();
-        app.world_mut().remove_resource::<InspectorSources>();
+        app.world_mut()
+            .insert_resource(InspectorSources::remote_main("localhost", 1));
         let subject = inspect(
             &mut app,
             Subject {
