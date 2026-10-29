@@ -1,9 +1,6 @@
 use crate::{
     prelude::GlobalTransform,
-    systems::{
-        mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
-        StaticTransformOptimizations,
-    },
+    systems::{propagate_transforms, sync_simple_transforms, StaticTransformOptimizations},
 };
 use bevy_app::{App, Plugin, PostStartup, PostUpdate, ValidateParentHasComponentPlugin};
 use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
@@ -26,19 +23,14 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_systems(
                 PostStartup,
-                (
-                    mark_dirty_trees,
-                    propagate_parent_transforms,
-                    sync_simple_transforms,
-                )
+                (propagate_transforms, sync_simple_transforms)
                     .chain()
                     .in_set(TransformSystems::Propagate),
             )
             .add_systems(
                 PostUpdate,
                 (
-                    mark_dirty_trees,
-                    propagate_parent_transforms,
+                    propagate_transforms,
                     // TODO: Adjust the internal parallel queries to make this system more efficiently share and fill CPU time.
                     sync_simple_transforms,
                 )
