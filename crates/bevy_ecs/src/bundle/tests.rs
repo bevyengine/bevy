@@ -309,3 +309,460 @@ struct Ignore {
 #[derive(Bundle)]
 #[expect(unused, reason = "tests the derive macro does not leak private type")]
 pub struct Exported(A);
+
+#[test]
+fn table_table_mutually_exclusive_component_removes_other() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert(CompB);
+    assert!(!world.entity(e).contains::<CompA>());
+    world.entity_mut(e).insert(CompA);
+    assert!(!world.entity(e).contains::<CompB>());
+}
+
+#[test]
+fn sparse_sparse_mutually_exclusive_component_removes_other() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompB;
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert(CompB);
+    assert!(!world.entity(e).contains::<CompA>());
+    world.entity_mut(e).insert(CompA);
+    assert!(!world.entity(e).contains::<CompB>());
+}
+
+#[test]
+fn table_sparse_mutually_exclusive_component_removes_other() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompB;
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert(CompB);
+    assert!(!world.entity(e).contains::<CompA>());
+    world.entity_mut(e).insert(CompA);
+    assert!(!world.entity(e).contains::<CompB>());
+}
+
+#[test]
+fn sparse_table_mutually_exclusive_component_removes_other() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert(CompB);
+    assert!(!world.entity(e).contains::<CompA>());
+    world.entity_mut(e).insert(CompA);
+    assert!(!world.entity(e).contains::<CompB>());
+}
+
+#[test]
+fn mutually_exclusive_component_hooks_run() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Resource, Default, PartialEq, Eq, Debug)]
+    struct Counter {
+        add: u8,
+        insert: u8,
+        discard: u8,
+        remove: u8,
+    }
+
+    world.init_resource::<Counter>();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world
+        .register_component_hooks::<CompA>()
+        .on_add(|mut world, _| world.resource_mut::<Counter>().add += 1)
+        .on_insert(|mut world, _| world.resource_mut::<Counter>().insert += 1)
+        .on_discard(|mut world, _| world.resource_mut::<Counter>().discard += 1)
+        .on_remove(|mut world, _| world.resource_mut::<Counter>().remove += 1);
+
+    let e = world.spawn(CompA).id();
+
+    world.entity_mut(e).insert(CompB);
+    assert!(!world.entity(e).contains::<CompA>());
+    assert_eq!(
+        &Counter {
+            add: 1,
+            insert: 1,
+            discard: 1,
+            remove: 1
+        },
+        world.resource::<Counter>()
+    );
+
+    world.entity_mut(e).insert(CompA);
+    assert!(!world.entity(e).contains::<CompB>());
+    assert_eq!(
+        &Counter {
+            add: 2,
+            insert: 2,
+            discard: 1,
+            remove: 1
+        },
+        world.resource::<Counter>()
+    );
+}
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_spawn_panics() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    world.spawn((CompA, CompB));
+}
+
+#[test]
+fn mutually_exclusive_required_removes_other() {
+    let mut world = World::new();
+
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    // Depth 1
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_required_components::<CompB, CompC>();
+
+    #[derive(Component, Default)]
+    struct CompD;
+
+    #[derive(Component, Default)]
+    struct CompE;
+
+    #[derive(Component, Default)]
+    struct CompF;
+
+    // Depth 2
+    world.register_mutually_exclusive_components::<(CompA, CompF)>();
+    world.register_required_components::<CompD, CompE>();
+    world.register_required_components::<CompE, CompF>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert(CompB);
+    assert!(!world.entity(e).contains::<CompA>());
+    assert!(world.entity(e).contains::<CompB>());
+    assert!(world.entity(e).contains::<CompC>());
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert(CompD);
+    assert!(!world.entity(e).contains::<CompA>());
+    assert!(world.entity(e).contains::<CompF>());
+}
+
+#[test]
+#[should_panic]
+fn registering_required_as_mutually_exclusive_panics() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    world.register_required_components::<CompA, CompB>();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+}
+
+#[test]
+#[should_panic]
+fn registering_mutually_exclusive_as_required_panics() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_required_components::<CompA, CompB>();
+}
+
+#[test]
+#[should_panic]
+fn registering_mutually_exclusive_after_any_archetype_contains_target_components_panics() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    world.spawn(CompA);
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+}
+
+#[test]
+#[should_panic]
+fn registering_mutually_exclusive_as_indirect_required_panics() {
+    let mut world = World::new();
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    world.register_mutually_exclusive_components::<(CompB, CompC)>();
+    world.register_required_components::<CompA, CompB>();
+    world.register_required_components::<CompA, CompC>();
+}
+
+#[test]
+fn mutually_exclusive_with_same_required() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    // Required first
+    let mut world = World::new();
+    world.register_required_components::<CompA, CompC>();
+    world.register_required_components::<CompB, CompC>();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    // Mutually exclusive first
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_required_components::<CompA, CompC>();
+    world.register_required_components::<CompB, CompC>();
+}
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_within_required_panics_on_spawn() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    #[derive(Component, Default)]
+    struct CompD;
+
+    #[derive(Component, Default)]
+    struct CompE;
+
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(CompC, CompE)>();
+    world.register_required_components::<CompA, CompC>();
+    world.register_required_components::<CompB, CompD>();
+    world.register_required_components::<CompD, CompE>();
+
+    world.spawn((CompA, CompB));
+}
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_after_bundle_register_panics_on_spawn() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    let mut world = World::new();
+    world.register_bundle::<(CompA, CompB)>();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    world.spawn((CompA, CompB));
+}
+
+#[test]
+#[should_panic(expected = "has mutually exclusive components")]
+fn mutually_exclusive_with_existing_component_on_archetype_should_panic() {
+    #[derive(Component, Default)]
+    struct Grounded;
+
+    #[derive(Component, Default)]
+    struct Airborne;
+
+    #[derive(Component, Default)]
+    #[require(Airborne)]
+    struct Jumping;
+
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(Grounded, Airborne)>();
+
+    let player = world.spawn(Grounded).id();
+    world.entity_mut(player).insert((Grounded, Jumping));
+}
+
+#[test]
+fn mutually_exclusive_removal_triggers_removed_components_message() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    #[derive(Component, Default)]
+    #[component(storage = "SparseSet")]
+    struct CompD;
+
+    let mut world = World::new();
+    let a_id = world.register_component::<CompA>();
+    let b_id = world.register_component::<CompB>();
+
+    world.register_mutually_exclusive_components::<(CompA, CompC)>();
+    world.register_mutually_exclusive_components::<(CompB, CompC)>();
+    world.register_mutually_exclusive_components::<(CompB, CompD)>();
+
+    // Table move
+    let e1 = world.spawn((CompA, CompB)).id();
+    world.entity_mut(e1).insert(CompC);
+    assert_eq!(
+        world
+            .removed_components()
+            .get(a_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e1]
+    );
+    assert_eq!(
+        world
+            .removed_components()
+            .get(b_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e1]
+    );
+    world.removed_components.update();
+
+    // Archetype move
+    let e2 = world.spawn((CompA, CompB)).id();
+    world.entity_mut(e2).insert(CompD);
+    assert_eq!(
+        world
+            .removed_components()
+            .get(b_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e2]
+    );
+}
+
+#[test]
+fn mutually_exclusive_removal_removed_components_message_has_not_duplicates() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    struct CompC;
+
+    let mut world = World::new();
+    let a_id = world.register_component::<CompA>();
+
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+    world.register_mutually_exclusive_components::<(CompA, CompC)>();
+
+    let e1 = world.spawn(CompA).id();
+    world.entity_mut(e1).insert((CompB, CompC));
+    assert_eq!(
+        world
+            .removed_components()
+            .get(a_id)
+            .unwrap()
+            .iter_current_update_messages()
+            .cloned()
+            .map(Into::into)
+            .collect::<Vec<Entity>>(),
+        vec![e1]
+    );
+}
+
+#[test]
+#[should_panic]
+fn mutually_exclusive_with_existing_required_component_panics() {
+    #[derive(Component, Default)]
+    struct CompA;
+
+    #[derive(Component, Default)]
+    struct CompB;
+
+    #[derive(Component, Default)]
+    #[require(CompA)]
+    struct CompC;
+
+    #[derive(Component, Default)]
+    #[require(CompB)]
+    struct CompD;
+
+    let mut world = World::new();
+    world.register_mutually_exclusive_components::<(CompA, CompB)>();
+
+    let e = world.spawn(CompA).id();
+    world.entity_mut(e).insert((CompC, CompD));
+}
