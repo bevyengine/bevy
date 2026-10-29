@@ -617,12 +617,19 @@ fn number_input_on_insert_value(
             None => input_value,
         };
         let (mut editable_text, mut gradient, drag_state) = q_text_input.get_mut(text_id).unwrap();
-        let new_digits = format_value(
-            units_registry.resolve(units),
-            clamped_value,
-            drag_state.mode == EditMode::Editing,
-        );
-        if editable_text.value() != new_digits {
+        let editing = drag_state.mode == EditMode::Editing;
+        let new_digits = format_value(units_registry.resolve(units), clamped_value, editing);
+        // Skip the rewrite if the field already shows the new value. But `value()`
+        // doesn't include queued edits, which are applied later in the frame.
+        // When leaving edit mode, the handler queues a rewrite back to the old value.
+        // Depending on the timing of this event, the typed text could already match the
+        // new value while this old rewrite is still queued. To prevent the old rewrite
+        // from landing, we force a rewrite to the new value outside of edit mode if
+        // there are any pending edits. While editing, the pending edits are the user's
+        // keystrokes and must not be overwritten.
+        if editable_text.value() != new_digits
+            || (!editing && !editable_text.pending_edits.is_empty())
+        {
             editable_text.queue_edit(TextEdit::SelectAll);
             editable_text.queue_edit(TextEdit::Insert(new_digits.into()));
         }
@@ -2212,6 +2219,7 @@ impl Plugin for NumberInputPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_app::App;
     use bevy_ecs::world::World;
 
     #[test]
@@ -2676,5 +2684,171 @@ mod tests {
 
         world.despawn(number_input);
         world.flush();
+    }
+
+    /// How the app in [`editing_app`] responds to a [`ValueChange`].
+    #[derive(Clone, Copy)]
+    enum Accept {
+        /// Ignores it.
+        Never,
+        /// Inserts the new [`NumericValue`] from its observer.
+        InObserver,
+        /// Stores the value, and a later system inserts the new [`NumericValue`],
+        /// as `feathers_gallery` does.
+        InSystem,
+    }
+
+    #[derive(Resource, Default)]
+    struct StoredValue(Option<i32>);
+
+    /// Spawns a number input with its edit-mode observers, and puts the field
+    /// in edit mode showing `typed`.
+    fn editing_app(
+        value: NumericValue,
+        units: &'static dyn UnitsFormat,
+        typed: &str,
+        accept: Accept,
+    ) -> (App, Entity, Entity) {
+        let mut app = App::new();
+        let mut registry = UnitsRegistry::default();
+        registry.insert(units);
+        // `SelectAll` needs a text layout, which needs a font.
+        let mut font_cx = bevy_text::FontCx::default();
+        let font = bevy_text::Font::from_bytes(
+            include_bytes!("../assets/fonts/FiraSans-Regular.ttf").to_vec(),
+        );
+        font_cx.collection.register_fonts(font.data, None);
+        font_cx.set_sans_serif_family("Fira Sans").unwrap();
+        app.insert_resource(registry)
+            .insert_resource(font_cx)
+            .init_resource::<bevy_text::LayoutCx>()
+            .init_resource::<bevy_clipboard::Clipboard>()
+            .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
+
+        let text_id = app
+            .world_mut()
+            .spawn((
+                EditableText::default(),
+                DragState {
+                    mode: EditMode::Editing,
+                    ..Default::default()
+                },
+                BackgroundGradient(Vec::new()),
+            ))
+            .observe(number_input_on_enter_key)
+            .observe(number_input_on_focus_lost)
+            .id();
+        let root = app
+            .world_mut()
+            .spawn((FeathersNumberInput, value, NumberInputUnits::new(units)))
+            .add_child(text_id)
+            .observe(number_input_on_insert_value)
+            .id();
+        match accept {
+            Accept::Never => {}
+            Accept::InObserver => {
+                app.world_mut().entity_mut(root).observe(
+                    |change: On<ValueChange<i32>>, mut commands: Commands| {
+                        commands
+                            .entity(change.source)
+                            .insert(NumericValue::I32(change.value));
+                    },
+                );
+            }
+            Accept::InSystem => {
+                app.world_mut().entity_mut(root).observe(
+                    |change: On<ValueChange<i32>>, mut stored: ResMut<StoredValue>| {
+                        stored.0 = Some(change.value);
+                    },
+                );
+                app.init_resource::<StoredValue>().add_systems(
+                    bevy_app::Update,
+                    (move |mut stored: ResMut<StoredValue>, mut commands: Commands| {
+                        if let Some(value) = stored.0.take() {
+                            commands.entity(root).insert(NumericValue::I32(value));
+                        }
+                    })
+                    .before(bevy_text::apply_text_edits),
+                );
+            }
+        }
+
+        let mut editable_text = app.world_mut().get_mut::<EditableText>(text_id).unwrap();
+        editable_text.queue_edit(TextEdit::Insert(typed.into()));
+        app.update();
+        (app, root, text_id)
+    }
+
+    fn press_enter(app: &mut App, text_id: Entity) {
+        let window = app.world_mut().spawn_empty().id();
+        app.world_mut().trigger(FocusedInput::new(
+            text_id,
+            KeyboardInput {
+                key_code: KeyCode::Enter,
+                logical_key: Key::Enter,
+                state: bevy_input::ButtonState::Pressed,
+                text: None,
+                repeat: false,
+                window,
+            },
+            window,
+        ));
+    }
+
+    fn lose_focus(app: &mut App, text_id: Entity) {
+        app.world_mut().trigger(FocusLost { entity: text_id });
+    }
+
+    fn field_text(app: &App, text_id: Entity) -> String {
+        app.world()
+            .get::<EditableText>(text_id)
+            .unwrap()
+            .value()
+            .into_owned()
+    }
+
+    #[test]
+    fn leaving_edit_mode_shows_accepted_value() {
+        for accept in [Accept::InObserver, Accept::InSystem] {
+            for leave in [press_enter, lose_focus] {
+                let (mut app, root, text_id) =
+                    editing_app(NumericValue::I32(20), &Dimensionless, "25", accept);
+                leave(&mut app, text_id);
+                app.world_mut().flush();
+                app.update();
+
+                assert_eq!(
+                    app.world().get::<NumericValue>(root),
+                    Some(&NumericValue::I32(25))
+                );
+                assert_eq!(field_text(&app, text_id), "25");
+            }
+        }
+    }
+
+    #[test]
+    fn leaving_edit_mode_shows_unchanged_value() {
+        for leave in [press_enter, lose_focus] {
+            let (mut app, _, text_id) =
+                editing_app(NumericValue::I32(20), &Dimensionless, "25", Accept::Never);
+            leave(&mut app, text_id);
+            app.world_mut().flush();
+            app.update();
+
+            assert_eq!(field_text(&app, text_id), "20");
+        }
+    }
+
+    #[test]
+    fn leaving_edit_mode_restores_display_form() {
+        let value = NumericValue::F64(20f64.to_radians());
+        for leave in [press_enter, lose_focus] {
+            let (mut app, _, text_id) = editing_app(value, &AngleDegrees, "20d", Accept::Never);
+            leave(&mut app, text_id);
+            app.world_mut().flush();
+            app.update();
+
+            assert_eq!(field_text(&app, text_id), "20°");
+        }
     }
 }
