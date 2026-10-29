@@ -603,6 +603,33 @@ mod tests {
     }
 
     #[test]
+    fn simultaneously_changed_stack_roots_preserve_their_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        for _ in 0..3 {
+            world.spawn((Node::default(), ZIndex(0), GlobalZIndex(0)));
+        }
+
+        schedule.run(&mut world);
+
+        let uinodes = world.resource::<UiStack>().iter().collect::<Vec<_>>();
+
+        world.entity_mut(uinodes[2]).insert(ZIndex(0));
+        world.entity_mut(uinodes[1]).insert(GlobalZIndex(0));
+        world
+            .entity_mut(uinodes[0])
+            .insert((ZIndex(0), GlobalZIndex(0)));
+
+        schedule.run(&mut world);
+
+        assert!(world.resource::<UiStack>().iter().eq(uinodes));
+    }
+
+    #[test]
     fn last_updated_stack_root_should_be_on_top() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
