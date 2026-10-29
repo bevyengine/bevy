@@ -33,7 +33,7 @@ let main = transitions.current_node(0);
 To transition a flow other than the first, use `AnimationTransitions::transition_flows`, which returns `None` if the flow is out of bounds, or `AnimationTransitions::transition_flows_unchecked`, which panics instead:
 
 ```rust
-let mut transitions = AnimationTransitions::new_with_flow(2);
+let mut transitions = AnimationTransitions::new_with_flow(2.try_into().unwrap());
 
 // Flow 0 animates the whole body.
 transitions.transition_flows_unchecked(&mut player, walk, 0, Duration::from_millis(250));

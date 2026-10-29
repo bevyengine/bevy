@@ -99,10 +99,10 @@ impl AnimationTransitions {
 
     /// Creates an [`AnimationTransitions`] component with `flow_amount` flows,
     /// i.e. the number of animations that can be transitioned independently.
-    pub fn new_with_flow(flow_amount: impl Into<NonZeroUsize>) -> Self {
+    pub fn new_with_flow(flow_amount: NonZeroUsize) -> Self {
         Self {
             transitions: Vec::new(),
-            flows: vec![None; flow_amount.into().get()],
+            flows: vec![None; flow_amount.get()],
         }
     }
 
@@ -252,7 +252,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Time::<()>::default());
         world.spawn(AnimationTransitions::new_with_flow(
-            NonZeroUsize::new(flow_amount).unwrap(),
+            flow_amount.try_into().unwrap(),
         ));
         world
     }
