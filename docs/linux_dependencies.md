@@ -151,19 +151,19 @@ Add a `flake.nix` file to the root of your GitHub repository containing:
                 vulkan-tools
                 # Other dependencies
                 libudev-zero
-                xorg.libX11
-                xorg.libXcursor
-                xorg.libXi
-                xorg.libXrandr
+                libx11
+                libxcursor
+                libxi
+                libxrandr
                 libxkbcommon
                 wayland
               ];
             RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
             LD_LIBRARY_PATH = lib.makeLibraryPath [
               vulkan-loader
-              xorg.libX11
-              xorg.libXi
-              xorg.libXcursor
+              libx11
+              libxi
+              libxcursor
               libxkbcommon
               wayland
             ];
@@ -191,7 +191,7 @@ mkShell rec {
   ];
   buildInputs = [
     udev alsa-lib-with-plugins vulkan-loader
-    xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
+    libx11 libxcursor libxi libxrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
   LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
@@ -284,4 +284,26 @@ It is necessary to have the hgame module loaded in order to satisfy gli-rs. It w
 
 ```sh
 hgame_load="YES"
+```
+
+## [Bazzite](https://bazzite.gg/)
+
+Bazzite is built atop an immutable version of Fedora. But it ships with distrobox, which we can use to get the development packages we need without installing them onto the immutable OS.
+
+Create a new distrobox built on fedora:
+
+```sh
+distrobox create -n bevybuild --image fedora:latest --additional-packages "gcc-c++ libX11-devel alsa-lib-devel systemd-devel wayland-devel libxkbcommon-devel"
+```
+
+Now you have a distrobox named fedora that can run your builds:
+
+```sh
+distrobox enter -n bevybuild -- cargo build
+```
+
+Once an executable is built, run it as normal:
+
+```sh
+cargo run
 ```

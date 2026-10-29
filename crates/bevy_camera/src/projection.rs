@@ -4,8 +4,9 @@ use core::ops::{Deref, DerefMut};
 use crate::{primitives::Frustum, visibility::VisibilitySystems};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{ops, primitives::ViewFrustum, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
+use bevy_math::{ops, proj, vec4, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_shape::ViewFrustum;
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
@@ -335,8 +336,7 @@ pub struct PerspectiveProjection {
 
 impl CameraProjection for PerspectiveProjection {
     fn get_clip_from_view(&self) -> Mat4 {
-        let mut matrix =
-            Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near);
+        let mut matrix = proj::perspective_infinite_reverse(self.fov, self.aspect_ratio, self.near);
         self.adjust_perspective_matrix_for_clip_plane(&mut matrix);
         matrix
     }
@@ -436,7 +436,10 @@ impl PerspectiveProjection {
     /// `examples/3d/mirror.rs` for an example of usage.
     fn adjust_perspective_matrix_for_clip_plane(&self, matrix: &mut Mat4) {
         // If we don't have an oblique clip plane, save ourselves the trouble.
-        if self.near_clip_plane == vec4(0.0, 0.0, -1.0, -self.near) {
+        if self.near_clip_plane.x == 0.0
+            && self.near_clip_plane.y == 0.0
+            && self.near_clip_plane.z == -1.0
+        {
             return;
         }
 
@@ -632,7 +635,7 @@ pub struct OrthographicProjection {
 
 impl CameraProjection for OrthographicProjection {
     fn get_clip_from_view(&self) -> Mat4 {
-        Mat4::orthographic_rh(
+        proj::orthographic(
             self.area.min.x,
             self.area.max.x,
             self.area.min.y,
@@ -675,7 +678,7 @@ impl CameraProjection for OrthographicProjection {
         let top_prime = top - scale_h * offset_y;
         let bottom_prime = top_prime - scale_h * sub_height;
 
-        Mat4::orthographic_rh(
+        proj::orthographic(
             left_prime,
             right_prime,
             bottom_prime,
@@ -785,5 +788,33 @@ impl OrthographicProjection {
             scaling_mode: ScalingMode::WindowSize,
             area: Rect::new(-1.0, -1.0, 1.0, 1.0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The projection matrix must respect a custom near plane value.
+    /// A smaller near plane should produce a different matrix than the default.
+    #[test]
+    fn custom_near_plane_is_respected() {
+        let default_proj = PerspectiveProjection::default();
+        let custom_proj = PerspectiveProjection {
+            near: 0.01,
+            ..Default::default()
+        };
+
+        let default_matrix = default_proj.get_clip_from_view();
+        let custom_matrix = custom_proj.get_clip_from_view();
+
+        assert_ne!(
+            default_matrix, custom_matrix,
+            "A near plane of 0.01 should produce a different projection matrix than the default 0.1"
+        );
+
+        // The w_axis.z element of an infinite reverse perspective matrix equals
+        // the near plane distance. Verify it matches what we requested.
+        assert_eq!(custom_matrix.w_axis.z, 0.01);
     }
 }

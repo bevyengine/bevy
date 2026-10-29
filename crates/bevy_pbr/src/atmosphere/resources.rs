@@ -1,10 +1,10 @@
 use crate::{
-    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMediumSampler,
+    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, LinearSampler,
+    ScatteringMediumSampler,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::FullscreenShader;
-use bevy_derive::Deref;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -23,7 +23,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewDepthStencilTexture, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -223,26 +223,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             render_sky,
             render_sky_msaa,
             fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "render_sky.wgsl"),
+            fragment_shader: load_embedded_asset!(world, "render_sky.wesl"),
         }
-    }
-}
-
-#[derive(Resource, Deref)]
-pub struct AtmosphereSampler(Sampler);
-
-impl FromWorld for AtmosphereSampler {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: MipmapFilterMode::Nearest,
-            ..Default::default()
-        });
-
-        Self(sampler)
     }
 }
 
@@ -262,7 +244,7 @@ impl FromWorld for AtmosphereLutPipelines {
         let transmittance_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
-            shader: load_embedded_asset!(world, "transmittance_lut.wgsl"),
+            shader: load_embedded_asset!(world, "transmittance_lut.wesl"),
             ..default()
         });
 
@@ -270,21 +252,21 @@ impl FromWorld for AtmosphereLutPipelines {
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
-                shader: load_embedded_asset!(world, "multiscattering_lut.wgsl"),
+                shader: load_embedded_asset!(world, "multiscattering_lut.wesl"),
                 ..default()
             });
 
         let sky_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
-            shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
+            shader: load_embedded_asset!(world, "sky_view_lut.wesl"),
             ..default()
         });
 
         let aerial_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("aerial_view_lut_pipeline".into()),
             layout: vec![layouts.aerial_view_lut.clone()],
-            shader: load_embedded_asset!(world, "aerial_view_lut.wgsl"),
+            shader: load_embedded_asset!(world, "aerial_view_lut.wesl"),
             ..default()
         });
 
@@ -477,8 +459,9 @@ struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 pub struct GpuAtmosphere {
     //TODO: rename to Planet later?
     pub ground_albedo: Vec3,
-    pub bottom_radius: f32,
-    pub top_radius: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
+    pub world_to_atmosphere: Mat4,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -488,8 +471,9 @@ pub fn prepare_atmosphere_uniforms(
     for (entity, atmosphere) in atmospheres {
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
-            bottom_radius: atmosphere.bottom_radius,
-            top_radius: atmosphere.top_radius,
+            inner_radius: atmosphere.inner_radius,
+            outer_radius: atmosphere.outer_radius,
+            world_to_atmosphere: atmosphere.world_to_atmosphere,
         });
     }
     Ok(())
@@ -507,9 +491,16 @@ impl AtmosphereTransforms {
     }
 }
 
+/// Transforms between world space and atmosphere space.
+///
+/// Up is the local planet surface normal, so the horizon stays along the x-z
+/// plane for horizon-detail parameterization. Back is chosen from a constant
+/// world-horizontal direction such as `Vec3A::NEG_Z`, then projected orthogonal
+/// to up. It may drift slightly from world-horizontal but stays camera-independent.
 #[derive(ShaderType)]
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
+    atmosphere_from_world: Mat4,
 }
 
 #[derive(Component)]
@@ -525,7 +516,10 @@ impl AtmosphereTransformsOffset {
 }
 
 pub(super) fn prepare_atmosphere_transforms(
-    views: Query<(Entity, &ExtractedView), (With<ExtractedAtmosphere>, With<Camera3d>)>,
+    views: Query<
+        (Entity, &ExtractedView, &GpuAtmosphere),
+        (With<ExtractedAtmosphere>, With<Camera3d>),
+    >,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut atmo_uniforms: ResMut<AtmosphereTransforms>,
@@ -540,24 +534,42 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view) in &views {
-        let world_from_view = view.world_from_view.affine();
-        let camera_z = world_from_view.matrix3.z_axis;
-        let camera_y = world_from_view.matrix3.y_axis;
-        let atmo_z = camera_z
-            .with_y(0.0)
-            .try_normalize()
-            .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
-        let atmo_y = Vec3A::Y;
-        let atmo_x = atmo_y.cross(atmo_z).normalize();
-        let world_from_atmosphere =
-            Affine3A::from_cols(atmo_x, atmo_y, atmo_z, world_from_view.translation);
+    for (entity, view, gpu_atmosphere) in &views {
+        // Camera position in atmosphere space
+        let cam_world = view.world_from_view.translation();
+        let cam_pos = Vec3A::from(
+            gpu_atmosphere
+                .world_to_atmosphere
+                .transform_point3(cam_world),
+        );
 
-        let world_from_atmosphere = Mat4::from(world_from_atmosphere);
+        // Up is the local planet surface normal.
+        let atmo_y = cam_pos.try_normalize().unwrap_or(Vec3A::Y);
+
+        // World-horizontal reference for back, projected orthogonal to atmo_y.
+        let world_ref = Vec3A::NEG_Z;
+        let ref_horizontal = world_ref - atmo_y * atmo_y.dot(world_ref);
+        let atmo_z = ref_horizontal.try_normalize().unwrap_or_else(|| {
+            // `NEG_Z` is degenerate at the poles of a Z-up world.
+            let fallback_ref = Vec3A::NEG_Y;
+            (fallback_ref - atmo_y * atmo_y.dot(fallback_ref)).normalize()
+        });
+        let atmo_x = atmo_y.cross(atmo_z).normalize();
+
+        let world_from_atmosphere = Mat4::from(Affine3A::from_cols(
+            atmo_x,
+            atmo_y,
+            atmo_z,
+            view.world_from_view.translation_vec3a(),
+        ));
+        // The shader only uses the upper-left 3x3 block, where transpose equals inverse for
+        // orthonormal matrices and is cheaper than computing the full inverse.
+        let atmosphere_from_world = world_from_atmosphere.transpose();
 
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
+                atmosphere_from_world,
             }),
         });
     }
@@ -594,7 +606,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             Entity,
             &ExtractedAtmosphere,
             &AtmosphereTextures,
-            &ViewDepthTexture,
+            &ViewDepthStencilTexture,
             &Msaa,
         ),
         (With<Camera3d>, With<ExtractedAtmosphere>),
@@ -602,7 +614,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
-    atmosphere_sampler: Res<AtmosphereSampler>,
+    atmosphere_sampler: Res<LinearSampler>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -641,6 +653,13 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
     for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
+        let Some(depth_view) = view_depth_texture
+            .attachment
+            .depth_stencil_views()
+            .depth_only_view()
+        else {
+            continue;
+        };
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
@@ -674,7 +693,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (7, medium_sampler.sampler()),
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // multiscattering lut storage texture
                 (13, &textures.multiscattering_lut.default_view),
             )),
@@ -697,7 +716,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
                 (9, &textures.multiscattering_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // sky view lut storage texture
                 (13, &textures.sky_view_lut.default_view),
             )),
@@ -719,7 +738,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
                 (9, &textures.multiscattering_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // aerial view lut storage texture
                 (13, &textures.aerial_view_lut.default_view),
             )),
@@ -748,9 +767,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (9, &textures.multiscattering_lut.default_view),
                 (10, &textures.sky_view_lut.default_view),
                 (11, &textures.aerial_view_lut.default_view),
-                (12, &**atmosphere_sampler),
+                (12, &atmosphere_sampler.0),
                 // view depth texture
-                (13, view_depth_texture.view()),
+                (13, depth_view),
             )),
         );
 
@@ -773,37 +792,37 @@ pub(crate) struct AtmosphereData {
     pub settings: GpuAtmosphereSettings,
 }
 
-pub fn init_atmosphere_buffer(mut commands: Commands) {
-    commands.insert_resource(AtmosphereBuffer {
-        buffer: StorageBuffer::from(AtmosphereData {
-            atmosphere: GpuAtmosphere {
-                ground_albedo: Vec3::ZERO,
-                bottom_radius: 0.0,
-                top_radius: 0.0,
-            },
-            settings: GpuAtmosphereSettings::default(),
-        }),
-    });
-}
-
-#[derive(Resource)]
+#[derive(Component)]
 pub struct AtmosphereBuffer {
     pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
 
-pub(crate) fn write_atmosphere_buffer(
+pub(crate) fn prepare_atmosphere_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<(&GpuAtmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
-    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+    mut views: Query<
+        (
+            Entity,
+            &GpuAtmosphere,
+            &GpuAtmosphereSettings,
+            Option<&mut AtmosphereBuffer>,
+        ),
+        With<ExtractedAtmosphere>,
+    >,
+    mut commands: Commands,
 ) {
-    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
-        return;
-    };
-
-    atmosphere_buffer.buffer.set(AtmosphereData {
-        atmosphere: atmosphere.clone(),
-        settings: settings.clone(),
-    });
-    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+    for (entity, atmosphere, settings, existing_buffer) in &mut views {
+        let data = AtmosphereData {
+            atmosphere: atmosphere.clone(),
+            settings: settings.clone(),
+        };
+        if let Some(mut atmosphere_buffer) = existing_buffer {
+            atmosphere_buffer.buffer.set(data);
+            atmosphere_buffer.buffer.write_buffer(&device, &queue);
+        } else {
+            let mut buffer = StorageBuffer::from(data);
+            buffer.write_buffer(&device, &queue);
+            commands.entity(entity).insert(AtmosphereBuffer { buffer });
+        }
+    }
 }

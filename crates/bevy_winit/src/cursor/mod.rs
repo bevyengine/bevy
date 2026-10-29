@@ -1,3 +1,5 @@
+//! Cursor handling for winit windows.
+
 #[cfg(feature = "custom_cursor")]
 mod custom_cursor;
 
@@ -8,13 +10,12 @@ use crate::{converters::convert_system_cursor_icon, state::WinitAppRunnerState, 
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
 use bevy_asset::Assets;
-use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_ecs::{entity::EntityHashSet, prelude::*, system::SystemState};
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_platform::collections::HashSet;
 #[cfg(feature = "custom_cursor")]
 use bevy_window::CustomCursor;
-use bevy_window::{CursorIcon, SystemCursorIcon, Window};
+use bevy_window::{CursorIcon, CursorSystems, SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use winit::event_loop::ActiveEventLoop;
 
@@ -32,7 +33,7 @@ impl Plugin for WinitCursorPlugin {
             app.init_resource::<WinitCustomCursorCache>();
         }
 
-        app.add_systems(Last, update_cursors)
+        app.add_systems(Last, update_cursors.in_set(CursorSystems::Update))
             .add_observer(on_remove_cursor_icon);
     }
 }
@@ -67,13 +68,13 @@ impl WinitAppRunnerState {
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(feature = "custom_cursor")]
-        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut());
+        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut()).unwrap();
         #[cfg(not(feature = "custom_cursor"))]
         let mut windows_state: SystemState<(
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         #[cfg(not(feature = "custom_cursor"))]
-        let (mut windows,) = windows_state.get_mut(self.world_mut());
+        let (mut windows,) = windows_state.get_mut(self.world_mut()).unwrap();
 
         WINIT_WINDOWS.with_borrow(|winit_windows| {
             for (entity, mut pending_cursor) in windows.iter_mut() {
@@ -113,7 +114,7 @@ fn update_cursors(
     #[cfg(feature = "custom_cursor")] cursor_cache: Res<WinitCustomCursorCache>,
     #[cfg(feature = "custom_cursor")] images: Res<Assets<Image>>,
     #[cfg(feature = "custom_cursor")] texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
 ) {
     for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
@@ -222,7 +223,7 @@ fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(remove: On<Remove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(remove: On<Remove<CursorIcon>>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
         .entity(remove.entity)

@@ -36,6 +36,40 @@ pub trait DetectChanges {
     /// use `this.is_changed() && !this.is_added()`.
     fn is_changed(&self) -> bool;
 
+    /// Returns `true` if this value was added after the `other` tick.
+    fn is_added_after(&self, other: Tick) -> bool;
+
+    /// Returns `true` if this value was added or mutably dereferenced
+    /// after the `other` tick.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Source;
+    /// # #[derive(Component)]
+    /// # struct Target;
+    /// #
+    /// # impl Target {
+    /// #     fn from_source(_: &Source) -> Self {
+    /// #         Target
+    /// #     }
+    /// # }
+    /// #
+    /// fn system(query: Query<(Ref<Source>, &mut Target)>) {
+    ///     for (source, mut target) in query {
+    ///         // Only convert the source to the target if the source is newer
+    ///         if source.is_changed_after(target.last_changed()) {
+    ///             *target = Target::from_source(&source);
+    ///         }
+    ///     }
+    /// }
+    /// #
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    fn is_changed_after(&self, other: Tick) -> bool;
+
     /// Returns the change tick recording the time this data was most recently changed.
     ///
     /// Note that components and resources are also marked as changed upon insertion.
@@ -47,6 +81,12 @@ pub trait DetectChanges {
 
     /// Returns the change tick recording the time this data was added.
     fn added(&self) -> Tick;
+
+    /// Returns the change tick of the current run of this system.
+    fn this_run(&self) -> Tick;
+
+    /// Returns the change tick of the last run of this system.
+    fn last_run(&self) -> Tick;
 
     /// The location that last caused this to change.
     fn changed_by(&self) -> MaybeLocation;
@@ -325,20 +365,30 @@ pub trait DetectChangesMut: DetectChanges {
 }
 
 macro_rules! change_detection_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             #[inline]
             fn is_added(&self) -> bool {
-                self.ticks
-                    .added
-                    .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+                self.is_added_after(self.ticks.last_run)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
+                self.is_changed_after(self.ticks.last_run)
+            }
+
+            #[inline]
+             fn is_added_after(&self, other: Tick) -> bool {
+                self.ticks
+                    .added
+                    .is_newer_than(other, self.ticks.this_run)
+            }
+
+            #[inline]
+            fn is_changed_after(&self, other: Tick) -> bool {
                 self.ticks
                     .changed
-                    .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+                    .is_newer_than(other, self.ticks.this_run)
             }
 
             #[inline]
@@ -349,6 +399,16 @@ macro_rules! change_detection_impl {
             #[inline]
             fn added(&self) -> Tick {
                 *self.ticks.added
+            }
+
+            #[inline]
+            fn this_run(&self) -> Tick {
+                self.ticks.this_run
+            }
+
+            #[inline]
+            fn last_run(&self) -> Tick {
+                self.ticks.last_run
             }
 
             #[inline]
@@ -378,7 +438,7 @@ macro_rules! change_detection_impl {
 pub(crate) use change_detection_impl;
 
 macro_rules! change_detection_mut_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChangesMut for $name<$($generics),*> {
             type Inner = $target;
 
@@ -387,6 +447,9 @@ macro_rules! change_detection_mut_impl {
             fn set_changed(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
                 self.ticks.changed_by.assign(MaybeLocation::caller());
+                if let Some(summary_tick) = self.ticks.summary_tick {
+                    summary_tick.set(self.ticks.this_run);
+                }
             }
 
             #[inline]
@@ -395,6 +458,9 @@ macro_rules! change_detection_mut_impl {
                 *self.ticks.changed = self.ticks.this_run;
                 *self.ticks.added = self.ticks.this_run;
                 self.ticks.changed_by.assign(MaybeLocation::caller());
+                if let Some(summary_tick) = self.ticks.summary_tick {
+                    summary_tick.set(self.ticks.this_run);
+                }
             }
 
             #[inline]
@@ -402,6 +468,11 @@ macro_rules! change_detection_mut_impl {
             fn set_last_changed(&mut self, last_changed: Tick) {
                 *self.ticks.changed = last_changed;
                 self.ticks.changed_by.assign(MaybeLocation::caller());
+                if let Some(summary_tick) = self.ticks.summary_tick
+                    && self.is_changed_after(summary_tick.get())
+                {
+                    summary_tick.set(self.ticks.this_run);
+                }
             }
 
             #[inline]
@@ -410,6 +481,11 @@ macro_rules! change_detection_mut_impl {
                 *self.ticks.added = last_added;
                 *self.ticks.changed = last_added;
                 self.ticks.changed_by.assign(MaybeLocation::caller());
+                if let Some(summary_tick) = self.ticks.summary_tick
+                    && self.is_changed_after(summary_tick.get())
+                {
+                    summary_tick.set(self.ticks.this_run);
+                }
             }
 
             #[inline]
@@ -440,7 +516,7 @@ macro_rules! change_detection_mut_impl {
 pub(crate) use change_detection_mut_impl;
 
 macro_rules! impl_methods {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
@@ -463,6 +539,7 @@ macro_rules! impl_methods {
                         changed_by: self.ticks.changed_by.as_deref_mut(),
                         last_run: self.ticks.last_run,
                         this_run: self.ticks.this_run,
+                        summary_tick: self.ticks.summary_tick,
                     },
                 }
             }
@@ -535,7 +612,7 @@ macro_rules! impl_methods {
 pub(crate) use impl_methods;
 
 macro_rules! impl_debug {
-    ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $($traits:path)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> core::fmt::Debug for $name<$($generics),*>
             where T: core::fmt::Debug
         {

@@ -16,7 +16,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection};
+use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection, TonemappingPass};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -27,10 +27,11 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
+    camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
         binding_types::{
@@ -44,14 +45,14 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
-        ViewUniformOffset, ViewUniforms,
+        prepare_view_targets, ExtractedView, Msaa, ViewDepthStencilTexture, ViewTarget,
+        ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
 use bevy_utils::{default, once};
@@ -60,7 +61,7 @@ use tracing::{info, warn};
 
 use crate::bloom::bloom;
 use bevy_core_pipeline::{
-    core_3d::DEPTH_TEXTURE_SAMPLING_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
+    core_3d::DEPTH_PREPASS_TEXTURE_SUPPORTED, schedule::Core3d, tonemapping::tonemapping,
     FullscreenShader,
 };
 
@@ -74,17 +75,30 @@ pub struct DepthOfFieldPlugin;
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
+#[require(TonemappingPass)]
 pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
 
     /// The distance in meters to the location in focus.
+    ///
+    /// Note that this also applies to an orthographic camera. Moving the camera
+    /// along its view direction moves the focal plane, whereas it normally
+    /// only affects the near and far clipping planes.
     pub focal_distance: f32,
 
     /// The height of the [image sensor format] in meters.
     ///
     /// Focal length is derived from the FOV and this value. The default is
     /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
+    ///
+    /// An orthographic camera can be thought of as a perspective camera with an
+    /// infinite focal length, pulled back to infinity while its FOV shrinks so
+    /// that its view height at the focal plane stays equal to the orthographic
+    /// view height. Blurring an orthographic camera in this way works the same
+    /// as a perspective camera: `sensor_height` and `aperture_f_stops` are
+    /// applied in the same fashion. If the view height is at or below
+    /// `sensor_height`, everything out of focus will get the maximum blur.
     ///
     /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
     ///
@@ -93,6 +107,11 @@ pub struct DepthOfField {
 
     /// Along with the focal length, controls how much objects not in focus are
     /// blurred.
+    ///
+    /// **Tip:** For an orthographic camera, set `sensor_height` to half the
+    /// height of the view in world units. Then `aperture_f_stops` is precisely
+    /// the distance, in world units, from the focal plane at which the blur is
+    /// one world unit in diameter.
     pub aperture_f_stops: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
@@ -106,12 +125,22 @@ pub struct DepthOfField {
     /// Objects are never considered to be farther away than this distance as
     /// far as depth of field is concerned, even if they actually are.
     ///
-    /// This is primarily useful for skyboxes and background colors. The Bevy
-    /// renderer considers them to be infinitely far away. Without this value,
-    /// that would cause the circle of confusion to be infinitely large, capped
-    /// only by the `max_circle_of_confusion_diameter`. As that's unsightly,
-    /// this value can be used to essentially adjust how "far away" the skybox
-    /// or background are.
+    /// This is primarily useful to control the blur on backgrounds, such as
+    /// skyboxes.
+    ///
+    /// These are treated as being very far away:
+    ///  - when using a perspective camera, the skybox is considered to be at
+    ///    infinity
+    ///  - when using an orthographic camera, the skybox is considered to be at
+    ///    the far plane
+    ///
+    /// In both cases, their circle of confusion can be very large, capped only
+    /// by the `max_circle_of_confusion_diameter`, resulting in an extremely
+    /// strong blur.
+    ///
+    /// This value caps the strength of the blur, by controlling the maximum
+    /// "perceived" depth, allowing it to be used to essentially adjust how "far
+    /// away" the skybox or background appear.
     pub max_depth: f32,
 }
 
@@ -124,8 +153,6 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This doesn't work on WebGPU.
-    ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
     Bokeh,
 
@@ -135,9 +162,6 @@ pub enum DepthOfFieldMode {
     /// aesthetically pleasing but requires less video memory bandwidth.
     ///
     /// This is the default.
-    ///
-    /// This works on native and WebGPU.
-    /// If targeting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
     #[default]
     Gaussian,
 }
@@ -148,14 +172,14 @@ pub struct DepthOfFieldUniform {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The focal length. See the comment in `DepthOfFieldParams` in `dof.wgsl`
-    /// for more information.
-    focal_length: f32,
-
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
-    /// This is calculated as `focal_length² / (sensor_height *
-    /// aperture_f_stops)`.
+    /// This is calculated as:
+    /// ```text
+    /// sensor_height / (aperture_f_stops * view_height * (view_height - sensor_height))
+    /// ```
+    /// `view_height` is the height of the view at the focal plane. See
+    /// `calculate_circle_of_confusion` in `dof.wesl` for the derivation.
     coc_scale_factor: f32,
 
     /// The maximum circle of confusion diameter in pixels. See the comment in
@@ -165,13 +189,6 @@ pub struct DepthOfFieldUniform {
     /// The depth value that we clamp distant objects to. See the comment in
     /// [`DepthOfField`] for more information.
     max_depth: f32,
-
-    /// Padding.
-    pad_a: u32,
-    /// Padding.
-    pad_b: u32,
-    /// Padding.
-    pad_c: u32,
 }
 
 /// A key that uniquely identifies depth of field pipelines.
@@ -179,8 +196,7 @@ pub struct DepthOfFieldUniform {
 pub struct DepthOfFieldPipelineKey {
     /// Whether we're doing Gaussian or bokeh blur.
     pass: DofPass,
-    /// Whether we're using HDR.
-    hdr: bool,
+    target_format: TextureFormat,
     /// Whether the render target is multisampled.
     multisample: bool,
 }
@@ -200,7 +216,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "dof.wgsl");
+        embedded_asset!(app, "dof.wesl");
 
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
@@ -211,18 +227,19 @@ impl Plugin for DepthOfFieldPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
+            .init_gpu_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
             .add_systems(RenderStartup, init_dof_global_bind_group_layout)
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
                 (
-                    configure_depth_of_field_view_targets,
+                    configure_depth_of_field_view_targets
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_auxiliary_depth_of_field_textures,
                 )
                     .after(prepare_view_targets)
-                    .in_set(RenderSystems::ManageViews),
+                    .in_set(RenderSystems::PrepareViews),
             )
             .add_systems(
                 Render,
@@ -319,7 +336,7 @@ impl Default for DepthOfField {
             sensor_height: physical_camera_default.sensor_height,
             max_circle_of_confusion_diameter: 64.0,
             max_depth: f32::INFINITY,
-            mode: DepthOfFieldMode::Bokeh,
+            mode: DepthOfFieldMode::default(),
         }
     }
 }
@@ -509,13 +526,16 @@ pub fn prepare_depth_of_field_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
-    view_targets: Query<(
-        Entity,
-        &ExtractedView,
-        &DepthOfField,
-        &ViewDepthOfFieldBindGroupLayouts,
-        &Msaa,
-    )>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &DepthOfField,
+            &ViewDepthOfFieldBindGroupLayouts,
+            &Msaa,
+        ),
+        With<ExtractedCamera>,
+    >,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
@@ -524,11 +544,11 @@ pub fn prepare_depth_of_field_pipelines(
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
             fullscreen_shader: fullscreen_shader.clone(),
-            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
+            fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wesl"),
         };
 
         // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
+        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -540,7 +560,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianHorizontal,
                             },
@@ -549,7 +569,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::GaussianVertical,
                             },
@@ -565,7 +585,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass0,
                             },
@@ -574,7 +594,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                hdr,
+                                target_format,
                                 multisample,
                                 pass: DofPass::BokehPass1,
                             },
@@ -592,11 +612,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         // Build up our pipeline layout.
         let (mut layout, mut shader_defs) = (vec![], vec![]);
         let mut targets = vec![Some(ColorTargetState {
-            format: if key.hdr {
-                ViewTarget::TEXTURE_FORMAT_HDR
-            } else {
-                TextureFormat::bevy_default()
-            },
+            format: key.target_format,
             blend: None,
             write_mask: ColorWrites::ALL,
         })];
@@ -643,14 +659,27 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
-                    DofPass::BokehPass0 => "bokeh_pass_0".into(),
-                    DofPass::BokehPass1 => "bokeh_pass_1".into(),
+                    // Entry point names that end with number don't work on wasm. Perhaps `naga_oil` bug.
+                    // See <https://github.com/bevyengine/bevy/pull/23629>
+                    DofPass::BokehPass0 => "bokeh_pass_a".into(),
+                    DofPass::BokehPass1 => "bokeh_pass_b".into(),
                 }),
                 targets,
+                constants: vec![],
             }),
             ..default()
         }
     }
+}
+
+impl SyncComponent<RenderApp> for DepthOfField {
+    type Target = (
+        DepthOfField,
+        DepthOfFieldUniform,
+        DepthOfFieldPipelines,
+        AuxiliaryDepthOfFieldTexture,
+        ViewDepthOfFieldBindGroupLayouts,
+    );
 }
 
 /// Extracts all [`DepthOfField`] components into the render world.
@@ -658,7 +687,7 @@ fn extract_depth_of_field_settings(
     mut commands: Commands,
     mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
-    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
+    if !DEPTH_PREPASS_TEXTURE_SUPPORTED {
         once!(info!(
             "Disabling depth of field on this platform because depth textures aren't supported correctly"
         ));
@@ -670,36 +699,48 @@ fn extract_depth_of_field_settings(
             .get_entity(entity)
             .expect("Depth of field entity wasn't synced.");
 
-        // Depth of field is nonsensical without a perspective projection.
-        let Projection::Perspective(ref perspective_projection) = *projection else {
-            // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
-                DepthOfField,
-                DepthOfFieldUniform,
-                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
-                DepthOfFieldPipelines,
-                AuxiliaryDepthOfFieldTexture,
-                ViewDepthOfFieldBindGroupLayouts,
-            )>();
-            continue;
+        // The height of the view at the focal plane. Perspective and
+        // orthographic cameras with the same view height there, sensor height
+        // and f-stops get the same scale factor, so switching between them
+        // doesn't change the blur at the focal plane. See
+        // `calculate_circle_of_confusion` in `dof.wesl`.
+        let view_height = match projection {
+            Projection::Perspective(perspective_projection) => {
+                2.0 * depth_of_field.focal_distance * ops::tan(0.5 * perspective_projection.fov)
+            }
+            Projection::Orthographic(orthographic_projection) => {
+                orthographic_projection.area.height()
+            }
+            // Depth of field is nonsensical for other projections.
+            Projection::Custom(_) => {
+                once!(warn!(
+                    "Disabling depth of field because it doesn't support custom projections"
+                ));
+                entity_commands.remove::<<DepthOfField as SyncComponent<RenderApp>>::Target>();
+
+                continue;
+            }
         };
 
-        let focal_length =
-            calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
+        // At or below the sensor height, a perspective camera would be focused
+        // inside its focal length, where its blur diverges. The `max` clamps
+        // the scale to a large finite value, which saturates at
+        // `max_circle_of_confusion_diameter`. It also keeps the scale finite
+        // when `focal_distance` is zero, which gives no blur rather than NaN.
+        let coc_scale_factor = depth_of_field.sensor_height
+            / (depth_of_field.aperture_f_stops
+                * view_height
+                * (view_height - depth_of_field.sensor_height))
+                .max(f32::EPSILON);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         entity_commands.insert((
             *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
-                focal_length,
-                coc_scale_factor: focal_length * focal_length
-                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
+                coc_scale_factor,
                 max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
                 max_depth: depth_of_field.max_depth,
-                pad_a: 0,
-                pad_b: 0,
-                pad_c: 0,
             },
         ));
     }
@@ -764,7 +805,7 @@ pub(crate) fn depth_of_field(
     view: ViewQuery<(
         &ViewUniformOffset,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         &DepthOfFieldPipelines,
         &ViewDepthOfFieldBindGroupLayouts,
         &DynamicUniformIndex<DepthOfFieldUniform>,
@@ -784,6 +825,16 @@ pub(crate) fn depth_of_field(
         depth_of_field_uniform_index,
         auxiliary_dof_texture,
     ) = view.into_inner();
+    let Some(depth_view) = view_depth_texture
+        .attachment
+        .depth_stencil_views()
+        .depth_only_view()
+    else {
+        return;
+    };
+    let diagnostics = ctx.diagnostic_recorder();
+    let diagnostics = diagnostics.as_deref();
+    let time_span = diagnostics.time_span(ctx.command_encoder(), "depth_of_field");
 
     // We can be in either Gaussian blur or bokeh mode here. Both modes are
     // similar, consisting of two passes each.
@@ -793,6 +844,7 @@ pub(crate) fn depth_of_field(
             view_uniforms.uniforms.binding(),
             &**global_bind_group,
         ) else {
+            time_span.end(ctx.command_encoder());
             return;
         };
 
@@ -817,7 +869,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                     &auxiliary_dof_texture.default_view,
                 )),
@@ -828,7 +880,7 @@ pub(crate) fn depth_of_field(
                 &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                 &BindGroupEntries::sequential((
                     view_uniforms_binding,
-                    view_depth_texture.view(),
+                    depth_view,
                     postprocess.source,
                 )),
             )
@@ -890,4 +942,5 @@ pub(crate) fn depth_of_field(
         // Render the full-screen pass.
         render_pass.draw(0..3, 0..1);
     }
+    time_span.end(ctx.command_encoder());
 }

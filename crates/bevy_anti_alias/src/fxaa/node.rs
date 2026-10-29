@@ -10,7 +10,7 @@ use bevy_render::{
     view::ViewTarget,
 };
 
-pub(crate) fn fxaa(
+pub fn fxaa(
     view: ViewQuery<(&ViewTarget, &CameraFxaaPipeline, &Fxaa)>,
     fxaa_pipeline: Res<FxaaPipeline>,
     pipeline_cache: Res<PipelineCache>,

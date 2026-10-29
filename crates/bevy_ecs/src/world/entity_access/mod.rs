@@ -28,6 +28,7 @@ mod tests {
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
         prelude::*,
+        resource::IsResource,
         system::{assert_is_system, RunSystemOnce as _},
         world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
     };
@@ -98,22 +99,20 @@ mod tests {
 
     #[test]
     fn entity_ref_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
-
         let mut world = World::new();
+        let component_id = world.register_component::<TestComponent>();
         let entity = world.spawn_empty().id();
         let entity = world.entity(entity);
-        assert!(entity.get_by_id(invalid_component_id).is_err());
+        assert!(entity.get_by_id(component_id).is_err());
     }
 
     #[test]
     fn entity_mut_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
-
         let mut world = World::new();
+        let component_id = world.register_component::<TestComponent>();
         let mut entity = world.spawn_empty();
-        assert!(entity.get_by_id(invalid_component_id).is_err());
-        assert!(entity.get_mut_by_id(invalid_component_id).is_err());
+        assert!(entity.get_by_id(component_id).is_err());
+        assert!(entity.get_mut_by_id(component_id).is_err());
     }
 
     #[derive(Resource)]
@@ -675,8 +674,16 @@ mod tests {
     }
 
     #[test]
-    fn ref_compatible_with_resource_mut() {
+    #[should_panic]
+    fn ref_incompatible_with_resource_mut() {
         fn borrow_system(_: Query<EntityRef>, _: ResMut<R>) {}
+
+        assert_is_system(borrow_system);
+    }
+
+    #[test]
+    fn ref_compatible_with_resource_mut() {
+        fn borrow_system(_: Query<EntityRef, Without<IsResource>>, _: ResMut<R>) {}
 
         assert_is_system(borrow_system);
     }
@@ -705,15 +712,31 @@ mod tests {
     }
 
     #[test]
-    fn mut_compatible_with_resource() {
+    #[should_panic]
+    fn mut_incompatible_with_resource() {
         fn borrow_mut_system(_: Res<R>, _: Query<EntityMut>) {}
 
         assert_is_system(borrow_mut_system);
     }
 
     #[test]
-    fn mut_compatible_with_resource_mut() {
+    #[should_panic]
+    fn mut_incompatible_with_resource_mut() {
         fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    fn mut_compatible_with_resource() {
+        fn borrow_mut_system(_: Res<R>, _: Query<EntityMut, Without<IsResource>>) {}
+
+        assert_is_system(borrow_mut_system);
+    }
+
+    #[test]
+    fn mut_compatible_with_resource_mut() {
+        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut, Without<IsResource>>) {}
 
         assert_is_system(borrow_mut_system);
     }
@@ -1143,7 +1166,7 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|add: On<Add, TestComponent>, mut commands: Commands| {
+        world.add_observer(|add: On<Add<TestComponent>>, mut commands: Commands| {
             commands.entity(add.entity).despawn();
         });
         let entity = world.spawn_empty().id();
@@ -1163,10 +1186,10 @@ mod tests {
     fn archetype_modifications_trigger_flush() {
         let mut world = World::new();
         world.insert_resource(TestFlush(0));
-        world.add_observer(|_: On<Add, TestComponent>, mut commands: Commands| {
+        world.add_observer(|_: On<Add<TestComponent>>, mut commands: Commands| {
             commands.queue(count_flush);
         });
-        world.add_observer(|_: On<Remove, TestComponent>, mut commands: Commands| {
+        world.add_observer(|_: On<Remove<TestComponent>>, mut commands: Commands| {
             commands.queue(count_flush);
         });
 
@@ -1206,7 +1229,7 @@ mod tests {
     struct TestVec(Vec<&'static str>);
 
     #[derive(Component)]
-    #[component(on_add = ord_a_hook_on_add, on_insert = ord_a_hook_on_insert, on_replace = ord_a_hook_on_replace, on_remove = ord_a_hook_on_remove)]
+    #[component(on_add = ord_a_hook_on_add, on_insert = ord_a_hook_on_insert, on_discard = ord_a_hook_on_discard, on_remove = ord_a_hook_on_remove)]
     struct OrdA;
 
     fn ord_a_hook_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -1223,11 +1246,11 @@ mod tests {
         world.commands().entity(entity).remove::<OrdB>();
     }
 
-    fn ord_a_hook_on_replace(mut world: DeferredWorld, _: HookContext) {
+    fn ord_a_hook_on_discard(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
-            .push("OrdA hook on_replace");
+            .push("OrdA hook on_discard");
     }
 
     fn ord_a_hook_on_remove(mut world: DeferredWorld, _: HookContext) {
@@ -1237,24 +1260,24 @@ mod tests {
             .push("OrdA hook on_remove");
     }
 
-    fn ord_a_observer_on_add(_event: On<Add, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_add(_event: On<Add<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_add");
     }
 
-    fn ord_a_observer_on_insert(_event: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_insert(_event: On<Insert<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_insert");
     }
 
-    fn ord_a_observer_on_replace(_event: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
-        res.0.push("OrdA observer on_replace");
+    fn ord_a_observer_on_discard(_event: On<Discard<OrdA>>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdA observer on_discard");
     }
 
-    fn ord_a_observer_on_remove(_event: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_remove(_event: On<Remove<OrdA>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_remove");
     }
 
     #[derive(Component)]
-    #[component(on_add = ord_b_hook_on_add, on_insert = ord_b_hook_on_insert, on_replace = ord_b_hook_on_replace, on_remove = ord_b_hook_on_remove)]
+    #[component(on_add = ord_b_hook_on_add, on_insert = ord_b_hook_on_insert, on_discard = ord_b_hook_on_discard, on_remove = ord_b_hook_on_remove)]
     struct OrdB;
 
     fn ord_b_hook_on_add(mut world: DeferredWorld, _: HookContext) {
@@ -1274,11 +1297,11 @@ mod tests {
             .push("OrdB hook on_insert");
     }
 
-    fn ord_b_hook_on_replace(mut world: DeferredWorld, _: HookContext) {
+    fn ord_b_hook_on_discard(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
-            .push("OrdB hook on_replace");
+            .push("OrdB hook on_discard");
     }
 
     fn ord_b_hook_on_remove(mut world: DeferredWorld, _: HookContext) {
@@ -1288,19 +1311,19 @@ mod tests {
             .push("OrdB hook on_remove");
     }
 
-    fn ord_b_observer_on_add(_event: On<Add, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_add(_event: On<Add<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_add");
     }
 
-    fn ord_b_observer_on_insert(_event: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_insert(_event: On<Insert<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_insert");
     }
 
-    fn ord_b_observer_on_replace(_event: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
-        res.0.push("OrdB observer on_replace");
+    fn ord_b_observer_on_discard(_event: On<Discard<OrdB>>, mut res: ResMut<TestVec>) {
+        res.0.push("OrdB observer on_discard");
     }
 
-    fn ord_b_observer_on_remove(_event: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_remove(_event: On<Remove<OrdB>>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_remove");
     }
 
@@ -1310,11 +1333,11 @@ mod tests {
         world.insert_resource(TestVec(Vec::new()));
         world.add_observer(ord_a_observer_on_add);
         world.add_observer(ord_a_observer_on_insert);
-        world.add_observer(ord_a_observer_on_replace);
+        world.add_observer(ord_a_observer_on_discard);
         world.add_observer(ord_a_observer_on_remove);
         world.add_observer(ord_b_observer_on_add);
         world.add_observer(ord_b_observer_on_insert);
-        world.add_observer(ord_b_observer_on_replace);
+        world.add_observer(ord_b_observer_on_discard);
         world.add_observer(ord_b_observer_on_remove);
         let _entity = world.spawn(OrdA).id();
         let expected = [
@@ -1327,12 +1350,12 @@ mod tests {
             "OrdB hook on_insert",
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
-            "OrdA observer on_replace", // start of despawn
-            "OrdA hook on_replace",
+            "OrdA observer on_discard", // start of despawn
+            "OrdA hook on_discard",
             "OrdA observer on_remove",
             "OrdA hook on_remove",
-            "OrdB observer on_replace",
-            "OrdB hook on_replace",
+            "OrdB observer on_discard",
+            "OrdB hook on_discard",
             "OrdB observer on_remove",
             "OrdB hook on_remove",
         ];
@@ -1506,7 +1529,7 @@ mod tests {
 
         static ADD_COUNT: AtomicU8 = AtomicU8::new(0);
         static REMOVE_COUNT: AtomicU8 = AtomicU8::new(0);
-        static REPLACE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static DISCARD_COUNT: AtomicU8 = AtomicU8::new(0);
         static INSERT_COUNT: AtomicU8 = AtomicU8::new(0);
 
         let mut world = World::default();
@@ -1530,8 +1553,8 @@ mod tests {
                     Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
                 );
             })
-            .on_replace(|world, context| {
-                REPLACE_COUNT.fetch_add(1, Ordering::Relaxed);
+            .on_discard(|world, context| {
+                DISCARD_COUNT.fetch_add(1, Ordering::Relaxed);
 
                 assert_eq!(
                     world.get(context.entity),
@@ -1551,7 +1574,7 @@ mod tests {
 
         assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
         assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
-        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(DISCARD_COUNT.load(Ordering::Relaxed), 0);
         assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 1);
 
         let mut entity = world.entity_mut(entity);
@@ -1571,7 +1594,7 @@ mod tests {
 
         assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
         assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
-        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(DISCARD_COUNT.load(Ordering::Relaxed), 1);
         assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 2);
 
         assert_eq!(archetype_pointer_before, archetype_pointer_after);
@@ -1596,10 +1619,10 @@ mod tests {
         world.insert_resource(Tracker { a: false, b: false });
         let entity = world.spawn(A).id();
 
-        world.add_observer(|_: On<Remove, A>, mut tracker: ResMut<Tracker>| {
+        world.add_observer(|_: On<Remove<A>>, mut tracker: ResMut<Tracker>| {
             tracker.a = true;
         });
-        world.add_observer(|_: On<Remove, B>, mut tracker: ResMut<Tracker>| {
+        world.add_observer(|_: On<Remove<B>>, mut tracker: ResMut<Tracker>| {
             tracker.b = true;
         });
 

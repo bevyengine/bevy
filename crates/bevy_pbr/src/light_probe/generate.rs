@@ -13,11 +13,13 @@
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
-use bevy_core_pipeline::mip_generation::{self, DownsampleShaders, DownsamplingConstants};
+use bevy_core_pipeline::mip_generation::{
+    self, DownsamplePass, DownsamplePipeline, DownsamplePipelineKey, DownsamplingConstants,
+};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    query::Without,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
@@ -26,19 +28,19 @@ use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
+    init_gpu_resource,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, MipmapFilterMode,
         PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-        StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension, UniformBuffer,
+        SpecializedComputePipelines, StorageTextureAccess, Texture, TextureAspect,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
-    settings::WgpuFeatures,
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
@@ -125,10 +127,10 @@ impl Plugin for EnvironmentMapGenerationPlugin {
             return;
         }
 
-        embedded_asset!(app, "environment_filter.wgsl");
-        embedded_asset!(app, "copy.wgsl");
+        embedded_asset!(app, "environment_filter.wesl");
+        embedded_asset!(app, "copy.wesl");
 
-        app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+        app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight, Self>::default())
             .add_systems(Update, generate_environment_map_light);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -155,7 +157,9 @@ impl Plugin for EnvironmentMapGenerationPlugin {
             )
             .add_systems(
                 RenderStartup,
-                initialize_generated_environment_map_resources,
+                initialize_generated_environment_map_resources
+                    .after(init_gpu_resource::<DownsamplePipeline>)
+                    .after(init_gpu_resource::<SpecializedComputePipelines<DownsamplePipeline>>),
             );
     }
 }
@@ -168,90 +172,25 @@ pub fn initialize_generated_environment_map_resources(
     render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
-    downsample_shaders: Res<DownsampleShaders>,
+    downsample_pipeline: Res<DownsamplePipeline>,
+    mut specialized_downsample_pipelines: ResMut<SpecializedComputePipelines<DownsamplePipeline>>,
 ) {
     // Combine the bind group and use read-write storage if it is supported
     let combine_bind_group =
         mip_generation::can_combine_downsampling_bind_groups(&render_adapter, &render_device);
 
-    // Output mips are write-only
-    let mips =
-        texture_storage_2d_array(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly);
+    let downsample_key_first = DownsamplePipelineKey {
+        texture_format: TextureFormat::Rgba16Float,
+        array_texture: true, // cubemap
+        combine_bind_groups: combine_bind_group,
+        pass: DownsamplePass::First,
+    };
+    let downsample_key_second = DownsamplePipelineKey {
+        pass: DownsamplePass::Second,
+        ..downsample_key_first
+    };
 
     // Bind group layouts
-    let (downsampling_first, downsampling_second) = if combine_bind_group {
-        // One big bind group layout containing all outputs 1–12
-        let downsampling = BindGroupLayoutDescriptor::new(
-            "downsampling_bind_group_layout_combined",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    sampler(SamplerBindingType::Filtering),
-                    uniform_buffer::<DownsamplingConstants>(false),
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    mips, // 1
-                    mips, // 2
-                    mips, // 3
-                    mips, // 4
-                    mips, // 5
-                    texture_storage_2d_array(
-                        TextureFormat::Rgba16Float,
-                        StorageTextureAccess::ReadWrite,
-                    ), // 6
-                    mips, // 7
-                    mips, // 8
-                    mips, // 9
-                    mips, // 10
-                    mips, // 11
-                    mips, // 12
-                ),
-            ),
-        );
-
-        (downsampling.clone(), downsampling)
-    } else {
-        // Split layout: first pass outputs 1–6, second pass outputs 7–12 (input mip6 read-only)
-
-        let downsampling_first = BindGroupLayoutDescriptor::new(
-            "downsampling_first_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    sampler(SamplerBindingType::Filtering),
-                    uniform_buffer::<DownsamplingConstants>(false),
-                    // Input mip 0
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    mips, // 1
-                    mips, // 2
-                    mips, // 3
-                    mips, // 4
-                    mips, // 5
-                    mips, // 6
-                ),
-            ),
-        );
-
-        let downsampling_second = BindGroupLayoutDescriptor::new(
-            "downsampling_second_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    sampler(SamplerBindingType::Filtering),
-                    uniform_buffer::<DownsamplingConstants>(false),
-                    // Input mip 6
-                    texture_2d_array(TextureSampleType::Float { filterable: true }),
-                    mips, // 7
-                    mips, // 8
-                    mips, // 9
-                    mips, // 10
-                    mips, // 11
-                    mips, // 12
-                ),
-            ),
-        );
-
-        (downsampling_first, downsampling_second)
-    };
     let radiance = BindGroupLayoutDescriptor::new(
         "radiance_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
@@ -307,8 +246,8 @@ pub fn initialize_generated_environment_map_resources(
     );
 
     let layouts = GeneratorBindGroupLayouts {
-        downsampling_first,
-        downsampling_second,
+        downsampling_first: downsample_key_first.bind_group_layout(),
+        downsampling_second: downsample_key_second.bind_group_layout(),
         radiance,
         irradiance,
         copy,
@@ -329,60 +268,14 @@ pub fn initialize_generated_environment_map_resources(
     let samplers = GeneratorSamplers { linear };
 
     // Pipelines
-    let features = render_device.features();
-    let mut shader_defs = vec![];
-    if features.contains(WgpuFeatures::SUBGROUP) {
-        shader_defs.push(ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1));
-    }
-    if combine_bind_group {
-        shader_defs.push(ShaderDefVal::Int("COMBINE_BIND_GROUP".into(), 1));
-    }
-    shader_defs.push(ShaderDefVal::Bool("ARRAY_TEXTURE".into(), true));
-    #[cfg(feature = "bluenoise_texture")]
-    {
-        shader_defs.push(ShaderDefVal::Int("HAS_BLUE_NOISE".into(), 1));
-    }
+    let shader_defs: Vec<ShaderDefVal> = if cfg!(feature = "bluenoise_texture") {
+        vec![ShaderDefVal::Int("HAS_BLUE_NOISE".into(), 1)]
+    } else {
+        vec![]
+    };
 
-    let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
-    let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy.wgsl");
-
-    let downsampling_shader = downsample_shaders
-        .general
-        .get(&TextureFormat::Rgba16Float)
-        .expect("Mip generation shader should exist in the general downsampling shader table");
-
-    // First pass for base mip Levels (0-5)
-    let downsample_first = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("downsampling_first_pipeline".into()),
-        layout: vec![layouts.downsampling_first.clone()],
-        immediate_size: 0,
-        shader: downsampling_shader.clone(),
-        shader_defs: {
-            let mut defs = shader_defs.clone();
-            if !combine_bind_group {
-                defs.push(ShaderDefVal::Int("FIRST_PASS".into(), 1));
-            }
-            defs
-        },
-        entry_point: Some("downsample_first".into()),
-        zero_initialize_workgroup_memory: false,
-    });
-
-    let downsample_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("downsampling_second_pipeline".into()),
-        layout: vec![layouts.downsampling_second.clone()],
-        immediate_size: 0,
-        shader: downsampling_shader.clone(),
-        shader_defs: {
-            let mut defs = shader_defs.clone();
-            if !combine_bind_group {
-                defs.push(ShaderDefVal::Int("SECOND_PASS".into(), 1));
-            }
-            defs
-        },
-        entry_point: Some("downsample_second".into()),
-        zero_initialize_workgroup_memory: false,
-    });
+    let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wesl");
+    let copy_shader = load_embedded_asset!(asset_server.as_ref(), "copy.wesl");
 
     // Radiance map for specular environment maps
     let radiance = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -393,6 +286,7 @@ pub fn initialize_generated_environment_map_resources(
         shader_defs: shader_defs.clone(),
         entry_point: Some("generate_radiance_map".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     // Irradiance map for diffuse environment maps
@@ -404,6 +298,7 @@ pub fn initialize_generated_environment_map_resources(
         shader_defs: shader_defs.clone(),
         entry_point: Some("generate_irradiance_map".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     // Copy pipeline handles format conversion and populates mip0 when formats differ
@@ -415,11 +310,20 @@ pub fn initialize_generated_environment_map_resources(
         shader_defs: vec![],
         entry_point: Some("copy".into()),
         zero_initialize_workgroup_memory: false,
+        constants: vec![],
     });
 
     let pipelines = GeneratorPipelines {
-        downsample_first,
-        downsample_second,
+        downsample_first: specialized_downsample_pipelines.specialize(
+            &pipeline_cache,
+            &downsample_pipeline,
+            downsample_key_first,
+        ),
+        downsample_second: specialized_downsample_pipelines.specialize(
+            &pipeline_cache,
+            &downsample_pipeline,
+            downsample_key_second,
+        ),
         radiance,
         irradiance,
         copy: copy_pipeline,
@@ -557,10 +461,7 @@ pub struct GeneratorBindGroups {
 
 /// Prepares bind groups for environment map generation pipelines
 pub fn prepare_generated_environment_map_bind_groups(
-    light_probes: Query<
-        (Entity, &IntermediateTextures, &RenderEnvironmentMap),
-        With<RenderEnvironmentMap>,
-    >,
+    light_probes: Query<(Entity, &IntermediateTextures, &RenderEnvironmentMap)>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     queue: Res<RenderQueue>,
@@ -1107,4 +1008,8 @@ pub fn generate_environment_map_light(
             affects_lightmapped_mesh_diffuse: filtered_env_map.affects_lightmapped_mesh_diffuse,
         });
     }
+}
+
+impl SyncComponent<RenderApp, EnvironmentMapGenerationPlugin> for GeneratedEnvironmentMapLight {
+    type Target = RenderEnvironmentMap;
 }

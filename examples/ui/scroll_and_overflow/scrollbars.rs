@@ -2,25 +2,15 @@
 
 use bevy::{
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::{TabGroup, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
-    ui_widgets::{
-        ControlOrientation, CoreScrollbarDragState, CoreScrollbarThumb, Scrollbar, ScrollbarPlugin,
-    },
+    ui_widgets::{ControlOrientation, Scrollbar, ScrollbarDragState, ScrollbarThumb},
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            ScrollbarPlugin,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-        ))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin))
         .insert_resource(UiScale(1.25))
         .add_systems(Startup, setup_view_root)
         .add_systems(Update, update_scrollbar_thumb)
@@ -46,7 +36,19 @@ fn setup_view_root(mut commands: Commands) {
         BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
         UiTargetCamera(camera),
         TabGroup::default(),
-        Children::spawn((Spawn(Text::new("Scrolling")), Spawn(scroll_area_demo()))),
+        Children::spawn((
+            Spawn(Text::new("Scrolling")),
+            Spawn((
+                // Container that centers the scroll area with scrollbars
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::Center,
+                    ..Default::default()
+                },
+                Children::spawn(Spawn(scroll_area_demo())),
+            )),
+        )),
     ));
 }
 
@@ -85,7 +87,7 @@ fn scroll_area_demo() -> impl Bundle {
                         ..default()
                     },
                     BackgroundColor(colors::GRAY1.into()),
-                    ScrollPosition(Vec2::new(0.0, 10.0)),
+                    ScrollPosition::default(),
                     Children::spawn((
                         // The actual content of the scrolling area
                         Spawn(text_row("Alpha Wolf")),
@@ -118,39 +120,13 @@ fn scroll_area_demo() -> impl Bundle {
                     min_thumb_length: 8.0,
                 },
                 Children::spawn(Spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        border_radius: BorderRadius::all(px(4)),
-                        ..default()
-                    },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    CoreScrollbarThumb,
-                ))),
-            ));
-
-            // Horizontal scrollbar
-            parent.spawn((
-                Node {
-                    min_height: px(8),
-                    grid_row: GridPlacement::start(2),
-                    grid_column: GridPlacement::start(1),
-                    ..default()
-                },
-                Scrollbar {
-                    orientation: ControlOrientation::Horizontal,
-                    target: scroll_area_id,
-                    min_thumb_length: 8.0,
-                },
-                Children::spawn(Spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
+                    BorderColor::all(colors::GRAY3),
+                    ScrollbarThumb {
                         border_radius: BorderRadius::all(px(4)),
-                        ..default()
+                        border: px(1).all(),
                     },
-                    Hovered::default(),
-                    BackgroundColor(colors::GRAY2.into()),
-                    CoreScrollbarThumb,
                 ))),
             ));
         }),)),
@@ -171,17 +147,17 @@ fn text_row(caption: &str) -> impl Bundle {
 // Update the color of the scrollbar thumb.
 fn update_scrollbar_thumb(
     mut q_thumb: Query<
-        (&mut BackgroundColor, &Hovered, &CoreScrollbarDragState),
+        (&mut BackgroundColor, &Hovered, &ScrollbarDragState),
         (
-            With<CoreScrollbarThumb>,
-            Or<(Changed<Hovered>, Changed<CoreScrollbarDragState>)>,
+            With<ScrollbarThumb>,
+            Or<(Changed<Hovered>, Changed<ScrollbarDragState>)>,
         ),
     >,
 ) {
     for (mut thumb_bg, Hovered(is_hovering), drag) in q_thumb.iter_mut() {
         let color: Color = if *is_hovering || drag.dragging {
             // If hovering, use a lighter color
-            colors::GRAY3
+            colors::GRAY4
         } else {
             // Default color for the slider
             colors::GRAY2
@@ -200,5 +176,6 @@ mod colors {
 
     pub const GRAY1: Srgba = Srgba::new(0.224, 0.224, 0.243, 1.0);
     pub const GRAY2: Srgba = Srgba::new(0.486, 0.486, 0.529, 1.0);
-    pub const GRAY3: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
+    pub const GRAY3: Srgba = Srgba::new(0.71, 0.71, 0.772, 1.0);
+    pub const GRAY4: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
 }

@@ -14,7 +14,7 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 
 fn main() {
     App::new()

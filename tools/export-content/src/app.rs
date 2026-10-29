@@ -1,8 +1,3 @@
-#![expect(
-    unused_assignments,
-    reason = "Warnings from inside miette due to a rustc bug: https://github.com/rust-lang/rust/issues/147648"
-)]
-
 use std::{env, fs, io::Write, path::PathBuf};
 
 use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
@@ -47,7 +42,7 @@ impl Content {
             .ancestors()
             .nth(3)
             .ok_or(diagnostic!("failed to determine path to repo root"))?
-            .join("release-content");
+            .join("_release-content");
 
         let release_notes_dir = content_dir.join("release-notes");
         let release_notes = load_content(release_notes_dir, "release note")?;
@@ -82,7 +77,10 @@ impl App {
         })
     }
 
-    pub fn run<B: Backend>(mut self, terminal: &mut Terminal<B>) -> Result<()> {
+    pub fn run<B: Backend>(mut self, terminal: &mut Terminal<B>) -> Result<()>
+    where
+        B::Error: 'static + Send + Sync,
+    {
         while !self.exit {
             terminal
                 .draw(|frame| self.render(frame))
@@ -347,14 +345,16 @@ fn load_content(dir: PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
         ))?;
 
         let frontmatter = caps.name("frontmatter").unwrap().as_str();
-        let metadata = serde_yml::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
+        let metadata = serde_saphyr::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
             src: NamedSource::new(
                 format!("{}", dir_entry.path().display()),
                 frontmatter.to_owned(),
             ),
             kind,
             file_name,
-            err_span: e.location().map(|l| l.index()),
+            err_span: e
+                .location()
+                .and_then(|l| l.span().byte_offset().map(|offset| offset as usize)),
             error: e,
         })?;
         let content = caps.name("content").unwrap().as_str().to_owned();
@@ -374,5 +374,5 @@ pub struct ParseError {
     file_name: String,
     #[label("{error}")]
     err_span: Option<usize>,
-    error: serde_yml::Error,
+    error: serde_saphyr::Error,
 }

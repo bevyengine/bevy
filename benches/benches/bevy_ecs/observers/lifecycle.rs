@@ -1,8 +1,8 @@
 use bevy_ecs::{component::Component, lifecycle::Insert, observer::On, world::World};
+use chacha20::ChaCha8Rng;
 use core::hint::black_box;
 use criterion::Criterion;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
 
 fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
@@ -30,6 +30,6 @@ pub fn observer_lifecycle(criterion: &mut Criterion) {
 #[derive(Component)]
 struct A;
 
-fn on_insert(event: On<Insert, A>) {
+fn on_insert(event: On<Insert<A>>) {
     black_box(event);
 }

@@ -36,6 +36,12 @@ pub enum QuerySingleError {
     MultipleEntities(DebugName),
 }
 
+/// An error that occurs when creating a contiguous iterator from a non-dense [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) via
+/// [`contiguous_iter`](crate::system::Query::contiguous_iter) or [`contiguous_iter_mut`](crate::system::Query::contiguous_iter_mut).
+#[derive(Debug, thiserror::Error)]
+#[error("Cannot contiguously iterate non-dense query {0}")]
+pub struct QueryNotDenseError(pub DebugName);
+
 #[cfg(test)]
 mod test {
     use crate::{prelude::World, query::QueryEntityError};

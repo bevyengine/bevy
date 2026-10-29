@@ -1,10 +1,17 @@
 //! This example illustrates how to create buttons with their textures sliced
-//! and kept in proportion instead of being stretched by the button dimensions
+//! and kept in proportion instead of being stretched by the button dimensions.
+//!
+//! It uses the `bevy_ui_widgets` headless [`Button`] widget. The button's hover and press
+//! state is tracked by the `Hovered` and `Pressed` components; a `Changed`-based system
+//! updates the sliced image's tint and label to match.
 
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
+    picking::hover::Hovered,
+    platform::collections::HashSet,
     prelude::*,
-    ui::widget::NodeImageMode,
+    ui::{widget::NodeImageMode, Pressed},
+    ui_widgets::Button,
 };
 
 fn main() {
@@ -15,28 +22,65 @@ fn main() {
         .run();
 }
 
+/// Updates each button's sliced image tint and label whenever its `Pressed` or `Hovered`
+/// state changes.
+///
+/// `Hovered` always exists on the button, so `Ref::is_changed` catches hover transitions and
+/// the insertion of `Pressed`. Removal of `Pressed` is not reported by change detection, so we
+/// also restyle any button that just had `Pressed` removed this frame.
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &Children, &mut ImageNode),
-        (Changed<Interaction>, With<Button>),
+    mut buttons: Query<
+        (
+            Entity,
+            Option<Ref<Pressed>>,
+            Ref<Hovered>,
+            &mut ImageNode,
+            &Children,
+        ),
+        With<Button>,
     >,
+    mut removed_pressed: RemovedComponents<Pressed>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children, mut image) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Pressed => {
-                **text = "Press".to_string();
-                image.color = GOLD.into();
-            }
-            Interaction::Hovered => {
-                **text = "Hover".to_string();
-                image.color = ORANGE.into();
-            }
-            Interaction::None => {
-                **text = "Button".to_string();
-                image.color = Color::WHITE;
-            }
+    // Buttons that had `Pressed` removed this frame; change detection does not report removals.
+    let just_unpressed: HashSet<Entity> = removed_pressed.read().collect();
+    for (entity, pressed, hovered, mut image, children) in &mut buttons {
+        let changed = hovered.is_changed()
+            || pressed.as_ref().is_some_and(Ref::is_changed)
+            || just_unpressed.contains(&entity);
+        if changed {
+            set_button_style(
+                pressed.is_some(),
+                hovered.get(),
+                &mut image,
+                children,
+                &mut text_query,
+            );
+        }
+    }
+}
+
+/// Shared styling logic: pressed takes precedence over hover.
+fn set_button_style(
+    pressed: bool,
+    hovered: bool,
+    image: &mut ImageNode,
+    children: &Children,
+    text_query: &mut Query<&mut Text>,
+) {
+    let mut text = text_query.get_mut(children[0]).unwrap();
+    match (pressed, hovered) {
+        (true, _) => {
+            **text = "Press".to_string();
+            image.color = GOLD.into();
+        }
+        (false, true) => {
+            **text = "Hover".to_string();
+            image.color = ORANGE.into();
+        }
+        (false, false) => {
+            **text = "Button".to_string();
+            image.color = Color::WHITE;
         }
     }
 }
@@ -62,26 +106,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
-                parent
-                    .spawn((
-                        Button,
-                        ImageNode {
-                            image: image.clone(),
-                            image_mode: NodeImageMode::Sliced(slicer.clone()),
-                            ..default()
-                        },
-                        Node {
-                            width: px(w),
-                            height: px(h),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            margin: UiRect::all(px(20)),
-                            ..default()
-                        },
-                    ))
-                    .with_child((
+                parent.spawn((
+                    Button,
+                    // Required so the button tracks hover state (used by `button_system`).
+                    Hovered::default(),
+                    ImageNode {
+                        image: image.clone(),
+                        image_mode: NodeImageMode::Sliced(slicer.clone()),
+                        ..default()
+                    },
+                    Node {
+                        width: px(w),
+                        height: px(h),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        margin: UiRect::all(px(20)),
+                        ..default()
+                    },
+                    children![(
                         Text::new("Button"),
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf").into(),
@@ -89,7 +133,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                    ));
+                    )],
+                ));
             }
         });
 }

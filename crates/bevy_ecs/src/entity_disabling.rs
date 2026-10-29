@@ -106,7 +106,8 @@ use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
 use {
-    crate::reflect::ReflectComponent, bevy_reflect::std_traits::ReflectDefault,
+    crate::reflect::{ReflectComponent, ReflectResource},
+    bevy_reflect::std_traits::ReflectDefault,
     bevy_reflect::Reflect,
 };
 
@@ -166,7 +167,11 @@ pub struct Disabled;
 /// Think carefully about whether you need to use a new disabling component,
 /// and clearly communicate their presence in any libraries you publish.
 #[derive(Resource, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource)
+)]
 pub struct DefaultQueryFilters {
     // We only expect a few components per application to act as disabling components, so we use a SmallVec here
     // to avoid heap allocation in most cases.
@@ -240,6 +245,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        component::ComponentIds,
         prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
@@ -247,59 +253,60 @@ mod tests {
 
     #[test]
     fn filters_modify_access() {
+        let mut ids = ComponentIds::default();
+        let id_1 = ids.next_mut();
+        let id_2 = ids.next_mut();
+        let id_4 = ids.next_mut();
+
         let mut filters = DefaultQueryFilters::empty();
-        filters.register_disabling_component(ComponentId::new(1));
+        filters.register_disabling_component(id_1);
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::default();
-        component_access
-            .access_mut()
-            .add_component_read(ComponentId::new(2));
+        component_access.access_mut().add_read(id_2);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(0, applied_access.with_filters().count());
         assert_eq!(
-            vec![ComponentId::new(1)],
+            vec![id_1],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         // We add a with filter, now we expect to see both filters
-        component_access.and_with(ComponentId::new(4));
+        component_access.and_with(id_4);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(4)],
+            vec![id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(
-            vec![ComponentId::new(1)],
+            vec![id_1],
             applied_access.without_filters().collect::<Vec<_>>()
         );
 
         let copy = component_access.clone();
         // We add a rule targeting a default component, that filter should no longer be added
-        component_access.and_with(ComponentId::new(1));
+        component_access.and_with(id_1);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(1), ComponentId::new(4)],
+            vec![id_1, id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());
 
         // Archetypal access should also filter rules
         component_access = copy.clone();
-        component_access
-            .access_mut()
-            .add_archetypal(ComponentId::new(1));
+        component_access.access_mut().add_archetypal(id_1);
 
         let mut applied_access = component_access.clone();
         filters.modify_access(&mut applied_access);
         assert_eq!(
-            vec![ComponentId::new(4)],
+            vec![id_4],
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());

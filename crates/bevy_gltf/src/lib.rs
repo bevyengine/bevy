@@ -1,5 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -17,7 +16,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::prelude::*;
 //!
@@ -26,7 +25,7 @@
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
+//!         WorldAssetRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
 //!         Transform::from_xyz(2.0, 0.0, -5.0),
 //!     ));
@@ -42,7 +41,7 @@
 //! ```
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_asset::prelude::*;
-//! # use bevy_scene::prelude::*;
+//! # use bevy_world_serialization::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::Gltf;
 //!
@@ -72,11 +71,11 @@
 //!     *loaded = true;
 //!
 //!     // Spawns the first scene in the file
-//!     commands.spawn(SceneRoot(gltf.scenes[0].clone()));
+//!     commands.spawn(WorldAssetRoot(gltf.scenes[0].clone()));
 //!
 //!     // Spawns the scene named "Lenses_low"
 //!     commands.spawn((
-//!         SceneRoot(gltf.named_scenes["Lenses_low"].clone()),
+//!         WorldAssetRoot(gltf.named_scenes["Lenses_low"].clone()),
 //!         Transform::from_xyz(1.0, 2.0, 3.0),
 //!     ));
 //! }
@@ -100,10 +99,12 @@
 //! | --------------------------------- | --------- | ----------------------------------- |
 //! | `KHR_animation_pointer`           | ❌        |                                     |
 //! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_gaussian_splatting`          | ❌        |                                     |
+//! | `KHR_interactivity`               | ❌        |                                     |
 //! | `KHR_lights_punctual`             | ✅        |                                     |
 //! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
 //! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
-//! | `KHR_materials_dispersion`        | ❌        |                                     |
+//! | `KHR_materials_dispersion`        | ✅        |                                     |
 //! | `KHR_materials_emissive_strength` | ✅        |                                     |
 //! | `KHR_materials_ior`               | ✅        |                                     |
 //! | `KHR_materials_iridescence`       | ❌        |                                     |
@@ -113,12 +114,16 @@
 //! | `KHR_materials_unlit`             | ✅        |                                     |
 //! | `KHR_materials_variants`          | ❌        |                                     |
 //! | `KHR_materials_volume`            | ✅        |                                     |
-//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_mesh_quantization`           | ✅        |                                     |
+//! | `KHR_meshopt_compression`         | ✅        | `meshopt`                           |
+//! | `KHR_node_hoverability`           | ❌        |                                     |
+//! | `KHR_node_selectability`          | ❌        |                                     |
+//! | `KHR_node_visibility`             | ❌        |                                     |
 //! | `KHR_texture_basisu`              | ❌\*      |                                     |
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
-//! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
-//! | `EXT_meshopt_compression`         | ❌        |                                     |
+//! | `EXT_mesh_gpu_instancing`         | ✅        |                                     |
+//! | `EXT_meshopt_compression`         | ✅        | `meshopt`                           |
 //! | `EXT_texture_webp`                | ❌\*      |                                     |
 //!
 //! \*Bevy supports ktx2 and webp formats but doesn't support the extension's syntax, see [#19104](https://github.com/bevyengine/bevy/issues/19104).
@@ -131,7 +136,9 @@ mod assets;
 pub mod convert_coordinates;
 mod label;
 mod loader;
-mod vertex_attributes;
+mod material;
+/// A set of utilities for accessing and converting vertex attribute data
+pub mod vertex_attributes;
 
 extern crate alloc;
 
@@ -146,7 +153,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
-use bevy_mesh::MeshVertexAttribute;
+use bevy_mesh::{MeshCompressionArgs, MeshVertexAttribute};
 
 /// The glTF prelude.
 ///
@@ -158,7 +165,10 @@ pub mod prelude {
 
 use crate::{convert_coordinates::GltfConvertCoordinates, extensions::GltfExtensionHandlers};
 
-pub use {assets::*, label::GltfAssetLabel, loader::*};
+pub use {assets::*, label::GltfAssetLabel, loader::*, material::GltfMaterial};
+
+/// Re-exports for GLTF
+pub use gltf;
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
 /// Stores default [`ImageSamplerDescriptor`] in main world.
@@ -229,6 +239,9 @@ pub struct GltfPlugin {
     /// The default policy for skinned mesh bounds. Can be overridden by
     /// [`GltfLoaderSettings::skinned_mesh_bounds_policy`].
     pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
+
+    /// Mesh attribute compression arguments applied when loading meshes.
+    pub mesh_compression: MeshCompressionArgs,
 }
 
 impl Default for GltfPlugin {
@@ -238,6 +251,7 @@ impl Default for GltfPlugin {
             custom_vertex_attributes: HashMap::default(),
             convert_coordinates: GltfConvertCoordinates::default(),
             skinned_mesh_bounds_policy: Default::default(),
+            mesh_compression: MeshCompressionArgs::none(),
         }
     }
 }
@@ -265,6 +279,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .init_asset::<GltfSkin>()
+            .init_asset::<GltfMaterial>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"])
             .init_resource::<GltfExtensionHandlers>();
     }
@@ -293,6 +308,7 @@ impl Plugin for GltfPlugin {
             default_convert_coordinates: self.convert_coordinates,
             extensions: extensions.0.clone(),
             default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
+            default_mesh_compression: self.mesh_compression.clone(),
         });
     }
 }

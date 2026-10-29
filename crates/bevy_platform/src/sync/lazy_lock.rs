@@ -7,5 +7,5 @@ use std::sync as implementation;
 
 #[cfg(not(feature = "std"))]
 mod implementation {
-    pub use spin::Lazy as LazyLock;
+    pub use spin::LazyLock;
 }

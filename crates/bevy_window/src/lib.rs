@@ -18,6 +18,7 @@ extern crate std;
 extern crate alloc;
 
 mod cursor;
+mod display_target;
 mod event;
 mod monitor;
 mod raw_handle;
@@ -27,6 +28,7 @@ mod window;
 pub use crate::raw_handle::*;
 
 pub use cursor::*;
+pub use display_target::*;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
@@ -45,7 +47,9 @@ pub mod prelude {
 }
 
 use alloc::sync::Arc;
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, OnAppExitSystems};
+use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_input::InputSystems;
 use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
@@ -53,6 +57,7 @@ impl Default for WindowPlugin {
         WindowPlugin {
             primary_window: Some(Window::default()),
             primary_cursor_options: Some(CursorOptions::default()),
+            primary_display_target: Some(DisplayTarget::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,
         }
@@ -79,6 +84,13 @@ pub struct WindowPlugin {
     /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
     pub primary_cursor_options: Option<CursorOptions>,
 
+    /// Settings for the display output of the primary window.
+    ///
+    /// Defaults to `Some(DisplayTarget::default())`.
+    ///
+    /// Has no effect if [`WindowPlugin::primary_window`] is `None`.
+    pub primary_display_target: Option<DisplayTarget>,
+
     /// Whether to exit the app when there are no open windows.
     ///
     /// If disabling this, ensure that you send the [`bevy_app::AppExit`]
@@ -87,14 +99,14 @@ pub struct WindowPlugin {
     /// surprise your users. It is recommended to leave this setting to
     /// either [`ExitCondition::OnAllClosed`] or [`ExitCondition::OnPrimaryClosed`].
     ///
-    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`Update`].
-    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`Update`].
+    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`Last`].
+    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`Last`].
     pub exit_condition: ExitCondition,
 
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).
     ///
-    /// If true, this plugin will add [`close_when_requested`] to [`Update`].
+    /// If true, this plugin will add [`close_when_requested`] to [`Last`].
     /// If this system (or a replacement) is not running, the close button will have no effect.
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
@@ -133,22 +145,33 @@ impl Plugin for WindowPlugin {
             if let Some(primary_cursor_options) = &self.primary_cursor_options {
                 entity_commands.insert(primary_cursor_options.clone());
             }
+            if let Some(primary_display_target) = &self.primary_display_target {
+                entity_commands.insert(*primary_display_target);
+            }
         }
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_systems(PostUpdate, exit_on_primary_closed);
+                app.add_systems(Last, exit_on_primary_closed.in_set(ExitSystems));
             }
             ExitCondition::OnAllClosed => {
-                app.add_systems(PostUpdate, exit_on_all_closed);
+                app.add_systems(Last, exit_on_all_closed.in_set(ExitSystems));
             }
             ExitCondition::DontExit => {}
         }
 
         if self.close_when_requested {
             // Need to run before `exit_on_*` systems
-            app.add_systems(Update, close_when_requested);
+            app.add_systems(Last, close_when_requested.before(ExitSystems));
         }
+
+        app.add_systems(
+            PreUpdate,
+            send_typed_window_events.in_set(WindowEventSystems),
+        )
+        .configure_sets(PreUpdate, WindowEventSystems.before(InputSystems));
+
+        app.configure_sets(Last, OnAppExitSystems.after(ExitSystems));
     }
 }
 
@@ -157,11 +180,11 @@ impl Plugin for WindowPlugin {
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`PostUpdate`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`Last`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`PostUpdate`].
+    /// The plugin will add [`exit_on_all_closed`] to [`Last`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///

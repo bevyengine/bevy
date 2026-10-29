@@ -4,7 +4,7 @@
 //! [`bevy_render::render_phase::BinnedRenderPhase`] functionality with a
 //! custom [`RenderCommand`] to allow inserting arbitrary GPU drawing logic
 //! into Bevy's pipeline. This is not the only way to add custom rendering code
-//! into Bevy—render nodes are another, lower-level method—but it does allow
+//! into Bevy — render nodes are another, lower-level method — but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
@@ -14,14 +14,15 @@ use bevy::{
     },
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
-        change_detection::Tick,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
     mesh::VertexBufferLayout,
     prelude::*,
     render::{
+        camera::{DirtySpecializations, PendingQueues},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        mesh::allocator::MeshSlabs,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
@@ -34,6 +35,7 @@ use bevy::{
             Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderSystems,
     },
@@ -50,6 +52,7 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
+#[extract_app(RenderApp)]
 struct CustomRenderedEntity;
 
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the
@@ -169,6 +172,7 @@ fn main() {
     // We make sure to add these to the render app, not the main app.
     app.sub_app_mut(RenderApp)
         .init_resource::<CustomPhasePipeline>()
+        .init_resource::<PendingCustomPhaseItemQueues>()
         .add_render_command::<Opaque3d, DrawCustomPhaseItemCommands>()
         .add_systems(
             Render,
@@ -209,6 +213,17 @@ fn prepare_custom_phase_item_buffers(mut commands: Commands) {
     commands.init_resource::<CustomPhaseItemBuffers>();
 }
 
+/// A resource that holds entities that couldn't be specialized and/or queued
+/// yet because their dependent assets haven't loaded yet.
+///
+/// In this particular example, entities with custom rendering can always be
+/// specialized, so this resource goes unused in practice. However, we still
+/// need it, because [`DirtySpecializations`] requires such a resource.
+///
+/// See the documentation of [`PendingQueues`] for more information.
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct PendingCustomPhaseItemQueues(pub PendingQueues);
+
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
 fn queue_custom_phase_item(
@@ -217,7 +232,9 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
-    mut next_tick: Local<Tick>,
+    dirty_specializations: Res<DirtySpecializations>,
+    mut pending_custom_phase_item_queues: ResMut<PendingCustomPhaseItemQueues>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -231,9 +248,34 @@ fn queue_custom_phase_item(
             continue;
         };
 
+        // Fetch the list of visible entities in the `CustomRenderedEntity`
+        // class. If there are no such entities, then we have no entities to
+        // render, and we're done.
+        let Some(render_visible_mesh_entities) =
+            view_visible_entities.get::<CustomRenderedEntity>()
+        else {
+            continue;
+        };
+
+        let view_pending_custom_phase_item_queues =
+            pending_custom_phase_item_queues.prepare_for_new_frame(view.retained_view_entity);
+
+        // First, remove meshes that need to be respecialized, and those that
+        // were removed, from the bins.
+        for &main_entity in dirty_specializations
+            .iter_to_dequeue(view.retained_view_entity, render_visible_mesh_entities)
+        {
+            opaque_phase.remove(main_entity);
+        }
+
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &entity in view_visible_entities.get::<CustomRenderedEntity>().iter() {
+        for (render_entity, main_entity) in dirty_specializations.iter_to_queue(
+            view.retained_view_entity,
+            render_visible_mesh_entities,
+            &view_pending_custom_phase_item_queues.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
+        ) {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
@@ -245,16 +287,12 @@ fn queue_custom_phase_item(
                 continue;
             };
 
-            // Bump the change tick in order to force Bevy to rebuild the bin.
-            let this_tick = next_tick.get() + 1;
-            next_tick.set(this_tick);
-
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
             // handling that Bevy has for meshes (preprocessing, indirect
             // draws, etc.)
             //
-            // The asset ID is arbitrary; we simply use [`AssetId::invalid`],
+            // The asset ID is arbitrary; we simply use [`AssetId::default`],
             // but you can use anything you like. Note that the asset ID need
             // not be the ID of a [`Mesh`].
             opaque_phase.add(
@@ -263,16 +301,14 @@ fn queue_custom_phase_item(
                     pipeline: pipeline_id,
                     material_bind_group_index: None,
                     lightmap_slab: None,
-                    vertex_slab: default(),
-                    index_slab: None,
+                    slabs: MeshSlabs::default(),
                 },
                 Opaque3dBinKey {
-                    asset_id: AssetId::<Mesh>::invalid().untyped(),
+                    asset_id: AssetId::<Mesh>::default().untyped(),
                 },
-                entity,
+                (*render_entity, *main_entity),
                 InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
-                *next_tick,
             );
         }
     }
@@ -289,7 +325,7 @@ struct CustomPhasePipeline {
 impl FromWorld for CustomPhasePipeline {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let shader = asset_server.load("shaders/custom_phase_item.wgsl");
+        let shader = asset_server.load("shaders/custom_phase_item.wesl");
 
         let base_descriptor = RenderPipelineDescriptor {
             label: Some("custom render pipeline".into()),
@@ -320,7 +356,7 @@ impl FromWorld for CustomPhasePipeline {
                     // Ordinarily, you'd want to check whether the view has the
                     // HDR format and substitute the appropriate texture format
                     // here, but we omit that for simplicity.
-                    format: TextureFormat::bevy_default(),
+                    format: TextureFormat::Rgba8UnormSrgb,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -330,8 +366,8 @@ impl FromWorld for CustomPhasePipeline {
             // changed.
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::Always,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(CompareFunction::Always),
                 stencil: default(),
                 bias: default(),
             }),

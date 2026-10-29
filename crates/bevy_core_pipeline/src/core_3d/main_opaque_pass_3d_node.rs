@@ -4,17 +4,17 @@ use crate::{
 };
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::prelude::*;
+use bevy_log::error;
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewBinnedRenderPhases,
     render_resource::{PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget, ViewUniformOffset},
 };
-use tracing::error;
-#[cfg(feature = "trace")]
-use tracing::info_span;
 
 use super::AlphaMask3d;
 
@@ -24,7 +24,7 @@ pub fn main_opaque_pass_3d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
         Option<&SkyboxPipelineId>,
         Option<&SkyboxBindGroup>,
         &ViewUniformOffset,

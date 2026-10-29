@@ -4,6 +4,7 @@ use super::{ImageNodeBindGroups, UiBatch, UiMeta, UiViewTarget};
 
 use crate::UiCameraView;
 use bevy_ecs::{
+    entity::EntityHash,
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
@@ -17,6 +18,7 @@ use bevy_render::{
     sync_world::MainEntity,
     view::*,
 };
+use indexmap::IndexMap;
 use tracing::error;
 
 pub fn ui_pass(
@@ -72,6 +74,7 @@ pub fn ui_pass(
     pass_span.end(&mut render_pass);
 }
 
+#[derive(Debug)]
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: (Entity, MainEntity),
@@ -79,7 +82,6 @@ pub struct TransparentUi {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
-    pub index: usize,
     pub indexed: bool,
 }
 
@@ -128,8 +130,15 @@ impl SortedPhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(SortedPhaseItem::sort_key);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), TransparentUi, EntityHash>) {
+        items.sort_by_key(|_, value| value.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        _: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        _: &ExtractedView,
+    ) {
+        // Sort keys are precalculated for UI phase items.
     }
 
     #[inline]

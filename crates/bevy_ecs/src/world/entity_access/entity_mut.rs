@@ -3,10 +3,13 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{has_conflicts, Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{
+        has_conflicts, Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData,
+        SingleEntityQueryData,
+    },
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
+        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref, WorldId,
     },
 };
 
@@ -105,6 +108,12 @@ impl<'w> EntityMut<'w> {
         self.cell.id()
     }
 
+    /// Returns the [ID](WorldId) of the world that the current entity belongs to.
+    #[inline]
+    pub fn world_id(&self) -> WorldId {
+        self.cell.world_id()
+    }
+
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
@@ -166,20 +175,26 @@ impl<'w> EntityMut<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
+        &self,
+    ) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.as_readonly().get_components::<Q>()
     }
 
     /// Returns components for the current entity that match the query `Q`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # Example
     ///
@@ -203,14 +218,10 @@ impl<'w> EntityMut<'w> {
     /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
     /// ```
     ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
-    ///
     /// # See also
     ///
     /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         // SAFETY: Caller ensures the `QueryData` does not provide aliasing mutable references to the same component
@@ -238,16 +249,20 @@ impl<'w> EntityMut<'w> {
     /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
     /// ```
     ///
-    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
+    /// Note that this does an O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
     /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
-    pub fn get_components_mut<Q: ReleaseStateQueryData>(
+    pub fn get_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.reborrow().into_components_mut::<Q>()
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
     ///
     /// # Example
     ///
@@ -271,14 +286,12 @@ impl<'w> EntityMut<'w> {
     /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
     /// ```
     ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// the `QueryData` does not provide aliasing mutable references to the same component.
-    ///
     /// # See also
     ///
     /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
-    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn into_components_mut_unchecked<
+        Q: ReleaseStateQueryData + SingleEntityQueryData,
+    >(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY:
@@ -288,7 +301,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
-    /// or `None` if the entity does not have the components required by the query `Q`.
+    /// or [`QueryAccessError`] if the entity does not have the components required by the query `Q`.
     ///
     /// The checks for aliasing mutable references may be expensive.
     /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].
@@ -327,7 +340,7 @@ impl<'w> EntityMut<'w> {
     /// // This panics, as the `&mut X`s would alias:
     /// entity.into_components_mut::<(&mut X, &mut X)>();
     /// ```
-    pub fn into_components_mut<Q: ReleaseStateQueryData>(
+    pub fn into_components_mut<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         self,
     ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         has_conflicts::<Q>(self.cell.world().components())?;

@@ -16,7 +16,7 @@ use wgpu::{
     RenderPass,
 };
 
-use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
+use crate::renderer::{wgpu_wrapper, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use super::RecordDiagnostics;
 
@@ -34,13 +34,15 @@ struct DiagnosticsRecorderInternal {
     submitted_frames: Vec<FrameData>,
     finished_frames: Vec<FrameData>,
     #[cfg(feature = "tracing-tracy")]
-    tracy_gpu_context: tracy_client::GpuContext,
+    tracy_gpu_context: Option<tracy_client::GpuContext>,
 }
+
+wgpu_wrapper!(struct WgpuDiagnosticsRecorderInternal(DiagnosticsRecorderInternal));
 
 /// Records diagnostics into [`QuerySet`]'s keeping track of the mapping between
 /// spans and indices to the corresponding entries in the [`QuerySet`].
 #[derive(Resource)]
-pub struct DiagnosticsRecorder(WgpuWrapper<DiagnosticsRecorderInternal>);
+pub struct DiagnosticsRecorder(WgpuDiagnosticsRecorderInternal);
 
 impl DiagnosticsRecorder {
     /// Creates the new `DiagnosticsRecorder`.
@@ -56,20 +58,22 @@ impl DiagnosticsRecorder {
             super::tracy_gpu::new_tracy_gpu_context(adapter_info, device, queue);
         let _ = adapter_info; // Prevent unused variable warnings when tracing-tracy is not enabled
 
-        DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
-            timestamp_period_ns: queue.get_timestamp_period(),
-            features,
-            current_frame: Mutex::new(FrameData::new(
-                device,
+        DiagnosticsRecorder(WgpuDiagnosticsRecorderInternal::new(
+            DiagnosticsRecorderInternal {
+                timestamp_period_ns: queue.get_timestamp_period(),
                 features,
+                current_frame: Mutex::new(FrameData::new(
+                    device,
+                    features,
+                    #[cfg(feature = "tracing-tracy")]
+                    tracy_gpu_context.clone(),
+                )),
+                submitted_frames: Vec::new(),
+                finished_frames: Vec::new(),
                 #[cfg(feature = "tracing-tracy")]
-                tracy_gpu_context.clone(),
-            )),
-            submitted_frames: Vec::new(),
-            finished_frames: Vec::new(),
-            #[cfg(feature = "tracing-tracy")]
-            tracy_gpu_context,
-        }))
+                tracy_gpu_context,
+            },
+        ))
     }
 
     fn current_frame_mut(&mut self) -> &mut FrameData {
@@ -151,7 +155,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
     {
         assert_eq!(
             buffer.size(),
-            BufferSize::new(4).unwrap(),
+            BufferSize::new(4).unwrap().get(),
             "DiagnosticsRecorder::record_f32 buffer slice must be 4 bytes long"
         );
         assert!(
@@ -169,7 +173,7 @@ impl RecordDiagnostics for DiagnosticsRecorder {
     {
         assert_eq!(
             buffer.size(),
-            BufferSize::new(4).unwrap(),
+            BufferSize::new(4).unwrap().get(),
             "DiagnosticsRecorder::record_u32 buffer slice must be 4 bytes long"
         );
         assert!(
@@ -229,14 +233,14 @@ struct FrameData {
     is_mapped: Arc<AtomicBool>,
     callback: Option<Box<dyn FnOnce(RenderDiagnostics) + Send + Sync + 'static>>,
     #[cfg(feature = "tracing-tracy")]
-    tracy_gpu_context: tracy_client::GpuContext,
+    tracy_gpu_context: Option<tracy_client::GpuContext>,
 }
 
 impl FrameData {
     fn new(
         device: &RenderDevice,
         features: Features,
-        #[cfg(feature = "tracing-tracy")] tracy_gpu_context: tracy_client::GpuContext,
+        #[cfg(feature = "tracing-tracy")] tracy_gpu_context: Option<tracy_client::GpuContext>,
     ) -> FrameData {
         let wgpu_device = device.wgpu_device();
         let mut buffer_size = 0;
@@ -427,7 +431,7 @@ impl FrameData {
             buffer.offset(),
             &dest_buffer,
             0,
-            Some(buffer.size().into()),
+            Some(buffer.size()),
         );
 
         command_encoder.map_buffer_on_submit(&dest_buffer, MapMode::Read, .., |_| {});
@@ -533,7 +537,7 @@ impl FrameData {
             }
 
             for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
-                let buffer = buffer.get_mapped_range(..);
+                let buffer = buffer.get_mapped_range(..).unwrap();
                 diagnostics.push(RenderDiagnostic {
                     path: DiagnosticPath::from_components(
                         core::iter::once("render")
@@ -578,18 +582,22 @@ impl FrameData {
             return true;
         };
 
-        let data = read_buffer.slice(..).get_mapped_range();
+        let data = read_buffer.slice(..).get_mapped_range().unwrap();
 
         let timestamps = data[..(self.num_timestamps * 8) as usize]
-            .chunks(8)
-            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
+            .as_chunks()
+            .0
+            .iter()
+            .map(|&v| u64::from_le_bytes(v))
             .collect::<Vec<u64>>();
 
         let start = self.pipeline_statistics_buffer_offset as usize;
         let len = (self.num_pipeline_statistics as usize) * 40;
         let pipeline_statistics = data[start..start + len]
-            .chunks(8)
-            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
+            .as_chunks()
+            .0
+            .iter()
+            .map(|&v| u64::from_le_bytes(v))
             .collect::<Vec<u64>>();
 
         let mut diagnostics = Vec::new();
@@ -614,12 +622,14 @@ impl FrameData {
                     // Calling span_alloc() and end_zone() here instead of in open_span() and close_span() means that tracy does not know where each GPU command was recorded on the CPU timeline.
                     // Unfortunately we must do it this way, because tracy does not play nicely with multithreaded command recording. The start/end pairs would get all mixed up.
                     // The GPU spans themselves are still accurate though, and it's probably safe to assume that each GPU span in frame N belongs to the corresponding CPU render node span from frame N-1.
-                    let name = &self.path_components[span.path_range.clone()].join("/");
-                    let mut tracy_gpu_span =
-                        self.tracy_gpu_context.span_alloc(name, "", "", 0).unwrap();
-                    tracy_gpu_span.end_zone();
-                    tracy_gpu_span.upload_timestamp_start(begin as i64);
-                    tracy_gpu_span.upload_timestamp_end(end as i64);
+                    if let Some(tracy_gpu_context) = &self.tracy_gpu_context {
+                        let name = &self.path_components[span.path_range.clone()].join("/");
+                        let mut tracy_gpu_span =
+                            tracy_gpu_context.span_alloc(name, "", "", 0).unwrap();
+                        tracy_gpu_span.end_zone();
+                        tracy_gpu_span.upload_timestamp_start(begin as i64);
+                        tracy_gpu_span.upload_timestamp_end(end as i64);
+                    }
                 }
 
                 diagnostics.push(RenderDiagnostic {
@@ -669,7 +679,7 @@ impl FrameData {
         }
 
         for (buffer, diagnostic_path, is_f32) in self.value_buffers.drain(..) {
-            let buffer = buffer.get_mapped_range(..);
+            let buffer = buffer.get_mapped_range(..).unwrap();
             diagnostics.push(RenderDiagnostic {
                 path: DiagnosticPath::from_components(
                     core::iter::once("render").chain(core::iter::once(diagnostic_path.as_ref())),

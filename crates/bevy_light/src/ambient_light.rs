@@ -10,6 +10,7 @@ use bevy_reflect::prelude::*;
 #[reflect(Component, Debug, Default, Clone)]
 #[require(Camera)]
 pub struct AmbientLight {
+    /// The color of the ambient light.
     pub color: Color,
 
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -59,6 +60,7 @@ impl Default for AmbientLight {
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
 pub struct GlobalAmbientLight {
+    /// The color of the ambient light.
     pub color: Color,
 
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -88,6 +90,7 @@ impl Default for GlobalAmbientLight {
 }
 
 impl GlobalAmbientLight {
+    /// Convenience constant for turning off global ambient light.
     pub const NONE: GlobalAmbientLight = GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 0.0,

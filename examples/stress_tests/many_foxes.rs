@@ -6,11 +6,14 @@ use std::{f32::consts::PI, time::Duration};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    gltf::GltfPlugin,
     light::CascadeShadowConfigBuilder,
+    mesh::MeshCompressionArgs,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
-    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
+    world_serialization::WorldInstanceReady,
 };
 
 #[derive(FromArgs, Resource)]
@@ -23,6 +26,14 @@ struct Args {
     /// total number of foxes.
     #[argh(option, default = "1000")]
     count: usize,
+
+    /// enable motion blur.
+    #[argh(switch)]
+    motion_blur: bool,
+
+    /// whether to enable mesh compression.
+    #[argh(switch)]
+    mesh_compression: bool,
 }
 
 #[derive(Resource)]
@@ -42,19 +53,29 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
+                        present_mode: PresentMode::AutoNoVsync,
+                        resolution: WindowResolution::new(1920, 1080)
+                            .with_scale_factor_override(1.0),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(GltfPlugin {
+                    mesh_compression: if args.mesh_compression {
+                        MeshCompressionArgs::regular()
+                    } else {
+                        MeshCompressionArgs::none()
+                    },
                     ..default()
                 }),
-                ..default()
-            }),
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(StaticTransformOptimizations::disabled())
+        .insert_resource(StaticTransformOptimizations::Disabled)
         .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
@@ -62,6 +83,7 @@ fn main() {
             moving: true,
             sync: args.sync,
         })
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -109,6 +131,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut blend_graphs: ResMut<Assets<BlendGraph>>,
     foxes: Res<Foxes>,
+    args: Res<Args>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -172,7 +195,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder
                     .spawn((
-                        SceneRoot(fox_handle.clone()),
+                        WorldAssetRoot(fox_handle.clone()),
                         Transform::from_xyz(x, 0.0, z)
                             .with_scale(Vec3::splat(0.01))
                             .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
@@ -193,11 +216,24 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn((
+    let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
     ));
+
+    if args.motion_blur {
+        camera.insert((
+            MotionBlur {
+                // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                shutter_angle: 3.0,
+                ..Default::default()
+            },
+            // MSAA and MotionBlur are not compatible on WebGL.
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            Msaa::Off,
+        ));
+    }
 
     // Plane
     commands.spawn((
@@ -229,7 +265,7 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,

@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::allocator::MeshAllocator,
+        mesh::allocator::{MeshAllocator, MeshAllocatorSettings},
         render_resource::{
             binding_types::{storage_buffer, uniform_buffer},
             *,
@@ -31,7 +31,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wesl";
 
 fn main() {
     App::new()
@@ -65,7 +65,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
         };
         render_app
             .world_mut()
-            .resource_mut::<MeshAllocator>()
+            .resource_mut::<MeshAllocatorSettings>()
             // This allows using the mesh allocator slabs as
             // storage buffers directly in the compute shader.
             // Which means that we can write from our compute
@@ -77,6 +77,7 @@ impl Plugin for ComputeShaderMeshGeneratorPlugin {
 /// Holds a handle to the empty mesh that should be filled
 /// by the compute shader.
 #[derive(Component, ExtractComponent, Clone)]
+#[extract_app(RenderApp)]
 struct GenerateMesh(Handle<Mesh>);
 
 fn setup(
@@ -224,7 +225,7 @@ fn init_compute_pipeline(
                 // offsets
                 uniform_buffer::<DataRanges>(false),
                 // vertices
-                storage_buffer::<Vec<u32>>(false),
+                storage_buffer::<Vec<f32>>(false),
                 // indices
                 storage_buffer::<Vec<u32>>(false),
             ),

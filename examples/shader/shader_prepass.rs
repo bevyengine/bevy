@@ -13,8 +13,8 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
-const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
+const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wesl";
+const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wesl";
 
 fn main() {
     App::new()
@@ -163,7 +163,7 @@ impl Material for CustomMaterial {
     // You can override the default shaders used in the prepass if your material does
     // anything not supported by the default prepass
     // fn prepass_fragment_shader() -> ShaderRef {
-    //     "shaders/custom_material.wgsl".into()
+    //     "shaders/custom_material.wesl".into()
     // }
 }
 
@@ -233,7 +233,7 @@ fn toggle_prepass_view(
             color.0 = Color::WHITE;
         });
 
-        let mat = materials.get_mut(*material_handle).unwrap();
+        let mut mat = materials.get_mut(*material_handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;

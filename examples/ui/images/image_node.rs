@@ -1,5 +1,5 @@
-//! This example illustrates the basic usage of an `ImageNode`.
-//! `ImageNode` is UI Node that render an Image.
+//! This example illustrates the basic usage of [`ImageNode`],
+//! a UI node that renders an image.
 
 use bevy::prelude::*;
 
@@ -30,10 +30,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ImageNode::new(asset_server.load("branding/icon.png")),
             // Child Node control `ImageNode` size
             Node {
+                border: px(5.).all(),
+                padding: px(10.).all(),
                 width: px(256.),
                 height: px(256.),
                 ..default()
-            }
+            },
+            BorderColor::all(Color::WHITE),
         )],
     ));
 }

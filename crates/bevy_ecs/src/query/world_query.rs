@@ -1,9 +1,9 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeId},
     change_detection::Tick,
     component::{ComponentId, Components},
-    query::FilteredAccess,
-    storage::Table,
+    query::{FilteredAccess, FilteredAccessSet},
+    storage::{Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
@@ -61,8 +61,15 @@ pub unsafe trait WorldQuery {
     ///
     /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
     ///   in to this function.
-    /// - `world` must have the **right** to access any access registered in `update_component_access`.
-    /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
+    /// - `world` must have the **right** to access any access registered in [`WorldQuery::update_component_access`]
+    ///   or [`WorldQuery::init_nested_access`].
+    /// - [`WorldQuery::update_component_access`] must not request conflicting access.
+    ///   If `Self` is `ReadOnlyQueryData` or `QueryFilter`, the access is read-only and can never conflict.
+    ///   Otherwise, [`WorldQuery::update_component_access`] must be called to ensure it does not panic.
+    /// - [`WorldQuery::init_nested_access`] must not request conflicting access.
+    ///   If `Self` is [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData) or [`QueryFilter`](crate::query::QueryFilter), the access is read-only and can never conflict.
+    ///   If `Self` is [`SingleEntityQueryData`](crate::query::SingleEntityQueryData), there is no external access and it cannot conflict.
+    ///   Otherwise, [`WorldQuery::init_nested_access`] must be called to ensure it does not return [`Err`].
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
         state: &'s Self::State,
@@ -91,7 +98,9 @@ pub unsafe trait WorldQuery {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     );
 
@@ -105,15 +114,27 @@ pub unsafe trait WorldQuery {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        table_id: TableId,
         table: &'w Table,
     );
 
-    /// Adds any component accesses used by this [`WorldQuery`] to `access`.
+    /// Adds any component accesses to the current entity used by this [`WorldQuery`] to `access`.
     ///
     /// Used to check which queries are disjoint and can run in parallel
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess);
+
+    /// Adds any component accesses to other entities used by this [`WorldQuery`].
+    ///
+    /// This method must return [`Err`] if the access would conflict with any existing access in the [`FilteredAccessSet`].
+    ///
+    /// This is used for queries to request access to entities other than the current one,
+    /// such as to read resources or to follow relations.
+    fn init_nested_access(
+        state: &Self::State,
+        component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet>;
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
@@ -131,6 +152,10 @@ pub unsafe trait WorldQuery {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
+
+    /// Called when the query state is updating its archetype cache.
+    /// This can be used by nested queries to update their internal archetype caches.
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell);
 }
 
 macro_rules! impl_tuple_world_query {
@@ -183,21 +208,23 @@ macro_rules! impl_tuple_world_query {
             unsafe fn set_archetype<'w, 's>(
                 fetch: &mut Self::Fetch<'w>,
                 state: &'s Self::State,
+                archetype_id: ArchetypeId,
                 archetype: &'w Archetype,
+                table_id: TableId,
                 table: &'w Table
             ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
+                $(unsafe { $name::set_archetype($name, $state, archetype_id, archetype, table_id, table); })*
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table_id: TableId, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_table($name, $state, table); })*
+                $(unsafe { $name::set_table($name, $state, table_id, table); })*
             }
 
 
@@ -205,6 +232,16 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, access);)*
             }
+
+            fn init_nested_access(
+                state: &Self::State,
+                _component_access_set: &mut FilteredAccessSet,
+            ) -> Result<(), FilteredAccessSet> {
+                let ($($state,)*) = state;
+                $($name::init_nested_access($state, _component_access_set)?;)*
+                Ok(())
+            }
+
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
@@ -215,6 +252,11 @@ macro_rules! impl_tuple_world_query {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
                 true $(&& $name::matches_component_set($name, set_contains_id))*
+            }
+
+            fn update_archetypes(state: &mut Self::State, _world: UnsafeWorldCell) {
+                let ($($name,)*) = state;
+                $($name::update_archetypes($name, _world);)*
             }
         }
     };

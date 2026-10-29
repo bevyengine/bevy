@@ -22,9 +22,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, FontHinting, LineBreak, LineHeight,
-    RemSize, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, DefaultFontSource, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx,
+    LetterSpacing, LineBreak, LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextSection, TextWriter,
 };
 use bevy_transform::components::Transform;
 use bevy_window::{PrimaryWindow, Window};
@@ -71,7 +71,7 @@ use core::any::TypeId;
 /// // With text justification.
 /// world.spawn((
 ///     Text2d::new("hello world\nand bevy!"),
-///     TextLayout::new_with_justify(Justify::Center)
+///     TextLayout::justify(Justify::Center)
 /// ));
 ///
 /// // With spans
@@ -89,6 +89,7 @@ use core::any::TypeId;
     TextFont,
     TextColor,
     LineHeight,
+    LetterSpacing,
     TextBounds,
     Anchor,
     Visibility,
@@ -107,13 +108,11 @@ impl Text2d {
     }
 }
 
-impl TextRoot for Text2d {}
-
-impl TextSpanAccess for Text2d {
-    fn read_span(&self) -> &str {
+impl TextSection for Text2d {
+    fn get_text(&self) -> &str {
         self.as_str()
     }
-    fn write_span(&mut self) -> &mut String {
+    fn get_text_mut(&mut self) -> &mut String {
         &mut *self
     }
 }
@@ -172,12 +171,13 @@ pub fn update_text2d_layout(
     mut reprocess_queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
+    default_font_source: Res<DefaultFontSource>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
+        Ref<Text2d>,
         Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
@@ -186,8 +186,9 @@ pub fn update_text2d_layout(
         Ref<FontHinting>,
     )>,
     mut text_reader: Text2dReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
+    mut font_system: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+    mut scale_cx: ResMut<ScaleCx>,
     rem_size: Res<RemSize>,
     primary_window: Option<Single<&Window, With<PrimaryWindow>>>,
 ) {
@@ -216,8 +217,16 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, mut text_layout_info, mut computed, hinting) in
-        &mut text_query
+    for (
+        entity,
+        text2d,
+        maybe_entity_mask,
+        block,
+        bounds,
+        mut text_layout_info,
+        mut computed,
+        hinting,
+    ) in &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
@@ -239,12 +248,12 @@ pub fn update_text2d_layout(
         };
 
         let text_changed = scale_factor != text_layout_info.scale_factor
+            || text2d.is_changed()
             || block.is_changed()
-            || hinting.is_changed()
             || computed.needs_rerender(viewport_size_changed, rem_size.is_changed())
             || (!reprocess_queue.is_empty() && reprocess_queue.remove(&entity));
 
-        if !(text_changed || bounds.is_changed()) {
+        if !(text_changed || bounds.is_changed() || hinting.is_changed()) {
             continue;
         }
 
@@ -267,21 +276,23 @@ pub fn update_text2d_layout(
                 scale_factor,
                 &mut computed,
                 &mut font_system,
-                *hinting,
+                &mut layout_cx,
                 logical_viewport_size,
-                rem_size.0,
+                *rem_size,
+                &default_font_source.0,
             ) {
-                Err(TextError::NoSuchFont | TextError::DegenerateScaleFactor) => {
+                Err(
+                    TextError::NoSuchFont
+                    | TextError::NoSuchFontFamily(_)
+                    | TextError::DegenerateScaleFactor,
+                ) => {
                     // There was an error processing the text layout.
                     // Add this entity to the queue and reprocess it in the following frame
                     reprocess_queue.insert(entity);
                     continue;
                 }
-                Err(e @ TextError::FailedToGetGlyphImage(key)) => {
-                    bevy_log::warn_once!(
-                        "{e}. Face: {:?}",
-                        font_system.get_face_details(key.font_id)
-                    );
+                Err(e @ TextError::FailedToGetGlyphImage(_)) => {
+                    bevy_log::warn_once!("{e}.");
                     text_layout_info.clear();
                 }
                 Err(
@@ -299,15 +310,14 @@ pub fn update_text2d_layout(
         match text_pipeline.update_text_layout_info(
             &mut text_layout_info,
             &mut font_atlas_set,
-            &mut texture_atlases,
             &mut textures,
             &mut computed,
-            &mut font_system,
-            &mut swash_cache,
+            &mut scale_cx,
             text_bounds,
             block.justify,
+            *hinting,
         ) {
-            Err(TextError::NoSuchFont) => {
+            Err(TextError::NoSuchFont | TextError::NoSuchFontFamily(_)) => {
                 // There was an error processing the text layout.
                 // Add this entity to the queue and reprocess it in the following frame.
                 reprocess_queue.insert(entity);
@@ -323,10 +333,7 @@ pub fn update_text2d_layout(
             ) => {
                 panic!("Fatal error when processing text: {e}.");
             }
-            Ok(()) => {
-                text_layout_info.scale_factor = scale_factor;
-                text_layout_info.size *= scale_factor.recip();
-            }
+            Ok(()) => {}
         }
     }
 }
@@ -349,9 +356,14 @@ pub fn calculate_bounds_text2d(
     >,
 ) {
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+        let inverse_scale_factor = layout_info.scale_factor.recip();
         let size = Vec2::new(
-            text_bounds.width.unwrap_or(layout_info.size.x),
-            text_bounds.height.unwrap_or(layout_info.size.y),
+            text_bounds
+                .width
+                .unwrap_or(layout_info.size.x * inverse_scale_factor),
+            text_bounds
+                .height
+                .unwrap_or(layout_info.size.y * inverse_scale_factor),
         );
 
         let x1 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.x;
@@ -375,29 +387,79 @@ mod tests {
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_ecs::{hierarchy::ChildOf, system::RunSystemOnce, world::World};
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{
+        detect_text_needs_rerender, InlineBox, InlineBoxKind, TextElement, TextIterScratch,
+        TextSpan,
+    };
 
     use super::*;
+
+    #[test]
+    fn inline_boxes_are_accessible_through_text_access() {
+        let mut world = World::new();
+        world.init_resource::<TextIterScratch>();
+        let root = world.spawn(Text2d::new("root")).id();
+        let span = world.spawn((TextSpan::new("span"), ChildOf(root))).id();
+        let inline_box = world
+            .spawn((
+                InlineBox {
+                    kind: InlineBoxKind::InFlow,
+                    size: Vec2::new(20.0, 10.0),
+                },
+                ChildOf(span),
+            ))
+            .id();
+        world.spawn((TextSpan::new("not accessible"), ChildOf(inline_box)));
+        let tail = world.spawn((TextSpan::new("tail"), ChildOf(root))).id();
+
+        world
+            .run_system_once(move |mut reader: Text2dReader| {
+                assert!(matches!(
+                    reader.get(root, 2),
+                    Some((_, 2, TextElement::Box(_)))
+                ));
+                assert!(matches!(
+                    reader.get(root, 3),
+                    Some((_, 1, TextElement::Text { text: "tail", .. }))
+                ));
+                let items = reader.iter(root).collect::<Vec<_>>();
+                assert_eq!(
+                    items.iter().map(|(e, d, _)| (*e, *d)).collect::<Vec<_>>(),
+                    [(root, 0), (span, 1), (inline_box, 2), (tail, 1)]
+                );
+                assert!(
+                    matches!(&items[2].2, TextElement::Box(b) if b.size == Vec2::new(20.0, 10.0))
+                );
+            })
+            .unwrap();
+    }
 
     const FIRST_TEXT: &str = "Sample text.";
     const SECOND_TEXT: &str = "Another, longer sample text.";
 
     fn setup() -> (App, Entity) {
+        setup_with_scale_factor(1.)
+    }
+
+    fn setup_with_scale_factor(scale_factor: f32) -> (App, Entity) {
         let mut app = App::new();
         app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
             .init_resource::<TextIterScratch>()
             .init_resource::<RemSize>()
+            .init_resource::<DefaultFontSource>()
             .add_systems(
                 Update,
                 (
-                    detect_text_needs_rerender::<Text2d>,
+                    detect_text_needs_rerender,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )
@@ -412,7 +474,7 @@ mod tests {
                 computed: ComputedCameraValues {
                     target_info: Some(RenderTargetInfo {
                         physical_size: UVec2::splat(1000),
-                        scale_factor: 1.,
+                        scale_factor,
                     }),
                     ..Default::default()
                 },
@@ -426,21 +488,21 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec()) }
         );
 
         let world = app.world_mut();
 
         let mut fonts = world.resource_mut::<Assets<Font>>();
 
-        let font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
-        font.family_name = "Fira Mono".into();
-        let data = font.data.as_ref().clone();
+        let mut font = fonts.get_mut(bevy_asset::AssetId::default()).unwrap();
+        font.alias = "Fira Mono".into();
+        let data = font.into_inner().data.clone();
 
-        app.world_mut()
-            .resource_mut::<CosmicFontSystem>()
-            .db_mut()
-            .load_font_data(data);
+        world
+            .resource_mut::<FontCx>()
+            .collection
+            .register_fonts(data, None);
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 
@@ -511,5 +573,30 @@ mod tests {
         approx::assert_abs_diff_eq!(first_aabb.half_extents.y, second_aabb.half_extents.y);
         assert!(FIRST_TEXT.len() < SECOND_TEXT.len());
         assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
+    }
+
+    #[test]
+    fn calculate_bounds_text2d_uses_logical_size() {
+        let (mut app, entity) = setup_with_scale_factor(2.);
+
+        app.update();
+
+        let entity_ref = app
+            .world()
+            .get_entity(entity)
+            .expect("Could not find entity");
+        let layout_info = entity_ref
+            .get::<TextLayoutInfo>()
+            .expect("Text should have layout info");
+        let aabb = entity_ref.get::<Aabb>().expect("Text should have an AABB");
+
+        approx::assert_abs_diff_eq!(
+            aabb.half_extents.x * 2.,
+            layout_info.size.x / layout_info.scale_factor
+        );
+        approx::assert_abs_diff_eq!(
+            aabb.half_extents.y * 2.,
+            layout_info.size.y / layout_info.scale_factor
+        );
     }
 }

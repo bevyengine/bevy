@@ -4,13 +4,16 @@
 //! and triggers whenever the handle or the underlying asset changes.
 
 use crate::{AsAssetId, Asset, AssetId};
+use bevy_ecs::archetype::ArchetypeId;
 use bevy_ecs::component::Components;
+use bevy_ecs::storage::TableId;
 use bevy_ecs::{
     archetype::Archetype,
     change_detection::Tick,
     component::ComponentId,
     prelude::{Entity, Resource, World},
-    query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
+    query::{FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, ReadFetch, WorldQuery},
+    resource::IS_RESOURCE,
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -53,8 +56,9 @@ impl<A: Asset> Default for AssetChanges<A> {
 }
 
 struct AssetChangeCheck<'w, A: AsAssetId> {
-    // This should never be `None` in practice, but we need to handle the case
-    // where the `AssetChanges` resource was removed.
+    // This will be `None` if:
+    // - the `AssetChanges` resource was removed (should never happen)
+    // - no assets changed since the last run
     change_ticks: Option<&'w HashMap<AssetId<A::Asset>, Tick>>,
     last_run: Tick,
     this_run: Tick,
@@ -76,6 +80,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
             this_run,
         }
     }
+
     // TODO(perf): some sort of caching? Each check has two levels of indirection,
     // which is not optimal.
     fn has_changed(&self, handle: &A) -> bool {
@@ -166,8 +171,10 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         // SAFETY:
-        // - `AssetChanges` is private and only accessed mutably in the `AssetEventSystems` system set.
-        // - `resource_id` was obtained from the type ID of `AssetChanges<A::Asset>`.
+        // - `state.resource_id` was obtained from `world.init_resource::<AssetChanges<A::Asset>>()`,
+        //   so the untyped pointer returned by `get_resource_by_id` can safely be dereferenced into that type.
+        // - `init_nested_access` declares a read on `state.resource_id`, so it is safe to
+        //   read that resource here (see trait-level safety comments on `WorldQuery`)
         let Some(changes) = (unsafe {
             world
                 .get_resource_by_id(state.resource_id)
@@ -188,6 +195,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
                 },
             };
         };
+
         let has_updates = changes.last_change_tick.is_newer_than(last_run, this_run);
 
         AssetChangedFetch {
@@ -205,13 +213,22 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_archetype` for `A`
             unsafe {
-                <&A>::set_archetype(inner, &state.asset_id, archetype, table);
+                <&A>::set_archetype(
+                    inner,
+                    &state.asset_id,
+                    archetype_id,
+                    archetype,
+                    table_id,
+                    table,
+                );
             }
         }
     }
@@ -219,12 +236,13 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_table` for `A`
             unsafe {
-                <&A>::set_table(inner, &state.asset_id, table);
+                <&A>::set_table(inner, &state.asset_id, table_id, table);
             }
         }
     }
@@ -232,7 +250,20 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
-        access.add_resource_read(state.resource_id);
+    }
+
+    // ChangedAsset accesses both the asset and the AssetChanges<A> resource.
+    // In order to access two different entities we implement init_nested_access.
+    fn init_nested_access(
+        state: &Self::State,
+        component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet> {
+        let mut filter = FilteredAccess::default();
+        filter.add_read(state.resource_id);
+        filter.and_with(IS_RESOURCE);
+
+        component_access_set.try_add(filter)?;
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
@@ -246,7 +277,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
+        let resource_id = components.component_id::<AssetChanges<A::Asset>>()?;
         let asset_id = components.component_id::<A>()?;
         Some(AssetChangedState {
             asset_id,
@@ -261,12 +292,19 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     ) -> bool {
         set_contains_id(state.asset_id)
     }
+
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 #[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
 // SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        fetch.inner.is_some()
+    }
 
     #[inline]
     unsafe fn filter_fetch(
@@ -291,6 +329,7 @@ mod tests {
     use crate::tests::create_app;
     use crate::{AssetEventSystems, Handle};
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::system::assert_is_system;
     use core::num::NonZero;
     use std::println;
 
@@ -319,6 +358,20 @@ mod tests {
         fn as_asset_id(&self) -> AssetId<Self::Asset> {
             self.0.id()
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_conflict() {
+        #[derive(Component)]
+        struct Foo;
+
+        fn system(
+            _: Query<&Foo, AssetChanged<MyComponent>>,
+            _: Query<&mut AssetChanges<MyAsset>, bevy_ecs::query::Without<Foo>>,
+        ) {
+        }
+        assert_is_system(system);
     }
 
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {
@@ -360,7 +413,7 @@ mod tests {
                 .iter()
                 .find_map(|(h, a)| (a.0 == i).then_some(h))
                 .unwrap();
-            let asset = assets.get_mut(id).unwrap();
+            let mut asset = assets.get_mut(id).unwrap();
             println!("setting new value for {}", asset.0);
             asset.1 = "new_value";
         };

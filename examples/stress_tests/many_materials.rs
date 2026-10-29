@@ -50,6 +50,8 @@ fn setup(
     mesh_assets: ResMut<Assets<Mesh>>,
     material_assets: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let args = args.into_inner();
     let material_assets = material_assets.into_inner();
     let mesh_assets = mesh_assets.into_inner();
@@ -92,7 +94,7 @@ fn animate_materials(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (i, material_handle) in material_handles.iter().enumerate() {
-        if let Some(material) = materials.get_mut(material_handle) {
+        if let Some(mut material) = materials.get_mut(material_handle) {
             let color = Color::hsl(
                 ((i as f32 * 2.345 + time.elapsed_secs()) * 100.0) % 360.0,
                 1.0,

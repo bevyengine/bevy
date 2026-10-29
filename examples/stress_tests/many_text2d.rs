@@ -12,11 +12,11 @@ use bevy::{
 };
 
 use argh::FromArgs;
+use chacha20::ChaCha8Rng;
 use rand::{
     seq::{IndexedRandom, IteratorRandom},
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
-use rand_chacha::ChaCha8Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
@@ -43,6 +43,10 @@ struct Args {
     /// whether to force the text to recompute every frame by triggering change detection.
     #[argh(switch)]
     recompute: bool,
+
+    /// whether to enable TrueType hinting.
+    #[argh(switch)]
+    hinting: bool,
 
     /// whether to disable all frustum culling.
     #[argh(switch)]
@@ -120,6 +124,11 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
     // Builds and spawns the `Text2d`s, distributing them in a way that ensures a
     // good distribution of on-screen and off-screen entities.
+    let hinting = if args.hinting {
+        FontHinting::Enabled
+    } else {
+        FontHinting::Disabled
+    };
     let mut text2ds = vec![];
     for y in -half_y..half_y {
         for x in -half_x..half_x {
@@ -133,11 +142,12 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 Text2d(random_text(&mut rng, &args)),
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
-                TextLayout::new_with_justify(if args.center {
+                TextLayout::justify(if args.center {
                     Justify::Center
                 } else {
                     Justify::Left
                 }),
+                hinting,
                 Transform {
                     translation,
                     rotation,
@@ -219,7 +229,7 @@ fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {
         .choose(rng)
         .unwrap()
         .clone()
-        .choose_multiple(rng, 4)
+        .sample(rng, 4)
         .into_iter()
         .map(|cp| char::from_u32(cp).unwrap())
         .collect::<String>()

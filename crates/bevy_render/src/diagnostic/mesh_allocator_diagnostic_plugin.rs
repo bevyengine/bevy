@@ -87,5 +87,5 @@ fn measure_allocator(
         .store(allocator.slabs_size(), Ordering::Relaxed);
     measurements
         .allocations
-        .store(allocator.allocations(), Ordering::Relaxed);
+        .store(allocator.index_allocation_count(), Ordering::Relaxed);
 }

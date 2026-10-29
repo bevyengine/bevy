@@ -1,3 +1,4 @@
+mod atomic_pod;
 mod batched_uniform_buffer;
 mod bind_group;
 mod bind_group_entries;
@@ -9,11 +10,13 @@ mod gpu_array_buffer;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
+mod sparse_buffer_vec;
 mod specializer;
 mod storage_buffer;
 mod texture;
 mod uniform_buffer;
 
+pub use atomic_pod::*;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
@@ -24,6 +27,7 @@ pub use gpu_array_buffer::*;
 pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;
+pub use sparse_buffer_vec::*;
 pub use specializer::*;
 pub use storage_buffer::*;
 pub use texture::*;
@@ -46,17 +50,19 @@ pub use wgpu::{
     ComputePipelineDescriptor as RawComputePipelineDescriptor, CreateBlasDescriptor,
     CreateTlasDescriptor, DepthBiasState, DepthStencilState, DownlevelFlags, Extent3d, Face,
     Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState, FrontFace,
-    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MipmapFilterMode,
-    MultisampleState, Operations, Origin3d, PipelineCompilationOptions, PipelineLayout,
-    PipelineLayoutDescriptor, PollType, PolygonMode, PrimitiveState, PrimitiveTopology,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
-    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
-    TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureFormatFeatureFlags,
-    TextureFormatFeatures, TextureSampleType, TextureUsages, TextureView as WgpuTextureView,
-    TextureViewDescriptor, TextureViewDimension, Tlas, TlasInstance, VertexAttribute,
+    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode,
+    MeshPipelineDescriptor as RawMeshPipelineDescriptor, MeshState as RawMeshState,
+    MipmapFilterMode, MultisampleState, Operations, Origin3d, PipelineCompilationOptions,
+    PipelineLayout, PipelineLayoutDescriptor, PollType, PolygonMode, PrimitiveState,
+    PrimitiveTopology, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    RenderPassDescriptor, RenderPipelineDescriptor as RawRenderPipelineDescriptor,
+    Sampler as WgpuSampler, SamplerBindingType, SamplerDescriptor, ShaderModule,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState, StencilOperation,
+    StencilState, StorageTextureAccess, StoreOp, TaskState as RawTaskState, TexelCopyBufferInfo,
+    TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect, TextureChannel, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureFormatFeatureFlags, TextureFormatFeatures,
+    TextureSampleType, TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor,
+    TextureViewDimension, Tlas, TlasInstance, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
@@ -67,8 +73,6 @@ pub mod encase {
 }
 
 pub use self::encase::{ShaderSize, ShaderType};
-
-pub use naga::ShaderStage;
 
 pub use bevy_material::{
     bind_group_layout_entries::{

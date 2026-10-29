@@ -16,7 +16,12 @@ use bevy::{
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::NotShadowCaster,
-    math::{ops::cbrt, DVec2, DVec3},
+    math::{
+        ops::{cbrt, sqrt},
+        DVec2, DVec3,
+    },
+    mesh::MeshCompressionArgs,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -26,8 +31,8 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
-use rand::{seq::IndexedRandom, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{seq::IndexedRandom, RngExt, SeedableRng};
 
 #[derive(FromArgs, Resource)]
 /// `many_cubes` stress test
@@ -51,6 +56,10 @@ struct Args {
     /// the number of different meshes from which to randomly select. Clamped to at least 1.
     #[argh(option, default = "1")]
     mesh_count: usize,
+
+    /// the number of cubes
+    #[argh(option, default = "1600000")]
+    instance_count: usize,
 
     /// whether to disable all frustum culling. Stresses queuing and batching as all mesh material entities in the scene are always drawn.
     #[argh(switch)]
@@ -79,6 +88,14 @@ struct Args {
     /// animate the cube materials by updating the material from the cpu each frame
     #[argh(switch)]
     animate_materials: bool,
+
+    /// whether to enable motion blur.
+    #[argh(switch)]
+    motion_blur: bool,
+
+    /// whether to enable mesh compression.
+    #[argh(switch)]
+    mesh_compression: bool,
 }
 
 #[derive(Default, Clone, PartialEq)]
@@ -172,13 +189,13 @@ fn setup(
         Layout::Sphere => {
             // NOTE: This pattern is good for testing performance of culling as it provides roughly
             // the same number of visible meshes regardless of the viewing angle.
-            const N_POINTS: usize = WIDTH * HEIGHT * 4;
+            let n_points: usize = args.instance_count;
             // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
             let radius = WIDTH as f64 * 2.5;
             let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-            for i in 0..N_POINTS {
+            for i in 0..n_points {
                 let spherical_polar_theta_phi =
-                    fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
+                    fibonacci_spiral_on_sphere(golden_ratio, i, n_points);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
                 let (mesh, transform) = meshes.choose(&mut material_rng).unwrap();
                 commands
@@ -190,7 +207,8 @@ fn setup(
                             .mul_transform(*transform),
                     ))
                     .insert_if(NoFrustumCulling, || args.no_frustum_culling)
-                    .insert_if(NoAutomaticBatching, || args.no_automatic_batching);
+                    .insert_if(NoAutomaticBatching, || args.no_automatic_batching)
+                    .insert_if(NoCpuCulling, || args.no_cpu_culling);
             }
 
             // camera
@@ -200,6 +218,22 @@ fn setup(
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
+            }
+            if args.motion_blur {
+                camera.insert((
+                    MotionBlur {
+                        // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+                        shutter_angle: 3.0,
+                        ..Default::default()
+                    },
+                    // MSAA and MotionBlur are not compatible on WebGL.
+                    #[cfg(all(
+                        feature = "webgl2",
+                        target_arch = "wasm32",
+                        not(feature = "webgpu")
+                    ))]
+                    Msaa::Off,
+                ));
             }
 
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
@@ -214,41 +248,71 @@ fn setup(
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
             // as the number of visible meshes rises and falls depending on the viewing angle.
             let scale = 2.5;
-            for x in 0..WIDTH {
-                for y in 0..HEIGHT {
+
+            // Scale the width and height by the same factor so that we have the
+            // right number of instances.
+            // Because of the moiré pattern check and the fact that we're
+            // spawning 4 instances per trip around the inner loop below, we're
+            // solving the following equation for the factor variable:
+            //
+            //      4 * (9/10 * factor * width * 9/10 * factor * height) = count
+            //
+            // The solution is the value below.
+            let factor = (5.0 / 9.0) * sqrt(args.instance_count as f32)
+                / (sqrt(HEIGHT as f32) * sqrt(WIDTH as f32));
+            let dimensions = (vec2(WIDTH as f32, HEIGHT as f32) * factor)
+                .ceil()
+                .as_uvec2();
+
+            for x in 0..dimensions.x {
+                for y in 0..dimensions.y {
                     // introduce spaces to break any kind of moiré pattern
                     if x % 10 == 0 || y % 10 == 0 {
                         continue;
                     }
                     // cube
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
-                    ));
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz(
-                            (x as f32) * scale,
-                            HEIGHT as f32 * scale,
-                            (y as f32) * scale,
-                        ),
-                    ));
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
-                    ));
-                    commands.spawn((
-                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                        Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
-                    ));
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
+                        ))
+                        .insert_if(NoCpuCulling, || args.no_cpu_culling);
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz(
+                                (x as f32) * scale,
+                                dimensions.y as f32 * scale,
+                                (y as f32) * scale,
+                            ),
+                        ))
+                        .insert_if(NoCpuCulling, || args.no_cpu_culling);
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
+                        ))
+                        .insert_if(NoCpuCulling, || args.no_cpu_culling);
+                    commands
+                        .spawn((
+                            Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                            MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                            Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
+                        ))
+                        .insert_if(NoCpuCulling, || args.no_cpu_culling);
                 }
             }
             // camera
-            let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
+            let center = 0.5
+                * scale
+                * Vec3::new(
+                    dimensions.x as f32,
+                    dimensions.y as f32,
+                    dimensions.x as f32,
+                );
             commands.spawn((Camera3d::default(), Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
@@ -261,21 +325,23 @@ fn setup(
         Layout::Dense => {
             // NOTE: This pattern is good for demonstrating a dense configuration of cubes
             // overlapping each other, all within the camera frustum.
-            let count = WIDTH * HEIGHT * 2;
+            let count = args.instance_count;
             let size = cbrt(count as f32).round();
             let gap = 1.25;
 
-            let cubes = (0..count).map(move |i| {
+            for i in 0..count {
                 let x = i as f32 % size;
                 let y = (i as f32 / size) % size;
                 let z = i as f32 / (size * size);
                 let pos = Vec3::new(x * gap, y * gap, z * gap);
-                (
-                    Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                    MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
-                    Transform::from_translation(pos),
-                )
-            });
+                commands
+                    .spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_translation(pos),
+                    ))
+                    .insert_if(NoCpuCulling, || args.no_cpu_culling);
+            }
 
             // camera
             commands.spawn((
@@ -283,8 +349,6 @@ fn setup(
                 Transform::from_xyz(100.0, 90.0, 100.0)
                     .looking_at(Vec3::new(0.0, -10.0, 0.0), Vec3::Y),
             ));
-
-            commands.spawn_batch(cubes);
         }
     }
 
@@ -330,11 +394,7 @@ fn init_materials(
     assets: &mut Assets<StandardMaterial>,
 ) -> Vec<Handle<StandardMaterial>> {
     let capacity = if args.vary_material_data_per_instance {
-        match args.layout {
-            Layout::Cube => (WIDTH - WIDTH / 10) * (HEIGHT - HEIGHT / 10),
-            Layout::Sphere => WIDTH * HEIGHT * 4,
-            Layout::Dense => WIDTH * HEIGHT * 2,
-        }
+        args.instance_count
     } else {
         args.material_texture_count
     }
@@ -369,6 +429,16 @@ fn init_materials(
     materials
 }
 
+fn compress_mesh(args: &Args, mesh: impl Into<Mesh>) -> Mesh {
+    if args.mesh_compression {
+        mesh.into()
+            .compressed_mesh(&MeshCompressionArgs::regular())
+            .unwrap()
+    } else {
+        mesh.into()
+    }
+}
+
 fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Transform)> {
     let capacity = args.mesh_count.max(1);
 
@@ -380,20 +450,26 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
         let radius = radius_rng.random_range(0.25f32..=0.75f32);
         let (handle, transform) = match variant % 15 {
             0 => (
-                assets.add(Cuboid {
-                    half_size: Vec3::splat(radius),
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Cuboid {
+                        half_size: Vec3::splat(radius),
+                    },
+                )),
                 Transform::IDENTITY,
             ),
             1 => (
-                assets.add(Capsule3d {
-                    radius,
-                    half_length: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Capsule3d {
+                        radius,
+                        half_length: radius,
+                    },
+                )),
                 Transform::IDENTITY,
             ),
             2 => (
-                assets.add(Circle { radius }),
+                assets.add(compress_mesh(args, Circle { radius })),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             3 => {
@@ -404,60 +480,80 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
-                    assets.add(Triangle2d { vertices }),
+                    assets.add(compress_mesh(args, Triangle2d { vertices })),
                     Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
                 )
             }
             4 => (
-                assets.add(Rectangle {
-                    half_size: Vec2::splat(radius),
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Rectangle {
+                        half_size: Vec2::splat(radius),
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             v if (5..=8).contains(&v) => (
-                assets.add(RegularPolygon {
-                    circumcircle: Circle { radius },
-                    sides: v,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    RegularPolygon {
+                        circumcircle: Circle { radius },
+                        sides: v,
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             9 => (
-                assets.add(Cylinder {
-                    radius,
-                    half_height: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Cylinder {
+                        radius,
+                        half_height: radius,
+                    },
+                )),
                 Transform::IDENTITY,
             ),
             10 => (
-                assets.add(Ellipse {
-                    half_size: Vec2::new(radius, 0.5 * radius),
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Ellipse {
+                        half_size: Vec2::new(radius, 0.5 * radius),
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             11 => (
-                assets.add(
+                assets.add(compress_mesh(
+                    args,
                     Plane3d {
                         normal: Dir3::NEG_Z,
-                        half_size: Vec2::splat(0.5),
-                    }
-                    .mesh()
-                    .size(radius, radius),
-                ),
+                        half_size: Vec2::splat(radius / 2.0),
+                    },
+                )),
                 Transform::IDENTITY,
             ),
-            12 => (assets.add(Sphere { radius }), Transform::IDENTITY),
+            12 => (
+                assets.add(compress_mesh(args, Sphere { radius })),
+                Transform::IDENTITY,
+            ),
             13 => (
-                assets.add(Torus {
-                    minor_radius: 0.5 * radius,
-                    major_radius: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Torus {
+                        minor_radius: 0.5 * radius,
+                        major_radius: radius,
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Y, Vec3::Y),
             ),
             14 => (
-                assets.add(Capsule2d {
-                    radius,
-                    half_length: radius,
-                }),
+                assets.add(compress_mesh(
+                    args,
+                    Capsule2d {
+                        radius,
+                        half_length: radius,
+                    },
+                )),
                 Transform::IDENTITY.looking_at(Vec3::Z, Vec3::Y),
             ),
             _ => unreachable!(),

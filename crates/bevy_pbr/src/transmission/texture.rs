@@ -4,18 +4,15 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::{BevyDefault, ToExtents};
+use bevy_image::ToExtents;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     camera::ExtractedCamera,
     render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
-    render_resource::{
-        FilterMode, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView,
-    },
+    render_resource::{Texture, TextureDescriptor, TextureDimension, TextureUsages, TextureView},
     renderer::RenderDevice,
     texture::TextureCache,
-    view::{ExtractedView, ViewTarget},
+    view::ExtractedView,
 };
 
 use crate::{ScreenSpaceTransmission, Transmissive3d};
@@ -24,7 +21,6 @@ use crate::{ScreenSpaceTransmission, Transmissive3d};
 pub struct ViewTransmissionTexture {
     pub texture: Texture,
     pub view: TextureView,
-    pub sampler: Sampler,
 }
 
 pub fn prepare_core_3d_transmission_textures(
@@ -62,11 +58,13 @@ pub fn prepare_core_3d_transmission_textures(
 
         // Don't prepare a transmission texture if the number of steps is set to 0
         if transmission.steps == 0 {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         }
 
         // Don't prepare a transmission texture if there are no transmissive items to render
         if transmissive_3d_phase.items.is_empty() {
+            commands.entity(entity).remove::<ViewTransmissionTexture>();
             continue;
         }
 
@@ -75,12 +73,6 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
@@ -88,7 +80,7 @@ pub fn prepare_core_3d_transmission_textures(
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format,
+                    format: view.target_format,
                     usage,
                     view_formats: &[],
                 };
@@ -97,17 +89,9 @@ pub fn prepare_core_3d_transmission_textures(
             })
             .clone();
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("view_transmission_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..Default::default()
-        });
-
         commands.entity(entity).insert(ViewTransmissionTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
-            sampler,
         });
     }
 }

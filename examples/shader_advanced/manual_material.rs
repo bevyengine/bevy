@@ -5,40 +5,40 @@ use bevy::{
     core_pipeline::core_3d::Opaque3d,
     ecs::system::{
         lifetimeless::{SRes, SResMut},
-        SystemChangeTick, SystemParamItem,
+        SystemParamItem,
     },
     material::{key::ErasedMeshPipelineKey, MaterialProperties},
     pbr::{
-        base_specialize, late_sweep_material_instances, DrawMaterial,
-        EntitiesNeedingSpecialization, EntitySpecializationTickPair, EntitySpecializationTicks,
-        MainPassOpaqueDrawFunction, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
-        MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
-        MaterialFragmentShader, MeshPipelineKey, PreparedMaterial, RenderMaterialBindings,
-        RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
+        base_specialize, DrawMaterial, EntitiesNeedingSpecialization, MainPassOpaqueDrawFunction,
+        MaterialFragmentShader, MeshPipelineKey, PreparedMaterial, RenderMaterialInstance,
+        RenderMaterialInstances,
     },
     platform::collections::hash_map::Entry,
     prelude::*,
     render::{
+        camera::{DirtySpecializationSystems, DirtySpecializations},
         erased_render_asset::{ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError},
+        material_bind_groups::{
+            MaterialBindGroupAllocator, MaterialBindGroupAllocators, RenderMaterialBindings,
+        },
         render_asset::RenderAssets,
         render_phase::DrawFunctions,
         render_resource::{
             binding_types::{sampler, texture_2d},
-            AsBindGroup, BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResources,
-            OwnedBindingResource, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-            TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+            AsBindGroup, BindGroupBuilder, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+            Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
+            TextureViewDimension, UnpreparedBindingResource, UnpreparedBindingResources,
         },
         renderer::RenderDevice,
         sync_world::MainEntity,
         texture::GpuImage,
-        view::ExtractedView,
         Extract, RenderApp, RenderStartup,
     },
     utils::Parallel,
 };
 use std::{any::TypeId, sync::Arc};
 
-const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/manual_material.wesl";
 
 fn main() {
     App::new()
@@ -70,11 +70,9 @@ impl Plugin for ImageMaterialPlugin {
                 (
                     extract_image_materials,
                     extract_image_materials_needing_specialization
-                        .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
-                    sweep_image_materials_needing_specialization
-                        .after(MaterialExtractEntitiesNeedingSpecializationSystems)
-                        .after(MaterialExtractionSystems)
-                        .before(late_sweep_material_instances),
+                        .in_set(DirtySpecializationSystems::CheckForChanges),
+                    extract_image_materials_that_need_specializations_removed
+                        .in_set(DirtySpecializationSystems::CheckForRemovals),
                 ),
             );
     }
@@ -167,34 +165,36 @@ impl ErasedRenderAsset for ImageMaterial {
         let Some(image) = gpu_images.get(&source_asset.image) else {
             return Err(PrepareAssetError::RetryNextUpdate(source_asset));
         };
-        let unprepared = UnpreparedBindGroup {
-            bindings: BindingResources(vec![
+        let mut unprepared = BindGroupBuilder {
+            binding_resources: UnpreparedBindingResources(vec![
                 (
                     0,
-                    OwnedBindingResource::TextureView(
+                    UnpreparedBindingResource::TextureView(
                         TextureViewDimension::D2,
                         image.texture_view.clone(),
                     ),
                 ),
                 (
                     1,
-                    OwnedBindingResource::Sampler(
+                    UnpreparedBindingResource::Sampler(
                         SamplerBindingType::NonFiltering,
                         image_material_sampler.0.clone(),
                     ),
                 ),
             ]),
+            data_buffer: vec![],
         };
         let binding = match render_material_bindings.entry(asset_id.into()) {
             Entry::Occupied(mut occupied_entry) => {
                 bind_group_allocator.free(*occupied_entry.get());
                 let new_binding =
-                    bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
+                    bind_group_allocator.allocate_unprepared(&mut unprepared, &material_layout);
                 *occupied_entry.get_mut() = new_binding;
                 new_binding
             }
-            Entry::Vacant(vacant_entry) => *vacant_entry
-                .insert(bind_group_allocator.allocate_unprepared(unprepared, &material_layout)),
+            Entry::Vacant(vacant_entry) => *vacant_entry.insert(
+                bind_group_allocator.allocate_unprepared(&mut unprepared, &material_layout),
+            ),
         };
 
         let mut properties = MaterialProperties {
@@ -286,79 +286,50 @@ fn check_entities_needing_specialization(
     >,
     mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<ImageMaterial>>,
+    mut removed_mesh_3d_components: RemovedComponents<Mesh3d>,
+    mut removed_mesh_material_3d_components: RemovedComponents<ImageMaterial3d>,
 ) {
-    entities_needing_specialization.clear();
+    entities_needing_specialization.changed.clear();
+    entities_needing_specialization.removed.clear();
 
+    // Gather all entities that need their specializations regenerated.
     needs_specialization
         .par_iter()
         .for_each(|entity| par_local.borrow_local_mut().push(entity));
+    par_local.drain_into(&mut entities_needing_specialization.changed);
 
-    par_local.drain_into(&mut entities_needing_specialization);
+    // All entities that removed their `Mesh3d` or `ImageMaterial3d` components
+    // need to have their specializations removed as well.
+    for entity in removed_mesh_3d_components
+        .read()
+        .chain(removed_mesh_material_3d_components.read())
+    {
+        entities_needing_specialization.removed.push(entity);
+    }
 }
 
 fn extract_image_materials_needing_specialization(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<ImageMaterial>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
-    mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    render_material_instances: Res<RenderMaterialInstances>,
-    views: Query<&ExtractedView>,
-    ticks: SystemChangeTick,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) {
-    // Clean up any despawned entities, we do this first in case the removed material was re-added
-    // the same frame, thus will appear both in the removed components list and have been added to
-    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
-    for entity in removed_mesh_material_components.read() {
-        entity_specialization_ticks.remove(&MainEntity::from(entity));
-        for view in views {
-            if let Some(cache) =
-                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-        }
-    }
-
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert(
-            (*entity).into(),
-            EntitySpecializationTickPair {
-                system_tick: ticks.this_run(),
-                material_instances_tick: render_material_instances.current_change_tick,
-            },
-        );
+    // Drain the list of entities needing specialization from the main world
+    // into the render-world `DirtySpecializations` table.
+    for entity in entities_needing_specialization.changed.iter() {
+        dirty_specializations
+            .changed_renderables
+            .insert(MainEntity::from(*entity));
     }
 }
 
-fn sweep_image_materials_needing_specialization(
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
-    mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    render_material_instances: Res<RenderMaterialInstances>,
-    views: Query<&ExtractedView>,
+/// A system that adds entities that were judged to need their specializations
+/// removed to the appropriate table in [`DirtySpecializations`].
+fn extract_image_materials_that_need_specializations_removed(
+    entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<ImageMaterial>>>,
+    mut dirty_specializations: ResMut<DirtySpecializations>,
 ) {
-    // Clean up any despawned entities, we do this first in case the removed material was re-added
-    // the same frame, thus will appear both in the removed components list and have been added to
-    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
-    for entity in removed_mesh_material_components.read() {
-        if entity_specialization_ticks
-            .get(&MainEntity::from(entity))
-            .is_some_and(|ticks| {
-                ticks.material_instances_tick == render_material_instances.current_change_tick
-            })
-        {
-            continue;
-        }
-
-        entity_specialization_ticks.remove(&MainEntity::from(entity));
-
-        for view in views {
-            if let Some(cache) =
-                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-        }
+    for entity in entities_needing_specialization.removed.iter() {
+        dirty_specializations
+            .removed_renderables
+            .insert(MainEntity::from(*entity));
     }
 }

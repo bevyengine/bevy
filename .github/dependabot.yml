@@ -14,9 +14,17 @@ updates:
       accesskit:
         patterns:
           - "accesskit*"
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     labels:
       - "C-Dependencies"
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
+    cooldown:
+      default-days: 7

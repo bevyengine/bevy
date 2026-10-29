@@ -8,16 +8,19 @@ use bevy_camera::RenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    prelude::FromTemplate,
     query::{Changed, Or},
     reflect::ReflectComponent,
     system::{Query, ResMut},
 };
 #[cfg(feature = "bevy_picking")]
 use bevy_ecs::{
+    entity::EntityHashMap,
     message::MessageReader,
     system::{Commands, Res},
 };
 use bevy_image::{Image, ToExtents};
+use bevy_log::warn;
 use bevy_math::UVec2;
 #[cfg(feature = "bevy_picking")]
 use bevy_picking::{
@@ -32,7 +35,7 @@ use bevy_reflect::Reflect;
 /// # See Also
 ///
 /// [`update_viewport_render_target_size`]
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Default, Debug, Clone, Copy, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(Node)]
 #[cfg_attr(
@@ -46,15 +49,19 @@ pub struct ViewportNode {
     /// entity.
     ///
     /// Note: Despawning the camera entity will leave a viewport node with an
-    /// invalid camera.
-    pub camera: Entity,
+    /// invalid camera. It will automatically be set to none when
+    /// [`update_viewport_render_target_size`] runs next.
+    #[template(built_in)]
+    pub camera: Option<Entity>,
 }
 
 impl ViewportNode {
     /// Creates a new [`ViewportNode`] with a given `camera`.
     #[inline]
     pub const fn new(camera: Entity) -> Self {
-        Self { camera }
+        Self {
+            camera: Some(camera),
+        }
     }
 }
 
@@ -66,7 +73,7 @@ pub fn viewport_picking(
     mut commands: Commands,
     mut viewport_query: Query<(
         Entity,
-        &ViewportNode,
+        &mut ViewportNode,
         &PointerId,
         &mut PointerLocation,
         &ComputedNode,
@@ -79,9 +86,8 @@ pub fn viewport_picking(
 ) {
     use bevy_camera::NormalizedRenderTarget;
     use bevy_math::Rect;
-    use bevy_platform::collections::HashMap;
     // Handle hovered entities.
-    let mut viewport_picks: HashMap<Entity, PointerId> = hover_map
+    let mut viewport_picks: EntityHashMap<PointerId> = hover_map
         .iter()
         .flat_map(|(hover_pointer_id, hits)| {
             hits.iter()
@@ -103,7 +109,7 @@ pub fn viewport_picking(
 
     for (
         viewport_entity,
-        &viewport,
+        mut viewport,
         &viewport_pointer_id,
         mut viewport_pointer_location,
         computed_node,
@@ -115,7 +121,11 @@ pub fn viewport_picking(
             viewport_pointer_location.location = None;
             continue;
         };
-        let Ok((camera, render_target)) = camera_query.get(viewport.camera) else {
+        let Some(camera_entity) = viewport.camera else {
+            continue;
+        };
+        let Ok((camera, render_target)) = camera_query.get(camera_entity) else {
+            viewport.camera = None;
             continue;
         };
         let Some(cam_viewport_size) = camera.logical_viewport_size() else {
@@ -157,15 +167,19 @@ pub fn viewport_picking(
 
 /// Updates the size of the associated render target for viewports when the node size changes.
 pub fn update_viewport_render_target_size(
-    viewport_query: Query<
-        (&ViewportNode, &ComputedNode),
+    mut viewport_query: Query<
+        (&mut ViewportNode, &ComputedNode),
         Or<(Changed<ComputedNode>, Changed<ViewportNode>)>,
     >,
     camera_query: Query<&RenderTarget>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    for (viewport, computed_node) in &viewport_query {
-        let Ok(render_target) = camera_query.get(viewport.camera) else {
+    for (mut viewport, computed_node) in &mut viewport_query {
+        let Some(camera) = viewport.camera else {
+            continue;
+        };
+        let Ok(render_target) = camera_query.get(camera) else {
+            viewport.camera = None;
             continue;
         };
         let size = computed_node.size();
@@ -174,6 +188,80 @@ pub fn update_viewport_render_target_size(
             continue;
         };
         let size = size.as_uvec2().max(UVec2::ONE).to_extents();
-        images.get_mut(image_handle).unwrap().resize(size);
+        if let Some(mut image) = images.get_mut(image_handle) {
+            image.resize(size);
+        } else {
+            warn!(
+                "Skipping ViewportNode render target resize for camera {camera:?}: image {:?} is missing from Assets<Image>.",
+                image_handle.id()
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_asset::Handle;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+    use bevy_math::Vec2;
+
+    fn setup_viewport(size: Vec2) -> (World, Entity, Handle<Image>) {
+        let mut world = World::new();
+        #[cfg(feature = "bevy_picking")]
+        world.init_resource::<bevy_picking::pointer::PointerMap>();
+        let mut images = Assets::<Image>::default();
+        let image = images.add(Image::default());
+        world.insert_resource(images);
+        let camera = world.spawn(RenderTarget::from(image.clone())).id();
+        let viewport = world
+            .spawn((
+                ViewportNode::new(camera),
+                ComputedNode {
+                    size,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        (world, viewport, image)
+    }
+
+    #[test]
+    fn viewport_resize_skips_removed_images() {
+        let (mut world, viewport, image) = setup_viewport(Vec2::new(64., 32.));
+        world.resource_mut::<Assets<Image>>().remove(&image);
+
+        world
+            .run_system_once(update_viewport_render_target_size)
+            .unwrap();
+
+        assert!(world
+            .get::<ViewportNode>(viewport)
+            .unwrap()
+            .camera
+            .is_some());
+    }
+
+    #[test]
+    fn viewport_resize_uses_node_size() {
+        for (size, expected) in [
+            (Vec2::new(64., 32.), UVec2::new(64, 32)),
+            (Vec2::ZERO, UVec2::ONE),
+        ] {
+            let (mut world, _, image) = setup_viewport(size);
+
+            world
+                .run_system_once(update_viewport_render_target_size)
+                .unwrap();
+
+            assert_eq!(
+                world
+                    .resource::<Assets<Image>>()
+                    .get(&image)
+                    .unwrap()
+                    .size(),
+                expected
+            );
+        }
     }
 }

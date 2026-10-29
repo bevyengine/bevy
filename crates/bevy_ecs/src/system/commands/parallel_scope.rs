@@ -4,6 +4,7 @@ use crate::{
     entity::{Entities, EntityAllocator},
     prelude::World,
     system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
+    world::DeferredWorld,
 };
 
 use super::{CommandQueue, Commands};
@@ -62,6 +63,15 @@ impl SystemBuffer for ParallelCommandQueue {
         let _system_span = _system_meta.commands_span.enter();
         for cq in self.thread_queues.iter_mut() {
             cq.apply(world);
+        }
+    }
+
+    #[inline]
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        #[cfg(feature = "trace")]
+        let _system_span = _system_meta.commands_span.enter();
+        for cq in self.thread_queues.iter_mut() {
+            world.commands().append(cq);
         }
     }
 }

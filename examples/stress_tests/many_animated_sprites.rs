@@ -12,7 +12,7 @@ use bevy::{
     winit::WinitSettings,
 };
 
-use rand::Rng;
+use rand::RngExt;
 
 const CAMERA_SPEED: f32 = 1000.0;
 

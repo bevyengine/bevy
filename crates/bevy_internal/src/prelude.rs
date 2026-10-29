@@ -1,8 +1,8 @@
 #[doc(hidden)]
 pub use crate::{
     app::prelude::*, ecs::prelude::*, input::prelude::*, math::prelude::*, platform::prelude::*,
-    reflect::prelude::*, time::prelude::*, transform::prelude::*, utils::prelude::*,
-    DefaultPlugins, MinimalPlugins,
+    reflect::prelude::*, shape::prelude::*, time::prelude::*, transform::prelude::*,
+    utils::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
 #[doc(hidden)]
@@ -16,6 +16,10 @@ pub use crate::window::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_image")]
 pub use crate::image::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_curve")]
+pub use crate::curve::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_mesh")]
@@ -68,6 +72,10 @@ pub use crate::render::prelude::*;
 pub use crate::scene::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_world_serialization")]
+pub use crate::world_serialization::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_sprite")]
 pub use crate::sprite::prelude::*;
 
@@ -106,3 +114,7 @@ pub use crate::gltf::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_picking")]
 pub use crate::picking::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_clipboard")]
+pub use crate::clipboard::prelude::*;

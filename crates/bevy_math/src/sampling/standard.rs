@@ -1,11 +1,11 @@
 //! This module holds local implementations of the [`Distribution`] trait for [`StandardUniform`], which
 //! allow certain Bevy math types (those whose values can be randomly generated without additional
-//! input other than an [`Rng`]) to be produced using [`rand`]'s APIs. It also holds [`FromRng`],
+//! input other than an [`RngExt`]) to be produced using [`rand`]'s APIs. It also holds [`FromRng`],
 //! an ergonomic extension to that functionality which permits the omission of type annotations.
 //!
 //! For instance:
 //! ```
-//! # use rand::{random, Rng, SeedableRng, rngs::StdRng, distr::StandardUniform};
+//! # use rand::{random,  RngExt, SeedableRng, rngs::StdRng, distr::StandardUniform};
 //! # use bevy_math::{Dir3, sampling::FromRng};
 //! let mut rng = StdRng::seed_from_u64(7313429298);
 //! // Random direction using thread-local rng
@@ -21,23 +21,20 @@
 //! let many_random_directions: Vec<Dir3> = rng.sample_iter(StandardUniform).take(5).collect();
 //! ```
 
-use core::f32::consts::TAU;
+use core::f32::consts::{PI, TAU};
 
-use crate::{
-    primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
-};
+use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3};
 use rand::{
     distr::{Distribution, StandardUniform},
-    Rng,
+    RngExt,
 };
 
 /// Ergonomics trait for a type with a [`StandardUniform`] distribution, allowing values to be generated
-/// uniformly from an [`Rng`] by a method in its own namespace.
+/// uniformly from an [`RngExt`] by a method in its own namespace.
 ///
 /// Example
 /// ```
-/// # use rand::{Rng, SeedableRng, rngs::StdRng};
+/// # use rand::{RngExt, SeedableRng, rngs::StdRng};
 /// # use bevy_math::{Dir3, sampling::FromRng};
 /// let mut rng = StdRng::seed_from_u64(451);
 /// let random_dir = Dir3::from_rng(&mut rng);
@@ -48,27 +45,39 @@ where
     StandardUniform: Distribution<Self>,
 {
     /// Construct a value of this type uniformly at random using `rng` as the source of randomness.
-    fn from_rng<R: Rng + ?Sized>(rng: &mut R) -> Self {
+    fn from_rng<R: RngExt + ?Sized>(rng: &mut R) -> Self {
         rng.random()
     }
 }
 
 impl Distribution<Dir2> for StandardUniform {
     #[inline]
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir2 {
-        let circle = Circle::new(1.0);
-        let vector = circle.sample_boundary(rng);
+    fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Dir2 {
+        let theta = rng.random_range(0.0..TAU);
+        let (sin, cos) = ops::sin_cos(theta);
+        let vector = Vec2::new(cos, sin);
         Dir2::new_unchecked(vector)
     }
+}
+
+/// Boundary sampling for unit-spheres
+#[inline]
+fn sample_unit_sphere_boundary<R: RngExt + ?Sized>(rng: &mut R) -> Vec3 {
+    let z = rng.random_range(-1f32..=1f32);
+    let (a_sin, a_cos) = ops::sin_cos(rng.random_range(-PI..=PI));
+    let c = ops::sqrt(1f32 - z * z);
+    let x = a_sin * c;
+    let y = a_cos * c;
+
+    Vec3::new(x, y, z)
 }
 
 impl FromRng for Dir2 {}
 
 impl Distribution<Dir3> for StandardUniform {
     #[inline]
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3 {
-        let sphere = Sphere::new(1.0);
-        let vector = sphere.sample_boundary(rng);
+    fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Dir3 {
+        let vector = sample_unit_sphere_boundary(rng);
         Dir3::new_unchecked(vector)
     }
 }
@@ -77,10 +86,9 @@ impl FromRng for Dir3 {}
 
 impl Distribution<Dir3A> for StandardUniform {
     #[inline]
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3A {
-        let sphere = Sphere::new(1.0);
-        let vector: Vec3A = sphere.sample_boundary(rng).into();
-        Dir3A::new_unchecked(vector)
+    fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Dir3A {
+        let vector = sample_unit_sphere_boundary(rng);
+        Dir3A::new_unchecked(vector.to_vec3a())
     }
 }
 
@@ -88,7 +96,7 @@ impl FromRng for Dir3A {}
 
 impl Distribution<Rot2> for StandardUniform {
     #[inline]
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Rot2 {
+    fn sample<R: RngExt + ?Sized>(&self, rng: &mut R) -> Rot2 {
         let angle = rng.random_range(0.0..TAU);
         Rot2::radians(angle)
     }

@@ -13,7 +13,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 mod buffers;
@@ -46,7 +46,7 @@ struct AutoExposureResources {
 
 impl Plugin for AutoExposurePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "auto_exposure.wgsl");
+        embedded_asset!(app, "auto_exposure.wesl");
 
         app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
             .init_asset::<AutoExposureCompensationCurve>()
@@ -63,7 +63,7 @@ impl Plugin for AutoExposurePlugin {
         };
 
         render_app
-            .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
+            .init_gpu_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
             .add_systems(
                 RenderStartup,

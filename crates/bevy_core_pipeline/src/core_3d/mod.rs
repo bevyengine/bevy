@@ -6,23 +6,29 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 /// True if multisampled depth textures are supported on this platform.
 ///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field and screen space reflections entirely on WebGL 2.
+/// WebGL 2:
+/// - doesn't support `copy_texture_to_texture` for depth textures yet, thus it doesn't support `DepthPrepass`.
+/// - doesn't support creating multisampled textures if they are not pure `RENDER_ATTACHMENT`,
+///   so it doesn't support Msaa when reading `ViewDepthStencilTexture`.
+/// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
+///
+/// To read depth texture on WebGL 2, we can only use `ViewDepthStencilTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// Therefore we disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
-pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
+pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = false;
 
 /// True if multisampled depth textures are supported on this platform.
 ///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field and screen space reflections entirely on WebGL 2.
+/// WebGL 2:
+/// - doesn't support `copy_texture_to_texture` for depth textures yet, thus it doesn't support `DepthPrepass`.
+/// - doesn't support creating multisampled textures if they are not pure `RENDER_ATTACHMENT`,
+///   so it doesn't support Msaa when reading `ViewDepthStencilTexture`.
+/// - shadow sampler `texture_depth_2d` doesn't support sampling, only supports comparison.
+///
+/// To read depth texture on WebGL 2, we can only use `ViewDepthStencilTexture` with `Msaa::Off` and bind depth texture as unfilterable `texture_2d<f32>`.
+/// Therefore we disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
+pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
@@ -31,21 +37,23 @@ use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
-    mesh::allocator::SlabId,
+    mesh::allocator::MeshSlabs,
     occlusion_culling::OcclusionCulling,
-    render_phase::PhaseItemBatchSetKey,
-    texture::CachedTexture,
+    render_phase::{PhaseItemBatchSetKey, ViewRangefinder3d},
+    texture::{CachedTexture, DepthStencilAttachment},
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
+use indexmap::IndexMap;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHash, prelude::*};
 use bevy_image::ToExtents;
-use bevy_math::FloatOrd;
+use bevy_log::warn;
+use bevy_math::{FloatOrd, Vec3};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -59,14 +67,13 @@ use bevy_render::{
     render_resource::{
         CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
-    view::{ExtractedView, ViewDepthTexture},
+    view::{ExtractedView, ViewDepthStencilTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
-use tracing::warn;
 
 use crate::deferred::copy_lighting_id::copy_deferred_lighting_id;
 use crate::deferred::node::{early_deferred_prepass, late_deferred_prepass};
@@ -128,7 +135,8 @@ impl Plugin for Core3dPlugin {
                     sort_phase_system::<Transparent3d>.in_set(RenderSystems::PhaseSort),
                     configure_occlusion_culling_view_targets
                         .after(prepare_view_targets)
-                        .in_set(RenderSystems::ManageViews),
+                        .in_set(RenderSystems::PrepareViews)
+                        .ambiguous_with(RenderSystems::PrepareViews),
                     prepare_core_3d_depth_textures.in_set(RenderSystems::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSystems::PrepareResources),
                 ),
@@ -142,10 +150,15 @@ impl Plugin for Core3dPlugin {
                         early_deferred_prepass,
                         late_prepass,
                         late_deferred_prepass,
-                        copy_deferred_lighting_id,
                     )
                         .chain()
                         .in_set(Core3dSystems::Prepass),
+                    // The lighting-ID texture is a snapshot of the completed deferred
+                    // prepass. Keep the copy outside the `Prepass` set so custom prepass
+                    // producers (such as the meshlet G-buffer pass) cannot race it.
+                    copy_deferred_lighting_id
+                        .after(Core3dSystems::Prepass)
+                        .before(Core3dSystems::MainPass),
                     (main_opaque_pass_3d, main_transparent_pass_3d)
                         .chain()
                         .in_set(Core3dSystems::MainPass),
@@ -193,16 +206,13 @@ pub struct Opaque3dBatchSetKey {
     /// In the case of PBR, this is the `MaterialBindGroupIndex`.
     pub material_bind_group_index: Option<u32>,
 
-    /// The ID of the slab of GPU memory that contains vertex data.
+    /// The IDs of the slabs of GPU memory in the mesh allocator that contain
+    /// the mesh data.
     ///
-    /// For non-mesh items, you can fill this with 0 if your items can be
-    /// multi-drawn, or with a unique value if they can't.
-    pub vertex_slab: SlabId,
-
-    /// The ID of the slab of GPU memory that contains index data, if present.
-    ///
-    /// For non-mesh items, you can safely fill this with `None`.
-    pub index_slab: Option<SlabId>,
+    /// For non-mesh items, you can fill the [`MeshSlabs::vertex_slab_id`] with
+    /// 0 if your items can be multi-drawn, or with a unique value if they
+    /// can't.
+    pub slabs: MeshSlabs,
 
     /// Index of the slab that the lightmap resides in, if a lightmap is
     /// present.
@@ -211,7 +221,7 @@ pub struct Opaque3dBatchSetKey {
 
 impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
     fn indexed(&self) -> bool {
-        self.index_slab.is_some()
+        self.slabs.index_slab_id.is_some()
     }
 }
 
@@ -370,6 +380,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 }
 
 pub struct Transparent3d {
+    pub sorting_info: TransparentSortingInfo3d,
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: (Entity, MainEntity),
@@ -427,8 +438,19 @@ impl SortedPhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Transparent3d, EntityHash>) {
+        items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        items: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        view: &ExtractedView,
+    ) {
+        // Determine the distance to the view for each phase item.
+        let rangefinder = view.rangefinder3d();
+        for item in items.values_mut() {
+            item.distance = item.sorting_info.sort_distance(&rangefinder);
+        }
     }
 
     #[inline]
@@ -441,6 +463,38 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
+    }
+}
+
+/// Information needed to perform a depth sort.
+#[derive(Clone, Copy)]
+pub enum TransparentSortingInfo3d {
+    /// No information is needed because this object should always appear on top
+    /// of other objects.
+    AlwaysOnTop,
+    /// Information needed to sort the object based on distance to the view.
+    Sorted {
+        /// The center of the mesh.
+        ///
+        /// This is the point that is used to sort.
+        mesh_center: Vec3,
+        /// An additional value that's artificially added to the distance before
+        /// sorting.
+        depth_bias: f32,
+    },
+}
+
+impl TransparentSortingInfo3d {
+    /// Calculates the value used for distance sorting for an item.
+    /// For [`Self::AlwaysOnTop`], this is [`f32::NEG_INFINITY`].
+    pub fn sort_distance(&self, rangefinder: &ViewRangefinder3d) -> f32 {
+        match *self {
+            TransparentSortingInfo3d::AlwaysOnTop => f32::NEG_INFINITY,
+            TransparentSortingInfo3d::Sorted {
+                mesh_center,
+                depth_bias,
+            } => rangefinder.distance(&mesh_center) + depth_bias,
+        }
     }
 }
 
@@ -472,7 +526,7 @@ pub fn extract_core_3d_camera_phases(
 
         opaque_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
-        transparent_3d_phases.insert_or_clear(retained_view_entity);
+        transparent_3d_phases.prepare_for_new_frame(retained_view_entity);
 
         live_entities.insert(retained_view_entity);
     }
@@ -665,12 +719,13 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture::new(
+        commands.entity(entity).insert(ViewDepthStencilTexture::new(
             cached_texture,
             match camera_3d.depth_load_op {
                 Camera3dDepthLoadOp::Clear(v) => Some(v),
                 Camera3dDepthLoadOp::Load => None,
             },
+            None,
         ));
     }
 }
@@ -714,6 +769,7 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     frame_count: Res<FrameCount>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
@@ -732,6 +788,11 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepassDoubleBuffer>,
     )>,
 ) {
+    let motion_vector_storage_binding = render_adapter
+        .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
+        .allowed_usages
+        .contains(TextureUsages::STORAGE_BINDING);
+
     let mut depth_textures1 = <HashMap<_, _>>::default();
     let mut depth_textures2 = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
@@ -844,8 +905,13 @@ pub fn prepare_prepass_textures(
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: MOTION_VECTOR_PREPASS_FORMAT,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
+                            usage: if motion_vector_storage_binding && msaa.samples() == 1 {
+                                TextureUsages::RENDER_ATTACHMENT
+                                    | TextureUsages::TEXTURE_BINDING
+                                    | TextureUsages::STORAGE_BINDING
+                            } else {
+                                TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING
+                            },
                             view_formats: &[],
                         },
                     )
@@ -920,25 +986,25 @@ pub fn prepare_prepass_textures(
         });
 
         commands.entity(entity).insert(ViewPrepassTextures {
-            depth: package_double_buffered_texture(
+            depth: package_double_buffered_depth_texture(
                 cached_depth_texture1,
                 cached_depth_texture2,
                 frame_count.0,
             ),
             normal: cached_normals_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             // Red and Green channels are X and Y components of the motion vectors
             // Blue channel doesn't matter, but set to 0.0 for possible faster clear
             // https://gpuopen.com/performance/#clears
             motion_vectors: cached_motion_vectors_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             deferred: package_double_buffered_texture(
                 cached_deferred_texture1,
                 cached_deferred_texture2,
                 frame_count.0,
             ),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
-                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK))),
+                .map(|t| ColorAttachment::new(t, None, None, Some(LinearRgba::BLACK.into()))),
             size,
         });
     }
@@ -954,20 +1020,35 @@ fn package_double_buffered_texture(
             t1,
             None,
             None,
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => Some(ColorAttachment::new(
             t1,
             None,
             Some(t2),
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
         (Some(t1), Some(t2)) => Some(ColorAttachment::new(
             t2,
             None,
             Some(t1),
-            Some(LinearRgba::BLACK),
+            Some(LinearRgba::BLACK.into()),
         )),
+        _ => None,
+    }
+}
+
+fn package_double_buffered_depth_texture(
+    texture1: Option<CachedTexture>,
+    texture2: Option<CachedTexture>,
+    frame_count: u32,
+) -> Option<DepthStencilAttachment> {
+    match (texture1, texture2) {
+        (Some(t1), None) => Some(DepthStencilAttachment::new(t1, None, Some(0.0), None)),
+        (Some(t1), Some(t2)) if frame_count.is_multiple_of(2) => {
+            Some(DepthStencilAttachment::new(t1, Some(t2), Some(0.0), None))
+        }
+        (Some(t1), Some(t2)) => Some(DepthStencilAttachment::new(t2, Some(t1), Some(0.0), None)),
         _ => None,
     }
 }

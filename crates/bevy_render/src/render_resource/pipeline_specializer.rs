@@ -16,7 +16,7 @@ use bevy_platform::{
     hash::FixedHasher,
 };
 use bevy_utils::default;
-use core::hash::Hash;
+use core::hash::{BuildHasher, Hash, Hasher};
 
 /// A trait that allows constructing different variants of a render pipeline from a key.
 ///
@@ -118,11 +118,11 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
     pub fn specialize(
         &mut self,
         cache: &PipelineCache,
-        specialize_pipeline: &S,
+        pipeline_specializer: &S,
         key: S::Key,
     ) -> CachedComputePipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+            let descriptor = pipeline_specializer.specialize(key);
             cache.queue_compute_pipeline(descriptor)
         })
     }
@@ -170,6 +170,25 @@ impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
 }
 
 impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
+    #[inline]
+    pub fn get_pipeline(
+        &self,
+        key: &S::Key,
+        layout: &MeshVertexBufferLayoutRef,
+    ) -> Option<CachedRenderPipelineId> {
+        let hash = {
+            let mut hasher = self.mesh_layout_cache.hasher().build_hasher();
+            layout.hash(&mut hasher);
+            key.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        self.mesh_layout_cache
+            .raw_entry()
+            .from_hash(hash, |(l, k)| l == layout && k == key)
+            .map(|(_, id)| *id)
+    }
+
     /// Construct a new render pipeline based on the provided key and the mesh's vertex buffer
     /// layout.
     #[inline]
@@ -196,7 +215,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         fn specialize_slow<S>(
             vertex_layout_cache: &mut VertexLayoutCache<S>,
             cache: &PipelineCache,
-            specialize_pipeline: &S,
+            pipeline_specializer: &S,
             key: S::Key,
             layout: &MeshVertexBufferLayoutRef,
             entry: VacantEntry<
@@ -208,7 +227,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         where
             S: SpecializedMeshPipeline,
         {
-            let descriptor = specialize_pipeline
+            let descriptor = pipeline_specializer
                 .specialize(key.clone(), layout)
                 .map_err(|mut err| {
                     {

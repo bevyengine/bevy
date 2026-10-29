@@ -28,103 +28,20 @@ pub use par_iter::*;
 pub use state::*;
 pub use world_query::*;
 
-/// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
-/// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
-/// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
-/// in release mode.
-#[doc(hidden)]
-pub trait DebugCheckedUnwrap {
-    type Item;
-    /// # Panics
-    /// Panics if the value is `None` or `Err`, only in debug mode.
-    ///
-    /// # Safety
-    /// This must never be called on a `None` or `Err` value. This can
-    /// only be called on `Some` or `Ok` values.
-    unsafe fn debug_checked_unwrap(self) -> Self::Item;
-}
-
-// These two impls are explicitly split to ensure that the unreachable! macro
-// does not cause inlining to fail when compiling in release mode.
-#[cfg(debug_assertions)]
-impl<T> DebugCheckedUnwrap for Option<T> {
-    type Item = T;
-
-    #[inline(always)]
-    #[track_caller]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Some(inner) = self {
-            inner
-        } else {
-            unreachable!()
-        }
-    }
-}
-
-// These two impls are explicitly split to ensure that the unreachable! macro
-// does not cause inlining to fail when compiling in release mode.
-#[cfg(debug_assertions)]
-impl<T, U> DebugCheckedUnwrap for Result<T, U> {
-    type Item = T;
-
-    #[inline(always)]
-    #[track_caller]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Ok(inner) = self {
-            inner
-        } else {
-            unreachable!()
-        }
-    }
-}
-
-// These two impls are explicitly split to ensure that the unreachable! macro
-// does not cause inlining to fail when compiling in release mode.
-#[cfg(not(debug_assertions))]
-impl<T, U> DebugCheckedUnwrap for Result<T, U> {
-    type Item = T;
-
-    #[inline(always)]
-    #[track_caller]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Ok(inner) = self {
-            inner
-        } else {
-            core::hint::unreachable_unchecked()
-        }
-    }
-}
-
-#[cfg(not(debug_assertions))]
-impl<T> DebugCheckedUnwrap for Option<T> {
-    type Item = T;
-
-    #[inline(always)]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Some(inner) = self {
-            inner
-        } else {
-            core::hint::unreachable_unchecked()
-        }
-    }
-}
-
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
     use crate::{
-        archetype::Archetype,
-        change_detection::Tick,
-        component::{Component, ComponentId, Components},
-        prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
+        change_detection::ContiguousRef,
+        component::Component,
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
         query::{
-            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, QueryCombinationIter,
-            QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, Has, QueryCombinationIter, QueryData, QueryFilter,
+            ReadOnlyQueryData,
         },
         schedule::{IntoScheduleConfigs, Schedule},
-        storage::{Table, TableRow},
-        system::{assert_is_system, IntoSystem, Query, System, SystemState},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        system::{IntoSystem, Query, System, SystemState},
+        world::{Ref, World},
     };
     use alloc::{vec, vec::Vec};
     use core::{any::type_name, fmt::Debug, hash::Hash};
@@ -160,6 +77,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "This test takes ~170s on CI")]
     fn query_filtered_exactsizeiterator_len() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
@@ -305,7 +223,7 @@ mod tests {
             sorted.sort();
             assert!(expected.contains(&sorted),
                     "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
-                    &sorted, &expected, &values);
+                    sorted, expected, values);
         });
     }
 
@@ -721,7 +639,8 @@ mod tests {
         world.spawn(B(0));
         {
             fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
-                assert_eq!(has_a_and_b.iter_many(&has_a).count(), 2);
+                assert_eq!(has_a_and_b.iter_many(&has_a).matched().count(), 2);
+                assert_eq!(has_a_and_b.iter_many(&has_a).count(), 3);
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
@@ -729,7 +648,7 @@ mod tests {
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
-                let mut iter = b_query.iter_many_mut(&has_a);
+                let mut iter = b_query.iter_many_mut(&has_a).matched();
                 while let Some(mut b) = iter.fetch_next() {
                     b.0 = 1;
                 }
@@ -766,7 +685,7 @@ mod tests {
         let _: Option<&Foo> = q.iter(&world).next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>(&world).next();
         let _: Option<&Foo> = q.iter_manual(&world).next();
-        let _: Option<&Foo> = q.iter_many(&world, [e]).next();
+        let _: Option<&Foo> = q.iter_many(&world, [e]).next().map(Result::unwrap);
         q.iter(&world).for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(&world, e).ok();
@@ -777,10 +696,10 @@ mod tests {
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
-        let q = q.get_mut(&mut world);
+        let q = q.get_mut(&mut world).unwrap();
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
-        let _: Option<&Foo> = q.iter_many([e]).next();
+        let _: Option<&Foo> = q.iter_many([e]).next().map(Result::unwrap);
         q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
@@ -818,110 +737,283 @@ mod tests {
         assert_eq!(values, vec![&B(2)]);
     }
 
-    #[derive(Resource)]
-    struct R;
-
-    /// `QueryData` that performs read access on R to test that resource access is tracked
-    struct ReadsRData;
-
-    // SAFETY:
-    // `update_component_access` adds resource read access for `R`.
-    unsafe impl WorldQuery for ReadsRData {
-        type Fetch<'w> = ();
-        type State = ComponentId;
-
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
-
-        unsafe fn init_fetch<'w, 's>(
-            _world: UnsafeWorldCell<'w>,
-            _state: &'s Self::State,
-            _last_run: Tick,
-            _this_run: Tick,
-        ) -> Self::Fetch<'w> {
-        }
-
-        const IS_DENSE: bool = true;
-
-        #[inline]
-        unsafe fn set_archetype<'w, 's>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &'s Self::State,
-            _archetype: &'w Archetype,
-            _table: &Table,
-        ) {
-        }
-
-        #[inline]
-        unsafe fn set_table<'w, 's>(
-            _fetch: &mut Self::Fetch<'w>,
-            _state: &'s Self::State,
-            _table: &'w Table,
-        ) {
-        }
-
-        fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess) {
-            assert!(
-                !access.access().has_resource_write(component_id),
-                "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."
-            );
-            access.add_resource_read(component_id);
-        }
-
-        fn init_state(world: &mut World) -> Self::State {
-            world.components_registrator().register_resource::<R>()
-        }
-
-        fn get_state(components: &Components) -> Option<Self::State> {
-            components.resource_id::<R>()
-        }
-
-        fn matches_component_set(
-            _state: &Self::State,
-            _set_contains_id: &impl Fn(ComponentId) -> bool,
-        ) -> bool {
-            true
-        }
-    }
-
-    // SAFETY: `Self` is the same as `Self::ReadOnly`
-    unsafe impl QueryData for ReadsRData {
-        const IS_READ_ONLY: bool = true;
-        const IS_ARCHETYPAL: bool = true;
-        type ReadOnly = Self;
-        type Item<'w, 's> = ();
-
-        fn shrink<'wlong: 'wshort, 'wshort, 's>(
-            _item: Self::Item<'wlong, 's>,
-        ) -> Self::Item<'wshort, 's> {
-        }
-
-        #[inline(always)]
-        unsafe fn fetch<'w, 's>(
-            _state: &'s Self::State,
-            _fetch: &mut Self::Fetch<'w>,
-            _entity: Entity,
-            _table_row: TableRow,
-        ) -> Option<Self::Item<'w, 's>> {
-            Some(())
-        }
-
-        fn iter_access(
-            state: &Self::State,
-        ) -> impl Iterator<Item = super::access_iter::EcsAccessType<'_>> {
-            core::iter::once(super::access_iter::EcsAccessType::Resource(
-                super::access_iter::ResourceAccessLevel::Read(*state),
-            ))
-        }
-    }
-
-    // SAFETY: access is read only
-    unsafe impl ReadOnlyQueryData for ReadsRData {}
-
-    impl ArchetypeQueryData for ReadsRData {}
-
     #[test]
-    fn read_res_read_res_no_conflict() {
-        fn system(_q1: Query<ReadsRData, With<A>>, _q2: Query<ReadsRData, Without<A>>) {}
-        assert_is_system(system);
+    fn par_iter_many_unique_visits_each_listed_entity_once() {
+        use crate::entity::UniqueEntityVec;
+        use core::sync::atomic::{AtomicUsize, Ordering};
+
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        let mut world = World::new();
+        let entities: Vec<Entity> = world.spawn_batch((0..1000).map(|i| (A(i), B(0)))).collect();
+        // Every other entity.
+        let subset: UniqueEntityVec = entities.iter().copied().step_by(2).collect();
+
+        let mut state = SystemState::<Query<(&A, &mut B)>>::new(&mut world);
+        let mut query = state.get_mut(&mut world).unwrap();
+        query.par_iter_many_unique_mut(&subset).for_each(|item| {
+            let (a, mut b) = item.unwrap();
+            b.0 = a.0 + 1;
+        });
+
+        let sum = AtomicUsize::new(0);
+        query.par_iter_many_unique(&subset).for_each(|item| {
+            let (_, b) = item.unwrap();
+            sum.fetch_add(b.0, Ordering::Relaxed);
+        });
+        // Listed entities hold A(i) + 1 for i = 0, 2, ..., 998.
+        assert_eq!(
+            sum.into_inner(),
+            (0..1000).step_by(2).map(|i| i + 1).sum::<usize>()
+        );
+
+        for (i, &entity) in entities.iter().enumerate() {
+            let expected = if i % 2 == 0 { i + 1 } else { 0 };
+            assert_eq!(world.get::<B>(entity).unwrap().0, expected);
+        }
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23352
+    #[test]
+    // presence/lack of trailing commas are significant in this test, so skip rustfmt
+    #[rustfmt::skip]
+    fn query_data_derive_where_clause() {
+        #[derive(QueryData)]
+        struct QueryDataA<C>
+        where
+            C: Component,
+        {
+            component: &'static C,
+        }
+
+        #[derive(QueryData)]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component;
+    }
+
+    // Declare a couple of components that have summary ticks.
+    #[derive(Component)]
+    #[component(summary_tick)]
+    #[expect(
+        dead_code,
+        reason = "Nothing reads the interior value but it's nice for debugging anyway"
+    )]
+    struct SA(usize);
+    #[derive(Component)]
+    #[component(summary_tick)]
+    struct SB(usize);
+
+    /// Tests that summary ticks are disabled for components by default.
+    #[test]
+    fn summary_tick_is_disabled_by_default() {
+        let mut world = World::new();
+        let id = world.register_component::<A>();
+        assert!(!world.components.get_info(id).unwrap().summary_tick());
+
+        // Make sure that `summary_tick_is_changed` returns `None`, as there is
+        // no summary tick.
+        world.spawn(A(1));
+        let mut query = world.query::<Ref<A>>();
+        let item = query.contiguous_iter(&world).unwrap().next().unwrap();
+        let (_, ticks) = ContiguousRef::split(item);
+        assert!(ticks.summary_tick_is_changed().is_none());
+    }
+
+    /// Tests that summary ticks are enabled for components when the
+    /// `component(summary_tick)` attribute is present.
+    #[test]
+    fn summary_tick_is_enabled_via_an_attribute() {
+        let mut world = World::new();
+        let id = world.register_component::<SA>();
+        assert!(world.components().get_info(id).unwrap().summary_tick());
+
+        // The summary tick should be present and should reflect a change, as
+        // `SA` was just spawned.
+        world.spawn(SA(1));
+        let mut query = world.query::<Ref<SA>>();
+        let item = query.contiguous_iter(&world).unwrap().next().unwrap();
+        let (_, ticks) = ContiguousRef::split(item);
+        assert_eq!(ticks.summary_tick_is_changed(), Some(true));
+    }
+
+    /// Ensure that, when an entity changes archetype on account of a component
+    /// insertion, all components in the destination table with summary ticks
+    /// have those summary ticks updated.
+    #[test]
+    fn summary_tick_is_updated_when_archetypes_change() {
+        // Spawn an entity with an `SA` component into the world.
+        let mut world = World::new();
+        let entity = world.spawn(SA(1)).id();
+
+        // Add the `SB` component to that entity.
+        world.entity_mut(entity).insert(SB(2));
+
+        // Both components' summary ticks should be present and should reflect
+        // changes, as an archetype move occurred.
+        let mut query = world.query::<(Ref<SA>, Ref<SB>)>();
+        let (item_sa, item_sb) = query.contiguous_iter(&world).unwrap().next().unwrap();
+        let (_, ticks_sa) = ContiguousRef::split(item_sa);
+        let (_, ticks_sb) = ContiguousRef::split(item_sb);
+        assert_eq!(ticks_sa.summary_tick_is_changed(), Some(true));
+        assert_eq!(ticks_sb.summary_tick_is_changed(), Some(true));
+    }
+
+    /// Ensure that, when an entity changes archetype due to the removal of a
+    /// component, that the components in the destination table with summary
+    /// ticks have those summary ticks updated.
+    #[test]
+    fn summary_tick_is_updated_when_archetypes_change_on_remove() {
+        let mut world = World::new();
+        let entity = world.spawn((SA(1), SB(2))).id();
+
+        world.entity_mut(entity).remove::<SB>();
+
+        let mut query = world.query::<Ref<SA>>();
+        let item_sa = query.contiguous_iter(&world).unwrap().next().unwrap();
+        let (_, ticks_sa) = ContiguousRef::split(item_sa);
+        assert_eq!(ticks_sa.summary_tick_is_changed(), Some(true));
+    }
+
+    /// Ensure that, when multiple instances of a component in a single table
+    /// are updated, the summary tick is also updated.
+    #[test]
+    fn summary_ticks_reflect_changes_to_multiple_instances_of_a_component() {
+        let mut world = World::new();
+        world.spawn((SA(1), SB(1)));
+        world.spawn((SA(2), SB(2)));
+
+        // Initialize the query. The summary tick should be present and should
+        // reflect a change, as two components were just spawned.
+        let mut q_sb = world.query_filtered::<Ref<SB>, With<SA>>();
+        assert_eq!(get_summary_tick_is_changed(&world, &mut q_sb), Some(true));
+
+        // Clear trackers, and update. The summary tick should reflect a change
+        // now.
+        world.clear_trackers();
+        for mut sb in world.query::<&mut SB>().iter_mut(&mut world) {
+            sb.0 += 1;
+        }
+        assert_eq!(get_summary_tick_is_changed(&world, &mut q_sb), Some(true));
+
+        // Clear trackers, and don't update. The summary tick should not reflect
+        // a change.
+        world.clear_trackers();
+        assert_eq!(get_summary_tick_is_changed(&world, &mut q_sb), Some(false));
+
+        // Returns the result of `summary_tick_is_changed` for the first table
+        // containing `SB`.
+        fn get_summary_tick_is_changed(
+            world: &World,
+            q_sb: &mut QueryState<Ref<SB>, With<SA>>,
+        ) -> Option<bool> {
+            let item = q_sb.contiguous_iter(world).unwrap().next().unwrap();
+            let (_, ticks) = ContiguousRef::split(item);
+            ticks.summary_tick_is_changed()
+        }
+    }
+
+    /// Ensure that, when a single instance of a component in a single table
+    /// are updated, the summary tick is also updated.
+    #[test]
+    fn summary_ticks_reflect_changes_to_a_single_instance_of_a_component() {
+        let mut world = World::new();
+        world.spawn((SA(1), SB(1)));
+        let entity_1 = world.spawn((SA(2), SB(2))).id();
+
+        world.clear_trackers();
+
+        world.get_mut::<SB>(entity_1).unwrap().0 = 20;
+
+        let mut query = world.query::<Ref<SB>>();
+        let item = query.contiguous_iter(&world).unwrap().next().unwrap();
+        let (values, ticks) = ContiguousRef::split(item);
+        assert_eq!(values.len(), 2);
+        // One entity has changed, so the summary tick is changed.
+        assert_eq!(ticks.summary_tick_is_changed(), Some(true));
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23394
+    #[test]
+    fn query_data_derive_contiguous_tuple() {
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataA(Entity, &'static A);
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataB<C>(&'static C)
+        where
+            C: Component + PartialEq;
+
+        let mut world = World::new();
+        let _ = world.query::<QueryDataA>().contiguous_iter_mut(&mut world);
+        let _ = world.query::<QueryDataB<D>>().contiguous_iter(&world);
+    }
+
+    // regression test for https://github.com/bevyengine/bevy/pull/23930
+    #[test]
+    fn query_data_derive_empty() {
+        #[derive(QueryData)]
+        struct QueryDataA {}
+
+        #[derive(QueryData)]
+        struct QueryDataB();
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataC {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        struct QueryDataD();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataE {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(immutable))]
+        struct QueryDataF();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataG {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(immutable))]
+        struct QueryDataH();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataI {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(mutable))]
+        struct QueryDataJ();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataK {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(mutable))]
+        struct QueryDataL();
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataM {}
+
+        #[derive(QueryData)]
+        #[query_data(contiguous(all))]
+        struct QueryDataN();
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataO {}
+
+        #[derive(QueryData)]
+        #[query_data(mutable, contiguous(all))]
+        struct QueryDataP();
     }
 }

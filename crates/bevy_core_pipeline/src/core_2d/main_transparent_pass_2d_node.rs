@@ -1,16 +1,16 @@
 use crate::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
+use bevy_log::error;
+#[cfg(feature = "trace")]
+use bevy_log::info_span;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::{RenderContext, ViewQuery},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthStencilTexture, ViewTarget},
 };
-use tracing::error;
-#[cfg(feature = "trace")]
-use tracing::info_span;
 
 pub fn main_transparent_pass_2d(
     world: &World,
@@ -18,7 +18,7 @@ pub fn main_transparent_pass_2d(
         &ExtractedCamera,
         &ExtractedView,
         &ViewTarget,
-        &ViewDepthTexture,
+        &ViewDepthStencilTexture,
     )>,
     transparent_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     mut ctx: RenderContext,
@@ -30,6 +30,10 @@ pub fn main_transparent_pass_2d(
     else {
         return;
     };
+
+    if transparent_phase.items.is_empty() {
+        return;
+    }
 
     #[cfg(feature = "trace")]
     let _span = info_span!("main_transparent_pass_2d").entered();
@@ -61,12 +65,10 @@ pub fn main_transparent_pass_2d(
             render_pass.set_camera_viewport(viewport);
         }
 
-        if !transparent_phase.items.is_empty() {
-            #[cfg(feature = "trace")]
-            let _transparent_span = info_span!("transparent_main_pass_2d").entered();
-            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
-                error!("Error encountered while rendering the transparent 2D phase {err:?}");
-            }
+        #[cfg(feature = "trace")]
+        let _transparent_span = info_span!("transparent_main_pass_2d").entered();
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the transparent 2D phase {err:?}");
         }
 
         pass_span.end(&mut render_pass);

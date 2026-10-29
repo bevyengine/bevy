@@ -2,10 +2,8 @@ use crate::ReflectStruct;
 
 /// A helper struct for creating remote-aware field accessors.
 ///
-/// These are "remote-aware" because when a field is a remote field, it uses a [`transmute`] internally
-/// to access the field.
-///
-/// [`transmute`]: std::mem::transmute
+/// These are "remote-aware" because when a field is a remote field, they use its
+/// `ReflectRemote` implementation to access the field.
 pub(crate) struct FieldAccessors {
     /// The referenced field accessors, such as `&self.foo`.
     pub fields_ref: Vec<proc_macro2::TokenStream>,

@@ -14,14 +14,18 @@ extern crate alloc;
 
 /// Common run conditions
 pub mod common_conditions;
+mod delayed_commands;
 mod fixed;
+mod moment;
 mod real;
 mod stopwatch;
 mod time;
 mod timer;
 mod virt;
 
+pub use delayed_commands::*;
 pub use fixed::*;
+pub use moment::*;
 pub use real::*;
 pub use stopwatch::*;
 pub use time::*;
@@ -33,10 +37,10 @@ pub use virt::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{DelayedCommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
-use bevy_app::{prelude::*, RunFixedMainLoop};
+use bevy_app::{prelude::*, OnAppExitSystems, RunFixedMainLoop};
 use bevy_ecs::{
     message::{
         message_update_system, signal_message_update_system, MessageRegistry, ShouldUpdateMessages,
@@ -83,9 +87,16 @@ impl Plugin for TimePlugin {
                 .in_set(TimeSystems)
                 .ambiguous_with(message_update_system),
         )
+        .add_systems(PreUpdate, check_delayed_command_queues)
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
+        )
+        .add_systems(
+            Last,
+            silence_delayed_command_queues_on_exit
+                .in_set(OnAppExitSystems)
+                .run_if(|messages: Res<Messages<AppExit>>| !messages.is_empty()),
         );
 
         // Ensure the messages are not dropped until `FixedMain` systems can observe them

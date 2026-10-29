@@ -6,8 +6,8 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
-//! with forward or deferred rendering and don't require a prepass.
+//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
+//! or deferred rendering and don't require a prepass.
 //!
 //! Each clustered decal may contain up to 4 textures. By default, the 4
 //! textures correspond to the base color, a normal map, a metallic-roughness
@@ -15,7 +15,7 @@
 //! can use these 4 textures for whatever you wish. Additionally, you can use
 //! the built-in *tag* field to store additional application-specific data; by
 //! reading the tag in the shader, you can modify the appearance of a clustered
-//! decal arbitrarily. See the documentation in `clustered.wgsl` for more
+//! decal arbitrarily. See the documentation in `clustered.wesl` for more
 //! information and the `clustered_decals` example for an example of use.
 
 use core::{num::NonZero, ops::Deref};
@@ -33,7 +33,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_light::{ClusteredDecal, DirectionalLightTexture, PointLightTexture, SpotLightTexture};
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec3};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -43,10 +43,10 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    sync_component::SyncComponentPlugin,
+    sync_component::{SyncComponent, SyncComponentPlugin},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
@@ -75,7 +75,13 @@ pub struct RenderClusteredDecals {
     /// [`Self::binding_index_to_textures`] holds the inverse mapping.
     texture_to_binding_index: HashMap<AssetId<Image>, i32>,
     /// The information concerning each decal that we provide to the shader.
+    ///
+    /// Light textures follow the true clustered decals in this list, so that
+    /// lights can reference them via their decal indices.
     decals: Vec<RenderClusteredDecal>,
+    /// The number of true clustered decals at the start of `decals`. Light
+    /// textures past this count aren't clusterable objects.
+    clusterable_decal_count: usize,
     /// Maps the [`bevy_render::sync_world::RenderEntity`] of each decal to the
     /// index of that decal in the [`Self::decals`] list.
     entity_to_decal_index: EntityHashMap<usize>,
@@ -88,14 +94,21 @@ impl RenderClusteredDecals {
         self.binding_index_to_textures.clear();
         self.texture_to_binding_index.clear();
         self.decals.clear();
+        self.clusterable_decal_count = 0;
         self.entity_to_decal_index.clear();
     }
 
+    /// Inserts a decal into the buffer, along with its associated textures.
+    ///
+    /// Decals inserted this way aren't assigned to clusters; use the
+    /// [`bevy_light::ClusteredDecal`] component for clusterable decals.
     pub fn insert_decal(
         &mut self,
         entity: Entity,
         images: [Option<AssetId<Image>>; IMAGES_PER_DECAL],
         local_from_world: Mat4,
+        world_position: Vec3,
+        bounding_sphere_radius: f32,
         tag: u32,
     ) {
         let image_indices = images.map(|maybe_image_id| match maybe_image_id {
@@ -106,6 +119,8 @@ impl RenderClusteredDecals {
         self.decals.push(RenderClusteredDecal {
             local_from_world,
             image_indices,
+            world_position,
+            bounding_sphere_radius,
             tag,
             pad_a: 0,
             pad_b: 0,
@@ -116,6 +131,22 @@ impl RenderClusteredDecals {
 
     pub fn get(&self, entity: Entity) -> Option<usize> {
         self.entity_to_decal_index.get(&entity).copied()
+    }
+
+    /// Returns the number of entries in the decal buffer, light textures included.
+    pub fn len(&self) -> usize {
+        self.decals.len()
+    }
+
+    /// Returns true if there are no entries in the decal buffer.
+    pub fn is_empty(&self) -> bool {
+        self.decals.is_empty()
+    }
+
+    /// Returns the number of true clustered decals in the scene, excluding
+    /// light textures, which aren't clusterable objects.
+    pub(crate) fn clusterable_decal_count(&self) -> usize {
+        self.clusterable_decal_count
     }
 }
 
@@ -145,22 +176,22 @@ impl Default for DecalsBuffer {
 
 impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "clustered.wgsl");
+        load_shader_library!(app, "clustered.wesl");
 
-        app.add_plugins(SyncComponentPlugin::<ClusteredDecal>::default());
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal, Self>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .init_resource::<DecalsBuffer>()
+            .init_gpu_resource::<DecalsBuffer>()
             .init_resource::<RenderClusteredDecals>()
             .add_systems(ExtractSchedule, (extract_decals, extract_clustered_decal))
             .add_systems(
                 Render,
                 prepare_decals
-                    .in_set(RenderSystems::ManageViews)
+                    .in_set(RenderSystems::PrepareViews)
                     .after(prepare_lights),
             )
             .add_systems(
@@ -168,6 +199,10 @@ impl Plugin for ClusteredDecalPlugin {
                 upload_decals.in_set(RenderSystems::PrepareResources),
             );
     }
+}
+
+impl SyncComponent<RenderApp, ClusteredDecalPlugin> for ClusteredDecal {
+    type Target = Self;
 }
 
 // This is needed because of the orphan rule not allowing implementing
@@ -203,6 +238,8 @@ pub struct RenderClusteredDecal {
     /// If the decal doesn't have a texture assigned to a slot, the index at
     /// that slot will be -1.
     image_indices: [i32; 4],
+    world_position: Vec3,
+    bounding_sphere_radius: f32,
     /// A custom tag available for application-defined purposes.
     tag: u32,
     /// Padding.
@@ -249,10 +286,15 @@ pub fn extract_decals(
     >,
     mut render_decals: ResMut<RenderClusteredDecals>,
 ) {
-    // Clear out the `RenderDecals` in preparation for a new frame.
+    // Clear out the `RenderClusteredDecals` in preparation for a new frame.
     render_decals.clear();
 
     extract_clustered_decals(&decals, &mut render_decals);
+
+    // Light textures follow the true clustered decals in the buffer, but
+    // aren't clusterable objects. Record where they start.
+    render_decals.clusterable_decal_count = render_decals.decals.len();
+
     extract_spot_light_textures(&spot_light_textures, &mut render_decals);
     extract_point_light_textures(&point_light_textures, &mut render_decals);
     extract_directional_light_textures(&directional_light_textures, &mut render_decals);
@@ -292,6 +334,8 @@ fn extract_clustered_decals(
                 clustered_decal.emissive_texture.as_ref().map(Handle::id),
             ],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             clustered_decal.tag,
         );
     }
@@ -320,6 +364,8 @@ fn extract_spot_light_textures(
             decal_entity,
             [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             0,
         );
     }
@@ -348,6 +394,8 @@ fn extract_point_light_textures(
             decal_entity,
             [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             texture.cubemap_layout as u32,
         );
     }
@@ -376,6 +424,8 @@ fn extract_directional_light_textures(
             decal_entity,
             [Some(texture.image.id()), None, None, None],
             global_transform.affine().inverse().into(),
+            global_transform.translation(),
+            (global_transform.scale() * Vec3::ONE).length(),
             if texture.tiled { 1 } else { 0 },
         );
     }

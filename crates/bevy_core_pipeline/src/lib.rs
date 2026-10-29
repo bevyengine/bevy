@@ -15,26 +15,30 @@ pub mod mip_generation;
 pub mod oit;
 pub mod prepass;
 pub mod schedule;
+pub mod skybox;
 pub mod tonemapping;
 pub mod upscaling;
 
+use bevy_ecs::schedule::IntoScheduleConfigs;
 pub use bevy_light::Skybox;
 pub use fullscreen_vertex_shader::FullscreenShader;
 pub use schedule::{Core2d, Core2dSystems, Core3d, Core3dSystems};
 
 mod fullscreen_vertex_shader;
-mod skybox;
 
-use crate::schedule::camera_driver;
+use crate::schedule::{
+    camera_driver, handle_uncovered_swap_chains, submit_pending_command_buffers,
+};
 use crate::{
     blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, mip_generation::MipGenerationPlugin,
-    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
+    prepass::BackgroundMotionVectorsPlugin, tonemapping::TonemappingPlugin,
+    upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::embedded_asset;
-use bevy_render::renderer::RenderGraph;
+use bevy_render::renderer::{RenderGraph, RenderGraphSystems};
 use bevy_render::RenderApp;
+use bevy_shader::load_shader_library;
 use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
@@ -42,7 +46,8 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "fullscreen_vertex_shader/fullscreen.wgsl");
+        load_shader_library!(app, "fullscreen_vertex_shader.wesl");
+        load_shader_library!(app, "tonemapping.wesl");
 
         app.add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
@@ -51,12 +56,19 @@ impl Plugin for CorePipelinePlugin {
                 UpscalingPlugin,
                 OrderIndependentTransparencyPlugin,
                 MipGenerationPlugin,
+                BackgroundMotionVectorsPlugin,
             ));
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app
-            .init_resource::<FullscreenShader>()
-            .add_systems(RenderGraph, camera_driver);
+        render_app.init_resource::<FullscreenShader>().add_systems(
+            RenderGraph,
+            (
+                camera_driver.in_set(RenderGraphSystems::Render),
+                (submit_pending_command_buffers, handle_uncovered_swap_chains)
+                    .chain()
+                    .in_set(RenderGraphSystems::Submit),
+            ),
+        );
     }
 }

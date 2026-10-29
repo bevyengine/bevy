@@ -16,10 +16,12 @@ use bevy_ecs::{
     message::MessageReader,
     reflect::ReflectComponent,
     resource::Resource,
-    system::{Res, ResMut},
+    system::{Local, Res, ResMut},
+    template::FromTemplate,
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
+use bitvec::vec::BitVec;
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -37,7 +39,7 @@ use crate::{AnimationClip, AnimationTargetId};
 ///
 /// Applications frequently want to be able to play multiple animations at once
 /// and to fine-tune the influence that animations have on a skinned mesh. Bevy
-/// uses an *blend graph* to store this information. Blend graphs are a
+/// uses a *blend graph* to store this information. Blend graphs are a
 /// directed acyclic graph (DAG) that describes how animations are to be
 /// weighted and combined together. Every frame, Bevy evaluates the graph from
 /// the root and blends the animations together in a bottom-up fashion to
@@ -81,7 +83,7 @@ use crate::{AnimationClip, AnimationTargetId};
 /// animation targets that the node and its descendants affect. Each bit in the
 /// mask corresponds to a *mask group*, which is a set of animation targets
 /// (bones). An animation target can belong to any number of mask groups within
-/// the context of an blend graph.
+/// the context of a blend graph.
 ///
 /// When the appropriate bit is set in a node's mask, neither the node nor its
 /// descendants will animate any animation targets belonging to that mask group.
@@ -130,7 +132,9 @@ pub struct BlendGraph {
 }
 
 /// A [`Handle`] to the [`BlendGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(
+    Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From, FromTemplate,
+)]
 #[reflect(Component, Default, Clone)]
 pub struct BlendGraphHandle(pub Handle<BlendGraph>);
 
@@ -157,7 +161,7 @@ pub type BlendDiGraph = DiGraph<BlendGraphNode, (), u32>;
 /// [animation players]: crate::AnimationPlayer
 pub type BlendNodeIndex = NodeIndex<u32>;
 
-/// An individual node within an blend graph.
+/// An individual node within a blend graph.
 ///
 /// The [`BlendGraphNode::node_type`] field specifies the type of node: one
 /// of a *clip node*, a *blend node*, or an *add node*. Clip nodes, the leaves
@@ -283,9 +287,20 @@ pub enum BlendGraphLoadError {
 /// These are kept up to date as [`BlendGraph`] instances are added,
 /// modified, and removed.
 #[derive(Default, Reflect, Resource)]
-pub struct ThreadedBlendGraphs(pub(crate) HashMap<AssetId<BlendGraph>, ThreadedBlendGraph>);
+pub struct ThreadedBlendGraphs {
+    /// The mapping from each blend graph to its threaded blend graph
+    /// acceleration structure.
+    ///
+    /// Note that, because graphs can load before their clips do, when a clip
+    /// loads, we have to invalidate portions of this table.
+    pub(crate) threaded_graphs: HashMap<AssetId<BlendGraph>, ThreadedBlendGraph>,
 
-/// An acceleration structure for an blend graph that allows Bevy to
+    /// A mapping from the ID of each animation clip to the IDs of the graphs
+    /// that reference that clip.
+    clip_to_graphs: HashMap<AssetId<AnimationClip>, HashSet<AssetId<BlendGraph>>>,
+}
+
+/// An acceleration structure for a blend graph that allows Bevy to
 /// evaluate it quickly.
 ///
 /// This is kept up to date as the associated [`BlendGraph`] instance is
@@ -349,13 +364,13 @@ pub struct ThreadedBlendGraph {
     /// | 12   |      | Commit     |                         |                |
     pub threaded_graph: Vec<BlendNodeIndex>,
 
-    /// A mapping from each parent node index to the range within
-    /// [`Self::sorted_edges`].
+    /// A mapping from each parent node index to the range of its children
+    /// within [`Self::sorted_edges`].
     ///
     /// This allows for quick lookup of the children of each node, sorted in
     /// ascending order of node index, without having to sort the result of the
     /// `petgraph` traversal functions every frame.
-    pub sorted_edge_ranges: Vec<Range<u32>>,
+    pub sorted_edge_list_ranges: Vec<Range<u32>>,
 
     /// A list of the children of each node, sorted in ascending order.
     pub sorted_edges: Vec<BlendNodeIndex>,
@@ -366,6 +381,59 @@ pub struct ThreadedBlendGraph {
     /// A 1 in bit position N indicates that this node doesn't animate any
     /// targets of mask group N.
     pub computed_masks: Vec<u64>,
+
+    /// All animation clips that this graph contains clip nodes for.
+    pub animation_clips: HashSet<AssetId<AnimationClip>>,
+
+    /// A mapping from each animation target to the *threaded subgraph* for that
+    /// target.
+    ///
+    /// See [`ThreadedBlendSubgraph`] for more information.
+    pub animation_target_to_threaded_subgraph: HashMap<AnimationTargetId, ThreadedBlendSubgraph>,
+}
+
+/// A subgraph of a [`ThreadedBlendGraph`] that contains only the nodes
+/// necessary to animate a single target.
+///
+/// It's common for a single graph to contain animations for many unrelated
+/// targets: for example, a character might have a single blend graph that
+/// blends both facial animations and locomotion animations. Now, internally,
+/// Bevy evaluates animations for all targets individually and in parallel. If
+/// Bevy evaluated the entire graph separately for each target, this would be
+/// inefficient: for instance, Bevy would be evaluating and blending the
+/// locomotion animations for the facial bones, even though locomotion
+/// animations don't typically affect facial bones.
+///
+/// To remedy this problem, Bevy creates individual *subgraphs* for each target.
+/// These subgraphs contain only the clip nodes that affect a target, as well as
+/// any add or blend nodes that transitively blend those clip nodes. The end
+/// result is a graph tailored to an animation target that, when evaluated for a
+/// target, produces the exact same result as if the entire graph had been
+/// evaluated for that target, but contains only the nodes that were relevant to
+/// produce that result.
+///
+/// The fields in this structure have identical meanings to the corresponding
+/// fields in the [`ThreadedBlendGraph`] structure.
+#[derive(Default, Reflect)]
+pub struct ThreadedBlendSubgraph {
+    /// A cached postorder traversal of the graph, containing only the nodes
+    /// that are needed to animate this target.
+    ///
+    /// See [`ThreadedBlendGraph::threaded_graph`] for more information.
+    pub threaded_graph: Vec<BlendNodeIndex>,
+
+    /// A mapping from the index of each element of [`Self::threaded_graph`] to
+    /// the index of the first such edge within [`Self::sorted_edges`].
+    ///
+    /// In other words, this array is parallel to the [`Self::threaded_graph`]
+    /// array.
+    ///
+    /// See [`ThreadedBlendGraph::sorted_edge_list_ranges`] for more
+    /// information.
+    pub sorted_edge_list_offsets: Vec<u32>,
+
+    /// A list of the children of each node, sorted in ascending order.
+    pub sorted_edges: Vec<BlendNodeIndex>,
 }
 
 /// A version of [`BlendGraph`] suitable for serializing as an asset.
@@ -374,7 +442,7 @@ pub struct ThreadedBlendGraph {
 /// is typically not sufficient to identify the clips, since the
 /// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
 /// motivates this type, which replaces the `Handle<AnimationClip>` with an
-/// asset path.  Loading an blend graph via the [`bevy_asset::AssetServer`]
+/// asset path.  Loading a blend graph via the [`bevy_asset::AssetServer`]
 /// actually loads a serialized instance of this type, as does serializing an
 /// [`BlendGraph`] through `serde`.
 #[derive(Serialize, Deserialize)]
@@ -843,10 +911,24 @@ pub struct NonPathHandleError;
 /// The [`ThreadedBlendGraph`] contains acceleration structures that allow
 /// for quick evaluation of that graph's animations.
 pub(crate) fn thread_blend_graphs(
-    mut threaded_blend_graphs: ResMut<ThreadedBlendGraphs>,
+    threaded_blend_graphs: ResMut<ThreadedBlendGraphs>,
     blend_graphs: Res<Assets<BlendGraph>>,
+    animation_clips: Res<Assets<AnimationClip>>,
     mut blend_graph_asset_events: MessageReader<AssetEvent<BlendGraph>>,
+    mut animation_clip_asset_events: MessageReader<AssetEvent<AnimationClip>>,
+    mut animation_target_graphs_rebuilt_this_frame: Local<HashSet<AssetId<BlendGraph>>>,
 ) {
+    // Early out here to avoid running `threaded_blend_graphs.into_inner()`
+    // and marking `ThreadedBlendGraphs` as changed if there are obviously
+    // no changes.
+    if blend_graph_asset_events.is_empty() && animation_clip_asset_events.is_empty() {
+        return;
+    }
+
+    let threaded_blend_graphs = threaded_blend_graphs.into_inner();
+
+    animation_target_graphs_rebuilt_this_frame.clear();
+
     for blend_graph_asset_event in blend_graph_asset_events.read() {
         match *blend_graph_asset_event {
             AssetEvent::Added { id }
@@ -859,21 +941,67 @@ pub(crate) fn thread_blend_graphs(
 
                 // Reuse the allocation if possible.
                 let mut threaded_blend_graph =
-                    threaded_blend_graphs.0.remove(&id).unwrap_or_default();
-                threaded_blend_graph.clear();
+                    match threaded_blend_graphs.threaded_graphs.remove(&id) {
+                        None => ThreadedBlendGraph::default(),
+                        Some(mut existing_threaded_blend_graph) => {
+                            existing_threaded_blend_graph.remove_from_clip_to_graphs_table(
+                                id,
+                                &mut threaded_blend_graphs.clip_to_graphs,
+                            );
+                            existing_threaded_blend_graph.clear();
+                            existing_threaded_blend_graph
+                        }
+                    };
 
                 // Recursively thread the graph in postorder.
                 threaded_blend_graph.init(blend_graph);
+                threaded_blend_graph
+                    .populate_clip_to_graphs_table(id, &mut threaded_blend_graphs.clip_to_graphs);
                 threaded_blend_graph.build_from(&blend_graph.graph, blend_graph.root, 0);
 
+                threaded_blend_graph.rebuild_target_subgraphs(&blend_graph.graph, &animation_clips);
+                animation_target_graphs_rebuilt_this_frame.insert(id);
+
                 // Write in the threaded graph.
-                threaded_blend_graphs.0.insert(id, threaded_blend_graph);
+                threaded_blend_graphs
+                    .threaded_graphs
+                    .insert(id, threaded_blend_graph);
             }
 
             AssetEvent::Removed { id } => {
-                threaded_blend_graphs.0.remove(&id);
+                if let Some(threaded_blend_graph) =
+                    threaded_blend_graphs.threaded_graphs.remove(&id)
+                {
+                    threaded_blend_graph.remove_from_clip_to_graphs_table(
+                        id,
+                        &mut threaded_blend_graphs.clip_to_graphs,
+                    );
+                }
             }
             AssetEvent::Unused { .. } => {}
+        }
+    }
+
+    for animation_clip_asset_event in animation_clip_asset_events.read() {
+        match *animation_clip_asset_event {
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id } => {
+                let Some(graph_ids) = threaded_blend_graphs.clip_to_graphs.get(&id) else {
+                    continue;
+                };
+                for graph_id in graph_ids {
+                    if animation_target_graphs_rebuilt_this_frame.insert(*graph_id)
+                        && let Some(threaded_blend_graph) =
+                            threaded_blend_graphs.threaded_graphs.get_mut(graph_id)
+                        && let Some(blend_graph) = blend_graphs.get(*graph_id)
+                    {
+                        threaded_blend_graph
+                            .rebuild_target_subgraphs(&blend_graph.graph, &animation_clips);
+                    }
+                }
+            }
+            AssetEvent::Unused { .. } | AssetEvent::Removed { .. } => {}
         }
     }
 }
@@ -883,8 +1011,10 @@ impl ThreadedBlendGraph {
     /// memory around for later reuse.
     fn clear(&mut self) {
         self.threaded_graph.clear();
-        self.sorted_edge_ranges.clear();
+        self.sorted_edge_list_ranges.clear();
         self.sorted_edges.clear();
+        self.animation_clips.clear();
+        self.animation_target_to_threaded_subgraph.clear();
     }
 
     /// Prepares the [`ThreadedBlendGraph`] for recursion.
@@ -895,12 +1025,22 @@ impl ThreadedBlendGraph {
         self.threaded_graph.reserve(node_count);
         self.sorted_edges.reserve(edge_count);
 
-        self.sorted_edge_ranges.clear();
-        self.sorted_edge_ranges
+        self.sorted_edge_list_ranges.clear();
+        self.sorted_edge_list_ranges
             .extend(iter::repeat_n(0..0, node_count));
 
         self.computed_masks.clear();
         self.computed_masks.extend(iter::repeat_n(0, node_count));
+
+        self.animation_clips.clear();
+        for node in blend_graph.graph.node_weights() {
+            match &node.node_type {
+                BlendNodeType::Clip(clip_handle) => {
+                    self.animation_clips.insert(clip_handle.id());
+                }
+                BlendNodeType::Blend | BlendNodeType::Add => {}
+            }
+        }
     }
 
     /// Recursively constructs the [`ThreadedBlendGraph`] for the subtree
@@ -921,7 +1061,7 @@ impl ThreadedBlendGraph {
         kids.sort_unstable();
 
         // Write in the list of kids.
-        self.sorted_edge_ranges[node_index.index()] =
+        self.sorted_edge_list_ranges[node_index.index()] =
             (self.sorted_edges.len() as u32)..((self.sorted_edges.len() + kids.len()) as u32);
         self.sorted_edges.extend_from_slice(&kids);
 
@@ -932,5 +1072,371 @@ impl ThreadedBlendGraph {
 
         // Finally, push our index.
         self.threaded_graph.push(node_index);
+    }
+
+    /// Creates subgraphs for each animation target consisting of only the nodes
+    /// that affect that target.
+    fn rebuild_target_subgraphs(&mut self, graph: &BlendDiGraph, clips: &Assets<AnimationClip>) {
+        self.animation_target_to_threaded_subgraph.clear();
+
+        // We traverse the graph looking for animation clips. Each animation
+        // clip that we've processed is inserted into this list.
+        let mut seen_animation_clips = HashSet::new();
+
+        // Create a vector for each node that stores whether the node is
+        // relevant to the target in question.
+        let mut node_is_relevant: BitVec = iter::repeat_n(false, graph.node_count()).collect();
+
+        // Search for animation clips. When we find one we haven't seen before,
+        // create a target subgraph for it.
+        for node in graph.node_weights() {
+            let animation_clip = match &node.node_type {
+                BlendNodeType::Clip(animation_clip_id) => {
+                    if !seen_animation_clips.insert(animation_clip_id) {
+                        continue;
+                    }
+                    let Some(animation_clip) = clips.get(animation_clip_id) else {
+                        continue;
+                    };
+                    animation_clip
+                }
+                BlendNodeType::Blend | BlendNodeType::Add => continue,
+            };
+
+            for animation_target_id in animation_clip.curves().keys() {
+                if self
+                    .animation_target_to_threaded_subgraph
+                    .contains_key(animation_target_id)
+                {
+                    continue;
+                };
+
+                let threaded_subgraph = self.create_target_subgraph(
+                    *animation_target_id,
+                    graph,
+                    clips,
+                    &mut node_is_relevant,
+                );
+
+                self.animation_target_to_threaded_subgraph
+                    .insert(*animation_target_id, threaded_subgraph);
+            }
+        }
+    }
+
+    /// Creates a subgraph of the given blend graph that contains only nodes
+    /// that affect the given `animation_target_id`.
+    fn create_target_subgraph(
+        &self,
+        animation_target_id: AnimationTargetId,
+        graph: &BlendDiGraph,
+        clips: &Assets<AnimationClip>,
+        node_is_relevant: &mut BitVec,
+    ) -> ThreadedBlendSubgraph {
+        node_is_relevant.fill(false);
+
+        let mut threaded_subgraph = ThreadedBlendSubgraph::default();
+
+        // We only need to do a single pass over the postorder traversal,
+        // because a subset of a postorder traversal is also a postorder
+        // traversal.
+        for node_index in &self.threaded_graph {
+            let Some(node) = graph.node_weight(*node_index) else {
+                continue;
+            };
+
+            match &node.node_type {
+                BlendNodeType::Clip(clip_handle) => {
+                    // Only add this node if the clip has curves and/or events
+                    // that affect this target.
+                    if clips
+                        .get(clip_handle)
+                        .is_some_and(|clip| clip.is_relevant_to_target(animation_target_id))
+                    {
+                        threaded_subgraph.add_node(
+                            *node_index,
+                            &self.sorted_edge_list_ranges,
+                            &self.sorted_edges,
+                            node_is_relevant,
+                        );
+                    }
+                }
+
+                BlendNodeType::Add | BlendNodeType::Blend => {
+                    // Add this node if any of its children are relevant.
+                    let sorted_edge_range =
+                        self.sorted_edge_list_ranges[node_index.index()].clone();
+                    if sorted_edge_range.into_iter().any(|sorted_edge_index| {
+                        node_is_relevant[self.sorted_edges[sorted_edge_index as usize].index()]
+                    }) {
+                        threaded_subgraph.add_node(
+                            *node_index,
+                            &self.sorted_edge_list_ranges,
+                            &self.sorted_edges,
+                            node_is_relevant,
+                        );
+                    }
+                }
+            }
+        }
+
+        threaded_subgraph
+    }
+
+    /// Creates the table that maps each animation clip to the blend graphs
+    /// that contain that clip.
+    ///
+    /// Bevy uses this table to determine which subgraphs to invalidate when a
+    /// clip is newly loaded or changed.
+    fn populate_clip_to_graphs_table(
+        &self,
+        graph_id: AssetId<BlendGraph>,
+        clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<BlendGraph>>>,
+    ) {
+        for clip_id in &self.animation_clips {
+            clip_to_graphs.entry(*clip_id).or_default().insert(graph_id);
+        }
+    }
+
+    /// Removes the given blend graph from the table mapping clips to
+    /// blend graphs.
+    fn remove_from_clip_to_graphs_table(
+        &self,
+        graph_id: AssetId<BlendGraph>,
+        clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<BlendGraph>>>,
+    ) {
+        for clip_id in &self.animation_clips {
+            let Entry::Occupied(mut graphs) = clip_to_graphs.entry(*clip_id) else {
+                continue;
+            };
+            graphs.get_mut().remove(&graph_id);
+            if graphs.get().is_empty() {
+                graphs.remove();
+            }
+        }
+    }
+}
+
+impl ThreadedBlendSubgraph {
+    /// Copies a node from a threaded blend graph to its subgraph and adds
+    /// the index of the node to the `node_is_relevant` table.
+    ///
+    /// `original_sorted_edge_list_ranges` and `original_sorted_edges` are
+    /// expected to be the [`ThreadedBlendGraph::sorted_edge_list_ranges`]
+    /// and [`ThreadedBlendGraph::sorted_edges`] fields from the containing
+    /// threaded graph respectively.
+    fn add_node(
+        &mut self,
+        node_index: NodeIndex<u32>,
+        original_sorted_edge_list_ranges: &[Range<u32>],
+        original_sorted_edges: &[NodeIndex<u32>],
+        node_is_relevant: &mut BitVec,
+    ) {
+        node_is_relevant.set(node_index.index(), true);
+
+        self.threaded_graph.push(node_index);
+
+        // Copy over the edges.
+        let sorted_edge_range_start = self.sorted_edges.len() as u32;
+        let original_sorted_edge_list_range =
+            original_sorted_edge_list_ranges[node_index.index()].clone();
+        for original_sorted_edge_index in original_sorted_edge_list_range {
+            let edge_dest = original_sorted_edges[original_sorted_edge_index as usize];
+            // Make sure to only copy an edge if it points to a node that we
+            // judged relevant.
+            // Otherwise, `animate_targets` will spend a lot of time looking at
+            // irrelevant nodes.
+            // As we're traversing in postorder, we already visited `edge_dest`
+            // by now, so we know whether it's relevant or not.
+            if node_is_relevant[edge_dest.index()] {
+                self.sorted_edges.push(edge_dest);
+            }
+        }
+        self.sorted_edge_list_offsets.push(sorted_edge_range_start);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::array;
+
+    use bevy_asset::Assets;
+    use bevy_curve::{ConstantCurve, Interval};
+    use bevy_ecs::name::Name;
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
+    use itertools::Itertools;
+    use petgraph::graph::NodeIndex;
+
+    use crate::{
+        animated_field,
+        animation_curves::BlendableCurve,
+        graph::{BlendGraph, ThreadedBlendGraph},
+        AnimationClip, AnimationTargetId,
+    };
+
+    /// Tests that each target's subgraph only contains clips relevant to that
+    /// target.
+    #[test]
+    fn subgraph_prunes_irrelevant_clips() {
+        // Create a graph consisting of a root node connected to two clip nodes.
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
+        let target_ids_and_nodes = ["A", "B"].map(|target_name| {
+            let target_id = AnimationTargetId::from_name(&Name::new(target_name));
+            let clip = clips.add(create_animation_clip_for_target(target_id));
+            let clip_node = graph.add_clip(clip, 1.0, graph.root);
+            (target_id, clip_node)
+        });
+
+        // Create subgraphs.
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
+
+        // Check that there is one subgraph for each target, that there are no
+        // other subgraphs, and that the subgraphs contain only the graph root
+        // and the clip node.
+        assert_eq!(
+            threaded_graph.animation_target_to_threaded_subgraph.len(),
+            2
+        );
+        for (target_id, clip_node) in target_ids_and_nodes {
+            let subgraph = &threaded_graph.animation_target_to_threaded_subgraph[&target_id];
+            assert_eq!(
+                subgraph.threaded_graph.iter().sorted().collect::<Vec<_>>(),
+                [graph.root, clip_node].iter().sorted().collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// Tests that each target's subgraph only contains blend nodes relevant to
+    /// that target.
+    #[test]
+    fn subgraph_prunes_irrelevant_blend_nodes() {
+        // Create a graph consisting of a root node connected to two blend
+        // nodes, each of which is in turn connected to a clip node.
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
+        let target_ids_and_nodes = ["A", "B"].map(|target_name| {
+            let target_id = AnimationTargetId::from_name(&Name::new(target_name));
+            let blend_node = graph.add_blend(1.0, graph.root);
+            let clip = clips.add(create_animation_clip_for_target(target_id));
+            let clip_node = graph.add_clip(clip, 1.0, blend_node);
+            (target_id, blend_node, clip_node)
+        });
+
+        // Create subgraphs.
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
+
+        // Check that there is one subgraph for each target, that there are no
+        // other subgraphs, and that the subgraphs contain only the graph root,
+        // the blend node, and the clip node.
+        assert_eq!(
+            threaded_graph.animation_target_to_threaded_subgraph.len(),
+            2
+        );
+        for (target_id, blend_node, clip_node) in target_ids_and_nodes {
+            let subgraph = &threaded_graph.animation_target_to_threaded_subgraph[&target_id];
+            assert_eq!(
+                subgraph.threaded_graph.iter().sorted().collect::<Vec<_>>(),
+                [graph.root, blend_node, clip_node]
+                    .iter()
+                    .sorted()
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// Tests that each subgraph includes all clips animating a single animation
+    /// target.
+    #[test]
+    fn subgraph_includes_all_clips_for_a_target() {
+        // Create a graph consisting of one blend node that blends two clip
+        // nodes.
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
+        let blend_node = graph.add_blend(1.0, graph.root);
+        let target_id = AnimationTargetId::from_name(&Name::new("MyTarget"));
+        let clip_nodes: [_; 2] = array::from_fn(|_| {
+            let clip = clips.add(create_animation_clip_for_target(target_id));
+            graph.add_clip(clip, 1.0, blend_node)
+        });
+
+        // Create subgraphs.
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
+
+        // Check that there is only one target and that that target's subgraph contains all the graph nodes.
+        assert_eq!(
+            threaded_graph.animation_target_to_threaded_subgraph.len(),
+            1
+        );
+        let subgraph = &threaded_graph.animation_target_to_threaded_subgraph[&target_id];
+        assert_eq!(
+            subgraph.threaded_graph.iter().sorted().collect::<Vec<_>>(),
+            [graph.root, blend_node, clip_nodes[0], clip_nodes[1]]
+                .iter()
+                .sorted()
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Tests that we can create subgraphs with node indices in arbitrary order.
+    #[test]
+    fn subgraphs_are_correct_with_arbitrarily_ordered_nodes() {
+        // Create a graph consisting of a root node connected to two blend
+        // nodes, each of which is in turn connected to a clip node.
+        // But create the blends before the clips.
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
+        let blend_nodes: [NodeIndex; 2] = array::from_fn(|_| graph.add_blend(1.0, graph.root));
+        let target_ids_and_clip_nodes: [(AnimationTargetId, NodeIndex); 2] =
+            array::from_fn(|index| {
+                let target_id = AnimationTargetId::from_name(&Name::new(["A", "B"][index]));
+                let clip = clips.add(create_animation_clip_for_target(target_id));
+                let clip_node = graph.add_clip(clip, 1.0, blend_nodes[index]);
+                (target_id, clip_node)
+            });
+
+        // Create subgraphs.
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
+
+        // Check that there is one subgraph for each target, that there are no
+        // other subgraphs, and that the subgraphs contain only the graph root,
+        // the blend node, and the clip node.
+        assert_eq!(
+            threaded_graph.animation_target_to_threaded_subgraph.len(),
+            2
+        );
+        for (blend_node, (target_id, clip_node)) in
+            blend_nodes.iter().zip(target_ids_and_clip_nodes.iter())
+        {
+            let subgraph = &threaded_graph.animation_target_to_threaded_subgraph[target_id];
+            assert_eq!(
+                subgraph.threaded_graph.iter().sorted().collect::<Vec<_>>(),
+                [graph.root, *blend_node, *clip_node]
+                    .iter()
+                    .sorted()
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// Creates a threaded graph and all the target subgraphs from the given
+    /// blend graph, just as `thread_blend_graphs` does.
+    fn create_threaded_graph_from_blend_graph(
+        blend_graph: &BlendGraph,
+        animation_clips: &Assets<AnimationClip>,
+    ) -> ThreadedBlendGraph {
+        let mut threaded_blend_graph = ThreadedBlendGraph::default();
+        threaded_blend_graph.init(blend_graph);
+        threaded_blend_graph.build_from(&blend_graph.graph, blend_graph.root, 0);
+        threaded_blend_graph.rebuild_target_subgraphs(&blend_graph.graph, animation_clips);
+        threaded_blend_graph
+    }
+
+    /// Creates a simple animation clip animating the given target.
+    fn create_animation_clip_for_target(animation_target_id: AnimationTargetId) -> AnimationClip {
+        let mut animation_clip = AnimationClip::default();
+        let blendable_curve = BlendableCurve::new(
+            animated_field!(Transform::translation),
+            ConstantCurve::new(Interval::EVERYWHERE, Vec3::ONE),
+        );
+        animation_clip.add_curve_to_target(animation_target_id, blendable_curve);
+        animation_clip
     }
 }

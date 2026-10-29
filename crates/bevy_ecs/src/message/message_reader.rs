@@ -2,12 +2,30 @@
 use crate::message::MessageParIter;
 use crate::{
     message::{Message, MessageCursor, MessageIterator, MessageIteratorWithId, Messages},
-    system::{Local, Res, SystemParam, SystemParamValidationError},
+    system::{
+        Local, ReadOnlySystemParam, Res, SystemAccess, SystemParam, SystemParamAccessConflict,
+        SystemParamValidationError,
+    },
 };
 
 /// Reads [`Message`]s of type `T` in order and tracks which messages have already been read.
 ///
 /// Use [`PopulatedMessageReader<T>`] to skip the system if there are no messages.
+///
+/// # Usage
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Message)]
+/// pub struct MyMessage(String); // Custom message type.
+/// fn my_system(mut reader: MessageReader<MyMessage>) {
+///     for msg in reader.read() {
+///         println!("{}", msg.0)
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
 ///
 /// # Concurrency
 ///
@@ -16,6 +34,7 @@ use crate::{
 ///
 /// [`MessageWriter<T>`]: super::MessageWriter
 #[derive(SystemParam, Debug)]
+#[system_param(map_access_conflict)]
 pub struct MessageReader<'w, 's, M: Message> {
     pub(super) reader: Local<'s, MessageCursor<M>>,
     #[system_param(validation_message = "Message not initialized")]
@@ -23,6 +42,14 @@ pub struct MessageReader<'w, 's, M: Message> {
 }
 
 impl<'w, 's, M: Message> MessageReader<'w, 's, M> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`].
+    fn map_access_conflict(
+        _access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access).with_code("B0009")
+    }
+
     /// Iterates over the messages this [`MessageReader`] has not seen yet. This updates the
     /// [`MessageReader`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
@@ -151,10 +178,10 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
     fn init_access(
         state: &Self::State,
         system_meta: &mut crate::system::SystemMeta,
-        component_access_set: &mut crate::query::FilteredAccessSet,
-        world: &mut crate::prelude::World,
-    ) {
-        MessageReader::<M>::init_access(state, system_meta, component_access_set, world);
+        system_access: &mut SystemAccess,
+    ) -> Result<(), SystemParamAccessConflict> {
+        MessageReader::<M>::init_access(state, system_meta, system_access)
+            .map_err(SystemParamAccessConflict::with_param::<Self>)
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -162,38 +189,21 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
         system_meta: &crate::system::SystemMeta,
         world: crate::world::unsafe_world_cell::UnsafeWorldCell<'world>,
         change_tick: crate::change_detection::Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Result<Self::Item<'world, 'state>, SystemParamValidationError> {
         // SAFETY: requirements are upheld by MessageReader's implementation
-        unsafe {
-            PopulatedMessageReader(MessageReader::get_param(
-                state,
-                system_meta,
-                world,
-                change_tick,
-            ))
-        }
-    }
-
-    unsafe fn validate_param(
-        state: &mut Self::State,
-        system_meta: &crate::system::SystemMeta,
-        world: crate::world::unsafe_world_cell::UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: requirements are upheld by MessageReader's implementation
-        unsafe { MessageReader::<M>::validate_param(state, system_meta, world) }?;
-
-        // SAFETY: requirements are upheld by MessageReader's implementation
-        let reader =
-            unsafe { MessageReader::get_param(state, system_meta, world, world.change_tick()) };
+        let reader = unsafe { MessageReader::get_param(state, system_meta, world, change_tick)? };
         if reader.is_empty() {
             Err(SystemParamValidationError::skipped::<Self>(
                 "message queue is empty",
             ))
         } else {
-            Ok(())
+            Ok(PopulatedMessageReader(reader))
         }
     }
 }
+
+// SAFETY: All world access is delegated to MessageReader, which implements it.
+unsafe impl<M: Message> ReadOnlySystemParam for PopulatedMessageReader<'_, '_, M> {}
 
 #[cfg(test)]
 mod tests {

@@ -5,6 +5,7 @@ use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
 use bevy_camera::{Camera, Camera2d};
+use bevy_ecs::entity::EntityHash;
 use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -13,6 +14,7 @@ use bevy_render::{
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
+use indexmap::IndexMap;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
@@ -32,13 +34,12 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
     sync_world::MainEntity,
     texture::TextureCache,
-    view::{Msaa, ViewDepthTexture},
+    view::{Msaa, ViewDepthStencilTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 
@@ -52,7 +53,7 @@ impl Plugin for Core2dPlugin {
             .register_required_components_with::<Camera2d, CameraRenderGraph>(|| {
                 CameraRenderGraph::new(Core2d)
             })
-            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
+            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::Linear)
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -65,6 +66,9 @@ impl Plugin for Core2dPlugin {
             .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque2d>>()
             .init_resource::<ViewBinnedRenderPhases<AlphaMask2d>>()
+            .allow_ambiguous_resource::<ViewSortedRenderPhases<Transparent2d>>()
+            .allow_ambiguous_resource::<ViewBinnedRenderPhases<Opaque2d>>()
+            .allow_ambiguous_resource::<ViewBinnedRenderPhases<AlphaMask2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
@@ -107,7 +111,7 @@ pub struct Opaque2d {
 }
 
 /// Data that must be identical in order to batch phase items together.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Opaque2dBinKey {
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
@@ -118,8 +122,8 @@ pub struct Opaque2dBinKey {
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-    /// The ID of a bind group specific to the material.
-    pub material_bind_group_id: Option<BindGroupId>,
+    /// The index of a bind group specific to the material.
+    pub material_bind_group_index: Option<u32>,
 }
 
 impl PhaseItem for Opaque2d {
@@ -221,7 +225,7 @@ pub struct AlphaMask2d {
 }
 
 /// Data that must be identical in order to batch phase items together.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct AlphaMask2dBinKey {
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
@@ -232,8 +236,8 @@ pub struct AlphaMask2dBinKey {
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-    /// The ID of a bind group specific to the material.
-    pub material_bind_group_id: Option<BindGroupId>,
+    /// The index of a bind group specific to the material.
+    pub material_bind_group_index: Option<u32>,
 }
 
 impl PhaseItem for AlphaMask2d {
@@ -362,9 +366,15 @@ impl SortedPhaseItem for Transparent2d {
     }
 
     #[inline]
-    fn sort(items: &mut [Self]) {
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        radsort::sort_by_key(items, |item| item.sort_key().0);
+    fn sort(items: &mut IndexMap<(Entity, MainEntity), Transparent2d, EntityHash>) {
+        items.sort_by_key(|_, item| item.sort_key());
+    }
+
+    fn recalculate_sort_keys(
+        _: &mut IndexMap<(Entity, MainEntity), Self, EntityHash>,
+        _: &ExtractedView,
+    ) {
+        // Sort keys are precalculated for 2D phase items.
     }
 
     fn indexed(&self) -> bool {
@@ -396,7 +406,7 @@ pub fn extract_core_2d_camera_phases(
         // This is the main 2D camera, so we use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        transparent_2d_phases.insert_or_clear(retained_view_entity);
+        transparent_2d_phases.prepare_for_new_frame(retained_view_entity);
         opaque_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
         alpha_mask_2d_phases
             .prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
@@ -431,7 +441,7 @@ pub fn prepare_core_2d_depth_textures(
         };
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
@@ -449,8 +459,10 @@ pub fn prepare_core_2d_depth_textures(
             })
             .clone();
 
-        commands
-            .entity(view)
-            .insert(ViewDepthTexture::new(cached_texture, Some(0.0)));
+        commands.entity(view).insert(ViewDepthStencilTexture::new(
+            cached_texture,
+            Some(0.0),
+            None,
+        ));
     }
 }

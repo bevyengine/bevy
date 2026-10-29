@@ -7,23 +7,26 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
     image::{ImageAddressMode, ImageLoaderSettings},
-    mesh::VertexAttributeValues,
+    mesh::{Indices, VertexAttributeValues},
     post_process::bloom::Bloom,
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
-    scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
+    world_serialization::WorldInstanceReady,
 };
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use chacha20::ChaCha8Rng;
+use rand::{RngExt, SeedableRng};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_alias::dlss::{
-    Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+use bevy::{
+    anti_alias::dlss::{
+        Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+    },
+    render::camera::{MipBias, TemporalJitter},
 };
 
 /// `bevy_solari` demo.
@@ -64,11 +67,15 @@ fn main() {
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
     } else {
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        app.add_systems(Update, toggle_dlss_rr);
+
+        app.add_systems(Update, toggle_restir);
+
         if args.many_lights != Some(true) {
-            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path))
-                .add_systems(PostUpdate, update_control_text);
+            app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
         }
-        app.add_systems(PostUpdate, update_performance_text);
+        app.add_systems(PostUpdate, (update_control_text, update_performance_text));
     }
 
     app.run();
@@ -84,7 +91,7 @@ fn setup_pica_pica(
 ) {
     commands
         .spawn((
-            SceneRoot(
+            WorldAssetRoot(
                 asset_server.load(
                     GltfAssetLabel::Scene(0)
                         .from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/mini_diorama_01.glb")
@@ -96,7 +103,7 @@ fn setup_pica_pica(
 
     commands
         .spawn((
-            SceneRoot(asset_server.load(
+            WorldAssetRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/robot_01.glb")
             )),
             Transform::from_scale(Vec3::splat(2.0))
@@ -159,11 +166,7 @@ fn setup_pica_pica(
     // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
 
     commands.spawn((
@@ -211,7 +214,7 @@ fn setup_many_lights(
 
     let mut plane_mesh = Plane3d::default()
         .mesh()
-        .size(40.0, 40.0)
+        .size(400.0, 400.0)
         .build()
         .with_generated_tangents()
         .unwrap();
@@ -230,7 +233,7 @@ fn setup_many_lights(
             .unwrap(),
     );
     let sphere_mesh = meshes.add(
-        Sphere::default()
+        Sphere::new(1.0)
             .mesh()
             .build()
             .with_generated_tangents()
@@ -240,25 +243,27 @@ fn setup_many_lights(
     commands
         .spawn((
             RaytracingMesh3d(plane_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color_texture: Some(
-                    asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                        "textures/uv_checker_bw.png",
-                        |settings| {
-                            settings
-                                .sampler
-                                .get_or_init_descriptor()
-                                .set_address_mode(ImageAddressMode::Repeat);
-                        },
+            MeshMaterial3d(
+                materials.add(StandardMaterial {
+                    base_color_texture: Some(
+                        asset_server
+                            .load_builder()
+                            .with_settings::<ImageLoaderSettings>(|settings| {
+                                settings
+                                    .sampler
+                                    .get_or_init_descriptor()
+                                    .set_address_mode(ImageAddressMode::Repeat);
+                            })
+                            .load("textures/uv_checker_bw.png"),
                     ),
-                ),
-                perceptual_roughness: 0.0,
-                ..default()
-            })),
+                    perceptual_roughness: 0.0,
+                    ..default()
+                }),
+            ),
         ))
         .insert_if(Mesh3d(plane_mesh), || args.pathtracer != Some(true));
 
-    for _ in 0..200 {
+    for _ in 0..8000 {
         commands
             .spawn((
                 RaytracingMesh3d(cube_mesh.clone()),
@@ -274,38 +279,40 @@ fn setup_many_lights(
                         z: rng.random_range(0.2..=2.0),
                     })
                     .with_translation(Vec3::new(
-                        rng.random_range(-18.0..=18.0),
+                        rng.random_range(-180.0..=180.0),
                         0.2,
-                        rng.random_range(-18.0..=18.0),
+                        rng.random_range(-180.0..=180.0),
                     )),
             ))
             .insert_if(Mesh3d(cube_mesh.clone()), || args.pathtracer != Some(true));
     }
 
-    for _ in 0..100 {
-        commands
-            .spawn((
-                RaytracingMesh3d(sphere_mesh.clone()),
-                MeshMaterial3d(
-                    materials.add(StandardMaterial {
-                        emissive: Color::linear_rgb(
-                            rng.random::<f32>() * 20000.0,
-                            rng.random::<f32>() * 20000.0,
-                            rng.random::<f32>() * 20000.0,
-                        )
-                        .into(),
-                        ..default()
-                    }),
-                ),
-                Transform::default().with_translation(Vec3::new(
-                    rng.random_range(-18.0..=18.0),
-                    rng.random_range(6.0..=9.0),
-                    rng.random_range(-18.0..=18.0),
-                )),
-            ))
-            .insert_if(Mesh3d(sphere_mesh.clone()), || {
-                args.pathtracer != Some(true)
-            });
+    for x in -10..=10 {
+        for y in -10..=10 {
+            commands
+                .spawn((
+                    RaytracingMesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(
+                        materials.add(StandardMaterial {
+                            emissive: Color::linear_rgb(
+                                rng.random::<f32>() * 60000.0,
+                                rng.random::<f32>() * 60000.0,
+                                rng.random::<f32>() * 60000.0,
+                            )
+                            .into(),
+                            ..default()
+                        }),
+                    ),
+                    Transform::default().with_translation(Vec3::new(
+                        (x * 20) as f32,
+                        7.0,
+                        (y * 20) as f32,
+                    )),
+                ))
+                .insert_if(Mesh3d(sphere_mesh.clone()), || {
+                    args.pathtracer != Some(true)
+                });
+        }
     }
 
     let mut camera = commands.spawn((
@@ -319,8 +326,8 @@ fn setup_many_lights(
             run_speed: 10.0,
             ..Default::default()
         },
-        Transform::from_translation(Vec3::new(0.0919233, 7.5015035, 28.449198)).with_rotation(
-            Quat::from_xyzw(-0.18394549, 0.0019948867, 0.0003733214, 0.98293436),
+        Transform::from_translation(Vec3::new(6.11329, 166.74896, 451.8226)).with_rotation(
+            Quat::from_xyzw(-0.183938, 0.009093744, 0.0017017953, 0.9828943),
         ),
         // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
         CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
@@ -340,12 +347,19 @@ fn setup_many_lights(
     // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        camera.insert(Dlss::<DlssRayReconstructionFeature> {
-            perf_quality_mode: Default::default(),
-            reset: Default::default(),
-            _phantom_data: Default::default(),
-        });
+        camera.insert(Dlss::<DlssRayReconstructionFeature>::default());
     }
+
+    commands.spawn((
+        ControlText,
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(12.0),
+            left: px(12.0),
+            ..default()
+        },
+    ));
 
     commands.spawn((
         Node {
@@ -368,7 +382,7 @@ fn setup_many_lights(
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<(
         &Mesh3d,
@@ -390,7 +404,7 @@ fn add_raytracing_meshes_on_scene_load(
                 .insert(RaytracingMesh3d(mesh_handle.clone()));
 
             // Ensure meshes are Solari compatible
-            let mesh = meshes.get_mut(mesh_handle).unwrap();
+            let mut mesh = meshes.get_mut(mesh_handle).unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
                 let vertex_count = mesh.count_vertices();
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
@@ -405,6 +419,11 @@ fn add_raytracing_meshes_on_scene_load(
             if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
                 mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
             }
+            if let Some(indices) = mesh.indices_mut()
+                && let Indices::U16(_) = indices
+            {
+                *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
+            }
 
             // Prevent rasterization if using pathtracer
             if args.pathtracer == Some(true) {
@@ -413,11 +432,11 @@ fn add_raytracing_meshes_on_scene_load(
 
             // Adjust scene materials to better demo Solari features
             if material_name.map(|s| s.0.as_str()) == Some("material") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.emissive = LinearRgba::BLACK;
             }
             if material_name.map(|s| s.0.as_str()) == Some("Lights") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.emissive =
                     LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
                 material.alpha_mode = AlphaMode::Opaque;
@@ -426,11 +445,41 @@ fn add_raytracing_meshes_on_scene_load(
                 commands.insert_resource(RobotLightMaterial(material_handle.clone()));
             }
             if material_name.map(|s| s.0.as_str()) == Some("Glass_Dark_01") {
-                let material = materials.get_mut(material_handle).unwrap();
+                let mut material = materials.get_mut(material_handle).unwrap();
                 material.alpha_mode = AlphaMode::Opaque;
                 material.specular_transmission = 0.0;
             }
         }
+    }
+}
+
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+fn toggle_dlss_rr(
+    key_input: Res<ButtonInput<KeyCode>>,
+    camera: Single<(Entity, Has<Dlss<DlssRayReconstructionFeature>>), With<SolariLighting>>,
+    dlss_rr_supported: Option<Res<DlssRayReconstructionSupported>>,
+    mut commands: Commands,
+) {
+    if key_input.just_pressed(KeyCode::Digit3) && dlss_rr_supported.is_some() {
+        let (entity, dlss) = *camera;
+        if dlss {
+            commands
+                .entity(entity)
+                .remove::<(Dlss<DlssRayReconstructionFeature>, TemporalJitter, MipBias)>();
+        } else {
+            commands
+                .entity(entity)
+                .insert(Dlss::<DlssRayReconstructionFeature>::default());
+        }
+    }
+}
+
+fn toggle_restir(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut solari_lighting: Single<&mut SolariLighting>,
+) {
+    if key_input.just_pressed(KeyCode::KeyR) {
+        solari_lighting.restir = !solari_lighting.restir;
     }
 }
 
@@ -473,7 +522,7 @@ fn toggle_lights(
     if key_input.just_pressed(KeyCode::Digit2)
         && let Some(robot_light_material) = robot_light_material
     {
-        let material = materials.get_mut(&robot_light_material.0).unwrap();
+        let mut material = materials.get_mut(&robot_light_material.0).unwrap();
         if material.emissive == LinearRgba::BLACK {
             material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
         } else {
@@ -518,41 +567,52 @@ struct ControlText;
 
 fn update_control_text(
     mut text: Single<&mut Text, With<ControlText>>,
+    solari_lighting: Single<&SolariLighting>,
     robot_light_material: Option<Res<RobotLightMaterial>>,
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
     time: Res<Time<Virtual>>,
+    args: Res<Args>,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
         Res<DlssRayReconstructionSupported>,
+    >,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_camera: Query<
+        Has<Dlss<DlssRayReconstructionFeature>>,
+        With<SolariLighting>,
     >,
 ) {
     text.0.clear();
 
-    if time.is_paused() {
-        text.0.push_str("(Space): Resume");
-    } else {
-        text.0.push_str("(Space): Pause");
-    }
-
-    if directional_light.single().is_ok() {
-        text.0.push_str("\n(1): Disable directional light");
-    } else {
-        text.0.push_str("\n(1): Enable directional light");
-    }
-
-    match robot_light_material.and_then(|m| materials.get(&m.0)) {
-        Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
-            text.0.push_str("\n(2): Disable robot emissive light");
+    if args.many_lights != Some(true) {
+        if time.is_paused() {
+            text.0.push_str("(Space): Resume");
+        } else {
+            text.0.push_str("(Space): Pause");
         }
-        _ => {
-            text.0.push_str("\n(2): Enable robot emissive light");
+
+        if directional_light.single().is_ok() {
+            text.0.push_str("\n(1): Disable directional light");
+        } else {
+            text.0.push_str("\n(1): Enable directional light");
+        }
+
+        match robot_light_material.and_then(|m| materials.get(&m.0)) {
+            Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
+                text.0.push_str("\n(2): Disable robot emissive light");
+            }
+            _ => {
+                text.0.push_str("\n(2): Enable robot emissive light");
+            }
         }
     }
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
-        text.0
-            .push_str("\nDenoising: DLSS Ray Reconstruction enabled");
+        if matches!(dlss_camera.single(), Ok(true)) {
+            text.0.push_str("\n(3): Disable DLSS Ray Reconstruction");
+        } else {
+            text.0.push_str("\n(3): Enable DLSS Ray Reconstruction");
+        }
     } else {
         text.0
             .push_str("\nDenoising: DLSS Ray Reconstruction not supported");
@@ -561,6 +621,12 @@ fn update_control_text(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     text.0
         .push_str("\nDenoising: App not compiled with DLSS support");
+
+    if solari_lighting.restir {
+        text.0.push_str("\n(R): Disable ReSTIR");
+    } else {
+        text.0.push_str("\n(R): Enable ReSTIR");
+    }
 }
 
 #[derive(Component)]
@@ -569,15 +635,19 @@ struct PerformanceText;
 fn update_performance_text(
     mut text: Single<&mut Text, With<PerformanceText>>,
     diagnostics: Res<DiagnosticsStore>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_camera: Query<
+        Has<Dlss<DlssRayReconstructionFeature>>,
+        With<SolariLighting>,
+    >,
 ) {
     text.0.clear();
 
     let mut total = 0.0;
     let mut add_diagnostic = |name: &str, path: &'static str| {
         let path = DiagnosticPath::new(path);
-        if let Some(average) = diagnostics.get(&path).and_then(Diagnostic::average) {
-            text.push_str(&format!("{name:17}  {average:.2} ms\n"));
-            total += average;
+        if let Some(value) = diagnostics.get(&path).and_then(Diagnostic::smoothed) {
+            text.push_str(&format!("{name:17}  {value:.2} ms\n"));
+            total += value;
         }
     };
 
@@ -589,26 +659,18 @@ fn update_performance_text(
         "World cache",
         "render/solari_lighting/world_cache/elapsed_gpu",
     );
-    (add_diagnostic)(
-        "Direct lighting",
-        "render/solari_lighting/direct_lighting/elapsed_gpu",
-    );
-    (add_diagnostic)(
-        "Diffuse indirect",
-        "render/solari_lighting/diffuse_indirect_lighting/elapsed_gpu",
-    );
-    (add_diagnostic)(
-        "Specular indirect",
-        "render/solari_lighting/specular_indirect_lighting/elapsed_gpu",
-    );
-    (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    (add_diagnostic)("Lighting", "render/solari_lighting/lighting/elapsed_gpu");
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if matches!(dlss_camera.single(), Ok(true)) {
+        (add_diagnostic)("DLSS-RR", "render/dlss_ray_reconstruction/elapsed_gpu");
+    }
     text.push_str(&format!("{:17}  {total:.2} ms\n", "Total"));
 
     if let Some(world_cache_active_cells_count) = diagnostics
         .get(&DiagnosticPath::new(
             "render/solari_lighting/world_cache_active_cells_count",
         ))
-        .and_then(Diagnostic::average)
+        .and_then(Diagnostic::smoothed)
     {
         text.push_str(&format!(
             "\nWorld cache cells {} ({:.0}%)",

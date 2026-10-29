@@ -213,7 +213,7 @@ impl Diagnostic {
     /// apart, no smoothing will be applied. As measurements come in more
     /// frequently, the smoothing takes a greater effect such that it takes
     /// approximately `smoothing_factor` seconds for 83% of an instantaneous
-    /// change in measurement to e reflected in the smoothed value.
+    /// change in measurement to be reflected in the smoothed value.
     ///
     /// A smoothing factor of 0.0 will effectively disable smoothing.
     #[must_use]
@@ -239,7 +239,7 @@ impl Diagnostic {
     }
 
     /// Return the simple moving average of this diagnostic's recent values.
-    /// N.B. this a cheap operation as the sum is cached.
+    /// N.B. this is a cheap operation as the sum is cached.
     pub fn average(&self) -> Option<f64> {
         if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
@@ -314,12 +314,12 @@ impl DiagnosticsStore {
         self.diagnostics.insert(diagnostic.path.clone(), diagnostic);
     }
 
-    /// Get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
+    /// Get the [`Diagnostic`] with the given [`DiagnosticPath`], if it exists.
     pub fn get(&self, path: &DiagnosticPath) -> Option<&Diagnostic> {
         self.diagnostics.get(path)
     }
 
-    /// Mutably get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
+    /// Mutably get the [`Diagnostic`] with the given [`DiagnosticPath`], if it exists.
     pub fn get_mut(&mut self, path: &DiagnosticPath) -> Option<&mut Diagnostic> {
         self.diagnostics.get_mut(path)
     }
@@ -376,10 +376,10 @@ impl<'w, 's> Diagnostics<'w, 's> {
 struct DiagnosticsBuffer(HashMap<DiagnosticPath, DiagnosticMeasurement, PassHash>);
 
 impl SystemBuffer for DiagnosticsBuffer {
-    fn apply(
+    fn queue(
         &mut self,
         _system_meta: &bevy_ecs::system::SystemMeta,
-        world: &mut bevy_ecs::world::World,
+        mut world: bevy_ecs::world::DeferredWorld,
     ) {
         let Some(mut diagnostics) = world.get_resource_mut::<DiagnosticsStore>() else {
             // `SystemBuffer::apply` is called even if the system never runs. If a user uses

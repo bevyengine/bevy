@@ -1,15 +1,9 @@
-#![expect(
-    unsafe_op_in_unsafe_fn,
-    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
-)]
-
 use crate::{
     archetype::Archetype,
     bundle::{Bundle, BundleRemover, InsertMode},
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
-    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     world::World,
 };
@@ -24,6 +18,7 @@ use derive_more::From;
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
     ptr: Ptr<'a>,
+    id: ComponentId,
     info: &'a ComponentInfo,
 }
 
@@ -51,6 +46,11 @@ impl<'a> SourceComponent<'a> {
         self.ptr
     }
 
+    /// Returns the [`ComponentId`] of the source component.
+    pub fn id(&self) -> ComponentId {
+        self.id
+    }
+
     /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
     ///
     /// Will return `None` if:
@@ -70,7 +70,7 @@ impl<'a> SourceComponent<'a> {
             return None;
         }
         // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
-        unsafe { Some(reflect_from_ptr.as_reflect(self.ptr)) }
+        unsafe { Some(reflect_from_ptr.ptr_as_reflect(self.ptr)) }
     }
 }
 
@@ -82,7 +82,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     component_id: ComponentId,
     target_component_written: bool,
     target_component_moved: bool,
-    bundle_scratch: &'a mut BundleScratch<'b>,
+    bundle_scratch: &'a mut BundleScratchSpace<'b>,
     bundle_scratch_allocator: &'b Bump,
     allocator: &'a EntityAllocator,
     source: Entity,
@@ -109,7 +109,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         source: Entity,
         target: Entity,
         bundle_scratch_allocator: &'b Bump,
-        bundle_scratch: &'a mut BundleScratch<'b>,
+        bundle_scratch: &'a mut BundleScratchSpace<'b>,
         allocator: &'a EntityAllocator,
         component_info: &'a ComponentInfo,
         entity_cloner: &'a mut EntityClonerState,
@@ -219,9 +219,14 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         }
         let layout = self.component_info.layout();
         let target_ptr = self.bundle_scratch_allocator.alloc_layout(layout);
-        core::ptr::copy_nonoverlapping(ptr.as_ptr(), target_ptr.as_ptr(), layout.size());
-        self.bundle_scratch
-            .push_ptr(self.component_id, PtrMut::new(target_ptr));
+        // SAFETY:
+        // - `ptr` points to a readable value matching self.component type
+        // - `target_ptr` was just allocated (and therefore does not overlap) with the correct layout
+        unsafe {
+            core::ptr::copy_nonoverlapping(ptr.as_ptr(), target_ptr.as_ptr(), layout.size());
+            self.bundle_scratch
+                .push_ptr(self.component_id, PtrMut::new(target_ptr));
+        }
         self.target_component_written = true;
     }
 
@@ -378,12 +383,12 @@ pub struct EntityCloner {
 }
 
 /// An expandable scratch space for defining a dynamic bundle.
-struct BundleScratch<'a> {
+struct BundleScratchSpace<'a> {
     component_ids: Vec<ComponentId>,
     component_ptrs: Vec<PtrMut<'a>>,
 }
 
-impl<'a> BundleScratch<'a> {
+impl<'a> BundleScratchSpace<'a> {
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             component_ids: Vec::with_capacity(capacity),
@@ -575,7 +580,7 @@ impl EntityCloner {
 
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();
-        let mut bundle_scratch: BundleScratch;
+        let mut bundle_scratch: BundleScratchSpace;
         let mut moved_components: Vec<ComponentId> = Vec::new();
         let mut deferred_cloned_component_ids: Vec<ComponentId> = Vec::new();
         {
@@ -596,7 +601,7 @@ impl EntityCloner {
             #[cfg(not(feature = "bevy_reflect"))]
             let app_registry = Option::<()>::None;
 
-            bundle_scratch = BundleScratch::with_capacity(source_archetype.component_count());
+            bundle_scratch = BundleScratchSpace::with_capacity(source_archetype.component_count());
 
             let target_archetype = LazyCell::new(|| {
                 world
@@ -634,9 +639,10 @@ impl EntityCloner {
                 // - There are no other mutable references to source entity.
                 // - `component` is from `source_entity`'s archetype
                 let source_component_ptr =
-                    unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
+                    unsafe { source_entity.get_by_id(component).unwrap_unchecked() };
 
                 let source_component = SourceComponent {
+                    id: component,
                     info,
                     ptr: source_component_ptr,
                 };
@@ -1476,7 +1482,7 @@ mod tests {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
         use alloc::vec;
-        use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
+        use bevy_reflect::{std_traits::ReflectDefault, CreateTypeData, Reflect, ReflectFromPtr};
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -1617,7 +1623,7 @@ mod tests {
                 registry
                     .get_mut(TypeId::of::<A>())
                     .unwrap()
-                    .insert(<ReflectFromPtr as FromType<B>>::from_type());
+                    .insert(<ReflectFromPtr as CreateTypeData<B>>::create_type_data(()));
             }
 
             let e = world.spawn(A).id();
@@ -1711,7 +1717,7 @@ mod tests {
             impl FromWorld for SomeRef {
                 fn from_world(world: &mut World) -> Self {
                     world.insert_resource(FromWorldCalled(true));
-                    SomeRef(Entity::PLACEHOLDER, Default::default())
+                    SomeRef(world.spawn_empty().id(), Default::default())
                 }
             }
             let mut world = World::new();
@@ -2108,6 +2114,7 @@ mod tests {
                 layout,
                 None,
                 true,
+                false,
                 ComponentCloneBehavior::Custom(test_handler),
                 None,
             )

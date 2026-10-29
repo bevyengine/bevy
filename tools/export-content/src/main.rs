@@ -1,7 +1,7 @@
 //! A tool for exporting release content.
 //!
 //! This terminal-based tool generates a release content file
-//! from the content of the `release-content` directory.
+//! from the content of the `_release-content` directory.
 //!
 //! To run this tool, use the following command from the `bevy` repository root:
 //!
@@ -11,6 +11,7 @@
 
 use std::{
     io,
+    io::Write,
     panic::{set_hook, take_hook},
 };
 
@@ -43,7 +44,10 @@ fn main() -> Result<()> {
     res
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> Result<()>
+where
+    B::Error: 'static + Send + Sync,
+{
     let app = App::new()?;
     app.run(terminal)
 }
@@ -57,7 +61,7 @@ fn init_panic_hook() {
     }));
 }
 
-fn init_terminal() -> Result<Terminal<impl Backend>> {
+fn init_terminal() -> Result<Terminal<CrosstermBackend<impl Write>>> {
     enable_raw_mode().into_diagnostic()?;
     execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture).into_diagnostic()?;
     let backend = CrosstermBackend::new(io::stdout());

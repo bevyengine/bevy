@@ -7,8 +7,8 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::primitives::ViewFrustum;
 use bevy_reflect::prelude::*;
+use bevy_shape::ViewFrustum;
 use bevy_transform::components::Transform;
 use tracing::warn;
 
@@ -46,6 +46,8 @@ use super::{
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
 ///
+/// Some of these are provided as constants in [`light_consts::lux`].
+///
 /// ## Shadows
 ///
 /// To enable shadows, set the `shadow_maps_enabled` property to `true`.
@@ -80,6 +82,7 @@ pub struct DirectionalLight {
     /// more-or-less the same way (depending on the angle of incidence). Lumens
     /// can only be specified for light sources which emit light from a specific
     /// area.
+    /// The default is [`light_consts::lux::AMBIENT_DAYLIGHT`] = 10,000.
     pub illuminance: f32,
 
     /// Whether this light casts shadows.
@@ -158,14 +161,16 @@ impl Default for DirectionalLight {
 }
 
 impl DirectionalLight {
+    /// The default value of [`DirectionalLight::shadow_depth_bias`].
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    /// The default value of [`DirectionalLight::shadow_normal_bias`].
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 1.8;
 }
 
 /// Add to a [`DirectionalLight`] to add a light texture effect.
 /// A texture mask is applied to the light source to modulate its intensity,  
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
+#[derive(Clone, Component, Debug, Reflect, FromTemplate)]
 #[reflect(Component, Debug)]
 #[require(DirectionalLight)]
 pub struct DirectionalLightTexture {
@@ -208,6 +213,7 @@ pub fn validate_shadow_map_size(mut shadow_map: ResMut<DirectionalLightShadowMap
     }
 }
 
+/// Updates the frusta for all visible shadow mapped [`DirectionalLight`]s.
 pub fn update_directional_light_frusta(
     mut views: Query<
         (
@@ -251,8 +257,9 @@ pub fn update_directional_light_frusta(
 /// Requires a `bevy::pbr::Atmosphere` component on a [`Camera3d`](bevy_camera::Camera3d) to have any effect.
 ///
 /// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
-/// apparent size and brightness of the Sun as seen from Earth. You can also disable the sun
-/// disk entirely with [`SunDisk::OFF`].
+/// apparent size and brightness of the Sun as seen from Earth. Use [`SunDisk::MARS`] for the
+/// smaller apparent sun size from Mars. You can also disable the sun disk entirely
+/// with [`SunDisk::OFF`].
 ///
 /// In order to cause the sun to "glow" and light up the surrounding sky, enable bloom
 /// in your post-processing pipeline by adding a `Bloom` component to your camera.
@@ -275,6 +282,15 @@ impl SunDisk {
     /// with default intensity.
     pub const EARTH: SunDisk = SunDisk {
         angular_size: 0.00930842,
+        intensity: 1.0,
+    };
+
+    /// Mars-like parameters for the sun disk.
+    ///
+    /// Uses the mean apparent size (~21 arcminutes) of the Sun from Mars
+    /// at ~1.52 AU distance with default intensity.
+    pub const MARS: SunDisk = SunDisk {
+        angular_size: 0.00615,
         intensity: 1.0,
     };
 

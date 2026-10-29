@@ -25,7 +25,7 @@ use std::collections::HashMap;
 /// using [`Component`] derive macro:
 /// ```no_run
 /// #[derive(Component)]
-/// #[component(on_add = ..., on_insert = ..., on_replace = ..., on_remove = ...)]
+/// #[component(on_add = ..., on_insert = ..., on_discard = ..., on_remove = ...)]
 /// ```
 struct MyComponent(KeyCode);
 
@@ -65,7 +65,7 @@ fn setup(world: &mut World) {
     // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world
         .register_component_hooks::<MyComponent>()
-        // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_replace` and `on_remove`
+        // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_discard` and `on_remove`
         // A hook has 2 arguments:
         // - a `DeferredWorld`, this allows access to resource and component data as well as `Commands`
         // - a `HookContext`, this provides access to the following contextual information:
@@ -103,10 +103,10 @@ fn setup(world: &mut World) {
         .on_insert(|world, _| {
             println!("Current Index: {:?}", world.resource::<MyComponentIndex>());
         })
-        // `on_replace` will trigger when a component is inserted onto an entity that already had it,
+        // `on_discard` will trigger when a component is inserted onto an entity that already had it,
         // and runs before the value is replaced.
         // Also triggers when a component is removed from an entity, and runs before `on_remove`
-        .on_replace(|mut world, context| {
+        .on_discard(|mut world, context| {
             let value = world.get::<MyComponent>(context.entity).unwrap().0;
             world.resource_mut::<MyComponentIndex>().remove(&value);
         })

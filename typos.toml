@@ -28,6 +28,7 @@ ser = "ser"       # ron::ser - Serializer
 toi = "toi"       # Time of impact
 vOt = "vOt"
 vOt2 = "vOt2"
+FOV = "FOV"       # Field Of View
 
 [default]
 locale = "en-us"

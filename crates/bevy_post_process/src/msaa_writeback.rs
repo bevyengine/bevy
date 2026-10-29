@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_camera::MsaaWriteback;
+use bevy_camera::{ClearColorConfig, MsaaWriteback};
 use bevy_color::LinearRgba;
 use bevy_core_pipeline::{
     blit::{BlitPipeline, BlitPipelineKey},
@@ -106,17 +106,21 @@ fn prepare_msaa_writeback_pipelines(
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
+        // writeback is needed when the main pass must load existing content
+        // from the main texture because of `LoadOp::Load`.
+        // otherwise we'd read from an ephemeral sampled texture that doesn't have
+        // the real content
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
-            MsaaWriteback::Auto => camera.sorted_camera_index_for_target > 0,
-            MsaaWriteback::Always => true,
-        };
+            MsaaWriteback::Auto | MsaaWriteback::Always => true,
+        } && matches!(camera.clear_color, ClearColorConfig::None);
 
         if msaa.samples() > 1 && should_writeback {
             let key = BlitPipelineKey {
-                texture_format: view_target.main_texture_format(),
+                target_format: view_target.main_texture_format(),
                 samples: msaa.samples(),
                 blend_state: None,
+                source_space: None,
             };
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);

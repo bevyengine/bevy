@@ -2,18 +2,21 @@
 
 use bevy::{
     asset::LoadContext,
-    gltf::extensions::{GltfExtensionHandler, GltfExtensionHandlers},
-    gltf::GltfPlugin,
+    gltf::{
+        extensions::{ErasedGltfExtensionHandler, GltfExtensionHandler, GltfExtensionHandlers},
+        GltfPlugin,
+    },
     mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
+    pbr::PbrPlugin,
     prelude::*,
     reflect::TypePath,
     render::render_resource::*,
     shader::ShaderRef,
-    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
+    sprite_render::{Material2d, Material2dKey, Material2dPipeline, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wesl";
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
 ///
@@ -31,14 +34,19 @@ fn main() {
             ..default()
         })
         .add_plugins((
-            DefaultPlugins.set(
-                GltfPlugin::default()
-                    // Map a custom glTF attribute name to a `MeshVertexAttribute`.
-                    // The glTF file used here has an attribute name with *two*
-                    // underscores: __BARYCENTRIC
-                    // One is stripped to do the comparison here.
-                    .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
-            ),
+            DefaultPlugins
+                .set(
+                    GltfPlugin::default()
+                        // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                        // The glTF file used here has an attribute name with *two*
+                        // underscores: __BARYCENTRIC
+                        // One is stripped to do the comparison here.
+                        .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
+                )
+                .set(PbrPlugin {
+                    gltf_enable_standard_materials: false,
+                    ..Default::default()
+                }),
             GltfToMesh2dPlugin,
         ))
         .add_systems(Startup, setup)
@@ -47,7 +55,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/barycentric/barycentric.gltf")),
         ),
@@ -84,7 +92,7 @@ impl Plugin for GltfToMesh2dPlugin {
 struct GltfExtensionHandlerToMesh2d;
 
 impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
-    fn dyn_clone(&self) -> Box<dyn GltfExtensionHandler> {
+    fn dyn_clone(&self) -> Box<dyn ErasedGltfExtensionHandler> {
         Box::new((*self).clone())
     }
 
@@ -95,15 +103,14 @@ impl GltfExtensionHandler for GltfExtensionHandlerToMesh2d {
         _mesh: &gltf::Mesh,
         _material: &gltf::Material,
         entity: &mut EntityWorldMut,
+        _material_label: &str,
     ) {
-        if let Some(mesh3d) = entity.get::<Mesh3d>()
-            && let Some(_) = entity.get::<MeshMaterial3d<StandardMaterial>>()
-        {
+        if let Some(mesh3d) = entity.get::<Mesh3d>() {
             let material_handle =
                 load_context.add_labeled_asset("AColorMaterial".to_string(), CustomMaterial {});
             let mesh_handle = mesh3d.0.clone();
             entity
-                .remove::<(Mesh3d, MeshMaterial3d<StandardMaterial>)>()
+                .remove::<Mesh3d>()
                 .insert((Mesh2d(mesh_handle), MeshMaterial2d(material_handle.clone())));
         }
     }
@@ -124,6 +131,7 @@ impl Material2d for CustomMaterial {
     }
 
     fn specialize(
+        _pipeline: &Material2dPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         _key: Material2dKey<Self>,

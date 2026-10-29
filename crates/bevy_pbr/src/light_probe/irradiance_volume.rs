@@ -155,11 +155,6 @@ use crate::{
 
 use super::LightProbeComponent;
 
-/// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
-/// overflow the number of texture bindings when deferred rendering is in use
-/// (see issue #11885).
-pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "wasm32"));
-
 /// All the bind group entries necessary for PBR shaders to access the
 /// irradiance volumes exposed to a view.
 pub(crate) enum RenderViewIrradianceVolumeBindGroupEntries<'a> {
@@ -314,7 +309,7 @@ impl LightProbeComponent for IrradianceVolume {
         self.intensity
     }
 
-    fn flags(&self, _: Self::QueryData) -> RenderLightProbeFlags {
+    fn flags(&self, _: &Self::QueryData) -> RenderLightProbeFlags {
         if self.affects_lightmapped_meshes {
             RenderLightProbeFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE
         } else {

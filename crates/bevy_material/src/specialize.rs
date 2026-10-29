@@ -29,7 +29,7 @@ pub type BaseSpecializeFn = fn(
 /// - Call `SpecializedMeshPipelines::specialize` with the specializer and return the resulting pipeline id
 pub type PrepassSpecializeFn = fn(
     &mut World,
-    ErasedMaterialPipelineKey,
+    &ErasedMaterialPipelineKey,
     &MeshVertexBufferLayoutRef,
     &Arc<MaterialProperties>,
 ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError>;

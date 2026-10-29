@@ -1,4 +1,4 @@
-//! This example demonstrates the usage of '.meta' files and [`AssetServer::load_with_settings`] to override the default settings for loading an asset
+//! This example demonstrates the usage of '.meta' files and [`LoadBuilder::with_settings`](bevy::asset::LoadBuilder::with_settings) to override the default settings for loading an asset
 
 use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(100.0, 0.0, 0.0),
     ));
 
-    // Another option is to use the AssetServers load_with_settings function.
+    // Another option is to use the LoadBuilder::with_settings function.
     // With this you can specify the same settings upon loading your asset with a
     // couple of differences. A big one is that you aren't required to set *every*
     // setting, just modify the ones that you need. It works by passing in a function
@@ -62,12 +62,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // same one as without a .meta file.
     commands.spawn((
         Sprite {
-            image: asset_server.load_with_settings(
-                "bevy_pixel_dark_with_settings.png",
-                |settings: &mut ImageLoaderSettings| {
+            image: asset_server
+                .load_builder()
+                .with_settings(|settings: &mut ImageLoaderSettings| {
                     settings.sampler = ImageSampler::nearest();
-                },
-            ),
+                })
+                .load("bevy_pixel_dark_with_settings.png"),
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },

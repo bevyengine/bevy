@@ -3,12 +3,11 @@ use bevy_utils::prelude::DebugName;
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::Result,
-    query::FilteredAccessSet,
-    system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemInput},
+    system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemAccess, SystemInput},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 
-use super::{IntoSystem, SystemParamValidationError, SystemStateFlags};
+use super::{IntoSystem, SystemStateFlags};
 
 /// See [`IntoSystem::with_input`] for details.
 pub struct WithInputWrapper<S, T>
@@ -70,7 +69,6 @@ where
         unsafe { self.system.run_unsafe(&mut self.value, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -84,15 +82,7 @@ where
         self.system.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { self.system.validate_param_unsafe(world) }
-    }
-
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         self.system.initialize(world)
     }
 
@@ -169,7 +159,6 @@ where
         unsafe { self.system.run_unsafe(value, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -183,15 +172,7 @@ where
         self.system.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Upheld by caller
-        unsafe { self.system.validate_param_unsafe(world) }
-    }
-
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+    fn initialize(&mut self, world: &mut World) -> SystemAccess {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }

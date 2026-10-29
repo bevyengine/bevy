@@ -4,11 +4,11 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     archetype::Archetype,
-    change_detection::{MaybeLocation, MutUntyped},
+    change_detection::{MaybeLocation, MutUntyped, Tick},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{EntityComponentsTrigger, Event, EventKey, Trigger},
-    lifecycle::{HookContext, Insert, Replace, INSERT, REPLACE},
+    event::{EntityComponentsTrigger, Event, EventKey, EventTriggerState, Trigger},
+    lifecycle::{DiscardEvent, HookContext, InsertEvent, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
     prelude::{Component, QueryState},
@@ -59,6 +59,12 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
     }
 }
 
+impl<'w> From<&'w mut DeferredWorld<'_>> for DeferredWorld<'w> {
+    fn from(world: &'w mut DeferredWorld<'_>) -> DeferredWorld<'w> {
+        world.reborrow()
+    }
+}
+
 impl<'w> DeferredWorld<'w> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
@@ -70,15 +76,7 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
-        let command_queue = unsafe { self.world.get_raw_command_queue() };
-        // SAFETY: command_queue is stored on world and always valid while the world exists
-        unsafe {
-            Commands::new_raw_from_entities(
-                command_queue,
-                self.world.entity_allocator(),
-                self.world.entities(),
-            )
-        }
+        unsafe { self.world.commands() }
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
@@ -93,7 +91,7 @@ impl<'w> DeferredWorld<'w> {
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
     /// runs the provided closure on it, returning the result if `T` was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -130,7 +128,7 @@ impl<'w> DeferredWorld<'w> {
     /// Temporarily removes a [`Component`] identified by the provided
     /// [`ComponentId`] from the provided [`Entity`] and runs the provided
     /// closure on it, returning the result if the component was available.
-    /// This will trigger the `Remove` and `Replace` component hooks without
+    /// This will trigger the `Remove` and `Discard` component hooks without
     /// causing an archetype move.
     ///
     /// This is most useful with immutable components, where removal and reinsertion
@@ -162,23 +160,25 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - REPLACE is able to accept ZST events
+        // - DISCARD is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
-            self.trigger_on_replace(
+            self.trigger_on_discard(
                 archetype,
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
                 relationship_hook_mode,
             );
-            if archetype.has_replace_observer() {
-                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+            if archetype.has_discard_observer() {
+                // SAFETY: the DISCARD event_key corresponds to the Discard event's type
                 self.trigger_raw(
-                    REPLACE,
-                    &mut Replace { entity },
+                    DISCARD,
+                    &mut DiscardEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
+                        old_archetype: Some(archetype),
+                        new_archetype: Some(archetype),
                     },
                     MaybeLocation::caller(),
                 );
@@ -205,7 +205,7 @@ impl<'w> DeferredWorld<'w> {
         // - DeferredWorld ensures archetype pointer will remain valid as no
         //   relocations will occur.
         // - component_id exists on this world and this entity
-        // - REPLACE is able to accept ZST events
+        // - DISCARD is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
             self.trigger_on_insert(
@@ -219,9 +219,11 @@ impl<'w> DeferredWorld<'w> {
                 // SAFETY: the INSERT event_key corresponds to the Insert event's type
                 self.trigger_raw(
                     INSERT,
-                    &mut Insert { entity },
+                    &mut InsertEvent { entity },
                     &mut EntityComponentsTrigger {
                         components: &[component_id],
+                        old_archetype: Some(archetype),
+                        new_archetype: Some(archetype),
                     },
                     MaybeLocation::caller(),
                 );
@@ -437,11 +439,7 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY:
         // - `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         // - Command queue access does not conflict with entity access.
-        let raw_queue = unsafe { cell.get_raw_command_queue() };
-        // SAFETY: `&mut self` ensures the commands does not outlive the world.
-        let commands = unsafe {
-            Commands::new_raw_from_entities(raw_queue, cell.entity_allocator(), cell.entities())
-        };
+        let commands = unsafe { cell.commands() };
 
         (fetcher, commands)
     }
@@ -452,12 +450,12 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
+    #[deprecated(since = "0.19.0", note = "use `QueryState::query_mut`")]
     pub fn query<'s, D: QueryData, F: QueryFilter>(
         &mut self,
         state: &'s mut QueryState<D, F>,
     ) -> Query<'_, 's, D, F> {
-        // SAFETY: We have mutable access to the entire world
-        unsafe { state.query_unchecked(self.world) }
+        state.query_mut(self)
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -468,7 +466,7 @@ impl<'w> DeferredWorld<'w> {
     /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -483,42 +481,42 @@ impl<'w> DeferredWorld<'w> {
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+    pub fn get_resource_mut<R: Resource<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
         unsafe { self.world.get_resource_mut() }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Gets a mutable reference to the non-send data of the given type, if it exists.
     ///
     /// # Panics
     ///
-    /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    /// Panics if the data does not exist.
+    /// Use [`get_non_send_mut`](World::get_non_send_mut) instead if you want to handle this case.
     ///
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     #[track_caller]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        match self.get_non_send_resource_mut() {
+    pub fn non_send_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        match self.get_non_send_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`.
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
-                Non-send resources can also be added by plugins.",
+                "Requested non-send data {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send` / `app.init_non_send`?
+                Non-send data can also be added by plugins.",
                 DebugName::type_name::<R>()
             ),
         }
     }
 
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Gets a mutable reference to non-send data of the given type, if it exists.
     /// Otherwise returns `None`.
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_non_send_resource_mut() }
+    pub fn get_non_send_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the data
+        unsafe { self.world.get_non_send_mut() }
     }
 
     /// Writes a [`Message`].
@@ -567,19 +565,19 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_resource_mut_by_id(component_id) }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
-    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// Gets mutable access to `!Send` data with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the data, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
-    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`DeferredWorld::get_non_send_mut`] where possible
+    /// and only use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the data was inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
+        // SAFETY: &mut self ensure that there are no outstanding accesses to the data
+        unsafe { self.world.get_non_send_mut_by_id(component_id) }
     }
 
     /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
@@ -662,12 +660,12 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Triggers all `on_replace` hooks for [`ComponentId`] in target.
+    /// Triggers all `on_discard` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
     /// Caller must ensure [`ComponentId`] in target exist in self.
     #[inline]
-    pub(crate) unsafe fn trigger_on_replace(
+    pub(crate) unsafe fn trigger_on_discard(
         &mut self,
         archetype: &Archetype,
         entity: Entity,
@@ -675,11 +673,11 @@ impl<'w> DeferredWorld<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) {
-        if archetype.has_replace_hook() {
+        if archetype.has_discard_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
-                if let Some(hook) = hooks.on_replace {
+                if let Some(hook) = hooks.on_discard {
                     hook(
                         DeferredWorld { world: self.world },
                         HookContext {
@@ -761,11 +759,11 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
-    pub unsafe fn trigger_raw<'a, E: Event>(
+    pub unsafe fn trigger_raw<E: Event>(
         &mut self,
         event_key: EventKey,
         event: &mut E,
-        trigger: &mut E::Trigger<'a>,
+        trigger: &mut EventTriggerState<'_, E>,
         caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
@@ -785,7 +783,7 @@ impl<'w> DeferredWorld<'w> {
         // - trigger_context contains the correct event_key for `event`, as enforced by the call to `trigger_raw`
         // - This method is being called for an `event` whose `Event::Trigger` matches, as the input trigger is E::Trigger.
         unsafe {
-            trigger.trigger(world.reborrow(), observers, &context, event);
+            E::Trigger::trigger(trigger, world.reborrow(), observers, &context, event);
         }
     }
 
@@ -794,7 +792,11 @@ impl<'w> DeferredWorld<'w> {
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     ///
     /// [`Observer`]: crate::observer::Observer
-    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+    #[track_caller]
+    pub fn trigger<E: Event>(&mut self, event: E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.commands().trigger(event);
     }
 
@@ -805,5 +807,20 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         self.world
+    }
+
+    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
+    ///
+    /// # Safety
+    /// - must only be used to make non-structural ECS changes
+    #[inline]
+    pub fn into_unsafe_world_cell(self) -> UnsafeWorldCell<'w> {
+        self.world
+    }
+
+    /// Gets the current change tick of [`DeferredWorld`].
+    #[inline]
+    pub fn change_tick(&mut self) -> Tick {
+        self.world.change_tick()
     }
 }

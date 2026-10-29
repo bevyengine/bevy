@@ -142,7 +142,7 @@ let reflect_value: Box<dyn Reflect> = Box::new(MyType {
 // What if we want to call `do_thing` on our type? We could downcast using reflect_value.downcast_ref::<MyType>(), but what if we
 // don't know the type at compile time?
 
-// Normally in rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
+// Normally in Rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
 let mut type_registry = TypeRegistry::default();
 type_registry.register::<MyType>();
 

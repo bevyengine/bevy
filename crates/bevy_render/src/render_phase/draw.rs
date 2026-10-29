@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{any::TypeId, fmt::Debug};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
@@ -56,7 +56,7 @@ pub enum DrawError {
 /// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.
 pub struct DrawFunctionsInternal<P: PhaseItem> {
     pub draw_functions: Vec<Box<dyn Draw<P>>>,
-    pub indices: TypeIdMap<DrawFunctionId>,
+    pub indices: TypeIdHashMap<DrawFunctionId>,
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
@@ -326,7 +326,7 @@ where
         view: Entity,
         item: &P,
     ) -> Result<(), DrawError> {
-        let param = self.state.get(world);
+        let param = self.state.get(world).unwrap();
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {

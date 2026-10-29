@@ -1,10 +1,10 @@
 use core::hint::black_box;
 
 use bevy_ecs::prelude::*;
+use chacha20::ChaCha8Rng;
 use criterion::Criterion;
 use rand::SeedableRng;
-use rand::{seq::IteratorRandom, Rng};
-use rand_chacha::ChaCha8Rng;
+use rand::{seq::IteratorRandom, RngExt};
 
 const DENSITY: usize = 20; // percent of nodes with listeners
 const ENTITY_DEPTH: usize = 64;

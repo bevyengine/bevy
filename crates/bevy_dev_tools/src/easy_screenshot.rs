@@ -2,14 +2,10 @@
 use core::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bevy_app::{App, Plugin, PostUpdate, Update};
-use bevy_camera::Camera;
+use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
 use bevy_input::{common_conditions::input_just_pressed, keyboard::KeyCode};
-use bevy_math::{Quat, StableInterpolate, Vec3};
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
-use bevy_time::Time;
-use bevy_transform::{components::Transform, TransformSystems};
 use bevy_window::{PrimaryWindow, Window};
 #[cfg(all(not(target_os = "windows"), feature = "screenrecording"))]
 pub use x264::{Preset, Tune};
@@ -129,6 +125,12 @@ pub struct EasyScreenRecordPlugin {
     pub tune: Tune,
     /// target frame time
     pub frame_time: Duration,
+    /// Output directory for recorded video files.
+    ///
+    /// When `None`, recordings are saved in the current working directory.
+    /// When `Some(path)`, recordings are saved in the specified directory.
+    /// The directory will be created if it does not exist.
+    pub output_dir: Option<std::path::PathBuf>,
 }
 
 #[cfg(feature = "screenrecording")]
@@ -139,6 +141,7 @@ impl Default for EasyScreenRecordPlugin {
             preset: Preset::Medium,
             tune: Tune::Animation,
             frame_time: Duration::from_millis(33),
+            output_dir: None,
         }
     }
 }
@@ -152,6 +155,21 @@ pub enum RecordScreen {
     /// Stops screen recording
     Stop,
 }
+
+#[cfg(feature = "screenrecording")]
+/// The [`Update`] systems that the [`EasyScreenRecordPlugin`] runs
+/// to start and stop recording on user command and
+/// to send frames to the thread that manages video file creation.
+/// These systems manipulate [`virtual`](bevy_time::Virtual)
+/// [`time`](bevy_time::Time) in order to capture frames for video.
+///
+/// If any application [`Update`] systems have behavior that depend
+/// on virtual time and must be recorded, ensure that these systems run
+/// [`after(EasyScreenRecordSystems)`](bevy_ecs::schedule::IntoScheduleConfigs::after).
+/// The application may run slower on screen during recording,
+/// but the video playback will be at normal speed.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EasyScreenRecordSystems;
 
 #[cfg(feature = "screenrecording")]
 impl Plugin for EasyScreenRecordPlugin {
@@ -174,7 +192,7 @@ impl Plugin for EasyScreenRecordPlugin {
             use x264::{Colorspace, Encoder, Setup};
 
             enum RecordCommand {
-                Start(String, Preset, Tune),
+                Start(std::path::PathBuf, Preset, Tune),
                 Stop,
                 Frame(Image),
             }
@@ -188,18 +206,17 @@ impl Plugin for EasyScreenRecordPlugin {
                 let mut setup = None;
                 let mut file: Option<File> = None;
                 let mut frame = 0;
-                loop {
-                    let Ok(next) = rx.recv() else {
-                        break;
-                    };
+                while let Ok(next) = rx.recv() {
                     match next {
-                        RecordCommand::Start(name, preset, tune) => {
-                            info!("starting recording at {}", name);
-                            file = Some(File::create(name).unwrap());
+                        RecordCommand::Start(path, preset, tune) => {
+                            if let Some(parent) = path.parent() {
+                                std::fs::create_dir_all(parent).unwrap();
+                            }
+                            info!("starting recording at {}", path.display());
+                            file = Some(File::create(path).unwrap());
                             setup = Some(Setup::preset(preset, tune, false, true).high());
                         }
                         RecordCommand::Stop => {
-                            info!("stopping recording");
                             if let Some(encoder) = encoder.take() {
                                 let mut flush = encoder.flush();
                                 let mut file = file.take().unwrap();
@@ -208,6 +225,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                     file.write_all(data.entirety()).unwrap();
                                 }
                             }
+                            info!("finished processing video");
                         }
                         RecordCommand::Frame(image) => {
                             if let Some(setup) = setup.take() {
@@ -248,6 +266,7 @@ impl Plugin for EasyScreenRecordPlugin {
             });
 
             let frame_time = self.frame_time;
+            let output_dir = self.output_dir.clone();
 
             app.add_message::<RecordScreen>().add_systems(
                 Update,
@@ -282,7 +301,11 @@ impl Plugin for EasyScreenRecordPlugin {
                                     window.title,
                                     since_the_epoch.as_millis(),
                                 );
-                                tx.send(RecordCommand::Start(filename, preset, tune))
+                                let path = match &output_dir {
+                                    Some(dir) => dir.join(&filename),
+                                    None => std::path::PathBuf::from(&filename),
+                                };
+                                tx.send(RecordCommand::Start(path, preset, tune))
                                     .unwrap();
                                 *recording = true;
                                 virtual_time.pause();
@@ -291,6 +314,7 @@ impl Plugin for EasyScreenRecordPlugin {
                                 tx.send(RecordCommand::Stop).unwrap();
                                 *recording = false;
                                 virtual_time.unpause();
+                                info!("stopped recording. still processing video");
                             }
                             _ => {}
                         }
@@ -310,57 +334,9 @@ impl Plugin for EasyScreenRecordPlugin {
                     }
                     },
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(EasyScreenRecordSystems),
             );
         }
-    }
-}
-
-/// Plugin to move the camera smoothly according to the current time
-pub struct EasyCameraMovementPlugin {
-    /// Decay rate for the camera movement
-    pub decay_rate: f32,
-}
-
-impl Default for EasyCameraMovementPlugin {
-    fn default() -> Self {
-        Self { decay_rate: 1.0 }
-    }
-}
-
-/// Move the camera to the given position
-#[derive(Component)]
-pub struct CameraMovement {
-    /// Target position for the camera movement
-    pub translation: Vec3,
-    /// Target rotation for the camera movement
-    pub rotation: Quat,
-}
-
-impl Plugin for EasyCameraMovementPlugin {
-    fn build(&self, app: &mut App) {
-        let decay_rate = self.decay_rate;
-        app.add_systems(
-            PostUpdate,
-            (move |mut query: Single<(&mut Transform, &CameraMovement), With<Camera>>,
-                   time: Res<Time>| {
-                {
-                    {
-                        let target = query.1;
-                        query.0.translation.smooth_nudge(
-                            &target.translation,
-                            decay_rate,
-                            time.delta_secs(),
-                        );
-                        query.0.rotation.smooth_nudge(
-                            &target.rotation,
-                            decay_rate,
-                            time.delta_secs(),
-                        );
-                    }
-                }
-            })
-            .before(TransformSystems::Propagate),
-        );
     }
 }

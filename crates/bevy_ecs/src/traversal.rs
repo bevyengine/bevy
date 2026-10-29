@@ -2,7 +2,7 @@
 
 use crate::{
     entity::Entity,
-    query::{ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{ReadOnlyQueryData, ReleaseStateQueryData, SingleEntityQueryData},
     relationship::Relationship,
 };
 
@@ -25,7 +25,9 @@ use crate::{
 /// [event propagation]: crate::observer::On::propagate
 /// [observers]: crate::observer::Observer
 /// [`EntityEvent`]: crate::event::EntityEvent
-pub trait Traversal<D: ?Sized>: ReadOnlyQueryData + ReleaseStateQueryData {
+pub trait Traversal<D: ?Sized>:
+    ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData + 'static
+{
     /// Returns the next entity to visit.
     fn traverse(item: Self::Item<'_, '_>, data: &D) -> Option<Entity>;
 }
@@ -43,7 +45,7 @@ impl<D> Traversal<D> for () {
 /// Traversing in a loop could result in infinite loops for relationship graphs with loops.
 ///
 /// [event propagation]: crate::observer::On::propagate
-impl<R: Relationship, D> Traversal<D> for &R {
+impl<R: Relationship, D> Traversal<D> for &'static R {
     fn traverse(item: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
         Some(item.get())
     }

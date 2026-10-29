@@ -18,6 +18,8 @@ pub enum GizmoRenderSystems {
 }
 
 pub mod retained;
+#[cfg(feature = "bevy_pbr")]
+pub mod transform_gizmo_render;
 
 #[cfg(feature = "bevy_sprite_render")]
 mod pipeline_2d;
@@ -26,11 +28,14 @@ mod pipeline_3d;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    name::Name,
     resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::Res,
+    world::{FromWorld, World},
 };
 use bevy_math::Affine3Ext;
+use bevy_reflect::Reflect;
 
 use {bevy_gizmos::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
 
@@ -40,6 +45,7 @@ use {
     bevy_ecs::{
         component::Component,
         entity::Entity,
+        prelude::ReflectResource,
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
@@ -62,8 +68,9 @@ use {
     bytemuck::cast_slice,
 };
 
-use bevy_render::render_resource::{
-    BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode,
+use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_resource::{BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode},
 };
 
 use bevy_gizmos::{
@@ -81,12 +88,14 @@ impl Plugin for GizmoRenderPlugin {
     fn build(&self, app: &mut App) {
         {
             use bevy_asset::embedded_asset;
-            embedded_asset!(app, "lines.wgsl");
-            embedded_asset!(app, "line_joints.wgsl");
+            embedded_asset!(app, "lines.wesl");
+            embedded_asset!(app, "line_joints.wesl");
         }
 
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
+            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default())
+            .add_plugins(ExtractResourcePlugin::<LineGizmoEntities>::default())
+            .init_resource::<LineGizmoEntities>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
@@ -107,6 +116,7 @@ impl Plugin for GizmoRenderPlugin {
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+                app.add_plugins(transform_gizmo_render::TransformGizmoRenderPlugin);
             } else {
                 tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }
@@ -120,7 +130,7 @@ fn init_line_gizmo_uniform_bind_group_layout(mut commands: Commands) {
     let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
         &BindGroupLayoutEntries::single(
-            ShaderStages::VERTEX,
+            ShaderStages::VERTEX_FRAGMENT,
             uniform_buffer::<LineGizmoUniform>(true),
         ),
     );
@@ -190,6 +200,7 @@ fn extract_gizmo_data(
                 joints_resolution,
                 gap_scale,
                 line_scale,
+                animation_offset: config.line.animation_offset,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _webgl2_padding: Default::default(),
             },
@@ -204,7 +215,7 @@ fn extract_gizmo_data(
             // The immediate mode API does not have a main world entity to refer to,
             // but we do need MainEntity on this render entity for the systems to find it.
             MainEntity::from(Entity::PLACEHOLDER),
-            TemporaryRenderEntity,
+            TemporaryRenderEntity::default(),
         ));
     }
 }
@@ -219,9 +230,10 @@ struct LineGizmoUniform {
     // Only used if the current configs `line_style` is set to `GizmoLineStyle::Dashed{_}`
     gap_scale: f32,
     line_scale: f32,
+    animation_offset: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    _webgl2_padding: bevy_math::Vec3,
+    _webgl2_padding: bevy_math::Vec2,
 }
 
 #[cfg_attr(
@@ -310,15 +322,17 @@ fn prepare_line_gizmo_bind_group(
     pipeline_cache: Res<PipelineCache>,
     line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
 ) {
-    if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
-        commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(
-                "LineGizmoUniform bindgroup",
-                &pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
-                &BindGroupEntries::single(binding),
-            ),
-        });
-    }
+    let Some(line_gizmo_binding) = line_gizmo_uniforms.uniforms().binding() else {
+        return;
+    };
+
+    commands.insert_resource(LineGizmoUniformBindgroup {
+        bindgroup: render_device.create_bind_group(
+            "LineGizmoUniform bindgroup",
+            &pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
+            &BindGroupEntries::single(line_gizmo_binding),
+        ),
+    });
 }
 
 #[cfg_attr(
@@ -601,4 +615,36 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         },
         color_layout.clone(),
     ]
+}
+
+/// Holds entities that the gizmo render phase items are associated with.
+///
+/// Sorted render phases require each phase item to be associated with an entity
+/// in the main world. Immediate mode gizmos don't have entities normally, so we
+/// need to create entities for them. There are three potential phase items that
+/// can be added and therefore three potential entities.
+#[derive(Clone, Reflect, Resource, ExtractResource)]
+#[reflect(Clone, Resource)]
+#[extract_app(RenderApp)]
+pub struct LineGizmoEntities {
+    /// An entity that regular line phase items are associated with.
+    pub line_gizmo_renderer: MainEntity,
+    /// An entity that line strip phase items are associated with.
+    pub line_strip_gizmo_renderer: MainEntity,
+    /// An entity that line joint phase items are associated with.
+    pub line_joint_gizmo_renderer: MainEntity,
+}
+
+impl FromWorld for LineGizmoEntities {
+    fn from_world(world: &mut World) -> LineGizmoEntities {
+        // Create the entities for line gizmo phase items to be associated with.
+        let line_gizmo_renderer = world.spawn(Name::new("LineGizmoRenderer")).id();
+        let line_strip_gizmo_renderer = world.spawn(Name::new("LineStripGizmoRenderer")).id();
+        let line_joint_gizmo_renderer = world.spawn(Name::new("LineJointGizmoRenderer")).id();
+        LineGizmoEntities {
+            line_gizmo_renderer: MainEntity::from(line_gizmo_renderer),
+            line_strip_gizmo_renderer: MainEntity::from(line_strip_gizmo_renderer),
+            line_joint_gizmo_renderer: MainEntity::from(line_joint_gizmo_renderer),
+        }
+    }
 }

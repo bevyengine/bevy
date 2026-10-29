@@ -10,9 +10,8 @@ use log::warn;
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::BevyError,
-    query::FilteredAccessSet,
     schedule::InternedSystemSet,
-    system::{input::SystemInput, SystemIn},
+    system::{input::SystemInput, SystemAccess, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -27,8 +26,6 @@ bitflags! {
     pub struct SystemStateFlags: u8 {
         /// Set if system cannot be sent across threads
         const NON_SEND       = 1 << 0;
-        /// Set if system requires exclusive World access
-        const EXCLUSIVE      = 1 << 1;
         /// Set if system has deferred buffers.
         const DEFERRED       = 1 << 2;
     }
@@ -55,7 +52,7 @@ pub trait System: Send + Sync + 'static {
     fn name(&self) -> DebugName;
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
-    fn type_id(&self) -> TypeId {
+    fn system_type(&self) -> TypeId {
         TypeId::of::<Self>()
     }
 
@@ -66,12 +63,6 @@ pub trait System: Send + Sync + 'static {
     #[inline]
     fn is_send(&self) -> bool {
         !self.flags().intersects(SystemStateFlags::NON_SEND)
-    }
-
-    /// Returns true if the system must be run exclusively.
-    #[inline]
-    fn is_exclusive(&self) -> bool {
-        self.flags().intersects(SystemStateFlags::EXCLUSIVE)
     }
 
     /// Returns true if system has deferred buffers.
@@ -92,8 +83,8 @@ pub trait System: Send + Sync + 'static {
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
     ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
-    ///   [`UnsafeWorldCell::world_mut`] on `world`.
+    /// - If [`System::initialize`] returns [`SystemAccess::Exclusive`], then it
+    ///   must be valid to call [`UnsafeWorldCell::world_mut`] on `world`.
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
@@ -101,7 +92,15 @@ pub trait System: Send + Sync + 'static {
     ) -> Result<Self::Out, RunSystemError>;
 
     /// Refresh the inner pointer based on the latest hot patch jump table
-    #[cfg(feature = "hotpatching")]
+    ///
+    /// This method will not be called and will do nothing
+    /// unless the `hotpatching` feature is enabled,
+    /// but it exists unconditionally so that implementations of
+    /// `System` do not need conditional compilation.
+    ///
+    /// Implementations that wrap other `System`s should call the
+    /// inner system's `refresh_hotpatch()`,
+    /// and other implementations may leave this empty.
     fn refresh_hotpatch(&mut self);
 
     /// Runs the system with the given input in the world.
@@ -132,9 +131,6 @@ pub trait System: Send + Sync + 'static {
         let world_cell = world.as_unsafe_world_cell();
         // SAFETY:
         // - We have exclusive access to the entire world.
-        unsafe { self.validate_param_unsafe(world_cell) }?;
-        // SAFETY:
-        // - We have exclusive access to the entire world.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -147,40 +143,10 @@ pub trait System: Send + Sync + 'static {
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
 
-    /// Validates that all parameters can be acquired and that system can run without panic.
-    /// Built-in executors use this to prevent invalid systems from running.
-    ///
-    /// However calling and respecting [`System::validate_param_unsafe`] or its safe variant
-    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
-    /// should provide their own safety mechanism to prevent undefined behavior.
-    ///
-    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
-    /// world mutations in between. Otherwise, while it won't lead to any undefined behavior,
-    /// the validity of the param may change.
-    ///
-    /// # Safety
-    ///
-    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
-    ///   simultaneous accesses while the system is running.
-    unsafe fn validate_param_unsafe(
-        &mut self,
-        world: UnsafeWorldCell,
-    ) -> Result<(), SystemParamValidationError>;
-
-    /// Safe version of [`System::validate_param_unsafe`].
-    /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
-        let world_cell = world.as_unsafe_world_cell_readonly();
-        // SAFETY:
-        // - We have exclusive access to the entire world.
-        unsafe { self.validate_param_unsafe(world_cell) }
-    }
-
     /// Initialize the system.
     ///
-    /// Returns a [`FilteredAccessSet`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet;
+    /// Returns a [`SystemAccess`] with the access required to run the system.
+    fn initialize(&mut self, _world: &mut World) -> SystemAccess;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -237,9 +203,6 @@ pub unsafe trait ReadOnlySystem: System {
         let world = world.as_unsafe_world_cell_readonly();
         // SAFETY:
         // - We have read-only access to the entire world.
-        unsafe { self.validate_param_unsafe(world) }?;
-        // SAFETY:
-        // - We have read-only access to the entire world.
         unsafe { self.run_unsafe(input, world) }
     }
 }
@@ -273,7 +236,6 @@ where
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
-            .field("is_exclusive", &self.is_exclusive())
             .field("is_send", &self.is_send())
             .finish_non_exhaustive()
     }
@@ -501,22 +463,22 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.count_spawned(), 0);
+        assert_eq!(world.query::<&A>().query(&world).count(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.count_spawned(), 1);
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
     }
 
     #[test]
-    fn non_send_resources() {
+    fn non_send() {
         fn non_send_count_down(mut ns: NonSendMut<Counter>) {
             ns.0 -= 1;
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(Counter(10));
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
+        world.insert_non_send(Counter(10));
+        assert_eq!(*world.non_send::<Counter>(), Counter(10));
         world.run_system_once(non_send_count_down).unwrap();
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+        assert_eq!(*world.non_send::<Counter>(), Counter(9));
     }
 
     #[test]

@@ -13,7 +13,7 @@ use bevy::{
 };
 
 /// The path to the example material shader.
-static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
+static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wesl";
 
 /// The example bindless material extension.
 ///
@@ -29,7 +29,7 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
 /// declaration:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(101)
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(101)
 /// var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
 /// ```
 ///
@@ -47,7 +47,7 @@ static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
 ///     modulate_texture_sampler: u32,      // 52
 /// }
 ///
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(100)
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(100)
 /// var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
 /// ```
 ///

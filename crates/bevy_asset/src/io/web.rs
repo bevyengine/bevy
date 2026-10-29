@@ -1,3 +1,7 @@
+//! Adds the `http` and `https` asset sources to the app.
+//!
+//! See [`WebAssetPlugin`] for details.
+
 use crate::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
@@ -56,6 +60,7 @@ use tracing::warn;
 /// ```
 #[derive(Default)]
 pub struct WebAssetPlugin {
+    /// Set this if you have seen the warning about URL safety enough times.
     pub silence_startup_warning: bool,
 }
 
@@ -85,7 +90,7 @@ impl Plugin for WebAssetPlugin {
     }
 }
 
-/// Asset reader that treats paths as urls to load assets from.
+/// Asset reader that treats paths as URLs to load assets from.
 pub enum WebAssetReader {
     /// Unencrypted connections.
     Http,
@@ -132,6 +137,9 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             io::Error::other(std::format!("non-utf8 path: {}", path.display())).into(),
         )
     })?;
+
+    #[cfg(target_os = "windows")]
+    let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
@@ -240,7 +248,11 @@ mod web_asset_cache {
         let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
 
         if cache_path.exists() {
+            #[cfg(feature = "multi_threaded")]
             let mut file = async_fs::File::open(&cache_path).await?;
+            #[cfg(not(feature = "multi_threaded"))]
+            let mut file =
+                crate::io::file::sync_file_asset::FileReader(std::fs::File::open(&cache_path)?);
             let mut buffer = Vec::new();
             file.read_to_end(&mut buffer).await?;
             Ok(Some(buffer))
@@ -257,6 +269,7 @@ mod web_asset_cache {
 
         let mut cache_file = async_fs::File::create(&cache_path).await?;
         cache_file.write_all(data).await?;
+        cache_file.close().await?;
 
         Ok(())
     }

@@ -2,7 +2,7 @@
 
 use bevy::{
     audio::AudioPlugin, color::palettes, gltf::GltfMaterialName, prelude::*,
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 
 fn main() {
@@ -13,7 +13,7 @@ fn main() {
         .run();
 }
 
-/// This is added to a [`SceneRoot`] and will cause the [`StandardMaterial::base_color`]
+/// This is added to a [`WorldAssetRoot`] and will cause the [`StandardMaterial::base_color`]
 /// of materials with [`GltfMaterialName`] equal to `LeatherPartsMat`.
 #[derive(Component)]
 struct ColorOverride(Color);
@@ -33,27 +33,27 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     let flight_helmet = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     // This model will keep its original materials
-    commands.spawn(SceneRoot(flight_helmet.clone()));
+    commands.spawn(WorldAssetRoot(flight_helmet.clone()));
     // This model will be tinted red
     commands.spawn((
-        SceneRoot(flight_helmet.clone()),
+        WorldAssetRoot(flight_helmet.clone()),
         Transform::from_xyz(-1.25, 0., 0.),
         ColorOverride(palettes::tailwind::RED_300.into()),
     ));
     // This model will be tinted green
     commands.spawn((
-        SceneRoot(flight_helmet),
+        WorldAssetRoot(flight_helmet),
         Transform::from_xyz(1.25, 0., 0.),
         ColorOverride(palettes::tailwind::GREEN_300.into()),
     ));
 }
 
-/// On [`SceneInstanceReady`], iterates over all descendants of the scene
+/// On [`WorldInstanceReady`], iterates over all descendants of the scene
 /// and modifies the tint of the material for the materials named `LeatherPartsMat`.
 ///
-/// If the [`SceneRoot`] does not have a [`ColorOverride`], it is skipped.
+/// If the [`WorldAssetRoot`] does not have a [`ColorOverride`], it is skipped.
 fn change_material(
-    scene_ready: On<SceneInstanceReady>,
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     color_override: Query<&ColorOverride>,
@@ -75,7 +75,7 @@ fn change_material(
             continue;
         };
         // Get the material of the descendant
-        let Some(material) = asset_materials.get_mut(id.id()) else {
+        let Some(material) = asset_materials.get(id.id()) else {
             continue;
         };
 

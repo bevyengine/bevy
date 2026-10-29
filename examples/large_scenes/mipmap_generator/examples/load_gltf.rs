@@ -15,10 +15,10 @@ pub struct Args {
     /// compress textures (requires compress feature)
     #[argh(switch)]
     compress: bool,
-    /// if set, raw compressed image data will be cached in this directory. Images that are not BCn compressed are not cached.
+    /// if set, raw compressed image data will be cached in this directory. Images that are not `BCn` compressed are not cached.
     #[argh(switch)]
     cache: bool,
-    /// if low_quality is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used. When low quality is set, compression is generally faster than CompressionSpeed::UltraFast and CompressionSpeed is ignored.
+    /// if `low_quality` is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used. When low quality is set, compression is generally faster than `CompressionSpeed::UltraFast` and `CompressionSpeed` is ignored.
     #[argh(switch)]
     low_quality: bool,
 }
@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(-1.0, 2.0, -3.0),
     ));
 
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load(
             // This seems to be the correct path but bevy doesn't resolve it.
             GltfAssetLabel::Scene(0)

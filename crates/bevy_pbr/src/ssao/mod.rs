@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
-use bevy_camera::{Camera, Camera3d};
+use bevy_camera::{Camera, Camera3d, MainPassResolutionOverride};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
@@ -32,7 +32,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
@@ -44,11 +44,11 @@ pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ssao_utils.wgsl");
+        load_shader_library!(app, "utils.wesl");
 
-        embedded_asset!(app, "preprocess_depth.wgsl");
-        embedded_asset!(app, "ssao.wgsl");
-        embedded_asset!(app, "spatial_denoise.wgsl");
+        embedded_asset!(app, "preprocess_depth.wesl");
+        embedded_asset!(app, "ssao.wesl");
+        embedded_asset!(app, "spatial_denoise.wesl");
 
         app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
@@ -70,8 +70,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         }
 
         render_app
-            .init_resource::<SsaoPipelines>()
-            .init_resource::<SpecializedComputePipelines<SsaoPipelines>>()
+            .init_gpu_resource::<SsaoPipelines>()
+            .init_gpu_resource::<SpecializedComputePipelines<SsaoPipelines>>()
             .add_systems(ExtractSchedule, extract_ssao_settings)
             .add_systems(
                 Render,
@@ -111,10 +111,20 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
 #[reflect(Component, Debug, Default, PartialEq, Clone)]
 #[require(DepthPrepass, NormalPrepass)]
+#[extract_component_sync_target((Self, ScreenSpaceAmbientOcclusionResources, SsaoPipelineId, SsaoBindGroups))]
 #[doc(alias = "Ssao")]
+#[extract_app(RenderApp)]
 pub struct ScreenSpaceAmbientOcclusion {
     /// Quality of the SSAO effect.
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
+    /// Maximum sample distance, in view-space units.
+    ///
+    /// Use larger values for broader occlusion. This can increase haloing and noise.
+    /// This value must be greater than `0.0`.
+    /// Defaults to `0.7285`.
+    ///
+    /// To disable SSAO, remove [`ScreenSpaceAmbientOcclusion`] from the camera instead.
+    pub radius: f32,
     /// A constant estimated thickness of objects.
     ///
     /// This value is used to decide how far behind an object a ray of light needs to be in order
@@ -122,13 +132,22 @@ pub struct ScreenSpaceAmbientOcclusion {
     pub constant_object_thickness: f32,
 }
 
+const DEFAULT_SSAO_RADIUS: f32 = 0.5 * 1.457;
+
 impl Default for ScreenSpaceAmbientOcclusion {
     fn default() -> Self {
         Self {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::default(),
+            radius: DEFAULT_SSAO_RADIUS,
             constant_object_thickness: 0.25,
         }
     }
+}
+
+#[derive(Clone, Copy, ShaderType)]
+struct SsaoSettingsUniform {
+    radius: f32,
+    constant_object_thickness: f32,
 }
 
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
@@ -165,6 +184,7 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
 fn ssao(
     view: ViewQuery<(
         &ExtractedCamera,
+        Option<&MainPassResolutionOverride>,
         &SsaoPipelineId,
         &SsaoBindGroups,
         &ViewUniformOffset,
@@ -173,7 +193,8 @@ fn ssao(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
+    let (camera, resolution_override, pipeline_id, bind_groups, view_uniform_offset) =
+        view.into_inner();
 
     let (
         Some(camera_size),
@@ -181,7 +202,9 @@ fn ssao(
         Some(spatial_denoise_pipeline),
         Some(ssao_pipeline),
     ) = (
-        camera.physical_viewport_size,
+        resolution_override
+            .map(|size| **size)
+            .or(camera.physical_viewport_size),
         pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         pipeline_cache.get_compute_pipeline(pipeline_id.0),
@@ -368,7 +391,7 @@ impl FromWorld for SsaoPipelines {
                     texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                     uniform_buffer::<GlobalsUniform>(false),
-                    uniform_buffer::<f32>(false),
+                    uniform_buffer::<SsaoSettingsUniform>(false),
                 ),
             ),
         );
@@ -397,7 +420,7 @@ impl FromWorld for SsaoPipelines {
                     preprocess_depth_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
+                shader: load_embedded_asset!(world, "preprocess_depth.wesl"),
                 shader_defs: shader_defs.clone(),
                 ..default()
             });
@@ -409,7 +432,7 @@ impl FromWorld for SsaoPipelines {
                     spatial_denoise_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
+                shader: load_embedded_asset!(world, "spatial_denoise.wesl"),
                 shader_defs,
                 ..default()
             });
@@ -427,7 +450,7 @@ impl FromWorld for SsaoPipelines {
             point_clamp_sampler,
             linear_clamp_sampler,
 
-            shader: load_embedded_asset!(world, "ssao.wgsl"),
+            shader: load_embedded_asset!(world, "ssao.wesl"),
             depth_format,
         }
     }
@@ -446,9 +469,9 @@ impl SpecializedComputePipeline for SsaoPipelines {
         let (slice_count, samples_per_slice_side) = key.quality_level.sample_counts();
 
         let mut shader_defs = vec![
-            ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
+            ShaderDefVal::Int("SLICE_COUNT".into(), slice_count as i32),
             ShaderDefVal::Int(
-                "SAMPLES_PER_SLICE_SIDE".to_string(),
+                "SAMPLES_PER_SLICE_SIDE".into(),
                 samples_per_slice_side as i32,
             ),
         ];
@@ -489,7 +512,7 @@ fn extract_ssao_settings(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
                 *msaa
             );
-            return;
+            continue;
         }
         let mut entity_commands = commands
             .get_entity(entity)
@@ -508,7 +531,7 @@ pub struct ScreenSpaceAmbientOcclusionResources {
     ssao_noisy_texture: CachedTexture, // Pre-spatially denoised texture
     pub screen_space_ambient_occlusion_texture: CachedTexture, // Spatially denoised texture
     depth_differences_texture: CachedTexture,
-    thickness_buffer: Buffer,
+    settings_buffer: Buffer,
 }
 
 fn prepare_ssao_textures(
@@ -516,13 +539,20 @@ fn prepare_ssao_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     pipelines: Res<SsaoPipelines>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
+    views: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ScreenSpaceAmbientOcclusion,
+        Option<&MainPassResolutionOverride>,
+    )>,
 ) {
-    for (entity, camera, ssao_settings) in &views {
+    for (entity, camera, ssao_settings, resolution_override) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
-        let size = physical_viewport_size.to_extents();
+        let size = resolution_override
+            .map_or(physical_viewport_size, |size| **size)
+            .to_extents();
 
         let preprocessed_depth_texture = texture_cache.get(
             &render_device,
@@ -580,9 +610,17 @@ fn prepare_ssao_textures(
             },
         );
 
-        let thickness_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("thickness_buffer"),
-            contents: &ssao_settings.constant_object_thickness.to_le_bytes(),
+        let mut settings_uniform_buffer = encase::UniformBuffer::new(Vec::new());
+        settings_uniform_buffer
+            .write(&SsaoSettingsUniform {
+                radius: ssao_settings.radius,
+                constant_object_thickness: ssao_settings.constant_object_thickness,
+            })
+            .unwrap();
+
+        let settings_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("ssao_settings_buffer"),
+            contents: settings_uniform_buffer.as_ref(),
             usage: BufferUsages::UNIFORM,
         });
 
@@ -593,13 +631,14 @@ fn prepare_ssao_textures(
                 ssao_noisy_texture,
                 screen_space_ambient_occlusion_texture: ssao_texture,
                 depth_differences_texture,
-                thickness_buffer,
+                settings_buffer,
             });
     }
 }
 
+/// A render world component that holds the cached pipeline id for Ssao.
 #[derive(Component)]
-struct SsaoPipelineId(CachedComputePipelineId);
+pub struct SsaoPipelineId(pub CachedComputePipelineId);
 
 fn prepare_ssao_pipelines(
     mut commands: Commands,
@@ -622,12 +661,16 @@ fn prepare_ssao_pipelines(
     }
 }
 
+/// A render world component that stores the bind groups necessary to perform
+/// Screen Space Ambient Occlusion.
+///
+/// This is stored on each view.
 #[derive(Component)]
-struct SsaoBindGroups {
-    common_bind_group: BindGroup,
-    preprocess_depth_bind_group: BindGroup,
-    ssao_bind_group: BindGroup,
-    spatial_denoise_bind_group: BindGroup,
+pub struct SsaoBindGroups {
+    pub common_bind_group: BindGroup,
+    pub preprocess_depth_bind_group: BindGroup,
+    pub ssao_bind_group: BindGroup,
+    pub spatial_denoise_bind_group: BindGroup,
 }
 
 fn prepare_ssao_bind_groups(
@@ -651,6 +694,9 @@ fn prepare_ssao_bind_groups(
     };
 
     for (entity, ssao_resources, prepass_textures) in &views {
+        let Some(depth_view) = prepass_textures.depth_only_view() else {
+            continue;
+        };
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.common_bind_group_layout),
@@ -679,7 +725,7 @@ fn prepare_ssao_bind_groups(
             "ssao_preprocess_depth_bind_group",
             &pipeline_cache.get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
             &BindGroupEntries::sequential((
-                prepass_textures.depth_view().unwrap(),
+                depth_view,
                 &create_depth_view(0),
                 &create_depth_view(1),
                 &create_depth_view(2),
@@ -698,7 +744,7 @@ fn prepare_ssao_bind_groups(
                 &ssao_resources.ssao_noisy_texture.default_view,
                 &ssao_resources.depth_differences_texture.default_view,
                 globals_uniforms.clone(),
-                ssao_resources.thickness_buffer.as_entire_binding(),
+                ssao_resources.settings_buffer.as_entire_binding(),
             )),
         );
 

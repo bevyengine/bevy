@@ -1,5 +1,13 @@
-// Press B for benchmark.
-// Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
+//! Renders the [Bistro] scene, a large glTF scene used as a rendering stress test.
+//!
+//! Bistro has a high draw call count, many textures, and (unusually for a real-time scene) a large
+//! number of light sources, which makes it useful for exercising batching, material and light
+//! specialization, and mipmap generation.
+//!
+//! [Bistro]: https://github.com/bevyengine/bevy-assets/tree/main/scenes/bistro
+//!
+//! Press B for benchmark.
+//! Preferably after frame time is reading consistently, rust-analyzer has calmed down, and with locked gpu clocks.
 
 use std::{
     f32::consts::PI,
@@ -26,7 +34,7 @@ use bevy::{
         batching::NoAutomaticBatching, occlusion_culling::OcclusionCulling, render_resource::Face,
         view::NoIndirectDrawing,
     },
-    scene::SceneInstanceReady,
+    world_serialization::WorldInstanceReady,
 };
 use bevy::{
     camera::Hdr,
@@ -44,8 +52,8 @@ use mipmap_generator::{
 use crate::light_consts::lux;
 
 #[derive(FromArgs, Resource, Clone)]
-/// Config
-pub struct Args {
+/// Command-line options for this example.
+struct Args {
     /// disable glTF lights
     #[argh(switch)]
     no_gltf_lights: bool,
@@ -58,8 +66,8 @@ pub struct Args {
     #[argh(switch)]
     compress: bool,
 
-    /// if low_quality_compression is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used.
-    /// When low quality is set, compression is generally faster than CompressionSpeed::UltraFast and CompressionSpeed is ignored.
+    /// if `low_quality_compression` is set, only 0.5 byte/px formats will be used (BC1, BC4) unless the alpha channel is in use, then BC3 will be used.
+    /// When low quality is set, compression is generally faster than `CompressionSpeed::UltraFast` and `CompressionSpeed` is ignored.
     #[argh(switch)]
     low_quality_compression: bool,
 
@@ -112,7 +120,7 @@ pub struct Args {
     no_mip_generation: bool,
 }
 
-pub fn main() {
+fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
@@ -174,22 +182,21 @@ pub fn main() {
 }
 
 #[derive(Component)]
-pub struct Spin;
-
+struct Spin;
 #[derive(Component)]
 struct FrameTimeText;
 
-pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    println!("Loading models, generating mipmaps");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+    info!("Loading models, generating mipmaps");
 
     let bistro_exterior = asset_server.load("bistro_exterior/BistroExterior.gltf#Scene0");
     commands
-        .spawn((SceneRoot(bistro_exterior.clone()), Spin))
+        .spawn((WorldAssetRoot(bistro_exterior.clone()), Spin))
         .observe(proc_scene);
 
     let bistro_interior = asset_server.load("bistro_interior_wine/BistroInterior_Wine.gltf#Scene0");
     commands
-        .spawn((SceneRoot(bistro_interior.clone()), Spin))
+        .spawn((WorldAssetRoot(bistro_interior.clone()), Spin))
         .observe(proc_scene);
 
     let mut count = 0;
@@ -208,14 +215,14 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
                 }
                 commands
                     .spawn((
-                        SceneRoot(bistro_exterior.clone()),
+                        WorldAssetRoot(bistro_exterior.clone()),
                         Transform::from_xyz(x as f32 * 150.0, 0.0, z as f32 * 150.0),
                         Spin,
                     ))
                     .observe(proc_scene);
                 commands
                     .spawn((
-                        SceneRoot(bistro_interior.clone()),
+                        WorldAssetRoot(bistro_interior.clone()),
                         Transform::from_xyz(x as f32 * 150.0, 0.3, z as f32 * 150.0 - 0.2),
                         Spin,
                     ))
@@ -228,7 +235,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     if !args.no_gltf_lights {
         // In Repo glTF
         commands.spawn((
-            SceneRoot(asset_server.load("BistroExteriorFakeGI.gltf#Scene0")),
+            WorldAssetRoot(asset_server.load("BistroExteriorFakeGI.gltf#Scene0")),
             Spin,
         ));
     }
@@ -268,7 +275,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
         Hdr,
         Transform::from_xyz(-10.5, 1.7, -1.0).looking_at(Vec3::new(0.0, 3.5, 0.0), Vec3::Y),
         Projection::Perspective(PerspectiveProjection {
-            fov: std::f32::consts::PI / 3.0,
+            fov: PI / 3.0,
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,
@@ -322,22 +329,13 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<A
     }
 }
 
-pub fn all_children<F: FnMut(Entity)>(
-    children: &Children,
-    children_query: &Query<&Children>,
-    closure: &mut F,
-) {
-    for child in children {
-        if let Ok(children) = children_query.get(*child) {
-            all_children(children, children_query, closure);
-        }
-        closure(*child);
-    }
-}
-
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn proc_scene(
-    scene_ready: On<SceneInstanceReady>,
+#[expect(
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    reason = "One cohesive observer."
+)]
+fn proc_scene(
+    scene_ready: On<WorldInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     has_std_mat: Query<&MeshMaterial3d<StandardMaterial>>,
@@ -349,7 +347,7 @@ pub fn proc_scene(
     for entity in children.iter_descendants(scene_ready.entity) {
         // Sponza needs flipped normals
         if let Ok(mat_h) = has_std_mat.get(entity)
-            && let Some(mat) = materials.get_mut(mat_h)
+            && let Some(mut mat) = materials.get_mut(mat_h)
         {
             mat.flip_normal_map_y = true;
             match mat.alpha_mode {
@@ -440,13 +438,13 @@ fn input(
         info!("{:?}", transform);
     }
     if input.just_pressed(KeyCode::Digit1) {
-        *transform = positions[0]
+        *transform = positions[0];
     }
     if input.just_pressed(KeyCode::Digit2) {
-        *transform = positions[1]
+        *transform = positions[1];
     }
     if input.just_pressed(KeyCode::Digit3) {
-        *transform = positions[2]
+        *transform = positions[2];
     }
 }
 
@@ -511,7 +509,7 @@ fn spin(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "One cohesive system.")]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
@@ -532,7 +530,7 @@ fn benchmark(
         *bench_frame = 0;
         // Try to render for around 3s or at least 60 frames per step
         *count_per_step = ((3.0 / time.delta_secs()) as u32).max(60);
-        println!(
+        info!(
             "Starting Benchmark with {} frames per step",
             *count_per_step
         );
@@ -541,21 +539,21 @@ fn benchmark(
         return;
     }
     if *bench_frame == 0 {
-        **camera_transform = positions[0]
+        **camera_transform = positions[0];
     } else if *bench_frame == *count_per_step {
-        **camera_transform = positions[1]
+        **camera_transform = positions[1];
     } else if *bench_frame == *count_per_step * 2 {
-        **camera_transform = positions[2]
+        **camera_transform = positions[2];
     } else if *bench_frame == *count_per_step * 3 {
         let elapsed = bench_started.unwrap().elapsed().as_secs_f32();
-        println!(
+        info!(
             "{:>7.2}ms Benchmark avg cpu frame time",
             (elapsed / *bench_frame as f32) * 1000.0
         );
         let r = 1.0 / *bench_frame as f64;
-        println!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
-        println!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
-        println!(
+        info!("{:>7.2}ms avg 1% low", low_high.sum_one_percent_low * r);
+        info!("{:>7.2}ms avg 1% high", low_high.sum_one_percent_high * r);
+        info!(
             "{:>7} Meshes\n{:>7} Mesh Instances\n{:>7} Materials\n{:>7} Material Instances",
             meshes.len(),
             has_mesh.iter().len(),
@@ -570,7 +568,7 @@ fn benchmark(
     low_high.bench_step();
 }
 
-pub fn add_no_frustum_culling(
+fn add_no_frustum_culling(
     mut commands: Commands,
     convert_query: Query<
         Entity,

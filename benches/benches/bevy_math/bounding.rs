@@ -1,14 +1,12 @@
 use benches::bench;
-use bevy_math::{
-    bounding::{Aabb3d, BoundingSphere, BoundingVolume},
-    prelude::*,
-};
+use bevy_math::prelude::*;
+use bevy_shape::prelude::*;
 use core::hint::black_box;
 use criterion::{criterion_group, Criterion};
 use rand::{
     distr::{Distribution, StandardUniform, Uniform},
     rngs::StdRng,
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
 
 criterion_group!(benches, bounding);
