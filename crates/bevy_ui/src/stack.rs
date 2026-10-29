@@ -79,11 +79,11 @@ pub(crate) struct StackRoot {
 /// Generates the render stack for UI nodes.
 pub fn ui_stack_system(
     mut local_cache: Local<Vec<(Entity, i32, Option<&'static Children>, bool, Option<i32>)>>,
-    mut stack_roots: Local<Vec<(Entity, StackRoot, Range<usize>)>>,
+    mut stack_roots: Local<Vec<((Entity, Option<i32>), StackRoot, Range<usize>)>>,
     mut stack_lists: Local<Vec<(StackRoot, usize, Vec<Entity>)>>,
     mut stack_list_order: Local<Vec<usize>>,
     mut node_buffers: Local<Vec<Vec<Entity>>>,
-    mut stack_root_order: Local<HashMap<(Entity, i32), usize>>,
+    mut stack_root_order: Local<HashMap<(Entity, Option<i32>), usize>>,
     mut removed_zindices: Local<EntityHashSet>,
     mut removed_global_zindices: Local<EntityHashSet>,
     mut zindex_removals: RemovedComponents<ZIndex>,
@@ -168,12 +168,16 @@ pub fn ui_stack_system(
                     .take_while(|(root, _, _)| root.local_z == local_z)
                     .count();
             stack_root.local_z = local_z;
+            let order_key = (
+                root_entity,
+                (is_ghost && global_zindex.is_none() && zindex.is_none()).then_some(local_z),
+            );
             stack_root.previous_index = stack_root_order
-                .get(&(root_entity, local_z))
+                .get(&order_key)
                 .copied()
                 .unwrap_or(usize::MAX);
             stack_root.new_or_changed = changed || stack_root.previous_index == usize::MAX;
-            stack_roots.push((root_entity, stack_root, start..end));
+            stack_roots.push((order_key, stack_root, start..end));
             start = end;
         }
     }
@@ -183,8 +187,8 @@ pub fn ui_stack_system(
     });
 
     stack_root_order.clear();
-    for (index, (entity, root, lists)) in stack_roots.drain(..).enumerate() {
-        stack_root_order.insert((entity, root.local_z), index);
+    for (index, (order_key, _, lists)) in stack_roots.drain(..).enumerate() {
+        stack_root_order.insert(order_key, index);
         for (root, _, _) in &mut stack_lists[lists] {
             root.previous_index = index;
         }
