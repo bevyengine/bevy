@@ -88,7 +88,7 @@ impl_sparse_array!(SparseArray);
 impl_sparse_array!(ImmutableSparseArray);
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
-    /// Inserts `value` at `index` in the array.
+    /// Inserts `value` at `index` in the array, and returns a reference to it.
     ///
     /// # Panics
     /// - Panics if the insertion forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
@@ -96,12 +96,12 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     ///
     /// If `index` is out-of-bounds, this will enlarge the buffer to accommodate it.
     #[inline]
-    pub fn insert(&mut self, index: I, value: V) {
+    pub fn insert(&mut self, index: I, value: V) -> &mut V {
         let index = index.sparse_set_index();
         if index >= self.values.len() {
             self.values.resize_with(index + 1, || None);
         }
-        self.values[index] = Some(value);
+        self.values[index].insert(value)
     }
 
     /// Returns a mutable reference to the value at `index`.
