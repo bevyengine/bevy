@@ -5300,6 +5300,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "transition_flows"
+path = "examples/animation/transition_flows.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.transition_flows]
+name = "Transition Flows"
+description = "Crossfades animations of different body parts independently"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
