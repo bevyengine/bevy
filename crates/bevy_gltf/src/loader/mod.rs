@@ -58,7 +58,10 @@ use wgpu_types::Face;
 
 use crate::{
     convert_coordinates::ConvertCoordinates as _,
-    vertex_attributes::{convert_attribute, morph_targets, position_bounds},
+    vertex_attributes::{
+        convert_attribute, insert_quantized_attribute, morph_targets, position_bounds,
+        quantized_attribute_compression,
+    },
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName,
     GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSceneName, GltfSkin,
     GltfSkinnedMeshBoundsPolicy,
@@ -222,6 +225,9 @@ pub struct GltfLoader {
     pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
     /// Default mesh compression arguments for the loaded meshes.
     pub default_mesh_compression: MeshCompressionArgs,
+    /// Whether quantized attributes load compressed by default. Can be overridden by
+    /// [`GltfLoaderSettings::preserve_quantization`].
+    pub default_preserve_quantization: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -279,6 +285,8 @@ pub struct GltfLoaderSettings {
     /// Mesh attribute compression arguments for the loaded meshes.
     /// If `None`, uses the global default set by [`GltfPlugin::mesh_compression`](crate::GltfPlugin::mesh_compression).
     pub mesh_compression: Option<MeshCompressionArgs>,
+    /// Optionally overrides [`GltfPlugin::preserve_quantization`](crate::GltfPlugin::preserve_quantization).
+    pub preserve_quantization: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -296,6 +304,7 @@ impl Default for GltfLoaderSettings {
             convert_coordinates: None,
             skinned_mesh_bounds_policy: None,
             mesh_compression: None,
+            preserve_quantization: None,
         }
     }
 }
@@ -368,6 +377,14 @@ impl GltfLoader {
         let skinned_mesh_bounds_policy = settings
             .skinned_mesh_bounds_policy
             .unwrap_or(loader.default_skinned_mesh_bounds_policy);
+
+        let mesh_compression = settings
+            .mesh_compression
+            .as_ref()
+            .unwrap_or(&loader.default_mesh_compression);
+        let preserve_quantization = settings
+            .preserve_quantization
+            .unwrap_or(loader.default_preserve_quantization);
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) = if settings.load_animations {
@@ -840,6 +857,23 @@ impl GltfLoader {
                                 error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                             }
                         }
+                        if preserve_quantization {
+                            match insert_quantized_attribute(
+                                &mut mesh,
+                                &semantic,
+                                &accessor,
+                                &primitive,
+                                &buffer_data,
+                                convert_coordinates.rotate_meshes,
+                            ) {
+                                Ok(false) => {}
+                                Ok(true) => continue,
+                                Err(err) => {
+                                    warn!("{}", err);
+                                    continue;
+                                }
+                            }
+                        }
                         match convert_attribute(
                             semantic,
                             accessor,
@@ -941,18 +975,17 @@ impl GltfLoader {
                     AlphaMode::Blend => MeshRaytracingFlags::OPAQUE,
                 };
 
+                let mut compression = mesh_compression.clone();
+                if preserve_quantization {
+                    compression.compress_attributes |= quantized_attribute_compression(&primitive);
+                }
                 let mesh_handle = load_context.add_labeled_asset(
                     primitive_label.to_string(),
-                    mesh.compressed_mesh(
-                        settings
-                            .mesh_compression
-                            .as_ref()
-                            .unwrap_or(&loader.default_mesh_compression),
-                    )
-                    .unwrap_or_else(|(mesh, err)| {
-                        tracing::debug!("Failed to compress mesh: {:?}", err);
-                        mesh
-                    }),
+                    mesh.compressed_mesh(&compression)
+                        .unwrap_or_else(|(mesh, err)| {
+                            tracing::debug!("Failed to compress mesh: {:?}", err);
+                            mesh
+                        }),
                 );
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,
@@ -1729,14 +1762,8 @@ fn load_node(
                         mesh: mesh.index(),
                         primitive: primitive.index(),
                     };
-                    let (mut bounds_min, mut bounds_max) = position_bounds(&primitive);
-                    if convert_coordinates.rotate_meshes {
-                        let converted_min = bounds_min.convert_coordinates();
-                        let converted_max = bounds_max.convert_coordinates();
-
-                        bounds_min = converted_min.min(converted_max);
-                        bounds_max = converted_min.max(converted_max);
-                    }
+                    let (bounds_min, bounds_max) =
+                        position_bounds(&primitive, convert_coordinates.rotate_meshes);
                     (
                         // TODO: handle missing label handle errors here?
                         load_context.get_label_handle(label.to_string()),
@@ -2366,16 +2393,21 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
-        load_gltf_bytes_into_app(gltf_path, gltf.as_bytes().to_vec())
+        load_gltf_bytes_into_app(gltf_path, gltf.as_bytes().to_vec(), |_| {})
     }
 
-    fn load_gltf_bytes_into_app(gltf_path: &str, gltf: Vec<u8>) -> App {
-        load_gltf_bytes_into_app_with(gltf_path, gltf, |_| {})
+    fn load_gltf_bytes_into_app(
+        gltf_path: &str,
+        gltf: Vec<u8>,
+        settings: impl Fn(&mut GltfLoaderSettings) + Send + Sync + 'static,
+    ) -> App {
+        load_gltf_bytes_into_app_with(gltf_path, gltf, settings, |_| {})
     }
 
     fn load_gltf_bytes_into_app_with(
         gltf_path: &str,
         gltf: Vec<u8>,
+        settings: impl Fn(&mut GltfLoaderSettings) + Send + Sync + 'static,
         setup: impl FnOnce(&mut App),
     ) -> App {
         #[expect(
@@ -2391,7 +2423,10 @@ mod test {
         setup(&mut app);
         app.update();
         let asset_server = app.world().resource::<AssetServer>().clone();
-        let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
+        let handle: Handle<Gltf> = asset_server
+            .load_builder()
+            .with_settings(settings)
+            .load(gltf_path.to_string());
         let handle_id = handle.id();
         app.insert_resource(GltfHandle(handle));
         app.update();
@@ -3054,7 +3089,7 @@ mod test {
         .to_vec()
         .unwrap();
 
-        let app = load_gltf_bytes_into_app("mesh.glb", glb);
+        let app = load_gltf_bytes_into_app("mesh.glb", glb, |_| {});
         let (_, mesh) = app
             .world()
             .resource::<Assets<Mesh>>()
@@ -3098,10 +3133,9 @@ mod test {
         }
     }
 
-    #[test]
-    fn dequantizes_khr_mesh_quantization() {
-        use bevy_mesh::{Mesh, VertexAttributeValues};
-
+    /// A triangle that stores every attribute and morph target with
+    /// `KHR_mesh_quantization`.
+    fn quantized_gltf() -> String {
         let mut bin = Vec::new();
         // POSITION: i16 VEC3, padded to a 4-byte stride.
         for p in [[0i16, 0, 0], [2, 0, 0], [0, 3, 0]] {
@@ -3140,7 +3174,7 @@ mod test {
             "data:application/octet-stream;base64,{}",
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bin)
         );
-        let gltf = r#"
+        r#"
 {
     "asset": { "version": "2.0" },
     "extensionsUsed": ["KHR_mesh_quantization"],
@@ -3173,9 +3207,16 @@ mod test {
     "scenes": [{ "nodes": [0] }]
 }
 "#
-        .replace("BIN_URI", &uri);
+        .replace("BIN_URI", &uri)
+    }
 
-        let app = load_gltf_into_app("quantized.gltf", &gltf);
+    #[test]
+    fn dequantizes_khr_mesh_quantization() {
+        use bevy_mesh::{Mesh, VertexAttributeValues};
+
+        let app = load_gltf_bytes_into_app("quantized.gltf", quantized_gltf().into_bytes(), |s| {
+            s.preserve_quantization = Some(false);
+        });
         let (_, mesh) = app
             .world()
             .resource::<Assets<Mesh>>()
@@ -3225,6 +3266,64 @@ mod test {
                 morph([0.0, 0.0, 3.0])
             ])
         );
+    }
+
+    #[test]
+    fn preserves_quantization() {
+        use bevy_math::{Vec2, Vec3};
+        use bevy_mesh::{Mesh, MeshAttributeCompressionFlags, UvChannel, VertexFormat};
+
+        let app = load_gltf_into_app("quantized.gltf", &quantized_gltf());
+        let (_, mesh) = app
+            .world()
+            .resource::<Assets<Mesh>>()
+            .iter()
+            .next()
+            .unwrap();
+        let format = |id| mesh.attribute(id).map(VertexFormat::from);
+        assert_eq!(
+            format(Mesh::ATTRIBUTE_POSITION),
+            Some(VertexFormat::Snorm16x4)
+        );
+        assert_eq!(
+            format(Mesh::ATTRIBUTE_NORMAL),
+            Some(VertexFormat::Snorm16x2)
+        );
+        assert_eq!(
+            format(Mesh::ATTRIBUTE_TANGENT),
+            Some(VertexFormat::Snorm16x2)
+        );
+        assert_eq!(format(Mesh::ATTRIBUTE_UV_0), Some(VertexFormat::Unorm16x2));
+        assert_eq!(
+            mesh.get_mesh_vertex_buffer_layout(&mut Default::default())
+                .0
+                .get_attribute_compression(),
+            MeshAttributeCompressionFlags::all() - MeshAttributeCompressionFlags::COMPRESS_UV1
+        );
+        let aabb = mesh.final_aabb.unwrap();
+        assert_eq!(
+            (Vec3::from(aabb.min), Vec3::from(aabb.max)),
+            (Vec3::ZERO, Vec3::new(2.0, 3.0, 0.0))
+        );
+
+        let positions = mesh.decoded_positions().unwrap();
+        for (decoded, expected) in positions
+            .iter()
+            .zip([Vec3::ZERO, Vec3::X * 2.0, Vec3::Y * 3.0])
+        {
+            assert!(
+                decoded.abs_diff_eq(expected, 1e-4),
+                "{decoded} != {expected}"
+            );
+        }
+
+        let uvs = mesh.decoded_uvs(UvChannel::Uv0).unwrap();
+        for (decoded, expected) in uvs.iter().zip([Vec2::ZERO, Vec2::X, Vec2::Y]) {
+            assert!(
+                decoded.abs_diff_eq(expected, 1e-6),
+                "{decoded} != {expected}"
+            );
+        }
     }
 
     /// A triangle mesh on an `EXT_mesh_gpu_instancing` node under a translated
@@ -3330,6 +3429,7 @@ mod test {
         let mut app = load_gltf_bytes_into_app_with(
             gltf_path,
             mesh_gpu_instancing_gltf().to_string().into_bytes(),
+            |_| {},
             |app| {
                 app.world()
                     .resource::<super::extensions::GltfExtensionHandlers>()
