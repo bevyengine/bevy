@@ -238,9 +238,9 @@ fn log_selection(selection: Res<InspectorSelection>, names: Query<&Name>) {
         return;
     }
     match selection.0 {
-        Some(InspectableEntity { entity, kind }) => info!(
+        Some(InspectableEntity { entity, source }) => info!(
             "selected {entity} {:?}: {}",
-            kind,
+            source,
             names
                 .get(entity)
                 .map(Name::as_str)

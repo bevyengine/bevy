@@ -56,9 +56,9 @@ pub struct InspectorTreeView;
 #[reflect(Component, Debug, Clone)]
 pub struct InspectorRow {
     /// The inspected entity this row displays.
-    pub source: Entity,
+    pub inspected: Entity,
     /// Whether the inspected entity is from.
-    pub origin: InspectorSource,
+    pub source: InspectorSource,
 }
 
 /// Marker for the text entity holding a row's label.
@@ -75,31 +75,31 @@ pub struct InspectorRowPopulated;
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct TreeRowIndex {
-    source_to_row: HashMap<InspectableEntity, Entity>,
-    row_to_source: HashMap<Entity, InspectableEntity>,
+    inspectable_to_row: HashMap<InspectableEntity, Entity>,
+    row_to_inspectable: HashMap<Entity, InspectableEntity>,
 }
 
 impl TreeRowIndex {
     /// The row displaying `source`, if one exists.
-    pub fn row(&self, source: Entity, origin: InspectorSource) -> Option<Entity> {
-        self.source_to_row
-            .get(&InspectableEntity::new(source, origin))
+    pub fn row(&self, inspected: Entity, source: InspectorSource) -> Option<Entity> {
+        self.inspectable_to_row
+            .get(&InspectableEntity::new(inspected, source))
             .copied()
     }
 
     /// The inspected entity displayed by `row`, if one exists.
     pub fn source(&self, row: Entity) -> Option<&InspectableEntity> {
-        self.row_to_source.get(&row)
+        self.row_to_inspectable.get(&row)
     }
 
     /// The number of rows currently tracked.
     pub fn len(&self) -> usize {
-        self.row_to_source.len()
+        self.row_to_inspectable.len()
     }
 
     /// Whether no rows are currently tracked.
     pub fn is_empty(&self) -> bool {
-        self.row_to_source.is_empty()
+        self.row_to_inspectable.is_empty()
     }
 }
 
@@ -169,7 +169,7 @@ pub fn inspector_tree_selected(
     selection.0 = change
         .value
         .and_then(|row| rows.get(row).ok())
-        .map(|row| InspectableEntity::new(row.source, row.origin));
+        .map(|row| InspectableEntity::new(row.inspected, row.source));
 }
 
 /// Observer that starts keeping a row's child rows in sync the first time it is expanded.
@@ -209,8 +209,8 @@ pub fn sync_entity_tree(world: &mut World) {
 
 struct RowSpawn {
     container: Entity,
-    source: Entity,
-    origin: InspectorSource,
+    inspected: Entity,
+    source: InspectorSource,
     label: String,
     expandable: bool,
 }
@@ -294,7 +294,7 @@ fn plan_sync(world: &World) -> SyncPlan {
     for row in populated {
         let Some((source, kind)) = world
             .get::<InspectorRow>(row)
-            .map(|row| (row.source, row.origin))
+            .map(|row| (row.inspected, row.source))
         else {
             continue;
         };
@@ -357,7 +357,7 @@ fn diff_container(
     if let Some(children) = world.get::<Children>(container) {
         for child in children.iter().copied() {
             if let Some(row) = world.get::<InspectorRow>(child) {
-                existing.insert(InspectableEntity::new(row.source, row.origin), child);
+                existing.insert(InspectableEntity::new(row.inspected, row.source), child);
             }
         }
     }
@@ -370,23 +370,23 @@ fn diff_container(
     }
 
     for InspectableEntity {
-        entity: source,
-        source: origin,
+        entity: inspected,
+        source,
     } in expected.iter().cloned()
     {
-        let Some(inspected) = sources.get_world(origin) else {
+        let Some(inspected_world) = sources.get_world(source) else {
             continue;
         };
-        let expandable = !visible_children(inspected, source).is_empty();
-        let label = entity_label(inspected, sources.priorities, source);
+        let expandable = !visible_children(inspected_world, inspected).is_empty();
+        let label = entity_label(inspected_world, sources.priorities, inspected);
         let Some(row) = existing
-            .get(&InspectableEntity::new(source, origin))
+            .get(&InspectableEntity::new(inspected, source))
             .copied()
         else {
             plan.spawn.push(RowSpawn {
                 container,
+                inspected,
                 source,
-                origin,
                 label,
                 expandable,
             });
@@ -437,8 +437,8 @@ fn apply_sync(world: &mut World, plan: SyncPlan) {
             Ok(mut row) => {
                 row.insert((
                     InspectorRow {
+                        inspected: spawn.inspected,
                         source: spawn.source,
-                        origin: spawn.origin,
                     },
                     ChildOf(spawn.container),
                 ));
@@ -467,16 +467,16 @@ pub(crate) fn clear_rows(world: &mut World) {
 }
 
 fn rebuild_index(world: &mut World) {
-    let mut source_to_row = HashMap::new();
-    let mut row_to_source = HashMap::new();
+    let mut inspectable_to_row = HashMap::new();
+    let mut row_to_inspectable = HashMap::new();
     for (entity, row) in world.query::<(Entity, &InspectorRow)>().iter(world) {
-        source_to_row.insert(InspectableEntity::new(row.source, row.origin), entity);
-        row_to_source.insert(entity, InspectableEntity::new(row.source, row.origin));
+        inspectable_to_row.insert(InspectableEntity::new(row.inspected, row.source), entity);
+        row_to_inspectable.insert(entity, InspectableEntity::new(row.inspected, row.source));
     }
 
     let mut index = world.resource_mut::<TreeRowIndex>();
-    index.source_to_row = source_to_row;
-    index.row_to_source = row_to_source;
+    index.inspectable_to_row = inspectable_to_row;
+    index.row_to_inspectable = row_to_inspectable;
 }
 
 fn entity_row(label: String, expandable: bool) -> impl Scene {
@@ -605,7 +605,7 @@ fn child_with<C: Component>(world: &World, entity: Entity) -> Option<Entity> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{InspectorPlugin, WorldKind::Main};
+    use crate::InspectorPlugin;
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin};
     use bevy_ecs::name::Name;
@@ -631,7 +631,7 @@ mod tests {
                 children
                     .iter()
                     .copied()
-                    .filter_map(|child| world.get::<InspectorRow>(child).map(|row| row.source))
+                    .filter_map(|child| world.get::<InspectorRow>(child).map(|row| row.inspected))
                     .collect()
             })
             .unwrap_or_default()
@@ -664,7 +664,7 @@ mod tests {
     #[cfg(feature = "remote")]
     #[test]
     fn shows_the_inspected_world_only() {
-        use crate::remote::tests::{apply, row};
+        use crate::{WorldKind, remote::{RemoteSource, tests::{apply, row}}};
         use serde_json::json;
 
         let mut app = test_app();
@@ -693,7 +693,7 @@ mod tests {
         let row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(parent, Main)
+            .row(parent, InspectorSource::Remote(RemoteSource::new("localhost", 1, WorldKind::Main)))
             .unwrap();
         let label = row_label_entity(app.world(), row).unwrap();
         assert_eq!(app.world().get::<Text>(label).unwrap().0, "Remote");
@@ -760,19 +760,19 @@ mod tests {
         let panel_row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(panel, Main)
+            .row(panel, InspectorSource::Local)
             .unwrap();
         assert!(!app.world().get::<TreeItem>(panel_row).unwrap().expandable);
         let parent_row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(parent, Main)
+            .row(parent, InspectorSource::Local)
             .unwrap();
         assert!(app.world().get::<TreeItem>(parent_row).unwrap().expandable);
         let sibling_row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(sibling, Main)
+            .row(sibling, InspectorSource::Local)
             .unwrap();
         assert!(!app.world().get::<TreeItem>(sibling_row).unwrap().expandable);
 
@@ -787,7 +787,7 @@ mod tests {
         assert!(app
             .world()
             .resource::<TreeRowIndex>()
-            .row(sibling, Main)
+            .row(sibling, InspectorSource::Local)
             .is_none());
     }
 }

@@ -385,15 +385,53 @@ impl RemoteSnapshot {
 /// [`RemoteWorld`] and the selection.
 pub fn sync_remote_sources(world: &mut World) {
     let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        if let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
+            sel.0 = None;
+        }
+
         return;
     };
 
+    let mut spotted_selected = false;
+    let mut spotted_remote_main = false;
+    let mut spotted_remote_render = false;
+
+    let mut spotted_source: Option<InspectorSource> = None;
+    if let Some(sel) = world.get_resource::<InspectorSelection>() {
+        if let Some(ref f) = sel.0 {
+            spotted_source = Some(f.source);
+        }
+    }
+
     for inspector_source in inspector_sources.sources.clone().iter() {
+        if spotted_source == Some(*inspector_source) {
+            spotted_selected = true;
+        }
+
         match inspector_source {
             InspectorSource::Local => {}
             InspectorSource::Remote(rem) => {
+                if rem.subapp == WorldKind::Main {
+                    spotted_remote_main = true;
+                } else {
+                    spotted_remote_render = true;
+                }
+                
                 sync_remote_source(world, rem);
             }
+        }
+    }
+
+    if !spotted_remote_main {
+        sync_remote_source(world, &RemoteSource::new("localhost", 1, WorldKind::Main));
+    }
+    if !spotted_remote_render {
+        sync_remote_source(world, &RemoteSource::new("localhost", 1, WorldKind::Render));
+    }
+
+    if !spotted_selected {
+        if let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
+            sel.0 = None;
         }
     }
 }
@@ -913,6 +951,10 @@ pub(crate) mod tests {
         world
     }
 
+    pub(crate) fn remote_source() -> RemoteSource {
+        RemoteSource::new("localhost", DEFAULT_PORT, Main)
+    }
+
     pub(crate) fn remote(index: u32) -> Entity {
         Entity::from_raw_u32(index).unwrap()
     }
@@ -1351,10 +1393,10 @@ pub(crate) mod tests {
                 .collect()
         };
         assert_eq!(
-            names(InspectableEntity::new(parent, Main)),
+            names(InspectableEntity::new(parent, InspectorSource::Local)),
             ["Children", "Name"]
         );
-        assert_eq!(names(InspectableEntity::new(child, Main)), ["ChildOf"]);
+        assert_eq!(names(InspectableEntity::new(child, InspectorSource::Local)), ["ChildOf"]);
     }
 
     #[test]
@@ -1394,7 +1436,7 @@ pub(crate) mod tests {
         );
         apply(&mut world, alloc::vec![row(late, json!({ NAME: "Old" }))]);
         world.resource_mut::<RemoteConnections>().main.next_full = Duration::from_secs(60);
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(late, Main));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(late, InspectorSource::Remote(remote_source())));
 
         apply(
             &mut world,
@@ -1421,7 +1463,7 @@ pub(crate) mod tests {
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
         world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(remote(11), Main));
+            Some(InspectableEntity::new(remote(11), InspectorSource::Local));
         let key = ComponentKey::from("remote::Component");
         world
             .resource_mut::<DetailsCollapsed>()
@@ -1455,17 +1497,19 @@ pub(crate) mod tests {
         let mut world = test_world();
         world.insert_resource(InspectorSources::local());
         let local = world.spawn_empty().id();
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, Main));
 
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, InspectorSource::Local));
+
+        let rs = InspectorSource::Remote(remote_source());
         world.insert_resource(InspectorSources::remote_main("localhost", 1));
         sync_remote_sources(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, Main));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, InspectorSource::Local));
         sync_remote_sources(&mut world);
         assert_eq!(
             world.resource::<InspectorSelection>().0,
-            Some(InspectableEntity::new(local, Main)),
+            Some(InspectableEntity::new(local, InspectorSource::Local)),
             "an unchanged source keeps the selection"
         );
 
@@ -1473,7 +1517,7 @@ pub(crate) mod tests {
         sync_remote_sources(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, Main));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, rs));
         world.insert_resource(InspectorSources::local());
         sync_remote_sources(&mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
@@ -1525,7 +1569,7 @@ pub(crate) mod tests {
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
         world.resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(remote(11), Main));
+            Some(InspectableEntity::new(remote(11), InspectorSource::Local));
 
         world.resource_scope(|world, mut connection: Mut<RemoteConnections>| {
             finish_call(

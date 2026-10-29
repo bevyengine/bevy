@@ -47,7 +47,7 @@ impl RemoteWorlds {
         if kind == WorldKind::Main {
             return &self.main;
         }
-        return &self.render;
+        &self.render
     }
 
     /// Mutably get the [`RemoteWorld`]
@@ -55,7 +55,7 @@ impl RemoteWorlds {
         if kind == WorldKind::Main {
             return &mut self.main;
         }
-        return &mut self.render;
+        &mut self.render
     }
 }
 

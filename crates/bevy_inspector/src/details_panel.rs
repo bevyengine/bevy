@@ -2284,7 +2284,6 @@ fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::WorldKind::Main;
     use crate::{column_split::ColumnSplitHandle, entity_tree::InspectorTreeView, InspectorPlugin};
     use alloc::collections::VecDeque;
     use bevy_app::{App, TaskPoolPlugin};
@@ -2422,7 +2421,7 @@ mod tests {
     fn edit_component<C: TypePath>(app: &mut App, entity: Entity, path: &str, value: FieldValue) {
         app.world_mut().trigger(FieldEdit {
             entity,
-            kind: Main,
+            source: InspectorSource::Local,
             component: C::type_path().to_string(),
             path: path.to_string(),
             value,
@@ -2640,7 +2639,7 @@ mod tests {
             .id();
 
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(subject, Main));
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
         assert_eq!(app.world().resource::<EditCount>().0, 0);
 
@@ -2687,7 +2686,7 @@ mod tests {
             .id();
 
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(subject, Main));
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
 
         fn captions(app: &App) -> Vec<(String, String)> {
@@ -2741,7 +2740,7 @@ mod tests {
 
         for subject in subjects {
             app.world_mut().resource_mut::<InspectorSelection>().0 =
-                Some(InspectableEntity::new(subject, Main));
+                Some(InspectableEntity::new(subject, InspectorSource::Local));
             for _ in 0..5 {
                 app.update();
             }
@@ -2788,7 +2787,7 @@ mod tests {
         );
 
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(subject, Main));
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
 
         let component = Subject::type_path();
@@ -2889,7 +2888,7 @@ mod tests {
         let subject = app.world_mut().spawn(Holder(Arc::new(StrongHandle))).id();
 
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(subject, Main));
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
 
         let index = app.world().resource::<DetailsIndex>();
@@ -2993,7 +2992,7 @@ mod tests {
             .world_mut()
             .spawn((Subject::default(), Wrapper::default()))
             .id();
-        select(&mut app, Some(InspectableEntity::new(other, Main)));
+        select(&mut app, Some(InspectableEntity::new(other, InspectorSource::Local)));
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.group(subject).is_some());
@@ -3089,7 +3088,7 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let entity = app.world_mut().spawn(bundle).id();
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(entity, Main));
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         app.update();
         entity
     }
@@ -3453,7 +3452,7 @@ mod tests {
             )
         );
 
-        select(&mut app, Some(InspectableEntity::new(subject, Main)));
+        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.widget(first, "first").is_some());
@@ -3829,7 +3828,7 @@ mod tests {
         app.world_mut().get_mut::<Kinds>(entity).unwrap().color = Color::hsla(0.0, 0.5, 0.5, 1.0);
 
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(entity, Main));
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         for _ in 0..3 {
             app.world_mut()
                 .resource_mut::<DetailsPanelSync>()
@@ -3868,7 +3867,7 @@ mod tests {
             .id();
         app.insert_resource(InspectorSources::local());
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(subject, Main));
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
         (app, subject)
     }
@@ -3924,7 +3923,7 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn_empty().id();
 
-        select(&mut app, Some(InspectableEntity::new(subject, Main)));
+        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
 
         assert_eq!(
             body_message(&mut app).as_deref(),
@@ -3937,7 +3936,7 @@ mod tests {
         let mut app = test_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
-        select(&mut app, Some(InspectableEntity::new(subject, Main)));
+        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
         assert_eq!(body_message(&mut app), None);
 
         app.world_mut().entity_mut(subject).despawn();
@@ -3957,7 +3956,7 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
         let subject_id = Subject::type_path();
-        select(&mut app, Some(InspectableEntity::new(subject, Main)));
+        select(&mut app, Some(InspectableEntity::new(subject, InspectorSource::Local)));
         let group = app
             .world()
             .resource::<DetailsIndex>()
@@ -4037,7 +4036,7 @@ mod tests {
             ))
             .id();
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(subject, Main));
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
         let input = field_widget(&mut app, "0[\"a \\\"b\\\"\"]");
 
@@ -4231,7 +4230,7 @@ mod tests {
             .id();
 
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(second, Main));
+            Some(InspectableEntity::new(second, InspectorSource::Local));
         trigger_change(&mut app, input, 3.0_f32);
 
         assert_eq!(app.world().get::<Subject>(first).unwrap().scale, 3.0);
@@ -4335,7 +4334,7 @@ mod tests {
     fn dragging_an_integer_to_the_same_value_does_not_mark_it_changed() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(InspectableEntity::new(entity, Main)));
+        select(&mut app, Some(InspectableEntity::new(entity, InspectorSource::Local)));
         let input = field_widget(&mut app, "byte");
         let changed = |app: &App| {
             app.world()
@@ -4403,7 +4402,7 @@ mod tests {
 
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(InspectableEntity::new(entity, Main)));
+        select(&mut app, Some(InspectableEntity::new(entity, InspectorSource::Local)));
 
         assert_eq!(limit(&mut app, "byte"), Some(NumericRange::I32(0..=255)));
         assert_eq!(limit(&mut app, "tiny"), Some(NumericRange::I32(-128..=127)));
@@ -4424,7 +4423,7 @@ mod tests {
     fn reverts_the_widget_after_a_rejected_edit() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(InspectableEntity::new(entity, Main)));
+        select(&mut app, Some(InspectableEntity::new(entity, InspectorSource::Local)));
         let byte = field_widget(&mut app, "byte");
 
         trigger_change(&mut app, byte, 300_i32);
@@ -4552,7 +4551,7 @@ mod tests {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(entity, Main));
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         app.update();
         let mut pickers = app
             .world_mut()
@@ -4592,7 +4591,7 @@ mod tests {
             .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         app.world_mut().resource_mut::<InspectorSelection>().0 =
-            Some(InspectableEntity::new(entity, Main));
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         app.update();
         let mut inputs = app
             .world_mut()
