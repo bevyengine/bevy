@@ -56,20 +56,19 @@ pub struct AnimationTransitions {
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
-/// An in-progress crossfade from one animation node to another within a flow.
+/// An animation node that is being faded out as part of a transition within a
+/// flow.
 #[derive(Debug, Reflect, Clone)]
 pub struct AnimationTransition {
-    /// How long the crossfade takes.
-    duration: Duration,
+    /// The current weight. Starts at the weight the node had when the
+    /// transition started, and goes to 0 during the fade-out.
+    current_weight: f32,
+    /// How much to decrease `current_weight` per second.
+    weight_decline: f32,
     /// The node being faded out.
-    old_node: AnimationNodeIndex,
-    /// The node being faded in.
-    new_node: AnimationNodeIndex,
+    node: AnimationNodeIndex,
     /// The flow this transition belongs to.
     flow: usize,
-    /// The remaining weight of the old node, going from 1 to 0 over the
-    /// course of the transition.
-    weight: f32,
 }
 
 impl Default for AnimationTransitions {
@@ -129,16 +128,24 @@ impl AnimationTransitions {
     ) -> Option<&'p mut ActiveAnimation> {
         let current_node = self.flows.get_mut(flow_position)?;
 
-        // If nothing was played on this flow yet, there's nothing to fade
-        // out, so the transition goes from the new node to itself.
-        let old_node = current_node.replace(new_node).unwrap_or(new_node);
-        self.transitions.push(AnimationTransition {
-            duration,
-            old_node,
-            new_node,
-            flow: flow_position,
-            weight: 1.0,
-        });
+        // Fade out the previous node of this flow, starting from its current weight
+        if let Some(old_node) = current_node.replace(new_node)
+            && old_node != new_node
+            && let Some(old_animation) = player.animation_mut(old_node)
+            && !old_animation.is_paused()
+        {
+            self.transitions.push(AnimationTransition {
+                current_weight: old_animation.weight,
+                weight_decline: duration.as_secs_f32().recip(),
+                node: old_node,
+                flow: flow_position,
+            });
+        }
+
+        // If already transitioning away from this node, cancel the transition.
+        // Otherwise the transition ending would incorrectly stop the new node.
+        self.transitions
+            .retain(|transition| transition.node != new_node);
 
         Some(player.start(new_node))
     }
@@ -170,59 +177,54 @@ pub fn handle_node_transition(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
     time: Res<Time>,
 ) {
-    for (mut animation_transitions, mut animation_player) in query.iter_mut() {
-        // Each flow distributes its own weight, so transitions in one flow
-        // don't affect the weights of another.
-        let flow_amount = animation_transitions.flows.len();
-        for flow in 0..flow_amount {
+    // Within each flow, we use a "greedy layer" system. The most recent
+    // transition gets as much weight as it wants, and the remaining amount is
+    // divided between the older ones, eventually culminating in the current
+    // node of the flow receiving whatever's left. Each flow distributes its
+    // own weight, so transitions in one flow don't affect another.
+    for (mut animation_transitions, mut player) in query.iter_mut() {
+        let animation_transitions = &mut *animation_transitions;
+        for (flow, current_node) in animation_transitions.flows.iter().enumerate() {
             let mut remaining_weight = 1.0;
-            for transition in animation_transitions.iter_mut().filter(|t| t.flow == flow) {
-                transition.weight = (transition.weight
-                    - 1. / transition.duration.as_secs_f32() * time.delta_secs())
+
+            for transition in animation_transitions
+                .transitions
+                .iter_mut()
+                .rev()
+                .filter(|transition| transition.flow == flow)
+            {
+                transition.current_weight = (transition.current_weight
+                    - transition.weight_decline * time.delta_secs())
                 .max(0.0);
 
-                if transition.duration == Duration::ZERO {
-                    transition.weight = 0.0;
-                }
-
-                // First transition of a flow: there is no old node to fade out.
-                if transition.old_node.eq(&transition.new_node) {
-                    if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
-                        remaining_weight -= transition.weight * remaining_weight;
-                        old_node.weight = remaining_weight;
-                    }
+                let Some(animation) = player.animation_mut(transition.node) else {
                     continue;
-                }
+                };
+                animation.weight = transition.current_weight * remaining_weight;
+                remaining_weight -= animation.weight;
+            }
 
-                if let Some(old_node) = animation_player.animation_mut(transition.old_node) {
-                    old_node.weight = transition.weight * remaining_weight;
-                    remaining_weight -= old_node.weight;
-                }
-
-                if let Some(new_node) = animation_player.animation_mut(transition.new_node) {
-                    new_node.weight = remaining_weight;
-                }
+            if let Some(current_node) = current_node
+                && let Some(animation) = player.animation_mut(*current_node)
+            {
+                animation.weight = remaining_weight;
             }
         }
     }
 }
 
-/// A system that removes transitions that have completed from the
-/// [`AnimationTransitions`] object.
+/// A system that removes transitions that have completed from
+/// [`AnimationTransitions`], and stops the nodes they faded out.
 pub fn expire_completed_transitions(
     mut query: Query<(&mut AnimationTransitions, &mut AnimationPlayer)>,
 ) {
-    for (mut animation_transitions, mut animation_player) in query.iter_mut() {
+    for (mut animation_transitions, mut player) in query.iter_mut() {
         animation_transitions.retain(|transition| {
-            let should_expire = transition.weight <= 0.0;
-            let first_init = transition.new_node.eq(&transition.old_node);
-            // The first transition of a flow has no old node to stop.
-            if should_expire && !first_init {
-                animation_player.stop(transition.old_node);
-                false
-            } else {
-                !(should_expire && first_init)
+            let expire = transition.current_weight <= 0.0;
+            if expire {
+                player.stop(transition.node);
             }
+            !expire
         });
     }
 }
@@ -336,5 +338,23 @@ mod tests {
         let mut player = AnimationPlayer::default();
 
         transitions.transition_flows_unchecked(&mut player, a, 1, Duration::ZERO);
+    }
+
+    #[test]
+    fn transitioning_back_to_a_fading_node_keeps_it_playing() {
+        let [a, c] = [1, 3].map(AnimationNodeIndex::new);
+        let mut world = setup(1);
+        transition(&mut world, a, 0, Duration::ZERO);
+        tick(&mut world, Duration::from_millis(100));
+
+        // Start fading a out, then go back to it before the fade completes.
+        transition(&mut world, c, 0, Duration::from_secs(1));
+        tick(&mut world, Duration::from_millis(500));
+        transition(&mut world, a, 0, Duration::from_secs(1));
+        tick(&mut world, Duration::from_millis(250));
+        tick(&mut world, Duration::from_secs(1));
+
+        assert_weight(&mut world, a, Some(1.0));
+        assert_weight(&mut world, c, None);
     }
 }
