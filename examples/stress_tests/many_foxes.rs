@@ -274,14 +274,16 @@ fn setup_scene_once_loaded(
 ) {
     for child in children.iter_descendants(scene_ready.entity) {
         if let Ok(mut player) = players.get_mut(child) {
-            let playing_animation = player.play(animations.node_indices[0]).repeat();
+            let mut transitions = AnimationTransitions::new();
+            let playing_animation = transitions
+                .transition(&mut player, animations.node_indices[0], Duration::ZERO)
+                .repeat();
             if !foxes.sync {
                 playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
-            commands.entity(child).insert((
-                AnimationGraphHandle(animations.graph.clone()),
-                AnimationTransitions::default(),
-            ));
+            commands
+                .entity(child)
+                .insert((AnimationGraphHandle(animations.graph.clone()), transitions));
         }
     }
 }
