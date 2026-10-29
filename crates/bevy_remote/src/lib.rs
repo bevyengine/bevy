@@ -604,6 +604,46 @@
 //! `result`: An object with a `frame` field: the frame on which the app receives the button's
 //! release, numbered as [`FrameCount`] numbers frames.
 //!
+//! ### `input.hover`
+//!
+//! Move the cursor to a UI node, or to a point in a window, without pressing anything, so that
+//! hover effects and tooltips respond. It is queued after any input that is still pending, and a
+//! node hidden by a scrolled ancestor is scrolled into view first.
+//!
+//! `params`: `entity`, or `window` and `position`, as for `input.click`.
+//!
+//! `result`: An object with a `frame` field: the frame on which the app receives the move.
+//!
+//! ### `input.drag`
+//!
+//! Drag from one target to another: the cursor moves to `from`, the button is pressed, the cursor
+//! moves to `to`, and the button is released, each on its own frame. Picking sends its drag events
+//! on the move, and drops on what is under the cursor at the release. Both targets must be in the
+//! same window.
+//!
+//! `params`:
+//! - `from`: Where the drag starts, as an object with `entity`, or `window` and `position`, as for
+//!   `input.click`.
+//! - `to`: Where the drag ends, in the same way, and in the same window.
+//! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
+//!
+//! `result`: An object with a `frame` field: the frame on which the app receives the button's
+//! release.
+//!
+//! ### `input.scroll`
+//!
+//! Turn the mouse wheel over a UI node, or over a point in a window. The cursor moves to the
+//! target, and the wheel turns on the next frame, so that picking scrolls what is under the cursor.
+//! A node hidden by a scrolled ancestor is scrolled into view first.
+//!
+//! `params`:
+//! - `entity`, or `window` and `position`: Where to scroll, as for `input.click`.
+//! - `delta`: How far the wheel turns, as an array of two numbers, horizontal then vertical. As
+//!   with a real wheel, a positive vertical value scrolls up.
+//! - `unit` (optional): What `delta` counts: `"Line"` or `"Pixel"`. Defaults to `"Line"`.
+//!
+//! `result`: An object with a `frame` field: the frame on which the app receives the wheel's turn.
+//!
 //! ### `input.key`
 //!
 //! Press a key and release it `hold` frames later, with the same events a window backend sends for
@@ -1005,6 +1045,21 @@ impl RemotePlugin {
             to_main,
         )
         .with_method(
+            input_methods::BRP_HOVER_METHOD,
+            input_methods::process_remote_hover_request,
+            to_main,
+        )
+        .with_method(
+            input_methods::BRP_DRAG_METHOD,
+            input_methods::process_remote_drag_request,
+            to_main,
+        )
+        .with_method(
+            input_methods::BRP_SCROLL_METHOD,
+            input_methods::process_remote_scroll_request,
+            to_main,
+        )
+        .with_method(
             input_methods::BRP_KEY_METHOD,
             input_methods::process_remote_key_request,
             to_main,
@@ -1160,6 +1215,9 @@ impl Plugin for RemotePlugin {
         let methods = &app.world().resource::<RemoteMethods>().0;
         if [
             input_methods::BRP_CLICK_METHOD,
+            input_methods::BRP_HOVER_METHOD,
+            input_methods::BRP_DRAG_METHOD,
+            input_methods::BRP_SCROLL_METHOD,
             input_methods::BRP_KEY_METHOD,
             input_methods::BRP_TYPE_METHOD,
         ]

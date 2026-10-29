@@ -4,7 +4,7 @@ use bevy_dev_tools::synthetic_input::{self, ClickTarget, KeyAction};
 use bevy_ecs::{entity::Entity, system::In, world::World};
 use bevy_input::{
     keyboard::{Key, KeyCode},
-    mouse::MouseButton,
+    mouse::{MouseButton, MouseScrollUnit},
     ButtonState,
 };
 use bevy_math::Vec2;
@@ -71,18 +71,176 @@ pub fn process_remote_click_request(In(params): In<Option<Value>>, world: &mut W
         button,
         hold,
     } = parse_some(params)?;
-    let target = match (entity, window, position) {
-        (Some(entity), None, None) => ClickTarget::Node(entity),
-        (None, Some(window), Some(position)) => ClickTarget::Point { window, position },
-        _ => {
-            return Err(invalid_params(
-                "a click takes an `entity`, or a `window` and a `position`".into(),
-            ))
-        }
-    };
+    let target = pointer_target(entity, window, position)?;
     let frame = synthetic_input::click(world, target, button, hold)
         .map_err(|err| invalid_params(err.to_string()))?;
     serde_json::to_value(BrpClickResponse { frame }).map_err(BrpError::internal)
+}
+
+/// The method path for an `input.hover` request.
+pub const BRP_HOVER_METHOD: &str = "input.hover";
+
+/// The method path for an `input.drag` request.
+pub const BRP_DRAG_METHOD: &str = "input.drag";
+
+/// The method path for an `input.scroll` request.
+pub const BRP_SCROLL_METHOD: &str = "input.scroll";
+
+/// Where pointer input goes: a UI node, or a point in a window.
+///
+/// Give either `entity`, or both `window` and `position`.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BrpPointerTarget {
+    /// The UI node to point at the center of. A node hidden by a scrolled ancestor is scrolled
+    /// into view first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entity: Option<Entity>,
+
+    /// The window to point in, with `position`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<Entity>,
+
+    /// The point in `window`, in physical pixels from its top left.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<Vec2>,
+}
+
+/// `input.hover`: Moves the cursor to a UI node, or to a point in a window, without pressing
+/// anything.
+///
+/// The server responds with a [`BrpHoverResponse`].
+pub type BrpHoverParams = BrpPointerTarget;
+
+/// The response to an `input.hover` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpHoverResponse {
+    /// The frame on which the app receives the cursor's move, as counted by
+    /// [`FrameCount`](bevy_diagnostic::FrameCount).
+    pub frame: u32,
+}
+
+/// `input.drag`: Presses a mouse button over one target, moves the cursor to another, and
+/// releases it there.
+///
+/// The server responds with a [`BrpDragResponse`].
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BrpDragParams {
+    /// Where the drag starts, as for `input.hover`.
+    pub from: BrpPointerTarget,
+
+    /// Where the drag ends, as for `from`, in the same window.
+    pub to: BrpPointerTarget,
+
+    /// The mouse button to drag with. Defaults to [`MouseButton::Left`].
+    #[serde(default = "left")]
+    pub button: MouseButton,
+}
+
+/// The response to an `input.drag` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpDragResponse {
+    /// The frame on which the app receives the button's release, as counted by
+    /// [`FrameCount`](bevy_diagnostic::FrameCount).
+    pub frame: u32,
+}
+
+/// `input.scroll`: Turns the mouse wheel over a UI node, or over a point in a window.
+///
+/// Give either `entity`, or both `window` and `position`.
+///
+/// The server responds with a [`BrpScrollResponse`].
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct BrpScrollParams {
+    /// The UI node to scroll over the center of. A node hidden by a scrolled ancestor is scrolled
+    /// into view first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entity: Option<Entity>,
+
+    /// The window to scroll in, with `position`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<Entity>,
+
+    /// The point to scroll over in `window`, in physical pixels from its top left.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<Vec2>,
+
+    /// How far the wheel turns, horizontally and vertically, in `unit`s. A positive `y` scrolls
+    /// up.
+    pub delta: Vec2,
+
+    /// What `delta` counts. Defaults to [`MouseScrollUnit::Line`].
+    #[serde(default = "line")]
+    pub unit: MouseScrollUnit,
+}
+
+fn line() -> MouseScrollUnit {
+    MouseScrollUnit::Line
+}
+
+/// The response to an `input.scroll` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpScrollResponse {
+    /// The frame on which the app receives the wheel's turn, as counted by
+    /// [`FrameCount`](bevy_diagnostic::FrameCount).
+    pub frame: u32,
+}
+
+/// Handles an `input.hover` request coming from a client.
+pub fn process_remote_hover_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpHoverParams {
+        entity,
+        window,
+        position,
+    } = parse_some(params)?;
+    let target = pointer_target(entity, window, position)?;
+    let frame =
+        synthetic_input::hover(world, target).map_err(|err| invalid_params(err.to_string()))?;
+    serde_json::to_value(BrpHoverResponse { frame }).map_err(BrpError::internal)
+}
+
+/// Handles an `input.drag` request coming from a client.
+pub fn process_remote_drag_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpDragParams { from, to, button } = parse_some(params)?;
+    let from = pointer_target(from.entity, from.window, from.position)?;
+    let to = pointer_target(to.entity, to.window, to.position)?;
+    let frame = synthetic_input::drag(world, from, to, button)
+        .map_err(|err| invalid_params(err.to_string()))?;
+    serde_json::to_value(BrpDragResponse { frame }).map_err(BrpError::internal)
+}
+
+/// Handles an `input.scroll` request coming from a client.
+pub fn process_remote_scroll_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpScrollParams {
+        entity,
+        window,
+        position,
+        delta,
+        unit,
+    } = parse_some(params)?;
+    let target = pointer_target(entity, window, position)?;
+    let frame = synthetic_input::scroll(world, target, unit, delta)
+        .map_err(|err| invalid_params(err.to_string()))?;
+    serde_json::to_value(BrpScrollResponse { frame }).map_err(BrpError::internal)
+}
+
+fn pointer_target(
+    entity: Option<Entity>,
+    window: Option<Entity>,
+    position: Option<Vec2>,
+) -> Result<ClickTarget, BrpError> {
+    match (entity, window, position) {
+        (Some(entity), None, None) => Ok(ClickTarget::Node(entity)),
+        (None, Some(window), Some(position)) => Ok(ClickTarget::Point { window, position }),
+        _ => Err(invalid_params(
+            "pointer input takes an `entity`, or a `window` and a `position`".into(),
+        )),
+    }
 }
 
 /// The method path for an `input.key` request.
@@ -265,6 +423,33 @@ mod tests {
             let err = click(&mut world, params.clone()).unwrap_err();
             assert_eq!(err.code, error_codes::INVALID_PARAMS, "{params}");
         }
+    }
+
+    #[test]
+    fn hover_drag_and_scroll_answer_with_the_frame_of_their_last_event() {
+        let (mut world, window) = world();
+        let point = json!({ "window": window, "position": [5.0, 6.0] });
+
+        let hovered = process_remote_hover_request(In(Some(point.clone())), &mut world);
+        assert_eq!(hovered.unwrap(), json!({ "frame": 10 }));
+        let drag = json!({ "from": point, "to": { "window": window, "position": [50.0, 6.0] } });
+        let dragged = process_remote_drag_request(In(Some(drag)), &mut world);
+        assert_eq!(dragged.unwrap(), json!({ "frame": 14 }));
+        let scroll = json!({ "window": window, "position": [5.0, 6.0], "delta": [0.0, -120.0], "unit": "Pixel" });
+        let scrolled = process_remote_scroll_request(In(Some(scroll)), &mut world);
+        assert_eq!(scrolled.unwrap(), json!({ "frame": 16 }));
+
+        for params in [
+            json!({ "from": point, "to": {} }),
+            json!({ "from": point, "to": { "entity": window } }),
+            json!({ "window": window, "position": [5.0, 6.0] }),
+        ] {
+            let err =
+                process_remote_drag_request(In(Some(params.clone())), &mut world).unwrap_err();
+            assert_eq!(err.code, error_codes::INVALID_PARAMS, "{params}");
+        }
+        let err = process_remote_scroll_request(In(Some(point)), &mut world).unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
     }
 
     #[test]
