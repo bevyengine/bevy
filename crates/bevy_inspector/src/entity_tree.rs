@@ -169,7 +169,7 @@ pub fn inspector_tree_selected(
     selection.0 = change
         .value
         .and_then(|row| rows.get(row).ok())
-        .map(|row| InspectableEntity::new(row.source, row.origin.clone()));
+        .map(|row| InspectableEntity::new(row.source, row.origin));
 }
 
 /// Observer that starts keeping a row's child rows in sync the first time it is expanded.
@@ -260,14 +260,14 @@ fn plan_sync(world: &World) -> SyncPlan {
 
     let inspector_sources = &world.resource::<InspectorSources>().sources;
 
-    let inspectable_worlds: Vec<(InspectorSource, &World)> = inspector_sources
+    let inspectable_worlds: Vec<(&InspectorSource, &World)> = inspector_sources
         .into_iter()
         .map(|inspector_source| match inspector_source {
-            InspectorSource::Local => (InspectorSource::Local, world),
+            InspectorSource::Local => (inspector_source, world),
             #[cfg(feature = "remote")]
             InspectorSource::Remote(_rem) => {
-                let inspected = crate::world_to_inspect(world, inspector_source.clone());
-                (inspector_source.clone(), inspected)
+                let inspected = crate::world_to_inspect(world, inspector_source);
+                (inspector_source, inspected)
             }
         })
         .collect();
@@ -284,7 +284,7 @@ fn plan_sync(world: &World) -> SyncPlan {
 
         sub_roots
             .iter()
-            .map(|e| InspectableEntity::new(*e, origin.clone()))
+            .map(|e| InspectableEntity::new(*e, **origin))
             .for_each(|f| roots.push(f));
     }
 
@@ -294,11 +294,11 @@ fn plan_sync(world: &World) -> SyncPlan {
     for row in populated {
         let Some((source, kind)) = world
             .get::<InspectorRow>(row)
-            .map(|row| (row.source, row.origin.clone()))
+            .map(|row| (row.source, row.origin))
         else {
             continue;
         };
-        let Some(inspected) = sources.get_world(kind.clone()) else {
+        let Some(inspected) = sources.get_world(kind) else {
             continue;
         };
         if inspected.get_entity(source).is_err() {
@@ -309,7 +309,7 @@ fn plan_sync(world: &World) -> SyncPlan {
         };
         let expected: Vec<InspectableEntity> = visible_children(inspected, source)
             .iter()
-            .map(|e| InspectableEntity::new(*e, kind.clone()))
+            .map(|e| InspectableEntity::new(*e, kind))
             .collect();
         diff_container(world, &sources, container, &expected, &mut plan);
     }
@@ -319,13 +319,13 @@ fn plan_sync(world: &World) -> SyncPlan {
 
 /// The inspected world, and the label priorities of the world the inspector runs in.
 struct Sources<'w> {
-    inspectable_worlds: Vec<(InspectorSource, &'w World)>,
+    inspectable_worlds: Vec<(&'w InspectorSource, &'w World)>,
     priorities: Option<&'w LabelResolutionRegistry>,
 }
 
 impl<'w> Sources<'w> {
     fn new(
-        inspectable_worlds: Vec<(InspectorSource, &'w World)>,
+        inspectable_worlds: Vec<(&'w InspectorSource, &'w World)>,
         priorities: Option<&'w LabelResolutionRegistry>,
     ) -> Self {
         Self {
@@ -336,7 +336,7 @@ impl<'w> Sources<'w> {
 
     fn get_world(&'w self, want_kind: InspectorSource) -> Option<&'w World> {
         for (kind, world) in &self.inspectable_worlds {
-            if *kind == want_kind {
+            if **kind == want_kind {
                 return Some(*world);
             }
         }
@@ -357,10 +357,7 @@ fn diff_container(
     if let Some(children) = world.get::<Children>(container) {
         for child in children.iter().copied() {
             if let Some(row) = world.get::<InspectorRow>(child) {
-                existing.insert(
-                    InspectableEntity::new(row.source, row.origin.clone()),
-                    child,
-                );
+                existing.insert(InspectableEntity::new(row.source, row.origin), child);
             }
         }
     }
@@ -377,13 +374,13 @@ fn diff_container(
         source: origin,
     } in expected.iter().cloned()
     {
-        let Some(inspected) = sources.get_world(origin.clone()) else {
+        let Some(inspected) = sources.get_world(origin) else {
             continue;
         };
         let expandable = !visible_children(inspected, source).is_empty();
         let label = entity_label(inspected, sources.priorities, source);
         let Some(row) = existing
-            .get(&InspectableEntity::new(source, origin.clone()))
+            .get(&InspectableEntity::new(source, origin))
             .copied()
         else {
             plan.spawn.push(RowSpawn {
@@ -473,14 +470,8 @@ fn rebuild_index(world: &mut World) {
     let mut source_to_row = HashMap::new();
     let mut row_to_source = HashMap::new();
     for (entity, row) in world.query::<(Entity, &InspectorRow)>().iter(world) {
-        source_to_row.insert(
-            InspectableEntity::new(row.source, row.origin.clone()),
-            entity,
-        );
-        row_to_source.insert(
-            entity,
-            InspectableEntity::new(row.source, row.origin.clone()),
-        );
+        source_to_row.insert(InspectableEntity::new(row.source, row.origin), entity);
+        row_to_source.insert(entity, InspectableEntity::new(row.source, row.origin));
     }
 
     let mut index = world.resource_mut::<TreeRowIndex>();

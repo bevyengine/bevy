@@ -744,6 +744,9 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
 fn write_field_edit(world: &mut World, edit: &FieldEdit) {
+    if edit.source == InspectorSource::Local {
+        return;
+    }
     let Some(_inspector_sources) = world.get_resource::<InspectorSources>() else {
         return;
     };
@@ -1134,7 +1137,7 @@ pub fn sync_details_panel(world: &mut World) {
     };
     let local = inspector_source == InspectorSource::Local;
 
-    let inspected = crate::world_to_inspect(world, inspector_source);
+    let inspected = crate::world_to_inspect(world, &inspector_source);
     let components = inspect_components(inspected, selection.clone(), local);
     let empty = empty_state(inspected, maybe_selected, &components);
 

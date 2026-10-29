@@ -261,9 +261,9 @@ fn status_text(remote: &RemoteSource, connection: &RemoteConnection) -> String {
 
 fn format_address(source: &RemoteSource) -> String {
     if source.host.contains(':') {
-        format!("[{}]:{}", source.host, source.port)
+        format!("[{}]:{}", source.host.0, source.port)
     } else {
-        format!("{}:{}", source.host, source.port)
+        format!("{}:{}", source.host.0, source.port)
     }
 }
 

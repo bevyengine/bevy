@@ -108,7 +108,7 @@ pub enum WorldKind {
 }
 
 /// A single source to read data from
-#[derive(Debug, Default, Clone, PartialEq, Eq, Reflect, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Copy, Eq, Reflect, Hash)]
 #[reflect(Debug, Default, Clone, PartialEq)]
 pub enum InspectorSource {
     /// The world the inspector itself runs in.
@@ -123,7 +123,10 @@ pub enum InspectorSource {
 /// app, and `world` otherwise.
 ///
 /// NOTE: we currently restrict to at most 1x main app and 1x render app.
-pub(crate) fn world_to_inspect(world: &World, inspector_source: InspectorSource) -> &World {
+pub(crate) fn world_to_inspect<'a>(
+    world: &'a World,
+    inspector_source: &'a InspectorSource,
+) -> &'a World {
     #[cfg(feature = "remote")]
     if let InspectorSource::Remote(rem) = inspector_source
         && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
