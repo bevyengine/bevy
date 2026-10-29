@@ -15,8 +15,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
-use core::{f32, time::Duration};
-use std::num::NonZeroUsize;
+use core::{f32, num::NonZeroUsize, time::Duration};
 
 /// Manages crossfades between animation nodes of an [`AnimationPlayer`].
 ///
