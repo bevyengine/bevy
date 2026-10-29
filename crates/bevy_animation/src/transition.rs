@@ -45,7 +45,7 @@ use core::{f32, num::NonZeroUsize, time::Duration};
 /// [animation mask]: crate::graph::AnimationMask
 /// [`AnimationGraph`]: crate::graph::AnimationGraph
 #[derive(Component, Reflect, Deref, DerefMut)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Clone)]
 #[require(AnimationGraphHandle, AnimationPlayer)]
 pub struct AnimationTransitions {
     #[deref]
@@ -55,9 +55,24 @@ pub struct AnimationTransitions {
     flows: Vec<Option<AnimationNodeIndex>>,
 }
 
+impl Clone for AnimationTransitions {
+    fn clone(&self) -> Self {
+        Self {
+            transitions: self.transitions.clone(),
+            flows: self.flows.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.transitions.clone_from(&source.transitions);
+        self.flows.clone_from(&source.flows);
+    }
+}
+
 /// An animation node that is being faded out as part of a transition within a
 /// flow.
-#[derive(Debug, Reflect, Clone)]
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Clone)]
 pub struct AnimationTransition {
     /// The current weight. Starts at the weight the node had when the
     /// transition started, and goes to 0 during the fade-out.
