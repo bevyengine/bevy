@@ -5,7 +5,7 @@ use crate::{
     func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
     func::signature::ArgumentSignature,
     func::FunctionOverloadError,
-    type_info::impl_type_methods,
+    ty::impl_type_methods,
     Type, TypePath,
 };
 
@@ -177,7 +177,7 @@ impl FunctionInfo {
     /// let pretty = info.pretty_printer();
     /// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
     /// ```
-    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo {
+    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo<'_> {
         PrettyPrintFunctionInfo::new(self)
     }
 
@@ -446,7 +446,10 @@ impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
         }
 
         if self.info.is_overloaded() {
-            // `{(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            // `fn name {(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            if self.include_fn_token || self.include_name {
+                write!(f, " ")?;
+            }
             let mut set = f.debug_set();
             for signature in self.info.signatures() {
                 set.entry(&PrettyPrintSignatureInfo::new(signature));
@@ -600,13 +603,13 @@ pub trait TypedFunction<Marker> {
 
 /// Helper macro for implementing [`TypedFunction`] on Rust functions.
 ///
-/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
-/// - `FnMut(arg0, arg1, ..., argN) -> R`
-/// - `FnMut(&Receiver, arg0, arg1, ..., argN) -> &R`
-/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
-/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &R`
+/// This currently implements it for the following signatures (where `ArgX` may be any of `T`, `&T`, or `&mut T`):
+/// - `FnMut(Arg0, Arg1, ..., ArgN) -> R`
+/// - `FnMut(&Receiver, Arg0, Arg1, ..., ArgN) -> &R`
+/// - `FnMut(&mut Receiver, Arg0, Arg1, ..., ArgN) -> &mut R`
+/// - `FnMut(&mut Receiver, Arg0, Arg1, ..., ArgN) -> &R`
 macro_rules! impl_typed_function {
-    ($(($Arg:ident, $arg:ident)),*) => {
+    ($($Arg:ident),*) => {
         // === (...) -> ReturnType === //
         impl<$($Arg,)* ReturnType, Function> TypedFunction<fn($($Arg),*) -> [ReturnType]> for Function
         where
@@ -711,7 +714,7 @@ macro_rules! impl_typed_function {
     };
 }
 
-all_tuples!(impl_typed_function, 0, 15, Arg, arg);
+all_tuples!(impl_typed_function, 0, 15, Arg);
 
 /// Helper function for creating [`FunctionInfo`] with the proper name value.
 ///
@@ -744,6 +747,7 @@ fn create_info<F>() -> SignatureInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::format;
 
     #[test]
     fn should_create_function_info() {
@@ -826,22 +830,22 @@ mod tests {
 
     #[test]
     fn should_pretty_print_info() {
-        // fn add(a: i32, b: i32) -> i32 {
-        //     a + b
-        // }
-        //
-        // let info = add.get_function_info().with_name("add");
-        //
-        // let pretty = info.pretty_printer();
-        // assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
-        //
-        // let pretty = info.pretty_printer().include_fn_token();
-        // assert_eq!(format!("{:?}", pretty), "fn(_: i32, _: i32) -> i32");
-        //
-        // let pretty = info.pretty_printer().include_name();
-        // assert_eq!(format!("{:?}", pretty), "add(_: i32, _: i32) -> i32");
-        //
-        // let pretty = info.pretty_printer().include_fn_token().include_name();
-        // assert_eq!(format!("{:?}", pretty), "fn add(_: i32, _: i32) -> i32");
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let info = add.get_function_info().with_name(Some("add"));
+
+        let pretty = info.pretty_printer();
+        assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_fn_token();
+        assert_eq!(format!("{:?}", pretty), "fn(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_name();
+        assert_eq!(format!("{:?}", pretty), "add(_: i32, _: i32) -> i32");
+
+        let pretty = info.pretty_printer().include_fn_token().include_name();
+        assert_eq!(format!("{:?}", pretty), "fn add(_: i32, _: i32) -> i32");
     }
 }

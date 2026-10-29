@@ -9,7 +9,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(
+            Update,
+            (
+                draw_example_collection,
+                update_config,
+                drive_gizmos_animation,
+            ),
+        )
         .run();
 }
 
@@ -26,12 +33,14 @@ fn setup(mut commands: Commands) {
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
         Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
         Press 'U' / 'I' to cycle through line styles\n\
-        Press 'J' / 'K' to cycle through line joins",
+        Press 'J' / 'K' to cycle through line joins\n\
+        Press 'L' to cycle through gizmos animations (only for dotted/dashed round gizmos)\n\
+        Press 'Spacebar' to toggle pause",
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -120,20 +129,23 @@ fn draw_example_collection(
         )
         .with_double_end()
         .with_tip_length(10.);
+
+    my_gizmos.arc_2d(Isometry2d::default(), FRAC_PI_2, 210., OLD_LACE);
 }
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    real_time: Res<Time<Real>>,
+    mut virtual_time: ResMut<Time<Virtual>>,
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line.width += 5. * time.delta_secs();
+        config.line.width += 5. * real_time.delta_secs();
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line.width -= 5. * time.delta_secs();
+        config.line.width -= 5. * real_time.delta_secs();
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -149,6 +161,16 @@ fn update_config(
             _ => GizmoLineStyle::Solid,
         };
     }
+    if keyboard.just_pressed(KeyCode::KeyI) {
+        config.line.style = match config.line.style {
+            GizmoLineStyle::Solid => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
+            GizmoLineStyle::Dotted => GizmoLineStyle::Solid,
+            _ => GizmoLineStyle::Dotted,
+        };
+    }
     if keyboard.just_pressed(KeyCode::KeyJ) {
         config.line.joints = match config.line.joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
@@ -158,13 +180,22 @@ fn update_config(
         };
     }
 
+    if keyboard.just_pressed(KeyCode::KeyK) {
+        config.line.joints = match config.line.joints {
+            GizmoLineJoint::Bevel => GizmoLineJoint::None,
+            GizmoLineJoint::Miter => GizmoLineJoint::Bevel,
+            GizmoLineJoint::Round(_) => GizmoLineJoint::Miter,
+            GizmoLineJoint::None => GizmoLineJoint::Round(4),
+        };
+    }
+
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width += 5. * real_time.delta_secs();
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width -= 5. * real_time.delta_secs();
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
@@ -187,5 +218,46 @@ fn update_config(
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,
             GizmoLineJoint::None => GizmoLineJoint::Bevel,
         };
+    }
+
+    if keyboard.just_pressed(KeyCode::Space) {
+        virtual_time.toggle();
+    }
+}
+
+enum GizmosAnimationType {
+    Linear,
+    BackAndForth,
+    Stutter,
+}
+
+fn drive_gizmos_animation(
+    mut config_store: ResMut<GizmoConfigStore>,
+    virtual_time: ResMut<Time<Virtual>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut animation_type: Local<Option<GizmosAnimationType>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        *animation_type = match *animation_type {
+            None => Some(GizmosAnimationType::Linear),
+            Some(GizmosAnimationType::Linear) => Some(GizmosAnimationType::BackAndForth),
+            Some(GizmosAnimationType::BackAndForth) => Some(GizmosAnimationType::Stutter),
+            Some(GizmosAnimationType::Stutter) => None,
+        };
+    }
+
+    if let Some(animation_type) = animation_type.as_ref() {
+        let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
+        match animation_type {
+            GizmosAnimationType::Linear => {
+                my_config.line.animation_offset = virtual_time.elapsed_secs() * 10.0;
+            }
+            GizmosAnimationType::BackAndForth => {
+                my_config.line.animation_offset = ops::sin(virtual_time.elapsed_secs()) * 10.0;
+            }
+            GizmosAnimationType::Stutter => {
+                my_config.line.animation_offset = (virtual_time.elapsed_secs() * 4.0).round();
+            }
+        }
     }
 }

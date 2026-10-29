@@ -1,15 +1,14 @@
 use alloc::string::String;
-use bevy_ecs::{
-    entity::Entity,
-    event::{BufferedEvent, Event},
-};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectMessage;
+use bevy_ecs::{entity::Entity, message::Message};
 use bevy_input::{
     gestures::*,
     keyboard::{KeyboardFocusLost, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     touch::TouchInput,
 };
-use bevy_math::{IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, Vec2};
 
 #[cfg(feature = "std")]
 use std::path::PathBuf;
@@ -26,11 +25,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use crate::WindowTheme;
 
 /// A window event that is sent whenever a window's logical size has changed.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Message, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -48,11 +47,11 @@ pub struct WindowResized {
 
 /// An event that indicates all of the application's windows should be redrawn,
 /// even if their control flow is set to `Wait` and there have been no window events.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -63,12 +62,12 @@ pub struct RequestRedraw;
 
 /// An event that is sent whenever a new window is created.
 ///
-/// To create a new window, spawn an entity with a [`crate::Window`] on it.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+/// To create a new window, spawn an entity with a [`Window`](`crate::Window`) on it.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -90,11 +89,11 @@ pub struct WindowCreated {
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -108,7 +107,7 @@ pub struct WindowCloseRequested {
 
 /// An event that is sent whenever a window is closed. This will be sent when
 /// the window entity loses its [`Window`](crate::window::Window) component or is despawned.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -129,7 +128,7 @@ pub struct WindowClosed {
 
 /// An event that is sent whenever a window is closing. This will be sent when
 /// after a [`WindowCloseRequested`] event is received and the window is in the process of closing.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -149,11 +148,11 @@ pub struct WindowClosing {
 ///
 /// Note that if your application only has a single window, this event may be your last chance to
 /// persist state before the application terminates.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -179,11 +178,11 @@ pub struct WindowDestroyed {
 /// you should not use it for non-cursor-like behavior such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Message, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -203,12 +202,31 @@ pub struct CursorMoved {
     pub delta: Option<Vec2>,
 }
 
-/// An event that is sent whenever the user's cursor enters a window.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+/// An event reporting that the mouse cursor has moved inside a window, as reported by a window backend.
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct RawCursorMoved {
+    /// Window that the cursor moved inside.
+    pub window: Entity,
+    /// The cursor position in physical pixels.
+    pub physical_position: DVec2,
+}
+
+/// An event that is sent whenever the user's cursor enters a window.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -221,11 +239,11 @@ pub struct CursorEntered {
 }
 
 /// An event that is sent whenever the user's cursor leaves a window.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -242,11 +260,11 @@ pub struct CursorLeft {
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
 ///
 /// It is only sent if IME was enabled on the window with [`Window::ime_enabled`](crate::window::Window::ime_enabled).
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -287,11 +305,11 @@ pub enum Ime {
 }
 
 /// An event that indicates a window has received or lost focus.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -314,11 +332,11 @@ pub struct WindowFocused {
 /// It is the translated version of [`WindowEvent::Occluded`] from the `winit` crate.
 ///
 /// [`WindowEvent::Occluded`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.Occluded
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -333,11 +351,11 @@ pub struct WindowOccluded {
 }
 
 /// An event that indicates a window's scale factor has changed.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Message, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -352,11 +370,11 @@ pub struct WindowScaleFactorChanged {
 }
 
 /// An event that indicates a window's OS-reported scale factor has changed.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(Message, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -371,11 +389,11 @@ pub struct WindowBackendScaleFactorChanged {
 }
 
 /// Events related to files being dragged and dropped on a window.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -407,11 +425,11 @@ pub enum FileDragAndDrop {
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -429,11 +447,11 @@ pub struct WindowMoved {
 ///
 /// This event is only sent when the window is relying on the system theme to control its appearance.
 /// i.e. It is only sent when [`Window::window_theme`](crate::window::Window::window_theme) is `None` and the system theme changes.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -448,11 +466,11 @@ pub struct WindowThemeChanged {
 }
 
 /// Application lifetime events
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -487,15 +505,15 @@ impl AppLifecycle {
 
 /// Wraps all `bevy_window` and `bevy_input` events in a common enum.
 ///
-/// Read these events with `EventReader<WindowEvent>` if you need to
+/// Read these events with `MessageReader<WindowEvent>` if you need to
 /// access window events in the order they were received from the
 /// operating system. Otherwise, the event types are individually
-/// readable with `EventReader<E>` (e.g. `EventReader<KeyboardInput>`).
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
+/// readable with `MessageReader<E>` (e.g. `MessageReader<KeyboardInput>`).
+#[derive(Message, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -510,7 +528,9 @@ pub enum WindowEvent {
     ///The user's cursor has left a window.
     CursorLeft(CursorLeft),
     /// The user's cursor has moved inside a window.
-    CursorMoved(CursorMoved),
+    ///
+    /// `bevy_window` turns it into a [`CursorMoved`] message.
+    CursorMoved(RawCursorMoved),
     /// A file drag and drop event.
     FileDragAndDrop(FileDragAndDrop),
     /// An Input Method Editor event.
@@ -583,8 +603,8 @@ impl From<CursorLeft> for WindowEvent {
     }
 }
 
-impl From<CursorMoved> for WindowEvent {
-    fn from(e: CursorMoved) -> Self {
+impl From<RawCursorMoved> for WindowEvent {
+    fn from(e: RawCursorMoved) -> Self {
         Self::CursorMoved(e)
     }
 }

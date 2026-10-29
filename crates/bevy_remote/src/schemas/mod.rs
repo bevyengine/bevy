@@ -1,6 +1,6 @@
 //! Module with schemas used for various BRP endpoints
 use bevy_ecs::{
-    reflect::{ReflectComponent, ReflectResource},
+    reflect::{ReflectComponent, ReflectEvent, ReflectResource},
     resource::Resource,
 };
 use bevy_platform::collections::HashMap;
@@ -10,6 +10,7 @@ use bevy_reflect::{
 };
 use core::any::TypeId;
 
+pub mod index;
 pub mod json_schema;
 pub mod open_rpc;
 
@@ -29,6 +30,7 @@ impl Default for SchemaTypesMetadata {
         };
         data_types.map_type_data::<ReflectComponent>("Component");
         data_types.map_type_data::<ReflectResource>("Resource");
+        data_types.map_type_data::<ReflectEvent>("Event");
         data_types.map_type_data::<ReflectDefault>("Default");
         #[cfg(feature = "bevy_asset")]
         data_types.map_type_data::<bevy_asset::ReflectAsset>("Asset");
@@ -46,12 +48,15 @@ impl SchemaTypesMetadata {
         self.type_data_map.insert(TypeId::of::<T>(), name.into());
     }
 
-    /// Build reflect types list for a given type registration
+    /// Build the sorted reflect types list for a given type registration
     pub fn get_registered_reflect_types(&self, reg: &TypeRegistration) -> Vec<String> {
-        self.type_data_map
+        let mut types: Vec<String> = self
+            .type_data_map
             .iter()
             .filter_map(|(id, name)| reg.data_by_id(*id).and(Some(name.clone())))
-            .collect()
+            .collect();
+        types.sort();
+        types
     }
 
     /// Checks if slice contains string value that matches checked `TypeData`

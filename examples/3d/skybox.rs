@@ -1,18 +1,19 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+use bevy::anti_alias::taa::TemporalAntiAliasing;
 
 use bevy::{
-    core_pipeline::Skybox,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     image::CompressedImageFormats,
+    light::Skybox,
+    pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
         renderer::RenderDevice,
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
@@ -37,7 +38,7 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(CameraControllerPlugin)
+        .add_plugins(FreeCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -71,10 +72,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // camera
     commands.spawn((
         Camera3d::default(),
+        Msaa::Off,
+        #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+        TemporalAntiAliasing::default(),
+        ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
+        FreeCamera::default(),
         Skybox {
-            image: skybox_handle.clone(),
+            image: Some(skybox_handle.clone()),
             brightness: 1000.0,
             ..default()
         },
@@ -83,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ambient light
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
     // environment map, use an appropriate color and brightness to match
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::srgb_u8(210, 220, 240),
         brightness: 1.0,
         ..default()
@@ -148,11 +153,14 @@ fn asset_loaded(
 ) {
     if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
-        let image = images.get_mut(&cubemap.image_handle).unwrap();
+        let mut image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
-            image.reinterpret_stacked_2d_as_array(image.height() / image.width());
+            let layers = image.height() / image.width();
+            image
+                .reinterpret_stacked_2d_as_array(layers)
+                .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..default()
@@ -160,7 +168,7 @@ fn asset_loaded(
         }
 
         for mut skybox in &mut skyboxes {
-            skybox.image = cubemap.image_handle.clone();
+            skybox.image = Some(cubemap.image_handle.clone());
         }
 
         cubemap.is_loaded = true;

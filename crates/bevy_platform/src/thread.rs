@@ -21,7 +21,7 @@ crate::cfg::switch! {
                 let start = Instant::now();
 
                 while start.elapsed() < dur {
-                    spin_loop()
+                    spin_loop();
                 }
             }
         }

@@ -1,10 +1,16 @@
+//! A backend for [`Asset`] storage in the local filesystem.
+//!
+//! It can watch for changed assets and hotload them if the `file_watcher` feature is enabled.
+//!
+//! [`Asset`]: crate::Asset
+
 #[cfg(feature = "file_watcher")]
 mod file_watcher;
 
 #[cfg(feature = "multi_threaded")]
 mod file_asset;
 #[cfg(not(feature = "multi_threaded"))]
-mod sync_file_asset;
+pub(crate) mod sync_file_asset;
 
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
@@ -52,7 +58,7 @@ impl FileAssetReader {
     /// Returns the base path of the assets directory, which is normally the executable's parent
     /// directory.
     ///
-    /// To change this, set [`AssetPlugin.file_path`].
+    /// To change this, set [`AssetPlugin::file_path`][crate::AssetPlugin::file_path].
     pub fn get_base_path() -> PathBuf {
         get_base_path()
     }
@@ -75,14 +81,12 @@ impl FileAssetWriter {
     /// watching for changes.
     pub fn new<P: AsRef<Path> + core::fmt::Debug>(path: P, create_root: bool) -> Self {
         let root_path = get_base_path().join(path.as_ref());
-        if create_root {
-            if let Err(e) = std::fs::create_dir_all(&root_path) {
-                error!(
-                    "Failed to create root directory {} for file asset writer: {}",
-                    root_path.display(),
-                    e
-                );
-            }
+        if create_root && let Err(e) = std::fs::create_dir_all(&root_path) {
+            error!(
+                "Failed to create root directory {} for file asset writer: {}",
+                root_path.display(),
+                e
+            );
         }
         Self { root_path }
     }

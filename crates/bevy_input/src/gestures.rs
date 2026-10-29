@@ -1,6 +1,8 @@
 //! Gestures functionality, from touchscreens and touchpads.
 
-use bevy_ecs::event::{BufferedEvent, Event};
+use bevy_ecs::message::Message;
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectMessage;
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -17,11 +19,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// - Only available on **`macOS`** and **`iOS`**.
 /// - On **`iOS`**, must be enabled first
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -39,11 +41,11 @@ pub struct PinchGesture(pub f32);
 ///
 /// - Only available on **`macOS`** and **`iOS`**.
 /// - On **`iOS`**, must be enabled first
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -58,11 +60,11 @@ pub struct RotationGesture(pub f32);
 ///
 /// - Only available on **`macOS`** and **`iOS`**.
 /// - On **`iOS`**, must be enabled first
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -76,11 +78,11 @@ pub struct DoubleTapGesture;
 /// ## Platform-specific
 ///
 /// - On **`iOS`**, must be enabled first
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(Message, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Clone)
+    reflect(Debug, PartialEq, Clone, Message)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

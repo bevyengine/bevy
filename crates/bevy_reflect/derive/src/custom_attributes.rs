@@ -12,13 +12,13 @@ impl CustomAttributes {
     pub fn to_tokens(&self, bevy_reflect_path: &Path) -> TokenStream {
         let attributes = self.attributes.iter().map(|value| {
             quote! {
-                .with_attribute(#value)
+                .attribute(#value)
             }
         });
 
         quote! {
-            #bevy_reflect_path::attributes::CustomAttributes::default()
-                #(#attributes)*
+            #bevy_reflect_path::attributes::CustomAttributesBuilder::new()
+                #(#attributes)*.build()
         }
     }
 
@@ -26,6 +26,11 @@ impl CustomAttributes {
     pub fn push(&mut self, value: Expr) -> syn::Result<()> {
         self.attributes.push(value);
         Ok(())
+    }
+
+    /// Is the collection empty?
+    pub fn is_empty(&self) -> bool {
+        self.attributes.is_empty()
     }
 
     /// Parse `@` (custom attribute) attribute.

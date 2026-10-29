@@ -1,40 +1,82 @@
-#[cfg(feature = "bevy_reflect")]
-use crate::reflect::ReflectComponent;
+#[cfg(feature = "hotpatching")]
+use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, SystemParamValidationError},
+    error::BevyError,
+    prelude::{FromTemplate, Template},
+    system::{
+        input::SystemInput, BoxedSystem, Commands, If, IntoSystem, Res, RunSystemError,
+        SystemParamValidationError,
+    },
+    template::TemplateContext,
     world::World,
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::marker::PhantomData;
+use bevy_platform::sync::{Arc, Mutex};
+use bevy_utils::prelude::DebugName;
+use concurrent_queue::ConcurrentQueue;
+use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-#[require(SystemIdMarker)]
-pub(crate) struct RegisteredSystem<I, O> {
+#[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
+pub struct RegisteredSystem<I, O> {
     initialized: bool,
-    system: BoxedSystem<I, O>,
+    system: Option<BoxedSystem<I, O>>,
 }
 
 impl<I, O> RegisteredSystem<I, O> {
+    /// Create an uninitialized [`RegisteredSystem`] component with the provided boxed system
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         RegisteredSystem {
             initialized: false,
-            system,
+            system: Some(system),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct TypeIdAndName {
+    type_id: TypeId,
+    name: DebugName,
+}
+
+impl TypeIdAndName {
+    fn new<T: 'static>() -> Self {
+        Self {
+            type_id: TypeId::of::<T>(),
+            name: DebugName::type_name::<T>(),
+        }
+    }
+}
+
+impl Default for TypeIdAndName {
+    fn default() -> Self {
+        Self {
+            type_id: TypeId::of::<()>(),
+            name: DebugName::type_name::<()>(),
         }
     }
 }
 
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
-#[derive(Component, Default)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default))]
-pub struct SystemIdMarker;
+#[derive(Debug, Default, Clone, Component)]
+pub struct SystemIdMarker {
+    input_type_id: TypeIdAndName,
+    output_type_id: TypeIdAndName,
+}
+
+impl SystemIdMarker {
+    fn typed_system_id_marker<I: 'static, O: 'static>() -> Self {
+        Self {
+            input_type_id: TypeIdAndName::new::<I>(),
+            output_type_id: TypeIdAndName::new::<O>(),
+        }
+    }
+}
 
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
@@ -55,6 +97,135 @@ impl<I, O> RemovedSystem<I, O> {
     /// The system removed from the storage.
     pub fn system(self) -> BoxedSystem<I, O> {
         self.system
+    }
+}
+
+/// A system that despawns any registered system entities whose [`SystemHandle`]
+/// reference count has reached zero.
+pub fn despawn_unused_registered_systems(
+    // `RegisteredSystemDespawner` is initialized lazily the first time a system
+    // is registered, so it's possible that it doesn't exist yet when this system runs.
+    despawner: If<Res<RegisteredSystemDespawner>>,
+    mut commands: Commands,
+) {
+    for entity in despawner.queue.try_iter() {
+        // In case the entity was already despawned manually, we ignore the error here.
+        commands.entity(entity).try_despawn();
+    }
+}
+
+/// A resource that stores the channel for despawning unused registered system
+/// entities.
+#[derive(Resource)]
+pub struct RegisteredSystemDespawner {
+    queue: Arc<ConcurrentQueue<Entity>>,
+}
+
+impl Default for RegisteredSystemDespawner {
+    fn default() -> Self {
+        Self {
+            queue: Arc::new(ConcurrentQueue::unbounded()),
+        }
+    }
+}
+
+/// A maybe-strong handle to an entity acting as a registered system. Strong
+/// handles are created by [`World::register_tracked_system`] or
+/// [`World::register_tracked_boxed_system`].
+///
+/// Strong handles provide automatic cleanup of registered systems once all clones
+/// of the handle are dropped, while weak handles do not. However, the **existence
+/// of a strong handle does not prevent the registered system entity from being
+/// despawned manually**, like with [`World::unregister_system`] or
+/// [`World::unregister_system_cached`].
+///
+/// # Cleanup
+///
+/// Registered system entities are cleaned up by the [`despawn_unused_registered_systems`]
+/// system, which is automatically added to the default app by the `bevy_app`
+/// crate when the "std" feature is enabled. If not using the default app, the
+/// "std" feature, or `bevy_app` in general, consider running this system
+/// yourself to ensure proper cleanup of registered systems.
+pub enum SystemHandle<I: SystemInput = (), O = ()> {
+    /// A strong handle keeps the system entity alive as long as the handle
+    /// (and any clones of it) exist, as long as the system entity isn't
+    /// manually despawned.
+    Strong(Arc<StrongSystemHandle>),
+    /// A weak handle does not keep the system entity alive.
+    Weak(SystemId<I, O>),
+}
+
+impl<I: SystemInput, O> SystemHandle<I, O> {
+    /// Returns the [`Entity`] of the registered system associated with this handle.
+    pub fn entity(&self) -> Entity {
+        match self {
+            SystemHandle::Strong(strong) => strong.entity,
+            SystemHandle::Weak(weak) => weak.entity,
+        }
+    }
+}
+
+impl<I: SystemInput, O> Eq for SystemHandle<I, O> {}
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
+impl<I: SystemInput, O> Clone for SystemHandle<I, O> {
+    fn clone(&self) -> Self {
+        match self {
+            SystemHandle::Strong(strong) => SystemHandle::Strong(Arc::clone(strong)),
+            SystemHandle::Weak(weak) => SystemHandle::Weak(*weak),
+        }
+    }
+}
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters,
+// and so that strong and weak handles can be compared for equality based on their entities.
+impl<I: SystemInput, O> PartialEq for SystemHandle<I, O> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<I: SystemInput, O> PartialEq<SystemId<I, O>> for SystemHandle<I, O> {
+    fn eq(&self, other: &SystemId<I, O>) -> bool {
+        self.entity() == other.entity
+    }
+}
+
+// A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters,
+// and so that the handle can be hashed based on its entity instead of its handle type.
+impl<I: SystemInput, O> core::hash::Hash for SystemHandle<I, O> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<I: SystemInput, O> core::fmt::Debug for SystemHandle<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = if matches!(self, SystemHandle::Strong(_)) {
+            "StrongSystemHandle"
+        } else {
+            "WeakSystemHandle"
+        };
+        f.debug_tuple(name).field(&self.entity()).finish()
+    }
+}
+
+impl<I: SystemInput, O> From<SystemId<I, O>> for SystemHandle<I, O> {
+    fn from(id: SystemId<I, O>) -> Self {
+        SystemHandle::Weak(id)
+    }
+}
+
+/// A strong handle for a registered system that despawns the entity when dropped.
+pub struct StrongSystemHandle {
+    entity: Entity,
+    drop_queue: Arc<ConcurrentQueue<Entity>>,
+}
+
+impl Drop for StrongSystemHandle {
+    fn drop(&mut self) {
+        // Send the entity to be despawned by the world when the last strong handle is dropped.
+        let _ = self.drop_queue.push(self.entity);
     }
 }
 
@@ -122,6 +293,134 @@ impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
     }
 }
 
+impl<I: SystemInput, O> From<&SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: &SystemHandle<I, O>) -> Self {
+        Self::from_entity(handle.entity())
+    }
+}
+
+impl<I: SystemInput, O> From<SystemHandle<I, O>> for SystemId<I, O> {
+    fn from(handle: SystemHandle<I, O>) -> Self {
+        (&handle).into()
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> FromTemplate for SystemHandle<I, O> {
+    type Template = SystemHandleTemplate<I, O>;
+}
+
+/// A [`Template`] that produces a [`SystemHandle`].
+pub enum SystemHandleTemplate<I: SystemInput + 'static = (), O: 'static = ()> {
+    /// Creates a [`SystemHandle`] by cloning the given [`SystemHandle`] value.
+    Handle(SystemHandle<I, O>),
+    /// Creates a [`SystemHandle`] by registering the given system value using
+    /// [`World::register_tracked_boxed_system`]. This will cache the resulting
+    /// [`SystemHandle`]
+    /// on the template and reuse it for future template builds.
+    ///
+    /// This should generally be constructed using [`SystemHandleTemplate::value`]
+    /// or [`system_value`].
+    Value(SystemHandleValue<I, O>),
+}
+
+/// Stores an [`Arc<Mutex<SystemHandleOrValue<I, O>>>`].
+pub struct SystemHandleValue<I: SystemInput + 'static = (), O: 'static = ()>(
+    Arc<Mutex<SystemHandleOrValue<I, O>>>,
+);
+
+impl<I: SystemInput + 'static, O: 'static> Clone for SystemHandleValue<I, O> {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+enum SystemHandleOrValue<I: SystemInput + 'static = (), O: 'static = ()> {
+    Handle(SystemHandle<I, O>),
+    Value(Option<BoxedSystem<I, O>>),
+}
+
+impl<I: SystemInput + 'static, O: 'static> SystemHandleTemplate<I, O> {
+    /// This will create a new [`SystemHandleTemplate`] for the given `system` value.
+    /// This makes it possible to define systems "inline" in templates / scenes
+    /// that produce a [`SystemId`].
+    pub fn value<M>(system: impl IntoSystem<I, O, M>) -> Self {
+        Self::Value(SystemHandleValue(Arc::new(Mutex::new(
+            SystemHandleOrValue::Value(Some(Box::new(IntoSystem::into_system(system)))),
+        ))))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> Template for SystemHandleTemplate<I, O> {
+    type Output = SystemHandle<I, O>;
+
+    fn build_template(
+        &self,
+        context: &mut TemplateContext,
+    ) -> crate::prelude::Result<Self::Output> {
+        match self {
+            Self::Handle(handle) => Ok(handle.clone()),
+            Self::Value(value) => {
+                let mut value_or_id = value.0.lock().unwrap();
+                match &mut *value_or_id {
+                    SystemHandleOrValue::Handle(handle) => Ok(handle.clone()),
+                    SystemHandleOrValue::Value(system) => {
+                        let system = system.take().unwrap();
+                        let id = context
+                            .entity
+                            .world_scope(|world| world.register_tracked_boxed_system(system));
+                        *value_or_id = SystemHandleOrValue::Handle(id.clone());
+                        Ok(id)
+                    }
+                }
+            }
+        }
+    }
+
+    fn clone_template(&self) -> Self {
+        match self {
+            Self::Handle(handle) => Self::Handle(handle.clone()),
+            Self::Value(value) => Self::Value(value.clone()),
+        }
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> Default for SystemHandleTemplate<I, O> {
+    fn default() -> Self {
+        Self::Handle(SystemHandle::Weak(SystemId::from_entity(
+            Entity::PLACEHOLDER,
+        )))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<SystemHandle<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(handle: SystemHandle<I, O>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<BoxedSystem<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(system: BoxedSystem<I, O>) -> Self {
+        Self::Value(SystemHandleValue(Arc::new(Mutex::new(
+            SystemHandleOrValue::Value(Some(system)),
+        ))))
+    }
+}
+
+impl<I: SystemInput + 'static, O: 'static> From<SystemId<I, O>> for SystemHandleTemplate<I, O> {
+    fn from(id: SystemId<I, O>) -> Self {
+        Self::Handle(SystemHandle::Weak(id))
+    }
+}
+
+/// This will create a new [`SystemHandleTemplate`] for the given `system` value.
+/// This makes it possible to define systems "inline" in templates / scenes that
+/// produce a [`SystemHandle`].
+pub fn system_value<I: SystemInput + 'static, O: 'static, M>(
+    system: impl IntoSystem<I, O, M>,
+) -> SystemHandleTemplate<I, O> {
+    SystemHandleTemplate::value(system)
+}
+
 /// A cached [`SystemId`] distinguished by the unique function type of its system.
 ///
 /// This resource is inserted by [`World::register_system_cached`].
@@ -178,6 +477,51 @@ impl World {
         SystemId::from_entity(entity)
     }
 
+    /// Registers a system and returns a tracked [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`]. The system entity will be automatically
+    /// queued for despawn when the last clone of the returned handle is dropped.
+    ///
+    /// By default, unused tracked system entities are despawned by the
+    /// [`despawn_unused_registered_systems`] system in the `Last` schedule of
+    /// the default app. Otherwise, it needs to be run manually to ensure proper
+    /// cleanup of registered systems.
+    ///
+    /// It's possible to register multiple copies of the same system by calling
+    /// this function multiple times. If that's not what you want, consider using
+    /// [`World::register_system_cached`] instead.
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.register_tracked_boxed_system(Box::new(IntoSystem::into_system(system)))
+    }
+
+    /// Similar to [`Self::register_tracked_system`], but allows passing in a
+    /// [`BoxedSystem`].
+    ///
+    /// This is useful if the [`IntoSystem`] implementor has already been turned
+    /// into a [`System`](crate::system::System) trait object and put in a [`Box`].
+    pub fn register_tracked_boxed_system<I, O>(
+        &mut self,
+        system: BoxedSystem<I, O>,
+    ) -> SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        let entity = self.spawn(RegisteredSystem::new(system)).id();
+        let despawner = self.get_resource_or_init::<RegisteredSystemDespawner>();
+
+        SystemHandle::Strong(Arc::new(StrongSystemHandle {
+            entity,
+            drop_queue: despawner.queue.clone(),
+        }))
+    }
+
     /// Removes a registered system and returns the system, if it exists.
     /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
     /// Re-adding the removed system will register it on a new [`SystemId`].
@@ -200,7 +544,9 @@ impl World {
                 entity.despawn();
                 Ok(RemovedSystem {
                     initialized: registered_system.initialized,
-                    system: registered_system.system,
+                    system: registered_system
+                        .system
+                        .ok_or(RegisteredSystemError::SystemMissing(id))?,
                 })
             }
             Err(_) => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
@@ -294,7 +640,7 @@ impl World {
     /// ```
     pub fn run_system<O: 'static>(
         &mut self,
-        id: SystemId<(), O>,
+        id: impl Into<SystemId<(), O>>,
     ) -> Result<O, RegisteredSystemError<(), O>> {
         self.run_system_with(id, ())
     }
@@ -303,6 +649,7 @@ impl World {
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     /// Also runs any queued-up commands.
     ///
     /// # Examples
@@ -325,54 +672,70 @@ impl World {
     /// See [`World::run_system`] for more examples.
     pub fn run_system_with<I, O>(
         &mut self,
-        id: SystemId<I, O>,
+        id: impl Into<SystemId<I, O>>,
         input: I::Inner<'_>,
     ) -> Result<O, RegisteredSystemError<I, O>>
     where
         I: SystemInput + 'static,
         O: 'static,
     {
+        let id = id.into();
         // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // Take ownership of system trait object
-        let RegisteredSystem {
-            mut initialized,
-            mut system,
-        } = entity
-            .take::<RegisteredSystem<I, O>>()
-            .ok_or(RegisteredSystemError::Recursive(id))?;
+        let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>() else {
+            let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
+                return Err(RegisteredSystemError::SystemIdNotRegistered(id));
+            };
+            if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
+                || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
+            {
+                return Err(RegisteredSystemError::IncorrectType(
+                    id,
+                    system_id_marker.clone(),
+                ));
+            }
+            return Err(RegisteredSystemError::MissingRegisteredSystemComponent(id));
+        };
 
-        // Run the system
-        if !initialized {
+        let mut system = registered_system
+            .system
+            .take()
+            .ok_or(RegisteredSystemError::SystemMissing(id))?;
+
+        // Initialize the system
+        if !registered_system.initialized {
             system.initialize(self);
-            initialized = true;
         }
 
-        let result = system
-            .validate_param(self)
-            .map_err(|err| RegisteredSystemError::InvalidParams { system: id, err })
-            .map(|()| {
-                // Wait to run the commands until the system is available again.
-                // This is needed so the systems can recursively run themselves.
-                let ret = system.run_without_applying_deferred(input, self);
-                system.queue_deferred(self.into());
-                ret
-            });
+        // refresh hotpatches for stored systems
+        #[cfg(feature = "hotpatching")]
+        if self
+            .get_resource_ref::<HotPatchChanges>()
+            .is_none_or(|r| r.is_changed_after(system.get_last_run()))
+        {
+            system.refresh_hotpatch();
+        }
+
+        // Wait to run the commands until the system is available again.
+        // This is needed so the systems can recursively run themselves.
+        let result = system.run_without_applying_deferred(input, self);
+        system.queue_deferred(self.into());
 
         // Return ownership of system trait object (if entity still exists)
-        if let Ok(mut entity) = self.get_entity_mut(id.entity) {
-            entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
-                initialized,
-                system,
-            });
+        if let Ok(mut entity) = self.get_entity_mut(id.entity)
+            && let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>()
+        {
+            registered_system.system = Some(system);
+            registered_system.initialized = true;
         }
 
         // Run any commands enqueued by the system
         self.flush();
-        result
+        Ok(result?)
     }
 
     /// Registers a system or returns its cached [`SystemId`].
@@ -457,6 +820,7 @@ impl World {
 
     /// Runs a cached system with an input, registering it if necessary.
     ///
+    /// To use the supplied input, the system should have a [`SystemInput`] as the first parameter.
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
@@ -486,21 +850,35 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// Did you forget to register it?
     #[error("Cached system was not found")]
     SystemNotCached,
-    /// A system tried to run itself recursively.
-    #[error("System {0:?} tried to run itself recursively")]
-    Recursive(SystemId<I, O>),
+    /// The `RegisteredSystem` component is missing.
+    #[error("System {0:?} does not have a RegisteredSystem component. This only happens if app code removed the component.")]
+    MissingRegisteredSystemComponent(SystemId<I, O>),
     /// A system tried to remove itself.
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
-    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
-    #[error("System {system:?} did not run due to failed parameter validation: {err}")]
-    InvalidParams {
-        /// The identifier of the system that was run.
-        system: SystemId<I, O>,
-        /// The returned parameter validation error.
-        err: SystemParamValidationError,
-    },
+    /// This is not considered an error.
+    #[error("System did not run due to failed parameter validation: {0}")]
+    Skipped(SystemParamValidationError),
+    /// System returned an error or failed required parameter validation.
+    #[error("System returned error: {0}")]
+    Failed(BevyError),
+    /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
+    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", DebugName::type_name::<SystemId<I, O>>(), .1.input_type_id.name, .1.output_type_id.name)]
+    IncorrectType(SystemId<I, O>, SystemIdMarker),
+    /// System is not present in the `RegisteredSystem` component.
+    // TODO: We should consider using catch_unwind to protect against the panic case.
+    #[error("The system is not present in the RegisteredSystem component. This can happen if the system was called recursively or if the system panicked on the last run.")]
+    SystemMissing(SystemId<I, O>),
+}
+
+impl<I: SystemInput, O> From<RunSystemError> for RegisteredSystemError<I, O> {
+    fn from(value: RunSystemError) -> Self {
+        match value {
+            RunSystemError::Skipped(err) => Self::Skipped(err),
+            RunSystemError::Failed(err) => Self::Failed(err),
+        }
+    }
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -510,13 +888,19 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
             }
             Self::SystemNotCached => write!(f, "SystemNotCached"),
-            Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
-            Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParams { system, err } => f
-                .debug_struct("InvalidParams")
-                .field("system", system)
-                .field("err", err)
+            Self::MissingRegisteredSystemComponent(arg0) => f
+                .debug_tuple("MissingRegisteredSystemComponent")
+                .field(arg0)
                 .finish(),
+            Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
+            Self::Skipped(arg0) => f.debug_tuple("Skipped").field(arg0).finish(),
+            Self::Failed(arg0) => f.debug_tuple("Failed").field(arg0).finish(),
+            Self::IncorrectType(arg0, arg1) => f
+                .debug_tuple("IncorrectType")
+                .field(arg0)
+                .field(arg1)
+                .finish(),
+            Self::SystemMissing(arg0) => f.debug_tuple("SystemMissing").field(arg0).finish(),
         }
     }
 }
@@ -527,7 +911,13 @@ mod tests {
 
     use bevy_utils::default;
 
-    use crate::{prelude::*, system::SystemId};
+    use crate::{
+        prelude::*,
+        system::{
+            despawn_unused_registered_systems, system_value, RegisteredSystemError, SystemHandle,
+            SystemHandleTemplate, SystemId,
+        },
+    };
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -670,9 +1060,9 @@ mod tests {
         let exclusive_system_id = world.register_system(|world: &mut World| {
             world.spawn_empty();
         });
-        let entity_count = world.entities.len();
+        let entity_count = world.entities.count_spawned();
         let _ = world.run_system(exclusive_system_id);
-        assert_eq!(world.entities.len(), entity_count + 1);
+        assert_eq!(world.entities.count_spawned(), entity_count + 1);
     }
 
     #[test]
@@ -815,6 +1205,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "This system always fails")]
+    fn cached_fallible_system_commands_can_fail() {
+        use crate::system::command;
+        fn sys() -> Result {
+            Err("This system always fails".into())
+        }
+
+        let mut world = World::new();
+        world.commands().queue(command::run_system_cached(sys));
+        world.flush_commands();
+    }
+
+    #[test]
     fn cached_system_adapters() {
         fn four() -> i32 {
             4
@@ -835,10 +1238,8 @@ mod tests {
 
     #[test]
     fn cached_system_into_same_system_type() {
-        use crate::error::Result;
-
         struct Foo;
-        impl IntoSystem<(), Result<()>, ()> for Foo {
+        impl IntoSystem<(), (), ()> for Foo {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -846,7 +1247,7 @@ mod tests {
         }
 
         struct Bar;
-        impl IntoSystem<(), Result<()>, ()> for Bar {
+        impl IntoSystem<(), (), ()> for Bar {
             type System = ApplyDeferred;
             fn into_system(_: Self) -> Self::System {
                 ApplyDeferred
@@ -913,9 +1314,11 @@ mod tests {
     #[test]
     fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
+        use alloc::string::ToString;
 
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
+
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
@@ -923,10 +1326,16 @@ mod tests {
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
-        assert!(matches!(
-            result,
-            Err(RegisteredSystemError::InvalidParams { .. })
-        ));
+        assert!(matches!(result, Err(RegisteredSystemError::Failed { .. })));
+        let expected = "does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 
     #[test]
@@ -959,5 +1368,84 @@ mod tests {
         world.run_system_cached(system).unwrap();
         world.run_system_cached(system.pipe(system)).unwrap();
         world.run_system_cached(system.map(|()| {})).unwrap();
+    }
+
+    #[test]
+    fn wrong_system_type() {
+        fn test() -> Result<(), u8> {
+            Ok(())
+        }
+
+        let mut world = World::new();
+
+        let entity = world.register_system_cached(test).entity();
+
+        match world.run_system::<u8>(SystemId::from_entity(entity)) {
+            Ok(_) => panic!("Should fail since called `run_system` with wrong SystemId type."),
+            Err(RegisteredSystemError::IncorrectType(_, _)) => (),
+            Err(err) => panic!("Failed with wrong error. `{:?}`", err),
+        }
+    }
+
+    #[test]
+    fn despawn_unused() {
+        let mut world = World::new();
+
+        fn system() {}
+
+        let handle = world.register_tracked_system(system);
+        let entity = handle.entity();
+        drop(handle);
+
+        assert!(world.get_entity(entity).is_ok());
+
+        world
+            .run_system_cached(despawn_unused_registered_systems)
+            .unwrap();
+
+        assert!(world.get_entity(entity).is_err());
+    }
+
+    #[test]
+    fn system_handle_template() {
+        fn my_system() {}
+
+        let mut world = World::new();
+
+        {
+            let my_system_handle = world.register_tracked_system(my_system);
+            let system_handle = world
+                .spawn_empty()
+                .build_template(&SystemHandleTemplate::Handle(my_system_handle.clone()))
+                .unwrap();
+            assert_eq!(system_handle, my_system_handle);
+        }
+
+        {
+            let template = system_value(my_system);
+
+            let a = world.spawn_empty().build_template(&template).unwrap();
+            let b = world.spawn_empty().build_template(&template).unwrap();
+
+            assert!(matches!(a, SystemHandle::Strong(_)));
+            assert!(matches!(b, SystemHandle::Strong(_)));
+
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn run_system_with_owned_system_handle() {
+        fn increment(mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let handle = world.register_tracked_system(increment);
+        world.run_system(handle).expect("system runs successfully");
+
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
     }
 }

@@ -1,4 +1,11 @@
 //! A Bevy app that you can connect to with the BRP and edit.
+//! Run this example with the `remote` feature enabled:
+//! ```bash
+//! cargo run --example server --features="bevy_remote"
+//! ```
+//!
+//! With the `bevy_debug_stepping` feature, the systems in `Update` can be paused and stepped
+//! remotely through the `stepping.*` methods.
 
 use bevy::math::ops::cos;
 use bevy::{
@@ -13,12 +20,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
+        .add_plugins(stepping)
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)
-        // New types must be registered in order to be usable with reflection.
-        .register_type::<Cube>()
-        .register_type::<TestResource>()
         .run();
 }
 
@@ -51,7 +56,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -88,3 +93,14 @@ fn remove(mut commands: Commands, cube_entity: Single<Entity, With<Cube>>) {
 #[derive(Component, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize)]
 struct Cube(f32);
+
+fn stepping(app: &mut App) {
+    #[cfg(feature = "bevy_debug_stepping")]
+    {
+        let mut stepping = bevy::ecs::schedule::Stepping::new();
+        stepping.add_schedule(Update);
+        app.insert_resource(stepping);
+    }
+    #[cfg(not(feature = "bevy_debug_stepping"))]
+    let _ = app;
+}

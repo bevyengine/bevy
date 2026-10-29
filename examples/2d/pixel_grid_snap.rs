@@ -1,16 +1,8 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
-    color::palettes::css::GRAY,
-    prelude::*,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        view::RenderLayers,
-    },
-    window::WindowResized,
+    camera::visibility::RenderLayers, camera::RenderTarget, color::palettes::css::GRAY, prelude::*,
+    render::render_resource::TextureFormat, window::WindowResized,
 };
 
 /// In-game resolution width.
@@ -84,31 +76,9 @@ fn setup_mesh(
 }
 
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let canvas_size = Extent3d {
-        width: RES_WIDTH,
-        height: RES_HEIGHT,
-        ..default()
-    };
-
     // This Image serves as a canvas representing the low-resolution game screen
-    let mut canvas = Image {
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size: canvas_size,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        },
-        ..default()
-    };
-
-    // Fill image.data with zeroes
-    canvas.resize(canvas_size);
+    let canvas =
+        Image::new_target_texture(RES_WIDTH, RES_HEIGHT, TextureFormat::Bgra8UnormSrgb, None);
 
     let image_handle = images.add(canvas);
 
@@ -118,10 +88,10 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Camera {
             // Render before the "main pass" camera
             order: -1,
-            target: RenderTarget::Image(image_handle.clone().into()),
             clear_color: ClearColorConfig::Custom(GRAY.into()),
             ..default()
         },
+        RenderTarget::Image(image_handle.clone().into()),
         Msaa::Off,
         InGameCamera,
         PIXEL_PERFECT_LAYERS,
@@ -145,15 +115,15 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
-    mut resize_events: EventReader<WindowResized>,
+    mut resize_messages: MessageReader<WindowResized>,
     mut projection: Single<&mut Projection, With<OuterCamera>>,
 ) {
     let Projection::Orthographic(projection) = &mut **projection else {
         return;
     };
-    for event in resize_events.read() {
-        let h_scale = event.width / RES_WIDTH as f32;
-        let v_scale = event.height / RES_HEIGHT as f32;
-        projection.scale = 1. / h_scale.min(v_scale).round();
+    for window_resized in resize_messages.read() {
+        let h_scale = window_resized.width / RES_WIDTH as f32;
+        let v_scale = window_resized.height / RES_HEIGHT as f32;
+        projection.scale = 1. / h_scale.min(v_scale).floor();
     }
 }

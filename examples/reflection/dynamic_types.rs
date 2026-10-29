@@ -1,10 +1,18 @@
 //! This example demonstrates the use of dynamic types in Bevy's reflection system.
 
 use bevy::reflect::{
-    reflect_trait, serde::TypedReflectDeserializer, std_traits::ReflectDefault, DynamicArray,
-    DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, FromReflect, PartialReflect, Reflect, ReflectFromReflect,
-    Set, TypeRegistry, Typed,
+    array::DynamicArray,
+    enums::{DynamicEnum, DynamicVariant},
+    list::DynamicList,
+    map::DynamicMap,
+    reflect_trait,
+    serde::TypedReflectDeserializer,
+    set::{DynamicSet, Set},
+    std_traits::ReflectDefault,
+    structs::DynamicStruct,
+    tuple::DynamicTuple,
+    tuple_struct::DynamicTupleStruct,
+    FromReflect, PartialReflect, Reflect, ReflectFromReflect, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};
@@ -52,7 +60,7 @@ fn main() {
     // Notice here we bind it as a `dyn PartialReflect` instead of `dyn Reflect`.
     // This is because it returns a dynamic type that simply represents the original type.
     // In this case, because `Player` is a struct, it will return a `DynamicStruct`.
-    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic();
+    let dynamic: Box<dyn PartialReflect> = reflected.to_dynamic().unwrap();
     assert!(dynamic.is_dynamic());
 
     // And if we try to convert it back to a `dyn Reflect` trait object, we'll get `None`.

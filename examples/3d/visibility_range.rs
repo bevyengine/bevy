@@ -3,13 +3,15 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::visibility::{NoCpuCulling, VisibilityRange},
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
+    light::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
-    render::view::VisibilityRange,
 };
+
+use argh::FromArgs;
 
 // Where the camera is focused.
 const CAMERA_FOCAL_POINT: Vec3 = vec3(0.0, 0.3, 0.0);
@@ -68,8 +70,20 @@ struct AppStatus {
     prepass: bool,
 }
 
-// Sets up the app.
+/// Demonstrates visibility ranges, also known as HLODs
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// whether to use GPU culling only
+    #[argh(switch)]
+    no_cpu_culling: bool,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -79,6 +93,7 @@ fn main() {
             ..default()
         }))
         .init_resource::<AppStatus>()
+        .insert_resource(args)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -110,7 +125,7 @@ fn setup(
     // Spawn the two HLODs.
 
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ),
@@ -118,7 +133,7 @@ fn setup(
     ));
 
     commands.spawn((
-        SceneRoot(
+        WorldAssetRoot(
             asset_server.load(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
@@ -131,7 +146,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: FULL_DAYLIGHT,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
@@ -161,8 +176,8 @@ fn setup(
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -176,6 +191,7 @@ fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Mesh3d>>,
     children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
+    args: Res<Args>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
@@ -195,16 +211,22 @@ fn set_visibility_ranges(
         // Add the `VisibilityRange` component.
         match main_model {
             Some(MainModel::HighPoly) => {
-                commands
-                    .entity(new_mesh)
+                let mut entity_commands = commands.entity(new_mesh);
+                entity_commands
                     .insert(NORMAL_VISIBILITY_RANGE_HIGH_POLY.clone())
                     .insert(MainModel::HighPoly);
+                if args.no_cpu_culling {
+                    entity_commands.insert(NoCpuCulling);
+                }
             }
             Some(MainModel::LowPoly) => {
-                commands
-                    .entity(new_mesh)
+                let mut entity_commands = commands.entity(new_mesh);
+                entity_commands
                     .insert(NORMAL_VISIBILITY_RANGE_LOW_POLY.clone())
                     .insert(MainModel::LowPoly);
+                if args.no_cpu_culling {
+                    entity_commands.insert(NoCpuCulling);
+                }
             }
             None => {}
         }
@@ -214,7 +236,7 @@ fn set_visibility_ranges(
 // Process the movement controls.
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<Camera3d>>,
 ) {
     let (mut zoom_delta, mut theta_delta) = (0.0, 0.0);
@@ -234,8 +256,8 @@ fn move_camera(
     }
 
     // Process zoom in and out via the mouse wheel.
-    for event in mouse_wheel_events.read() {
-        zoom_delta -= event.y * CAMERA_MOUSE_MOVEMENT_SPEED;
+    for mouse_wheel in mouse_wheel_reader.read() {
+        zoom_delta -= mouse_wheel.y * CAMERA_MOUSE_MOVEMENT_SPEED;
     }
 
     // Update the camera transform.

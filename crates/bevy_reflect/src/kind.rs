@@ -3,7 +3,10 @@ use thiserror::Error;
 
 #[cfg(feature = "functions")]
 use crate::func::Function;
-use crate::{Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct};
+use crate::{
+    array::Array, enums::Enum, list::List, map::Map, set::Set, structs::Struct, tuple::Tuple,
+    tuple_struct::TupleStruct, PartialReflect,
+};
 
 /// An enumeration of the "kinds" of a reflected type.
 ///
@@ -215,7 +218,7 @@ pub enum ReflectRef<'a> {
     /// [function-like]: Function
     #[cfg(feature = "functions")]
     Function(&'a dyn Function),
-    /// An immutable refeence to an [opaque] type.
+    /// An immutable reference to an [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
     Opaque(&'a dyn PartialReflect),
@@ -281,7 +284,7 @@ pub enum ReflectMut<'a> {
     ///
     /// [function-like]: Function
     Function(&'a mut dyn Function),
-    /// A mutable refeence to an [opaque] type.
+    /// A mutable reference to an [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
     Opaque(&'a mut dyn PartialReflect),

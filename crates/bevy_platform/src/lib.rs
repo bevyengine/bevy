@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -11,6 +11,8 @@
 
 cfg::std! {
     extern crate std;
+
+    pub mod dirs;
 }
 
 cfg::alloc! {
@@ -21,6 +23,7 @@ cfg::alloc! {
 
 pub mod cell;
 pub mod cfg;
+pub mod future;
 pub mod hash;
 pub mod sync;
 pub mod thread;
@@ -50,4 +53,15 @@ pub mod prelude {
     // * print
     // * println
     // * thread_local
+}
+
+/// Re-exports of crates that are useful across Bevy.
+/// Not intended for external crates to use.
+#[doc(hidden)]
+pub mod exports {
+    crate::cfg::web! {
+        pub use js_sys;
+        pub use wasm_bindgen;
+        pub use wasm_bindgen_futures;
+    }
 }

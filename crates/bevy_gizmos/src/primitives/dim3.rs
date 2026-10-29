@@ -1,19 +1,18 @@
-//! A module for rendering each of the 3D [`bevy_math::primitives`] with [`GizmoBuffer`].
+//! A module for rendering each of the 3D [`bevy_shape`] primitives with [`GizmoBuffer`].
 
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::{
-    primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-        Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
-    },
-    Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
+use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
+use bevy_shape::{
+    Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d, Polyline3d, Primitive3d,
+    Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
 };
 
 use crate::{circles::SphereBuilder, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
 const DEFAULT_RESOLUTION: u32 = 5;
+const DEFAULT_CAPSULE_RESOLUTION: u32 = 4;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
@@ -235,7 +234,7 @@ where
 
 // polyline 3d
 
-impl<const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Polyline3d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -247,34 +246,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: &Polyline3d<N>,
-        isometry: impl Into<Isometry3d>,
-        color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        let isometry = isometry.into();
-        self.linestrip(primitive.vertices.map(|vec3| isometry * vec3), color);
-    }
-}
-
-// boxed polyline 3d
-
-impl<Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for GizmoBuffer<Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    type Output<'a>
-        = ()
-    where
-        Self: 'a;
-
-    fn primitive_3d(
-        &mut self,
-        primitive: &BoxedPolyline3d,
+        primitive: &Polyline3d,
         isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
@@ -284,11 +256,7 @@ where
 
         let isometry = isometry.into();
         self.linestrip(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .map(|vec3| isometry * vec3),
+            primitive.vertices.iter().map(|vec3| isometry * *vec3),
             color,
         );
     }
@@ -318,7 +286,7 @@ where
 
         let isometry = isometry.into();
         let [a, b, c] = primitive.vertices;
-        self.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
+        self.lineloop([a, b, c].map(|vec3| isometry * vec3), color);
     }
 }
 
@@ -527,7 +495,7 @@ where
             half_length: primitive.half_length,
             isometry: isometry.into(),
             color: color.into(),
-            resolution: DEFAULT_RESOLUTION,
+            resolution: DEFAULT_CAPSULE_RESOLUTION,
         }
     }
 }
@@ -701,12 +669,9 @@ where
             });
 
         // base circle
-        circle_coords
-            .windows(2)
-            .map(|win| (win[0], win[1]))
-            .for_each(|(start, end)| {
-                self.gizmos.line(start, end, self.color);
-            });
+        circle_coords.array_windows().for_each(|&[start, end]| {
+            self.gizmos.line(start, end, self.color);
+        });
     }
 }
 
@@ -795,9 +760,9 @@ where
                     .collect::<Vec<_>>()
             });
 
-        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-        upper_lines.chain(lower_lines).for_each(|(start, end)| {
+        let upper_lines = upper_points.array_windows();
+        let lower_lines = lower_points.array_windows();
+        upper_lines.chain(lower_lines).for_each(|&[start, end]| {
             self.gizmos.line(start, end, self.color);
         });
 
@@ -906,8 +871,8 @@ where
 
         [&inner, &outer, &top, &bottom]
             .iter()
-            .flat_map(|points| points.windows(2).map(|win| (win[0], win[1])))
-            .for_each(|(start, end)| {
+            .flat_map(|points| points.array_windows())
+            .for_each(|&[start, end]| {
                 self.gizmos.line(start, end, self.color);
             });
 

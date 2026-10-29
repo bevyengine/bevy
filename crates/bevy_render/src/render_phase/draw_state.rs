@@ -1,19 +1,20 @@
 use crate::{
-    camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
-        ShaderStages,
     },
     renderer::RenderDevice,
 };
+use bevy_camera::Viewport;
 use bevy_color::LinearRgba;
 use bevy_utils::default;
 use core::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 #[cfg(feature = "detailed_trace")]
-use tracing::trace;
+use bevy_log::trace;
+
+type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferAddress);
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -25,8 +26,8 @@ struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
     /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
-    vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
-    index_buffer: Option<(BufferId, u64, IndexFormat)>,
+    vertex_buffers: Vec<Option<BufferSliceKey>>,
+    index_buffer: Option<(BufferSliceKey, IndexFormat)>,
 
     /// Stores whether this state is populated or empty for quick state invalidation
     stores_state: bool,
@@ -87,7 +88,7 @@ impl DrawState {
     }
 
     /// Returns the value used for checking whether `BufferSlice`s are equivalent.
-    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> (BufferId, u64, u64) {
+    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> BufferSliceKey {
         (
             buffer_slice.id(),
             buffer_slice.offset(),
@@ -96,19 +97,14 @@ impl DrawState {
     }
 
     /// Marks the index `buffer` as bound.
-    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
-        self.index_buffer = Some((buffer, offset, index_format));
+    fn set_index_buffer(&mut self, buffer_slice: &BufferSlice, index_format: IndexFormat) {
+        self.index_buffer = Some((self.buffer_slice_key(buffer_slice), index_format));
         self.stores_state = true;
     }
 
     /// Checks, whether the index `buffer` is already bound.
-    fn is_index_buffer_set(
-        &self,
-        buffer: BufferId,
-        offset: u64,
-        index_format: IndexFormat,
-    ) -> bool {
-        self.index_buffer == Some((buffer, offset, index_format))
+    fn is_index_buffer_set(&self, buffer: &BufferSlice, index_format: IndexFormat) -> bool {
+        self.index_buffer == Some((self.buffer_slice_key(buffer), index_format))
     }
 
     /// Resets tracking state
@@ -256,29 +252,21 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the buffer referenced by
     /// `buffer_slice` as the source index buffer.
-    pub fn set_index_buffer(
-        &mut self,
-        buffer_slice: BufferSlice<'a>,
-        offset: u64,
-        index_format: IndexFormat,
-    ) {
-        if self
-            .state
-            .is_index_buffer_set(buffer_slice.id(), offset, index_format)
-        {
-            #[cfg(feature = "detailed_trace")]
-            trace!(
-                "set index buffer (already set): {:?} ({})",
-                buffer_slice.id(),
-                offset
-            );
+    pub fn set_index_buffer(&mut self, buffer_slice: BufferSlice<'a>, index_format: IndexFormat) {
+        let already_set = self.state.is_index_buffer_set(&buffer_slice, index_format);
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "set index buffer{}: {:?} (offset = {}, size = {})",
+            if already_set { " (already set)" } else { "" },
+            buffer_slice.id(),
+            buffer_slice.offset(),
+            buffer_slice.size(),
+        );
+        if already_set {
             return;
         }
-        #[cfg(feature = "detailed_trace")]
-        trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         self.pass.set_index_buffer(*buffer_slice, index_format);
-        self.state
-            .set_index_buffer(buffer_slice.id(), offset, index_format);
+        self.state.set_index_buffer(&buffer_slice, index_format);
     }
 
     /// Draws primitives from the active vertex buffer(s).
@@ -288,6 +276,119 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!("draw: {:?} {:?}", vertices, instances);
         self.pass.draw(vertices, instances);
+    }
+
+    /// Draws using a mesh pipeline.
+    ///
+    /// Note that the current pipeline must be a mesh pipeline.
+    ///
+    /// If the mesh pipeline has a task shader, this runs the task shader with every workgroup specified
+    ///
+    /// If the mesh pipeline has *no* task shader, this runs the mesh shader with every workgroup specified
+    pub fn draw_mesh_tasks(&mut self, group_count_x: u32, group_count_y: u32, group_count_z: u32) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "draw_mesh_tasks: x:{:?} y:{:?} z:{:?}",
+            group_count_x,
+            group_count_y,
+            group_count_z
+        );
+        self.pass
+            .draw_mesh_tasks(group_count_x, group_count_y, group_count_z);
+    }
+
+    /// Draws using a mesh pipeline, based on the contents of the `indirect_buffer`
+    ///
+    /// This is like calling `draw_mesh_tasks` but the contents of the call are specified in the `indirect_buffer`
+    ///
+    /// The structure expected in `indirect_buffer` is the following:
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// pub struct DispatchIndirectArgs {
+    ///     pub x: u32,
+    ///     pub y: u32,
+    ///     pub z: u32,
+    /// }
+    /// ```
+    pub fn draw_mesh_tasks_indirect(&mut self, indirect_buffer: &Buffer, indirect_offset: u64) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "draw_mesh_tasks indirect: {:?} {}",
+            indirect_buffer,
+            indirect_offset
+        );
+        self.pass
+            .draw_mesh_tasks_indirect(indirect_buffer, indirect_offset);
+    }
+
+    /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. `count` draw calls are issued.
+    ///
+    /// The structure expected in `indirect_buffer` is the following:
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// pub struct DispatchIndirectArgs {
+    ///     pub x: u32,
+    ///     pub y: u32,
+    ///     pub z: u32,
+    /// }
+    /// ```
+    pub fn multi_draw_mesh_tasks_indirect(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count: u32,
+    ) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "multi draw mesh tasks indirect: {:?} {}, {}x",
+            indirect_buffer,
+            indirect_offset,
+            count
+        );
+        self.pass
+            .multi_draw_mesh_tasks_indirect(indirect_buffer, indirect_offset, count);
+    }
+
+    /// Dispatches multiple draw calls based on the contents of the `indirect_buffer`. The count buffer is read to determine how many draws to issue.
+    ///
+    /// The indirect buffer must be long enough to account for `max_count` draws, however only count draws will be read. If count is greater than `max_count`, `max_count` will be used.
+    ///
+    /// The structure expected in `indirect_buffer` is the following:
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// pub struct DispatchIndirectArgs {
+    ///     pub x: u32,
+    ///     pub y: u32,
+    ///     pub z: u32,
+    /// }
+    /// ```
+    pub fn multi_draw_mesh_tasks_indirect_count(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count_buffer: &'a Buffer,
+        count_offset: u64,
+        max_count: u32,
+    ) {
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "multi draw mesh tasks indirect count: {:?} {}, ({:?} {})x, max {}x",
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count
+        );
+        self.pass.multi_draw_mesh_tasks_indirect_count(
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count,
+        );
     }
 
     /// Draws indexed primitives using the active index buffer and the active vertex buffer(s).
@@ -544,18 +645,13 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass.set_scissor_rect(x, y, width, height);
     }
 
-    /// Set push constant data.
+    /// Set immediates data.
     ///
-    /// `Features::PUSH_CONSTANTS` must be enabled on the device in order to call these functions.
-    pub fn set_push_constants(&mut self, stages: ShaderStages, offset: u32, data: &[u8]) {
+    /// `Features::IMMEDIATES` must be enabled on the device in order to call these functions.
+    pub fn set_immediates(&mut self, offset: u32, data: &[u8]) {
         #[cfg(feature = "detailed_trace")]
-        trace!(
-            "set push constants: {:?} offset: {} data.len: {}",
-            stages,
-            offset,
-            data.len()
-        );
-        self.pass.set_push_constants(stages, offset, data);
+        trace!("set immediates offset: {} data.len: {}", offset, data.len());
+        self.pass.set_immediates(offset, data);
     }
 
     /// Set the rendering viewport.

@@ -1,7 +1,7 @@
 error[E0499]: cannot borrow `queries` as mutable more than once at a time
   --> tests/ui/system_query_set_iter_lifetime_safety.rs:11:14
    |
-7  |     let mut q2 = queries.p0();
+ 7 |     let mut q2 = queries.p0();
    |                  ------- first mutable borrow occurs here
 ...
 11 |     let q1 = queries.p1();

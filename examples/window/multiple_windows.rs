@@ -1,6 +1,6 @@
 //! Uses two windows to visualize a 3D model from different angles.
 
-use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
+use bevy::{camera::RenderTarget, prelude::*, window::WindowRef};
 
 fn main() {
     App::new()
@@ -12,7 +12,7 @@ fn main() {
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
-    commands.spawn(SceneRoot(
+    commands.spawn(WorldAssetRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
     ));
     // light
@@ -40,17 +40,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Camera3d::default(),
             Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Camera {
-                target: RenderTarget::Window(WindowRef::Entity(second_window)),
-                ..default()
-            },
+            RenderTarget::Window(WindowRef::Entity(second_window)),
         ))
         .id();
 
     let node = Node {
         position_type: PositionType::Absolute,
-        top: Val::Px(12.0),
-        left: Val::Px(12.0),
+        top: px(12),
+        left: px(12),
         ..default()
     };
 

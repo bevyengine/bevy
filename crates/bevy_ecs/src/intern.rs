@@ -5,12 +5,15 @@
 //! and make comparisons for any type as fast as integers.
 
 use alloc::{borrow::ToOwned, boxed::Box};
+use core::{fmt::Debug, hash::Hash, ops::Deref};
+
 use bevy_platform::{
     collections::HashSet,
     hash::FixedHasher,
     sync::{PoisonError, RwLock},
 };
-use core::{fmt::Debug, hash::Hash, ops::Deref};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
 ///
@@ -25,6 +28,7 @@ use core::{fmt::Debug, hash::Hash, ops::Deref};
 // NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
 /// ```
 /// # use bevy_ecs::intern::*;
+/// # use std::sync::Mutex;
 /// #[derive(PartialEq, Eq, Hash, Debug)]
 /// struct Value(i32);
 /// impl Internable for Value {
@@ -38,10 +42,18 @@ use core::{fmt::Debug, hash::Hash, ops::Deref};
 /// // Even though both values are identical, their interned forms do not
 /// // compare equal as they use different interner instances.
 /// assert_ne!(interner_1.intern(&Value(42)), interner_2.intern(&Value(42)));
+/// # // Store the interners inside a `static` so
+/// # // that miri doesn't report them as a memory leak.
+/// # static LEAKS: Mutex<Vec<Interner<Value>>> = Mutex::new(Vec::new());
+/// # let mut leaks = LEAKS.lock().unwrap();
+/// # leaks.push(interner_1);
+/// # leaks.push(interner_2);
 /// ```
-pub struct Interned<T: ?Sized + 'static>(pub &'static T);
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Clone, PartialEq, Hash))]
+pub struct Interned<T: ?Sized + Internable + 'static>(pub &'static T);
 
-impl<T: ?Sized> Deref for Interned<T> {
+impl<T: ?Sized + Internable> Deref for Interned<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -49,13 +61,13 @@ impl<T: ?Sized> Deref for Interned<T> {
     }
 }
 
-impl<T: ?Sized> Clone for Interned<T> {
+impl<T: ?Sized + Internable> Clone for Interned<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: ?Sized> Copy for Interned<T> {}
+impl<T: ?Sized + Internable> Copy for Interned<T> {}
 
 // Two Interned<T> should only be equal if they are clones from the same instance.
 // Therefore, we only use the pointer to determine equality.
@@ -74,13 +86,13 @@ impl<T: ?Sized + Internable> Hash for Interned<T> {
     }
 }
 
-impl<T: ?Sized + Debug> Debug for Interned<T> {
+impl<T: ?Sized + Internable + Debug> Debug for Interned<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<T> From<&Interned<T>> for Interned<T> {
+impl<T: ?Sized + Internable> From<&Interned<T>> for Interned<T> {
     fn from(value: &Interned<T>) -> Self {
         *value
     }
@@ -169,9 +181,10 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{boxed::Box, string::ToString};
+    use alloc::{string::ToString, vec::Vec};
     use bevy_platform::hash::FixedHasher;
     use core::hash::{BuildHasher, Hash, Hasher};
+    use std::sync::Mutex;
 
     use crate::intern::{Internable, Interned, Interner};
 
@@ -247,6 +260,11 @@ mod tests {
         let y = interner.intern(b);
         // Same pointers returned by interner
         assert_eq!(x, y);
+
+        // Store the interned values inside a `static` so
+        // that miri doesn't report them as a memory leak.
+        static LEAKS: Mutex<Vec<Interned<str>>> = Mutex::new(Vec::new());
+        LEAKS.lock().unwrap().push(x);
     }
 
     #[test]
@@ -264,10 +282,17 @@ mod tests {
 
     #[test]
     fn same_interned_content() {
-        let a = Interned::<str>(Box::leak(Box::new("A".to_string())));
-        let b = Interned::<str>(Box::leak(Box::new("A".to_string())));
+        let a = Interned::<str>("A".to_string().leak());
+        let b = Interned::<str>("A".to_string().leak());
 
         assert_ne!(a, b);
+
+        // Store the interned values inside a `static` so
+        // that miri doesn't report them as a memory leak.
+        static LEAKS: Mutex<Vec<Interned<str>>> = Mutex::new(Vec::new());
+        let mut leaks = LEAKS.lock().unwrap();
+        leaks.push(a);
+        leaks.push(b);
     }
 
     #[test]

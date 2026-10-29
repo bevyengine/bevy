@@ -24,6 +24,7 @@ mod structs {
     #[derive(Reflect)]
     //~^ ERROR: mismatched types
     //~| ERROR: mismatched types
+    //~| ERROR: mismatched types
     struct MyStruct {
         // Reason: Should use `MyFoo`
         #[reflect(remote = MyBar)]
@@ -49,6 +50,7 @@ mod tuple_structs {
 
     #[derive(Reflect)]
     //~^ ERROR: mismatched types
+    //~| ERROR: mismatched types
     //~| ERROR: mismatched types
     struct MyStruct(
         // Reason: Should use `MyFoo`
@@ -77,6 +79,7 @@ mod enums {
 
     #[reflect_remote(external_crate::TheirBar)]
     //~^ ERROR: `?` operator has incompatible types
+    //~| ERROR: mismatched types
     enum MyBar {
         // Reason: Should use `i32`
         Value(u32),

@@ -4,10 +4,8 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
-use crate::{
-    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
-    REFLECT_ATTRIBUTE_NAME,
-};
+use crate::{custom_attributes::CustomAttributes, REFLECT_ATTRIBUTE_NAME};
+use bevy_macro_utils::terminated_parser;
 use quote::ToTokens;
 use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};
 
@@ -253,22 +251,5 @@ impl FieldAttributes {
         self.remote = Some(input.parse()?);
 
         Ok(())
-    }
-
-    /// Returns `Some(true)` if the field has a generic remote type.
-    ///
-    /// If the remote type is not generic, returns `Some(false)`.
-    ///
-    /// If the field does not have a remote type, returns `None`.
-    pub fn is_remote_generic(&self) -> Option<bool> {
-        if let Type::Path(type_path) = self.remote.as_ref()? {
-            type_path
-                .path
-                .segments
-                .last()
-                .map(|segment| !segment.arguments.is_empty())
-        } else {
-            Some(false)
-        }
     }
 }

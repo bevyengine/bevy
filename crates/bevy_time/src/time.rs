@@ -1,5 +1,7 @@
+use crate::moment::Moment;
 use bevy_ecs::resource::Resource;
 use core::time::Duration;
+
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
@@ -119,12 +121,12 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// #[derive(Event, BufferedEvent)]
-/// struct PauseEvent(bool);
+/// #[derive(Message)]
+/// struct Pause(bool);
 ///
-/// fn pause_system(mut time: ResMut<Time<Virtual>>, mut events: EventReader<PauseEvent>) {
-///     for ev in events.read() {
-///         if ev.0 {
+/// fn pause_system(mut time: ResMut<Time<Virtual>>, mut pause_reader: MessageReader<Pause>) {
+///     for pause in pause_reader.read() {
+///         if pause.0 {
 ///             time.pause();
 ///         } else {
 ///             time.unpause();
@@ -365,6 +367,32 @@ impl<T: Default> Time<T> {
             elapsed_secs_wrapped: self.elapsed_secs_wrapped,
             elapsed_secs_wrapped_f64: self.elapsed_secs_wrapped_f64,
         }
+    }
+
+    /// Captures this moment for later comparison.
+    ///
+    /// ```rust
+    /// # use bevy_time::Time;
+    /// # use core::time::Duration;
+    ///
+    /// let mut time: Time<()> = Time::default();
+    ///
+    /// // capture a moment
+    /// let a = time.capture();
+    ///
+    /// // time passes
+    /// time.advance_by(Duration::from_secs(1));
+    ///
+    /// // capture a second moment
+    /// let b = time.capture();
+    ///
+    /// // we can now determine the ordering of events ...
+    /// assert!(a < b);
+    /// // ... and calculate how much time has passed between them
+    /// assert_eq!(b - a, Duration::from_secs(1));
+    /// ```
+    pub fn capture(&self) -> Moment<T> {
+        Moment::new(self)
     }
 }
 

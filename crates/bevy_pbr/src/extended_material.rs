@@ -1,28 +1,23 @@
-use alloc::borrow::Cow;
-
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
-use bevy_platform::{collections::HashSet, hash::FixedHasher};
+use bevy_material::{AlphaMode, OpaqueRendererMethod};
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    alpha::AlphaMode,
-    mesh::MeshVertexBufferLayoutRef,
+    combined_bind_group as cbg,
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, Shader,
-        ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
+        AsBindGroup, AsBindGroupError, BindGroupBuilder, BindGroupLayout, BindGroupLayoutEntry,
+        BindlessDescriptor, BindlessSlabResourceLimit, RenderPipelineDescriptor,
+        SpecializedMeshPipelineError,
     },
     renderer::RenderDevice,
 };
+use bevy_shader::ShaderRef;
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
-    pub material_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
-    pub bindless: bool,
 }
 
 pub struct MaterialExtensionKey<E: MaterialExtension> {
@@ -49,6 +44,27 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     // Returns this material’s AlphaMode. If None is returned, the base material alpha mode will be used.
     fn alpha_mode() -> Option<AlphaMode> {
         None
+    }
+
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    #[inline]
+    fn enable_prepass() -> bool {
+        true
+    }
+
+    /// Controls if shadows are enabled for the Material.
+    #[inline]
+    fn enable_shadows() -> bool {
+        true
+    }
+
+    /// Controls whether order independent transparency is enabled for the Material.
+    /// This is ignored if the camera does not have [`bevy_core_pipeline::oit::OrderIndependentTransparencySettings`]
+    /// or if [`Self::alpha_mode`] is not supported by OIT.
+    #[inline]
+    fn enable_oit() -> bool {
+        true
     }
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
@@ -155,134 +171,56 @@ where
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
 
 impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
-    type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
-    type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
+    type Data = cbg::CombinedBindGroupData<B::Data, E::Data>;
+    type Param = (B::Param, E::Param);
 
     fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
-        // We only enable bindless if both the base material and its extension
-        // are bindless. If we do enable bindless, we choose the smaller of the
-        // two slab size limits.
-        match (B::bindless_slot_count()?, E::bindless_slot_count()?) {
-            (BindlessSlabResourceLimit::Auto, BindlessSlabResourceLimit::Auto) => {
-                Some(BindlessSlabResourceLimit::Auto)
-            }
-            (BindlessSlabResourceLimit::Auto, BindlessSlabResourceLimit::Custom(limit))
-            | (BindlessSlabResourceLimit::Custom(limit), BindlessSlabResourceLimit::Auto) => {
-                Some(BindlessSlabResourceLimit::Custom(limit))
-            }
-            (
-                BindlessSlabResourceLimit::Custom(base_limit),
-                BindlessSlabResourceLimit::Custom(extended_limit),
-            ) => Some(BindlessSlabResourceLimit::Custom(
-                base_limit.min(extended_limit),
-            )),
-        }
+        cbg::bindless_slot_count::<B, E>()
     }
 
-    fn unprepared_bind_group(
+    fn bindless_supported(render_device: &RenderDevice) -> bool {
+        B::bindless_supported(render_device) && E::bindless_supported(render_device)
+    }
+
+    fn label() -> &'static str {
+        E::label()
+    }
+
+    fn bind_group_data(&self) -> Self::Data {
+        cbg::bind_group_data(&self.base, &self.extension)
+    }
+
+    fn build_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
-        mut force_non_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
-        force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
-
-        // add together the bindings of the base material and the user material
-        let UnpreparedBindGroup {
-            mut bindings,
-            data: base_data,
-        } = B::unprepared_bind_group(
+        param: &mut SystemParamItem<'_, '_, Self::Param>,
+        force_no_bindless: bool,
+        output: &mut BindGroupBuilder,
+    ) -> Result<(), AsBindGroupError> {
+        cbg::build_bind_group(
             &self.base,
-            layout,
-            render_device,
-            base_param,
-            force_non_bindless,
-        )?;
-        let extended_bindgroup = E::unprepared_bind_group(
             &self.extension,
             layout,
             render_device,
-            extended_param,
-            force_non_bindless,
-        )?;
-
-        bindings.extend(extended_bindgroup.bindings.0);
-
-        Ok(UnpreparedBindGroup {
-            bindings,
-            data: (base_data, extended_bindgroup.data),
-        })
+            param,
+            force_no_bindless,
+            output,
+        )
     }
 
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
-        mut force_non_bindless: bool,
+        force_no_bindless: bool,
     ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {
-        force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
-
-        // Add together the bindings of the standard material and the user
-        // material, skipping duplicate bindings. Duplicate bindings will occur
-        // when bindless mode is on, because of the common bindless resource
-        // arrays, and we need to eliminate the duplicates or `wgpu` will
-        // complain.
-        let mut entries = vec![];
-        let mut seen_bindings = HashSet::<_>::with_hasher(FixedHasher);
-        for entry in B::bind_group_layout_entries(render_device, force_non_bindless)
-            .into_iter()
-            .chain(E::bind_group_layout_entries(render_device, force_non_bindless).into_iter())
-        {
-            if seen_bindings.insert(entry.binding) {
-                entries.push(entry);
-            }
-        }
-        entries
+        cbg::bind_group_layout_entries::<B, E>(render_device, force_no_bindless)
     }
 
     fn bindless_descriptor() -> Option<BindlessDescriptor> {
-        // We're going to combine the two bindless descriptors.
-        let base_bindless_descriptor = B::bindless_descriptor()?;
-        let extended_bindless_descriptor = E::bindless_descriptor()?;
-
-        // Combining the buffers and index tables is straightforward.
-
-        let mut buffers = base_bindless_descriptor.buffers.to_vec();
-        let mut index_tables = base_bindless_descriptor.index_tables.to_vec();
-
-        buffers.extend(extended_bindless_descriptor.buffers.iter().cloned());
-        index_tables.extend(extended_bindless_descriptor.index_tables.iter().cloned());
-
-        // Combining the resources is a little trickier because the resource
-        // array is indexed by bindless index, so we have to merge the two
-        // arrays, not just concatenate them.
-        let max_bindless_index = base_bindless_descriptor
-            .resources
-            .len()
-            .max(extended_bindless_descriptor.resources.len());
-        let mut resources = Vec::with_capacity(max_bindless_index);
-        for bindless_index in 0..max_bindless_index {
-            // In the event of a conflicting bindless index, we choose the
-            // base's binding.
-            match base_bindless_descriptor.resources.get(bindless_index) {
-                None | Some(&BindlessResourceType::None) => resources.push(
-                    extended_bindless_descriptor
-                        .resources
-                        .get(bindless_index)
-                        .copied()
-                        .unwrap_or(BindlessResourceType::None),
-                ),
-                Some(&resource_type) => resources.push(resource_type),
-            }
-        }
-
-        Some(BindlessDescriptor {
-            resources: Cow::Owned(resources),
-            buffers: Cow::Owned(buffers),
-            index_tables: Cow::Owned(index_tables),
-        })
+        cbg::bindless_descriptor::<B, E>()
     }
 }
 
@@ -308,7 +246,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
-    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+    fn opaque_render_method(&self) -> OpaqueRendererMethod {
         B::opaque_render_method(&self.base)
     }
 
@@ -318,6 +256,18 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
 
     fn reads_view_transmission_texture(&self) -> bool {
         B::reads_view_transmission_texture(&self.base)
+    }
+
+    fn enable_prepass() -> bool {
+        E::enable_prepass()
+    }
+
+    fn enable_shadows() -> bool {
+        E::enable_shadows()
+    }
+
+    fn enable_oit() -> bool {
+        E::enable_oit()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {
@@ -373,58 +323,32 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     }
 
     fn specialize(
-        pipeline: &MaterialPipeline<Self>,
+        pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            ..
-        } = pipeline.clone();
-        let base_pipeline = MaterialPipeline::<B> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            marker: Default::default(),
-        };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
-            bind_group_data: key.bind_group_data.0,
+            bind_group_data: key.bind_group_data.base,
         };
-        B::specialize(&base_pipeline, descriptor, layout, base_key)?;
+        B::specialize(pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            ..
-        } = pipeline.clone();
-
         E::specialize(
             &MaterialExtensionPipeline {
-                mesh_pipeline,
-                material_layout,
-                vertex_shader,
-                fragment_shader,
-                bindless,
+                mesh_pipeline: pipeline.mesh_pipeline.clone(),
             },
             descriptor,
             layout,
             MaterialExtensionKey {
                 mesh_key: key.mesh_key,
-                bind_group_data: key.bind_group_data.1,
+                bind_group_data: key.bind_group_data.extension,
             },
         )
     }
 }
+
+#[deprecated = "Use `bevy_render::combined_bind_group::CombinedBindGroupData` instead"]
+pub type MaterialExtensionBindGroupData<B, E> = cbg::CombinedBindGroupData<B, E>;

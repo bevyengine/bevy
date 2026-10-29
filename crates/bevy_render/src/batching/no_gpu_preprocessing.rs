@@ -4,9 +4,10 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Res, ResMut, StaticSystemParam};
+use bevy_ecs::world::{FromWorld, World};
+use bevy_log::error;
 use smallvec::{smallvec, SmallVec};
-use tracing::error;
-use wgpu::BindingResource;
+use wgpu::{BindingResource, Limits};
 
 use crate::{
     render_phase::{
@@ -29,20 +30,30 @@ pub struct BatchedInstanceBuffer<BD>(pub GpuArrayBuffer<BD>)
 where
     BD: GpuArrayBufferable + Sync + Send + 'static;
 
+impl<BD> FromWorld for BatchedInstanceBuffer<BD>
+where
+    BD: GpuArrayBufferable + Sync + Send + 'static,
+{
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        BatchedInstanceBuffer(GpuArrayBuffer::new(&render_device.limits()))
+    }
+}
+
 impl<BD> BatchedInstanceBuffer<BD>
 where
     BD: GpuArrayBufferable + Sync + Send + 'static,
 {
     /// Creates a new buffer.
-    pub fn new(render_device: &RenderDevice) -> Self {
-        BatchedInstanceBuffer(GpuArrayBuffer::new(render_device))
+    pub fn new(limits: &Limits) -> Self {
+        BatchedInstanceBuffer(GpuArrayBuffer::new(limits))
     }
 
     /// Returns the binding of the buffer that contains the per-instance data.
     ///
     /// If we're in the GPU instance buffer building mode, this buffer needs to
     /// be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.binding()
     }
 }

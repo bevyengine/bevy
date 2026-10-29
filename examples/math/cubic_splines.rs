@@ -3,10 +3,11 @@
 use bevy::{
     app::{App, Startup, Update},
     color::*,
+    curve::cubic_splines::*,
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2},
+    math::vec2,
     prelude::*,
 };
 
@@ -56,6 +57,7 @@ fn setup(mut commands: Commands) {
 
     let default_control_data = ControlPoints {
         points_and_tangents: default_points.into_iter().zip(default_tangents).collect(),
+        preview_point: None,
     };
 
     let curve = form_curve(&default_control_data, spline_mode, cycling_mode);
@@ -80,10 +82,10 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(20.0),
+            row_gap: px(20),
             ..default()
         })
         .with_children(|parent| {
@@ -145,6 +147,7 @@ struct Curve(Option<CubicCurve<Vec2>>);
 #[derive(Clone, Resource)]
 struct ControlPoints {
     points_and_tangents: Vec<(Vec2, Vec2)>,
+    preview_point: Option<(Vec2, Vec2)>,
 }
 
 /// This system is responsible for updating the [`Curve`] when the [control points] or active modes
@@ -204,8 +207,13 @@ fn form_curve(
     spline_mode: SplineMode,
     cycling_mode: CyclingMode,
 ) -> Curve {
-    let (points, tangents): (Vec<_>, Vec<_>) =
+    let (mut points, mut tangents): (Vec<_>, Vec<_>) =
         control_points.points_and_tangents.iter().copied().unzip();
+
+    if let Some((preview_point, preview_tangent)) = control_points.preview_point {
+        points.push(preview_point);
+        tangents.push(preview_tangent);
+    }
 
     match spline_mode {
         SplineMode::Hermite => {
@@ -293,18 +301,18 @@ struct MousePosition(Option<Vec2>);
 
 /// Update the current cursor position and track it in the [`MousePosition`] resource.
 fn handle_mouse_move(
-    mut cursor_events: EventReader<CursorMoved>,
+    mut cursor_moved_reader: MessageReader<CursorMoved>,
     mut mouse_position: ResMut<MousePosition>,
 ) {
-    if let Some(cursor_event) = cursor_events.read().last() {
-        mouse_position.0 = Some(cursor_event.position);
+    if let Some(cursor_moved) = cursor_moved_reader.read().last() {
+        mouse_position.0 = Some(cursor_moved.position);
     }
 }
 
 /// This system handles updating the [`MouseEditMove`] resource, orchestrating the logical part
 /// of the click-and-drag motion which actually creates new control points.
 fn handle_mouse_press(
-    mut button_events: EventReader<MouseButtonInput>,
+    mut mouse_button_input_reader: MessageReader<MouseButtonInput>,
     mouse_position: Res<MousePosition>,
     mut edit_move: ResMut<MouseEditMove>,
     mut control_points: ResMut<ControlPoints>,
@@ -315,12 +323,12 @@ fn handle_mouse_press(
     };
 
     // Handle click and drag behavior
-    for button_event in button_events.read() {
-        if button_event.button != MouseButton::Left {
+    for mouse_button_input in mouse_button_input_reader.read() {
+        if mouse_button_input.button != MouseButton::Left {
             continue;
         }
 
-        match button_event.state {
+        match mouse_button_input.state {
             ButtonState::Pressed => {
                 if edit_move.start.is_some() {
                     // If the edit move already has a start, press event should do nothing.
@@ -349,6 +357,7 @@ fn handle_mouse_press(
 
                 // The start of the click-and-drag motion represents the point to add,
                 // while the difference with the current position represents the tangent.
+                control_points.preview_point = None;
                 control_points.points_and_tangents.push((point, tangent));
 
                 // Reset the edit move since we've consumed it.
@@ -362,6 +371,7 @@ fn handle_mouse_press(
 fn draw_edit_move(
     edit_move: Res<MouseEditMove>,
     mouse_position: Res<MousePosition>,
+    mut control_points: ResMut<ControlPoints>,
     mut gizmos: Gizmos,
     camera: Single<(&Camera, &GlobalTransform)>,
 ) {
@@ -382,6 +392,10 @@ fn draw_edit_move(
     let Ok(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
         return;
     };
+
+    // Set preview_point for previewing the curve while dragging the tangent
+    let tangent = end - start;
+    control_points.preview_point = Some((start, tangent));
 
     gizmos.circle_2d(start, 10.0, Color::srgb(0.0, 1.0, 0.7));
     gizmos.circle_2d(start, 7.0, Color::srgb(0.0, 1.0, 0.7));

@@ -68,8 +68,16 @@ where
         if !self.gizmos.enabled {
             return;
         }
-        // first, draw the body of the arrow
-        self.gizmos.line(self.start, self.end, self.color);
+
+        // first, draw the body (main line) of the arrow
+        if self.double_ended {
+            let center = (self.start + self.end) / 2.0;
+            // drawing two lines for double ended arrows looks better for animated gizmos
+            self.gizmos.line(center, self.start, self.color);
+            self.gizmos.line(center, self.end, self.color);
+        } else {
+            self.gizmos.line(self.start, self.end, self.color);
+        }
         // now the hard part is to draw the head in a sensible way
         // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
         let pointing_end = (self.end - self.start).normalize();
@@ -108,8 +116,6 @@ where
 {
     /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any direction.
     ///
-    /// This should be called for each frame the arrow needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -139,8 +145,6 @@ where
 
     /// Draw an arrow in 2D (on the xy plane), from `start` to `end`.
     ///
-    /// This should be called for each frame the arrow needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -169,7 +173,9 @@ where
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
     ///
-    /// This should be called for each frame the axes need to be rendered.
+    /// X is red
+    /// Y is green
+    /// Z is blue
     ///
     /// # Example
     /// ```
@@ -201,8 +207,6 @@ where
 
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
-    ///
-    /// This should be called for each frame the axes need to be rendered.
     ///
     /// # Example
     /// ```

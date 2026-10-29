@@ -1,6 +1,7 @@
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{AssetServer, Handle};
 use bevy_ecs::{resource::Resource, world::FromWorld};
-use bevy_render::{prelude::Shader, render_resource::VertexState};
+use bevy_render::render_resource::VertexState;
+use bevy_shader::Shader;
 
 /// A shader that renders to the whole screen. Useful for post-processing.
 #[derive(Resource, Clone)]
@@ -8,7 +9,11 @@ pub struct FullscreenShader(Handle<Shader>);
 
 impl FromWorld for FullscreenShader {
     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
-        Self(load_embedded_asset!(world, "fullscreen.wgsl"))
+        Self(
+            world
+                .resource::<AssetServer>()
+                .load("embedded://bevy_core_pipeline/fullscreen_vertex_shader.wesl"),
+        )
     }
 }
 
@@ -33,8 +38,9 @@ impl FullscreenShader {
         VertexState {
             shader: self.0.clone(),
             shader_defs: Vec::new(),
-            entry_point: "fullscreen_vertex_shader".into(),
+            entry_point: Some("fullscreen_vertex_shader".into()),
             buffers: Vec::new(),
+            constants: Vec::new(),
         }
     }
 }

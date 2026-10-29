@@ -17,12 +17,11 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: On<Pointer<Click>>| {
-//!         println!("I was just clicked!");
-//!         // Get the underlying pointer event data
-//!         let click_event: &Pointer<Click> = trigger.event();
+//!     .observe(|mut click: On<PointerClick>| {
+//!         // Read the underlying pointer event data
+//!         println!("Pointer {:?} was just clicked!", click.pointer.id);
 //!         // Stop the event from bubbling up the entity hierarchy
-//!         trigger.propagate(false);
+//!         click.propagate(false);
 //!     });
 //! ```
 //!
@@ -33,7 +32,7 @@
 //! ## Expressive Events
 //!
 //! Although the events in this module (see [`events`]) can be listened to with normal
-//! `EventReader`s, using observers is often more expressive, with less boilerplate. This is because
+//! `MessageReader`s, using observers is often more expressive, with less boilerplate. This is because
 //! observers allow you to attach event handling logic to specific entities, as well as make use of
 //! event bubbling.
 //!
@@ -48,23 +47,22 @@
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_picking::prelude::*;
-//! # #[derive(Event, BufferedEvent)]
+//! # #[derive(Message)]
 //! # struct Greeting;
 //! fn setup(mut commands: Commands) {
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|trigger: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
-//!             let drag = trigger.event();
+//!         .observe(|drag: On<PointerDrag>, mut transforms: Query<&mut Transform>| {
+//!             let mut transform = transforms.get_mut(drag.entity).unwrap();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|trigger: On<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", trigger.target());
-//!             commands.entity(trigger.target()).despawn();
+//!         .observe(|click: On<PointerClick>, mut commands: Commands| {
+//!             println!("Entity {} goes BOOM!", click.entity);
+//!             commands.entity(click.entity).despawn();
 //!         })
-//!         .observe(|trigger: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.write(Greeting);
+//!         .observe(|over: On<PointerOver>, mut greetings: MessageWriter<Greeting>| {
+//!             greetings.write(Greeting);
 //!         });
 //! }
 //! ```
@@ -154,15 +152,16 @@
 //! Because it is completely agnostic to the earlier stages of the pipeline, you can easily extend
 //! the plugin with arbitrary backends and input methods, yet still use all the high level features.
 
-#![deny(missing_docs)]
-
 extern crate alloc;
 
+use core::time::Duration;
+
 pub mod backend;
+pub mod cursor;
 pub mod events;
 pub mod hover;
 pub mod input;
-#[cfg(feature = "bevy_mesh_picking_backend")]
+#[cfg(feature = "mesh_picking")]
 pub mod mesh_picking;
 pub mod pointer;
 pub mod window;
@@ -176,7 +175,7 @@ use hover::{update_is_directly_hovered, update_is_hovered};
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_mesh_picking_backend")]
+    #[cfg(feature = "mesh_picking")]
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastBackfaces, RayCastVisibility},
@@ -184,8 +183,8 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        events::*, hover::PointerCaptureMap, input::PointerInputPlugin, pointer::PointerButton,
+        DefaultPickingPlugins, InteractionPlugin, Pickable, PickingPlugin,
     };
 }
 
@@ -195,7 +194,7 @@ pub mod prelude {
 /// This allows you to make an entity non-hoverable, or allow items below it to be hovered.
 ///
 /// See the documentation on the fields for more details.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
@@ -277,15 +276,11 @@ pub enum PickingSystems {
     Last,
 }
 
-/// Deprecated alias for [`PickingSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `PickingSystems`.")]
-pub type PickSet = PickingSystems;
-
 /// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
 ///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
-/// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
+/// The picking backend is responsible to turn an input, into a [`PointerHits`](`crate::backend::PointerHits`)
 /// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::On`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
@@ -293,20 +288,33 @@ pub struct DefaultPickingPlugins;
 impl PluginGroup for DefaultPickingPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(input::PointerInputPlugin::default())
-            .add(PickingPlugin::default())
+            .add(input::PointerInputPlugin)
+            .add(PickingPlugin)
             .add(InteractionPlugin)
     }
 }
 
-/// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
-/// types used by other picking plugins.
-///
-/// This plugin contains several settings, and is added to the world as a resource after initialization. You
-/// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug, Clone)]
-pub struct PickingPlugin {
+/// Controls the behavior of picking
+///
+/// ## Custom initialization
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_picking::{PickingSettings, PickingPlugin};
+/// # use core::time::Duration;
+/// App::new()
+///     .insert_resource(PickingSettings {
+///         is_enabled: true,
+///         is_input_enabled: false,
+///         is_hover_enabled: true,
+///         is_window_picking_enabled: false,
+///         multi_click_interval: Duration::from_millis(450),
+///     })
+///     // or DefaultPlugins
+///     .add_plugins(PickingPlugin);
+/// ```
+pub struct PickingSettings {
     /// Enables and disables all picking features.
     pub is_enabled: bool,
     /// Enables and disables input collection.
@@ -315,9 +323,11 @@ pub struct PickingPlugin {
     pub is_hover_enabled: bool,
     /// Enables or disables picking for window entities.
     pub is_window_picking_enabled: bool,
+    /// Maximum time between presses or clicks for them to count as consecutive.
+    pub multi_click_interval: Duration,
 }
 
-impl PickingPlugin {
+impl PickingSettings {
     /// Whether or not input collection systems should be running.
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
@@ -335,32 +345,41 @@ impl PickingPlugin {
     }
 }
 
-impl Default for PickingPlugin {
+impl Default for PickingSettings {
     fn default() -> Self {
         Self {
             is_enabled: true,
             is_input_enabled: true,
             is_hover_enabled: true,
             is_window_picking_enabled: true,
+            multi_click_interval: Duration::from_millis(500),
         }
     }
 }
 
+/// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
+/// types used by other picking plugins.
+///
+/// Behavior of picking can be controlled by modifying [`PickingSettings`].
+///
+/// [`PickingSettings`] will be initialized with default values if it
+/// is not present at the moment this is added to the app.
+pub struct PickingPlugin;
+
 impl Plugin for PickingPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(*self)
+        app.init_resource::<PickingSettings>()
             .init_resource::<pointer::PointerMap>()
             .init_resource::<backend::ray::RayMap>()
-            .add_event::<pointer::PointerInput>()
-            .add_event::<backend::PointerHits>()
+            .add_message::<pointer::PointerInput>()
+            .add_message::<backend::PointerHits>()
             // Rather than try to mark all current and future backends as ambiguous with each other,
             // we allow them to send their hits in any order. These are later sorted, so submission
             // order doesn't matter. See `PointerHits` docs for caveats.
-            .allow_ambiguous_resource::<Events<backend::PointerHits>>()
+            .allow_ambiguous_resource::<Messages<backend::PointerHits>>()
             .add_systems(
                 PreUpdate,
                 (
-                    pointer::update_pointer_map,
                     pointer::PointerInput::receive,
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
@@ -369,36 +388,27 @@ impl Plugin for PickingPlugin {
             .add_systems(
                 PreUpdate,
                 window::update_window_hits
-                    .run_if(Self::window_picking_should_run)
+                    .run_if(PickingSettings::window_picking_should_run)
                     .in_set(PickingSystems::Backend),
             )
             .configure_sets(
                 First,
                 (PickingSystems::Input, PickingSystems::PostInput)
                     .after(bevy_time::TimeSystems)
-                    .after(bevy_ecs::event::EventUpdateSystems)
+                    .after(bevy_ecs::message::MessageUpdateSystems)
                     .chain(),
             )
             .configure_sets(
                 PreUpdate,
                 (
-                    PickingSystems::ProcessInput.run_if(Self::input_should_run),
+                    PickingSystems::ProcessInput.run_if(PickingSettings::input_should_run),
                     PickingSystems::Backend,
-                    PickingSystems::Hover.run_if(Self::hover_should_run),
+                    PickingSystems::Hover.run_if(PickingSettings::hover_should_run),
                     PickingSystems::PostHover,
                     PickingSystems::Last,
                 )
                     .chain(),
-            )
-            .register_type::<Self>()
-            .register_type::<Pickable>()
-            .register_type::<hover::PickingInteraction>()
-            .register_type::<hover::Hovered>()
-            .register_type::<pointer::PointerId>()
-            .register_type::<pointer::PointerLocation>()
-            .register_type::<pointer::PointerPress>()
-            .register_type::<pointer::PointerInteraction>()
-            .register_type::<backend::ray::RayId>();
+            );
     }
 }
 
@@ -413,22 +423,26 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
+            .init_resource::<PickingSettings>()
+            .init_resource::<hover::PointerCaptureMap>()
             .init_resource::<PointerState>()
-            .add_event::<Pointer<Cancel>>()
-            .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Press>>()
-            .add_event::<Pointer<DragDrop>>()
-            .add_event::<Pointer<DragEnd>>()
-            .add_event::<Pointer<DragEnter>>()
-            .add_event::<Pointer<Drag>>()
-            .add_event::<Pointer<DragLeave>>()
-            .add_event::<Pointer<DragOver>>()
-            .add_event::<Pointer<DragStart>>()
-            .add_event::<Pointer<Move>>()
-            .add_event::<Pointer<Out>>()
-            .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Release>>()
-            .add_event::<Pointer<Scroll>>()
+            .add_message::<PointerCancel>()
+            .add_message::<PointerClick>()
+            .add_message::<PointerPress>()
+            .add_message::<PointerDragDrop>()
+            .add_message::<PointerDragEnd>()
+            .add_message::<PointerDragEnter>()
+            .add_message::<PointerDrag>()
+            .add_message::<PointerDragLeave>()
+            .add_message::<PointerDragOver>()
+            .add_message::<PointerDragStart>()
+            .add_message::<PointerMove>()
+            .add_message::<PointerOut>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerLeave>()
+            .add_message::<PointerEnter>()
+            .add_message::<PointerRelease>()
+            .add_message::<PointerScroll>()
             .add_systems(
                 PreUpdate,
                 (

@@ -36,27 +36,31 @@ fn setup(
     // left cube with repeated texture
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load_with_settings(
-                "textures/fantasy_ui_borders/panel-border-010-repeated.png",
-                |s: &mut _| {
-                    *s = ImageLoaderSettings {
-                        sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            // rewriting mode to repeat image,
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            ..default()
-                        }),
-                        ..default()
-                    }
-                },
-            )),
+        MeshMaterial3d(
+            materials.add(StandardMaterial {
+                base_color_texture: Some(
+                    asset_server
+                        .load_builder()
+                        .with_settings(|s: &mut _| {
+                            *s = ImageLoaderSettings {
+                                sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                    // rewriting mode to repeat image,
+                                    address_mode_u: ImageAddressMode::Repeat,
+                                    address_mode_v: ImageAddressMode::Repeat,
+                                    ..default()
+                                }),
+                                ..default()
+                            }
+                        })
+                        .load("textures/fantasy_ui_borders/panel-border-010-repeated.png"),
+                ),
 
-            // uv_transform used here for proportions only, but it is full Affine2
-            // that's why you can use rotation and shift also
-            uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
-            ..default()
-        })),
+                // uv_transform used here for proportions only, but it is full Affine2
+                // that's why you can use rotation and shift also
+                uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
+                ..default()
+            }),
+        ),
         Transform::from_xyz(-1.5, 0.0, 0.0),
     ));
 
@@ -80,7 +84,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),

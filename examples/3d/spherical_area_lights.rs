@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 60.0,
             ..default()
         })

@@ -1,5 +1,6 @@
-use alloc::collections::{btree_set, BTreeSet};
+use alloc::collections::{btree_set, vec_deque, BTreeSet, VecDeque};
 use core::{
+    convert,
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
@@ -69,16 +70,16 @@ pub trait RelationshipSourceCollection {
         self.len() == 0
     }
 
+    /// For one-to-one relationships, returns the entity that should be removed before adding a new one.
+    /// Returns `None` for one-to-many relationships or when no entity needs to be removed.
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        None
+    }
+
     /// Add multiple entities to collection at once.
     ///
     /// May be faster than repeatedly calling [`Self::add`].
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
-        // would always conflict with it.
-        for entity in entities {
-            self.add(entity);
-        }
-    }
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
 }
 
 /// This trait signals that a [`RelationshipSourceCollection`] is ordered.
@@ -155,7 +156,9 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+        // Scan from the back. Recently added entities live at the tail and are more likely to be
+        // despawned. This exploits temporal locality to keep the search cheap.
+        if let Some(index) = <[Entity]>::iter(self).rposition(|e| *e == entity) {
             Vec::remove(self, index);
             return true;
         }
@@ -227,22 +230,22 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            let index = index.min(self.len());
             Vec::remove(self, current);
+            let index = index.min(self.len());
             self.insert(index, entity);
         };
     }
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
+    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
         EntityHashSet::new()
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.0.reserve(additional);
+        self.deref_mut().reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -254,9 +257,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        // We need to call the remove method on the underlying hash set,
-        // which takes its argument by reference
-        self.0.remove(&entity)
+        self.deref_mut().remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -264,15 +265,15 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn len(&self) -> usize {
-        self.len()
+        self.deref().len()
     }
 
     fn clear(&mut self) {
-        self.0.clear();
+        self.deref_mut().clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.0.shrink_to_fit();
+        self.deref_mut().shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
@@ -345,14 +346,7 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        assert_eq!(
-            *self,
-            Entity::PLACEHOLDER,
-            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-            *self
-        );
         *self = entity;
-
         true
     }
 
@@ -389,13 +383,15 @@ impl RelationshipSourceCollection for Entity {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            assert_eq!(
-                *self,
-                Entity::PLACEHOLDER,
-                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-                *self
-            );
             *self = entity;
+        }
+    }
+
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        if *self != Entity::PLACEHOLDER {
+            Some(*self)
+        } else {
+            None
         }
     }
 }
@@ -436,16 +432,15 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 
     fn place_most_recent(&mut self, index: usize) {
         if let Some(entity) = self.pop() {
-            let index = index.min(self.len() - 1);
+            let index = index.min(self.len());
             self.insert(index, entity);
         }
     }
 
     fn place(&mut self, entity: Entity, index: usize) {
         if let Some(current) = <[Entity]>::iter(self).position(|e| *e == entity) {
-            // The len is at least 1, so the subtraction is safe.
-            let index = index.min(self.len() - 1);
             SmallVec::<[Entity; N]>::remove(self, current);
+            let index = index.min(self.len());
             self.insert(index, entity);
         };
     }
@@ -499,14 +494,14 @@ impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity,
 }
 
 impl RelationshipSourceCollection for EntityIndexSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a>>;
+    type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
         EntityIndexSet::new()
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.deref_mut().reserve(additional);
+        self.reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -518,7 +513,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        self.deref_mut().shift_remove(&entity)
+        self.shift_remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -530,11 +525,11 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn clear(&mut self) {
-        self.deref_mut().clear();
+        self.clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.deref_mut().shrink_to_fit();
+        self.shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
@@ -581,6 +576,137 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
     fn shrink_to_fit(&mut self) {
         // BTreeSet doesn't have a capacity
     }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
+impl RelationshipSourceCollection for VecDeque<Entity> {
+    type SourceIter<'a>
+        = core::iter::Copied<vec_deque::Iter<'a, Entity>>
+    where
+        Self: 'a;
+
+    fn new() -> Self {
+        VecDeque::default()
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        VecDeque::with_capacity(capacity)
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        self.reserve(additional);
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        self.push_back(entity);
+        true
+    }
+
+    /// Rmoves the given entity. If the entity is on the back or the front, it uses the respective pop implementation.
+    fn remove(&mut self, entity: Entity) -> bool {
+        if Some(&entity) == self.back() {
+            self.pop_back();
+        } else if Some(&entity) == self.front() {
+            self.pop_front();
+        } else {
+            let Some(i) = self.iter().position(|e| *e == entity) else {
+                return false;
+            };
+            self.remove(i);
+        }
+
+        true
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit();
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
+impl OrderedRelationshipSourceCollection for VecDeque<Entity> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        if index == 0 {
+            self.push_front(entity);
+        } else {
+            self.push_back(entity);
+            if index < self.len() {
+                self.swap(index, self.len());
+            }
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        if index == 0 {
+            self.pop_front()
+        } else if index == self.len() {
+            self.pop_back()
+        } else {
+            self.swap_remove_back(index)
+        }
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index == 0 {
+            self.push_front(entity);
+        } else if index >= self.len() {
+            self.push_back(entity);
+        } else {
+            self.insert(index, entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        if index == 0 {
+            self.pop_front()
+        } else if index == self.len() {
+            self.pop_back()
+        } else {
+            self.remove(index)
+        }
+    }
+
+    fn sort(&mut self) {
+        self.make_contiguous().sort();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self
+            .binary_search(&entity)
+            .unwrap_or_else(convert::identity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        let entity = self.pop_back();
+        if let Some(entity) = entity {
+            OrderedRelationshipSourceCollection::insert(self, index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if RelationshipSourceCollection::remove(self, entity) {
+            OrderedRelationshipSourceCollection::insert(self, index, entity);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -588,6 +714,7 @@ mod tests {
     use super::*;
     use crate::prelude::{Component, World};
     use crate::relationship::RelationshipTarget;
+    use alloc::vec;
 
     #[test]
     fn vec_relationship_source_collection() {
@@ -653,6 +780,52 @@ mod tests {
     }
 
     #[test]
+    fn vec_ordered_relationship_source_collection() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut v: Vec<Entity> = vec![];
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
+        assert_eq!(v, vec![a]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
+        assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 0);
+        assert_eq!(v, vec![b, a]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v, vec![a, b]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
+        assert_eq!(v, vec![b, a]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
+        assert_eq!(v, vec![b, a]);
+    }
+
+    #[test]
+    fn smallvec_ordered_relationship_source_collection() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        let mut v = SmallVec::<[Entity; 2]>::new();
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, a);
+        assert_eq!(v.as_ref(), vec![a]);
+        OrderedRelationshipSourceCollection::insert_stable(&mut v, 10, b);
+        assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 0);
+        assert_eq!(v.as_ref(), vec![b, a]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::place(&mut v, b, 10);
+        assert_eq!(v.as_ref(), vec![a, b]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 0);
+        assert_eq!(v.as_ref(), vec![b, a]);
+        OrderedRelationshipSourceCollection::place_most_recent(&mut v, 10);
+        assert_eq!(v.as_ref(), vec![b, a]);
+    }
+
+    #[test]
     fn one_to_one_relationships() {
         #[derive(Component)]
         #[relationship(relationship_target = Below)]
@@ -687,40 +860,43 @@ mod tests {
 
     #[test]
     fn entity_index_map() {
-        #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
-        struct Rel(Entity);
+        for add_before in [false, true] {
+            #[derive(Component)]
+            #[relationship(relationship_target = RelTarget)]
+            struct Rel(Entity);
 
-        #[derive(Component)]
-        #[relationship_target(relationship = Rel, linked_spawn)]
-        struct RelTarget(EntityHashSet);
+            #[derive(Component)]
+            #[relationship_target(relationship = Rel, linked_spawn)]
+            struct RelTarget(Vec<Entity>);
 
-        let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-        let c = world.spawn_empty().id();
+            let mut world = World::new();
+            if add_before {
+                let _ = world.spawn_empty().id();
+            }
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn_empty().id();
+            let d = world.spawn_empty().id();
 
-        let d = world.spawn_empty().id();
+            world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
 
-        world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
+            let rel_target = world.get::<RelTarget>(a).unwrap();
+            let collection = rel_target.collection();
 
-        let rel_target = world.get::<RelTarget>(a).unwrap();
-        let collection = rel_target.collection();
+            // Insertions should maintain ordering
+            assert!(collection.iter().eq([b, c, d]));
 
-        // Insertions should maintain ordering
-        assert!(collection.iter().eq(&[d, c, b]));
+            world.entity_mut(c).despawn();
 
-        world.entity_mut(c).despawn();
+            let rel_target = world.get::<RelTarget>(a).unwrap();
+            let collection = rel_target.collection();
 
-        let rel_target = world.get::<RelTarget>(a).unwrap();
-        let collection = rel_target.collection();
-
-        // Removals should maintain ordering
-        assert!(collection.iter().eq(&[d, b]));
+            // Removals should maintain ordering
+            assert!(collection.iter().eq([b, d]));
+        }
     }
 
     #[test]
-    #[should_panic]
     fn one_to_one_relationship_shared_target() {
         #[derive(Component)]
         #[relationship(relationship_target = Below)]
@@ -736,6 +912,22 @@ mod tests {
 
         world.entity_mut(a).insert(Above(c));
         world.entity_mut(b).insert(Above(c));
+
+        // The original relationship (a -> c) should be removed and the new relationship (b -> c) should be established
+        assert!(
+            world.get::<Above>(a).is_none(),
+            "Original relationship should be removed"
+        );
+        assert_eq!(
+            world.get::<Above>(b).unwrap().0,
+            c,
+            "New relationship should be established"
+        );
+        assert_eq!(
+            world.get::<Below>(c).unwrap().0,
+            b,
+            "Target should point to new source"
+        );
     }
 
     #[test]

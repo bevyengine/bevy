@@ -13,10 +13,7 @@ pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 use crate::{
     define_label,
     intern::Interned,
-    system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
-    },
+    system::{FromInput, IntoResult, IsFunctionSystem, SystemParamFunction},
 };
 
 define_label!(
@@ -57,7 +54,6 @@ define_label!(
         note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
     )]
     ScheduleLabel,
-    SCHEDULE_LABEL_INTERNER
 );
 
 define_label!(
@@ -152,7 +148,6 @@ define_label!(
         note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
     )]
     SystemSet,
-    SYSTEM_SET_INTERNER,
     extra_methods: {
         /// Returns `Some` if this system set is a [`SystemTypeSet`].
         fn system_type(&self) -> Option<TypeId> {
@@ -196,9 +191,7 @@ impl<T: 'static> SystemTypeSet<T> {
 
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("SystemTypeSet")
-            .field(&format_args!("fn {}()", DebugName::type_name::<T>()))
-            .finish()
+        write!(f, "SystemTypeSet:{}", DebugName::type_name::<T>())
     }
 }
 
@@ -291,27 +284,13 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<Marker, In: FromInput<()>, Out: IntoResult<()>>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
+    type Set = SystemTypeSet<F>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
-    }
-}
-
-// exclusive systems
-impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
-where
-    Marker: 'static,
-    F: ExclusiveSystemParamFunction<Marker>,
-{
-    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, F>>;
-
-    #[inline]
-    fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<ExclusiveFunctionSystem<Marker, F>>::new()
+        SystemTypeSet::<F>::new()
     }
 }
 
@@ -320,6 +299,7 @@ mod tests {
     use crate::{
         resource::Resource,
         schedule::{tests::ResMut, Schedule},
+        system::{IntoSystem, System},
     };
 
     use super::*;
@@ -370,9 +350,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
@@ -470,9 +458,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleSet();
 
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It won't be constructed."
+        )]
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructSet {}
 
@@ -545,5 +541,23 @@ mod tests {
             GenericSet::<u32>(PhantomData).intern(),
             GenericSet::<u64>(PhantomData).intern()
         );
+    }
+
+    #[test]
+    fn system_set_matches_default_system_set() {
+        fn system() {}
+        let set_from_into_system_set = IntoSystemSet::into_system_set(system).intern();
+        let system = IntoSystem::into_system(system);
+        let set_from_system = system.default_system_sets()[0];
+        assert_eq!(set_from_into_system_set, set_from_system);
+    }
+
+    #[test]
+    fn system_set_matches_default_system_set_exclusive() {
+        fn system(_: &mut crate::world::World) {}
+        let set_from_into_system_set = IntoSystemSet::into_system_set(system).intern();
+        let system = IntoSystem::into_system(system);
+        let set_from_system = system.default_system_sets()[0];
+        assert_eq!(set_from_into_system_set, set_from_system);
     }
 }

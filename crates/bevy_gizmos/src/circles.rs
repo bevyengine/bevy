@@ -30,8 +30,6 @@ where
     /// - the center is at `Vec3::ZERO`
     /// - the `half_sizes` are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
-    /// This should be called for each frame the ellipse needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -70,8 +68,6 @@ where
     ///
     /// - the center is at `Vec2::ZERO`
     /// - the `half_sizes` are aligned with the `Vec2::X` and `Vec2::Y` axes.
-    ///
-    /// This should be called for each frame the ellipse needs to be rendered.
     ///
     /// # Example
     /// ```
@@ -151,8 +147,6 @@ where
     /// - the center is at `Vec2::ZERO`
     /// - the radius is aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
-    /// This should be called for each frame the circle needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -192,8 +186,6 @@ where
     ///
     /// - the center is at `Vec3::ZERO`
     /// - the 3 circles are in the XY, YZ and XZ planes.
-    ///
-    /// This should be called for each frame the sphere needs to be rendered.
     ///
     /// # Example
     /// ```

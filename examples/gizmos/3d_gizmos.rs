@@ -1,18 +1,25 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
-use bevy::{color::palettes::css::*, prelude::*};
-use camera_controller::{CameraController, CameraControllerPlugin};
+use bevy::{
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
+    color::palettes::css::*,
+    prelude::*,
+};
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_example_collection, update_config))
+        .add_systems(
+            Update,
+            (
+                draw_example_collection,
+                update_config,
+                drive_gizmos_animation,
+            ),
+        )
         .run();
 }
 
@@ -52,7 +59,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
+        FreeCamera::default(),
     ));
     // plane
     commands.spawn((
@@ -68,7 +75,7 @@ fn setup(
     // light
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
@@ -84,12 +91,14 @@ fn setup(
             Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
             Press 'B' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
-            Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
+            Press 'J' or 'K' to cycle through line joins for straight or round gizmos\n\
+            Press 'L' to cycle through gizmos animations (only for dotted/dashed round gizmos)\n\
+            Press 'Spacebar' to toggle pause",
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -130,7 +139,7 @@ fn draw_example_collection(
         .cell_count(UVec2::new(5, 10))
         .spacing(Vec2::new(0.2, 0.1));
 
-    gizmos.cuboid(
+    gizmos.cube(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         BLACK,
     );
@@ -155,6 +164,16 @@ fn draw_example_collection(
         .map(|t| t * 5.0)
         .map(|t| (t, TEAL.mix(&HOT_PINK, t / 5.0)));
     gizmos.curve_gradient_3d(curve, times_and_colors);
+
+    gizmos.primitive_3d(
+        &Capsule3d::new(0.35, 0.5),
+        Isometry3d::new(
+            Vec3::new(-1.75, 0.75, 0.75),
+            Quat::from_rotation_y(ops::cos(time.elapsed_secs() / 2.0) * 10.0)
+                * Quat::from_rotation_z(PI / 3.0),
+        ),
+        YELLOW_GREEN,
+    );
 
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), 0.5, RED);
 
@@ -201,12 +220,19 @@ fn draw_example_collection(
         .arrow(Vec3::new(2., 0., 2.), Vec3::new(2., 2., 2.), ORANGE_RED)
         .with_double_end()
         .with_tip_length(0.5);
+
+    let from = Vec3::new(1.0, 2.0, 3.0);
+    let to = Vec3::new(3.0, 2.5, 4.0);
+    gizmos.rect(from, Vec2::ONE, RED);
+    my_gizmos.short_arc_3d_between((from + to) / 2.0, from, to, YELLOW_GREEN);
+    gizmos.rect(to, Vec2::ONE, RED);
 }
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    real_time: Res<Time<Real>>,
+    mut virtual_time: ResMut<Time<Virtual>>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyT) {
         for (_, config, _) in config_store.iter_mut() {
@@ -224,11 +250,11 @@ fn update_config(
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line.width += 5. * time.delta_secs();
+        config.line.width += 5. * real_time.delta_secs();
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line.width -= 5. * time.delta_secs();
+        config.line.width -= 5. * real_time.delta_secs();
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -255,11 +281,11 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width += 5. * real_time.delta_secs();
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width -= 5. * real_time.delta_secs();
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
@@ -288,5 +314,45 @@ fn update_config(
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behavior in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::Space) {
+        virtual_time.toggle();
+    }
+}
+
+enum GizmosAnimationType {
+    Linear,
+    BackAndForth,
+    Stutter,
+}
+
+fn drive_gizmos_animation(
+    mut config_store: ResMut<GizmoConfigStore>,
+    virtual_time: ResMut<Time<Virtual>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut animation_type: Local<Option<GizmosAnimationType>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        *animation_type = match *animation_type {
+            None => Some(GizmosAnimationType::Linear),
+            Some(GizmosAnimationType::Linear) => Some(GizmosAnimationType::BackAndForth),
+            Some(GizmosAnimationType::BackAndForth) => Some(GizmosAnimationType::Stutter),
+            Some(GizmosAnimationType::Stutter) => None,
+        };
+    }
+
+    if let Some(animation_type) = animation_type.as_ref() {
+        let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
+        match animation_type {
+            GizmosAnimationType::Linear => {
+                my_config.line.animation_offset = virtual_time.elapsed_secs() * 10.0;
+            }
+            GizmosAnimationType::BackAndForth => {
+                my_config.line.animation_offset = ops::sin(virtual_time.elapsed_secs()) * 10.0;
+            }
+            GizmosAnimationType::Stutter => {
+                my_config.line.animation_offset = (virtual_time.elapsed_secs() * 4.0).round();
+            }
+        }
     }
 }

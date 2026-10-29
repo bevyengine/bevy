@@ -10,13 +10,20 @@
 //! In addition, we want to enable a "tutorial" mode, which will involve its own state that is toggled in the main menu.
 //! This will display instructions about movement and turbo mode when in game and unpaused, and instructions on how to unpause when paused.
 //!
-//! To implement this, we will create 2 root-level states: [`AppState`] and [`TutorialState`].
-//! We will then create some computed states that derive from [`AppState`]: [`InGame`] and [`TurboMode`] are marker states implemented
-//! as Zero-Sized Structs (ZSTs), while [`IsPaused`] is an enum with 2 distinct states.
-//! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
+//! To implement this, we will create 2 root-level states: `AppState` and `TutorialState`.
+//! We will then create some computed states that derive from `AppState`: `InGame` and `TurboMode` are marker states implemented
+//! as Zero-Sized Structs (ZSTs), while `IsPaused` is an enum with 2 distinct states.
+//! And lastly, we'll add `Tutorial`, a computed state deriving from `TutorialState`, `InGame` and `IsPaused`, with 2 distinct
 //! states to display the 2 tutorial texts.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::{
+    dev_tools::states::*,
+    input::keyboard::Key,
+    picking::hover::Hovered,
+    prelude::*,
+    ui::{Checked, Pressed},
+    ui_widgets::{checkbox_self_update, Activate, ActivateOnPress, Button, Checkbox, ValueChange},
+};
 
 use ui::*;
 
@@ -54,6 +61,9 @@ impl ComputedStates for InGame {
     // Our computed state depends on `AppState`, so we need to specify it as the SourceStates type.
     type SourceStates = AppState;
 
+    // This is necessary to prevent `setup_game` from running when the app is already in `AppState::InGame`
+    // and only `paused` and `turbo` are changed
+    const ALLOW_SAME_STATE_TRANSITIONS: bool = false;
     // The compute function takes in the `SourceStates`
     fn compute(sources: AppState) -> Option<Self> {
         // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
@@ -80,6 +90,7 @@ struct TurboMode;
 
 impl ComputedStates for TurboMode {
     type SourceStates = AppState;
+    const ALLOW_SAME_STATE_TRANSITIONS: bool = false;
 
     fn compute(sources: AppState) -> Option<Self> {
         match sources {
@@ -107,6 +118,7 @@ enum IsPaused {
 
 impl ComputedStates for IsPaused {
     type SourceStates = AppState;
+    const ALLOW_SAME_STATE_TRANSITIONS: bool = false;
 
     fn compute(sources: AppState) -> Option<Self> {
         // Here we convert from our [`AppState`] to all potential [`IsPaused`] versions.
@@ -179,7 +191,10 @@ fn main() {
         // using our states as normal.
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, menu_styling.run_if(in_state(AppState::Menu)))
+        .add_observer(menu_activate.run_if(in_state(AppState::Menu)))
+        .add_observer(menu_tutorial_checked.run_if(in_state(AppState::Menu)))
+        .add_observer(checkbox_self_update)
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         // We only want to run the [`setup_game`] function when we enter the [`AppState::InGame`] state, regardless
         // of whether the game is paused or not.
@@ -213,54 +228,60 @@ fn main() {
         .run();
 }
 
-fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
-    tutorial_state: Res<State<TutorialState>>,
-    mut next_tutorial: ResMut<NextState<TutorialState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &MenuButton),
-        (Changed<Interaction>, With<Button>),
-    >,
-) {
-    for (interaction, mut color, menu_button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = if menu_button == &MenuButton::Tutorial
-                    && tutorial_state.get() == &TutorialState::Active
-                {
-                    PRESSED_ACTIVE_BUTTON.into()
-                } else {
-                    PRESSED_BUTTON.into()
-                };
+/// Updates the app state when the play button is activated.
+fn menu_activate(_event: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    // The play button is the only button on the menu that would send the `Activate` event.
+    next_state.set(AppState::InGame {
+        paused: false,
+        turbo: false,
+    });
+}
 
-                match menu_button {
-                    MenuButton::Play => next_state.set(AppState::InGame {
-                        paused: false,
-                        turbo: false,
-                    }),
-                    MenuButton::Tutorial => next_tutorial.set(match tutorial_state.get() {
-                        TutorialState::Active => TutorialState::Inactive,
-                        TutorialState::Inactive => TutorialState::Active,
-                    }),
-                };
+/// Updates the app state when the tutorial button is checked/unchecked.
+/// The `checkbox_self_update` observer added to the app handles
+/// updating the `Checked` component on the `Checkbox` itself.
+fn menu_tutorial_checked(
+    event: On<ValueChange<bool>>,
+    mut next_tutorial: ResMut<NextState<TutorialState>>,
+) {
+    next_tutorial.set(if event.value {
+        TutorialState::Active
+    } else {
+        TutorialState::Inactive
+    });
+}
+
+/// Updates button and checkbox styling based on hovered and pressed states.
+fn menu_styling(
+    mut widget_query: Query<
+        (
+            &Hovered,
+            Option<&Pressed>,
+            &mut BackgroundColor,
+            Has<Checkbox>,
+        ),
+        Or<(With<Button>, With<Checkbox>)>,
+    >,
+    tutorial_state: Res<State<TutorialState>>,
+) {
+    for (hovered, pressed, mut color, is_tutorial_checkbox) in &mut widget_query {
+        if pressed.is_some() {
+            *color = if is_tutorial_checkbox && tutorial_state.get() == &TutorialState::Active {
+                PRESSED_ACTIVE_BUTTON.into()
+            } else {
+                PRESSED_BUTTON.into()
+            };
+        } else if hovered.get() {
+            if is_tutorial_checkbox && tutorial_state.get() == &TutorialState::Active {
+                *color = HOVERED_ACTIVE_BUTTON.into();
+            } else {
+                *color = HOVERED_BUTTON.into();
             }
-            Interaction::Hovered => {
-                if menu_button == &MenuButton::Tutorial
-                    && tutorial_state.get() == &TutorialState::Active
-                {
-                    *color = HOVERED_ACTIVE_BUTTON.into();
-                } else {
-                    *color = HOVERED_BUTTON.into();
-                }
-            }
-            Interaction::None => {
-                if menu_button == &MenuButton::Tutorial
-                    && tutorial_state.get() == &TutorialState::Active
-                {
-                    *color = ACTIVE_BUTTON.into();
-                } else {
-                    *color = NORMAL_BUTTON.into();
-                }
+        } else {
+            if is_tutorial_checkbox && tutorial_state.get() == &TutorialState::Active {
+                *color = ACTIVE_BUTTON.into();
+            } else {
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -271,28 +292,28 @@ fn toggle_pause(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
-        if let AppState::InGame { paused, turbo } = current_state.get() {
-            next_state.set(AppState::InGame {
-                paused: !*paused,
-                turbo: *turbo,
-            });
-        }
+    if input.just_pressed(KeyCode::Space)
+        && let AppState::InGame { paused, turbo } = current_state.get()
+    {
+        next_state.set(AppState::InGame {
+            paused: !*paused,
+            turbo: *turbo,
+        });
     }
 }
 
 fn toggle_turbo(
-    input: Res<ButtonInput<KeyCode>>,
+    input: Res<ButtonInput<Key>>,
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::KeyT) {
-        if let AppState::InGame { paused, turbo } = current_state.get() {
-            next_state.set(AppState::InGame {
-                paused: *paused,
-                turbo: !*turbo,
-            });
-        }
+    if input.just_pressed(Key::Character("t".into()))
+        && let AppState::InGame { paused, turbo } = current_state.get()
+    {
+        next_state.set(AppState::InGame {
+            paused: *paused,
+            turbo: !*turbo,
+        });
     }
 }
 
@@ -333,65 +354,79 @@ mod ui {
             .spawn((
                 Node {
                     // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
+                    row_gap: px(10),
                     ..default()
                 },
-                children![
-                    (
-                        Button,
-                        Node {
-                            width: Val::Px(200.),
-                            height: Val::Px(65.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
+                children![(
+                    Button,
+                    Hovered::default(),
+                    ActivateOnPress,
+                    Node {
+                        width: px(200),
+                        height: px(65),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(NORMAL_BUTTON),
+                    MenuButton::Play,
+                    children![(
+                        Text::new("Play"),
+                        TextFont {
+                            font_size: FontSize::Px(33.0),
                             ..default()
                         },
-                        BackgroundColor(NORMAL_BUTTON),
-                        MenuButton::Play,
-                        children![(
-                            Text::new("Play"),
-                            TextFont {
-                                font_size: 33.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        )],
-                    ),
-                    (
-                        Button,
-                        Node {
-                            width: Val::Px(200.),
-                            height: Val::Px(65.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        BackgroundColor(match tutorial_state.get() {
-                            TutorialState::Active => ACTIVE_BUTTON,
-                            TutorialState::Inactive => NORMAL_BUTTON,
-                        }),
-                        MenuButton::Tutorial,
-                        children![(
-                            Text::new("Tutorial"),
-                            TextFont {
-                                font_size: 33.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        )]
-                    ),
-                ],
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    )],
+                ),],
             ))
             .id();
+
+        let mut tutorial_checkbox = commands.spawn((
+            Checkbox,
+            Hovered::default(),
+            ActivateOnPress,
+            Node {
+                width: px(200),
+                height: px(65),
+                // horizontally center child text
+                justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(match tutorial_state.get() {
+                TutorialState::Active => ACTIVE_BUTTON,
+                TutorialState::Inactive => NORMAL_BUTTON,
+            }),
+            MenuButton::Tutorial,
+            children![(
+                Text::new("Tutorial"),
+                TextFont {
+                    font_size: FontSize::Px(33.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            )],
+        ));
+        match tutorial_state.get() {
+            TutorialState::Active => {
+                tutorial_checkbox.insert(Checked);
+            }
+            TutorialState::Inactive => {}
+        };
+        let tutorial_checkbox_id = tutorial_checkbox.id();
+        commands
+            .entity(button_entity)
+            .add_child(tutorial_checkbox_id);
+
         commands.insert_resource(MenuData {
             root_entity: button_entity,
         });
@@ -403,7 +438,7 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            DespawnOnExitState(InGame),
+            DespawnOnExit(InGame),
             Sprite::from_image(asset_server.load("branding/icon.png")),
         ));
     }
@@ -443,22 +478,22 @@ mod ui {
     pub fn setup_paused_screen(mut commands: Commands) {
         info!("Printing Pause");
         commands.spawn((
-            DespawnOnExitState(IsPaused::Paused),
+            DespawnOnExit(IsPaused::Paused),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
             children![(
                 Node {
-                    width: Val::Px(400.),
-                    height: Val::Px(400.),
+                    width: px(400),
+                    height: px(400),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text
@@ -470,7 +505,7 @@ mod ui {
                 children![(
                     Text::new("Paused"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -481,22 +516,22 @@ mod ui {
 
     pub fn setup_turbo_text(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(TurboMode),
+            DespawnOnExit(TurboMode),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
             children![(
                 Text::new("TURBO MODE"),
                 TextFont {
-                    font_size: 33.0,
+                    font_size: FontSize::Px(33.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.3, 0.1)),
@@ -517,15 +552,15 @@ mod ui {
 
     pub fn movement_instructions(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(Tutorial::MovementInstructions),
+            DespawnOnExit(Tutorial::MovementInstructions),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::End,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
@@ -533,7 +568,7 @@ mod ui {
                 (
                     Text::new("Move the bevy logo with the arrow keys"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -541,7 +576,7 @@ mod ui {
                 (
                     Text::new("Press T to enter TURBO MODE"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -549,7 +584,7 @@ mod ui {
                 (
                     Text::new("Press SPACE to pause"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -557,7 +592,7 @@ mod ui {
                 (
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -568,15 +603,15 @@ mod ui {
 
     pub fn pause_instructions(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(Tutorial::PauseInstructions),
+            DespawnOnExit(Tutorial::PauseInstructions),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::End,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
@@ -584,7 +619,7 @@ mod ui {
                 (
                     Text::new("Press SPACE to resume"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
@@ -592,7 +627,7 @@ mod ui {
                 (
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
-                        font_size: 33.0,
+                        font_size: FontSize::Px(33.0),
                         ..default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),

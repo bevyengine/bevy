@@ -188,7 +188,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     ///
     /// Returns
     /// - `None` - if no task was scheduled for execution
-    /// - `Some(Runnnable)` - the first task scheduled for execution. Calling `Runnable::run` will
+    /// - `Some(Runnable)` - the first task scheduled for execution. Calling `Runnable::run` will
     ///   execute the task. In other words, it will poll its future.
     fn try_runnable(&self) -> Option<Runnable> {
         let runnable;
@@ -449,7 +449,7 @@ struct State<const C: usize> {
         target_has_atomic = "64",
         target_has_atomic = "ptr"
     )))]
-    queue: heapless::mpmc::MpMcQueue<Runnable, C>,
+    queue: heapless::mpmc::Queue<Runnable, C>,
     waker: AtomicWaker,
 }
 
@@ -471,7 +471,8 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             )))]
-            queue: heapless::mpmc::MpMcQueue::new(),
+            #[allow(deprecated)]
+            queue: heapless::mpmc::Queue::new(),
             waker: AtomicWaker::new(),
         }
     }
@@ -481,7 +482,10 @@ impl<const C: usize> State<C> {
 mod different_executor_tests {
     use core::cell::Cell;
 
-    use futures_lite::future::{block_on, pending, poll_once};
+    use bevy_tasks::{
+        block_on,
+        futures_lite::{pending, poll_once},
+    };
     use futures_lite::pin;
 
     use super::LocalExecutor;

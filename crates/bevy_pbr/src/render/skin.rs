@@ -1,23 +1,21 @@
 use core::mem::{self, size_of};
-use std::sync::OnceLock;
 
 use bevy_asset::{prelude::AssetChanged, Assets};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
-use bevy_platform::collections::hash_map::Entry;
+use bevy_mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
+use bevy_render::settings::WgpuLimits;
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     render_resource::BufferUsages,
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
 use offset_allocator::{Allocation, Allocator};
-use smallvec::SmallVec;
 use tracing::error;
 
 /// Maximum number of joints supported for skinned meshes.
@@ -41,15 +39,6 @@ const MAX_TOTAL_JOINTS: u32 = 1024 * 1024 * 1024;
 /// we need to allocate 4 64-byte matrices at a time to satisfy alignment
 /// requirements.
 const JOINTS_PER_ALLOCATION_UNIT: u32 = (256 / size_of::<Mat4>()) as u32;
-
-/// The maximum ratio of the number of entities whose transforms changed to the
-/// total number of joints before we re-extract all joints.
-///
-/// We use this as a heuristic to decide whether it's worth switching over to
-/// fine-grained detection to determine which skins need extraction. If the
-/// number of changed entities is over this threshold, we skip change detection
-/// and simply re-extract the transforms of all joints.
-const JOINT_EXTRACTION_THRESHOLD_FACTOR: f64 = 0.25;
 
 /// The location of the first joint matrix in the skin uniform buffer.
 #[derive(Clone, Copy)]
@@ -99,15 +88,6 @@ pub struct SkinUniforms {
     allocator: Allocator,
     /// Allocation information that we keep about each skin.
     skin_uniform_info: MainEntityHashMap<SkinUniformInfo>,
-    /// Maps each joint entity to the skins it's associated with.
-    ///
-    /// We use this in conjunction with change detection to only update the
-    /// skins that need updating each frame.
-    ///
-    /// Note that conceptually this is a hash map of sets, but we use a
-    /// [`SmallVec`] to avoid allocations for the vast majority of the cases in
-    /// which each bone belongs to exactly one skin.
-    joint_to_skins: MainEntityHashMap<SmallVec<[MainEntity; 1]>>,
     /// The total number of joints in the scene.
     ///
     /// We use this as part of our heuristic to decide whether to use
@@ -115,41 +95,39 @@ pub struct SkinUniforms {
     total_joints: usize,
 }
 
-impl FromWorld for SkinUniforms {
-    fn from_world(world: &mut World) -> Self {
-        let device = world.resource::<RenderDevice>();
-        let buffer_usages = (if skins_use_uniform_buffers(device) {
-            BufferUsages::UNIFORM
-        } else {
-            BufferUsages::STORAGE
-        }) | BufferUsages::COPY_DST;
+pub fn skin_uniforms_from_world(device: Res<RenderDevice>, mut commands: Commands) {
+    let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
+        BufferUsages::UNIFORM
+    } else {
+        BufferUsages::STORAGE
+    }) | BufferUsages::COPY_DST;
 
-        // Create the current and previous buffer with the minimum sizes.
-        //
-        // These will be swapped every frame.
-        let current_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("skin uniform buffer"),
-            size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
-            usage: buffer_usages,
-            mapped_at_creation: false,
-        });
-        let prev_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("skin uniform buffer"),
-            size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
-            usage: buffer_usages,
-            mapped_at_creation: false,
-        });
+    // Create the current and previous buffer with the minimum sizes.
+    //
+    // These will be swapped every frame.
+    let current_buffer = device.create_buffer(&BufferDescriptor {
+        label: Some("skin uniform buffer"),
+        size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
+        usage: buffer_usages,
+        mapped_at_creation: false,
+    });
+    let prev_buffer = device.create_buffer(&BufferDescriptor {
+        label: Some("skin uniform buffer"),
+        size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
+        usage: buffer_usages,
+        mapped_at_creation: false,
+    });
 
-        Self {
-            current_staging_buffer: vec![],
-            current_buffer,
-            prev_buffer,
-            allocator: Allocator::new(MAX_TOTAL_JOINTS),
-            skin_uniform_info: MainEntityHashMap::default(),
-            joint_to_skins: MainEntityHashMap::default(),
-            total_joints: 0,
-        }
-    }
+    let res = SkinUniforms {
+        current_staging_buffer: vec![],
+        current_buffer,
+        prev_buffer,
+        allocator: Allocator::new(MAX_TOTAL_JOINTS),
+        skin_uniform_info: MainEntityHashMap::default(),
+        total_joints: 0,
+    };
+
+    commands.insert_resource(res);
 }
 
 impl SkinUniforms {
@@ -190,10 +168,8 @@ impl SkinUniformInfo {
 
 /// Returns true if skinning must use uniforms (and dynamic offsets) because
 /// storage buffers aren't supported on the current platform.
-pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
-    static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
-    *SKINS_USE_UNIFORM_BUFFERS
-        .get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
+pub fn skins_use_uniform_buffers(limits: &WgpuLimits) -> bool {
+    bevy_render::storage_buffers_are_unsupported(limits)
 }
 
 /// Uploads the buffers containing the joints to the GPU.
@@ -220,11 +196,11 @@ pub fn prepare_skins(
         let mut new_size = uniform.current_buffer.size();
         while new_size < needed_size {
             // 1.5× growth factor.
-            new_size += new_size / 2;
+            new_size = (new_size + new_size / 2).next_multiple_of(4);
         }
 
         // Create the new buffers.
-        let buffer_usages = if skins_use_uniform_buffers(&render_device) {
+        let buffer_usages = if skins_use_uniform_buffers(&render_device.limits()) {
             BufferUsages::UNIFORM
         } else {
             BufferUsages::STORAGE
@@ -309,7 +285,6 @@ pub fn extract_skins(
     skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,
 ) {
     let skin_uniforms = skin_uniforms.into_inner();
@@ -325,20 +300,19 @@ pub fn extract_skins(
 
     // Extract the transforms for all joints from the scene, and write them into
     // the staging buffer at the appropriate spot.
-    extract_joints(
-        skin_uniforms,
-        &skinned_meshes,
-        &changed_skinned_meshes,
-        &skinned_mesh_inverse_bindposes,
-        &changed_transforms,
-        &joints,
-    );
+    for (skin_entity, skin) in &skinned_meshes {
+        extract_joints_for_skin(
+            skin_entity.into(),
+            skin,
+            skin_uniforms,
+            &changed_skinned_meshes,
+            &skinned_mesh_inverse_bindposes,
+            &changed_transforms,
+        );
+    }
 
     // Delete skins that became invisible.
-    for skinned_mesh_entity in removed_visibilities_query
-        .read()
-        .chain(removed_skinned_meshes_query.read())
-    {
+    for skinned_mesh_entity in removed_skinned_meshes_query.read() {
         // Only remove a skin if we didn't pick it up in `add_or_delete_skins`.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -388,76 +362,6 @@ fn add_or_delete_skins(
     }
 }
 
-/// Extracts the global transforms of all joints and updates the staging buffer
-/// as necessary.
-fn extract_joints(
-    skin_uniforms: &mut SkinUniforms,
-    skinned_meshes: &Query<(Entity, &SkinnedMesh)>,
-    changed_skinned_meshes: &Query<
-        (Entity, &ViewVisibility, &SkinnedMesh),
-        Or<(
-            Changed<ViewVisibility>,
-            Changed<SkinnedMesh>,
-            AssetChanged<SkinnedMesh>,
-        )>,
-    >,
-    skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
-    changed_transforms: &Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>,
-    joints: &Query<&GlobalTransform>,
-) {
-    // If the number of entities that changed transforms exceeds a certain
-    // fraction (currently 25%) of the total joints in the scene, then skip
-    // fine-grained change detection.
-    //
-    // Note that this is a crude heuristic, for performance reasons. It doesn't
-    // consider the ratio of modified *joints* to total joints, only the ratio
-    // of modified *entities* to total joints. Thus in the worst case we might
-    // end up re-extracting all skins even though none of the joints changed.
-    // But making the heuristic finer-grained would make it slower to evaluate,
-    // and we don't want to lose performance.
-    let threshold =
-        (skin_uniforms.total_joints as f64 * JOINT_EXTRACTION_THRESHOLD_FACTOR).floor() as usize;
-
-    if changed_transforms.iter().nth(threshold).is_some() {
-        // Go ahead and re-extract all skins in the scene.
-        for (skin_entity, skin) in skinned_meshes {
-            extract_joints_for_skin(
-                skin_entity.into(),
-                skin,
-                skin_uniforms,
-                changed_skinned_meshes,
-                skinned_mesh_inverse_bindposes,
-                joints,
-            );
-        }
-        return;
-    }
-
-    // Use fine-grained change detection to figure out only the skins that need
-    // to have their joints re-extracted.
-    let dirty_skins: MainEntityHashSet = changed_transforms
-        .iter()
-        .flat_map(|(joint, _)| skin_uniforms.joint_to_skins.get(&MainEntity::from(joint)))
-        .flat_map(|skin_joint_mappings| skin_joint_mappings.iter())
-        .copied()
-        .collect();
-
-    // Re-extract the joints for only those skins.
-    for skin_entity in dirty_skins {
-        let Ok((_, skin)) = skinned_meshes.get(*skin_entity) else {
-            continue;
-        };
-        extract_joints_for_skin(
-            skin_entity,
-            skin,
-            skin_uniforms,
-            changed_skinned_meshes,
-            skinned_mesh_inverse_bindposes,
-            joints,
-        );
-    }
-}
-
 /// Extracts all joints for a single skin and writes their transforms into the
 /// CPU staging buffer.
 fn extract_joints_for_skin(
@@ -473,7 +377,7 @@ fn extract_joints_for_skin(
         )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
-    joints: &Query<&GlobalTransform>,
+    changed_transforms: &Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>,
 ) {
     // If we initialized the skin this frame, we already populated all
     // the joints, so there's no need to populate them again.
@@ -491,14 +395,15 @@ fn extract_joints_for_skin(
         return;
     };
 
-    // Calculate and write in the new joint matrices.
+    // Calculate and write in the new joint matrices, if they changed this frame.
     for (joint_index, (&joint, skinned_mesh_inverse_bindpose)) in skin
         .joints
         .iter()
         .zip(skinned_mesh_inverse_bindposes.iter())
         .enumerate()
     {
-        let Ok(joint_transform) = joints.get(joint) else {
+        // Skip if the global transform for this joint didn't change.
+        let Ok((_, joint_transform)) = changed_transforms.get(joint) else {
             continue;
         };
 
@@ -566,14 +471,6 @@ fn add_skin(
                 .resize(buffer_index + 1, Mat4::IDENTITY);
         }
         skin_uniforms.current_staging_buffer[buffer_index] = joint_matrix;
-
-        // Record the inverse mapping from the joint back to the skin. We use
-        // this in order to perform fine-grained joint extraction.
-        skin_uniforms
-            .joint_to_skins
-            .entry(MainEntity::from(joint))
-            .or_default()
-            .push(skinned_mesh_entity);
     }
 
     // Record the number of joints.
@@ -596,16 +493,6 @@ fn remove_skin(skin_uniforms: &mut SkinUniforms, skinned_mesh_entity: MainEntity
         .allocator
         .free(old_skin_uniform_info.allocation);
 
-    // Remove the inverse mapping from each joint back to the skin.
-    for &joint in &old_skin_uniform_info.joints {
-        if let Entry::Occupied(mut entry) = skin_uniforms.joint_to_skins.entry(joint) {
-            entry.get_mut().retain(|skin| *skin != skinned_mesh_entity);
-            if entry.get_mut().is_empty() {
-                entry.remove();
-            }
-        }
-    }
-
     // Update the total number of joints.
     skin_uniforms.total_joints -= old_skin_uniform_info.joints.len();
 }
@@ -617,7 +504,7 @@ pub fn no_automatic_skin_batching(
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
     render_device: Res<RenderDevice>,
 ) {
-    if !skins_use_uniform_buffers(&render_device) {
+    if !skins_use_uniform_buffers(&render_device.limits()) {
         return;
     }
 

@@ -1,0 +1,17 @@
+[package]
+name = "auto_register_static"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[lib]
+# Our app must be a lib for static auto registration to work.
+crate-type = ["lib"]
+name = "auto_register_static"
+
+[dependencies]
+bevy = { path = "../../../", default-features = false, features = ["trace"] }
+
+[lints]
+workspace = true

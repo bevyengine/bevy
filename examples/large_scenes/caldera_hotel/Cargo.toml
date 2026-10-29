@@ -1,0 +1,17 @@
+[package]
+name = "caldera_hotel"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bevy = { path = "../../../", features = [
+  "bevy_camera_controller",
+  "free_camera",
+] }
+
+argh = "0.1.12"
+
+[lints]
+workspace = true
