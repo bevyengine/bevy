@@ -11,19 +11,17 @@ use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
     bundle::Bundle,
     component::Component,
-    entity::Entity,
+    entity::{unique_slice, Entity, UniqueEntityVec},
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     template::FromTemplate,
     world::{EntityWorldMut, FromWorld, World},
 };
-use alloc::vec::Vec;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use core::ops::Deref;
-use core::slice;
 
 /// Stores the parent entity of this child entity with this component.
 ///
@@ -149,7 +147,7 @@ impl FromWorld for ChildOf {
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld, Default))]
 #[doc(alias = "IsParent")]
-pub struct Children(Vec<Entity>);
+pub struct Children(UniqueEntityVec);
 
 impl Children {
     /// Swaps the child at `a_index` with the child at `b_index`.
@@ -244,7 +242,7 @@ impl Children {
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
-    type IntoIter = slice::Iter<'a, Entity>;
+    type IntoIter = unique_slice::Iter<'a, Entity>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
@@ -826,7 +824,7 @@ mod tests {
     fn replace_children() {
         let mut world = World::new();
         let parent = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
-        let &[child_a, child_b] = &world.entity(parent).get::<Children>().unwrap().0[..] else {
+        let &[child_a, child_b] = &*world.entity(parent).get::<Children>().unwrap().0[..] else {
             panic!("Tried to spawn 2 children on an entity and didn't get 2 children");
         };
 
