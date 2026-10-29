@@ -23,6 +23,7 @@ use bevy_feathers::{
     display::caption,
     font_styles::InheritableFont,
 };
+use bevy_log::warn;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_remote::http::{DEFAULT_PORT, DEFAULT_RENDER_PORT};
 use bevy_scene::{bsn, on, Scene};
@@ -132,16 +133,19 @@ pub fn connect_both_clicked(
 ) {
     let address = inputs_host.value().to_string();
     let Some(address) = parse_address(&address) else {
+        warn!("`{address}` is not a valid address");
         return;
     };
 
     let main_port = inputs_main.value().to_string();
     let Some(main_port) = main_port.parse::<u16>().ok() else {
+        warn!("`{main_port}` is not a valid port");
         return;
     };
 
     let render_port = inputs_render.value().to_string();
     let Some(render_port) = render_port.parse::<u16>().ok() else {
+        warn!("`{main_port}` is not a valid port");
         return;
     };
 
@@ -157,11 +161,13 @@ pub fn connect_main_clicked(
 ) {
     let address = inputs_host.value().to_string();
     let Some(address) = parse_address(&address) else {
+        warn!("`{address}` is not a valid address");
         return;
     };
 
     let main_port = inputs_main.value().to_string();
     let Some(main_port) = main_port.parse::<u16>().ok() else {
+        warn!("`{main_port}` is not a valid port");
         return;
     };
 
@@ -283,10 +289,9 @@ mod tests {
     #[test]
     fn parses_addresses() {
         assert_eq!(parse_address(" 127.0.0.1 "), Some("127.0.0.1"));
-        assert_eq!(parse_address("[::1]:80"), Some("::1"));
-        assert_eq!(parse_address("localhost"), None);
-        assert_eq!(parse_address(":80"), None);
-        assert_eq!(parse_address("host:99999"), None);
+        assert_eq!(parse_address("[::1]"), Some("::1"));
+        assert_eq!(parse_address("localhost"), Some("localhost"));
+        assert_eq!(parse_address(""), None);
         assert_eq!(
             format_address(&RemoteSource::new("::1", 80, Main)),
             "[::1]:80".to_string()

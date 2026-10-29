@@ -72,7 +72,7 @@ use bevy_utils::prelude::{DebugName, ShortName};
 use crate::{
     column_split::{ColumnSplit, ColumnSplitLeading},
     entity_tree::InspectorUi,
-    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, WorldKind,
+    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources,
 };
 
 /// The deepest nesting level whose fields are rendered.
@@ -213,8 +213,8 @@ pub struct FieldEdit {
     /// The inspected entity holding the component.
     #[event_target]
     pub entity: Entity,
-    /// Whether the inspected entity is a main entity or render entity.
-    pub kind: WorldKind,
+    /// Whether the inspected entity is from.
+    pub source: InspectorSource,
     /// The full type path of the component.
     pub component: String,
     /// The path of the field within the component, in [`bevy_reflect::GetPath`] syntax.
@@ -490,7 +490,7 @@ fn emit_field_edit(
     let Ok(field) = fields.get(widget) else {
         return;
     };
-    let Some(selection) = index.selection else {
+    let Some(selection) = index.selection.clone() else {
         return;
     };
     let Some(stored) = index
@@ -508,7 +508,7 @@ fn emit_field_edit(
     commands.queue(move |world: &mut World| apply_value(world, &displayed, &displayed.value));
     commands.trigger(FieldEdit {
         entity: selection.entity,
-        kind: selection.kind,
+        source: selection.source,
         component: field.component.0.to_string(),
         path: field.path.clone(),
         value,
@@ -1116,8 +1116,8 @@ pub fn sync_details_panel(world: &mut World) {
         .tick(delta)
         .just_finished();
 
-    let selection = world.resource::<InspectorSelection>().0;
-    let selection_changed = world.resource::<DetailsIndex>().selection != selection;
+    let selection = world.resource::<InspectorSelection>().0.clone();
+    let selection_changed = world.resource::<DetailsIndex>().selection.clone() != selection;
     if !run && !selection_changed {
         return;
     }
@@ -1126,54 +1126,25 @@ pub fn sync_details_panel(world: &mut World) {
         return;
     };
 
-    let kind = selection.map_or(WorldKind::Main, |s| s.kind);
-    let maybe_selected = selection.map(|s| s.entity);
+    let maybe_selected = selection.clone().map(|s| s.entity);
 
-    let inspector_source = get_inspector_source(world, kind);
+    let inspector_source = selection.clone().map(|s| s.source);
     let Some(inspector_source) = inspector_source else {
         return;
     };
     let local = inspector_source == InspectorSource::Local;
 
     let inspected = crate::world_to_inspect(world, inspector_source);
-    let components = inspect_components(inspected, selection, local);
+    let components = inspect_components(inspected, selection.clone(), local);
     let empty = empty_state(inspected, maybe_selected, &components);
 
     let index = world.resource::<DetailsIndex>();
     if selection_changed || index.body != Some(body) || index.empty != empty {
-        reset_body(world, body, selection, empty);
+        reset_body(world, body, selection.clone(), empty);
     }
     if empty.is_none() {
         sync_groups(world, body, &components);
     }
-}
-
-fn get_inspector_source(world: &World, kind: WorldKind) -> Option<InspectorSource> {
-    let inspector_sources = world.get_resource::<InspectorSources>()?;
-
-    let local = inspector_sources.sources.contains(&InspectorSource::Local);
-    if local {
-        return Some(InspectorSource::Local);
-    }
-
-    #[cfg(feature = "remote")]
-    for inspector_source in inspector_sources.sources.iter() {
-        match inspector_source {
-            InspectorSource::Local => {
-                return Some(InspectorSource::Local);
-            }
-            InspectorSource::Remote(rem) => {
-                if kind == rem.subapp {
-                    return Some(inspector_source.clone());
-                }
-            }
-        }
-    }
-
-    #[cfg(not(feature = "remote"))]
-    let _ = kind;
-
-    None
 }
 
 /// The body of the details panel, found through its [`InspectorDetailsBody`] marker.

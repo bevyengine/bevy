@@ -1,6 +1,7 @@
 //! The connection to the remote app and the polls keeping the [`RemoteWorld`] in sync.
 
 use alloc::{
+    borrow::Cow,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
@@ -68,7 +69,7 @@ const FULL_MIN_INTERVAL: Duration = Duration::from_secs(2);
 #[reflect(Debug, Default, Clone, PartialEq)]
 pub struct RemoteSource {
     /// The host the remote app serves the Bevy Remote Protocol on.
-    pub host: String,
+    pub host: Cow<'static, str>,
     /// The port the remote app serves the Bevy Remote Protocol on.
     pub port: u16,
     /// The subapp of the remote app.
@@ -85,7 +86,7 @@ impl RemoteSource {
     /// A source reading from `host:port`.
     pub fn new(host: impl Into<String>, port: u16, subapp: WorldKind) -> Self {
         Self {
-            host: host.into(),
+            host: host.into().into(),
             port,
             subapp,
         }
@@ -95,23 +96,6 @@ impl RemoteSource {
     pub fn localhost(port: u16) -> Self {
         Self::new("127.0.0.1", port, WorldKind::Main)
     }
-}
-
-/// Looks at [`InspectorSources`] and gets the corresponding remote worlds
-pub fn get_remote_worlds(world: &World) -> Vec<(&World, &RemoteSource)> {
-    let inspector_sources = world.resource::<InspectorSources>();
-
-    inspector_sources
-        .sources
-        .iter()
-        .filter_map(|is| match is {
-            InspectorSource::Local => None,
-            InspectorSource::Remote(rem) => {
-                let inspected = crate::world_to_inspect(world, is.clone());
-                Some((inspected, rem))
-            }
-        })
-        .collect()
 }
 
 /// The state of the connection to the remote app.
@@ -171,6 +155,24 @@ pub struct RemoteConnections {
     pub main: RemoteConnection,
     /// Connection to the render world.
     pub render: RemoteConnection,
+}
+
+impl RemoteConnections {
+    /// Get the [`RemoteConnection`]
+    pub fn get(&self, kind: WorldKind) -> &RemoteConnection {
+        if kind == WorldKind::Main {
+            return &self.main;
+        }
+        return &self.render;
+    }
+
+    /// Mutably get the [`RemoteConnection`]
+    pub fn get_mut(&mut self, kind: WorldKind) -> &mut RemoteConnection {
+        if kind == WorldKind::Main {
+            return &mut self.main;
+        }
+        return &mut self.render;
+    }
 }
 
 /// The connection to the remote app.
@@ -290,6 +292,24 @@ pub struct RemoteSnapshots {
     render: RemoteSnapshot,
 }
 
+impl RemoteSnapshots {
+    /// Get the [`RemoteSnapshot`]
+    pub fn get(&self, kind: WorldKind) -> &RemoteSnapshot {
+        if kind == WorldKind::Main {
+            return &self.main;
+        }
+        return &self.render;
+    }
+
+    /// Mutably get the [`RemoteSnapshot`]
+    pub fn get_mut(&mut self, kind: WorldKind) -> &mut RemoteSnapshot {
+        if kind == WorldKind::Main {
+            return &mut self.main;
+        }
+        return &mut self.render;
+    }
+}
+
 /// The entities of the remote world, as last reported by `world.query`.
 #[derive(Debug, Default)]
 pub struct RemoteSnapshot {
@@ -362,9 +382,11 @@ impl RemoteSnapshot {
 /// Sets the connection up for the current [`InspectorSource`] when it changes, clearing the
 /// [`RemoteWorld`] and the selection.
 pub fn sync_remote_sources(world: &mut World) {
-    let inspector_sources = world.resource::<InspectorSources>().sources.clone();
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return;
+    };
 
-    for inspector_source in inspector_sources.iter() {
+    for inspector_source in inspector_sources.sources.clone().iter() {
         match inspector_source {
             InspectorSource::Local => {}
             InspectorSource::Remote(rem) => {
@@ -376,11 +398,7 @@ pub fn sync_remote_sources(world: &mut World) {
 
 fn sync_remote_source(world: &mut World, source: &RemoteSource) {
     let remote_connections = world.resource::<RemoteConnections>();
-    let connection = if source.subapp == WorldKind::Main {
-        &remote_connections.main
-    } else {
-        &remote_connections.render
-    };
+    let connection = remote_connections.get(source.subapp);
     if connection.source.as_ref() == Some(source) {
         return;
     }
@@ -391,14 +409,10 @@ fn sync_remote_source(world: &mut World, source: &RemoteSource) {
     } else {
         snapshots.render = RemoteSnapshot::default();
     }
-    reset_inspected_world(world, source.subapp);
+    reset_inspected_world(world, source.clone());
 
     let mut remote_connections = world.resource_mut::<RemoteConnections>();
-    let connection = if source.subapp == WorldKind::Main {
-        &mut remote_connections.main
-    } else {
-        &mut remote_connections.render
-    };
+    let connection = remote_connections.get_mut(source.subapp);
     connection.pending = None;
     connection.state = RemoteConnectionState::Disconnected;
     connection.next_poll = Duration::ZERO;
@@ -409,27 +423,28 @@ fn sync_remote_source(world: &mut World, source: &RemoteSource) {
 
 /// Rebuilds the [`RemoteWorld`] empty, and clears the state tied to the previous source: the
 /// selection, the tree rows, and the collapsed and column split state of the details panel.
-fn reset_inspected_world(world: &mut World, kind: WorldKind) {
+fn reset_inspected_world(world: &mut World, kind: RemoteSource) {
     let registry = world
         .get_resource::<AppTypeRegistry>()
         .cloned()
         .unwrap_or_default();
     let mut rw = world.resource_mut::<RemoteWorlds>();
-    if kind == WorldKind::Main {
-        rw.main.reset(registry);
-    } else {
-        rw.render.reset(registry);
-    }
+    rw.get_mut(kind.subapp).reset(registry);
     let mut sel = world.resource_mut::<InspectorSelection>();
-    if let Some(selection) = sel.0 {
-        sel.0 = None;
+    if let Some(selection) = sel.0.clone() {
+        match selection.source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(wk) => {
+                if wk == kind {
+                    sel.0 = None;
 
-        if selection.kind == kind {
-            if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
-                collapsed.0.clear();
-            }
-            if let Some(mut splits) = world.get_resource_mut::<DetailsColumnSplits>() {
-                splits.0.clear();
+                    if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
+                        collapsed.0.clear();
+                    }
+                    if let Some(mut splits) = world.get_resource_mut::<DetailsColumnSplits>() {
+                        splits.0.clear();
+                    }
+                }
             }
         }
     }
@@ -733,13 +748,15 @@ fn finish_call(
 
 /// Updates each of the [`RemoteWorld`]'s based on the corresponding connection change.
 pub fn sync_remote_worlds(world: &mut World) {
-    let inspector_sources = world.resource::<InspectorSources>().sources.clone();
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return;
+    };
 
-    for inspector_source in inspector_sources.iter() {
+    for inspector_source in inspector_sources.sources.clone().iter() {
         match inspector_source {
             InspectorSource::Local => {}
             InspectorSource::Remote(rem) => {
-                sync_remote_world(world, rem.subapp);
+                sync_remote_world(world, rem);
             }
         }
     }
@@ -751,53 +768,47 @@ pub fn sync_remote_worlds(world: &mut World) {
 /// Rebuilds the [`RemoteWorld`] first if the connection was reset. If a remote id has an earlier
 /// generation than the one mirrored, the remote app restarted: the world is rebuilt, the poll
 /// written again, and a full poll requested.
-fn sync_remote_world(world: &mut World, kind: WorldKind) {
+fn sync_remote_world(world: &mut World, source: &RemoteSource) {
     let mut snapshots = world.resource_mut::<RemoteSnapshots>();
-    let snapshot = if kind == WorldKind::Main {
-        &mut snapshots.main
-    } else {
-        &mut snapshots.render
-    };
+    let snapshot = snapshots.get_mut(source.subapp);
     let reset = core::mem::take(&mut snapshot.reset);
     let pending = snapshot.pending.take();
     if reset {
-        reset_inspected_world(world, kind);
+        reset_inspected_world(world, source.clone());
     }
     let Some(pending) = pending else {
         return;
     };
     let sel = world.resource::<InspectorSelection>();
-    let selection = sel.0;
+    let selection = sel.0.clone();
 
     let written = world.resource_scope(|_, mut remote: Mut<RemoteWorlds>| {
-        let w = if kind == WorldKind::Main {
-            &mut remote.main
-        } else {
-            &mut remote.render
-        };
-        apply_rows(w, pending, selection, kind)
+        let w = remote.get_mut(source.subapp);
+        apply_rows(
+            w,
+            pending,
+            selection,
+            InspectorSource::Remote(source.clone()),
+        )
     });
     let written = match written {
         Ok(written) => written,
         Err(pending) => {
             warn!("the remote app restarted, rebuilding the remote inspector's copy of it pending_rows={}", pending.len());
-            reset_inspected_world(world, kind);
+            reset_inspected_world(world, source.clone());
 
             let mut rc = world.resource_mut::<RemoteConnections>();
-            if kind == WorldKind::Main {
-                rc.main.next_full = Duration::ZERO;
-            } else {
-                rc.render.next_full = Duration::ZERO;
-            }
+            rc.get_mut(source.subapp).next_full = Duration::ZERO;
 
             world
                 .resource_scope(|_, mut remotes: Mut<RemoteWorlds>| {
-                    let remote = if kind == WorldKind::Main {
-                        &mut remotes.main
-                    } else {
-                        &mut remotes.render
-                    };
-                    apply_rows(remote, pending, None, kind)
+                    let remote = remotes.get_mut(source.subapp);
+                    apply_rows(
+                        remote,
+                        pending,
+                        None,
+                        InspectorSource::Remote(source.clone()),
+                    )
                 })
                 .unwrap_or_default()
         }
@@ -824,7 +835,7 @@ fn apply_rows(
     remote: &mut RemoteWorld,
     rows: Vec<PolledRow>,
     selection: Option<InspectableEntity>,
-    kind: WorldKind,
+    kind: InspectorSource,
 ) -> Result<Applied, Vec<PolledRow>> {
     let mut applied = Applied::default();
     let shown: HashSet<Entity> = rows.iter().map(|row| row.entity).collect();
@@ -833,8 +844,8 @@ fn apply_rows(
             remote.despawn(entity);
             applied.tree = true;
 
-            if let Some(ins) = selection {
-                applied.selection |= ins.entity == entity && ins.kind == kind;
+            if let Some(ref ins) = selection {
+                applied.selection |= ins.entity == entity && ins.source == kind;
             }
         }
     }
@@ -864,8 +875,10 @@ fn apply_rows(
         }
         let changed = remote.write(row.entity, row.components);
         applied.tree |= changed;
-        applied.selection |=
-            changed && selection.is_some_and(|f| f.entity == row.entity && f.kind == kind);
+        applied.selection |= changed
+            && selection
+                .as_ref()
+                .is_some_and(|f| f.entity == row.entity && f.source == kind);
     }
     Ok(applied)
 }
@@ -1534,7 +1547,7 @@ pub(crate) mod tests {
         });
         sync_remote_worlds(&mut world);
 
-        assert!(world.resource::<RemoteSnapshots>().main.is_empty());
+        assert!(world.resource::<RemoteSnapshots>().get(Main).is_empty());
         assert!(world
             .resource_mut::<RemoteWorlds>()
             .main

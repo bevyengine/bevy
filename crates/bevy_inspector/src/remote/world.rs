@@ -27,6 +27,8 @@ use bevy_ecs::{
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 
+use crate::WorldKind;
+
 /// The most generations [`spawn_at_remote_id`] steps through for one entity in one call.
 const MAX_GENERATION_STEPS: u32 = 4096;
 
@@ -37,6 +39,24 @@ pub struct RemoteWorlds {
     pub main: RemoteWorld,
     /// The mirror of the remote render subapp
     pub render: RemoteWorld,
+}
+
+impl RemoteWorlds {
+    /// Get the [`RemoteWorld`]
+    pub fn get(&self, kind: WorldKind) -> &RemoteWorld {
+        if kind == WorldKind::Main {
+            return &self.main;
+        }
+        return &self.render;
+    }
+
+    /// Mutably get the [`RemoteWorld`]
+    pub fn get_mut(&mut self, kind: WorldKind) -> &mut RemoteWorld {
+        if kind == WorldKind::Main {
+            return &mut self.main;
+        }
+        return &mut self.render;
+    }
 }
 
 /// Mirror's a single remote [`World`]

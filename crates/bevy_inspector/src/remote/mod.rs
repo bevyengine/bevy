@@ -24,8 +24,7 @@ pub mod world;
 pub(crate) use source::tests;
 
 pub use source::{
-    get_remote_worlds, poll_remote_connections, sync_remote_sources, sync_remote_worlds,
-    RemoteConnection, RemoteConnectionState, RemoteConnections, RemoteSnapshot, RemoteSnapshots,
-    RemoteSource,
+    poll_remote_connections, sync_remote_sources, sync_remote_worlds, RemoteConnection,
+    RemoteConnectionState, RemoteConnections, RemoteSnapshot, RemoteSnapshots, RemoteSource,
 };
 pub use world::{RemoteComponents, RemoteWorld, RemoteWorlds};

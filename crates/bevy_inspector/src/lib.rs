@@ -119,15 +119,6 @@ pub enum InspectorSource {
     Remote(remote::RemoteSource),
 }
 
-/// Whether the inspector currently reads from a remote app.
-pub fn is_remote(inspector_source: InspectorSource) -> bool {
-    match inspector_source {
-        InspectorSource::Local => false,
-        #[cfg(feature = "remote")]
-        InspectorSource::Remote(_) => true,
-    }
-}
-
 /// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
 /// app, and `world` otherwise.
 ///
@@ -137,34 +128,31 @@ pub(crate) fn world_to_inspect(world: &World, inspector_source: InspectorSource)
     if let InspectorSource::Remote(rem) = inspector_source
         && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        if rem.subapp == WorldKind::Main {
-            return remote.main.world();
-        }
-        return remote.render.world();
+        return remote.get(rem.subapp).world();
     }
     let _ = inspector_source;
     world
 }
 
 /// An inspected entity, and whether its from the main or render world.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Reflect, Hash)]
 #[reflect(Debug, Clone, PartialEq)]
 pub struct InspectableEntity {
     /// The entity in the remote world
     pub entity: Entity,
     /// Whether its from the main or render world
-    pub kind: WorldKind,
+    pub source: InspectorSource,
 }
 
 impl InspectableEntity {
     /// Creates an selection
-    pub fn new(entity: Entity, kind: WorldKind) -> Self {
-        InspectableEntity { entity, kind }
+    pub fn new(entity: Entity, source: InspectorSource) -> Self {
+        InspectableEntity { entity, source }
     }
 }
 
 /// The entity currently being inspected, as an id in the inspected world.
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub struct InspectorSelection(pub Option<InspectableEntity>);
 
