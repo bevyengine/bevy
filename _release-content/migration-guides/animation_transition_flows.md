@@ -1,6 +1,6 @@
 ---
 title: "`AnimationTransitions` supports multiple independent flows"
-pull_requests: [18954]
+pull_requests: [26370]
 ---
 
 `AnimationTransitions` no longer tracks a single "main" animation.
