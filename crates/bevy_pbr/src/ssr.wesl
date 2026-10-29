@@ -65,9 +65,9 @@ fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec
     // Use VNDF sampling for the half-vector.
     let wi = lighting::sample_visible_ggx(urand, roughness, N, wo);
     let H = normalize(wo + wi);
-    let NdotL = max(dot(N, wi), 0.0001);
-    let NdotV = max(dot(N, wo), 0.0001);
-    let VdotH = max(dot(wo, H), 0.0001);
+    let NdotL = clamp(dot(N, wi), 0.0001, 1.0);
+    let NdotV = clamp(dot(N, wo), 0.0001, 1.0);
+    let VdotH = clamp(dot(wo, H), 0.0001, 1.0);
 
     let F = lighting::F_Schlick_vec(F0, 1.0, VdotH);
 
@@ -259,7 +259,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_N = pbr_input.clearcoat_N;
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_NdotV = max(dot(clearcoat_N, pbr_input.V), 0.0001);
+    let clearcoat_NdotV = clamp(dot(clearcoat_N, pbr_input.V), 0.0001, 1.0);
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_R = reflect(-pbr_input.V, clearcoat_N);
 
@@ -271,7 +271,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         specular_transmission,
         diffuse_transmission
     );
-    let NdotV = max(dot(N, V), 0.0001);
+    let NdotV = clamp(dot(N, V), 0.0001, 1.0);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
     let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
 
