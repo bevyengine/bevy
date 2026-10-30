@@ -213,7 +213,9 @@ impl Plugin for UiPlugin {
                 )
                     .chain()
                     .in_set(UiSystems::Layout),
-                ui_stack_system.in_set(UiSystems::Stack),
+                ui_stack_system
+                    .in_set(UiSystems::Stack)
+                    .after(UiSystems::Propagate),
                 update_clipping_system.in_set(UiSystems::Clipping),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
