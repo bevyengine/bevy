@@ -58,7 +58,7 @@ use bevy_render::{
         PartialBufferVec, PipelineCache, RawBufferVec, ShaderStages, ShaderType,
         SparseBufferUpdateBindGroups, SparseBufferUpdateJobs, SparseBufferUpdatePipelines,
         SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
-        UninitBufferVec,
+        TinyU32Immediates, UninitBufferVec,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
@@ -100,6 +100,7 @@ pub struct GpuMeshPreprocessPlugin {
 /// parameter building passes.
 #[derive(Resource)]
 pub struct PreprocessPipelines {
+    u32_immediates: TinyU32Immediates,
     /// The pipeline used for CPU culling. This pipeline doesn't populate
     /// indirect parameter metadata.
     pub direct_preprocess: PreprocessPipeline,
@@ -166,6 +167,8 @@ pub struct PreprocessPipeline {
     pub bind_group_layout: BindGroupLayoutDescriptor,
     /// The shader asset handle.
     pub shader: Handle<Shader>,
+    /// Parameter transport selected for this device.
+    parameters: TinyU32Immediates,
     /// The pipeline ID for the compute shader.
     ///
     /// This gets filled in `prepare_preprocess_pipelines`.
@@ -934,10 +937,9 @@ pub fn early_gpu_preprocess(
                             ..
                         } = *work_item_buffers
                         {
-                            compute_pass.set_immediates(
-                                0,
-                                bytemuck::bytes_of(&late_indirect_parameters_indexed_offset),
-                            );
+                            preprocess_pipelines
+                                .u32_immediates
+                                .set(&mut compute_pass, late_indirect_parameters_indexed_offset);
                         }
 
                         compute_pass.set_bind_group(0, indexed_bind_group, &dynamic_offsets);
@@ -958,9 +960,9 @@ pub fn early_gpu_preprocess(
                             ..
                         } = *work_item_buffers
                         {
-                            compute_pass.set_immediates(
-                                0,
-                                bytemuck::bytes_of(&late_indirect_parameters_non_indexed_offset),
+                            preprocess_pipelines.u32_immediates.set(
+                                &mut compute_pass,
+                                late_indirect_parameters_non_indexed_offset,
                             );
                         }
 
@@ -1105,10 +1107,9 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull indexed meshes if there are any.
         if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
-            compute_pass.set_immediates(
-                0,
-                bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
-            );
+            preprocess_pipelines
+                .u32_immediates
+                .set(&mut compute_pass, *late_indirect_parameters_indexed_offset);
 
             compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
             compute_pass.dispatch_workgroups_indirect(
@@ -1120,9 +1121,9 @@ pub fn late_gpu_preprocess(
 
         // Transform and cull non-indexed meshes if there are any.
         if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
-            compute_pass.set_immediates(
-                0,
-                bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
+            preprocess_pipelines.u32_immediates.set(
+                &mut compute_pass,
+                *late_indirect_parameters_non_indexed_offset,
             );
 
             compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
@@ -1496,7 +1497,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             }
         }
 
-        ComputePipelineDescriptor {
+        let mut descriptor = ComputePipelineDescriptor {
             label: Some(
                 format!(
                     "mesh preprocessing ({})",
@@ -1524,12 +1525,16 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             shader: self.shader.clone(),
             shader_defs,
             ..default()
-        }
+        };
+        self.parameters.configure_pipeline(&mut descriptor);
+        descriptor
     }
 }
 
 impl FromWorld for PreprocessPipelines {
     fn from_world(world: &mut World) -> Self {
+        let device = world.resource::<RenderDevice>();
+        let u32_immediates = TinyU32Immediates::new(device);
         // GPU culling bind group parameters are a superset of those in the CPU
         // culling (direct) shader.
         let direct_bind_group_layout_entries = preprocess_direct_bind_group_layout_entries();
@@ -1644,21 +1649,25 @@ impl FromWorld for PreprocessPipelines {
                 bind_group_layout: direct_bind_group_layout,
                 shader: preprocess_shader.clone(),
                 pipeline_id: None,
+                parameters: TinyU32Immediates::new(device),
             },
             gpu_frustum_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_frustum_culling_bind_group_layout,
                 shader: preprocess_shader.clone(),
                 pipeline_id: None,
+                parameters: TinyU32Immediates::new(device),
             },
             early_gpu_occlusion_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_early_occlusion_culling_bind_group_layout,
                 shader: preprocess_shader.clone(),
                 pipeline_id: None,
+                parameters: TinyU32Immediates::new(device),
             },
             late_gpu_occlusion_culling_preprocess: PreprocessPipeline {
                 bind_group_layout: gpu_late_occlusion_culling_bind_group_layout,
                 shader: preprocess_shader,
                 pipeline_id: None,
+                parameters: TinyU32Immediates::new(device),
             },
             gpu_frustum_culling_build_indexed_indirect_params: BuildIndirectParametersPipeline {
                 bind_group_layout: build_indexed_indirect_params_bind_group_layout.clone(),
@@ -1696,6 +1705,7 @@ impl FromWorld for PreprocessPipelines {
                     pipeline_id_fan: None,
                 },
             },
+            u32_immediates,
         }
     }
 }
@@ -2231,7 +2241,7 @@ pub fn prepare_preprocess_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
-    pipelines: Res<PreprocessPipelines>,
+    mut pipelines: ResMut<PreprocessPipelines>,
     mut bin_unpacking_bind_groups: ResMut<BinUnpackingBindGroups>,
     mut uniform_allocation_bind_groups: ResMut<UniformAllocationBindGroups>,
 ) {
@@ -2248,6 +2258,22 @@ pub fn prepare_preprocess_bind_groups(
     ) else {
         return;
     };
+
+    if pipelines.u32_immediates.is_uniform() {
+        let parameter_count = phase_instance_buffers
+            .values()
+            .map(|phase| {
+                phase
+                    .late_indexed_indirect_parameters_buffer
+                    .len()
+                    .max(phase.late_non_indexed_indirect_parameters_buffer.len())
+            })
+            .max()
+            .unwrap_or(0);
+        pipelines
+            .u32_immediates
+            .reserve(&render_device, parameter_count.max(1) as u32);
+    }
 
     // Record whether we have any meshes that are to be drawn indirectly. If we
     // don't, then we can skip building indirect parameters.

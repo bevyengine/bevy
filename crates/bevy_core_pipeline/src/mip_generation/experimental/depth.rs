@@ -5,6 +5,7 @@
 
 use core::array;
 
+use super::Depth2MipsFallback;
 use crate::mip_generation::DownsampleShaders;
 
 use bevy_asset::Handle;
@@ -33,7 +34,7 @@ use bevy_render::{
         SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedComputePipeline,
         SpecializedComputePipelines, StorageTextureAccess, TextureAspect, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-        TextureViewDescriptor, TextureViewDimension,
+        TextureViewDescriptor, TextureViewDimension, TinyU32Immediates,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
     texture::TextureCache,
@@ -220,6 +221,21 @@ fn downsample_depth(
     view_size: UVec2,
     sample_count: u32,
 ) {
+    if let Some(fallback) = &downsample_depth_pipelines.fallback {
+        fallback.downsample(
+            label,
+            ctx,
+            pipeline_cache,
+            view_depth_pyramid,
+            (
+                &view_downsample_depth_bind_group.0,
+                &view_downsample_depth_bind_group.1,
+            ),
+            sample_count > 1,
+        );
+        return;
+    }
+
     // Despite the name "single-pass downsampling", we actually need two
     // passes because of the lack of `coherent` buffers in WGPU/WGSL.
     // Between each pass, there's an implicit synchronization barrier.
@@ -270,6 +286,8 @@ pub struct DownsampleDepthPipeline {
     pub pipeline_id: Option<CachedComputePipelineId>,
     /// The shader asset handle.
     shader: Handle<Shader>,
+    /// Parameter transport selected for this device.
+    parameters: TinyU32Immediates,
 }
 
 impl DownsampleDepthPipeline {
@@ -281,11 +299,13 @@ impl DownsampleDepthPipeline {
     fn new(
         bind_group_layout: BindGroupLayoutDescriptor,
         shader: Handle<Shader>,
+        render_device: &RenderDevice,
     ) -> DownsampleDepthPipeline {
         DownsampleDepthPipeline {
             bind_group_layout,
             pipeline_id: None,
             shader,
+            parameters: TinyU32Immediates::new(render_device),
         }
     }
 }
@@ -306,6 +326,7 @@ pub struct DownsampleDepthPipelines {
     /// The sampler that the depth downsampling shader uses to sample the depth
     /// buffer.
     pub sampler: Sampler,
+    fallback: Option<Depth2MipsFallback>,
 }
 
 /// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
@@ -351,21 +372,35 @@ pub fn create_downsample_depth_pipelines(
         first: DownsampleDepthPipeline::new(
             standard_bind_group_layout.clone(),
             downsample_depth_shader.depth.clone(),
+            &render_device,
         ),
         second: DownsampleDepthPipeline::new(
             standard_bind_group_layout.clone(),
             downsample_depth_shader.depth.clone(),
+            &render_device,
         ),
         first_multisample: DownsampleDepthPipeline::new(
             multisampled_bind_group_layout.clone(),
             downsample_depth_shader.depth.clone(),
+            &render_device,
         ),
         second_multisample: DownsampleDepthPipeline::new(
             multisampled_bind_group_layout.clone(),
             downsample_depth_shader.depth.clone(),
+            &render_device,
         ),
         sampler,
+        fallback: Depth2MipsFallback::new(
+            &render_device,
+            &pipeline_cache,
+            downsample_depth_shader.depth_2mips_fallback.clone(),
+        ),
     };
+
+    if downsample_depth_pipelines.fallback.is_some() {
+        commands.insert_resource(downsample_depth_pipelines);
+        return;
+    }
 
     // Specialize each pipeline with the appropriate
     // `DownsampleDepthPipelineKey`.
@@ -473,7 +508,7 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
         )
         .into();
 
-        ComputePipelineDescriptor {
+        let mut descriptor = ComputePipelineDescriptor {
             label: Some(label),
             layout: vec![self.bind_group_layout.clone()],
             immediate_size: 4,
@@ -485,7 +520,9 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
                 "downsample_depth_first".into()
             }),
             ..default()
-        }
+        };
+        self.parameters.configure_pipeline(&mut descriptor);
+        descriptor
     }
 }
 
@@ -541,6 +578,7 @@ pub fn create_depth_pyramid_dummy_texture(
 /// This will only be present on a view when occlusion culling is enabled.
 #[derive(Component)]
 pub struct ViewDepthPyramid {
+    u32_immediates: TinyU32Immediates,
     /// A texture view containing the entire depth texture.
     pub all_mips: TextureView,
     /// A series of texture views containing one mip level each.
@@ -610,7 +648,10 @@ impl ViewDepthPyramid {
         // Create the view for the depth pyramid as a whole.
         let depth_pyramid_all_mips = depth_pyramid.default_view.clone();
 
+        let mut u32_immediates = TinyU32Immediates::new(render_device);
+        u32_immediates.reserve(render_device, depth_pyramid_mip_count + 1);
         Self {
+            u32_immediates,
             all_mips: depth_pyramid_all_mips,
             mips: depth_pyramid_mips,
             mip_count: depth_pyramid_mip_count,
@@ -683,8 +724,8 @@ impl ViewDepthPyramid {
             timestamp_writes: None,
         });
         downsample_pass.set_pipeline(downsample_depth_first_pipeline);
-        // Pass the mip count as an immediate, for simplicity.
-        downsample_pass.set_immediates(0, &self.mip_count.to_le_bytes());
+        self.u32_immediates
+            .set(&mut downsample_pass, self.mip_count);
         downsample_pass.set_bind_group(0, downsample_depth_bind_group, &[]);
         downsample_pass.dispatch_workgroups(
             virtual_view_size.x.div_ceil(64),
@@ -732,7 +773,7 @@ pub fn prepare_view_depth_pyramids(
 ///
 /// This will only be present for a view if occlusion culling is enabled.
 #[derive(Component, Deref, DerefMut)]
-pub struct ViewDownsampleDepthBindGroup(BindGroup);
+pub struct ViewDownsampleDepthBindGroup(#[deref] BindGroup, Vec<BindGroup>);
 
 /// Creates the [`ViewDownsampleDepthBindGroup`]s for all views with occlusion
 /// culling enabled.
@@ -770,6 +811,18 @@ pub fn prepare_downsample_depth_view_bind_groups(
         };
         let is_multisampled = view_depth_texture
             .is_some_and(|view_depth_texture| view_depth_texture.texture().sample_count() > 1);
+        if let Some(fallback) = &downsample_depth_pipelines.fallback {
+            let (first, chain) = fallback.create_bind_groups(
+                &render_device,
+                view_depth_pyramid,
+                source_image,
+                is_multisampled,
+            );
+            commands
+                .entity(view_entity)
+                .insert(ViewDownsampleDepthBindGroup(first, chain));
+            continue;
+        }
         commands
             .entity(view_entity)
             .insert(ViewDownsampleDepthBindGroup(
@@ -790,6 +843,7 @@ pub fn prepare_downsample_depth_view_bind_groups(
                     source_image,
                     &downsample_depth_pipelines.sampler,
                 ),
+                Vec::new(),
             ));
     }
 }
