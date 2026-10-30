@@ -189,7 +189,7 @@ pub fn update_taffy_style_from_node(
 impl From<AlignItems> for taffy::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::Default => taffy::style::AlignItems::NORMAL,
+            AlignItems::Normal => taffy::style::AlignItems::NORMAL,
             AlignItems::Start => taffy::style::AlignItems::START,
             AlignItems::StartSafe => taffy::style::AlignItems::SAFE_START,
             AlignItems::End => taffy::style::AlignItems::END,
@@ -209,7 +209,7 @@ impl From<AlignItems> for taffy::style::AlignItems {
 impl From<JustifyItems> for taffy::style::JustifyItems {
     fn from(value: JustifyItems) -> Self {
         match value {
-            JustifyItems::Default => taffy::style::JustifyItems::NORMAL,
+            JustifyItems::Normal => taffy::style::JustifyItems::NORMAL,
             JustifyItems::Start => taffy::style::JustifyItems::START,
             JustifyItems::StartSafe => taffy::style::JustifyItems::SAFE_START,
             JustifyItems::End => taffy::style::JustifyItems::END,
@@ -261,7 +261,7 @@ impl From<JustifySelf> for Option<taffy::style::JustifySelf> {
 impl From<AlignContent> for taffy::style::AlignContent {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::Default => taffy::style::AlignContent::NORMAL,
+            AlignContent::Normal => taffy::style::AlignContent::NORMAL,
             AlignContent::Start => taffy::style::AlignContent::START,
             AlignContent::StartSafe => taffy::style::AlignContent::SAFE_START,
             AlignContent::End => taffy::style::AlignContent::END,
@@ -283,7 +283,7 @@ impl From<AlignContent> for taffy::style::AlignContent {
 impl From<JustifyContent> for taffy::style::JustifyContent {
     fn from(value: JustifyContent) -> Self {
         match value {
-            JustifyContent::Default => taffy::style::JustifyContent::NORMAL,
+            JustifyContent::Normal => taffy::style::JustifyContent::NORMAL,
             JustifyContent::Start => taffy::style::JustifyContent::START,
             JustifyContent::StartSafe => taffy::style::JustifyContent::SAFE_START,
             JustifyContent::End => taffy::style::JustifyContent::END,
@@ -555,7 +555,7 @@ mod tests {
             align_items: AlignItems::Baseline,
             align_self: AlignSelf::Start,
             align_content: AlignContent::SpaceAround,
-            justify_items: JustifyItems::Default,
+            justify_items: JustifyItems::Normal,
             justify_self: JustifySelf::Center,
             justify_content: JustifyContent::SpaceEvenly,
             direction: InlineDirection::Ltr,
