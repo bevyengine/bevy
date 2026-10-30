@@ -5325,10 +5325,14 @@ mod tests {
         app.register_type::<Sealed>();
         let entity = inspect(&mut app, (annotated(), Sealed { value: 1.0 }));
 
-        let names: Vec<String> = inspect_components(app.world(), Some(entity))
-            .into_iter()
-            .map(|component| component.name)
-            .collect();
+        let names: Vec<String> = inspect_components(
+            app.world(),
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+            true,
+        )
+        .into_iter()
+        .map(|component| component.name)
+        .collect();
         assert!(
             names.contains(&"Movement Settings".to_string()),
             "{names:?}"
@@ -5363,9 +5367,13 @@ mod tests {
         let entity = app.world_mut().spawn(annotated()).id();
         edit_component::<Annotated>(&mut app, entity, "caps.max", float(4.0));
         assert_eq!(app.world().get::<Annotated>(entity).unwrap().caps.max, 0.0);
-        assert!(inspect_components(app.world(), Some(entity))
-            .iter()
-            .any(|component| component.name == "Movement Settings"));
+        assert!(inspect_components(
+            app.world(),
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+            true
+        )
+        .iter()
+        .any(|component| component.name == "Movement Settings"));
     }
 
     #[test]
