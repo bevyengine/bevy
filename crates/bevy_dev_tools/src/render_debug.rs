@@ -38,7 +38,6 @@ use bevy_render::{
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::Shader;
-use bevy_ui_render::render_pass::ui_pass;
 
 use bevy_pbr::{
     MeshPipelineSystems, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
@@ -47,7 +46,7 @@ use bevy_pbr::{
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
 ///
-/// The plugin is part of `DefaultPlugins` when the `dev` feature is enabled.
+/// The plugin is part of `DefaultPlugins` when the `dev` and `bevy_pbr` features are enabled.
 /// The overlay is hidden by default. To control it from the keyboard, insert a
 /// [`RenderDebugOverlayKeybindings`] resource with
 /// [`enable_keybindings`](RenderDebugOverlayKeybindings::enable_keybindings) set to `true`:
@@ -108,14 +107,16 @@ impl Plugin for RenderDebugOverlayPlugin {
                     prepare_debug_overlay_pipelines.in_set(RenderSystems::Prepare),
                     prepare_debug_overlay_resources.in_set(RenderSystems::PrepareResources),
                 ),
-            )
-            .add_systems(
-                Core3d,
-                render_debug_overlay
-                    .after(Core3dSystems::PostProcess)
-                    .before(ui_pass)
-                    .before(upscaling),
             );
+
+        let mut render_debug_overlay = render_debug_overlay.after(Core3dSystems::PostProcess);
+        #[cfg(feature = "bevy_ui_render")]
+        {
+            render_debug_overlay =
+                render_debug_overlay.before(bevy_ui_render::render_pass::ui_pass);
+        }
+        render_debug_overlay = render_debug_overlay.before(upscaling);
+        render_app.add_systems(Core3d, render_debug_overlay);
     }
 }
 

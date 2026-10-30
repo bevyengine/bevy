@@ -9,6 +9,7 @@ use bevy_app::prelude::*;
 use bevy_color::{palettes, prelude::*};
 use bevy_diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{prelude::*, relationship::Relationship};
+#[cfg(feature = "bevy_pbr")]
 use bevy_pbr::{diagnostic::MaterialAllocatorDiagnosticPlugin, StandardMaterial};
 use bevy_picking::prelude::*;
 use bevy_render::diagnostic::MeshAllocatorDiagnosticPlugin;
@@ -28,6 +29,7 @@ const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
 /// Initial Z-index for the [`DiagnosticsOverlayPlane`]
 pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
 /// Alias to shorten the name
+#[cfg(feature = "bevy_pbr")]
 type StandardMaterialAllocator = MaterialAllocatorDiagnosticPlugin<StandardMaterial>;
 
 /// Diagnostics overlay displays on a draggable and collapsible window
@@ -122,16 +124,19 @@ impl DiagnosticsOverlay {
         Self {
             title: Cow::Owned("Mesh and standard materials".to_owned()),
             items: vec![
+                #[cfg(feature = "bevy_pbr")]
                 DiagnosticsOverlayItem {
                     path: StandardMaterialAllocator::slabs_diagnostic_path(),
                     statistic: DiagnosticsOverlayStatistic::Smoothed,
                     precision: 0,
                 },
+                #[cfg(feature = "bevy_pbr")]
                 DiagnosticsOverlayItem {
                     path: StandardMaterialAllocator::slabs_size_diagnostic_path(),
                     statistic: DiagnosticsOverlayStatistic::Smoothed,
                     precision: 0,
                 },
+                #[cfg(feature = "bevy_pbr")]
                 DiagnosticsOverlayItem {
                     path: StandardMaterialAllocator::allocations_diagnostic_path(),
                     statistic: DiagnosticsOverlayStatistic::Smoothed,
