@@ -21,7 +21,7 @@ pub mod components;
 pub mod traits;
 
 /// Transform related plugins
-#[cfg(all(feature = "bevy_ecs", feature = "bevy_app"))]
+#[cfg(feature = "bevy_app")]
 pub mod plugins;
 
 /// [`GlobalTransform`]: components::GlobalTransform
@@ -48,7 +48,7 @@ pub mod prelude {
         systems::{StaticTransformOptimizations, TransformSystems},
     };
 
-    #[cfg(all(feature = "bevy_ecs", feature = "bevy_app"))]
+    #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
     pub use crate::plugins::TransformPlugin;
 }

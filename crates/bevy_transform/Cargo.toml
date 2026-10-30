@@ -48,6 +48,9 @@ multi_threaded = ["bevy_tasks/multi_threaded"]
 ## which enables users to depend on that without needing the larger Bevy dependency tree.
 bevy-support = ["alloc", "bevy_app", "bevy_ecs"]
 
+## Enables `bevy_app` support, this automatically enables `bevy_ecs` as well.
+bevy_app = ["dep:bevy_app", "bevy_ecs"]
+
 ## Only adds `bevy_ecs` as the dependency without `bevy_app` dependency.
 ## Useful when used as external dependency without large bevy dependency but still get the ecs support
 bevy_ecs = ["alloc", "dep:bevy_ecs"]
