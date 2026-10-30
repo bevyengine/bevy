@@ -5,8 +5,9 @@ use crate::{
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
+use bevy_ecs::system::Scratch;
 use bevy_ecs::{
-    prelude::{Commands, IntoScheduleConfigs, Local, MessageReader, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
@@ -281,13 +282,12 @@ pub(crate) fn extract_erased_render_asset<A: ErasedRenderAsset>(
     mut to_reextract: Option<ResMut<ErasedRenderAssetsToReExtract<A>>>,
     mut extracted_assets: ResMut<ExtractedAssets<A>>,
     mut main_world: ResMut<MainWorld>,
-    mut needs_extracting: Local<HashSet<AssetId<A::SourceAsset>>>,
+    mut needs_extracting: Scratch<HashSet<AssetId<A::SourceAsset>>>,
 ) {
     extracted_assets.extracted.clear();
     extracted_assets.removed.clear();
     extracted_assets.modified.clear();
     extracted_assets.added.clear();
-    needs_extracting.clear();
 
     let reextract_ids = to_reextract
         .as_mut()
