@@ -88,7 +88,12 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
         impl #impl_generics #bevy_reflect_path::PartialReflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
-            fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
+            fn runtime_type(&self) -> #FQOption<#bevy_reflect_path::ty::Type> {
+                #FQOption::Some(#bevy_reflect_path::ty::Type::of::<Self>())
+            }
+
+            #[inline]
+            fn runtime_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
