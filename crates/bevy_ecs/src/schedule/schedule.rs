@@ -1340,16 +1340,32 @@ impl ScheduleGraph {
         let set_systems = core::mem::take(&mut self.set_systems);
         let mut passes = core::mem::take(&mut self.passes);
         let dependency = self.dependency.clone();
+        let mut collapsing_added_edges = false;
         let mut flat_dependency =
             set_systems.flatten(dependency, |set, systems, flattening, temp| {
+                let collected = temp.len();
                 for pass in passes.values_mut() {
                     pass.collapse_set(set, systems, world, self, flattening, temp);
                 }
+                collapsing_added_edges |= temp.len() > collected;
             });
         self.set_systems = set_systems;
 
+        // Report the edges build passes added while collapsing sets.
+        let mut added_edges = HashSet::default();
+        if collapsing_added_edges {
+            let declared = self
+                .set_systems
+                .flatten(self.dependency.clone(), |_, _, _, _| {});
+            added_edges.extend(
+                flat_dependency
+                    .graph()
+                    .all_edges()
+                    .filter(|&(a, b)| !declared.graph().contains_edge(a, b)),
+            );
+        }
+
         // Allow modification of the schedule graph by build passes.
-        let mut added_edges = Default::default();
         for pass in passes.values_mut() {
             pass.build(
                 world,
@@ -1978,7 +1994,9 @@ impl ScheduleBuildSettings {
 pub struct ScheduleBuildMetadata {
     /// Warnings about the schedule graph detected by the build process.
     pub warnings: Vec<ScheduleBuildWarning>,
-    /// Edges added by [`ScheduleBuildPass`]es.
+    /// Edges added by [`ScheduleBuildPass`]es: those [`ScheduleBuildPass::collapse_set`] returns,
+    /// flattened to the systems of the sets they join, and those added in
+    /// [`ScheduleBuildPass::build`].
     ///
     /// These edges are not stored in the [`ScheduleGraph`], and so are only available during the
     /// build process.
@@ -2010,6 +2028,7 @@ mod tests {
     use core::any::TypeId;
 
     use bevy_ecs_macros::ScheduleLabel;
+    use bevy_platform::collections::HashSet;
 
     use crate::{
         error::{ignore, panic, FallbackErrorHandler, Result},
@@ -3074,6 +3093,69 @@ mod tests {
                 TypeId::of::<Pass<1>>(),
                 TypeId::of::<Pass<2>>()
             ]
+        );
+    }
+
+    #[test]
+    fn edges_added_while_collapsing_sets_are_reported() {
+        /// Orders the first system of each set before the set's other systems.
+        #[derive(Debug)]
+        struct FirstInSetFirst;
+
+        impl ScheduleBuildPass for FirstInSetFirst {
+            type EdgeOptions = ();
+            fn add_dependency(
+                &mut self,
+                _from: crate::schedule::NodeId,
+                _to: crate::schedule::NodeId,
+                _options: Option<&Self::EdgeOptions>,
+            ) {
+            }
+            fn build(
+                &mut self,
+                _world: &mut World,
+                _graph: &mut super::ScheduleGraph,
+                _dependency_flattened: FlattenedDependencies<'_>,
+            ) -> core::result::Result<(), crate::schedule::ScheduleBuildError> {
+                Ok(())
+            }
+            fn collapse_set(
+                &mut self,
+                _set: crate::schedule::SystemSetKey,
+                systems: &indexmap::IndexSet<
+                    crate::schedule::SystemKey,
+                    bevy_platform::hash::FixedHasher,
+                >,
+                _world: &mut World,
+                _graph: &mut super::ScheduleGraph,
+                _dependency_flattening: &crate::schedule::graph::DiGraph<crate::schedule::NodeId>,
+            ) -> impl Iterator<Item = (crate::schedule::NodeId, crate::schedule::NodeId)>
+            {
+                let first = systems.first().copied();
+                systems
+                    .iter()
+                    .skip(1)
+                    .filter_map(|&system| Some((first?.into(), system.into())))
+                    .collect::<Vec<_>>()
+                    .into_iter()
+            }
+        }
+
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set;
+
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_build_pass(FirstInSetFirst);
+        schedule.add_systems(((|| {}), (|| {})).in_set(Set));
+        // Ordered after both by flattening `Set`, so not added by the pass.
+        schedule.add_systems((|| {}).after(Set));
+
+        let metadata = schedule.initialize(&mut world).unwrap().unwrap();
+        let systems = schedule.graph().systems_in_set(Set.intern()).unwrap();
+        assert_eq!(
+            metadata.edges_added_by_build_passes,
+            HashSet::from_iter([(systems[0], systems[1])])
         );
     }
 
