@@ -210,7 +210,7 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimatedBy`] components at runtime and
 /// link them to a different player.
-#[derive(Clone, Copy, Component, Reflect, Debug)]
+#[derive(Clone, Copy, Component, Reflect, Debug, FromTemplate)]
 #[reflect(Component, Clone)]
 pub struct AnimatedBy(#[entities] pub Entity);
 
