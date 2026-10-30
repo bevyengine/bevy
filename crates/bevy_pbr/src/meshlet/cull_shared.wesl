@@ -15,6 +15,8 @@ fn lod_error_is_imperceptible(lod_sphere: vec4<f32>, simplification_error: f32, 
     let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
     let camera_pos = view.world_position;
 
+    // Error is measured against the output height, not the main pass height, so
+    // upscalers get geometry detail for the output resolution.
     let projection = view.clip_from_view;
     if projection[3][3] == 1.0 {
         // Orthographic
