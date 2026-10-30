@@ -306,7 +306,8 @@ impl TextEdit {
                     For proper handling of async clipboard operations, use `EditableText::apply_pending_edits` instead.");
 
                 let mut read = clipboard.fetch_text();
-                poll_and_apply_paste(&mut read, driver, max_characters, char_filter);
+                // No mask state here: on a masked field, the next sync discards this.
+                poll_and_apply_paste(&mut read, driver, max_characters, char_filter, None);
                 reveal_cursor(driver, viewport, cursor_margin);
             }
             TextEdit::Insert(text) => {
@@ -615,10 +616,16 @@ pub(crate) fn poll_and_apply_paste(
     driver: &mut PlainEditorDriver<TextBrush>,
     max_characters: Option<usize>,
     char_filter: impl Fn(char) -> bool,
+    masked: Option<&mut crate::masking::Masked>,
 ) -> bool {
     match read.poll_result() {
         Some(Ok(text)) => {
-            if matches!(
+            // Masked fields route the pasted text into the real value (this
+            // is the one place the clipboard string is visible, which is why
+            // masking lives in bevy_text).
+            if let Some(masked) = masked {
+                crate::masking::masked_insert(&text, masked, driver, max_characters, &char_filter);
+            } else if matches!(
                 insert_filtered(driver, &text, max_characters, char_filter),
                 Err(InsertRejection::CharFilter)
             ) {
