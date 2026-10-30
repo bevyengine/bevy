@@ -1,7 +1,7 @@
 ---
 title: Entity inspection tools
 authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
-pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26201, 26184, 26200, 26327]
+pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26201, 26184, 26200, 26327, 26113]
 ---
 
 `bevy_dev_tools::inspection` is gaining a backend for inspecting worlds, entities, components, and resources.
@@ -27,3 +27,4 @@ This note will be completed once the rest of the series lands.
 - Added `SchemaRegistry` to `bevy_remote`, an index over `registry.schema` schemas that resolves field, item and map types, so local and remote inspectors can read type structure the same way
 - Added stepping controls to the `bevy_inspector` remote source
 - The `bevy_inspector` details panel now honors `bevy_annotations` on fields and component types: display names, read-only values, value ranges, steps and units. Ranges, steps and units also apply to the items of a collection and to the payload of an `Option`
+- Added main and render subapp compatibility via `InspectorSources`

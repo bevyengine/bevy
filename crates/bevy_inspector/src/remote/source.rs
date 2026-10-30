@@ -11,9 +11,10 @@ use bevy_dev_tools::inspection::label_resolution::LabelResolutionRegistry;
 use bevy_ecs::{
     change_detection::Mut,
     entity::Entity,
+    intern::{Interned, Interner},
     reflect::{AppTypeRegistry, ReflectComponent},
     resource::Resource,
-    system::{Res, ResMut},
+    system::{Local, Res, ResMut},
     world::World,
 };
 use bevy_log::{info, warn};
@@ -39,7 +40,8 @@ use super::world::{RemoteWorld, SpawnRemoteError, TreeComponents};
 use crate::{
     details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
     entity_tree::{clear_rows, EntityTreeSync},
-    InspectorSelection, InspectorSource,
+    remote::world::RemoteWorlds,
+    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, WorldKind,
 };
 
 const NAME: &str = "bevy_ecs::name::Name";
@@ -62,14 +64,18 @@ const FULL_REFRESH_INTERVAL: Duration = Duration::from_secs(10);
 /// is not fully polled every time.
 const FULL_MIN_INTERVAL: Duration = Duration::from_secs(2);
 
+static HOST_INTERNER: Interner<str> = Interner::<str>::new();
+
 /// The address of the remote app the inspector reads from.
-#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
 #[reflect(Debug, Default, Clone, PartialEq)]
 pub struct RemoteSource {
     /// The host the remote app serves the Bevy Remote Protocol on.
-    pub host: String,
+    pub host: Interned<str>,
     /// The port the remote app serves the Bevy Remote Protocol on.
     pub port: u16,
+    /// The subapp of the remote app.
+    pub subapp: WorldKind,
 }
 
 impl Default for RemoteSource {
@@ -80,16 +86,17 @@ impl Default for RemoteSource {
 
 impl RemoteSource {
     /// A source reading from `host:port`.
-    pub fn new(host: impl Into<String>, port: u16) -> Self {
+    pub fn new(host: impl Into<String>, port: u16, subapp: WorldKind) -> Self {
         Self {
-            host: host.into(),
+            host: HOST_INTERNER.intern(&host.into()),
             port,
+            subapp,
         }
     }
 
     /// A source reading from `127.0.0.1:port`.
     pub fn localhost(port: u16) -> Self {
-        Self::new("127.0.0.1", port)
+        Self::new("127.0.0.1", port, WorldKind::Main)
     }
 }
 
@@ -143,11 +150,38 @@ struct PendingCall {
     full: bool,
 }
 
+/// Connections to the remote app.
+#[derive(Resource, Default)]
+pub struct RemoteConnections {
+    /// Connection to the main world.
+    pub main: RemoteConnection,
+    /// Connection to the render world.
+    pub render: RemoteConnection,
+}
+
+impl RemoteConnections {
+    /// Get the [`RemoteConnection`]
+    pub fn get(&self, kind: WorldKind) -> &RemoteConnection {
+        if kind == WorldKind::Main {
+            return &self.main;
+        }
+        &self.render
+    }
+
+    /// Mutably get the [`RemoteConnection`]
+    pub fn get_mut(&mut self, kind: WorldKind) -> &mut RemoteConnection {
+        if kind == WorldKind::Main {
+            return &mut self.main;
+        }
+        &mut self.render
+    }
+}
+
 /// The connection to the remote app.
 ///
 /// At most one poll is in flight at a time, so polls never pile up when the remote app answers
 /// slower than the poll interval. Dropping the in-flight task cancels it.
-#[derive(Resource, Default)]
+#[derive(Default)]
 pub struct RemoteConnection {
     /// The state of the connection.
     pub state: RemoteConnectionState,
@@ -253,8 +287,33 @@ struct PolledRow {
     reflected: bool,
 }
 
-/// The entities of the remote world, as last reported by `world.query`.
+/// The entities of the remote app.
 #[derive(Resource, Debug, Default)]
+pub struct RemoteSnapshots {
+    main: RemoteSnapshot,
+    render: RemoteSnapshot,
+}
+
+impl RemoteSnapshots {
+    /// Get the [`RemoteSnapshot`]
+    pub fn get(&self, kind: WorldKind) -> &RemoteSnapshot {
+        if kind == WorldKind::Main {
+            return &self.main;
+        }
+        &self.render
+    }
+
+    /// Mutably get the [`RemoteSnapshot`]
+    pub fn get_mut(&mut self, kind: WorldKind) -> &mut RemoteSnapshot {
+        if kind == WorldKind::Main {
+            return &mut self.main;
+        }
+        &mut self.render
+    }
+}
+
+/// The entities of the remote world, as last reported by `world.query`.
+#[derive(Debug, Default)]
 pub struct RemoteSnapshot {
     shown: Vec<Entity>,
     pending: Option<Vec<PolledRow>>,
@@ -322,54 +381,129 @@ impl RemoteSnapshot {
     }
 }
 
-/// Whether the inspector currently reads from a remote app.
-pub(crate) fn is_remote(world: &World) -> bool {
-    matches!(
-        world.get_resource::<InspectorSource>(),
-        Some(InspectorSource::Remote(_))
-    )
-}
-
 /// Sets the connection up for the current [`InspectorSource`] when it changes, clearing the
 /// [`RemoteWorld`] and the selection.
-pub fn sync_remote_source(world: &mut World) {
-    let source = match world.get_resource::<InspectorSource>() {
-        Some(InspectorSource::Remote(source)) => Some(source),
-        _ => None,
+pub fn sync_remote_sources(world: &mut World, mut old_sources: Local<HashSet<InspectorSource>>) {
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        if let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
+            sel.0 = None;
+        }
+
+        return;
     };
-    if world.resource::<RemoteConnection>().source.as_ref() == source {
+
+    let mut spotted_selected = false;
+
+    let mut spotted_source: Option<InspectorSource> = None;
+    if let Some(sel) = world.get_resource::<InspectorSelection>()
+        && let Some(ref f) = sel.0
+    {
+        spotted_source = Some(f.source);
+    }
+
+    let next_sources = inspector_sources.sources.clone();
+
+    for inspector_source in inspector_sources.sources.clone().iter() {
+        if spotted_source == Some(*inspector_source) {
+            spotted_selected = true;
+        }
+
+        old_sources.remove(inspector_source);
+
+        match inspector_source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(rem) => {
+                sync_remote_source(world, rem);
+            }
+        }
+    }
+
+    // Clear the old sources
+    for inspector_source in &*old_sources {
+        match inspector_source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(rem) => {
+                clear_remote_source(world, rem);
+            }
+        }
+    }
+    *old_sources = next_sources;
+
+    if !spotted_selected && let Some(mut sel) = world.get_resource_mut::<InspectorSelection>() {
+        sel.0 = None;
+    }
+}
+
+fn sync_remote_source(world: &mut World, source: &RemoteSource) {
+    let remote_connections = world.resource::<RemoteConnections>();
+    let connection = remote_connections.get(source.subapp);
+    if connection.source.as_ref() == Some(source) {
         return;
     }
-    let source = source.cloned();
 
-    *world.resource_mut::<RemoteSnapshot>() = RemoteSnapshot::default();
-    reset_inspected_world(world);
+    let mut snapshots = world.resource_mut::<RemoteSnapshots>();
+    if source.subapp == WorldKind::Main {
+        snapshots.main = RemoteSnapshot::default();
+    } else {
+        snapshots.render = RemoteSnapshot::default();
+    }
+    reset_inspected_world(world, source);
 
-    let mut connection = world.resource_mut::<RemoteConnection>();
+    let mut remote_connections = world.resource_mut::<RemoteConnections>();
+    let connection = remote_connections.get_mut(source.subapp);
     connection.pending = None;
     connection.state = RemoteConnectionState::Disconnected;
     connection.next_poll = Duration::ZERO;
     connection.next_full = Duration::ZERO;
-    connection.client = source
-        .as_ref()
-        .map(|source| BrpClient::new(source.host.clone(), source.port));
-    connection.source = source;
+    connection.client = Some(BrpClient::new(source.host.0, source.port));
+    connection.source = Some(*source);
+}
+
+fn clear_remote_source(world: &mut World, source: &RemoteSource) {
+    let mut snapshots = world.resource_mut::<RemoteSnapshots>();
+    if source.subapp == WorldKind::Main {
+        snapshots.main = RemoteSnapshot::default();
+    } else {
+        snapshots.render = RemoteSnapshot::default();
+    }
+    reset_inspected_world(world, source);
+
+    let mut remote_connections = world.resource_mut::<RemoteConnections>();
+    let connection = remote_connections.get_mut(source.subapp);
+    connection.pending = None;
+    connection.state = RemoteConnectionState::Disconnected;
+    connection.next_poll = Duration::ZERO;
+    connection.next_full = Duration::ZERO;
+    connection.client = None;
+    connection.source = None;
 }
 
 /// Rebuilds the [`RemoteWorld`] empty, and clears the state tied to the previous source: the
 /// selection, the tree rows, and the collapsed and column split state of the details panel.
-fn reset_inspected_world(world: &mut World) {
+fn reset_inspected_world(world: &mut World, kind: &RemoteSource) {
     let registry = world
         .get_resource::<AppTypeRegistry>()
         .cloned()
         .unwrap_or_default();
-    world.resource_mut::<RemoteWorld>().reset(registry);
-    world.resource_mut::<InspectorSelection>().0 = None;
-    if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
-        collapsed.0.clear();
-    }
-    if let Some(mut splits) = world.get_resource_mut::<DetailsColumnSplits>() {
-        splits.0.clear();
+    let mut rw = world.resource_mut::<RemoteWorlds>();
+    rw.get_mut(kind.subapp).reset(registry);
+    let mut sel = world.resource_mut::<InspectorSelection>();
+    if let Some(selection) = sel.0.clone() {
+        match selection.source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(wk) => {
+                if wk == *kind {
+                    sel.0 = None;
+
+                    if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
+                        collapsed.0.clear();
+                    }
+                    if let Some(mut splits) = world.get_resource_mut::<DetailsColumnSplits>() {
+                        splits.0.clear();
+                    }
+                }
+            }
+        }
     }
     clear_rows(world);
     world.resource_mut::<EntityTreeSync>().set_dirty();
@@ -377,23 +511,54 @@ fn reset_inspected_world(world: &mut World) {
 }
 
 /// Polls the request in flight and starts the next one when it is due.
-pub fn poll_remote_connection(
+pub fn poll_remote_connections(
     time: Option<Res<Time<Real>>>,
     registry: Option<Res<AppTypeRegistry>>,
     priorities: Option<Res<LabelResolutionRegistry>>,
-    mut connection: ResMut<RemoteConnection>,
-    mut snapshot: ResMut<RemoteSnapshot>,
+    connection: ResMut<RemoteConnections>,
+    snapshot: ResMut<RemoteSnapshots>,
+) {
+    let now = time
+        .map(|time: Res<'_, Time<Real>>| time.elapsed())
+        .unwrap_or_default();
+    let registry = registry.as_deref();
+    let priorities = priorities.as_deref();
+
+    let RemoteConnections {
+        main: main_connection,
+        render: render_connection,
+    } = connection.into_inner();
+    let RemoteSnapshots {
+        main: main_snapshot,
+        render: render_snapshot,
+    } = snapshot.into_inner();
+
+    poll_remote_connection(now, registry, priorities, main_connection, main_snapshot);
+    poll_remote_connection(
+        now,
+        registry,
+        priorities,
+        render_connection,
+        render_snapshot,
+    );
+}
+
+fn poll_remote_connection(
+    now: Duration,
+    registry: Option<&AppTypeRegistry>,
+    priorities: Option<&LabelResolutionRegistry>,
+    connection: &mut RemoteConnection,
+    snapshot: &mut RemoteSnapshot,
 ) {
     if connection.client.is_none() {
         return;
     }
-    let now = time.map(|time| time.elapsed()).unwrap_or_default();
-    let connection = &mut *connection;
-    if !connection.finish_pending(&mut snapshot, now) {
+
+    if !connection.finish_pending(snapshot, now) {
         return;
     }
     let Some(request) = connection.next_request(now, || match &registry {
-        Some(registry) => poll_types(&registry.read(), priorities.as_deref()),
+        Some(registry) => poll_types(&registry.read(), priorities),
         None => PollTypes::default(),
     }) else {
         return;
@@ -611,8 +776,8 @@ fn finish_call(
         Err(error) => connection.fail(snapshot, error.to_string(), now),
         Ok(Reply::Info(info)) => {
             info!(
-                "the remote inspector connected to {} ({})",
-                info.app_name, info.bevy_version
+                "the remote inspector connected to {} ({} {})",
+                info.app_name, info.bevy_version, info.sub_app
             );
             snapshot.clear();
             connection.state = RemoteConnectionState::Connected {
@@ -638,38 +803,59 @@ fn finish_call(
     }
 }
 
+/// Updates each of the [`RemoteWorld`]'s based on the corresponding connection change.
+pub fn sync_remote_worlds(world: &mut World) {
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return;
+    };
+
+    for inspector_source in inspector_sources.sources.clone().iter() {
+        match inspector_source {
+            InspectorSource::Local => {}
+            InspectorSource::Remote(rem) => {
+                sync_remote_world(world, rem);
+            }
+        }
+    }
+}
+
 /// Writes the latest poll into the [`RemoteWorld`]: despawns the entities it no longer shows,
 /// spawns the new ones, and writes the components that changed.
 ///
 /// Rebuilds the [`RemoteWorld`] first if the connection was reset. If a remote id has an earlier
 /// generation than the one mirrored, the remote app restarted: the world is rebuilt, the poll
 /// written again, and a full poll requested.
-pub fn sync_remote_world(world: &mut World) {
-    if !is_remote(world) {
-        return;
-    }
-    let mut snapshot = world.resource_mut::<RemoteSnapshot>();
+fn sync_remote_world(world: &mut World, source: &RemoteSource) {
+    let mut snapshots = world.resource_mut::<RemoteSnapshots>();
+    let snapshot = snapshots.get_mut(source.subapp);
     let reset = core::mem::take(&mut snapshot.reset);
     let pending = snapshot.pending.take();
     if reset {
-        reset_inspected_world(world);
+        reset_inspected_world(world, source);
     }
     let Some(pending) = pending else {
         return;
     };
-    let selection = world.resource::<InspectorSelection>().0;
-    let written = world.resource_scope(|_, mut remote: Mut<RemoteWorld>| {
-        apply_rows(&mut remote, pending, selection)
+    let sel = world.resource::<InspectorSelection>();
+    let selection = sel.0.clone();
+
+    let written = world.resource_scope(|_, mut remote: Mut<RemoteWorlds>| {
+        let w = remote.get_mut(source.subapp);
+        apply_rows(w, pending, selection, InspectorSource::Remote(*source))
     });
     let written = match written {
         Ok(written) => written,
         Err(pending) => {
-            warn!("the remote app restarted, rebuilding the remote inspector's copy of it");
-            reset_inspected_world(world);
-            world.resource_mut::<RemoteConnection>().next_full = Duration::ZERO;
+            warn!("the remote app restarted, rebuilding the remote inspector's copy of it pending_rows={}", pending.len());
+            reset_inspected_world(world, source);
+
+            let mut rc = world.resource_mut::<RemoteConnections>();
+            rc.get_mut(source.subapp).next_full = Duration::ZERO;
+
             world
-                .resource_scope(|_, mut remote: Mut<RemoteWorld>| {
-                    apply_rows(&mut remote, pending, None)
+                .resource_scope(|_, mut remotes: Mut<RemoteWorlds>| {
+                    let remote = remotes.get_mut(source.subapp);
+                    apply_rows(remote, pending, None, InspectorSource::Remote(*source))
                 })
                 .unwrap_or_default()
         }
@@ -695,7 +881,8 @@ struct Applied {
 fn apply_rows(
     remote: &mut RemoteWorld,
     rows: Vec<PolledRow>,
-    selection: Option<Entity>,
+    selection: Option<InspectableEntity>,
+    kind: InspectorSource,
 ) -> Result<Applied, Vec<PolledRow>> {
     let mut applied = Applied::default();
     let shown: HashSet<Entity> = rows.iter().map(|row| row.entity).collect();
@@ -703,7 +890,10 @@ fn apply_rows(
         if !shown.contains(&entity) {
             remote.despawn(entity);
             applied.tree = true;
-            applied.selection |= selection == Some(entity);
+
+            if let Some(ref ins) = selection {
+                applied.selection |= ins.entity == entity && ins.source == kind;
+            }
         }
     }
 
@@ -732,7 +922,10 @@ fn apply_rows(
         }
         let changed = remote.write(row.entity, row.components);
         applied.tree |= changed;
-        applied.selection |= changed && selection == Some(row.entity);
+        applied.selection |= changed
+            && selection
+                .as_ref()
+                .is_some_and(|f| f.entity == row.entity && f.source == kind);
     }
     Ok(applied)
 }
@@ -740,12 +933,16 @@ fn apply_rows(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::details_panel::{ComponentKey, DetailsCollapsed, DetailsColumnSplits};
+    use crate::{
+        details_panel::{ComponentKey, DetailsCollapsed, DetailsColumnSplits},
+        WorldKind::Main,
+    };
     use bevy_dev_tools::inspection::label_resolution::LabelDefinitionPriority;
     use bevy_ecs::{
         component::Component,
         hierarchy::{ChildOf, Children},
         name::Name,
+        system::{IntoSystem, System as _},
     };
     use bevy_reflect::{TypePath, TypeRegistryArc};
     use serde_json::json;
@@ -760,18 +957,20 @@ pub(crate) mod tests {
             registry.register::<Children>();
         }
         world.insert_resource(registry);
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(
-            DEFAULT_PORT,
-        )));
+        world.insert_resource(InspectorSources::remote_main("localhost", DEFAULT_PORT));
         world.init_resource::<InspectorSelection>();
-        world.init_resource::<RemoteConnection>();
-        world.init_resource::<RemoteSnapshot>();
-        world.init_resource::<RemoteWorld>();
+        world.init_resource::<RemoteConnections>();
+        world.init_resource::<RemoteSnapshots>();
+        world.init_resource::<RemoteWorlds>();
         world.init_resource::<EntityTreeSync>();
         world.init_resource::<DetailsPanelSync>();
         world.init_resource::<DetailsCollapsed>();
         world.init_resource::<DetailsColumnSplits>();
         world
+    }
+
+    pub(crate) fn remote_source(port: u16) -> RemoteSource {
+        RemoteSource::new("localhost", port, Main)
     }
 
     pub(crate) fn remote(index: u32) -> Entity {
@@ -795,8 +994,8 @@ pub(crate) mod tests {
 
     fn poll(world: &mut World, rows: Vec<Value>, full: bool) {
         let rows = parse(world, Value::Array(rows), full);
-        world.resource_mut::<RemoteSnapshot>().set(rows, full);
-        sync_remote_world(world);
+        world.resource_mut::<RemoteSnapshots>().main.set(rows, full);
+        sync_remote_worlds(world);
     }
 
     pub(crate) fn apply(world: &mut World, rows: Vec<Value>) {
@@ -804,7 +1003,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn mirrored(world: &World) -> &World {
-        world.resource::<RemoteWorld>().world()
+        world.resource::<RemoteWorlds>().main.world()
     }
 
     fn label(world: &World, entity: Entity) -> String {
@@ -1024,7 +1223,10 @@ pub(crate) mod tests {
             ],
             true,
         );
-        assert_eq!(world.resource_mut::<RemoteWorld>().entities().len(), 2);
+        assert_eq!(
+            world.resource_mut::<RemoteWorlds>().main.entities().len(),
+            2
+        );
 
         let unseen = parse(
             &world,
@@ -1037,9 +1239,13 @@ pub(crate) mod tests {
             ]),
             false,
         );
-        assert!(world.resource_mut::<RemoteSnapshot>().set(unseen, false));
-        sync_remote_world(&mut world);
-        let remote_world = world.resource::<RemoteWorld>();
+        assert!(world
+            .resource_mut::<RemoteSnapshots>()
+            .main
+            .set(unseen, false));
+        sync_remote_worlds(&mut world);
+        let rws = world.resource::<RemoteWorlds>();
+        let remote_world = &rws.main;
         assert!(remote_world.contains(remote(11)));
         assert!(
             remote_world.contains(remote(12)),
@@ -1069,8 +1275,11 @@ pub(crate) mod tests {
             ],
             true,
         );
-        assert_eq!(world.resource_mut::<RemoteWorld>().entities().len(), 4);
-        assert!(world.resource::<RemoteWorld>().contains(remote(14)));
+        assert_eq!(
+            world.resource_mut::<RemoteWorlds>().main.entities().len(),
+            4
+        );
+        assert!(world.resource::<RemoteWorlds>().main.contains(remote(14)));
     }
 
     #[test]
@@ -1108,7 +1317,7 @@ pub(crate) mod tests {
                 row(remote(13), json!({ NAME: "Shown" })),
             ],
         );
-        let entities = world.resource_mut::<RemoteWorld>().entities();
+        let entities = world.resource_mut::<RemoteWorlds>().main.entities();
         assert_eq!(entities, [remote(13)]);
     }
 
@@ -1172,7 +1381,10 @@ pub(crate) mod tests {
         assert!(inspected.get_entity(b).is_err());
         assert!(inspected.get_entity(c).is_ok());
         assert_eq!(inspected.get::<ChildOf>(c).map(ChildOf::parent), Some(a));
-        assert_eq!(world.resource_mut::<RemoteWorld>().entities().len(), 2);
+        assert_eq!(
+            world.resource_mut::<RemoteWorlds>().main.entities().len(),
+            2
+        );
 
         apply(&mut world, alloc::vec![row(c, json!({ NAME: "C" }))]);
         let inspected = mirrored(&world);
@@ -1193,13 +1405,19 @@ pub(crate) mod tests {
             ],
         );
         let names = |entity| -> Vec<String> {
-            crate::details_panel::inspect_components(mirrored(&world), Some(entity))
+            crate::details_panel::inspect_components(mirrored(&world), Some(entity), false)
                 .into_iter()
                 .map(|component| component.name)
                 .collect()
         };
-        assert_eq!(names(parent), ["Children", "Name"]);
-        assert_eq!(names(child), ["ChildOf"]);
+        assert_eq!(
+            names(InspectableEntity::new(parent, InspectorSource::Local)),
+            ["Children", "Name"]
+        );
+        assert_eq!(
+            names(InspectableEntity::new(child, InspectorSource::Local)),
+            ["ChildOf"]
+        );
     }
 
     #[test]
@@ -1229,14 +1447,20 @@ pub(crate) mod tests {
     #[test]
     fn an_earlier_generation_rebuilds_the_world() {
         let mut world = test_world();
-        world.insert_resource(connected());
+        world.insert_resource(RemoteConnections {
+            main: connected(),
+            render: connected(),
+        });
         let late = Entity::from_index_and_generation(
             remote(14).index(),
             remote(14).generation().after_versions(3),
         );
         apply(&mut world, alloc::vec![row(late, json!({ NAME: "Old" }))]);
-        world.resource_mut::<RemoteConnection>().next_full = Duration::from_secs(60);
-        world.resource_mut::<InspectorSelection>().0 = Some(late);
+        world.resource_mut::<RemoteConnections>().main.next_full = Duration::from_secs(60);
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            late,
+            InspectorSource::Remote(remote_source(DEFAULT_PORT)),
+        ));
 
         apply(
             &mut world,
@@ -1249,7 +1473,7 @@ pub(crate) mod tests {
         );
         assert_eq!(world.resource::<InspectorSelection>().0, None);
         assert_eq!(
-            world.resource::<RemoteConnection>().next_full,
+            world.resource::<RemoteConnections>().main.next_full,
             Duration::ZERO
         );
     }
@@ -1257,12 +1481,20 @@ pub(crate) mod tests {
     #[test]
     fn switching_to_local_resets_the_remote_world() {
         let mut world = test_world();
-        sync_remote_source(&mut world);
+
+        let mut sync_remote_sources_system = IntoSystem::into_system(sync_remote_sources);
+        sync_remote_sources_system.initialize(&mut world);
+
+        let _ = sync_remote_sources_system.run((), &mut world);
+
         apply(
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
-        world.resource_mut::<InspectorSelection>().0 = Some(remote(11));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            remote(11),
+            InspectorSource::Remote(remote_source(DEFAULT_PORT)),
+        ));
         let key = ComponentKey::from("remote::Component");
         world
             .resource_mut::<DetailsCollapsed>()
@@ -1273,42 +1505,62 @@ pub(crate) mod tests {
             .0
             .insert(key, 0.3);
 
-        world.insert_resource(InspectorSource::Local);
-        sync_remote_source(&mut world);
+        world.insert_resource(InspectorSources::local());
+        let _ = sync_remote_sources_system.run((), &mut world);
 
-        assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
+        assert!(world
+            .resource_mut::<RemoteWorlds>()
+            .main
+            .entities()
+            .is_empty());
         assert!(world.resource::<DetailsCollapsed>().0.is_empty());
         assert!(world.resource::<DetailsColumnSplits>().0.is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
-        assert!(world.resource::<RemoteConnection>().client().is_none());
+        assert!(world
+            .resource::<RemoteConnections>()
+            .main
+            .client()
+            .is_none());
     }
 
     #[test]
     fn every_source_change_clears_the_selection() {
-        let mut world = test_world();
-        world.insert_resource(InspectorSource::Local);
+        let mut world = test_world(); // InspectorSources::remote_main("localhost", DEFAULT_PORT)
+        world.insert_resource(InspectorSources::local());
         let local = world.spawn_empty().id();
-        world.resource_mut::<InspectorSelection>().0 = Some(local);
 
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(1)));
-        sync_remote_source(&mut world);
+        world.resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(local, InspectorSource::Local));
+
+        let mut sync_remote_sources_system = IntoSystem::into_system(sync_remote_sources);
+        sync_remote_sources_system.initialize(&mut world);
+
+        world.insert_resource(InspectorSources::remote_main("localhost", 1));
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        world.resource_mut::<InspectorSelection>().0 = Some(local);
-        sync_remote_source(&mut world);
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            local,
+            InspectorSource::Remote(remote_source(1)),
+        ));
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(
             world.resource::<InspectorSelection>().0,
-            Some(local),
+            Some(InspectableEntity::new(
+                local,
+                InspectorSource::Remote(remote_source(1))
+            )),
             "an unchanged source keeps the selection"
         );
 
-        world.insert_resource(InspectorSource::Remote(RemoteSource::localhost(2)));
-        sync_remote_source(&mut world);
+        world.insert_resource(InspectorSources::remote_main("localhost", 3));
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
 
-        world.resource_mut::<InspectorSelection>().0 = Some(local);
-        world.insert_resource(InspectorSource::Local);
-        sync_remote_source(&mut world);
+        let rs = InspectorSource::Remote(remote_source(1));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(local, rs));
+        world.insert_resource(InspectorSources::local());
+        let _ = sync_remote_sources_system.run((), &mut world);
         assert_eq!(world.resource::<InspectorSelection>().0, None);
     }
 
@@ -1349,27 +1601,37 @@ pub(crate) mod tests {
     #[test]
     fn losing_the_connection_clears_the_remote_entities() {
         let mut world = test_world();
-        world.insert_resource(connected());
+        world.insert_resource(RemoteConnections {
+            main: connected(),
+            render: connected(),
+        });
         apply(
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
-        world.resource_mut::<InspectorSelection>().0 = Some(remote(11));
+        world.resource_mut::<InspectorSelection>().0 = Some(InspectableEntity::new(
+            remote(11),
+            InspectorSource::Remote(remote_source(DEFAULT_PORT)),
+        ));
 
-        world.resource_scope(|world, mut connection: Mut<RemoteConnection>| {
+        world.resource_scope(|world, mut connection: Mut<RemoteConnections>| {
             finish_call(
-                &mut connection,
-                &mut world.resource_mut::<RemoteSnapshot>(),
+                &mut connection.main,
+                &mut world.resource_mut::<RemoteSnapshots>().main,
                 false,
                 Err(BrpClientError::InvalidResponse("refused".to_string())),
                 Duration::from_secs(1),
                 Duration::ZERO,
             );
         });
-        sync_remote_world(&mut world);
+        sync_remote_worlds(&mut world);
 
-        assert!(world.resource::<RemoteSnapshot>().is_empty());
-        assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
+        assert!(world.resource::<RemoteSnapshots>().get(Main).is_empty());
+        assert!(world
+            .resource_mut::<RemoteWorlds>()
+            .main
+            .entities()
+            .is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
     }
 
@@ -1380,18 +1642,22 @@ pub(crate) mod tests {
             &mut world,
             alloc::vec![row(remote(11), json!({ NAME: "A" }))],
         );
-        world.resource_scope(|world, mut connection: Mut<RemoteConnection>| {
+        world.resource_scope(|world, mut connection: Mut<RemoteConnections>| {
             finish_call(
-                &mut connection,
-                &mut world.resource_mut::<RemoteSnapshot>(),
+                &mut connection.main,
+                &mut world.resource_mut::<RemoteSnapshots>().main,
                 false,
                 info(),
                 Duration::from_secs(1),
                 Duration::ZERO,
             );
         });
-        sync_remote_world(&mut world);
-        assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
+        sync_remote_worlds(&mut world);
+        assert!(world
+            .resource_mut::<RemoteWorlds>()
+            .main
+            .entities()
+            .is_empty());
     }
 
     #[test]

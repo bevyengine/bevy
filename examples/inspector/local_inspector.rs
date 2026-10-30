@@ -18,7 +18,7 @@ use bevy::{
     inspector::{
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
-        InspectorPlugin, InspectorSelection,
+        InspectableEntity, InspectorPlugin, InspectorSelection,
     },
     prelude::*,
     ui_widgets::split_pane_self_update,
@@ -245,8 +245,9 @@ fn log_selection(selection: Res<InspectorSelection>, names: Query<&Name>) {
         return;
     }
     match selection.0 {
-        Some(entity) => info!(
-            "selected {entity}: {}",
+        Some(InspectableEntity { entity, source }) => info!(
+            "selected {entity} {:?}: {}",
+            source,
             names
                 .get(entity)
                 .map(Name::as_str)

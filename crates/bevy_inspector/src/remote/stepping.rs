@@ -42,7 +42,7 @@ use bevy_ui::{px, widget::Text, AlignItems, FlexDirection, InteractionDisabled, 
 use bevy_ui_widgets::Activate;
 use serde_json::Value;
 
-use super::{source::REQUEST_TIMEOUT, RemoteConnection, RemoteConnectionState, RemoteSource};
+use super::{source::REQUEST_TIMEOUT, RemoteConnectionState, RemoteConnections, RemoteSource};
 use crate::entity_tree::InspectorUi;
 
 /// The time between two `stepping.status` polls.
@@ -180,23 +180,28 @@ pub fn stepping_button_clicked(
 ///
 /// Polling stops once the remote app reports that stepping is unavailable, since it cannot gain
 /// the feature without restarting, and resumes when the connection changes or drops.
+///
+/// TODO: only on main connection...
 pub fn poll_remote_stepping(
     time: Option<Res<Time<Real>>>,
-    connection: Res<RemoteConnection>,
+    connections: Res<RemoteConnections>,
     mut stepping: ResMut<RemoteStepping>,
     mut status: ResMut<SteppingStatus>,
 ) {
     let now = time.map(|time| time.elapsed()).unwrap_or_default();
     let stepping = &mut *stepping;
-    let connected = matches!(connection.state, RemoteConnectionState::Connected { .. });
-    if stepping.source.as_ref() != connection.source() || !connected {
-        stepping.source = connection.source().cloned();
+    let connected = matches!(
+        connections.main.state,
+        RemoteConnectionState::Connected { .. }
+    );
+    if stepping.source.as_ref() != connections.main.source() || !connected {
+        stepping.source = connections.main.source().cloned();
         stepping.pending = None;
         stepping.requested = None;
         stepping.next_status = Duration::ZERO;
         status.set_if_neq(SteppingStatus::Unknown);
     }
-    let Some(client) = connection.client().filter(|_| connected) else {
+    let Some(client) = connections.main.client().filter(|_| connected) else {
         return;
     };
 

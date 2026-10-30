@@ -32,6 +32,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     world::World,
 };
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::UiSystems;
 
@@ -43,8 +44,72 @@ use crate::details_panel::{
 use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
 
 /// Where the inspector reads its data from.
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
+#[derive(Resource, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
+pub struct InspectorSources {
+    /// The sources the inspector reads data from
+    pub sources: HashSet<InspectorSource>,
+}
+
+impl Default for InspectorSources {
+    fn default() -> Self {
+        InspectorSources::local()
+    }
+}
+
+impl InspectorSources {
+    /// Local inspection
+    pub fn local() -> Self {
+        let mut t = HashSet::new();
+        t.insert(InspectorSource::Local);
+        InspectorSources { sources: t }
+    }
+
+    /// Remote inspection (main and render)
+    #[cfg(feature = "remote")]
+    pub fn remote(host: impl Into<String>, main_port: u16, render_port: u16) -> Self {
+        let mut t = HashSet::new();
+        let host = host.into();
+        t.insert(InspectorSource::Remote(remote::RemoteSource::new(
+            host.clone(),
+            main_port,
+            WorldKind::Main,
+        )));
+        t.insert(InspectorSource::Remote(remote::RemoteSource::new(
+            host,
+            render_port,
+            WorldKind::Render,
+        )));
+        InspectorSources { sources: t }
+    }
+
+    /// Remote inspection (main only)
+    #[cfg(feature = "remote")]
+    pub fn remote_main(host: impl Into<String>, main_port: u16) -> Self {
+        let mut t = HashSet::new();
+        t.insert(InspectorSource::Remote(remote::RemoteSource::new(
+            host,
+            main_port,
+            WorldKind::Main,
+        )));
+        InspectorSources { sources: t }
+    }
+}
+
+/// The sub app of a remote app
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Default, Clone, PartialEq)]
+pub enum WorldKind {
+    /// Main subapp
+    #[default]
+    Main,
+    /// Render subapp
+    Render,
+}
+
+/// A single source to read data from
+#[derive(Debug, Default, Clone, PartialEq, Copy, Eq, Reflect, Hash)]
+#[reflect(Debug, Default, Clone, PartialEq)]
 pub enum InspectorSource {
     /// The world the inspector itself runs in.
     #[default]
@@ -56,20 +121,43 @@ pub enum InspectorSource {
 
 /// The world the panels read: the `RemoteWorld` while the inspector reads from a remote
 /// app, and `world` otherwise.
-pub(crate) fn world_to_inspect(world: &World) -> &World {
+///
+/// NOTE: we currently restrict to at most 1x main app and 1x render app.
+pub(crate) fn world_to_inspect<'a>(
+    world: &'a World,
+    inspector_source: &'a InspectorSource,
+) -> &'a World {
     #[cfg(feature = "remote")]
-    if remote::is_remote(world)
-        && let Some(remote) = world.get_resource::<remote::RemoteWorld>()
+    if let InspectorSource::Remote(rem) = inspector_source
+        && let Some(remote) = world.get_resource::<remote::RemoteWorlds>()
     {
-        return remote.world();
+        return remote.get(rem.subapp).world();
     }
+    let _ = inspector_source;
     world
 }
 
+/// An inspected entity, and whether its from the main or render world.
+#[derive(Debug, Clone, PartialEq, Eq, Reflect, Hash)]
+#[reflect(Debug, Clone, PartialEq)]
+pub struct InspectableEntity {
+    /// The entity in the remote world
+    pub entity: Entity,
+    /// Whether its from the main or render world
+    pub source: InspectorSource,
+}
+
+impl InspectableEntity {
+    /// Creates an selection
+    pub fn new(entity: Entity, source: InspectorSource) -> Self {
+        InspectableEntity { entity, source }
+    }
+}
+
 /// The entity currently being inspected, as an id in the inspected world.
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
-pub struct InspectorSelection(pub Option<Entity>);
+pub struct InspectorSelection(pub Option<InspectableEntity>);
 
 /// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///
@@ -112,7 +200,7 @@ impl Plugin for InspectorPlugin {
             app.add_plugins(ColumnSplitPlugin);
         }
 
-        app.init_resource::<InspectorSource>()
+        app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
@@ -131,18 +219,18 @@ impl Plugin for InspectorPlugin {
             );
 
         #[cfg(feature = "remote")]
-        app.init_resource::<remote::RemoteConnection>()
-            .init_resource::<remote::RemoteSnapshot>()
-            .init_resource::<remote::RemoteWorld>()
+        app.init_resource::<remote::RemoteConnections>()
+            .init_resource::<remote::RemoteSnapshots>()
+            .init_resource::<remote::RemoteWorlds>()
             .init_resource::<remote::stepping::RemoteStepping>()
             .init_resource::<remote::stepping::SteppingStatus>()
             .add_systems(
                 PostUpdate,
                 (
-                    remote::sync_remote_source,
-                    remote::poll_remote_connection,
+                    remote::sync_remote_sources,
+                    remote::poll_remote_connections,
                     remote::stepping::poll_remote_stepping,
-                    remote::sync_remote_world,
+                    remote::sync_remote_worlds,
                 )
                     .chain()
                     .before(sync_entity_tree)
@@ -151,12 +239,11 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    connection_panel::init_address_input,
                     connection_panel::sync_connection_status,
                     remote::stepping::sync_stepping_controls
                         .after(remote::stepping::poll_remote_stepping),
                 )
-                    .after(remote::poll_remote_connection)
+                    .after(remote::poll_remote_connections)
                     .before(UiSystems::Prepare),
             );
     }
