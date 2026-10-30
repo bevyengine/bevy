@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{UVec2, Vec2};
 use bevy_platform::collections::HashMap;
-use swash::scale::Scaler;
+use swash::{scale::Scaler, zeno::Vector};
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
@@ -10,11 +10,50 @@ use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 /// Padding in pixels between glyph textures and the font atlas edges.
 const GLYPH_ATLAS_PADDING: u32 = 2;
 
+/// Number of horizontal subpixel offsets a glyph can be rasterized at.
+pub const SUBPIXEL_BINS: u8 = 4;
+
 /// Key identifying a glyph
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GlyphCacheKey {
     /// Id used to look up the glyph
     pub glyph_id: u16,
+    /// Bin the fractional x offset lands in
+    pub subpixel_bin: u8,
+}
+
+impl GlyphCacheKey {
+    /// Quantizes a glyph's pixel position into a subpixel bin.
+    ///
+    /// Returns the cache key, and the whole-pixel position the rasterized glyph should be placed at.
+    pub fn new(glyph_id: u16, position: Vec2, font_smoothing: FontSmoothing) -> (Self, Vec2) {
+        match font_smoothing {
+            FontSmoothing::None => (
+                Self {
+                    glyph_id,
+                    subpixel_bin: 0,
+                },
+                position.floor(),
+            ),
+            FontSmoothing::AntiAliased => {
+                let bins = SUBPIXEL_BINS as f32;
+                // Snap to the nearest 1 / SUBPIXEL_BINS
+                let quantized_x: f32 = (position.x * bins).round() / bins;
+                (
+                    Self {
+                        glyph_id,
+                        subpixel_bin: (quantized_x.rem_euclid(1.) * bins) as u8,
+                    },
+                    Vec2::new(quantized_x.floor(), position.y.round()),
+                )
+            }
+        }
+    }
+
+    /// Horizontal offset in pixels the glyph is rasterized at.
+    pub fn subpixel_offset(self) -> f32 {
+        self.subpixel_bin as f32 / SUBPIXEL_BINS as f32
+    }
 }
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
@@ -140,18 +179,12 @@ pub fn add_glyph_to_atlas(
     textures: &mut Assets<Image>,
     scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
-    glyph_id: u16,
+    key: GlyphCacheKey,
 ) -> Result<GlyphAtlasInfo, TextError> {
     let (glyph_texture, offset, is_alpha_mask) =
-        get_outlined_glyph_texture(scaler, glyph_id, font_smoothing)?;
+        get_outlined_glyph_texture(scaler, key, font_smoothing)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
-        atlas.add_glyph(
-            textures,
-            GlyphCacheKey { glyph_id },
-            &glyph_texture,
-            offset,
-            is_alpha_mask,
-        )
+        atlas.add_glyph(textures, key, &glyph_texture, offset, is_alpha_mask)
     };
     if !font_atlases
         .iter_mut()
@@ -172,19 +205,12 @@ pub fn add_glyph_to_atlas(
 
         let mut new_atlas = FontAtlas::new(textures, UVec2::splat(containing), font_smoothing);
 
-        new_atlas.add_glyph(
-            textures,
-            GlyphCacheKey { glyph_id },
-            &glyph_texture,
-            offset,
-            is_alpha_mask,
-        )?;
+        new_atlas.add_glyph(textures, key, &glyph_texture, offset, is_alpha_mask)?;
 
         font_atlases.push(new_atlas);
     }
 
-    get_glyph_atlas_info(font_atlases, GlyphCacheKey { glyph_id })
-        .ok_or(TextError::InconsistentAtlasState)
+    get_glyph_atlas_info(font_atlases, key).ok_or(TextError::InconsistentAtlasState)
 }
 
 /// Get the texture of the glyph as a rendered image, and its offset
@@ -194,7 +220,7 @@ pub fn add_glyph_to_atlas(
 )]
 pub fn get_outlined_glyph_texture(
     scaler: &mut Scaler,
-    glyph_id: u16,
+    key: GlyphCacheKey,
     font_smoothing: FontSmoothing,
 ) -> Result<(Image, Vec2, bool), TextError> {
     let image = swash::scale::Render::new(&[
@@ -203,8 +229,9 @@ pub fn get_outlined_glyph_texture(
         swash::scale::Source::Outline,
     ])
     .format(swash::zeno::Format::Alpha)
-    .render(scaler, glyph_id)
-    .ok_or(TextError::FailedToGetGlyphImage(glyph_id))?;
+    .offset(Vector::new(key.subpixel_offset(), 0.))
+    .render(scaler, key.glyph_id)
+    .ok_or(TextError::FailedToGetGlyphImage(key.glyph_id))?;
 
     let left = image.placement.left;
     let top = image.placement.top;
@@ -287,15 +314,15 @@ mod allocation_regression_tests {
     fn new_atlas_fits_boundary_sized_glyph_with_padding() {
         let font =
             FontRef::from_index(include_bytes!("FiraMono-subset.ttf"), 0).expect("valid test font");
-        let glyph_id = font.charmap().map('M');
+        let key = GlyphCacheKey {
+            glyph_id: font.charmap().map('M'),
+            subpixel_bin: 0,
+        };
         let mut scale_context = ScaleContext::new();
         let mut measurement_scaler = scale_context.builder(font).size(1479.0).build();
-        let (glyph_texture, _, _) = get_outlined_glyph_texture(
-            &mut measurement_scaler,
-            glyph_id,
-            FontSmoothing::AntiAliased,
-        )
-        .expect("glyph should rasterize");
+        let (glyph_texture, _, _) =
+            get_outlined_glyph_texture(&mut measurement_scaler, key, FontSmoothing::AntiAliased)
+                .expect("glyph should rasterize");
         assert_eq!(
             glyph_texture.width().max(glyph_texture.height()),
             1021,
@@ -311,7 +338,7 @@ mod allocation_regression_tests {
             &mut textures,
             &mut scaler,
             FontSmoothing::AntiAliased,
-            glyph_id,
+            key,
         )
         .expect("a newly created atlas should fit the glyph that requested it");
     }
