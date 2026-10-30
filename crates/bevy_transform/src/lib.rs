@@ -12,7 +12,7 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(feature = "bevy-support")]
+#[cfg(feature = "bevy_ecs")]
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
@@ -21,15 +21,15 @@ pub mod components;
 pub mod traits;
 
 /// Transform related plugins
-#[cfg(feature = "bevy-support")]
+#[cfg(feature = "bevy_app")]
 pub mod plugins;
 
 /// [`GlobalTransform`]: components::GlobalTransform
 /// Helpers related to computing global transforms
-#[cfg(feature = "bevy-support")]
+#[cfg(feature = "bevy_ecs")]
 pub mod helper;
 /// Systems responsible for transform propagation
-#[cfg(feature = "bevy-support")]
+#[cfg(feature = "bevy_ecs")]
 pub mod systems;
 
 /// The transform prelude.
@@ -38,20 +38,25 @@ pub mod systems;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::components::*;
+    pub use crate::{components::*, traits::TransformPoint};
 
-    #[cfg(feature = "bevy-support")]
+    #[cfg(feature = "bevy_ecs")]
     #[doc(hidden)]
     pub use crate::{
         commands::BuildChildrenTransformExt,
         helper::TransformHelper,
-        plugins::{TransformPlugin, TransformSystems},
-        systems::StaticTransformOptimizations,
-        traits::TransformPoint,
+        systems::{StaticTransformOptimizations, TransformSystems},
     };
+
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::plugins::TransformPlugin;
 }
 
-#[cfg(feature = "bevy-support")]
-pub use prelude::{
-    StaticTransformOptimizations, TransformPlugin, TransformPoint, TransformSystems,
-};
+pub use traits::TransformPoint;
+
+#[cfg(feature = "bevy_ecs")]
+pub use prelude::{StaticTransformOptimizations, TransformSystems};
+
+#[cfg(feature = "bevy_app")]
+pub use prelude::TransformPlugin;
