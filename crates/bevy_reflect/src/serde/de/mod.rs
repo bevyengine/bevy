@@ -835,6 +835,11 @@ mod tests {
             struct MyStruct {
                 func: DynamicFunction<'static>,
             }
+            impl FromReflect for MyStruct {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
+            }
 
             let mut registry = TypeRegistry::new();
             registry.register::<MyStruct>();

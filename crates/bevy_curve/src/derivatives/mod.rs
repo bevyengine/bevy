@@ -29,7 +29,7 @@ use bevy_math::common_traits::{HasTangent, WithDerivative, WithTwoDerivatives};
 use core::ops::Deref;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::Reflect;
 
 /// Trait for curves that have a well-defined notion of derivative, allowing for
 /// derivatives to be extracted along with values.
@@ -145,11 +145,7 @@ where
 /// A wrapper that uses a [`SampleDerivative<T>`] curve to produce a `Curve<WithDerivative<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct SampleDerivativeWrapper<C>(C);
 
 impl<T, C> Curve<WithDerivative<T>> for SampleDerivativeWrapper<C>
@@ -178,11 +174,7 @@ where
 /// `Curve<WithTwoDerivatives<T>>`.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect, FromReflect),
-    reflect(from_reflect = false)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct SampleTwoDerivativesWrapper<C>(C);
 
 impl<T, C> Curve<WithTwoDerivatives<T>> for SampleTwoDerivativesWrapper<C>

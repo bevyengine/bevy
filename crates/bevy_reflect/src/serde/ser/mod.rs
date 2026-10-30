@@ -653,7 +653,10 @@ mod tests {
     #[cfg(feature = "functions")]
     mod functions {
         use super::*;
-        use crate::func::{DynamicFunction, IntoFunction};
+        use crate::{
+            func::{DynamicFunction, IntoFunction},
+            FromReflect,
+        };
         use alloc::string::ToString;
 
         #[test]
@@ -662,6 +665,11 @@ mod tests {
             #[reflect(from_reflect = false)]
             struct MyStruct {
                 func: DynamicFunction<'static>,
+            }
+            impl FromReflect for MyStruct {
+                fn from_reflect(_reflect: &dyn PartialReflect) -> Option<Self> {
+                    None
+                }
             }
 
             let value: Box<dyn Reflect> = Box::new(MyStruct {

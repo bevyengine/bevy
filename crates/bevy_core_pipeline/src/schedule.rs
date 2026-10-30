@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "trace")]
 use bevy_log::info_span;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, SortedCameras},
     diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
@@ -124,6 +124,12 @@ struct CameraWindows(EntityHashSet);
 #[reflect(Clone, Component)]
 #[reflect(from_reflect = false)]
 pub struct RootNonCameraView(#[reflect(ignore)] pub InternedScheduleLabel);
+
+impl FromReflect for RootNonCameraView {
+    fn from_reflect(_reflect: &dyn bevy_reflect::PartialReflect) -> Option<Self> {
+        None
+    }
+}
 
 /// The default entry point for camera driven rendering added to the root [`bevy_render::renderer::RenderGraph`]
 /// schedule. This system iterates over all cameras in the world, executing their associated
