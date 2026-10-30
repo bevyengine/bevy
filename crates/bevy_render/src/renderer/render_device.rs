@@ -72,12 +72,18 @@ impl RenderDevice {
             {
                 // SAFETY:
                 // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
-                // No attempt is made to ensure that data is valid SPIR-V.
+                // The shader must have the entry point "main". No attempt is made to ensure that data is valid SPIR-V.
                 unsafe {
                     self.device.create_shader_module_passthrough(
                         wgpu::ShaderModuleDescriptorPassthrough {
                             label: desc.label,
                             spirv: Some(source.clone()),
+                            entry_points: alloc::borrow::Cow::Borrowed(&[
+                                wgpu::PassthroughShaderEntryPoint {
+                                    name: alloc::borrow::Cow::Borrowed("main"),
+                                    workgroup_size: (0, 0, 0), // This is unused for SPIR-V
+                                },
+                            ]),
                             ..Default::default()
                         },
                     )
