@@ -5623,6 +5623,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "dock"
+path = "examples/ui/widgets/dock.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dock]
+name = "Dock"
+description = "Builds split panes and tab groups from a dock tree and edits the tree at runtime"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "headless_tree"
 path = "examples/ui/widgets/headless_tree.rs"
 doc-scrape-examples = true
