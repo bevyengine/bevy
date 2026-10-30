@@ -575,6 +575,17 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             specialize(&self.pipeline as &dyn Any, &mut descriptor, layout, key)?;
         }
 
+        if let Some(ref depth_stencil) = descriptor.depth_stencil
+            && depth_stencil.stencil.is_enabled()
+            && !depth_stencil.format.has_stencil_aspect()
+        {
+            return Err(
+                SpecializedMeshPipelineError::IncompatibleDepthStencilFormat {
+                    format: depth_stencil.format,
+                },
+            );
+        }
+
         Ok(descriptor)
     }
 }

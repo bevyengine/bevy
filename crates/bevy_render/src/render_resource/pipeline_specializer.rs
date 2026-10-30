@@ -230,8 +230,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             let descriptor = pipeline_specializer
                 .specialize(key.clone(), layout)
                 .map_err(|mut err| {
-                    {
-                        let SpecializedMeshPipelineError::MissingVertexAttribute(err) = &mut err;
+                    if let SpecializedMeshPipelineError::MissingVertexAttribute(err) = &mut err {
                         err.pipeline_type = Some(core::any::type_name::<S>());
                     }
                     err
