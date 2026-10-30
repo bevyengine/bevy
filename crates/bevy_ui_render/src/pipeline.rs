@@ -1,4 +1,5 @@
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_camera::CompositingSpace;
 use bevy_ecs::prelude::*;
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
@@ -6,10 +7,41 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    view::ViewUniform,
+    view::{ResolvedCompositingSpace, ViewUniform},
 };
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
+
+/// How a UI fragment encodes its output for the view it renders into,
+/// shared by every UI pipeline key.
+///
+/// UI draws into the view's main texture after tonemapping, so each
+/// fragment encodes to match that texture's compositing space.
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
+pub struct UiWriterEncodeKey {
+    /// The view's resolved [`CompositingSpace`]. Linear views leave this
+    /// `None`, since linear output needs no encode.
+    pub compositing_space: Option<CompositingSpace>,
+}
+
+impl UiWriterEncodeKey {
+    /// Builds the key from a view's [`ResolvedCompositingSpace`].
+    pub fn from_resolved_space(resolved: Option<&ResolvedCompositingSpace>) -> Self {
+        Self {
+            compositing_space: ResolvedCompositingSpace::space(resolved)
+                .filter(|space| !space.is_linear()),
+        }
+    }
+
+    /// Appends the shader defs for the compositing space.
+    pub fn push_shader_defs(&self, shader_defs: &mut Vec<ShaderDefVal>) {
+        match self.compositing_space {
+            Some(CompositingSpace::Srgb) => shader_defs.push("COMPOSITING_SPACE_SRGB".into()),
+            Some(CompositingSpace::Oklab) => shader_defs.push("COMPOSITING_SPACE_OKLAB".into()),
+            Some(CompositingSpace::Linear) | None => {}
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct UiPipeline {
@@ -49,6 +81,7 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
 pub struct UiPipelineKey {
     pub target_format: TextureFormat,
     pub anti_alias: bool,
+    pub writer_encode: UiWriterEncodeKey,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -83,17 +116,19 @@ impl SpecializedRenderPipeline for UiPipeline {
         } else {
             Vec::new()
         };
+        let mut fragment_defs = shader_defs.clone();
+        key.writer_encode.push_shader_defs(&mut fragment_defs);
 
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                shader_defs: shader_defs.clone(),
+                shader_defs,
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
-                shader_defs,
+                shader_defs: fragment_defs,
                 targets: vec![Some(ColorTargetState {
                     format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),

@@ -5,6 +5,7 @@ import bevy_render::color_operations::{
     hsl_to_linear_rgb,
     okhsl_to_linear_rgb,
 };
+import bevy_render::writer_encode::writer_encode;
 
 struct ColorPlaneUniform {
     fixed_channel: f32,
@@ -17,21 +18,24 @@ struct ColorPlaneUniform {
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let uv = in.uv;
+    var rgb: vec3<f32>;
 @if(PLANE_RG)
-    return vec4(srgb_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel)), 1.0);
+    rgb = srgb_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel));
 @elif(PLANE_RB)
-    return vec4(srgb_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y)), 1.0);
+    rgb = srgb_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y));
 @elif(PLANE_GB)
-    return vec4(srgb_to_linear_rgb(vec3(uniform_data.fixed_channel, uv.x, 1.0 - uv.y)), 1.0);
+    rgb = srgb_to_linear_rgb(vec3(uniform_data.fixed_channel, uv.x, 1.0 - uv.y));
 @elif(PLANE_HS)
-    return vec4(hsl_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel)), 1.0);
+    rgb = hsl_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel));
 @elif(PLANE_HL)
-    return vec4(hsl_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y)), 1.0);
+    rgb = hsl_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y));
 @elif(PLANE_OKHS)
-    return vec4(okhsl_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel)), 1.0);
+    rgb = okhsl_to_linear_rgb(vec3(uv.x, 1.0 - uv.y, uniform_data.fixed_channel));
 @elif(PLANE_OKHL)
-    return vec4(okhsl_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y)), 1.0);
+    rgb = okhsl_to_linear_rgb(vec3(uv.x, uniform_data.fixed_channel, 1.0 - uv.y));
 @else
     // Error color
-    return vec4(1.0, 0.0, 1.0, 1.0);
+    rgb = vec3(1.0, 0.0, 1.0);
+
+    return writer_encode(vec4(rgb, 1.0));
 }

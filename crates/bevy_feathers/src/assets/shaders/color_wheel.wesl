@@ -2,6 +2,7 @@
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 import bevy_render::color_operations::hwb_to_linear_rgb;
 import bevy_render::maths::PI_2;
+import bevy_render::writer_encode::writer_encode;
 
 // Constants must be the same as in `color_wheel.rs`
 const RING_WIDTH: f32 = 12.0;
@@ -85,5 +86,5 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let ring_color = hwb_to_linear_rgb(vec3(ring_hue, 0.0, 0.0));
     let triangle_color = hwb_to_linear_rgb(vec3(triangle_hue, whiteness, blackness));
     let color = (ring_color * ring_alpha + triangle_color * triangle_alpha) / max(alpha, 0.001);
-    return vec4(color, alpha);
+    return writer_encode(vec4(color, alpha));
 }
