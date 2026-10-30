@@ -25,6 +25,13 @@ pub fn bindless_slot_count<B: AsBindGroup, E: AsBindGroup>() -> Option<BindlessS
     ))
 }
 
+/// Combines [`AsBindGroup::bindless_supported`] implementations from base `B` and extension `E`
+pub fn bindless_supported<B: AsBindGroup, E: AsBindGroup>(render_device: &RenderDevice) -> bool {
+    bindless_slot_count::<B, E>().is_some()
+        && B::bindless_supported(render_device)
+        && E::bindless_supported(render_device)
+}
+
 /// Combines two [`BindlessSlabResourceLimit`]s, choosing the smallest limit
 fn combine_bindless_slot_count(
     base: BindlessSlabResourceLimit,
@@ -66,7 +73,7 @@ pub fn build_bind_group<B: AsBindGroup, E: AsBindGroup>(
     mut force_no_bindless: bool,
     output: &mut BindGroupBuilder,
 ) -> Result<(), AsBindGroupError> {
-    force_no_bindless = force_no_bindless || bindless_slot_count::<B, E>().is_none();
+    force_no_bindless = force_no_bindless || !bindless_supported::<B, E>(render_device);
 
     B::build_bind_group(
         base,
@@ -93,7 +100,7 @@ pub fn bind_group_layout_entries<B: AsBindGroup, E: AsBindGroup>(
     render_device: &RenderDevice,
     mut force_no_bindless: bool,
 ) -> Vec<BindGroupLayoutEntry> {
-    force_no_bindless = force_no_bindless || bindless_slot_count::<B, E>().is_none();
+    force_no_bindless = force_no_bindless || !bindless_supported::<B, E>(render_device);
 
     let base_entries = B::bind_group_layout_entries(render_device, force_no_bindless);
     let extension_entries = E::bind_group_layout_entries(render_device, force_no_bindless);
@@ -179,4 +186,263 @@ pub fn combine_bindless_descriptors(
 pub struct CombinedBindGroupData<B, E> {
     pub base: B,
     pub extension: E,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::create_dummy_device;
+    use wgpu::{BindingType, BufferBindingType, ShaderStages};
+
+    fn dummy_entry(binding: u32, storage: bool) -> BindGroupLayoutEntry {
+        BindGroupLayoutEntry {
+            binding,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: if storage {
+                    BufferBindingType::Storage { read_only: true }
+                } else {
+                    BufferBindingType::Uniform
+                },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }
+    }
+
+    struct BindlessSupportedBase;
+    impl AsBindGroup for BindlessSupportedBase {
+        type Data = ();
+        type Param = ();
+
+        fn label() -> &'static str {
+            "BindlessSupportedBase"
+        }
+
+        fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
+            Some(BindlessSlabResourceLimit::Auto)
+        }
+
+        fn bindless_supported(_: &RenderDevice) -> bool {
+            true
+        }
+
+        fn bind_group_data(&self) -> Self::Data {}
+
+        fn build_bind_group(
+            &self,
+            _: &BindGroupLayout,
+            render_device: &RenderDevice,
+            _: &mut SystemParamItem<'_, '_, Self::Param>,
+            force_no_bindless: bool,
+            output: &mut BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            output.data_buffer.push(u8::from(is_bindless));
+            Ok(())
+        }
+
+        fn bind_group_layout_entries(
+            render_device: &RenderDevice,
+            force_no_bindless: bool,
+        ) -> Vec<BindGroupLayoutEntry> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            vec![dummy_entry(0, is_bindless)]
+        }
+    }
+
+    struct BindlessSupportedExt;
+    impl AsBindGroup for BindlessSupportedExt {
+        type Data = ();
+        type Param = ();
+
+        fn label() -> &'static str {
+            "BindlessSupportedExt"
+        }
+
+        fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
+            Some(BindlessSlabResourceLimit::Auto)
+        }
+
+        fn bindless_supported(_: &RenderDevice) -> bool {
+            true
+        }
+
+        fn bind_group_data(&self) -> Self::Data {}
+
+        fn build_bind_group(
+            &self,
+            _: &BindGroupLayout,
+            render_device: &RenderDevice,
+            _: &mut SystemParamItem<'_, '_, Self::Param>,
+            force_no_bindless: bool,
+            output: &mut BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            output.data_buffer.push(u8::from(is_bindless));
+            Ok(())
+        }
+
+        fn bind_group_layout_entries(
+            render_device: &RenderDevice,
+            force_no_bindless: bool,
+        ) -> Vec<BindGroupLayoutEntry> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            vec![dummy_entry(100, is_bindless)]
+        }
+    }
+
+    struct BindlessUnsupportedExt;
+    impl AsBindGroup for BindlessUnsupportedExt {
+        type Data = ();
+        type Param = ();
+
+        fn label() -> &'static str {
+            "BindlessUnsupportedExt"
+        }
+
+        fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
+            Some(BindlessSlabResourceLimit::Auto)
+        }
+
+        fn bindless_supported(_: &RenderDevice) -> bool {
+            false
+        }
+
+        fn bind_group_data(&self) -> Self::Data {}
+
+        fn build_bind_group(
+            &self,
+            _: &BindGroupLayout,
+            render_device: &RenderDevice,
+            _: &mut SystemParamItem<'_, '_, Self::Param>,
+            force_no_bindless: bool,
+            output: &mut BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            output.data_buffer.push(u8::from(is_bindless));
+            Ok(())
+        }
+
+        fn bind_group_layout_entries(
+            render_device: &RenderDevice,
+            force_no_bindless: bool,
+        ) -> Vec<BindGroupLayoutEntry> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            vec![dummy_entry(100, is_bindless)]
+        }
+    }
+
+    struct NonBindlessExt;
+    impl AsBindGroup for NonBindlessExt {
+        type Data = ();
+        type Param = ();
+
+        fn label() -> &'static str {
+            "NonBindlessExt"
+        }
+
+        fn bind_group_data(&self) -> Self::Data {}
+
+        fn build_bind_group(
+            &self,
+            _: &BindGroupLayout,
+            render_device: &RenderDevice,
+            _: &mut SystemParamItem<'_, '_, Self::Param>,
+            force_no_bindless: bool,
+            output: &mut BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
+            let is_bindless = Self::bindless_supported(render_device) && !force_no_bindless;
+            output.data_buffer.push(u8::from(is_bindless));
+            Ok(())
+        }
+
+        fn bind_group_layout_entries(_: &RenderDevice, _: bool) -> Vec<BindGroupLayoutEntry> {
+            vec![dummy_entry(100, false)]
+        }
+    }
+
+    #[test]
+    fn combined_bindless_support_and_layout_fallback() {
+        let (device, _queue) = create_dummy_device();
+
+        // Both base and extension support bindless -> bindless is used for both.
+        assert!(bindless_supported::<
+            BindlessSupportedBase,
+            BindlessSupportedExt,
+        >(&device));
+        let entries = bind_group_layout_entries::<BindlessSupportedBase, BindlessSupportedExt>(
+            &device, false,
+        );
+        assert_eq!(entries, vec![dummy_entry(0, true), dummy_entry(100, true)]);
+
+        // Extension declares bindless slots, but hardware support is false ->
+        // combined material must report bindless_supported == false and force
+        // the base material to fall back to non-bindless layout entries.
+        assert!(!bindless_supported::<
+            BindlessSupportedBase,
+            BindlessUnsupportedExt,
+        >(&device));
+        let entries = bind_group_layout_entries::<BindlessSupportedBase, BindlessUnsupportedExt>(
+            &device, false,
+        );
+        assert_eq!(
+            entries,
+            vec![dummy_entry(0, false), dummy_entry(100, false)]
+        );
+
+        // Extension does not use bindless at all (bindless_slot_count is None,
+        // default bindless_supported is true) -> combined material must report
+        // bindless_supported == false and fall back to non-bindless.
+        assert!(!bindless_supported::<BindlessSupportedBase, NonBindlessExt>(&device));
+        let entries =
+            bind_group_layout_entries::<BindlessSupportedBase, NonBindlessExt>(&device, false);
+        assert_eq!(
+            entries,
+            vec![dummy_entry(0, false), dummy_entry(100, false)]
+        );
+
+        let layout = device.create_bind_group_layout("test_layout", &[]);
+        let mut param = ((), ());
+
+        let mut builder = BindGroupBuilder::default();
+        build_bind_group(
+            &BindlessSupportedBase,
+            &BindlessSupportedExt,
+            &layout,
+            &device,
+            &mut param,
+            false,
+            &mut builder,
+        )
+        .unwrap();
+        assert_eq!(builder.data_buffer, vec![1, 1]);
+
+        let mut builder = BindGroupBuilder::default();
+        build_bind_group(
+            &BindlessSupportedBase,
+            &BindlessUnsupportedExt,
+            &layout,
+            &device,
+            &mut param,
+            false,
+            &mut builder,
+        )
+        .unwrap();
+        assert_eq!(builder.data_buffer, vec![0, 0]);
+
+        let mut builder = BindGroupBuilder::default();
+        build_bind_group(
+            &BindlessSupportedBase,
+            &NonBindlessExt,
+            &layout,
+            &device,
+            &mut param,
+            false,
+            &mut builder,
+        )
+        .unwrap();
+        assert_eq!(builder.data_buffer, vec![0, 0]);
+    }
 }
