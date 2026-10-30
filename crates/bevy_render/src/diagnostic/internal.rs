@@ -16,7 +16,9 @@ use wgpu::{
     RenderPass,
 };
 
-use crate::renderer::{wgpu_wrapper, RenderAdapterInfo, RenderDevice, RenderQueue};
+use crate::renderer::{
+    wgpu_wrapper, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuCommandEncoder,
+};
 
 use super::RecordDiagnostics;
 
@@ -750,7 +752,7 @@ pub trait WriteTimestamp {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32);
 }
 
-impl WriteTimestamp for CommandEncoder {
+impl WriteTimestamp for WgpuCommandEncoder {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
         if cfg!(target_os = "macos") {
             // When using tracy (and thus this function), rendering was flickering on macOS Tahoe.
