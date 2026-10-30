@@ -187,15 +187,12 @@ pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
     let y_basis = Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     Mat3::from_cols(x_basis, y_basis, z_basis.into())
 }
-/// Constructs a right-handed orthonormal basis with translation, using only the forward direction and translation of a given [`GlobalTransform`].
+/// Constructs a right-handed orthonormal basis with translation from a position and emission direction.
 ///
 /// This is a version of [`orthonormalize`] which also includes translation.
-pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Affine3A {
-    // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.back();
-
-    let basis = orthonormalize(fwd_dir);
-    Affine3A::from_mat3_translation(basis, transform.translation())
+pub fn spot_light_world_from_view(position: Vec3, direction: Dir3) -> Affine3A {
+    let basis = orthonormalize(-direction);
+    Affine3A::from_mat3_translation(basis, position)
 }
 
 /// Creates the projection matrix that transforms the light's view space into the light's clip space.
@@ -259,7 +256,8 @@ pub fn update_spot_light_frusta(
         // by applying those as a view transform to shadow map rendering of objects
         let view_backward = transform.back();
 
-        let spot_world_from_view = spot_light_world_from_view(transform);
+        let spot_world_from_view =
+            spot_light_world_from_view(transform.translation(), transform.forward());
         let spot_clip_from_view =
             spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
