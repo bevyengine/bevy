@@ -84,6 +84,10 @@ pub use crate::sprite::prelude::*;
 pub use crate::sprite_render::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_sprite_light")]
+pub use crate::sprite_light::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_text")]
 pub use crate::text::prelude::*;
 
