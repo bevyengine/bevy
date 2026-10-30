@@ -19,7 +19,7 @@ pub struct BlitPlugin;
 
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "blit.wgsl");
+        embedded_asset!(app, "blit.wesl");
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -63,7 +63,7 @@ pub fn init_blit_pipeline(
         layout,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wesl"),
     });
 }
 

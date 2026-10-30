@@ -1,16 +1,19 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
-use bevy_math::Vec3;
+use bevy_math::{vec2, Vec2, Vec3, Vec3A, Vec3Swizzles};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
+use bevy_shape::{Aabb2d, Aabb3d, BoundingVolume};
 use bytemuck::{bytes_of, cast_slice};
 use core::hash::{Hash, Hasher};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
+
+use crate::MeshAttributeCompressionFlags;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeshVertexAttribute {
@@ -84,13 +87,19 @@ impl From<MeshVertexAttribute> for MeshVertexAttributeId {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct MeshVertexBufferLayout {
     pub(crate) attribute_ids: Vec<MeshVertexAttributeId>,
+    pub(crate) attribute_compression: MeshAttributeCompressionFlags,
     pub(crate) layout: VertexBufferLayout,
 }
 
 impl MeshVertexBufferLayout {
-    pub fn new(attribute_ids: Vec<MeshVertexAttributeId>, layout: VertexBufferLayout) -> Self {
+    pub fn new(
+        attribute_ids: Vec<MeshVertexAttributeId>,
+        layout: VertexBufferLayout,
+        attribute_compression: MeshAttributeCompressionFlags,
+    ) -> Self {
         Self {
             attribute_ids,
+            attribute_compression,
             layout,
         }
     }
@@ -108,6 +117,10 @@ impl MeshVertexBufferLayout {
     #[inline]
     pub fn layout(&self) -> &VertexBufferLayout {
         &self.layout
+    }
+
+    pub fn get_attribute_compression(&self) -> MeshAttributeCompressionFlags {
+        self.attribute_compression
     }
 
     pub fn get_layout(
@@ -229,6 +242,76 @@ pub fn triangle_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
 pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).normalize_or_zero().into()
+}
+
+/// Vertex format that can be quantized from Float32.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+pub enum AttributeQuantization {
+    Unorm8,
+    Snorm8,
+    Unorm16,
+    Snorm16,
+    Float16,
+}
+
+impl AttributeQuantization {
+    /// Create a [`VertexAttributeValues`] with `values` quantized to the format of this quantization.
+    pub(crate) fn quantize_f32_values<const N: usize>(
+        &self,
+        values: &[[f32; N]],
+    ) -> VertexAttributeValues {
+        const {
+            assert!(N == 1 || N == 2 || N == 4);
+        }
+        match self {
+            AttributeQuantization::Unorm8 => {
+                let values = values.iter().map(|v| arr_f32_to_unorm8(*v)).collect();
+                match N {
+                    1 => VertexAttributeValues::Unorm8(bytemuck::cast_vec(values)),
+                    2 => VertexAttributeValues::Unorm8x2(bytemuck::cast_vec(values)),
+                    4 => VertexAttributeValues::Unorm8x4(bytemuck::cast_vec(values)),
+                    _ => unreachable!(),
+                }
+            }
+            AttributeQuantization::Snorm8 => {
+                let values = values.iter().map(|v| arr_f32_to_snorm8(*v)).collect();
+                match N {
+                    1 => VertexAttributeValues::Snorm8(bytemuck::cast_vec(values)),
+                    2 => VertexAttributeValues::Snorm8x2(bytemuck::cast_vec(values)),
+                    4 => VertexAttributeValues::Snorm8x4(bytemuck::cast_vec(values)),
+                    _ => unreachable!(),
+                }
+            }
+            AttributeQuantization::Unorm16 => {
+                let values = values.iter().map(|v| arr_f32_to_unorm16(*v)).collect();
+                match N {
+                    1 => VertexAttributeValues::Unorm16(bytemuck::cast_vec(values)),
+                    2 => VertexAttributeValues::Unorm16x2(bytemuck::cast_vec(values)),
+                    4 => VertexAttributeValues::Unorm16x4(bytemuck::cast_vec(values)),
+                    _ => unreachable!(),
+                }
+            }
+            AttributeQuantization::Snorm16 => {
+                let values = values.iter().map(|v| arr_f32_to_snorm16(*v)).collect();
+                match N {
+                    1 => VertexAttributeValues::Snorm16(bytemuck::cast_vec(values)),
+                    2 => VertexAttributeValues::Snorm16x2(bytemuck::cast_vec(values)),
+                    4 => VertexAttributeValues::Snorm16x4(bytemuck::cast_vec(values)),
+                    _ => unreachable!(),
+                }
+            }
+            AttributeQuantization::Float16 => {
+                let values = values.iter().map(|v| arr_f32_to_float16(*v)).collect();
+                match N {
+                    1 => VertexAttributeValues::Float16(bytemuck::cast_vec(values)),
+                    2 => VertexAttributeValues::Float16x2(bytemuck::cast_vec(values)),
+                    4 => VertexAttributeValues::Float16x4(bytemuck::cast_vec(values)),
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
 }
 
 /// Contains an array where each entry describes a property of a single vertex.
@@ -504,6 +587,97 @@ impl VertexAttributeValues {
             VertexAttributeValues::Unorm10_10_10_2(values) => cast_slice(values),
             VertexAttributeValues::Unorm8x4Bgra(values) => cast_slice(values),
         }
+    }
+
+    /// Create a new `VertexAttributeValues` with Float32 values quantized to the format of `quantization`.
+    /// Return None if the values are not Float32, Float32x2 or Float32x4.
+    pub(crate) fn create_quantized_values(
+        &self,
+        quantization: AttributeQuantization,
+    ) -> Option<VertexAttributeValues> {
+        match self {
+            VertexAttributeValues::Float32(values) => {
+                Some(quantization.quantize_f32_values::<1>(bytemuck::must_cast_slice(values)))
+            }
+            VertexAttributeValues::Float32x2(values) => {
+                Some(quantization.quantize_f32_values::<2>(values))
+            }
+            VertexAttributeValues::Float32x4(values) => {
+                Some(quantization.quantize_f32_values::<4>(values))
+            }
+            _ => None,
+        }
+    }
+
+    /// Create a new `VertexAttributeValues` with Float32x3 normals converted to Snorm16x2 using octahedral encoding. Return None if the values are not Float32x3.
+    pub(crate) fn create_octahedral_encode_normals(&self) -> Option<VertexAttributeValues> {
+        match &self {
+            VertexAttributeValues::Float32x3(uncompressed_values) => {
+                let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    let encoded = octahedral_encode_signed(Vec3::from_array(*value).normalize());
+                    values.push(arr_f32_to_snorm16(encoded.to_array()));
+                }
+                Some(VertexAttributeValues::Snorm16x2(values))
+            }
+            _ => None,
+        }
+    }
+
+    /// Create a new `VertexAttributeValues` with Float32x4 tangents converted to Snorm16x2 using octahedral encoding. Return None if the values are not Float32x4.
+    pub(crate) fn create_octahedral_encode_tangents(&self) -> Option<VertexAttributeValues> {
+        match &self {
+            VertexAttributeValues::Float32x4(uncompressed_values) => {
+                let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
+                for value in uncompressed_values {
+                    let encoded = octahedral_encode_tangent(
+                        Vec3::from_array([value[0], value[1], value[2]]).normalize(),
+                        value[3],
+                    );
+                    values.push(arr_f32_to_snorm16(encoded.to_array()));
+                }
+                Some(VertexAttributeValues::Snorm16x2(values))
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the compressed positions, or `None` if `self` is not [`Self::Float32x3`].
+    pub(crate) fn create_compressed_positions(
+        &self,
+        aabb: Aabb3d,
+    ) -> Option<VertexAttributeValues> {
+        // Create Snorm16x4 position
+        let VertexAttributeValues::Float32x3(uncompressed_values) = self else {
+            return None;
+        };
+        let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
+        let scale = 1.0 / aabb.half_size();
+        let scale = Vec3A::select(scale.is_nan_mask(), Vec3A::ZERO, scale);
+        for val in uncompressed_values {
+            let mut val = Vec3A::from_array(*val);
+            val = (val - aabb.center()) * scale;
+            let val = arr_f32_to_snorm16(val.extend(0.0).to_array());
+            values.push(val);
+        }
+        Some(VertexAttributeValues::Snorm16x4(values))
+    }
+
+    /// Create compressed UVs. Returns `None` if `self` isn't [`VertexAttributeValues::Float32x2`].
+    pub(crate) fn create_compressed_uvs(&self, range: Aabb2d) -> Option<VertexAttributeValues> {
+        // Create Unorm16x2 UVs
+        let VertexAttributeValues::Float32x2(uncompressed_values) = self else {
+            return None;
+        };
+        let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
+        let scale = 1.0 / (range.max - range.min);
+        let scale = Vec2::select(scale.is_nan_mask(), Vec2::ZERO, scale);
+        for val in uncompressed_values {
+            let mut val = Vec2::from_array(*val);
+            val = (val - range.min) * scale;
+            values.push(arr_f32_to_unorm16(val.to_array()));
+        }
+        Some(VertexAttributeValues::Unorm16x2(values))
     }
 
     #[expect(
@@ -984,5 +1158,121 @@ impl Hash for MeshVertexBufferLayoutRef {
         // Hash the address of the underlying data, so two layouts that share the same
         // `MeshVertexBufferLayout` will have the same hash.
         (Arc::as_ptr(&self.0) as usize).hash(state);
+    }
+}
+
+pub(crate) fn arr_f32_to_unorm8<const N: usize>(value: [f32; N]) -> [u8; N] {
+    value.map(|v| (v.clamp(0.0, 1.0) * u8::MAX as f32).round() as u8)
+}
+
+pub(crate) fn arr_f32_to_snorm8<const N: usize>(value: [f32; N]) -> [i8; N] {
+    value.map(|v| (v.clamp(-1.0, 1.0) * i8::MAX as f32).round() as i8)
+}
+
+pub(crate) fn arr_f32_to_unorm16<const N: usize>(value: [f32; N]) -> [u16; N] {
+    value.map(|v| (v.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16)
+}
+
+pub(crate) fn arr_f32_to_snorm16<const N: usize>(value: [f32; N]) -> [i16; N] {
+    value.map(|v| (v.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16)
+}
+
+pub(crate) fn arr_f32_to_float16<const N: usize>(value: [f32; N]) -> [half::f16; N] {
+    value.map(half::f16::from_f32)
+}
+
+/// Encode normals or unit direction vectors as octahedral coordinates with range [-1, 1]. Use [`octahedral_decode_signed`] to decode.
+pub fn octahedral_encode_signed(v: Vec3) -> Vec2 {
+    let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
+    let octahedral_wrap = (1.0 - n.yx().abs())
+        * Vec2::select(
+            n.xy().cmpge(vec2(0.0, 0.0)),
+            vec2(1.0, 1.0),
+            vec2(-1.0, -1.0),
+        );
+    if n.z >= 0.0 {
+        n.xy()
+    } else {
+        octahedral_wrap
+    }
+}
+
+/// Encode tangent vectors as octahedral coordinates with range [-1, 1]. The sign is encoded in y component. Use [`octahedral_decode_tangent`] to decode.
+pub fn octahedral_encode_tangent(v: Vec3, sign: f32) -> Vec2 {
+    // Bias to ensure that encoding as snorm16 preserves the sign.
+    let bits = 16.;
+    let bias = 1. / (bevy_math::ops::powf(2.0, bits - 1.) - 1.);
+
+    let mut n_xy = octahedral_encode_signed(v);
+    // Map y to always be positive.
+    n_xy.y = n_xy.y * 0.5 + 0.5;
+    n_xy.y = n_xy.y.max(bias);
+    // Encode the sign.
+    n_xy.y *= sign.signum();
+    n_xy
+}
+
+/// Decode octahedral coordinates to normals or unit direction vectors. Input is [-1, 1].
+pub fn octahedral_decode_signed(v: Vec2) -> Vec3 {
+    let mut n = Vec3::new(v.x, v.y, 1.0 - v.x.abs() - v.y.abs());
+    let t = (-n.z).clamp(0.0, 1.0);
+    let w = Vec2::select(n.xy().cmpge(vec2(0.0, 0.0)), vec2(-t, -t), vec2(t, t));
+    n = Vec3::new(n.x + w.x, n.y + w.y, n.z);
+    n.normalize()
+}
+
+/// Decode tangent vectors from octahedral coordinates and return the sign. Input is [-1, 1]. The y component should have been mapped to always be positive and then encoded the sign.
+pub fn octahedral_decode_tangent(v: Vec2) -> (Vec3, f32) {
+    let sign = v.y.signum();
+    let mut f = v;
+    f.y = f.y.abs();
+    f.y = f.y * 2.0 - 1.0;
+    (octahedral_decode_signed(f), sign)
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::{vec2, vec3, Vec4Swizzles};
+
+    use crate::{
+        octahedral_decode_signed, octahedral_decode_tangent,
+        vertex::{octahedral_encode_signed, octahedral_encode_tangent},
+    };
+
+    #[test]
+    fn octahedral_encode_decode() {
+        let vectors = [
+            vec3(1.0, 2.0, 3.0).normalize().extend(1.0),
+            vec3(1.0, 0.0, 0.0).extend(-1.0),
+            vec3(0.0, 1.0, 0.0).extend(-1.0),
+            vec3(0.0, 0.0, -1.0).extend(1.0),
+            vec3(0.0, 0.0, -1.0).extend(-1.0),
+        ];
+        let expected_encoded_normals = [
+            vec2(0.16666667, 0.33333334),
+            vec2(1.0, 0.0),
+            vec2(0.0, 1.0),
+            vec2(1.0, 1.0),
+            vec2(1.0, 1.0),
+        ];
+        let expected_encoded_tangents = [
+            vec2(0.16666667, 0.6666667),
+            vec2(1.0, -0.5),
+            vec2(0.0, -1.0),
+            vec2(1.0, 1.0),
+            vec2(1.0, -1.0),
+        ];
+        for (i, &v) in vectors.iter().enumerate() {
+            let encoded_normal = octahedral_encode_signed(v.xyz());
+            let decoded_normal = octahedral_decode_signed(encoded_normal);
+            assert!(encoded_normal.distance(expected_encoded_normals[i]) < 1e-8);
+            assert!(decoded_normal.distance(vectors[i].xyz()) < 1e-7);
+
+            let encoded_tangent = octahedral_encode_tangent(v.xyz(), v.w);
+            let (decoded_tangent, decoded_sign) = octahedral_decode_tangent(encoded_tangent);
+            assert!(encoded_tangent.distance(expected_encoded_tangents[i]) < 1e-8);
+            assert_eq!(v.w, decoded_sign);
+            assert!(decoded_tangent.distance(v.xyz()) < 1e-7);
+        }
     }
 }

@@ -37,6 +37,12 @@ cfg::alloc! {
 }
 
 impl DebugName {
+    /// Whether the `debug` feature is enabled.
+    ///
+    /// If this is `false`, [`DebugName`] will be a zero-sized type
+    /// and will return a generic message when used as a string.
+    pub const ENABLED: bool = cfg!(feature = "debug");
+
     /// Create a new `DebugName` from a `&str`
     ///
     /// The value will be ignored if the `debug` feature is not enabled
@@ -77,6 +83,19 @@ impl DebugName {
     ///
     /// The value will be ignored if the `debug` feature is not enabled
     pub fn type_name<T>() -> Self {
+        DebugName {
+            #[cfg(feature = "debug")]
+            name: Cow::Borrowed(type_name::<T>()),
+        }
+    }
+
+    /// Create a new `DebugName` from a type by using its [`core::any::type_name`]
+    ///
+    /// This is the same as `type_name::<T>()`, but can be used where the type of a
+    /// variable is not easily available.
+    ///
+    /// The value will be ignored if the `debug` feature is not enabled
+    pub fn type_name_of_val<T>(_val: &T) -> Self {
         DebugName {
             #[cfg(feature = "debug")]
             name: Cow::Borrowed(type_name::<T>()),

@@ -12,6 +12,14 @@ pub mod fonts {
     pub const BOLD_ITALIC: &str = "embedded://bevy_feathers/assets/fonts/FiraSans-BoldItalic.ttf";
     /// Monospace font path
     pub const MONO: &str = "embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf";
+    /// Supplemental font containing symbols for keyboard modifier keys (command, shift, option,
+    /// etc.) which are missing from Fira Sans.
+    pub const KEY_SYMBOLS: &str = "embedded://bevy_feathers/assets/fonts/KeySymbols.ttf";
+    /// Font family list for regular text: Fira Sans, falling back to the key symbols font for
+    /// glyphs that Fira Sans lacks. Font weight and style select the matching Fira Sans face.
+    ///
+    /// These fonts are loaded by [`FeathersCorePlugin`](crate::FeathersCorePlugin).
+    pub const SANS: &str = "Fira Sans, Key Symbols";
 }
 
 /// Icon paths
@@ -47,6 +55,9 @@ pub mod size {
     /// Height of a toggle switch
     pub const TOGGLE_HEIGHT: Val = Val::Px(18.0);
 
+    /// Font size used for dialog box titles
+    pub const HEADER_FONT: FontSize = FontSize::Px(16.0);
+
     /// Regular font size, used for most widget captions
     pub const MEDIUM_FONT: FontSize = FontSize::Px(14.0);
 
@@ -55,4 +66,7 @@ pub mod size {
 
     /// Small font size
     pub const SMALL_FONT: FontSize = FontSize::Px(12.0);
+
+    /// Extra-small font size
+    pub const EXTRA_SMALL_FONT: FontSize = FontSize::Px(11.0);
 }

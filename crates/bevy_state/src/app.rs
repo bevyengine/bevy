@@ -11,7 +11,9 @@ use crate::{
     },
     state_scoped::{
         despawn_entities_on_enter_state, despawn_entities_on_exit_state,
-        despawn_entities_when_state,
+        despawn_entities_when_state, disable_entities_on_enter_state,
+        disable_entities_on_exit_state, disable_entities_when_state,
+        enable_entities_on_enter_state, enable_entities_on_exit_state, enable_entities_when_state,
     },
 };
 
@@ -253,18 +255,33 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
     // `OnExit` only runs for one specific variant of the state.
     app.add_systems(
         StateTransition,
-        despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
+        (
+            despawn_entities_on_exit_state::<S>,
+            disable_entities_on_exit_state::<S>,
+            enable_entities_on_exit_state::<S>,
+        )
+            .in_set(StateTransitionSystems::ExitSchedules),
     )
     // Note: We work with `StateTransition` in set
     // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
     // `OnEnter` only runs for one specific variant of the state.
     .add_systems(
         StateTransition,
-        despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
+        (
+            despawn_entities_on_enter_state::<S>,
+            disable_entities_on_enter_state::<S>,
+            enable_entities_on_enter_state::<S>,
+        )
+            .in_set(StateTransitionSystems::EnterSchedules),
     )
     .add_systems(
         StateTransition,
-        despawn_entities_when_state::<S>.in_set(StateTransitionSystems::TransitionSchedules),
+        (
+            despawn_entities_when_state::<S>,
+            disable_entities_when_state::<S>,
+            enable_entities_when_state::<S>,
+        )
+            .in_set(StateTransitionSystems::TransitionSchedules),
     );
 }
 

@@ -1,62 +1,78 @@
 //! This example demonstrates how to use BSN to compose scenes.
-use bevy::{prelude::*, text::FontSourceTemplate};
+use bevy::{
+    ecs::template::EntityTemplate, prelude::*, scene::Ready, text::FontSourceTemplate,
+    ui_widgets::Button,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, ui()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list! {
+        Camera2d
+        --
+        @ui()
+    }
 }
 
 fn ui() -> impl Scene {
     bsn! {
+        #RootUI
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            column_gap: Val::Px(5.),
+            column_gap: px(5),
         }
         Children [
-            (
-                button("Ok")
-                on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
-            ),
-            (
-                button("Cancel")
-                on(|_event: On<Pointer<Press>>| println!("Cancel pressed!"))
-                BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
-            ),
+            @button("Ok", #RootUI)
+            on(|_event: On<PointerPress>| println!("Ok pressed!"))
+            --
+            @button("Cancel", #RootUI)
+            on(|_event: On<PointerPress>| println!("Cancel pressed!"))
+            BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
         ]
+        on(|event: On<Ready>| {
+            println!("I'm the root entity => {:#?}", event.entity);
+        })
     }
 }
 
-fn button(label: &'static str) -> impl Scene {
+#[derive(FromTemplate, Component)]
+struct RootUi(Entity);
+
+fn button(label: &str, root_entity: EntityTemplate) -> impl Scene {
     bsn! {
         Button
+        RootUi(root_entity)
         Node {
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            border: UiRect::all(Val::Px(5.0)),
+            width: px(150),
+            height: px(65),
+            border: px(5),
             border_radius: BorderRadius::MAX,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
         }
         BorderColor::from(Color::BLACK)
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-        Children [(
+        on(|event: On<PointerPress>, q_root_ui: Query<&RootUi> |{
+            let root_ui = q_root_ui.get(event.entity).expect("We are sure it exists");
+            println!("This is my Root => {:#?}", root_ui.0);
+
+        })
+        Children [
             Text(label)
             TextFont {
                 font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
-                font_size: FontSize::Px(33.0),
+                font_size: px(33.0),
             }
             TextColor(Color::srgb(0.9, 0.9, 0.9))
             TextShadow
-        )]
+        ]
     }
 }

@@ -6,19 +6,21 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::Without,
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{ParamSet, Query},
 };
 use bevy_math::{Affine2, Rect, Vec2};
+use bevy_reflect::Reflect;
 use bevy_ui::{
-    ui_layout_system, ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType,
-    UiGlobalTransform, UiSystems, UiTransform, Val2,
+    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
+    UiTransform, Val2,
 };
 
 use crate::update_scrollbar_thumb;
 
 /// Which side of the parent element the popover element should be placed.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 pub enum PopoverSide {
     /// The popover element should be placed above the parent.
     Top,
@@ -47,7 +49,7 @@ impl PopoverSide {
 /// axis that is perpendicular to the direction of the popover side. So for example, if the popup is
 /// positioned below the parent, then the [`PopoverAlign`] variant controls the horizontal alignment
 /// of the popup.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 pub enum PopoverAlign {
     /// The starting edge of the popover element should be aligned to the starting edge of the
     /// parent.
@@ -64,7 +66,7 @@ pub enum PopoverAlign {
 /// sufficient space to display the popup without being clipped by the window edge. If any position
 /// has sufficient room, it will pick the first one; if there are none, then it will pick the least
 /// bad one.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 pub struct PopoverPlacement {
     /// The side of the parent entity where the popover element should be placed.
     pub side: PopoverSide,
@@ -79,7 +81,8 @@ pub struct PopoverPlacement {
 
 /// Component which is inserted into a popover element to make it dynamically position relative to
 /// an parent element.
-#[derive(Component, PartialEq, Default)]
+#[derive(Component, PartialEq, Default, Reflect)]
+#[reflect(Component)]
 pub struct Popover {
     /// List of potential positions for the popover element relative to the parent.
     pub positions: Vec<PopoverPlacement>,
@@ -250,6 +253,8 @@ pub(crate) fn position_popover(
                 computed_target.scale_factor(),
                 computed_node.size(),
                 computed_target.physical_size().as_vec2(),
+                computed_node.em_size,
+                computed_node.rem_size,
             );
             let logical_translation = (resolved_translation
                 + parent_matrix.inverse() * physical_translation)
@@ -293,7 +298,7 @@ fn translate_ui_children_recursive(
     };
 
     *ui_global_transform =
-        (ui_global_transform.affine() * Affine2::from_translation(translation)).into();
+        (Affine2::from_translation(translation) * ui_global_transform.affine()).into();
 
     if let Ok(children) = q_children.get(entity) {
         for child in children.iter() {
@@ -310,8 +315,8 @@ impl Plugin for PopoverPlugin {
         app.add_systems(
             PostUpdate,
             position_popover
-                .in_set(UiSystems::Layout)
-                .after(ui_layout_system)
+                .after(UiSystems::Layout)
+                .before(UiSystems::Clipping)
                 .before(update_scrollbar_thumb),
         );
     }
@@ -322,5 +327,80 @@ fn scale_rect(rect: Rect, factor: f32) -> Rect {
     Rect {
         min: rect.min * factor,
         max: rect.max * factor,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::Update;
+
+    #[test]
+    fn moving_popover_translates_scaled_child() {
+        let mut app = App::new();
+        app.add_systems(Update, position_popover);
+
+        let anchor_center = Vec2::new(50.0, 10.0);
+        let anchor_size = Vec2::new(100.0, 20.0);
+        let popover_size = Vec2::new(100.0, 40.0);
+
+        let anchor = app
+            .world_mut()
+            .spawn((
+                ComputedNode {
+                    size: anchor_size,
+                    ..Default::default()
+                },
+                UiGlobalTransform::from_translation(anchor_center),
+            ))
+            .id();
+        // The popover and its child start on top of the anchor.
+        let popover = app
+            .world_mut()
+            .spawn((
+                Popover {
+                    positions: vec![PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::Center,
+                        gap: 0.0,
+                    }],
+                    window_margin: 0.0,
+                },
+                Node::default(),
+                ComputedNode {
+                    size: popover_size,
+                    ..Default::default()
+                },
+                ComputedUiRenderTargetInfo::default(),
+                UiGlobalTransform::from_translation(anchor_center),
+                ChildOf(anchor),
+            ))
+            .id();
+        let child = app
+            .world_mut()
+            .spawn((
+                UiGlobalTransform::from(Affine2::from_scale_angle_translation(
+                    Vec2::splat(0.5),
+                    0.0,
+                    anchor_center,
+                )),
+                ChildOf(popover),
+            ))
+            .id();
+
+        app.update();
+
+        // Directly below the anchor, centered on it.
+        let expected_center =
+            anchor_center + Vec2::new(0.0, (anchor_size.y + popover_size.y) / 2.0);
+        let world = app.world();
+        assert_eq!(
+            world.get::<UiGlobalTransform>(popover).unwrap().translation,
+            expected_center
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(child).unwrap().translation,
+            expected_center
+        );
     }
 }

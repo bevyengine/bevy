@@ -65,20 +65,16 @@ fn setup(mut commands: Commands) {
                                 },
                                 TextBackgroundColor(PALETTE[i % PALETTE.len()]),
                             ))
-                            .observe(
-                                |event: On<Pointer<Over>>, mut query: Query<&mut TextColor>| {
-                                    if let Ok(mut text_color) = query.get_mut(event.entity) {
-                                        text_color.0 = Color::WHITE;
-                                    }
-                                },
-                            )
-                            .observe(
-                                |event: On<Pointer<Out>>, mut query: Query<&mut TextColor>| {
-                                    if let Ok(mut text_color) = query.get_mut(event.entity) {
-                                        text_color.0 = Color::BLACK;
-                                    }
-                                },
-                            );
+                            .observe(|event: On<PointerOver>, mut query: Query<&mut TextColor>| {
+                                if let Ok(mut text_color) = query.get_mut(event.entity) {
+                                    text_color.0 = Color::WHITE;
+                                }
+                            })
+                            .observe(|event: On<PointerOut>, mut query: Query<&mut TextColor>| {
+                                if let Ok(mut text_color) = query.get_mut(event.entity) {
+                                    text_color.0 = Color::BLACK;
+                                }
+                            });
                     }
                 });
         });

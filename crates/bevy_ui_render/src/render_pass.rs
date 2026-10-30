@@ -74,6 +74,7 @@ pub fn ui_pass(
     pass_span.end(&mut render_pass);
 }
 
+#[derive(Debug)]
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: (Entity, MainEntity),
@@ -81,7 +82,6 @@ pub struct TransparentUi {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
-    pub index: usize,
     pub indexed: bool,
 }
 

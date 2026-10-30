@@ -140,7 +140,15 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
         use crate::{entity::EntityMapper, world::World};
 
         let reflect_from_world = reflect_from_world.clone();
-        let source_component_cloned = source_component_reflect.to_dynamic();
+        let Ok(source_component_cloned) = source_component_reflect.to_dynamic() else {
+            let component_info = ctx.component_info();
+
+            log::error!(
+                "Failed to clone source component ({}) because to_dynamic call failed. Does your component contain an opaque type that does not implement Reflect?",
+                component_info.name()
+            );
+            return;
+        };
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();

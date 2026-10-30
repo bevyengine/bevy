@@ -7,7 +7,7 @@
 //! `Curve<Vec3>` that we want to use to animate something. That could be defined in
 //! a number of different ways, but let's imagine that we've defined it [using a function]:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
 //!     let wobble_curve = FunctionCurve::new(
 //!         Interval::UNIT,
@@ -25,7 +25,7 @@
 //! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
 //! [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
 //!     # use bevy_transform::components::Transform;
 //!     # use bevy_animation::{animated_field, animation_curves::*};
@@ -38,7 +38,7 @@
 //! And finally, this [`AnimationCurve`] needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
 //!     # use bevy_transform::components::Transform;
 //!     # use bevy_ecs::name::Name;
@@ -77,14 +77,14 @@
 //!
 //! This is the lowest-level option with the most control, but it is also the most complicated.
 //!
-//! [using a function]: bevy_math::curve::FunctionCurve
+//! [using a function]: bevy_curve::FunctionCurve
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
 //! [`animated_field`]: crate::animated_field
 
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
 };
@@ -96,11 +96,11 @@ use crate::{
     prelude::{Animatable, BlendInput},
     AnimationEntityMut, AnimationEvaluationError,
 };
-use bevy_ecs::component::{Component, Mutable};
-use bevy_math::curve::{
+use bevy_curve::{
     cores::{UnevenCore, UnevenCoreError},
     Curve, Interval,
 };
+use bevy_ecs::component::{Component, Mutable};
 use bevy_platform::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use downcast_rs::{impl_downcast, Downcast};
@@ -389,6 +389,11 @@ where
             });
         Ok(())
     }
+
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any> {
+        let value = self.curve.sample_clamped(t);
+        Box::new(value)
+    }
 }
 
 impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
@@ -600,11 +605,14 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
+
+    /// Samples the curve at the given time `t` and returns a Boxed value.
+    fn sample_clamped(&self, t: f32) -> Box<dyn Any>;
 }
 
 /// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`AnimatableProperty`].
 /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum EvaluatorId<'a> {
     /// Corresponds to a specific field on a specific component type.
     /// The `TypeId` should correspond to the component type, and the `usize`
@@ -765,7 +773,7 @@ where
 /// This can be used in the following way:
 ///
 /// ```
-/// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
+/// # use bevy_animation::animated_field;
 /// # use bevy_color::Srgba;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_math::Vec3;
@@ -785,15 +793,19 @@ where
 #[macro_export]
 macro_rules! animated_field {
     ($component:ident::$field:tt) => {
-        AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
-            &mut component.$field
-        })
+        $crate::animation_curves::AnimatedField::new_unchecked(
+            ::core::stringify!($field),
+            |component: &mut $component| &mut component.$field,
+        )
     };
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::VariableCurve;
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
 
     #[test]
     fn test_animated_field_tuple_struct_simple_uses() {
@@ -806,5 +818,29 @@ mod tests {
         let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
         let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
         let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
+
+    #[test]
+    fn test_sample_animation_curve() {
+        let variable_curve = VariableCurve::new(AnimatableCurve::new(
+            animated_field!(Transform::translation),
+            AnimatableKeyframeCurve::new([
+                (0.0, Vec3::new(0., 0., 1.)),
+                (1.0, Vec3::new(1., 0., 0.)),
+            ])
+            .expect("Failed to create power level curve"),
+        ));
+        let value = variable_curve
+            .0
+            .sample_clamped(0.)
+            .downcast::<Vec3>()
+            .unwrap();
+        assert_eq!(*value, Vec3::new(0., 0., 1.));
+        let value = variable_curve
+            .0
+            .sample_clamped(1.)
+            .downcast::<Vec3>()
+            .unwrap();
+        assert_eq!(*value, Vec3::new(1., 0., 0.));
     }
 }

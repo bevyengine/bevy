@@ -7,15 +7,20 @@
 //! are caught during development, rather than by end users.
 
 use argh::FromArgs;
-use assets::{load_assets, CityAssets};
+use assets::{load_assets, resolve_pending_lods, CityAssets};
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera::{visibility::NoCpuCulling, Exposure, Hdr},
+    camera::{
+        visibility::{NoCpuCulling, VisibilityRange},
+        Exposure, Hdr,
+    },
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     light::{
-        atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
+        atmosphere::{
+            Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm, EARTH_ATMOSPHERE_HEIGHT,
+        },
         Atmosphere, AtmosphereEnvironmentMapLight,
     },
     pbr::{
@@ -29,11 +34,12 @@ use bevy::{
     world_serialization::WorldInstanceReady,
 };
 
+use crate::generate_city::spawn_city;
 use crate::{
     assets::{merge_car_meshes, strip_base_url},
-    settings::Settings,
+    generate_city::CityStats,
+    settings::{settings_ui, Settings},
 };
-use crate::{generate_city::spawn_city, settings::setup_settings_ui};
 
 mod assets;
 mod generate_city;
@@ -50,9 +56,29 @@ pub struct Args {
     #[argh(option, default = "30")]
     size: u32,
 
-    /// adds NoCpuCulling to all meshes
+    /// car density. Controls the probability of spawning a car on a road. Range 0..1
+    #[argh(option, default = "0.05")]
+    car_density: f32,
+
+    /// adds `NoCpuCulling` to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
+
+    /// minimum range for LODs
+    #[argh(option, default = "200.0")]
+    lod_min_range: f32,
+
+    /// maximum range for LODs
+    #[argh(option, default = "500.0")]
+    lod_max_range: f32,
+
+    /// minimum range for car LODs
+    #[argh(option, default = "40.0")]
+    car_lod_min_range: f32,
+
+    /// maximum range for car LODs
+    #[argh(option, default = "80.0")]
+    car_lod_max_range: f32,
 }
 
 fn main() {
@@ -90,99 +116,106 @@ fn main() {
         .add_message::<CityAssetsLoaded>()
         .add_message::<CityAssetsReady>()
         .add_message::<CitySpawned>()
-        .add_systems(Startup, (setup, spawn_atmosphere, load_assets))
+        .add_systems(Startup, (scene.spawn(), spawn_atmosphere, load_assets))
         .add_systems(
             Update,
             (
                 simulate_cars,
-                loading_screen,
+                update_loading_screen,
                 process_assets.run_if(on_message::<CityAssetsLoaded>),
                 on_city_assets_ready.run_if(on_message::<CityAssetsReady>),
-                (add_no_cpu_culling, on_city_spawned, setup_settings_ui)
+                (add_no_cpu_culling, on_city_spawned, settings_ui.spawn())
                     .run_if(on_message::<CitySpawned>),
+                resolve_pending_lods,
             ),
         )
         .add_observer(add_no_cpu_culling_on_scene_ready)
+        .add_observer(propagate_visibility_range)
         .run();
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera3d::default(),
-        Hdr,
-        Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCamera::default(),
+fn scene() -> impl SceneList {
+    bsn_list! {
+        @camera()
+        --
+        @sun()
+        --
+        @loading_screen()
+    }
+}
+
+fn camera() -> impl Scene {
+    bsn! {
+        Camera3d
+        Hdr
+        Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y)
+        FreeCamera
         AtmosphereSettings {
             // Reduce the default max distance in the aerial view LUT
             // to 16km to approximately fit the size of the city. This way the aerial perspective
             // gets more detail and has less banding artifacts compared to the 32km default.
             aerial_view_lut_max_distance: 1.6e4,
-            ..default()
-        },
+        }
         // The directional light illuminance used in this scene is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure::OVERCAST,
+        Exposure::OVERCAST
         // Bloom gives the sun a much more natural look.
-        Bloom::NATURAL,
+        Bloom::NATURAL
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
-        AtmosphereEnvironmentMapLight::default(),
-        Msaa::Off,
-        TemporalAntiAliasing::default(),
-        ContactShadows::default(),
-    ));
+        AtmosphereEnvironmentMapLight
+        Msaa::Off
+        TemporalAntiAliasing
+        ContactShadows
+    }
+}
 
-    commands.spawn((
-        DirectionalLight {
-            shadow_maps_enabled: Settings::default().shadow_maps_enabled,
-            contact_shadows_enabled: Settings::default().contact_shadows_enabled,
-            illuminance: light_consts::lux::RAW_SUNLIGHT,
-            ..default()
-        },
-        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-
-    commands.spawn((
-        LoadingScreen,
+fn loading_screen() -> impl Scene {
+    bsn! {
+        LoadingScreen
         Node {
             position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            ..default()
-        },
-        BackgroundColor(Color::BLACK),
-        children![(
+            width: percent(100),
+            height: percent(100),
+        }
+        BackgroundColor(Color::BLACK)
+        Children [
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(50.0),
-                left: Val::Percent(20.0),
-                right: Val::Percent(20.0),
-                height: Val::Vh(40.0),
+                top: percent(50),
+                left: percent(20),
+                right: percent(20),
+                height: vh(40),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::FlexStart,
                 overflow: Overflow::scroll_y(),
-                ..default()
-            },
-            children![
-                (
-                    LoadingText,
-                    Text::new("Loading..."),
-                    TextFont {
-                        font_size: FontSize::Px(24.0),
-                        ..default()
-                    },
-                ),
-                (
-                    LoadingPaths,
-                    Text::new(""),
-                    TextFont {
-                        font_size: FontSize::Px(14.0),
-                        ..default()
-                    },
-                ),
+            }
+            Children [
+                LoadingText
+                Text("Loading...")
+                TextFont {
+                    font_size: FontSize::Px(24.0),
+                }
+                --
+                LoadingPaths
+                Text
+                TextFont {
+                    font_size: FontSize::Px(14.0),
+                }
             ]
-        )],
-    ));
+        ]
+    }
+}
+
+fn sun() -> impl Scene {
+    bsn! {
+        DirectionalLight {
+            shadow_maps_enabled: {Settings::default().shadow_maps_enabled},
+            contact_shadows_enabled: {Settings::default().contact_shadows_enabled},
+            illuminance: light_consts::lux::RAW_SUNLIGHT,
+        }
+        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y)
+    }
 }
 
 /// Spawns the earth atmosphere plus an extra near-ground fog term.
@@ -190,30 +223,29 @@ fn spawn_atmosphere(
     mut commands: Commands,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
 ) {
-    let mut earth_medium = ScatteringMedium::default();
-
-    // Same 60 km atmosphere height as `ScatteringMedium::earth`
-    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
+    // 1024 falloff samples over the 100 km atmosphere are ~100 m apart, fine enough to
+    // resolve the haze layer below.
+    let mut earth_medium = ScatteringMedium::earth(1024, 256);
 
     // The scale height of haze is set to 100 meters providing a low-lying dense fog layer.
-    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
+    const HAZE_SCALE_HEIGHT: f32 = 100.0;
 
     // Fog has high albedo and very low absorption resulting in a white color.
     const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
 
     // Distance at which contrast falls low enough to be indistinguishable from the sky.
     // known as Meteorological Optical Range
-    const HAZE_VISIBILITY_KM: f32 = 12.0;
+    const HAZE_VISIBILITY: f32 = 12_000.0;
 
-    // Koschmieder relation to calculate the extinction coefficient for the medium in m^-1 units.
-    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
+    // Extinction coefficient at a 2% contrast threshold.
+    let beta_ext = FogFalloff::koschmieder(HAZE_VISIBILITY, 0.02);
 
     // Add the fog to the earth medium as an additional scattering term.
     earth_medium.terms.push(ScatteringTerm {
         absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
         scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
         falloff: Falloff::Exponential {
-            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
+            scale: HAZE_SCALE_HEIGHT / EARTH_ATMOSPHERE_HEIGHT,
         },
         // Fog is approximated as a mie scatterer with this asymmetry factor
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
@@ -229,11 +261,11 @@ fn spawn_atmosphere(
     ));
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct LoadingScreen;
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct LoadingText;
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct LoadingPaths;
 
 /// Triggers when all the assets managed in [`CityAssets`] are loaded
@@ -246,8 +278,8 @@ struct CityAssetsReady;
 #[derive(Message)]
 struct CitySpawned;
 
-#[allow(clippy::type_complexity)]
-fn loading_screen(
+#[expect(clippy::type_complexity, reason = "One cohesive system.")]
+fn update_loading_screen(
     mut commands: Commands,
     assets: Res<CityAssets>,
     asset_server: Res<AssetServer>,
@@ -313,7 +345,27 @@ fn on_city_assets_ready(
     };
     text.0 = "Spawning city...".into();
 
-    spawn_city(&mut commands, &city_assets, args.seed, args.size);
+    let mut stats = CityStats::default();
+    spawn_city(
+        &mut commands,
+        &city_assets,
+        args.seed,
+        args.size,
+        args.car_density,
+        &mut stats,
+    );
+
+    info!("cars: {}", stats.cars);
+    info!("roads: {}", stats.roads);
+    info!("trees: {}", stats.trees);
+    info!("buildings: {}", stats.buildings);
+    info!("fences: {}", stats.fences);
+    info!("paths: {}", stats.paths);
+    info!(
+        "total: {}",
+        stats.cars + stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
+    );
+
     commands.write_message(CitySpawned);
 }
 
@@ -403,6 +455,24 @@ fn add_no_cpu_culling_on_scene_ready(
             if meshes.get(descendant).is_ok() {
                 commands.entity(descendant).insert(NoCpuCulling);
             }
+        }
+    }
+}
+
+fn propagate_visibility_range(
+    scene_ready: On<WorldInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    range: Query<&VisibilityRange>,
+    mesh: Query<(), With<Mesh3d>>,
+) {
+    let Ok(range) = range.get(scene_ready.entity) else {
+        return;
+    };
+
+    for descendant in children.iter_descendants(scene_ready.entity) {
+        if mesh.get(descendant).is_ok() {
+            commands.entity(descendant).insert(range.clone());
         }
     }
 }

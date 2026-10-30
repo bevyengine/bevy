@@ -9,6 +9,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::fmt;
 use derive_more::derive::From;
@@ -176,6 +177,30 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// assert_eq!(my_list.path::<u32>("[2]").unwrap(), &3);
 /// ```
 ///
+/// ## Maps and Sets
+///
+/// [`Map`] and [`Set`] elements are accessed by a quoted key in brackets: `["key"]`.
+/// Integer keys are quoted too, like `["42"]` or `["-1"]`.
+///
+/// Supported key types are `String`, `Cow<'static, str>`, and the primitive integers.
+/// Set elements can't be accessed mutably.
+///
+/// The only allowed escapes in a key are `\"` and `\\`.
+/// Any other character, including unicode and newlines, is written directly,
+/// since the path is an ordinary Rust string.
+/// Any other backslash sequence is an error.
+///
+/// ### Example
+/// ```
+/// # use bevy_reflect::GetPath;
+/// # use std::collections::HashMap;
+/// let names = HashMap::from([(String::from("alice"), 1_u32)]);
+/// assert_eq!(names.path::<u32>(r#"["alice"]"#).unwrap(), &1);
+///
+/// let ids = HashMap::from([(7_u64, 2_u32)]);
+/// assert_eq!(ids.path::<u32>(r#"["7"]"#).unwrap(), &2);
+/// ```
+///
 /// ## Enums
 ///
 /// Pathing for [`Enum`] elements works a bit differently than in normal Rust.
@@ -243,6 +268,8 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`TupleStruct`]: crate::tuple_struct::TupleStruct
 /// [`List`]: crate::list::List
 /// [`Array`]: crate::array::Array
+/// [`Map`]: crate::map::Map
+/// [`Set`]: crate::set::Set
 /// [`Enum`]: crate::enums::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
@@ -301,6 +328,8 @@ pub struct OffsetAccess {
     /// The [`Access`] itself.
     pub access: Access<'static>,
     /// A character offset in the string the path was parsed from.
+    ///
+    /// Generally, this is `None` when the access wasn't parsed from a string.
     pub offset: Option<usize>,
 }
 
@@ -372,6 +401,26 @@ pub struct ParsedPath(
 );
 
 impl ParsedPath {
+    /// Create a new, empty [`ParsedPath`]. This path won't perform any accesses, returning a
+    /// top-level value unchanged.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
+    ///
+    /// #[derive(Debug, PartialEq, Reflect)]
+    /// struct Player(f64, u32);
+    ///
+    /// let player = Player(0.0, 1);
+    ///
+    /// let empty_path = ParsedPath::empty();
+    /// assert_eq!(empty_path.element::<bool>(&true).unwrap(), &true);
+    /// assert_eq!(empty_path.element::<Player>(&player).unwrap(), &player);
+    /// ```
+    pub const fn empty() -> Self {
+        Self(Vec::new())
+    }
+
     /// Parses a [`ParsedPath`] from a string.
     ///
     /// Returns an error if the string does not represent a valid path to an element.
@@ -384,37 +433,39 @@ impl ParsedPath {
     /// - Field index access (`#0`)
     /// - Sequence access (`[2]`)
     ///
+    /// [`OffsetAccess::offset`] will be `Some` for paths parsed by this method.
+    ///
     /// # Example
     /// ```
     /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
     /// #[derive(Reflect)]
-    /// struct Foo {
-    ///   bar: Bar,
+    /// struct Player {
+    ///   inventory: Inventory,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Bar {
-    ///   baz: Baz,
+    /// struct Inventory {
+    ///   item: Item,
     /// }
     ///
     /// #[derive(Reflect)]
-    /// struct Baz(f32, Vec<Option<u32>>);
+    /// struct Item(f32, Vec<Option<u32>>);
     ///
-    /// let foo = Foo {
-    ///   bar: Bar {
-    ///     baz: Baz(3.14, vec![None, None, Some(123)])
+    /// let player = Player {
+    ///   inventory: Inventory {
+    ///     item: Item(3.14, vec![None, None, Some(123)])
     ///   },
     /// };
     ///
-    /// let parsed_path = ParsedPath::parse("bar#0.1[2].0").unwrap();
+    /// let parsed_path = ParsedPath::parse("inventory#0.1[2].0").unwrap();
     /// // Breakdown:
-    /// //   "bar" - Access struct field named "bar"
+    /// //   "inventory" - Access struct field named "inventory"
     /// //   "#0" - Access struct field at index 0
     /// //   ".1" - Access tuple struct field at index 1
     /// //   "[2]" - Access list element at index 2
     /// //   ".0" - Access tuple variant field at index 0
     ///
-    /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
+    /// assert_eq!(parsed_path.element::<u32>(&player).unwrap(), &123);
     /// ```
     pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
@@ -429,6 +480,8 @@ impl ParsedPath {
 
     /// Similar to [`Self::parse`] but only works on `&'static str`
     /// and does not allocate per named field.
+    ///
+    /// [`OffsetAccess::offset`] will be `Some` for paths parsed by this method.
     pub fn parse_static(string: &'static str) -> PathResult<'static, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
@@ -438,6 +491,102 @@ impl ParsedPath {
             });
         }
         Ok(Self(parts))
+    }
+
+    /// Append a field access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_field(&mut self, field: impl Into<Cow<'static, str>>) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::Field(field.into()),
+            offset: None,
+        });
+        self
+    }
+
+    /// Similar to [`Self::push_field`] but only works on `&'static str`
+    /// and does not allocate.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_field_static(&mut self, field: &'static str) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::Field(Cow::Borrowed(field)),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a field index access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_field_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::FieldIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a list access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_list_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::ListIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Append a tuple index access to the end of the path.
+    ///
+    /// [`OffsetAccess::offset`] will be `None` for the added access.
+    pub fn push_tuple_index(&mut self, idx: usize) -> &mut Self {
+        self.0.push(OffsetAccess {
+            access: Access::TupleIndex(idx),
+            offset: None,
+        });
+        self
+    }
+
+    /// Join two paths, chaining their accesses. This will produce a new [`ParsedPath`] that
+    /// performs the accesses of this path and then the other path in order.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::{ParsedPath, Reflect, ReflectPath};
+    /// #[derive(Reflect)]
+    /// struct Player {
+    ///   inventory: Inventory,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Inventory {
+    ///   item: Item,
+    /// }
+    ///
+    /// #[derive(Clone, Debug, PartialEq, Reflect)]
+    /// struct Item(f32, Vec<Option<u32>>);
+    ///
+    /// let item = Item(3.14, vec![None, None, Some(123)]);
+    ///
+    /// let player = Player {
+    ///   inventory: Inventory {
+    ///     item: item.clone(),
+    ///   },
+    /// };
+    ///
+    /// let first_path = ParsedPath::parse(".inventory#0").unwrap();
+    /// let second_path = ParsedPath::parse(".1[2].0").unwrap();
+    ///
+    /// let joined_path = first_path.join(&second_path);
+    ///
+    /// assert_eq!(first_path.element::<Item>(&player).unwrap(), &item);
+    /// assert_eq!(second_path.element::<u32>(&item).unwrap(), &123);
+    /// assert_eq!(joined_path.element::<u32>(&player).unwrap(), &123);
+    /// ```
+    pub fn join(&self, other: &Self) -> ParsedPath {
+        ParsedPath(self.0.iter().chain(other.0.iter()).cloned().collect())
     }
 }
 
@@ -522,7 +671,12 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 mod tests {
     use super::*;
     use crate::{enums::VariantType, *};
-    use alloc::vec;
+    use alloc::{
+        collections::BTreeMap,
+        string::{String, ToString},
+        vec,
+    };
+    use bevy_platform::collections::{HashMap, HashSet};
 
     #[derive(Reflect, PartialEq, Debug)]
     struct A {
@@ -807,6 +961,111 @@ mod tests {
             a.reflect_path("y.x").err().unwrap(),
             invalid_access(2, ReflectKind::List, ReflectKind::Struct, "y.x")
         );
+    }
+
+    #[test]
+    fn parse_key() {
+        assert_eq!(
+            ParsedPath::parse(r#"m["a.b[c]"].x"#).unwrap().0,
+            &[
+                offset(access_field("m"), 1),
+                offset(Access::Key("a.b[c]".into()), 2),
+                offset(access_field("x"), 12),
+            ]
+        );
+        let path = ParsedPath::parse(r#"["q\"b\\"]"#).unwrap();
+        assert_eq!(path.0, &[offset(Access::Key(r#"q"b\"#.into()), 1)]);
+        assert_eq!(path, ParsedPath::parse(&path.to_string()).unwrap());
+        assert!(ParsedPath::parse(r#"["abc]"#).is_err());
+        assert!(ParsedPath::parse(r#"["a\n"]"#).is_err());
+    }
+
+    #[test]
+    fn reflect_path_map() {
+        #[derive(Reflect)]
+        struct M {
+            names: HashMap<String, C>,
+            ids: HashMap<u32, u8>,
+            signed: BTreeMap<i64, u8>,
+            set: HashSet<String>,
+        }
+
+        let mut m = M {
+            names: HashMap::from([("a.b".into(), C { mосква: 1.0 })]),
+            ids: HashMap::from([(7, 1)]),
+            signed: BTreeMap::from([(-3, 2), (5, 3)]),
+            set: HashSet::from(["x".into(), "\u{e9}t\u{e9}".into()]),
+        };
+
+        assert_eq!(*m.path::<f32>(r#"names["a.b"].mосква"#).unwrap(), 1.0);
+        *m.path_mut::<f32>(r#"names["a.b"].mосква"#).unwrap() = 2.0;
+        assert_eq!(m.names["a.b"].mосква, 2.0);
+
+        assert_eq!(*m.path::<u8>(r#"ids["7"]"#).unwrap(), 1);
+        *m.path_mut::<u8>(r#"ids["7"]"#).unwrap() = 4;
+        assert_eq!(m.ids[&7], 4);
+        assert_eq!(*m.path::<u8>(r#"signed["5"]"#).unwrap(), 3);
+        assert_eq!(*m.path::<u8>(r#"signed["-3"]"#).unwrap(), 2);
+
+        assert_eq!(*m.path::<String>(r#"set["x"]"#).unwrap(), "x");
+        assert_eq!(
+            *m.path::<String>("set[\"\u{e9}t\u{e9}\"]").unwrap(),
+            "\u{e9}t\u{e9}"
+        );
+
+        let u32_key = AccessErrorKind::InvalidKey {
+            key_type: Some("u32"),
+        };
+        let not_struct = AccessErrorKind::IncompatibleTypes {
+            expected: ReflectKind::Struct,
+            actual: ReflectKind::Map,
+        };
+        let not_list = AccessErrorKind::IncompatibleTypes {
+            expected: ReflectKind::List,
+            actual: ReflectKind::Map,
+        };
+        for (path, kind) in [
+            (
+                r#"ids["8"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Map),
+            ),
+            (
+                r#"names["b"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Map),
+            ),
+            (
+                r#"set["y"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Set),
+            ),
+            ("ids[7]", not_list),
+            (r#"ids["a"]"#, u32_key.clone()),
+            (r#"ids["4294967296"]"#, u32_key),
+            ("ids.x", not_struct),
+        ] {
+            let Err(ReflectPathError::InvalidAccess(error)) = m.reflect_path(path) else {
+                panic!("expected an access error for {path}");
+            };
+            assert_eq!(error.kind, kind, "{path}");
+        }
+        assert_eq!(
+            m.reflect_path(r#"ids["x"]"#).unwrap_err().to_string(),
+            r#"Error accessing element with `["x"]` access(offset 4): The key in the path can't be converted to the map or set key type `u32`."#
+        );
+        assert_eq!(
+            m.reflect_path_mut(r#"set["x"]"#).unwrap_err(),
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::MutableSetAccess,
+                access: Access::Key("x".into()),
+                offset: Some(4),
+            })
+        );
+
+        let a = a_sample();
+        assert_eq!(
+            a.reflect_path(r#"y["k"]"#).err().unwrap(),
+            invalid_access(2, ReflectKind::List, ReflectKind::Map, r#"y["k"]"#)
+        );
+        assert_eq!(*a.path::<f32>("y[1].mосква").unwrap(), 2.0);
     }
 
     #[test]

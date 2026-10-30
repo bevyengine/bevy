@@ -1,7 +1,5 @@
-use bevy_math::{
-    primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
-    Vec2, Vec3,
-};
+use bevy_math::{Vec2, Vec3};
+use bevy_shape::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d};
 
 use super::{MeshBuilder, Meshable};
 use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
@@ -212,10 +210,14 @@ where
                 match topology {
                     PrimitiveTopology::TriangleList => match indices {
                         Indices::U16(indices) => {
-                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
+                            for [a, b, _] in indices.as_chunks_mut().0 {
+                                core::mem::swap(a, b);
+                            }
                         }
                         Indices::U32(indices) => {
-                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
+                            for [a, b, _] in indices.as_chunks_mut().0 {
+                                core::mem::swap(a, b);
+                            }
                         }
                     },
                     _ => {

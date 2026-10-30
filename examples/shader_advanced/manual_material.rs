@@ -10,8 +10,7 @@ use bevy::{
     material::{key::ErasedMeshPipelineKey, MaterialProperties},
     pbr::{
         base_specialize, DrawMaterial, EntitiesNeedingSpecialization, MainPassOpaqueDrawFunction,
-        MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialFragmentShader,
-        MeshPipelineKey, PreparedMaterial, RenderMaterialBindings, RenderMaterialInstance,
+        MaterialFragmentShader, MeshPipelineKey, PreparedMaterial, RenderMaterialInstance,
         RenderMaterialInstances,
     },
     platform::collections::hash_map::Entry,
@@ -19,13 +18,16 @@ use bevy::{
     render::{
         camera::{DirtySpecializationSystems, DirtySpecializations},
         erased_render_asset::{ErasedRenderAsset, ErasedRenderAssetPlugin, PrepareAssetError},
+        material_bind_groups::{
+            MaterialBindGroupAllocator, MaterialBindGroupAllocators, RenderMaterialBindings,
+        },
         render_asset::RenderAssets,
         render_phase::DrawFunctions,
         render_resource::{
             binding_types::{sampler, texture_2d},
-            AsBindGroup, BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResources,
-            OwnedBindingResource, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-            TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+            AsBindGroup, BindGroupBuilder, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+            Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, TextureSampleType,
+            TextureViewDimension, UnpreparedBindingResource, UnpreparedBindingResources,
         },
         renderer::RenderDevice,
         sync_world::MainEntity,
@@ -36,7 +38,7 @@ use bevy::{
 };
 use std::{any::TypeId, sync::Arc};
 
-const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/manual_material.wesl";
 
 fn main() {
     App::new()
@@ -163,34 +165,36 @@ impl ErasedRenderAsset for ImageMaterial {
         let Some(image) = gpu_images.get(&source_asset.image) else {
             return Err(PrepareAssetError::RetryNextUpdate(source_asset));
         };
-        let unprepared = UnpreparedBindGroup {
-            bindings: BindingResources(vec![
+        let mut unprepared = BindGroupBuilder {
+            binding_resources: UnpreparedBindingResources(vec![
                 (
                     0,
-                    OwnedBindingResource::TextureView(
+                    UnpreparedBindingResource::TextureView(
                         TextureViewDimension::D2,
                         image.texture_view.clone(),
                     ),
                 ),
                 (
                     1,
-                    OwnedBindingResource::Sampler(
+                    UnpreparedBindingResource::Sampler(
                         SamplerBindingType::NonFiltering,
                         image_material_sampler.0.clone(),
                     ),
                 ),
             ]),
+            data_buffer: vec![],
         };
         let binding = match render_material_bindings.entry(asset_id.into()) {
             Entry::Occupied(mut occupied_entry) => {
                 bind_group_allocator.free(*occupied_entry.get());
                 let new_binding =
-                    bind_group_allocator.allocate_unprepared(unprepared, &material_layout);
+                    bind_group_allocator.allocate_unprepared(&mut unprepared, &material_layout);
                 *occupied_entry.get_mut() = new_binding;
                 new_binding
             }
-            Entry::Vacant(vacant_entry) => *vacant_entry
-                .insert(bind_group_allocator.allocate_unprepared(unprepared, &material_layout)),
+            Entry::Vacant(vacant_entry) => *vacant_entry.insert(
+                bind_group_allocator.allocate_unprepared(&mut unprepared, &material_layout),
+            ),
         };
 
         let mut properties = MaterialProperties {

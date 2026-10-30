@@ -1,6 +1,5 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp, SubApps,
 };
 use alloc::{
     boxed::Box,
@@ -12,7 +11,7 @@ use bevy_ecs::{
     component::RequiredComponentsError,
     error::{ErrorHandler, FallbackErrorHandler},
     intern::Interned,
-    message::{message_update_system, MessageCursor},
+    message::MessageCursor,
     observer::IntoObserver,
     prelude::*,
     schedule::{
@@ -23,7 +22,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{FromType, Reflect, TypeData, TypePath};
+use bevy_reflect::{CreateTypeData, Reflect, TypePath};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 
@@ -37,12 +36,12 @@ use std::{
 };
 
 bevy_ecs::define_label!(
-    /// A strongly-typed class of labels used to identify an [`App`].
+    /// A strongly-typed class of labels used to uniquely identify an [`App`].
+    /// An [`AppLabel`] should not be an enum.
     #[diagnostic::on_unimplemented(
         note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
     )]
     AppLabel,
-    APP_LABEL_INTERNER
 );
 
 pub use bevy_ecs::label::DynEq;
@@ -125,10 +124,8 @@ impl Default for App {
 
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
-            First,
-            message_update_system
-                .in_set(bevy_ecs::message::MessageUpdateSystems)
-                .run_if(bevy_ecs::message::message_update_condition),
+            crate::Last,
+            bevy_ecs::system::despawn_unused_registered_systems,
         );
         app.add_message::<AppExit>();
 
@@ -382,6 +379,24 @@ impl App {
         self.main_mut().register_system(system)
     }
 
+    /// Registers a system and returns a tracked [`SystemHandle`] so it can later
+    /// be called by [`World::run_system`]. The system entity will be automatically
+    /// queued for despawn when the last clone of the returned handle is dropped.
+    ///
+    /// See [`World::register_tracked_system`] for more details.
+    ///
+    /// [`SystemHandle`]: bevy_ecs::system::SystemHandle
+    pub fn register_tracked_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> bevy_ecs::system::SystemHandle<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
+        self.main_mut().register_tracked_system(system)
+    }
+
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets<M>(
@@ -393,8 +408,7 @@ impl App {
         self
     }
 
-    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
-    /// and scheduling an [`message_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`]).
     ///
     /// See [`Messages`] for information on how to define messages.
     ///
@@ -473,13 +487,6 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing data
-    /// of the same type.
-    #[deprecated(since = "0.19.0", note = "use App::insert_non_send")]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.insert_non_send(resource)
-    }
-
     /// Inserts the [`!Send`](Send) data into the app, overwriting any existing data
     /// of the same type.
     ///
@@ -502,12 +509,6 @@ impl App {
     pub fn insert_non_send<R: 'static>(&mut self, resource: R) -> &mut Self {
         self.world_mut().insert_non_send(resource);
         self
-    }
-
-    /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
-    #[deprecated(since = "0.19.0", note = "use App::init_non_send")]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.init_non_send::<R>()
     }
 
     /// Inserts the [`!Send`](Send) data into the app if there is no existing instance of `R`.
@@ -687,9 +688,7 @@ impl App {
     ///
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
-    pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(
-        &mut self,
-    ) -> &mut Self {
+    pub fn register_type_data<T: Reflect + TypePath, D: CreateTypeData<T>>(&mut self) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
         self
     }
@@ -1015,7 +1014,7 @@ impl App {
     /// ```
     pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> &mut Self {
         self.world_mut()
             .register_required_components_with::<T, R>(constructor);
@@ -1145,7 +1144,7 @@ impl App {
     /// ```
     pub fn try_register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         self.world_mut()
             .try_register_required_components_with::<T, R>(constructor)
@@ -1526,6 +1525,11 @@ fn run_once(mut app: App) -> AppExit {
 
     app.should_exit().unwrap_or(AppExit::Success)
 }
+
+/// A [`SystemSet`] for systems that should run before app exit (but
+/// after an [`AppExit`] message has been sent).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnAppExitSystems;
 
 /// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
@@ -1930,7 +1934,7 @@ mod tests {
     fn test_extract_sees_changes() {
         use super::AppLabel;
 
-        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug, Default)]
         struct MySubApp;
 
         #[derive(Resource)]
@@ -2085,5 +2089,22 @@ mod tests {
         let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_messages().count(), 0);
+    }
+
+    #[test]
+    fn auto_despawn_unused_registered_systems() {
+        let mut app = App::new();
+
+        fn my_system() {}
+
+        let handle = app.register_tracked_system(my_system);
+        let entity = handle.entity();
+
+        app.update();
+        assert!(app.world().get_entity(entity).is_ok());
+
+        drop(handle);
+        app.update();
+        assert!(app.world().get_entity(entity).is_err());
     }
 }

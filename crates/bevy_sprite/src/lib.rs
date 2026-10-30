@@ -1,4 +1,3 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -13,7 +12,6 @@ extern crate alloc;
 #[cfg(feature = "bevy_picking")]
 mod picking_backend;
 mod sprite;
-mod sprite_mesh;
 #[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
@@ -33,8 +31,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
-        sprite_mesh::SpriteMesh,
-        texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
+        texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
         SpriteScalingMode,
     };
 }
@@ -45,13 +42,13 @@ use bevy_camera::{
     visibility::NoFrustumCulling,
     visibility::VisibilitySystems,
 };
-use bevy_mesh::{Mesh, Mesh2d};
+use bevy_math::Vec2;
+use bevy_mesh::{mark_2d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d};
 #[cfg(feature = "bevy_text")]
 use bevy_text::detect_text_needs_rerender;
 #[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
 pub use sprite::*;
-pub use sprite_mesh::*;
 #[cfg(feature = "bevy_text")]
 pub use text2d::*;
 pub use texture_slice::*;
@@ -61,18 +58,10 @@ use bevy_asset::prelude::AssetChanged;
 use bevy_camera::visibility::NoAutoAabb;
 use bevy_ecs::prelude::*;
 use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
-use bevy_math::Vec2;
 
 /// Adds support for 2D sprites.
 #[derive(Default)]
 pub struct SpritePlugin;
-
-/// System set for sprite rendering.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum SpriteSystems {
-    ExtractSprites,
-    ComputeSlices,
-}
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -81,9 +70,9 @@ impl Plugin for SpritePlugin {
         }
         app.add_systems(
             PostUpdate,
-            (calculate_bounds_2d, calculate_bounds_2d_sprite_mesh)
-                .chain()
-                .in_set(VisibilitySystems::CalculateBounds),
+            calculate_bounds_2d
+                .in_set(VisibilitySystems::CalculateBounds)
+                .after(mark_2d_meshes_as_changed_if_their_assets_changed),
         );
 
         #[cfg(feature = "bevy_text")]
@@ -95,6 +84,7 @@ impl Plugin for SpritePlugin {
                 .after(bevy_text::load_font_assets_into_font_collection)
                 .after(bevy_text::apply_text_edits)
                 .after(bevy_app::AnimationSystems)
+                .before(bevy_app::TransformGizmoRenderStep)
                 .before(bevy_asset::AssetEventSystems),
         )
         .add_systems(
@@ -112,10 +102,9 @@ impl Plugin for SpritePlugin {
 /// System calculating and inserting an [`Aabb`] component to entities with either:
 /// - a `Mesh2d` component,
 /// - a `Sprite` and `Handle<Image>` components,
-///   and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
-pub fn calculate_bounds_2d(
+fn calculate_bounds_2d(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
@@ -126,7 +115,7 @@ pub fn calculate_bounds_2d(
             Without<Aabb>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
-            Without<SpriteMesh>, // temporary before merging SpriteMesh into Sprite,
+            Without<Sprite>,
         ),
     >,
     mut update_mesh_aabb: Query<
@@ -135,8 +124,7 @@ pub fn calculate_bounds_2d(
             Or<(AssetChanged<Mesh2d>, Changed<Mesh2d>)>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
-            Without<SpriteMesh>, // temporary before merging SpriteMesh into Sprite,
-            Without<Sprite>,     // disjoint mutable query
+            Without<Sprite>,
         ),
     >,
     new_sprite_aabb: Query<
@@ -153,14 +141,13 @@ pub fn calculate_bounds_2d(
             Or<(Changed<Sprite>, Changed<Anchor>)>,
             Without<NoFrustumCulling>,
             Without<NoAutoAabb>,
-            Without<Mesh2d>, // disjoint mutable query
         ),
     >,
 ) {
     // New meshes require inserting a component
     for (entity, mesh_handle) in &new_mesh_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)
-            && let Some(aabb) = mesh.compute_aabb()
+            && let Some(aabb) = mesh.get_aabb()
         {
             commands.entity(entity).try_insert(aabb);
         }
@@ -170,79 +157,13 @@ pub fn calculate_bounds_2d(
     update_mesh_aabb
         .par_iter_mut()
         .for_each(|(mesh_handle, mut aabb)| {
-            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::compute_aabb) {
+            if let Some(new_aabb) = meshes.get(mesh_handle).and_then(MeshAabb::get_aabb) {
                 aabb.set_if_neq(new_aabb);
             }
         });
 
     // Sprite helper
     let sprite_size = |sprite: &Sprite| -> Option<Vec2> {
-        sprite
-            .custom_size
-            .or_else(|| sprite.rect.map(|rect| rect.size()))
-            .or_else(|| match &sprite.texture_atlas {
-                // We default to the texture size for regular sprites
-                None => images.get(&sprite.image).map(Image::size_f32),
-                // We default to the drawn rect for atlas sprites
-                Some(atlas) => atlas
-                    .texture_rect(&atlases)
-                    .map(|rect| rect.size().as_vec2()),
-            })
-    };
-
-    // New sprites require inserting a component
-    for (size, (entity, anchor)) in new_sprite_aabb
-        .iter()
-        .filter_map(|(entity, sprite, anchor)| sprite_size(sprite).zip(Some((entity, anchor))))
-    {
-        let aabb = Aabb {
-            center: (-anchor.as_vec() * size).extend(0.0).into(),
-            half_extents: (0.5 * size).extend(0.0).into(),
-        };
-        commands.entity(entity).try_insert(aabb);
-    }
-
-    // Updated sprites can take the fast path with parallel component mutation
-    update_sprite_aabb
-        .par_iter_mut()
-        .for_each(|(sprite, mut aabb, anchor)| {
-            if let Some(size) = sprite_size(sprite) {
-                aabb.set_if_neq(Aabb {
-                    center: (-anchor.as_vec() * size).extend(0.0).into(),
-                    half_extents: (0.5 * size).extend(0.0).into(),
-                });
-            }
-        });
-}
-
-// Temporarily added this to calculate aabb for sprite meshes.
-// Will eventually be merged with Sprite in the system above.
-//
-// NOTE: this is separate from Mesh2d because sprites change their size
-// inside the vertex shader which isn't recognized by calculate_aabb().
-fn calculate_bounds_2d_sprite_mesh(
-    mut commands: Commands,
-    images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
-    new_sprite_aabb: Query<
-        (Entity, &SpriteMesh, &Anchor),
-        (
-            Without<Aabb>,
-            Without<NoFrustumCulling>,
-            Without<NoAutoAabb>,
-        ),
-    >,
-    mut update_sprite_aabb: Query<
-        (&SpriteMesh, &mut Aabb, &Anchor),
-        (
-            Or<(Changed<SpriteMesh>, Changed<Anchor>)>,
-            Without<NoFrustumCulling>,
-            Without<NoAutoAabb>,
-        ),
-    >,
-) {
-    // Sprite helper
-    let sprite_size = |sprite: &SpriteMesh| -> Option<Vec2> {
         sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))

@@ -15,9 +15,7 @@ use crate::{
     relationship::RelationshipHookMode,
     world::{EntityMut, EntityWorldMut},
 };
-use bevy_reflect::{
-    FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
-};
+use bevy_reflect::{CreateTypeData, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry};
 
 use super::{from_reflect_with_fallback, ReflectComponent};
 
@@ -53,12 +51,12 @@ pub struct ReflectBundleFns {
 
 impl ReflectBundleFns {
     /// Get the default set of [`ReflectBundleFns`] for a specific bundle type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + FromReflect + TypePath + BundleFromComponents>() -> Self {
-        <ReflectBundle as FromType<T>>::from_type().0
+    pub fn new<T: Bundle + Reflect + TypePath + BundleFromComponents>() -> Self {
+        <ReflectBundle as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -148,8 +146,8 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for ReflectBundle {
-    fn from_type() -> Self {
+impl<B: Bundle + Reflect + TypePath + BundleFromComponents> CreateTypeData<B> for ReflectBundle {
+    fn create_type_data(_input: ()) -> Self {
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
                 let bundle = entity.world_scope(|world| {
@@ -292,11 +290,10 @@ fn apply_or_insert_field_mapped(
                 "no `ReflectComponent` registration found for `{}`",
                 field.reflect_type_path(),
             );
-        } else {
-            panic!(
-                "no `ReflectBundle` registration found for `{}`",
-                field.reflect_type_path(),
-            )
         }
+        panic!(
+            "no `ReflectBundle` registration found for `{}`",
+            field.reflect_type_path(),
+        )
     }
 }

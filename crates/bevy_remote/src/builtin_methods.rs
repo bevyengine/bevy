@@ -1,27 +1,32 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::any::TypeId;
+use std::sync::Mutex;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_dev_tools::schedule_data::serde::ScheduleData;
+use bevy_diagnostic::{DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
-    hierarchy::ChildOf,
+    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
+    name::Name,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectMessage, ReflectResource},
+    resource::Resource,
     schedule::Schedules,
     system::{In, Local},
-    world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
+    world::{DeferredWorld, EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     structs::DynamicStruct,
-    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
+    GetPath, PartialReflect, Reflect, TypeRegistration, TypeRegistry,
 };
 use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -98,8 +103,20 @@ pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
 /// The method path for a `schedule.list` request.
 pub const BRP_SCHEDULE_LIST: &str = "schedule.list";
 
+/// The method path for a `world.observe+watch` request.
+pub const BRP_OBSERVE_METHOD: &str = "world.observe+watch";
+
 /// The method path for a `schedule.graph` request.
 pub const BRP_SCHEDULE_GRAPH: &str = "schedule.graph";
+
+/// The method path for an `app.info` request.
+pub const BRP_APP_INFO_METHOD: &str = "app.info";
+
+/// The method path for a `diagnostics.list` request.
+pub const BRP_DIAGNOSTICS_LIST_METHOD: &str = "diagnostics.list";
+
+/// The method path for a `diagnostics.get` request.
+pub const BRP_DIAGNOSTICS_GET_METHOD: &str = "diagnostics.get";
 
 /// The method path for a `rpc.discover` request.
 pub const RPC_DISCOVER_METHOD: &str = "rpc.discover";
@@ -340,6 +357,26 @@ pub struct BrpWriteMessageParams {
     pub value: Option<Value>,
 }
 
+/// `world.observe+watch`: Registers an observer for the given event type and
+/// streams event data back to the client each time the event is triggered.
+///
+/// If `entity` is provided, observes only events targeting that entity.
+/// Otherwise, observes all global triggers of the event.
+///
+/// The server responds with serialized event data when events are observed.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpObserveParams {
+    /// The [full path] of the event type to observe.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub event: String,
+
+    /// An optional entity to scope the observer to.
+    /// When set, only events targeting this entity will be observed.
+    #[serde(default)]
+    pub entity: Option<Entity>,
+}
+
 /// `schedule.graph`:
 ///
 /// The server responds with [`BrpScheduleGraphResponse`] if the schedule is found,
@@ -394,6 +431,51 @@ pub struct BrpQueryFilter {
     /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub with: Vec<String>,
+
+    /// A path that each entity in the results must match, from its ancestors
+    /// down to the entity itself.
+    ///
+    /// The last segment matches the entity. A [`NamePathSegment::Name`] matches
+    /// an entity whose [`Name`] is equal to it; the segment before it may match
+    /// any ancestor of that entity, at any depth, so unnamed entities in between
+    /// are skipped. A [`NamePathSegment::Index`] matches the child at that
+    /// position in its parent's [`Children`]; the segment before it must match
+    /// that parent.
+    ///
+    /// For example, `["Settings", "Jump", "Rebind"]` matches an entity named
+    /// `Rebind` with an ancestor `Jump`, which itself has an ancestor `Settings`.
+    /// `["List", 2, "Label"]` matches an entity named `Label` inside the third
+    /// child of an entity named `List`.
+    ///
+    /// The path may match any number of entities. An empty path matches every
+    /// entity. A path may not start with an index.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub name_path: Vec<NamePathSegment>,
+}
+
+/// One segment of [`BrpQueryFilter::name_path`].
+///
+/// In JSON, a name is a string and an index is a number.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum NamePathSegment {
+    /// Matches an entity whose [`Name`] is exactly this string.
+    Name(String),
+    /// Matches the child at this position in its parent's
+    /// [`Children`], counting from zero.
+    Index(usize),
+}
+
+impl From<&str> for NamePathSegment {
+    fn from(name: &str) -> Self {
+        Self::Name(name.into())
+    }
+}
+
+impl From<usize> for NamePathSegment {
+    fn from(index: usize) -> Self {
+        Self::Index(index)
+    }
 }
 
 /// Constraints that can be placed on a query to include or exclude
@@ -426,6 +508,18 @@ pub struct JsonSchemaTypeLimit {
     /// Schema needs to have specified reflect types
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub with: Vec<String>,
+}
+
+/// The response to `registry.schema` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpJsonSchemaResponse {
+    /// Id that serves as anchor for json schema validators.
+    #[serde(rename = "$id")]
+    pub id: String,
+
+    /// Schema itself
+    #[serde(flatten)]
+    pub schema: BTreeMap<String, JsonSchemaBevyType>,
 }
 
 /// A response from the world to the client that specifies a single entity.
@@ -514,6 +608,44 @@ pub struct BrpScheduleListResponse {
     empty_schedule_labels: Vec<String>,
 }
 
+/// The response to a `diagnostics.list` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpDiagnosticsListResponse {
+    /// The paths of every diagnostic registered in the world, sorted.
+    pub diagnostics: Vec<String>,
+}
+
+/// `diagnostics.get`: Retrieves the current values of diagnostics.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpDiagnosticsGetParams {
+    /// The diagnostic paths to retrieve, or all diagnostics when omitted.
+    pub paths: Option<Vec<String>>,
+}
+
+/// A single diagnostic in a `diagnostics.get` response.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpDiagnostic {
+    /// The path identifying this diagnostic.
+    pub path: String,
+    /// The latest measured value, if any.
+    pub value: Option<f64>,
+    /// The simple moving average of the recorded history, if any.
+    pub average: Option<f64>,
+    /// The exponential moving average of the recorded history, if any.
+    pub smoothed: Option<f64>,
+    /// The suffix used when logging this diagnostic, typically a unit.
+    pub suffix: String,
+    /// The number of measurements currently kept in history.
+    pub history_len: usize,
+}
+
+/// The response to a `diagnostics.get` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub struct BrpDiagnosticsGetResponse {
+    /// The requested diagnostics, skipping any path that is not registered.
+    pub diagnostics: Vec<BrpDiagnostic>,
+}
+
 /// The response to a `schedule.graph` request.
 ///
 /// In Bevy, systems are ordered in a graph structure, [`ScheduleGraph`](`bevy_ecs::schedule::ScheduleGraph`).
@@ -531,6 +663,21 @@ pub struct BrpScheduleListResponse {
 pub struct BrpScheduleGraphResponse {
     /// The extracted data for the requested schedule.
     pub schedule_data: ScheduleData,
+}
+
+/// Overrides the human-readable application name reported by an `app.info` request.
+#[derive(Resource, Debug, Clone)]
+pub struct RemoteAppName(pub String);
+
+/// The response to an `app.info` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpAppInfoResponse {
+    /// The human-readable name of the running application, not a unique identifier.
+    pub app_name: String,
+    /// The version of the Bevy engine the application was built against.
+    pub bevy_version: String,
+    /// Which `SubApp` handled the request: `"main"` or `"render"`.
+    pub sub_app: String,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -888,6 +1035,14 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         return serde_json::to_value(BrpQueryResponse::default()).map_err(BrpError::internal);
     }
 
+    if let Some(NamePathSegment::Index(_)) = filter.name_path.first() {
+        return Err(BrpError {
+            code: error_codes::INVALID_PARAMS,
+            message: "`name_path` may not start with an index".into(),
+            data: None,
+        });
+    }
+
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &required {
         query.ref_id(*component);
@@ -908,6 +1063,9 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     for (_, with) in with {
         query.with_id(with);
     }
+    if let Some(NamePathSegment::Name(_)) = filter.name_path.last() {
+        query.with::<Name>();
+    }
 
     // Prepare has reflect info
     let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has_ids
@@ -921,6 +1079,9 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
 
     for row in query.iter(world) {
         let entity_id = row.id();
+        if !matches_name_path(world, entity_id, &filter.name_path) {
+            continue;
+        }
         let entity_ref = world.get_entity(entity_id).expect("Entity should exist");
 
         // Required components
@@ -989,6 +1150,66 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     }
 
     serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Whether `entity` and its ancestors match `path`, as described on
+/// [`BrpQueryFilter::name_path`].
+///
+/// `path` runs down from the root and `chain` runs up from the entity, so
+/// `path[0]` is the highest segment and `chain[0]` is the entity itself.
+///
+/// Each segment is checked against every entity in the chain, highest segment
+/// first. For each segment, `matched` records every entity it can fit with all
+/// the higher segments fitting above it. Recording all of them, not just the
+/// lowest, matters for indices: the lowest ancestor at the right index may have
+/// the wrong parent while a higher one does not.
+fn matches_name_path(world: &World, entity: Entity, path: &[NamePathSegment]) -> bool {
+    if path.is_empty() {
+        return true;
+    }
+    // The entity, then its parent, and so on up to the root.
+    let chain: Vec<Entity> = core::iter::successors(Some(entity), |&e| {
+        world.get::<ChildOf>(e).map(ChildOf::parent)
+    })
+    .collect();
+    // Whether `segment` fits `chain[i]` on its own, ignoring the higher segments.
+    let segment_matches = |segment: &NamePathSegment, i: usize| match segment {
+        NamePathSegment::Name(name) => world
+            .get::<Name>(chain[i])
+            .is_some_and(|n| n.as_str() == name),
+        NamePathSegment::Index(index) => chain.get(i + 1).is_some_and(|&parent| {
+            world
+                .get::<Children>(parent)
+                .and_then(|children| children.get(*index))
+                == Some(&chain[i])
+        }),
+    };
+    // `matched[i]`: the current segment fits `chain[i]`, and every higher segment fits
+    // above it.
+    let mut matched: Vec<bool> = (0..chain.len())
+        .map(|i| segment_matches(&path[0], i))
+        .collect();
+    for segment in &path[1..] {
+        // `matched` for the segment just above this one.
+        let higher = matched;
+        // `above[i]`: `higher` holds at some ancestor of `chain[i]`.
+        let mut above = vec![false; chain.len()];
+        for i in (0..chain.len() - 1).rev() {
+            above[i] = above[i + 1] || higher[i + 1];
+        }
+        // An index needs the higher segments to fit its parent; a name, any ancestor.
+        matched = (0..chain.len())
+            .map(|i| {
+                let higher_fits = match segment {
+                    NamePathSegment::Index(_) => higher.get(i + 1).copied().unwrap_or(false),
+                    NamePathSegment::Name(_) => above[i],
+                };
+                higher_fits && segment_matches(segment, i)
+            })
+            .collect();
+    }
+    // The lowest segment must fit the entity itself.
+    matched[0]
 }
 
 /// Serializes the specified components for an entity.
@@ -1527,6 +1748,117 @@ pub fn process_remote_write_message_request(
     })
 }
 
+/// Stores observer state for `world.observe+watch` requests.
+#[derive(Resource, Default)]
+pub struct BrpEventObservers {
+    /// Map from observer key to buffered serialized events.
+    /// The key encodes both event type and optional entity scope.
+    observers: HashMap<String, Arc<Mutex<Vec<Value>>>>,
+}
+
+/// Handles a `world.observe+watch` request coming from a client.
+///
+/// On the first call for a given event/entity combination, this registers an observer that captures triggered
+/// events. On each subsequent poll, it returns any events that have been captured since the last poll.
+///
+/// When `entity` is provided, the observer is scoped to that entity. Otherwise a global observer is registered.
+pub fn process_remote_observe_watching_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult<Option<Value>> {
+    let BrpObserveParams { event, entity } = parse_some(params)?;
+
+    let key = match entity {
+        Some(e) => format!("{event}@{e}"),
+        None => event.clone(),
+    };
+
+    if !world.contains_resource::<BrpEventObservers>() {
+        world.init_resource::<BrpEventObservers>();
+    }
+
+    let already_registered = world
+        .resource::<BrpEventObservers>()
+        .observers
+        .contains_key(&key);
+
+    if !already_registered {
+        let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+        let reflect_event = {
+            let type_registry = app_type_registry.read();
+            let Some(registration) = type_registry.get_with_type_path(&event) else {
+                return Err(BrpError::resource_error(format!(
+                    "Unknown event type: `{event}`"
+                )));
+            };
+            let Some(reflect_event) = registration.data::<ReflectEvent>() else {
+                return Err(BrpError::resource_error(format!(
+                    "Event `{event}` is not reflectable"
+                )));
+            };
+            reflect_event.clone()
+        };
+
+        let buffer: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+        let buffer_clone = buffer.clone();
+        let registry_clone = app_type_registry.clone();
+        let event_clone = event.clone();
+
+        let callback = Box::new(move |event_data: &dyn Reflect, _world: DeferredWorld| {
+            let reg = registry_clone.read();
+            let serializer = ReflectSerializer::new(event_data, &reg);
+            match serde_json::to_value(&serializer) {
+                Ok(value) => {
+                    buffer_clone.lock().unwrap().push(value);
+                }
+                Err(err) => {
+                    warn_once!("Failed to serialize observed event `{event_clone}`: {err}");
+                    // Push a placeholder so the client still gets notified.
+                    buffer_clone
+                        .lock()
+                        .unwrap()
+                        .push(serde_json::json!({ "event": event_clone }));
+                }
+            }
+        });
+
+        let observer = reflect_event.create_observer(callback);
+        if let Some(target) = entity {
+            world.spawn(observer.with_entity(target));
+        } else {
+            world.spawn(observer);
+        }
+
+        world
+            .resource_mut::<BrpEventObservers>()
+            .observers
+            .insert(key.clone(), buffer);
+    }
+
+    let observers = world.resource::<BrpEventObservers>();
+    let Some(buffer) = observers.observers.get(&key) else {
+        return Err(BrpError::internal(anyhow!("Observer state missing")));
+    };
+
+    let mut events = buffer.lock().unwrap();
+    if events.is_empty() {
+        return Ok(None);
+    }
+
+    let captured: Vec<Value> = events
+        .drain(..)
+        .map(|json_event| {
+            json_event
+                .get(&event)
+                .expect("event keyed by its type path")
+                .to_owned()
+        })
+        .collect();
+    serde_json::to_value(captured)
+        .map(Some)
+        .map_err(BrpError::internal)
+}
+
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
 pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let filter: BrpJsonSchemaQueryFilter = match params {
@@ -1554,7 +1886,7 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
                     return None;
                 }
             }
-            let (id, schema) = export_type(type_reg, extra_info, components);
+            let (id, schema) = export_type(type_reg, extra_info, components, &types);
 
             if !filter.type_limit.with.is_empty()
                 && !filter
@@ -1576,9 +1908,48 @@ pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> Br
             }
             Some((id.to_string(), schema))
         })
-        .collect::<HashMap<String, JsonSchemaBevyType>>();
+        .collect::<BTreeMap<String, JsonSchemaBevyType>>();
 
-    serde_json::to_value(schemas).map_err(BrpError::internal)
+    serde_json::to_value(BrpJsonSchemaResponse {
+        id: "urn:bevy-remote:registry".into(),
+        schema: schemas,
+    })
+    .map_err(BrpError::internal)
+}
+
+/// Handles an `app.info` request coming from a client connected to the main app.
+pub fn process_remote_app_info_request_main(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    process_remote_app_info_request(In(params), world, "main")
+}
+
+/// Handles an `app.info` request coming from a client connected to the render app.
+pub fn process_remote_app_info_request_render(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    process_remote_app_info_request(In(params), world, "render")
+}
+
+/// Handles an `app.info` request coming from a client.
+fn process_remote_app_info_request(
+    In(_params): In<Option<Value>>,
+    world: &World,
+    sub_app: &str,
+) -> BrpResult {
+    let app_name = world
+        .get_resource::<RemoteAppName>()
+        .map_or_else(|| "bevy".to_owned(), |name| name.0.clone());
+
+    let response = BrpAppInfoResponse {
+        app_name,
+        bevy_version: env!("CARGO_PKG_VERSION").to_owned(),
+        sub_app: sub_app.to_owned(),
+    };
+
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Handles a `schedule.list` request coming from a client.
@@ -1603,6 +1974,68 @@ pub fn schedule_list(In(_params): In<Option<Value>>, world: &World) -> BrpResult
     };
 
     serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Handles a `diagnostics.list` request coming from a client.
+///
+/// Returns an empty list when no [`DiagnosticsStore`] is present in the world.
+pub fn process_remote_diagnostics_list_request(
+    In(_params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let mut diagnostics = match world.get_resource::<DiagnosticsStore>() {
+        Some(store) => store
+            .iter()
+            .map(|diagnostic| diagnostic.path().as_str().to_owned())
+            .collect::<Vec<_>>(),
+        None => Vec::new(),
+    };
+    diagnostics.sort();
+
+    serde_json::to_value(BrpDiagnosticsListResponse { diagnostics }).map_err(BrpError::internal)
+}
+
+/// Handles a `diagnostics.get` request coming from a client.
+///
+/// Paths that are not registered are silently skipped, and an empty list is returned when no
+/// [`DiagnosticsStore`] is present in the world.
+pub fn process_remote_diagnostics_get_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let paths = params
+        .map(parse::<BrpDiagnosticsGetParams>)
+        .transpose()?
+        .and_then(|params| params.paths);
+
+    let Some(store) = world.get_resource::<DiagnosticsStore>() else {
+        return serde_json::to_value(BrpDiagnosticsGetResponse::default())
+            .map_err(BrpError::internal);
+    };
+
+    let to_response = |diagnostic: &bevy_diagnostic::Diagnostic| BrpDiagnostic {
+        path: diagnostic.path().as_str().to_owned(),
+        value: diagnostic.value(),
+        average: diagnostic.average(),
+        smoothed: diagnostic.smoothed(),
+        suffix: diagnostic.suffix.to_string(),
+        history_len: diagnostic.history_len(),
+    };
+
+    let diagnostics = match paths {
+        Some(paths) => paths
+            .into_iter()
+            .filter_map(|path| store.get(&DiagnosticPath::new(path)))
+            .map(to_response)
+            .collect::<Vec<_>>(),
+        None => {
+            let mut diagnostics = store.iter().map(to_response).collect::<Vec<_>>();
+            diagnostics.sort_by(|a, b| a.path.cmp(&b.path));
+            diagnostics
+        }
+    };
+
+    serde_json::to_value(BrpDiagnosticsGetResponse { diagnostics }).map_err(BrpError::internal)
 }
 
 /// Handles a `schedule.graph` request coming from a client.
@@ -1910,7 +2343,7 @@ mod tests {
         cache_schedule_build_metadata,
         schemas::json_schema::{ComponentMetadata, RelationshipKind, StorageKind},
     };
-    use bevy_dev_tools::schedule_data::serde::ScheduleIndex;
+    use bevy_dev_tools::schedule_data::serde::{DependencyData, ScheduleIndex};
     use bevy_ecs::{
         component::Component,
         event::Event,
@@ -1983,6 +2416,59 @@ mod tests {
     }
 
     #[test]
+    fn observe_watching_captures_triggered_events() {
+        #[derive(Event, Reflect)]
+        #[reflect(Event)]
+        struct Ping {
+            value: u32,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Ping>();
+        }
+        let mut world = World::new();
+        world.insert_resource(atr);
+
+        let observe_params = serde_json::to_value(&BrpObserveParams {
+            event: "bevy_remote::builtin_methods::tests::Ping".to_owned(),
+            entity: None,
+        })
+        .expect("FAIL");
+
+        assert_eq!(
+            process_remote_observe_watching_request(In(Some(observe_params.clone())), &mut world,),
+            Ok(None)
+        );
+        assert!(world.contains_resource::<BrpEventObservers>());
+
+        let trigger_params = serde_json::to_value(&BrpTriggerEventParams {
+            event: "bevy_remote::builtin_methods::tests::Ping".to_owned(),
+            value: Some(serde_json::json!({ "value": 42 })),
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_trigger_event_request(In(Some(trigger_params)), &mut world),
+            Ok(Null)
+        );
+
+        let captured =
+            process_remote_observe_watching_request(In(Some(observe_params.clone())), &mut world)
+                .expect("poll should succeed")
+                .expect("events should be returned");
+        let events: Vec<Value> =
+            serde_json::from_value(captured).expect("captured events are a JSON array");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].get("value"), Some(&serde_json::json!(42)));
+
+        assert_eq!(
+            process_remote_observe_watching_request(In(Some(observe_params)), &mut world),
+            Ok(None)
+        );
+    }
+
+    #[test]
     fn write_reflect_only_message() {
         #[derive(Message, Reflect)]
         #[reflect(Message)]
@@ -2013,7 +2499,7 @@ mod tests {
     fn export_registry_types_with_reliationship() {
         #[derive(Component, Debug, Reflect)]
         #[reflect(Component, Debug)]
-        #[require(bevy_ecs::name::Name)]
+        #[require(Name)]
         #[relationship(relationship_target = FollowedBy)]
         struct Following(Entity);
 
@@ -2044,10 +2530,11 @@ mod tests {
         let result_value =
             export_registry_types(params_value, &world).expect("Failed to export registry types");
 
-        let result: HashMap<String, JsonSchemaBevyType> =
+        let result: BrpJsonSchemaResponse =
             parse(result_value).expect("Failed to parse exported registry types");
 
         let actual_following = result
+            .schema
             .get("bevy_remote::builtin_methods::tests::Following")
             .expect("Missing Following type in result")
             .component_info
@@ -2060,6 +2547,7 @@ mod tests {
             relationship_kind: Some(RelationshipKind::Relationship),
         });
         let actual_followed_by = result
+            .schema
             .get("bevy_remote::builtin_methods::tests::FollowedBy")
             .expect("Missing FollowedBy type in result")
             .component_info
@@ -2073,6 +2561,43 @@ mod tests {
         });
         assert_eq!(actual_following, expected_following);
         assert_eq!(actual_followed_by, expected_followed_by);
+    }
+
+    #[test]
+    fn export_registry_types_is_deterministic() {
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+        struct First {
+            z: u8,
+            y: u8,
+            x: u8,
+            w: u8,
+            v: u8,
+        }
+
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+        struct Second(u8);
+
+        fn export(register: impl FnOnce(&mut TypeRegistry)) -> String {
+            let atr = AppTypeRegistry::default();
+            register(&mut atr.write());
+            let mut world = World::new();
+            world.init_resource::<crate::schemas::SchemaTypesMetadata>();
+            world.insert_resource(atr);
+            let result = export_registry_types(In(None), &world).expect("Failed to export");
+            serde_json::to_string(&result).expect("Failed to serialize")
+        }
+
+        let one = export(|registry| {
+            registry.register::<First>();
+            registry.register::<Second>();
+        });
+        let two = export(|registry| {
+            registry.register::<Second>();
+            registry.register::<First>();
+        });
+        assert_eq!(one, two);
     }
 
     #[test]
@@ -2223,8 +2748,7 @@ mod tests {
         assert_eq!(res3.schedule_data.system_sets.len(), 6);
         assert_eq!(res3.schedule_data.hierarchy.len(), 6);
         assert_eq!(res3.schedule_data.dependency.len(), 4);
-        // Components are only currently recorded for conflicts - this may change in the future.
-        assert_eq!(res3.schedule_data.components.len(), 0);
+        assert_eq!(res3.schedule_data.components.len(), 2);
         assert_eq!(res3.schedule_data.conflicts.len(), 0);
     }
 
@@ -2283,18 +2807,284 @@ mod tests {
         let f1_index = system_index(&response, "f1").unwrap();
         let f2_index = system_index(&response, "f2").unwrap();
         let apply_deferred_index = system_index(&response, "apply_deferred").unwrap();
+        let strict = DependencyData::from_is_strict(true);
+        let build_pass = DependencyData::from_build_pass();
         assert_eq!(response.schedule_data.dependency.len(), 3);
         assert!(response
             .schedule_data
             .dependency
-            .contains(&(f1_index, f2_index)));
-        assert!(response
-            .schedule_data
-            .dependency
-            .contains(&(f1_index, apply_deferred_index)));
-        assert!(response
-            .schedule_data
-            .dependency
-            .contains(&(apply_deferred_index, f2_index)));
+            .contains(&(f1_index, f2_index, strict)));
+        assert!(response.schedule_data.dependency.contains(&(
+            f1_index,
+            apply_deferred_index,
+            build_pass
+        )));
+        assert!(response.schedule_data.dependency.contains(&(
+            apply_deferred_index,
+            f2_index,
+            build_pass
+        )));
+    }
+
+    #[test]
+    fn app_info_defaults() {
+        let world = World::default();
+
+        let response = process_remote_app_info_request_main(In(None), &world).unwrap();
+        let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
+
+        assert_eq!(response.app_name, "bevy");
+        assert_eq!(response.bevy_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(response.sub_app, "main");
+    }
+
+    #[test]
+    fn app_info_uses_remote_app_name() {
+        let mut world = World::default();
+        world.insert_resource(RemoteAppName("Demo".into()));
+
+        let response = process_remote_app_info_request_main(In(None), &world).unwrap();
+        let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
+
+        assert_eq!(response.app_name, "Demo");
+        assert_eq!(response.bevy_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(response.sub_app, "main");
+    }
+
+    #[test]
+    fn app_info_render_sub_app() {
+        let world = World::default();
+
+        let response = process_remote_app_info_request_render(In(None), &world).unwrap();
+        let response = serde_json::from_value::<BrpAppInfoResponse>(response).unwrap();
+
+        assert_eq!(response.sub_app, "render");
+    }
+
+    fn diagnostics_world() -> World {
+        let mut world = World::default();
+        let mut store = DiagnosticsStore::default();
+        store.add(
+            bevy_diagnostic::Diagnostic::new(DiagnosticPath::const_new("a/b")).with_suffix("ms"),
+        );
+        store.add(bevy_diagnostic::Diagnostic::new(DiagnosticPath::const_new(
+            "c/d",
+        )));
+        store
+            .get_mut(&DiagnosticPath::const_new("a/b"))
+            .unwrap()
+            .add_measurement(bevy_diagnostic::DiagnosticMeasurement {
+                time: bevy_platform::time::Instant::now(),
+                value: 4.0,
+            });
+        world.insert_resource(store);
+        world
+    }
+
+    #[test]
+    fn diagnostics_list_without_store() {
+        let world = World::default();
+
+        let response = process_remote_diagnostics_list_request(In(None), &world).unwrap();
+        let response: BrpDiagnosticsListResponse = serde_json::from_value(response).unwrap();
+
+        assert!(response.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn diagnostics_list_returns_sorted_paths() {
+        let world = diagnostics_world();
+
+        let response = process_remote_diagnostics_list_request(In(None), &world).unwrap();
+        let response: BrpDiagnosticsListResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(
+            response.diagnostics,
+            vec!["a/b".to_owned(), "c/d".to_owned()]
+        );
+    }
+
+    #[test]
+    fn diagnostics_get_with_paths() {
+        let world = diagnostics_world();
+        let params = serde_json::json!({ "paths": ["a/b"] });
+
+        let response = process_remote_diagnostics_get_request(In(Some(params)), &world).unwrap();
+        let response: BrpDiagnosticsGetResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(response.diagnostics.len(), 1);
+        let diagnostic = &response.diagnostics[0];
+        assert_eq!(diagnostic.path, "a/b");
+        assert_eq!(diagnostic.value, Some(4.0));
+        assert_eq!(diagnostic.suffix, "ms");
+        assert_eq!(diagnostic.history_len, 1);
+    }
+
+    #[test]
+    fn diagnostics_get_without_paths_returns_all() {
+        let world = diagnostics_world();
+
+        let response = process_remote_diagnostics_get_request(In(None), &world).unwrap();
+        let response: BrpDiagnosticsGetResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(response.diagnostics.len(), 2);
+        assert_eq!(response.diagnostics[1].path, "c/d");
+        assert_eq!(response.diagnostics[1].value, None);
+    }
+
+    #[test]
+    fn diagnostics_get_skips_unknown_paths() {
+        let world = diagnostics_world();
+        let params = serde_json::json!({ "paths": ["a/b", "nope/nope"] });
+
+        let response = process_remote_diagnostics_get_request(In(Some(params)), &world).unwrap();
+        let response: BrpDiagnosticsGetResponse = serde_json::from_value(response).unwrap();
+
+        assert_eq!(response.diagnostics.len(), 1);
+        assert_eq!(response.diagnostics[0].path, "a/b");
+    }
+
+    fn query_name_path(world: &mut World, path: Value) -> BrpResult<Vec<Entity>> {
+        let params = serde_json::json!({ "data": {}, "filter": { "name_path": path } });
+        let response = process_remote_query_request(In(Some(params)), world)?;
+        let response: BrpQueryResponse = serde_json::from_value(response).unwrap();
+        let mut entities: Vec<Entity> = response.into_iter().map(|row| row.entity).collect();
+        entities.sort();
+        Ok(entities)
+    }
+
+    struct SettingsScreen {
+        jump_rebind: Entity,
+        move_rebind: Entity,
+        row: Entity,
+    }
+
+    // Settings
+    // ├── (unnamed row)
+    // │   └── Jump
+    // │       └── Rebind
+    // └── Move
+    //     └── Rebind
+    fn settings_screen(world: &mut World) -> SettingsScreen {
+        world.init_resource::<AppTypeRegistry>();
+        let settings = world.spawn(Name::new("Settings")).id();
+        let row = world.spawn(ChildOf(settings)).id();
+        let jump = world.spawn((Name::new("Jump"), ChildOf(row))).id();
+        let jump_rebind = world.spawn((Name::new("Rebind"), ChildOf(jump))).id();
+        let walk = world.spawn((Name::new("Move"), ChildOf(settings))).id();
+        let move_rebind = world.spawn((Name::new("Rebind"), ChildOf(walk))).id();
+        SettingsScreen {
+            jump_rebind,
+            move_rebind,
+            row,
+        }
+    }
+
+    #[test]
+    fn name_path_skips_unnamed_entities() {
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+
+        let found = query_name_path(
+            &mut world,
+            serde_json::json!(["Settings", "Jump", "Rebind"]),
+        );
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Jump", "Rebind"]));
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+    }
+
+    #[test]
+    fn name_path_matches_every_entity_it_fits() {
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+        let mut both = [screen.jump_rebind, screen.move_rebind];
+        both.sort();
+
+        let found = query_name_path(&mut world, serde_json::json!(["Rebind"]));
+        assert_eq!(found.unwrap(), both);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", "Rebind"]));
+        assert_eq!(found.unwrap(), both);
+    }
+
+    #[test]
+    fn name_path_ancestors_must_appear_in_order() {
+        let mut world = World::new();
+        settings_screen(&mut world);
+
+        let found = query_name_path(
+            &mut world,
+            serde_json::json!(["Jump", "Settings", "Rebind"]),
+        );
+        assert!(found.unwrap().is_empty());
+        let found = query_name_path(&mut world, serde_json::json!(["Pause", "Rebind"]));
+        assert!(found.unwrap().is_empty());
+    }
+
+    #[test]
+    fn name_path_index_selects_a_direct_child() {
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 0]));
+        assert_eq!(found.unwrap(), [screen.row]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 0, "Rebind"]));
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 1, "Rebind"]));
+        assert_eq!(found.unwrap(), [screen.move_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 0, 0, 0]));
+        assert_eq!(found.unwrap(), [screen.jump_rebind]);
+        let found = query_name_path(&mut world, serde_json::json!(["Settings", 2]));
+        assert!(found.unwrap().is_empty());
+    }
+
+    #[test]
+    fn name_path_index_tries_every_ancestor() {
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+        // A > X > Y > B, each an only child. Y is the nearest ancestor of B that is
+        // child 0, but only X is child 0 of A.
+        let a = world.spawn(Name::new("A")).id();
+        let x = world.spawn(ChildOf(a)).id();
+        let y = world.spawn(ChildOf(x)).id();
+        let b = world.spawn((Name::new("B"), ChildOf(y))).id();
+
+        let found = query_name_path(&mut world, serde_json::json!(["A", 0, "B"]));
+        assert_eq!(found.unwrap(), [b]);
+    }
+
+    #[test]
+    fn name_path_combines_with_other_filters() {
+        #[derive(Component, Reflect)]
+        struct Marker;
+
+        let mut world = World::new();
+        let screen = settings_screen(&mut world);
+        world
+            .resource_mut::<AppTypeRegistry>()
+            .write()
+            .register::<Marker>();
+        world.entity_mut(screen.move_rebind).insert(Marker);
+
+        let params = serde_json::json!({
+            "data": {},
+            "filter": {
+                "with": [<Marker as bevy_reflect::TypePath>::type_path()],
+                "name_path": ["Rebind"],
+            }
+        });
+        let response = process_remote_query_request(In(Some(params)), &mut world).unwrap();
+        let response: BrpQueryResponse = serde_json::from_value(response).unwrap();
+        assert_eq!(response.len(), 1);
+        assert_eq!(response[0].entity, screen.move_rebind);
+    }
+
+    #[test]
+    fn name_path_may_not_start_with_an_index() {
+        let mut world = World::new();
+        settings_screen(&mut world);
+
+        let err = query_name_path(&mut world, serde_json::json!([0, "Rebind"])).unwrap_err();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
     }
 }

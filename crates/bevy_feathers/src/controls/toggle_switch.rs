@@ -2,132 +2,84 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::{Added, Changed, Has, Or, With},
+    query::{Added, Changed, Has, Or, With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
     world::Mut,
 };
-use bevy_input_focus::tab_navigation::TabIndex;
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_ui::{
-    BorderRadius, Checked, InteractionDisabled, Node, PositionType, Pressed, UiRect, Val,
-};
+use bevy_ui::{percent, px, Checked, InteractionDisabled, Node, PositionType, Pressed, UiSystems};
 use bevy_ui_widgets::{ActivateOnPress, Checkbox};
 
 use crate::{
     constants::size,
-    cursor::EntityCursor,
+    controls::ColorSliderThumb,
     focus::FocusIndicator,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
 
-/// Marker for the toggle switch outline
-#[derive(Component, Default, Clone, Reflect)]
+/// A toggle switch widget.
+///
+/// This is spawnable by inheriting it as a "scene component".
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
+///
+/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
+///
+/// A more complete explanation of how to control this widget can be found in the documentation
+/// for [`Checkbox`] and [`bevy_ui_widgets`].
+#[derive(SceneComponent, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-struct ToggleSwitchOutline;
+pub struct FeathersToggleSwitch;
+
+impl FeathersToggleSwitch {
+    fn scene() -> impl Scene {
+        bsn! {
+            Node {
+                width: size::TOGGLE_WIDTH,
+                height: size::TOGGLE_HEIGHT,
+                border: px(2),
+                border_radius: px(5),
+            }
+            Checkbox
+            FeathersToggleSwitch
+            ThemeBackgroundColor(tokens::SWITCH_BG)
+            ThemeBorderColor(tokens::SWITCH_BORDER)
+            AccessibilityNode(accesskit::Node::new(Role::Switch))
+            Hovered
+            EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+            FocusIndicator
+            Children [
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: percent(0),
+                    top: px(0),
+                    bottom: px(0),
+                    width: percent(50),
+                    border: px(2),
+                    border_radius: px(3),
+                }
+                ToggleSwitchSlide
+                ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
+                ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
+            ]
+        }
+    }
+}
 
 /// Marker for the toggle switch slide
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-struct ToggleSwitchSlide;
-
-/// Scene function to spawn a toggle switch.
-///
-/// # Emitted events
-/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
-///
-/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
-pub fn toggle_switch() -> impl Scene {
-    bsn! {
-        Node {
-            width: size::TOGGLE_WIDTH,
-            height: size::TOGGLE_HEIGHT,
-            border: UiRect::all(Val::Px(2.0)),
-            border_radius: BorderRadius::all(Val::Px(5.0)),
-        }
-        Checkbox
-        ToggleSwitchOutline
-        ThemeBackgroundColor(tokens::SWITCH_BG)
-        ThemeBorderColor(tokens::SWITCH_BORDER)
-        AccessibilityNode(accesskit::Node::new(Role::Switch))
-        Hovered
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
-        TabIndex(0)
-        FocusIndicator
-        Children [(
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                width: Val::Percent(50.),
-                border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(3.0)),
-            }
-            ToggleSwitchSlide
-            ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG)
-            ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
-        )]
-    }
-}
-
-/// Template function to spawn a toggle switch.
-///
-/// # Arguments
-/// * `props` - construction properties for the toggle switch.
-/// * `overrides` - a bundle of components that are merged in with the normal toggle switch components.
-///
-/// # Emitted events
-/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
-///
-/// These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the bundle
-#[deprecated(since = "0.19.0", note = "Use the toggle_switch() BSN function")]
-pub fn toggle_switch_bundle<B: Bundle>(overrides: B) -> impl Bundle {
-    (
-        Node {
-            width: size::TOGGLE_WIDTH,
-            height: size::TOGGLE_HEIGHT,
-            border: UiRect::all(Val::Px(2.0)),
-            border_radius: BorderRadius::all(Val::Px(5.0)),
-            ..Default::default()
-        },
-        Checkbox,
-        ToggleSwitchOutline,
-        ThemeBackgroundColor(tokens::SWITCH_BG),
-        ThemeBorderColor(tokens::SWITCH_BORDER),
-        AccessibilityNode(accesskit::Node::new(Role::Switch)),
-        Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        FocusIndicator,
-        overrides,
-        children![(
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Percent(0.),
-                top: Val::Px(0.),
-                bottom: Val::Px(0.),
-                width: Val::Percent(50.),
-                border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(3.0)),
-                ..Default::default()
-            },
-            ToggleSwitchSlide,
-            ThemeBackgroundColor(tokens::SWITCH_SLIDE_BG),
-            ThemeBorderColor(tokens::SWITCH_SLIDE_BORDER)
-        )],
-    )
-}
+pub(crate) struct ToggleSwitchSlide;
 
 fn update_switch_styles(
     q_switches: Query<
@@ -142,7 +94,7 @@ fn update_switch_styles(
             &ThemeBorderColor,
         ),
         (
-            With<ToggleSwitchOutline>,
+            With<FeathersToggleSwitch>,
             Or<(
                 Changed<Hovered>,
                 Added<Checked>,
@@ -208,12 +160,12 @@ fn update_switch_styles_remove(
             &ThemeBackgroundColor,
             &ThemeBorderColor,
         ),
-        With<ToggleSwitchOutline>,
+        With<FeathersToggleSwitch>,
     >,
     q_children: Query<&Children>,
     mut q_slide: Query<
         (&mut Node, &ThemeBackgroundColor, &ThemeBorderColor),
-        With<ToggleSwitchSlide>,
+        (With<ToggleSwitchSlide>, Without<ColorSliderThumb>),
     >,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     mut removed_checked: RemovedComponents<Checked>,
@@ -370,8 +322,8 @@ fn set_switch_styles(
     };
 
     let slide_pos = match checked {
-        true => Val::Percent(50.),
-        false => Val::Percent(0.),
+        true => percent(50),
+        false => percent(0),
     };
 
     let cursor_shape = match disabled {
@@ -425,7 +377,13 @@ impl Plugin for ToggleSwitchPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PreUpdate,
-            (update_switch_styles, update_switch_styles_remove).in_set(PickingSystems::Last),
+            // .after(UiSystems::Focus) can be removed after Interaction is removed.
+            (
+                update_switch_styles.after(UiSystems::Focus),
+                update_switch_styles_remove,
+            )
+                .chain()
+                .in_set(PickingSystems::Last),
         );
     }
 }

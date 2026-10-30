@@ -24,11 +24,21 @@ mod serialized_image;
 pub use self::serialized_image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
-#[cfg(feature = "compressed_image_saver")]
+#[cfg(any(
+    feature = "compressed_image_saver",
+    feature = "compressed_image_saver_universal"
+))]
 mod compressed_image_saver;
+#[cfg(any(
+    feature = "compressed_image_saver",
+    feature = "equirectangular_cubemap"
+))]
+mod ctt_format;
 #[cfg(feature = "dds")]
 mod dds;
 mod dynamic_texture_atlas_builder;
+#[cfg(feature = "equirectangular_cubemap")]
+mod equirectangular;
 #[cfg(feature = "exr")]
 mod exr_texture_loader;
 #[cfg(feature = "hdr")]
@@ -40,11 +50,16 @@ mod saver;
 mod texture_atlas;
 mod texture_atlas_builder;
 
-#[cfg(feature = "compressed_image_saver")]
+#[cfg(any(
+    feature = "compressed_image_saver",
+    feature = "compressed_image_saver_universal"
+))]
 pub use compressed_image_saver::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
 pub use dynamic_texture_atlas_builder::*;
+#[cfg(feature = "equirectangular_cubemap")]
+pub use equirectangular::*;
 #[cfg(feature = "exr")]
 pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]

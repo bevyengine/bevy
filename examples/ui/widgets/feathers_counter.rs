@@ -1,16 +1,16 @@
 //! This example shows how to setup a basic counter app using feathers
 //!
-//! To use feathers in your bevy app, you need to use the `experimental_bevy_feathers` feature
+//! To use feathers in your bevy app, you need to use the `bevy_feathers` feature
 
 use bevy::{
     feathers::{
-        controls::{button, ButtonProps},
+        controls::FeathersButton,
         dark_theme::create_dark_theme,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        display::caption,
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     prelude::*,
-    scene::prelude::Scene,
     ui_widgets::Activate,
 };
 
@@ -31,7 +31,7 @@ fn main() {
         // Configure feathers to use the dark theme
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(Counter(0))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, scene.spawn())
         .add_systems(
             Update,
             update_counter_text.run_if(resource_changed::<Counter>),
@@ -39,9 +39,12 @@ fn main() {
         .run();
 }
 
-fn setup(world: &mut World) -> Result {
-    world.spawn_scene_list(bsn_list![Camera2d, demo_root()])?;
-    Ok(())
+fn scene() -> impl SceneList {
+    bsn_list! {
+        Camera2d
+        --
+        @demo_root()
+    }
 }
 
 fn demo_root() -> impl Scene {
@@ -53,34 +56,30 @@ fn demo_root() -> impl Scene {
             justify_content: JustifyContent::Center,
         }
         ThemeBackgroundColor(tokens::WINDOW_BG)
-        Children[(
+        Children[
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
             }
             Children [
-                (
-                    button(ButtonProps::default())
-                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
-                        counter.0 -= 1;
-                    })
-                    Children [ (Text::new("-1") ThemedText) ]
-                ),
-                (
-                    Node {
-                        margin: UiRect::horizontal(px(10.0)),
-                    }
-                    Text::new("0") ThemedText CounterText
-                ),
-                (
-                    button(ButtonProps::default())
-                    on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
-                        counter.0 += 1;
-                    })
-                    Children [ (Text::new("+1") ThemedText) ]
-                )
+                @FeathersButton
+                on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    counter.0 -= 1;
+                })
+                Children [ @caption("-1") ]
+                --
+                Node {
+                    margin: UiRect::horizontal(px(10.0)),
+                }
+                @caption("0") CounterText
+                --
+                @FeathersButton
+                on(|_activate: On<Activate>, mut counter: ResMut<Counter>| {
+                    counter.0 += 1;
+                })
+                Children [ @caption("+1") ]
             ]
-        )]
+        ]
     }
 }
 

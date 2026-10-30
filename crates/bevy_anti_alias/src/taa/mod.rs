@@ -4,6 +4,7 @@ use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
+    tonemapping::Tonemapping,
     FullscreenShader,
 };
 use bevy_diagnostic::FrameCount;
@@ -48,7 +49,7 @@ pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "taa.wgsl");
+        embedded_asset!(app, "taa.wesl");
 
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
@@ -129,11 +130,11 @@ impl Default for TemporalAntiAliasing {
     }
 }
 
-impl SyncComponent for TemporalAntiAliasing {
+impl SyncComponent<RenderApp> for TemporalAntiAliasing {
     type Target = Self;
 }
 
-fn temporal_anti_alias(
+pub fn temporal_anti_alias(
     view: ViewQuery<(
         &ExtractedCamera,
         &ViewTarget,
@@ -217,7 +218,7 @@ fn temporal_anti_alias(
 }
 
 #[derive(Resource)]
-struct TaaPipeline {
+pub struct TaaPipeline {
     taa_bind_group_layout: BindGroupLayoutDescriptor,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
@@ -264,7 +265,7 @@ fn init_taa_pipeline(
         ),
     );
 
-    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "taa.wgsl");
+    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "taa.wesl");
 
     let variants = Variants::new(
         TaaPipelineSpecializer,
@@ -443,12 +444,17 @@ fn prepare_taa_pipelines(
         &ExtractedCamera,
         &ExtractedView,
         &TemporalAntiAliasing,
+        Option<&Tonemapping>,
     )>,
 ) -> Result<(), BevyError> {
-    for (entity, camera, view, taa_settings) in &cameras {
+    for (entity, camera, view, taa_settings, tonemapping) in &cameras {
         let mut pipeline_key = TaaPipelineKey {
             target_format: view.target_format,
-            tonemap: camera.hdr,
+            // TAA blends in tonemapped space because that gives better quality. `TONEMAP`
+            // tonemaps TAA's input and reverses it on the output. Cameras that tonemap in
+            // their material shaders give TAA values that are already tonemapped.
+            tonemap: camera.hdr
+                || (tonemapping.is_some_and(Tonemapping::is_enabled) && !camera.tonemap_in_shader),
             reset: taa_settings.reset,
         };
         let pipeline_id = pipeline

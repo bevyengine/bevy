@@ -1,164 +1,331 @@
-//! An integration test that connects to a running Bevy app via the BRP,
-//! finds a button's position, and sends a mouse click to press it.
+//! Connects to a running Bevy app via the BRP, takes a screenshot, finds a button, and clicks it
+//! with `input.click`. It then focuses the button with Tab and activates it with Space, using
+//! `input.key`, and asks the app to exit. Run the `app_under_test` example on the same machine,
+//! then:
 //!
-//! Run with the `bevy_remote` feature enabled:
 //! ```bash
-//! cargo run --example integration_test --features="bevy_remote"
+//! cargo run --example integration_test --features="bevy_remote_client bevy_feathers"
 //! ```
-//! This example assumes that the `app_under_test` example is running on the same machine.
+//!
+//! It exits with an error if the button wasn't clicked after three tries, or wasn't activated from
+//! the keyboard.
 
-use std::any::type_name;
+use std::{
+    any::type_name,
+    io::BufRead,
+    sync::mpsc::{self, Receiver, RecvTimeoutError},
+    thread,
+    time::{Duration, Instant},
+};
 
-use anyhow::Result as AnyhowResult;
+use anyhow::{bail, Result as AnyhowResult};
 use bevy::{
+    app::AppExit,
+    ecs::entity::Entity,
+    feathers::controls::FeathersButton,
+    input::{keyboard::KeyCode, mouse::MouseButton},
+    platform::collections::HashMap,
     remote::{
         builtin_methods::{
-            BrpQuery, BrpQueryFilter, BrpQueryParams, BrpWriteMessageParams, ComponentSelector,
-            BRP_QUERY_METHOD, BRP_WRITE_MESSAGE_METHOD,
+            BrpObserveParams, BrpQuery, BrpQueryFilter, BrpQueryParams, BrpSpawnEntityParams,
+            BrpWriteMessageParams, ComponentSelector, BRP_OBSERVE_METHOD, BRP_QUERY_METHOD,
+            BRP_SPAWN_ENTITY_METHOD, BRP_WRITE_MESSAGE_METHOD,
         },
+        client::BrpClient,
         http::{DEFAULT_ADDR, DEFAULT_PORT},
+        input_methods::{
+            BrpClickParams, BrpClickResponse, BrpKeyParams, BrpKeyResponse, BRP_CLICK_METHOD,
+            BRP_KEY_METHOD,
+        },
         BrpRequest,
     },
-    ui::{widget::Button, UiGlobalTransform},
-    window::{Window, WindowEvent},
+    render::view::screenshot::{Screenshot, ScreenshotCaptured},
+    tasks::block_on,
+    ui_widgets::Activate,
+    window::Window,
 };
+
+/// How long to wait for the app to answer its first request.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+/// How long to wait for the screenshot.
+const SCREENSHOT_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long to wait for the button to be activated after each click.
+const CLICK_TIMEOUT: Duration = Duration::from_secs(3);
+/// How many times to try to click the button.
+const CLICK_TRIES: u32 = 3;
 
 fn main() -> AnyhowResult<()> {
     let url = format!("http://{DEFAULT_ADDR}:{DEFAULT_PORT}/");
+    let client = BrpClient::new(DEFAULT_ADDR.to_string(), DEFAULT_PORT);
 
-    // Step 1: Find the button entity, and its global transform
+    // Step 1: Wait for the app to answer, and find the window entity
+    println!("Waiting for the app, and querying for window entity...");
+    let window_entity = wait_for_window(&client)?;
+    println!("Found window entity: {window_entity}");
+
+    // Step 2: Take a screenshot via BRP
+    // The window must be visible (not fully occluded) for the GPU to render content
+    // If the window is hidden, the screenshot will be black
+    println!("Spawning Screenshot entity...");
+    let spawn_response = brp_request(
+        &client,
+        BRP_SPAWN_ENTITY_METHOD,
+        &BrpSpawnEntityParams {
+            components: HashMap::from([(
+                type_name::<Screenshot>().to_string(),
+                serde_json::json!({"Window": "Primary"}),
+            )]),
+        },
+    )?;
+    let screenshot_entity = &spawn_response["entity"];
+
+    println!("Observing ScreenshotCaptured on entity {screenshot_entity}...");
+    let screenshots = watch(
+        &url,
+        BrpObserveParams {
+            event: type_name::<ScreenshotCaptured>().to_string(),
+            entity: Some(serde_json::from_value(screenshot_entity.clone())?),
+        },
+    )?;
+
+    println!("Waiting for screenshot capture...");
+    let events = match screenshots.recv_timeout(SCREENSHOT_TIMEOUT) {
+        Ok(events) => events,
+        Err(RecvTimeoutError::Timeout) => bail!("No screenshot after {SCREENSHOT_TIMEOUT:?}"),
+        Err(RecvTimeoutError::Disconnected) => bail!("Screenshot stream closed"),
+    };
+    let image_data = &events[0]["image"];
+    let width = image_data["texture_descriptor"]["size"]["width"]
+        .as_u64()
+        .unwrap();
+    let height = image_data["texture_descriptor"]["size"]["height"]
+        .as_u64()
+        .unwrap();
+    println!("Screenshot captured! Image size: {width}x{height}");
+
+    let image: bevy::image::Image = serde_json::from_value(image_data.clone())?;
+    let dyn_img = image
+        .try_into_dynamic()
+        .expect("Failed to convert screenshot to dynamic image");
+    let path = "screenshot.png";
+    dyn_img.to_rgb8().save(path)?;
+    println!("Screenshot saved to {path}");
+
+    // Step 3: Find the button entity, and watch for it being activated
     println!("Querying for button entity...");
-    let button_query = brp_request(
+    let button_entity = find_button(&client)?;
+    println!("Observing Activate on entity {button_entity}...");
+    let activations = watch(
         &url,
-        BRP_QUERY_METHOD,
-        1,
-        &BrpQueryParams {
-            data: BrpQuery {
-                components: vec![type_name::<UiGlobalTransform>().to_string()],
-                option: ComponentSelector::default(),
-                has: Vec::default(),
-            },
-            strict: false,
-            filter: BrpQueryFilter {
-                with: vec![type_name::<Button>().to_string()],
-                without: Vec::default(),
-            },
+        BrpObserveParams {
+            event: type_name::<Activate>().to_string(),
+            entity: Some(button_entity),
         },
     )?;
 
-    let button_result = button_query["result"]
-        .as_array()
-        .expect("Expected result array");
-    let button = &button_result[0];
+    // Step 4: Click the button, until it's activated
+    let mut clicked = false;
+    for attempt in 1..=CLICK_TRIES {
+        // The button moves, but the app finds its center when the cursor moves, so the click
+        // follows it.
+        let frame = click(&client, button_entity)?;
+        println!("Click {attempt}/{CLICK_TRIES}, released on frame {frame}");
 
-    // UiGlobalTransform wraps an Affine2, serialized as a flat array:
-    // [_, _, _, _, translation_x, translation_y]
-    // The translation gives the node's center in physical pixels.
-    let transform = &button["components"][type_name::<UiGlobalTransform>()];
-    let transform_arr = transform.as_array().expect("Expected transform array");
-    let phys_x = transform_arr[4].as_f64().unwrap();
-    let phys_y = transform_arr[5].as_f64().unwrap();
-    println!("Found button at physical ({phys_x}, {phys_y})");
+        match activations.recv_timeout(CLICK_TIMEOUT) {
+            Ok(_) => {
+                println!("Button activated!");
+                clicked = true;
+                break;
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                println!("Button not activated after {CLICK_TIMEOUT:?}");
+            }
+            Err(RecvTimeoutError::Disconnected) => bail!("Activate stream closed"),
+        }
+    }
+    if !clicked {
+        bail!("Button not activated after {CLICK_TRIES} clicks");
+    }
 
-    // Step 2: Find the window entity and scale factor
-    println!("Querying for window entity...");
-    let window_query = brp_request(
-        &url,
-        BRP_QUERY_METHOD,
-        2,
-        &BrpQueryParams {
-            data: BrpQuery {
-                components: vec![type_name::<Window>().to_string()],
-                option: ComponentSelector::default(),
-                has: Vec::default(),
-            },
-            strict: false,
-            filter: BrpQueryFilter::default(),
-        },
-    )?;
+    // Step 5: Focus the button with Tab, and activate it with Space
+    // A click that was slow to land could still be on its way; only a new activation counts.
+    while activations.try_recv().is_ok() {}
+    println!("Pressing Tab, then Space...");
+    key(&client, KeyCode::Tab)?;
+    let frame = key(&client, KeyCode::Space)?;
+    println!("Space released on frame {frame}");
+    match activations.recv_timeout(CLICK_TIMEOUT) {
+        Ok(_) => println!("Button activated from the keyboard!"),
+        Err(RecvTimeoutError::Timeout) => {
+            bail!("Button not activated from the keyboard after {CLICK_TIMEOUT:?}")
+        }
+        Err(RecvTimeoutError::Disconnected) => bail!("Activate stream closed"),
+    }
 
-    let window_result = window_query["result"]
-        .as_array()
-        .expect("Expected result array");
-    let window = &window_result[0];
-    let window_entity = &window["entity"];
-    let window_data = &window["components"][type_name::<Window>()];
-    let scale_factor = window_data["resolution"]["scale_factor"].as_f64().unwrap();
-    println!("Found window entity: {window_entity}, scale_factor: {scale_factor}");
-
-    // Step 3: Convert button center from physical to logical pixels
-    let logical_x = phys_x / scale_factor;
-    let logical_y = phys_y / scale_factor;
-    println!("Clicking at logical position: ({logical_x}, {logical_y})");
-
-    // Step 4: Send CursorMoved via WindowEvent message
-    // This lets the picking system know where the pointer is.
-    println!("Sending CursorMoved message...");
+    // Step 6: Ask the app to exit
+    println!("Asking the app to exit...");
     brp_request(
-        &url,
+        &client,
         BRP_WRITE_MESSAGE_METHOD,
-        3,
         &BrpWriteMessageParams {
-            message: type_name::<WindowEvent>().to_string(),
-            value: Some(serde_json::json!({
-                "CursorMoved": {
-                    "window": window_entity,
-                    "position": [logical_x, logical_y],
-                    "delta": null
-                }
-            })),
-        },
-    )?;
-
-    // Step 5: Send MouseButtonInput Pressed + Released via WindowEvent messages.
-    // The picking system needs both press and release to generate a Pointer<Click>.
-    println!("Sending mouse press...");
-    brp_request(
-        &url,
-        BRP_WRITE_MESSAGE_METHOD,
-        4,
-        &BrpWriteMessageParams {
-            message: type_name::<WindowEvent>().to_string(),
-            value: Some(serde_json::json!({
-                "MouseButtonInput": {
-                    "button": "Left",
-                    "state": "Pressed",
-                    "window": window_entity,
-                }
-            })),
-        },
-    )?;
-
-    println!("Sending mouse release...");
-    brp_request(
-        &url,
-        BRP_WRITE_MESSAGE_METHOD,
-        5,
-        &BrpWriteMessageParams {
-            message: type_name::<WindowEvent>().to_string(),
-            value: Some(serde_json::json!({
-                "MouseButtonInput": {
-                    "button": "Left",
-                    "state": "Released",
-                    "window": window_entity,
-                }
-            })),
+            message: type_name::<AppExit>().to_string(),
+            value: Some(serde_json::json!("Success")),
         },
     )?;
 
     Ok(())
 }
 
-fn brp_request(
-    url: &str,
-    method: &str,
-    id: u32,
-    params: &impl serde::Serialize,
-) -> AnyhowResult<serde_json::Value> {
-    let req = BrpRequest {
-        method: method.to_string(),
-        id: Some(serde_json::to_value(id)?),
+/// Queries for the window entity until the app answers, for up to [`STARTUP_TIMEOUT`].
+fn wait_for_window(client: &BrpClient) -> AnyhowResult<serde_json::Value> {
+    let start = Instant::now();
+    loop {
+        let window_query = brp_request(
+            client,
+            BRP_QUERY_METHOD,
+            &BrpQueryParams {
+                data: BrpQuery {
+                    components: vec![type_name::<Window>().to_string()],
+                    option: ComponentSelector::default(),
+                    has: Vec::default(),
+                },
+                strict: false,
+                filter: BrpQueryFilter::default(),
+            },
+        );
+        match window_query {
+            Ok(window_query) => {
+                let window_result = window_query.as_array().expect("Expected result array");
+                if let Some(window) = window_result.first() {
+                    return Ok(window["entity"].clone());
+                }
+            }
+            Err(err) if start.elapsed() >= STARTUP_TIMEOUT => {
+                bail!("App didn't answer after {STARTUP_TIMEOUT:?}: {err}");
+            }
+            Err(_) => {}
+        }
+        if start.elapsed() >= STARTUP_TIMEOUT {
+            bail!("No window after {STARTUP_TIMEOUT:?}");
+        }
+        thread::sleep(Duration::from_millis(500));
+    }
+}
+
+/// Finds the button entity.
+fn find_button(client: &BrpClient) -> AnyhowResult<Entity> {
+    let button_query = brp_request(
+        client,
+        BRP_QUERY_METHOD,
+        &BrpQueryParams {
+            data: BrpQuery {
+                components: Vec::default(),
+                option: ComponentSelector::default(),
+                has: Vec::default(),
+            },
+            strict: false,
+            filter: BrpQueryFilter {
+                with: vec![type_name::<FeathersButton>().to_string()],
+                ..Default::default()
+            },
+        },
+    )?;
+
+    let button_result = button_query.as_array().expect("Expected result array");
+    Ok(serde_json::from_value(button_result[0]["entity"].clone())?)
+}
+
+/// Clicks on a UI node with the left mouse button, and returns the frame that reads the release.
+///
+/// The app moves the cursor to the node's center, then presses and releases the button, each on
+/// its own frame, as a window backend would report a real click.
+fn click(client: &BrpClient, node: Entity) -> AnyhowResult<u32> {
+    let response = brp_request(
+        client,
+        BRP_CLICK_METHOD,
+        &BrpClickParams {
+            entity: Some(node),
+            window: None,
+            position: None,
+            button: MouseButton::Left,
+            hold: 1,
+        },
+    )?;
+    let response: BrpClickResponse = serde_json::from_value(response)?;
+    Ok(response.frame)
+}
+
+/// Presses and releases a key in the primary window, and returns the frame that receives the
+/// release.
+///
+/// The app fills in the key's logical key and text from a US keyboard layout.
+fn key(client: &BrpClient, key_code: KeyCode) -> AnyhowResult<u32> {
+    let response = brp_request(
+        client,
+        BRP_KEY_METHOD,
+        &BrpKeyParams {
+            key_code,
+            logical_key: None,
+            text: None,
+            state: None,
+            hold: None,
+            window: None,
+        },
+    )?;
+    let response: BrpKeyResponse = serde_json::from_value(response)?;
+    Ok(response.frame)
+}
+
+/// Starts watching for an event, and returns a channel receiving the events for each frame they
+/// were observed in. The channel is closed if the stream fails or ends.
+fn watch(url: &str, params: BrpObserveParams) -> AnyhowResult<Receiver<Vec<serde_json::Value>>> {
+    let request = BrpRequest {
+        method: BRP_OBSERVE_METHOD.to_string(),
+        id: Some(serde_json::to_value(0)?),
         params: Some(serde_json::to_value(params)?),
     };
-    Ok(ureq::post(url).send_json(req)?.body_mut().read_json()?)
+    let url = url.to_string();
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        if let Err(err) = read_watch_stream(&url, request, sender) {
+            eprintln!("Watching failed: {err}");
+        }
+    });
+    Ok(receiver)
+}
+
+/// Sends a watching request, and forwards the events of each server-sent event to `sender`.
+fn read_watch_stream(
+    url: &str,
+    request: BrpRequest,
+    sender: mpsc::Sender<Vec<serde_json::Value>>,
+) -> AnyhowResult<()> {
+    let response = ureq::post(url).send_json(request)?;
+    let reader = std::io::BufReader::new(response.into_body().into_reader());
+    for line in reader.lines() {
+        let line = line?;
+        let Some(json_str) = line.strip_prefix("data: ") else {
+            continue;
+        };
+        let response: serde_json::Value = serde_json::from_str(json_str)?;
+        if let Some(error) = response.get("error") {
+            bail!("Observe error: {error}");
+        }
+        if let Some(result) = response.get("result") {
+            let events = result.as_array().expect("Expected events array").clone();
+            if sender.send(events).is_err() {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn brp_request(
+    client: &BrpClient,
+    method: &str,
+    params: &impl serde::Serialize,
+) -> AnyhowResult<serde_json::Value> {
+    let params = serde_json::to_value(params)?;
+    Ok(block_on(client.call(method, Some(params)))?)
 }

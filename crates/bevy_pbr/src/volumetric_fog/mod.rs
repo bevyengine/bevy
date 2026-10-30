@@ -37,19 +37,17 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{resource::Resource, schedule::IntoScheduleConfigs as _};
 use bevy_light::FogVolume;
-use bevy_math::{
-    primitives::{Cuboid, Plane3d},
-    Vec2, Vec3,
-};
+use bevy_math::{Vec2, Vec3};
 use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
     render_resource::SpecializedRenderPipelines,
     sync_component::{SyncComponent, SyncComponentPlugin},
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shape::{Cuboid, Plane3d};
 use render::{volumetric_fog, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSet};
+use crate::{volumetric_fog::render::init_volumetric_fog_pipeline, MeshPipelineSystems};
 
 pub mod render;
 
@@ -64,7 +62,7 @@ pub struct FogAssets {
 
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "volumetric_fog.wgsl");
+        embedded_asset!(app, "volumetric_fog.wesl");
 
         let mut meshes = app.world_mut().resource_mut::<Assets<Mesh>>();
         let plane_mesh = meshes.add(Plane3d::new(Vec3::Z, Vec2::ONE).mesh());
@@ -85,7 +83,7 @@ impl Plugin for VolumetricFogPlugin {
             .init_gpu_resource::<VolumetricFogUniformBuffer>()
             .add_systems(
                 RenderStartup,
-                init_volumetric_fog_pipeline.after(MeshPipelineSet),
+                init_volumetric_fog_pipeline.after(MeshPipelineSystems),
             )
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
@@ -107,6 +105,6 @@ impl Plugin for VolumetricFogPlugin {
     }
 }
 
-impl SyncComponent<VolumetricFogPlugin> for FogVolume {
+impl SyncComponent<RenderApp, VolumetricFogPlugin> for FogVolume {
     type Target = Self;
 }

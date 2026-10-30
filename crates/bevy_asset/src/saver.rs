@@ -1,3 +1,9 @@
+//! Tools to save processed [`Asset`]s to a byte format that can then be written with [`AssetWriter`].
+//!
+//! See [`AssetSaver`] for details.
+//!
+//! [`AssetWriter`]: crate::io::AssetWriter
+
 use crate::{
     io::{AssetWriterError, MissingAssetSourceError, MissingAssetWriterError, Writer},
     meta::{AssetAction, AssetMeta, AssetMetaDyn, Settings},
@@ -11,7 +17,11 @@ use bevy_ecs::error::BevyError;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::{any::TypeId, borrow::Borrow, ops::Deref};
+use core::{
+    any::{Any, TypeId},
+    borrow::Borrow,
+    ops::Deref,
+};
 use futures_lite::AsyncWriteExt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -23,9 +33,11 @@ use thiserror::Error;
 ///
 /// For a version of this trait that can load assets, see [`AssetLoader`].
 ///
-/// Note: This is currently only leveraged by the [`AssetProcessor`](crate::processor::AssetProcessor), and does not provide a
-/// suitable interface for general purpose asset persistence. See [github issue #11216](https://github.com/bevyengine/bevy/issues/11216).
+/// This trait can be used with [`save_using_saver`] to save assets directly, or with
+/// [`LoadTransformAndSave`] to create a [`Process`] implementation.
 ///
+/// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
+/// [`Process`]: crate::processor::Process
 pub trait AssetSaver: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
@@ -310,6 +322,13 @@ impl<'a> ErasedSavedAsset<'a, '_> {
             &self.asset_id_to_asset_index,
         ))
     }
+
+    /// Returns the inner value as an [`Any`].
+    ///
+    /// For a statically-known type, use [`Self::downcast`] instead.
+    pub fn get(&self) -> &'a dyn Any {
+        self.value
+    }
 }
 
 /// Container for a single labeled asset (which also includes its labeled assets, for nested
@@ -394,7 +413,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle(label, asset, handle.clone());
@@ -441,7 +459,6 @@ impl<'a> SavedAssetBuilder<'a> {
                 .reserve_handle_internal(
                     false,
                     Some(self.asset_path.clone().with_label(label.to_string())),
-                    None,
                 ),
         );
         self.add_labeled_asset_with_existing_handle_erased(label, asset, handle.clone());
@@ -563,8 +580,10 @@ pub enum SaveAssetError {
     MissingSource(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingWriter(#[from] MissingAssetWriterError),
+    /// Encountered an [`AssetWriterError`] while saving the asset.
     #[error(transparent)]
     WriterError(#[from] AssetWriterError),
+    /// Failed to save the asset due to an error from the saver.
     #[error("Failed to save asset due to error from saver: {0}")]
     SaverError(Arc<BevyError>),
 }

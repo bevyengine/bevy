@@ -3,7 +3,7 @@
 use log::warn;
 
 use crate::{
-    component::{Component, ComponentId, Mutable},
+    component::{Component, ComponentId},
     entity::Entity,
     lifecycle::HookContext,
     storage::SparseArray,
@@ -84,7 +84,7 @@ use bevy_platform::cell::SyncUnsafeCell;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component<Mutability = Mutable> {}
+pub trait Resource: Component {}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
@@ -167,8 +167,8 @@ impl IsResource {
                     .components()
                     .get_name(resource_component_id)
                     .expect("resource is registered");
-                warn!("Tried inserting the resource {} while one already exists.
-                Resources are unique components stored on a single entity.
+                warn!("Tried inserting the resource {} while one already exists. \
+                Resources are unique components stored on a single entity. \
                 Inserting on a different entity, when one already exists, causes the new value to be removed.", name);
             }
         } else {
@@ -210,19 +210,25 @@ impl IsResource {
     }
 }
 
-/// [`ComponentId`] of the [`IsResource`] component.
-pub const IS_RESOURCE: ComponentId = ComponentId::new(crate::component::IS_RESOURCE);
+pub use crate::component::IS_RESOURCE;
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
+
     use crate::{
         change_detection::MaybeLocation,
+        component::Components,
         entity::Entity,
+        lifecycle::HookContext,
+        prelude::{EntityRef, Query, SystemParamBuilder},
         ptr::OwningPtr,
-        resource::{IsResource, Resource},
-        world::World,
+        resource::{IsResource, Resource, ResourceEntities},
+        system::{ParamBuilder, QueryParamBuilder, RunSystemOnce},
+        world::{DeferredWorld, FilteredEntityRef, World},
     };
     use alloc::vec::Vec;
+    use bevy_ecs_macros::Component;
     use bevy_platform::prelude::String;
 
     #[test]
@@ -246,7 +252,7 @@ mod tests {
         assert_eq!(world.entities().count_spawned(), start + 2);
         // like component registration, which just makes it known to the world that a component exists,
         // registering a resource should not spawn an entity.
-        let id3 = world.register_resource::<TestResource3>();
+        let id3 = world.register_component::<TestResource3>();
         assert_eq!(world.entities().count_spawned(), start + 2);
         OwningPtr::make(20_u8, |ptr| {
             // SAFETY: id was just initialized and corresponds to a resource.
@@ -326,5 +332,96 @@ mod tests {
         assert!(world.entity(id).get::<IsResource>().is_none());
         assert!(world.entity(second_entity).get::<TestResource>().is_some());
         assert!(world.entity(second_entity).get::<IsResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_component_features() {
+        static ON_ADD_CALLED: AtomicBool = AtomicBool::new(false);
+
+        #[derive(Resource)]
+        #[component(immutable, on_add)]
+        struct TestResource;
+        impl TestResource {
+            fn on_add(_: DeferredWorld, _: HookContext) {
+                ON_ADD_CALLED.store(true, Relaxed);
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert!(ON_ADD_CALLED.load(Relaxed));
+        assert!(world.get_resource::<TestResource>().is_some());
+    }
+
+    #[test]
+    fn derive_resource_require_features() {
+        #[derive(Component, Default)]
+        struct RequiredComponent;
+
+        #[derive(Resource)]
+        #[require(RequiredComponent)]
+        struct TestResource;
+
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        assert_eq!(
+            world
+                .query::<(&TestResource, &RequiredComponent)>()
+                .iter(&world)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn get_multiple_dynamic_resources() {
+        use std::any::TypeId;
+
+        #[derive(Resource)]
+        struct ResA(u8);
+
+        #[derive(Resource)]
+        struct ResB(u8);
+
+        let mut world = World::default();
+        world.insert_resource(ResA(12));
+        world.insert_resource(ResB(34));
+
+        let system = (
+            QueryParamBuilder::new(|builder| {
+                builder.data::<EntityRef>();
+                builder.with::<IsResource>();
+                builder.or(|builder| {
+                    builder.with::<ResA>();
+                    builder.with::<ResB>();
+                });
+            }),
+            ParamBuilder,
+            ParamBuilder,
+        )
+            .build_state(&mut world)
+            .build_system(resource_system);
+
+        fn resource_system(
+            query: Query<FilteredEntityRef>,
+            resource_entities: &ResourceEntities,
+            components: &Components,
+        ) {
+            let component_id_a = components.get_id(TypeId::of::<ResA>()).unwrap();
+            let component_id_b = components.get_id(TypeId::of::<ResB>()).unwrap();
+
+            let entity_a = resource_entities.get(component_id_a).unwrap();
+            let entity_b = resource_entities.get(component_id_b).unwrap();
+
+            let entity_ref_a: FilteredEntityRef = query.get(entity_a).unwrap();
+            assert_eq!(entity_ref_a.get::<ResA>().unwrap().0, 12);
+
+            let entity_ref_b: FilteredEntityRef = query.get(entity_b).unwrap();
+            assert_eq!(entity_ref_b.get::<ResB>().unwrap().0, 34);
+        }
+
+        let _ = world.run_system_once(system);
     }
 }

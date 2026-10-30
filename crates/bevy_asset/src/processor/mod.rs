@@ -203,6 +203,7 @@ impl AssetProcessor {
         self.data.sources.get(id.into())
     }
 
+    /// Retrieves all the [`AssetSource`]s for this processor.
     #[inline]
     pub fn sources(&self) -> &AssetSources {
         &self.data.sources
@@ -915,45 +916,43 @@ impl AssetProcessor {
             }
 
             for path in processed_paths {
-                let mut dependencies = Vec::new();
                 let asset_path = AssetPath::from(path).with_source(source.id());
-                if let Some(info) = asset_infos.get_mut(&asset_path) {
-                    match processed_reader.read_meta_bytes(asset_path.path()).await {
-                        Ok(meta_bytes) => {
-                            match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
-                                Ok(minimal) => {
-                                    trace!(
-                                        "Populated processed info for asset {asset_path} {:?}",
-                                        minimal.processed_info
-                                    );
-
-                                    if let Some(processed_info) = &minimal.processed_info {
-                                        for process_dependency_info in
-                                            &processed_info.process_dependencies
-                                        {
-                                            dependencies.push(process_dependency_info.path.clone());
-                                        }
-                                    }
-                                    info.processed_info = minimal.processed_info;
-                                }
-                                Err(err) => {
-                                    trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
-                                    self.remove_processed_asset_and_meta(source, asset_path.path())
-                                        .await;
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
-                            self.remove_processed_asset_and_meta(source, asset_path.path())
-                                .await;
-                        }
-                    }
-                } else {
+                let Some(info) = asset_infos.get_mut(&asset_path) else {
                     trace!("Removing processed data for non-existent asset {asset_path}");
                     self.remove_processed_asset_and_meta(source, asset_path.path())
                         .await;
+                    continue;
+                };
+                let meta_bytes = match processed_reader.read_meta_bytes(asset_path.path()).await {
+                    Ok(meta_bytes) => meta_bytes,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+                let minimal = match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
+                    Ok(minimal) => minimal,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+                trace!(
+                    "Populated processed info for asset {asset_path} {:?}",
+                    minimal.processed_info
+                );
+
+                let mut dependencies = Vec::new();
+                if let Some(processed_info) = &minimal.processed_info {
+                    for process_dependency_info in &processed_info.process_dependencies {
+                        dependencies.push(process_dependency_info.path.clone());
+                    }
                 }
+                info.processed_info = minimal.processed_info;
 
                 for dependency in dependencies {
                     asset_infos.add_dependent(&dependency, asset_path.clone());
@@ -984,13 +983,14 @@ impl AssetProcessor {
             .await;
     }
 
-    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
+    async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, mut path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
             error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
             return;
         }
         while let Some(parent) = path.parent() {
+            path = parent;
             if parent == Path::new("") {
                 break;
             }
@@ -1829,6 +1829,7 @@ pub enum InitializeError {
 /// An error when attempting to set the transaction log factory.
 #[derive(Error, Debug)]
 pub enum SetTransactionLogFactoryError {
+    /// The transaction log is already in use, so setting the factory does nothing.
     #[error("Transaction log is already in use so setting the factory does nothing")]
     AlreadyInUse,
 }
@@ -1836,11 +1837,15 @@ pub enum SetTransactionLogFactoryError {
 /// An error when retrieving an asset processor.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum GetProcessorError {
+    /// The processor of that name does not exist.
     #[error("The processor '{0}' does not exist")]
     Missing(String),
+    /// The given short name is ambiguous between several processors.
     #[error("The processor '{processor_short_name}' is ambiguous between several processors: {ambiguous_processor_names:?}")]
     Ambiguous {
+        /// The given string for the processor name.
         processor_short_name: String,
+        /// The list of processors that might match it.
         ambiguous_processor_names: Vec<&'static str>,
     },
 }

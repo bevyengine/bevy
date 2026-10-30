@@ -2,17 +2,14 @@ use crate::meshlet::asset::{MeshletAabb, MeshletAabbErrorOffset, MeshletCullData
 
 use super::asset::{BvhNode, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use alloc::borrow::Cow;
-use bevy_math::{
-    bounding::{Aabb3d, BoundingSphere, BoundingVolume},
-    ops::log2,
-    IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
-};
-use bevy_mesh::{Indices, Mesh};
+use bevy_math::{ops::log2, IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles};
+use bevy_mesh::{Indices, Mesh, MeshVertexAttribute};
 use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::PrimitiveTopology;
+use bevy_shape::{Aabb3d, BoundingSphere, BoundingVolume};
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::{f32, ops::Range};
+use core::ops::Range;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, ffi::meshopt_Meshlet, generate_position_remap,
@@ -78,7 +75,7 @@ impl MeshletMesh {
         let vertex_buffer = mesh.create_packed_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
-        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
+        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..]);
 
         // Generate a position-only vertex buffer for determining triangle/meshlet connectivity
         let position_only_vertex_remap = generate_position_remap(&vertices);
@@ -251,16 +248,24 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
 
-    if mesh.attributes().map(|(attribute, _)| attribute.id).ne([
-        Mesh::ATTRIBUTE_POSITION.id,
-        Mesh::ATTRIBUTE_NORMAL.id,
-        Mesh::ATTRIBUTE_UV_0.id,
-    ]) {
-        return Err(MeshToMeshletMeshConversionError::WrongMeshVertexAttributes(
-            mesh.attributes()
-                .map(|(attribute, _)| format!("{attribute:?}"))
-                .collect(),
-        ));
+    let required_attributes = [
+        Mesh::ATTRIBUTE_POSITION,
+        Mesh::ATTRIBUTE_NORMAL,
+        Mesh::ATTRIBUTE_UV_0,
+    ];
+    if mesh
+        .attributes()
+        .map(|(attribute, _)| (attribute.id, attribute.format))
+        .ne(required_attributes
+            .iter()
+            .map(|attribute| (attribute.id, attribute.format)))
+    {
+        return Err(
+            MeshToMeshletMeshConversionError::WrongMeshVertexAttributes {
+                required: required_attributes,
+                provided: mesh.attributes().map(|(attribute, _)| *attribute).collect(),
+            },
+        );
     }
 
     match mesh.indices() {
@@ -1084,8 +1089,11 @@ fn pack2x16snorm(v: Vec2) -> u32 {
 pub enum MeshToMeshletMeshConversionError {
     #[error("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh vertex attributes are not {{POSITION, NORMAL, UV_0}}: {0:?}")]
-    WrongMeshVertexAttributes(Vec<String>),
+    #[error("Mesh vertex attributes must be {required:?}, but got {provided:?}")]
+    WrongMeshVertexAttributes {
+        required: [MeshVertexAttribute; 3],
+        provided: Vec<MeshVertexAttribute>,
+    },
     #[error("Mesh has no indices")]
     MeshMissingIndices,
 }

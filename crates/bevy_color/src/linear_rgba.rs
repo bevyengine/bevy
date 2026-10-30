@@ -8,6 +8,8 @@ use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
 /// Linear RGB color with alpha.
+///
+/// SDR colors are in `[0.0, 1.0]`. Values above `1.0` are HDR intensities.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -25,11 +27,11 @@ use bytemuck::{Pod, Zeroable};
 )]
 #[repr(C)]
 pub struct LinearRgba {
-    /// The red channel. [0.0, 1.0]
+    /// The red channel. [0.0, 1.0] for SDR colors.
     pub red: f32,
-    /// The green channel. [0.0, 1.0]
+    /// The green channel. [0.0, 1.0] for SDR colors.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0]
+    /// The blue channel. [0.0, 1.0] for SDR colors.
     pub blue: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,
@@ -154,7 +156,7 @@ impl LinearRgba {
         }
     }
 
-    /// Converts this color to a u32.
+    /// Converts this color to a `u32`.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
@@ -177,18 +179,22 @@ impl Luminance for LinearRgba {
         self.red * 0.2126 + self.green * 0.7152 + self.blue * 0.0722
     }
 
+    /// Scales the color to the target luminance, preserving its chromaticity. A saturated
+    /// color or a target above 1.0 can push components outside `[0.0, 1.0]`.
     #[inline]
     fn with_luminance(&self, luminance: f32) -> Self {
         let current_luminance = self.luminance();
         let adjustment = luminance / current_luminance;
         Self {
-            red: (self.red * adjustment).clamp(0., 1.),
-            green: (self.green * adjustment).clamp(0., 1.),
-            blue: (self.blue * adjustment).clamp(0., 1.),
+            red: self.red * adjustment,
+            green: self.green * adjustment,
+            blue: self.blue * adjustment,
             alpha: self.alpha,
         }
     }
 
+    /// The target luminance is clamped to `[0.0, 1.0]`, so this is not suitable for HDR
+    /// colors. To scale an HDR color, use [`with_luminance`](Luminance::with_luminance).
     #[inline]
     fn darker(&self, amount: f32) -> Self {
         let mut result = *self;
@@ -196,6 +202,8 @@ impl Luminance for LinearRgba {
         result
     }
 
+    /// The target luminance is clamped to `[0.0, 1.0]`, so this is not suitable for HDR
+    /// colors. To scale an HDR color, use [`with_luminance`](Luminance::with_luminance).
     #[inline]
     fn lighter(&self, amount: f32) -> Self {
         let mut result = *self;
@@ -459,6 +467,34 @@ mod tests {
         let a = LinearRgba::rgb(0.0, 100.0, -100.0).to_u8_array_no_alpha();
         let b = [0, 255, 0];
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn with_luminance_scales_unclamped() {
+        use crate::testing::assert_approx_eq;
+
+        // A target above 1.0 produces an HDR color.
+        let gray = LinearRgba::rgb(0.5, 0.5, 0.5);
+        let bright = gray.with_luminance(2.0);
+        assert_approx_eq!(bright.red, 2.0, 1e-4);
+        assert_approx_eq!(bright.green, 2.0, 1e-4);
+        assert_approx_eq!(bright.blue, 2.0, 1e-4);
+
+        // An HDR color scales and keeps its chromaticity.
+        let hdr = LinearRgba::rgb(2.0, 4.0, 8.0);
+        let adjusted = hdr.with_luminance(2.0 * hdr.luminance());
+        assert_approx_eq!(adjusted.red, 4.0, 1e-4);
+        assert_approx_eq!(adjusted.green, 8.0, 1e-4);
+        assert_approx_eq!(adjusted.blue, 16.0, 1e-4);
+
+        // A saturated SDR color scales past 1.0 instead of clamping, and the
+        // result hits the requested luminance exactly.
+        let red = LinearRgba::rgb(1.0, 0.0, 0.0);
+        let bright = red.with_luminance(0.9);
+        assert!(bright.red > 4.0);
+        assert_eq!(bright.green, 0.0);
+        assert_eq!(bright.blue, 0.0);
+        assert_approx_eq!(bright.luminance(), 0.9, 1e-4);
     }
 
     #[test]

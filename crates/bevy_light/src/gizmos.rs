@@ -18,12 +18,9 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
-use bevy_math::{
-    ops,
-    primitives::{Cone, Sphere},
-    Isometry3d, Quat, Vec3,
-};
+use bevy_math::{ops, Isometry3d, Quat, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_shape::{Cone, Sphere};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use bevy_gizmos::{
@@ -210,7 +207,7 @@ impl Default for LightGizmoConfigGroup {
 #[derive(Component, Reflect, Default, Debug)]
 #[reflect(Component, Default, Debug)]
 pub struct ShowLightGizmo {
-    /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
+    /// Default color strategy for this light gizmo. If [`None`], use the one provided by [`LightGizmoConfigGroup`].
     ///
     /// Defaults to [`None`].
     pub color: Option<LightGizmoColor>,

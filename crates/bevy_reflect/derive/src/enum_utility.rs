@@ -232,62 +232,6 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
     }
 }
 
-/// Generates the enum variant output data needed to build the `PartialReflect::try_apply` implementation.
-pub(crate) struct TryApplyVariantBuilder<'a> {
-    reflect_enum: &'a ReflectEnum<'a>,
-}
-
-impl<'a> TryApplyVariantBuilder<'a> {
-    pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
-        Self { reflect_enum }
-    }
-}
-
-impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum<'_> {
-        self.reflect_enum
-    }
-
-    fn unwrap_field(&self, field: VariantField) -> TokenStream {
-        let VariantField {
-            alias,
-            variant_name,
-            field,
-            ..
-        } = field;
-
-        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-
-        let field_name = match &field.data.ident {
-            Some(ident) => format!("{ident}"),
-            None => format!(".{}", field.declaration_index),
-        };
-
-        quote! {
-            #alias.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField {
-                variant_name: ::core::convert::Into::into(#variant_name),
-                field_name: ::core::convert::Into::into(#field_name)
-            })?
-        }
-    }
-
-    fn construct_field(&self, field: VariantField) -> TokenStream {
-        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-        let alias = field.alias;
-        let field_ty = field.field.reflected_type();
-
-        quote! {
-            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
-                .ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes {
-                    from_type: ::core::convert::Into::into(
-                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias)
-                    ),
-                    to_type: ::core::convert::Into::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
-                })?
-        }
-    }
-}
-
 /// Generates the enum variant output data needed to build the `Reflect::reflect_clone` implementation.
 pub(crate) struct ReflectCloneVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,

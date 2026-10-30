@@ -4,8 +4,11 @@ use bevy_ecs::{
     component::Component,
     lifecycle::{Add, Remove},
     observer::On,
+    reflect::ReflectComponent,
     world::DeferredWorld,
 };
+use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 
 /// A component indicating that a widget is disabled and should be "grayed out".
 /// This is used to prevent user interaction with the widget. It should not, however, prevent
@@ -15,10 +18,19 @@ use bevy_ecs::{
 /// the `InteractionDisabled` component should be added to the root entity of the widget - the
 /// same entity that contains the `AccessibilityNode` component. This will ensure that
 /// the a11y tree is updated correctly.
-#[derive(Component, Debug, Clone, Copy, Default)]
+///
+/// For developers familiar with the web and HTML, the word "disabled" as used here should be
+/// interpreted as working more like the `aria-disabled` (which doesn't prevent input focus)
+/// than the `disabled` attribute (which does). However, unlike `aria-disabled`, which is purely
+/// advisory, this does make the widget non-operable.
+///
+/// In particular, this marker currently has no effect on the "click-to-focus" observer which
+/// lives in [`bevy_input_focus`], as that is a lower-level crate that this one depends on.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct InteractionDisabled;
 
-pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: DeferredWorld) {
+pub(crate) fn on_add_disabled(add: On<Add<InteractionDisabled>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_disabled();
@@ -26,7 +38,7 @@ pub(crate) fn on_add_disabled(add: On<Add, InteractionDisabled>, mut world: Defe
 }
 
 pub(crate) fn on_remove_disabled(
-    remove: On<Remove, InteractionDisabled>,
+    remove: On<Remove<InteractionDisabled>>,
     mut world: DeferredWorld,
 ) {
     let mut entity = world.entity_mut(remove.entity);
@@ -37,18 +49,21 @@ pub(crate) fn on_remove_disabled(
 
 /// Component that indicates whether a button or widget is currently in a pressed or "held down"
 /// state.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Pressed;
 
 /// Component that indicates that a widget can be checked.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Checkable;
 
 /// Component that indicates whether a checkbox or radio button is in a checked state.
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Checked;
 
-pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checkable(add: On<Add<Checkable>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     let checked = entity.get::<Checked>().is_some();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
@@ -59,24 +74,173 @@ pub(crate) fn on_add_checkable(add: On<Add, Checkable>, mut world: DeferredWorld
     }
 }
 
-pub(crate) fn on_remove_checkable(add: On<Remove, Checkable>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checkable(remove: On<Remove<Checkable>>, mut world: DeferredWorld) {
     // Remove the 'toggled' attribute entirely.
-    let mut entity = world.entity_mut(add.entity);
+    let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.clear_toggled();
     }
 }
 
-pub(crate) fn on_add_checked(add: On<Add, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_add_checked(add: On<Add<Checked>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(add.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::True);
     }
 }
 
-pub(crate) fn on_remove_checked(remove: On<Remove, Checked>, mut world: DeferredWorld) {
+pub(crate) fn on_remove_checked(remove: On<Remove<Checked>>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(remove.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_toggled(accesskit::Toggled::False);
+    }
+}
+
+/// Component that indicates that a widget can be selected. Similar to [`Checkable`], but works for
+/// the ARIA "selected" state instead of "checked".
+#[derive(Component, Default, Debug)]
+pub struct Selectable;
+
+/// Similar to [`Checked`], but works for the ARIA "selected" state instead of "checked".
+#[derive(Component, Default, Debug, Clone)]
+pub struct Selected;
+
+pub(crate) fn on_add_selectable(add: On<Add<Selectable>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    let selected = entity.get::<Selected>().is_some();
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_selected(selected);
+    }
+}
+
+pub(crate) fn on_remove_selectable(remove: On<Remove<Selectable>>, mut world: DeferredWorld) {
+    // Remove the 'toggled' attribute entirely.
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.clear_selected();
+    }
+}
+
+pub(crate) fn on_add_selected(add: On<Add<Selected>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_selected(true);
+    }
+}
+
+pub(crate) fn on_remove_selected(remove: On<Remove<Selected>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_selected(false);
+    }
+}
+
+/// Component that indicates that a widget can be expanded or collapsed.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Expandable;
+
+/// Component that indicates that a widget is currently expanded.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Expanded;
+
+pub(crate) fn on_add_expandable(add: On<Add<Expandable>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    let expanded = entity.get::<Expanded>().is_some();
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_expanded(expanded);
+    }
+}
+
+pub(crate) fn on_remove_expandable(remove: On<Remove<Expandable>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.clear_expanded();
+    }
+}
+
+pub(crate) fn on_add_expanded(add: On<Add<Expanded>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(add.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_expanded(true);
+    }
+}
+
+pub(crate) fn on_remove_expanded(remove: On<Remove<Expanded>>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(remove.entity);
+    if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
+        accessibility.set_expanded(false);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::world::World;
+
+    fn accessibility_world() -> World {
+        let mut world = World::new();
+        world.add_observer(on_add_expandable);
+        world.add_observer(on_remove_expandable);
+        world.add_observer(on_add_expanded);
+        world.add_observer(on_remove_expanded);
+        world
+    }
+
+    #[test]
+    fn expanded_marker_drives_the_accessibility_property() {
+        let mut world = accessibility_world();
+        let node = || AccessibilityNode::from(accesskit::Node::new(accesskit::Role::TreeItem));
+
+        let collapsed = world.spawn((node(), Expandable)).id();
+        let expanded = world.spawn((node(), Expandable, Expanded)).id();
+
+        assert_eq!(
+            world
+                .entity(collapsed)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(false)
+        );
+        assert_eq!(
+            world
+                .entity(expanded)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(true)
+        );
+
+        world.entity_mut(collapsed).insert(Expanded);
+        assert_eq!(
+            world
+                .entity(collapsed)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(true)
+        );
+
+        world.entity_mut(expanded).remove::<Expanded>();
+        assert_eq!(
+            world
+                .entity(expanded)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            Some(false)
+        );
+
+        world.entity_mut(expanded).remove::<Expandable>();
+        assert_eq!(
+            world
+                .entity(expanded)
+                .get::<AccessibilityNode>()
+                .unwrap()
+                .is_expanded(),
+            None
+        );
     }
 }

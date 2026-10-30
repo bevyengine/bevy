@@ -70,7 +70,7 @@ impl CustomPathDef {
 pub(crate) enum NamedTypePathDef {
     External {
         path: Path,
-        generics: Generics,
+        generics: Box<Generics>,
         custom_path: Option<CustomPathDef>,
     },
     Primitive(Ident),
@@ -94,7 +94,7 @@ impl Parse for NamedTypePathDef {
         } else {
             Ok(NamedTypePathDef::External {
                 path,
-                generics,
+                generics: Box::new(generics),
                 custom_path,
             })
         }

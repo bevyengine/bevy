@@ -1,9 +1,9 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeId},
     change_detection::Tick,
     component::{ComponentId, Components},
     query::{FilteredAccess, FilteredAccessSet},
-    storage::Table,
+    storage::{Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
@@ -69,7 +69,7 @@ pub unsafe trait WorldQuery {
     /// - [`WorldQuery::init_nested_access`] must not request conflicting access.
     ///   If `Self` is [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData) or [`QueryFilter`](crate::query::QueryFilter), the access is read-only and can never conflict.
     ///   If `Self` is [`SingleEntityQueryData`](crate::query::SingleEntityQueryData), there is no external access and it cannot conflict.
-    ///   Otherwise, [`WorldQuery::init_nested_access`] must be called to ensure it does not panic.
+    ///   Otherwise, [`WorldQuery::init_nested_access`] must be called to ensure it does not return [`Err`].
     unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
         state: &'s Self::State,
@@ -98,7 +98,9 @@ pub unsafe trait WorldQuery {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     );
 
@@ -112,6 +114,7 @@ pub unsafe trait WorldQuery {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        table_id: TableId,
         table: &'w Table,
     );
 
@@ -124,17 +127,14 @@ pub unsafe trait WorldQuery {
 
     /// Adds any component accesses to other entities used by this [`WorldQuery`].
     ///
-    /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
+    /// This method must return [`Err`] if the access would conflict with any existing access in the [`FilteredAccessSet`].
     ///
     /// This is used for queries to request access to entities other than the current one,
     /// such as to read resources or to follow relations.
     fn init_nested_access(
-        _state: &Self::State,
-        _system_name: Option<&str>,
-        _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
-    }
+        state: &Self::State,
+        component_access_set: &mut FilteredAccessSet,
+    ) -> Result<(), FilteredAccessSet>;
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
     fn init_state(world: &mut World) -> Self::State;
@@ -155,7 +155,7 @@ pub unsafe trait WorldQuery {
 
     /// Called when the query state is updating its archetype cache.
     /// This can be used by nested queries to update their internal archetype caches.
-    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell);
 }
 
 macro_rules! impl_tuple_world_query {
@@ -208,21 +208,23 @@ macro_rules! impl_tuple_world_query {
             unsafe fn set_archetype<'w, 's>(
                 fetch: &mut Self::Fetch<'w>,
                 state: &'s Self::State,
+                archetype_id: ArchetypeId,
                 archetype: &'w Archetype,
+                table_id: TableId,
                 table: &'w Table
             ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
+                $(unsafe { $name::set_archetype($name, $state, archetype_id, archetype, table_id, table); })*
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table_id: TableId, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_table($name, $state, table); })*
+                $(unsafe { $name::set_table($name, $state, table_id, table); })*
             }
 
 
@@ -233,12 +235,11 @@ macro_rules! impl_tuple_world_query {
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: Option<&str>,
                 _component_access_set: &mut FilteredAccessSet,
-                _world: UnsafeWorldCell,
-            ) {
+            ) -> Result<(), FilteredAccessSet> {
                 let ($($state,)*) = state;
-                $($name::init_nested_access($state, _system_name, _component_access_set, _world);)*
+                $($name::init_nested_access($state, _component_access_set)?;)*
+                Ok(())
             }
 
             fn init_state(world: &mut World) -> Self::State {

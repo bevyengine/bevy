@@ -30,6 +30,11 @@ impl BuildHasher for FixedHasher {
     }
 }
 
+/// Hashes one value with the deterministic [`FixedHasher`].
+pub fn fixed_hash_one(x: impl Hash) -> u64 {
+    FixedHasher.hash_one(x)
+}
+
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
 ///
 /// It also enables faster [`PartialEq`] comparisons by short circuiting on hash equality.

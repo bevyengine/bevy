@@ -4,13 +4,14 @@
 //!
 //! - Chromatic Aberration
 //! - Vignette
+//! - Lens Distortion
 
 use std::f32::consts::PI;
 
 use bevy::{
     camera::Hdr,
     light::CascadeShadowConfigBuilder,
-    post_process::effect_stack::{ChromaticAberration, Vignette},
+    post_process::effect_stack::{ChromaticAberration, LensDistortion, Vignette},
     prelude::*,
 };
 
@@ -30,14 +31,20 @@ struct AppSettings {
     chromatic_aberration_intensity: f32,
     /// The intensity of the vignette effect.
     vignette_intensity: f32,
-    /// The radius of the vignette.
+    /// The radius of the vignette effect.
     vignette_radius: f32,
-    /// The smoothness of the vignette.
+    /// The smoothness of the vignette effect.
     vignette_smoothness: f32,
-    /// The roundness of the vignette.
+    /// The roundness of the vignette effect.
     vignette_roundness: f32,
-    /// The edge compensation of the vignette.
+    /// The edge compensation of the vignette effect.
     vignette_edge_compensation: f32,
+    /// The intensity of the lens distortion effect.
+    lens_distortion_intensity: f32,
+    /// Distortion strength multiplier for the horizontal direction.
+    lens_distortion_multiplier_x: f32,
+    /// Distortion strength multiplier for the vertical direction.
+    lens_distortion_multiplier_y: f32,
 }
 
 /// The entry point.
@@ -92,6 +99,8 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         ChromaticAberration::default(),
         // Include the `Vignette` component.
         Vignette::default(),
+        // Include the `LensDistortion` component.
+        LensDistortion::default(),
     ));
 }
 
@@ -147,6 +156,7 @@ fn spawn_text(commands: &mut Commands) {
 impl Default for AppSettings {
     fn default() -> Self {
         let vignette_default = Vignette::default();
+        let lens_distortion = LensDistortion::default();
         Self {
             selected: 0,
             chromatic_aberration_intensity: ChromaticAberration::default().intensity,
@@ -155,6 +165,9 @@ impl Default for AppSettings {
             vignette_smoothness: vignette_default.smoothness,
             vignette_roundness: vignette_default.roundness,
             vignette_edge_compensation: vignette_default.edge_compensation,
+            lens_distortion_intensity: lens_distortion.intensity,
+            lens_distortion_multiplier_x: lens_distortion.multiplier.x,
+            lens_distortion_multiplier_y: lens_distortion.multiplier.y,
         }
     }
 }
@@ -163,7 +176,7 @@ impl Default for AppSettings {
 fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::ArrowUp) && app_settings.selected > 0 {
         app_settings.selected -= 1;
-    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 5 {
+    } else if input.just_pressed(KeyCode::ArrowDown) && app_settings.selected < 8 {
         app_settings.selected += 1;
     }
 
@@ -198,6 +211,18 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
             app_settings.vignette_edge_compensation =
                 (app_settings.vignette_edge_compensation + delta).clamp(0.0, 1.0);
         }
+        6 => {
+            app_settings.lens_distortion_intensity =
+                (app_settings.lens_distortion_intensity + delta).clamp(-1.0, 1.0);
+        }
+        7 => {
+            app_settings.lens_distortion_multiplier_x =
+                (app_settings.lens_distortion_multiplier_x + delta).clamp(0.0, 1.0);
+        }
+        8 => {
+            app_settings.lens_distortion_multiplier_y =
+                (app_settings.lens_distortion_multiplier_y + delta).clamp(0.0, 1.0);
+        }
         _ => {}
     }
 }
@@ -206,6 +231,7 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
 fn update_chromatic_aberration_settings(
     mut chromatic_aberration: Query<&mut ChromaticAberration>,
     mut vignette: Query<&mut Vignette>,
+    mut lens_distortion: Query<&mut LensDistortion>,
     app_settings: Res<AppSettings>,
 ) {
     let intensity = app_settings.chromatic_aberration_intensity;
@@ -230,6 +256,12 @@ fn update_chromatic_aberration_settings(
         vignette.smoothness = app_settings.vignette_smoothness;
         vignette.roundness = app_settings.vignette_roundness;
         vignette.edge_compensation = app_settings.vignette_edge_compensation;
+    }
+
+    for mut lens_distortion in &mut lens_distortion {
+        lens_distortion.intensity = app_settings.lens_distortion_intensity;
+        lens_distortion.multiplier.x = app_settings.lens_distortion_multiplier_x;
+        lens_distortion.multiplier.y = app_settings.lens_distortion_multiplier_y;
     }
 }
 
@@ -258,6 +290,18 @@ fn update_help_text(mut text: Single<&mut Text>, app_settings: Res<AppSettings>)
         format!(
             "Vignette edge_compensation: {:.2}\n",
             app_settings.vignette_edge_compensation
+        ),
+        format!(
+            "Lens Distortion intensity: {:.2}\n",
+            app_settings.lens_distortion_intensity
+        ),
+        format!(
+            "Lens Distortion multiplier x: {:.2}\n",
+            app_settings.lens_distortion_multiplier_x
+        ),
+        format!(
+            "Lens Distortion multiplier y: {:.2}\n",
+            app_settings.lens_distortion_multiplier_y
         ),
     ];
     for (i, val) in text_list.iter().enumerate() {

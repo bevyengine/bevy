@@ -4,6 +4,24 @@ all-features = true
 [advisories]
 version = 2
 ignore = [
+  # zvariant, zbus_names, and zvariant_derive were merged into zbus 6.
+  # Ignore their unmaintained advisories until AccessKit and AT-SPI migrate.
+  # See: https://github.com/z-galaxy/zbus/issues/2043
+  # https://github.com/AccessKit/accesskit/pull/834
+  "RUSTSEC-2026-0370",
+  "RUSTSEC-2026-0371",
+  "RUSTSEC-2026-0372",
+  # quick-xml advisory is low priority, and will be resolved
+  # whenever the accesskit and winit dependencies
+  # are updated with the fix.
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0194
+  # https://rustsec.org/advisories/RUSTSEC-2026-0195
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+  # ttf-parser was announced as unmaintained.
+  # See: https://rustsec.org/advisories/RUSTSEC-2026-0192
+  # Ignoring to unblock ci
+  "RUSTSEC-2026-0192",
   # paste was announced as unmaintained with no explanation or replacement
   # See: https://rustsec.org/advisories/RUSTSEC-2024-0436
   # Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution
@@ -29,6 +47,7 @@ allow = [
   "Unlicense",
   "Zlib",
   "Unicode-3.0",
+  "BSL-1.0",
 ]
 
 exceptions = [

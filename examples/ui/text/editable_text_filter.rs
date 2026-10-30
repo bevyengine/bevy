@@ -1,9 +1,11 @@
 //! Demonstrates a minimal [`EditableTextFilter`] with an 8-character hex input.
 
-use bevy::color::palettes::css::{DARK_SLATE_GRAY, YELLOW};
+use bevy::color::palettes::css::DARK_SLATE_GRAY;
+use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::AutoFocus;
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextCursorStyle};
+use bevy::ui_widgets::TextInput;
 
 fn main() {
     App::new()
@@ -31,6 +33,7 @@ fn setup(mut commands: Commands) {
                     padding: px(8.).all(),
                     ..default()
                 },
+                TextInput,
                 EditableText {
                     max_characters: Some(8),
                     ..default()
@@ -39,7 +42,7 @@ fn setup(mut commands: Commands) {
                 EditableTextFilter::new(|c| c.is_ascii_hexdigit()),
                 TextFont::from_font_size(32.),
                 BackgroundColor(DARK_SLATE_GRAY.into()),
-                BorderColor::all(YELLOW),
+                BorderColor::all(SLATE_300),
                 AutoFocus,
             ));
         });

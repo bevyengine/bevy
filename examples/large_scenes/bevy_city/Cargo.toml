@@ -9,10 +9,14 @@ license = "MIT OR Apache-2.0"
 bevy = { path = "../../../", features = [
   "https",
   "free_camera",
-  "experimental_bevy_feathers",
+  "bevy_feathers",
   "web_asset_cache",
+  "bevy_dev_tools",
 ] }
 
 argh = "0.1"
 noise = "0.9.0"
 rand = "0.10.0"
+
+[lints]
+workspace = true

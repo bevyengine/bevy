@@ -1,9 +1,9 @@
 [package]
 name = "bevy_scene_macros"
-version = "0.19.0-dev"
+version = "0.20.0-dev"
 edition = "2024"
 description = "Derive implementations for bevy_scene"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -17,14 +17,15 @@ path = "src/bsn/fmt/bin/bsn_fmt.rs"
 required-features = ["fmt"]
 
 [dependencies]
-bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.19.0-dev" }
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.20.0-dev" }
+bevy_ecs_macro_logic = { path = "../../bevy_ecs/macro_logic", version = "0.20.0-dev" }
 
 clap = { version = "4", features = ["derive"], optional = true }
 prettyplease = { version = "0.2", optional = true }
-syn = { version = "2.0", features = ["full", "extra-traits"] }
+similar = { version = "2.7.0", optional = true }
 proc-macro2 = "1.0"
 quote = "1.0"
-similar = { version = "2.7.0", optional = true }
+syn = { version = "3", features = ["full", "extra-traits"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
@@ -39,3 +40,14 @@ fmt = [
   "proc-macro2/span-locations",
   "similar/inline",
 ]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
+all-features = true

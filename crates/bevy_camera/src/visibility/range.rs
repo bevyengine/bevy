@@ -10,7 +10,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::{With, Without},
+    query::{Or, With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
@@ -22,7 +22,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::Parallel;
 
 use super::{check_visibility_cpu_culling, VisibilitySystems};
-use crate::{camera::Camera, primitives::Aabb, visibility::NoCpuCulling};
+use crate::{camera::Camera, primitives::Aabb, visibility::NoCpuCulling, ShadowLodOrigin};
 
 /// A plugin that enables [`VisibilityRange`]s, which allow entities to be
 /// hidden or shown based on distance to the camera.
@@ -220,18 +220,6 @@ impl VisibleEntityRanges {
         };
         (visibility_bitmask & (1 << view_index)) != 0
     }
-
-    /// Returns true if the entity is in range of any view.
-    ///
-    /// This only checks [`VisibilityRange`]s and doesn't perform any frustum or
-    /// occlusion culling. Thus the entity might not *actually* be visible.
-    ///
-    /// The entity is assumed to have a [`VisibilityRange`] component. If the
-    /// entity doesn't have that component, this method will return false.
-    #[inline]
-    pub fn entity_is_in_range_of_any_view(&self, entity: Entity) -> bool {
-        self.entities.contains_key(&entity)
-    }
 }
 
 /// Checks all entities against all views in order to determine which entities
@@ -241,7 +229,10 @@ impl VisibleEntityRanges {
 /// cull.
 pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
-    view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
+    view_query: Query<
+        (Entity, &GlobalTransform, Option<&Camera>),
+        Or<(With<Camera>, With<ShadowLodOrigin>)>,
+    >,
     mut par_local: Local<Parallel<Vec<(Entity, u32)>>>,
     entity_query: Query<
         (Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange),
@@ -257,7 +248,12 @@ pub fn check_visibility_ranges(
 
     // Assign an index to each view.
     let mut views = vec![];
-    for (view, view_transform) in view_query.iter().take(32) {
+    // Inactive cameras don't render, so they shouldn't use up any of the view slots.
+    for (view, view_transform, _) in view_query
+        .iter()
+        .filter(|(_, _, camera)| camera.is_none_or(|camera| camera.is_active))
+        .take(32)
+    {
         let view_index = views.len() as u8;
         visible_entity_ranges.views.insert(view, view_index);
         views.push((view, view_transform.translation_vec3a()));
@@ -293,4 +289,44 @@ pub fn check_visibility_ranges(
     );
 
     visible_entity_ranges.entities.extend(par_local.drain());
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_transform::components::GlobalTransform;
+
+    use super::{check_visibility_ranges, VisibilityRange, VisibleEntityRanges};
+    use crate::camera::Camera;
+
+    #[test]
+    fn inactive_cameras_do_not_use_view_slots() {
+        ComputeTaskPool::get_or_init(TaskPool::default);
+        let mut world = World::new();
+        world.init_resource::<VisibleEntityRanges>();
+        for _ in 0..40 {
+            world.spawn((
+                Camera {
+                    is_active: false,
+                    ..Default::default()
+                },
+                GlobalTransform::default(),
+            ));
+        }
+        let main = world
+            .spawn((Camera::default(), GlobalTransform::default()))
+            .id();
+        let thing = world
+            .spawn((
+                GlobalTransform::from_xyz(0.0, 0.0, -5.0),
+                VisibilityRange::abrupt(0.0, 100.0),
+            ))
+            .id();
+
+        world.run_system_once(check_visibility_ranges).unwrap();
+
+        let ranges = world.resource::<VisibleEntityRanges>();
+        assert!(ranges.entity_is_in_range_of_view(thing, main));
+    }
 }

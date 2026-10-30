@@ -6,6 +6,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, TextureFormat},
+    RenderApp,
 };
 use bevy_shader::ShaderRef;
 use derive_more::derive::From;
@@ -20,7 +21,7 @@ use derive_more::derive::From;
 /// Materials must also implement [`Asset`] so they can be treated as such.
 ///
 /// If you are only using the fragment shader, make sure your shader imports the `UiVertexOutput`
-/// from `bevy_ui::ui_vertex_output` and uses it as the input of your fragment shader like the
+/// from `bevy_ui_render::ui_vertex_output` and uses it as the input of your fragment shader like the
 /// example below does.
 ///
 /// # Example
@@ -55,7 +56,7 @@ use derive_more::derive::From;
 /// // functions that are relevant for your material.
 /// impl UiMaterial for CustomMaterial {
 ///     fn fragment_shader() -> ShaderRef {
-///         "shaders/custom_material.wgsl".into()
+///         "shaders/custom_material.wesl".into()
 ///     }
 /// }
 ///
@@ -73,15 +74,15 @@ use derive_more::derive::From;
 ///     ));
 /// }
 /// ```
-/// In WGSL shaders, the material's binding would look like this:
+/// In WESL shaders, the material's binding would look like this:
 ///
 /// If you only use the fragment shader make sure to import `UiVertexOutput` from
-/// `bevy_ui::ui_vertex_output` in your wgsl shader.
+/// `bevy_ui_render::ui_vertex_output` in your wesl shader.
 /// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
 /// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
 ///
-/// ```wgsl
-/// #import bevy_ui::ui_vertex_output UiVertexOutput
+/// ```wesl
+/// import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 ///
 /// struct CustomMaterial {
 ///     color: vec4<f32>,
@@ -177,6 +178,7 @@ where
 )]
 #[reflect(Component, Default)]
 #[require(Node)]
+#[extract_app(RenderApp)]
 pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
 
 impl<M: UiMaterial> Default for MaterialNode<M> {

@@ -37,7 +37,7 @@ pub trait ReflectCommandExt {
     ///
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::reflect::{ReflectCommandExt, ReflectBundle};
-    /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+    /// # use bevy_reflect::{FromReflect, CreateTypeData, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
     /// struct Prefab {
@@ -125,7 +125,7 @@ pub trait ReflectCommandExt {
     ///
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::reflect::{ReflectCommandExt, ReflectBundle};
-    /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+    /// # use bevy_reflect::{FromReflect, CreateTypeData, Reflect, TypeRegistry};
     ///
     /// // A resource that can hold any component or bundle that implements reflect as a boxed reflect
     /// #[derive(Resource)]
@@ -470,7 +470,7 @@ mod tests {
 
         let boxed_reflect_component_a = Box::new(ComponentA(916)) as Box<dyn PartialReflect>;
         let boxed_reflect_component_a_clone = boxed_reflect_component_a.reflect_clone().unwrap();
-        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic();
+        let boxed_reflect_component_a_dynamic = boxed_reflect_component_a.to_dynamic().unwrap();
 
         commands
             .entity(entity)

@@ -1,9 +1,9 @@
 use crate::{
     set::{Set, SetInfo},
     utility::GenericTypeInfoCell,
-    FromReflect, FromType, Generics, GetTypeRegistration, PartialReflect, Reflect,
-    ReflectCloneError, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypeParamInfo, TypePath, TypeRegistration,
+    FromReflect, Generics, GetTypeRegistration, PartialReflect, Reflect, ReflectCloneError,
+    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath,
+    TypeRegistration,
 };
 use bevy_platform::prelude::{Box, Vec};
 use bevy_reflect::{
@@ -16,8 +16,8 @@ use indexmap::{IndexMap, IndexSet};
 
 impl<K, V, S> Map for IndexMap<K, V, S>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
@@ -58,7 +58,7 @@ where
         self.retain(move |key, value| f(key, value));
     }
 
-    fn to_dynamic_map(&self) -> DynamicMap {
+    fn to_dynamic_map(&self) -> Result<DynamicMap, ReflectCloneError> {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_represented_type(PartialReflect::get_represented_type_info(self));
         for (k, v) in self {
@@ -68,9 +68,9 @@ where
                     k.reflect_type_path()
                 )
             });
-            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
+            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic()?);
         }
-        dynamic_map
+        Ok(dynamic_map)
     }
 
     fn insert_boxed(
@@ -108,8 +108,8 @@ where
 
 impl<K, V, S> PartialReflect for IndexMap<K, V, S>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -184,8 +184,8 @@ where
 
 impl<K, V, S> Reflect for IndexMap<K, V, S>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -220,8 +220,8 @@ where
 
 impl<K, V, S> Typed for IndexMap<K, V, S>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn type_info() -> &'static TypeInfo {
@@ -260,14 +260,14 @@ where
 
 impl<K, V, S> GetTypeRegistration for IndexMap<K, V, S>
 where
-    K: Hash + Eq + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Hash + Eq + Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
     S: TypePath + BuildHasher + Send + Sync + Default,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
+        registration.register_type_data::<ReflectFromReflect, Self>();
         registration
     }
 
@@ -281,7 +281,7 @@ impl_type_path!(::indexmap::IndexMap<K, V, S>);
 
 impl<T, S> Set for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
@@ -345,7 +345,7 @@ where
 
 impl<T, S> PartialReflect for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -417,7 +417,7 @@ where
 
 impl<T, S> Reflect for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -452,7 +452,7 @@ where
 
 impl<T, S> Typed for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn type_info() -> &'static TypeInfo {
@@ -486,12 +486,12 @@ where
 
 impl<T, S> GetTypeRegistration for IndexSet<T, S>
 where
-    T: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+    T: Reflect + FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
     S: TypePath + BuildHasher + Default + Send + Sync,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
         registration
     }
 }

@@ -1,9 +1,9 @@
 use crate::{
     list::{List, ListInfo, ListIter},
     utility::GenericTypeInfoCell,
-    ApplyError, FromReflect, FromType, Generics, GetTypeRegistration, MaybeTyped, PartialReflect,
-    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypeParamInfo, TypePath, TypeRegistration, Typed,
+    ApplyError, FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
+    TypePath, TypeRegistration, Typed,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect::ReflectCloneError;
@@ -45,6 +45,10 @@ where
 
     fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
         Box::new(self.remove(index))
+    }
+
+    fn swap(&mut self, a: usize, b: usize) {
+        self.as_mut_slice().swap(a, b);
     }
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
@@ -230,7 +234,7 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
-        registration.insert::<ReflectFromPtr>(FromType::<SmallVec<T>>::from_type());
+        registration.register_type_data::<ReflectFromPtr, Self>();
         registration
     }
 }

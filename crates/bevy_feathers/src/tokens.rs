@@ -10,7 +10,7 @@ use crate::theme::ThemeToken;
 pub const WINDOW_BG: ThemeToken = ThemeToken::new_static("feathers.window.bg");
 
 /// Focus ring
-pub const FOCUS_RING: ThemeToken = ThemeToken::new_static("feathers.focus");
+pub const FOCUS_RING: ThemeToken = ThemeToken::new_static("feathers.focus.ring");
 
 /// Regular text
 pub const TEXT_MAIN: ThemeToken = ThemeToken::new_static("feathers.text.main");
@@ -69,9 +69,19 @@ pub const BUTTON_PLAIN_BG_PRESSED: ThemeToken =
 
 /// Background for slider
 pub const SLIDER_BG: ThemeToken = ThemeToken::new_static("feathers.slider.bg");
-/// Background for slider moving bar
+/// Background for slider (hovered)
+pub const SLIDER_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.slider.bg.hover");
+/// Background for slider (pressed)
+pub const SLIDER_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.slider.bg.pressed");
+/// Background for slider (disabled)
+pub const SLIDER_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.slider.bg.disabled");
+/// Fill color for slider
 pub const SLIDER_BAR: ThemeToken = ThemeToken::new_static("feathers.slider.bar");
-/// Background for slider moving bar (disabled)
+/// Fill color for slider (hovered)
+pub const SLIDER_BAR_HOVER: ThemeToken = ThemeToken::new_static("feathers.slider.bar.hover");
+/// Fill color for slider (pressed)
+pub const SLIDER_BAR_PRESSED: ThemeToken = ThemeToken::new_static("feathers.slider.bar.pressed");
+/// Fill color for slider (disabled)
 pub const SLIDER_BAR_DISABLED: ThemeToken = ThemeToken::new_static("feathers.slider.bar.disabled");
 /// Background for slider text
 pub const SLIDER_TEXT: ThemeToken = ThemeToken::new_static("feathers.slider.text");
@@ -88,6 +98,58 @@ pub const SCROLLBAR_THUMB: ThemeToken = ThemeToken::new_static("feathers.scrollb
 /// Background for scrollbar moving bar (hovered)
 pub const SCROLLBAR_THUMB_HOVER: ThemeToken =
     ThemeToken::new_static("feathers.scrollbar.thumb.hover");
+
+/// Split pane handle line
+pub const SPLIT_PANE_HANDLE: ThemeToken = ThemeToken::new_static("feathers.splitpane.handle");
+/// Split pane handle line (hovered)
+pub const SPLIT_PANE_HANDLE_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.splitpane.handle.hover");
+/// Split pane handle line (dragging)
+pub const SPLIT_PANE_HANDLE_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.splitpane.handle.pressed");
+/// Split pane handle line (disabled)
+pub const SPLIT_PANE_HANDLE_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.splitpane.handle.disabled");
+
+// Tabs
+
+/// Tab list background
+pub const TAB_STRIP_BG: ThemeToken = ThemeToken::new_static("feathers.tab.strip.bg");
+/// Tab list border
+pub const TAB_STRIP_BORDER: ThemeToken = ThemeToken::new_static("feathers.tab.strip.border");
+/// Tab list border (showing a drop preview)
+pub const TAB_STRIP_BORDER_PREVIEW: ThemeToken =
+    ThemeToken::new_static("feathers.tab.strip.border.preview");
+/// Tab background
+pub const TAB_BG: ThemeToken = ThemeToken::new_static("feathers.tab.bg");
+/// Tab background (hovered)
+pub const TAB_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.tab.bg.hover");
+/// Tab background (selected)
+pub const TAB_BG_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.bg.selected");
+/// Tab background (being dragged)
+pub const TAB_BG_DRAGGING: ThemeToken = ThemeToken::new_static("feathers.tab.bg.dragging");
+/// Tab selection stripe
+pub const TAB_STRIPE: ThemeToken = ThemeToken::new_static("feathers.tab.stripe");
+/// Tab selection stripe (selected)
+pub const TAB_STRIPE_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.stripe.selected");
+/// Tab text
+pub const TAB_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.text");
+/// Tab text (selected)
+pub const TAB_TEXT_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.text.selected");
+/// Tab text (being dragged)
+pub const TAB_TEXT_DRAGGING: ThemeToken = ThemeToken::new_static("feathers.tab.text.dragging");
+/// Tab text (disabled)
+pub const TAB_TEXT_DISABLED: ThemeToken = ThemeToken::new_static("feathers.tab.text.disabled");
+/// Tab insertion indicator
+pub const TAB_INSERTION_INDICATOR: ThemeToken = ThemeToken::new_static("feathers.tab.insertion");
+/// Tab drag proxy background
+pub const TAB_DRAG_PROXY_BG: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.bg");
+/// Tab drag proxy border
+pub const TAB_DRAG_PROXY_BORDER: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.border");
+/// Tab drag proxy outline
+pub const TAB_DRAG_PROXY_OUTLINE: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.outline");
+/// Tab drag proxy text
+pub const TAB_DRAG_PROXY_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.text");
 
 // Checkbox
 
@@ -147,15 +209,53 @@ pub const CHECKBOX_TEXT_DISABLED: ThemeToken =
 
 // Radio button
 
-/// Radio border around the checkmark
+/// Background of the radio button
+pub const RADIO_BG: ThemeToken = ThemeToken::new_static("feathers.radio.bg");
+/// Background of the radio button (hovered)
+pub const RADIO_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.bg.hover");
+/// Background of the radio button (pressed)
+pub const RADIO_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.pressed");
+/// Background of the radio button (disabled)
+pub const RADIO_BG_DISABLED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.disabled");
+/// Background of the radio button (checked)
+pub const RADIO_BG_CHECKED: ThemeToken = ThemeToken::new_static("feathers.radio.bg.checked");
+/// Background of the radio button (checked+hovered)
+pub const RADIO_BG_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.hover");
+/// Background of the radio button (checked+pressed)
+pub const RADIO_BG_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.pressed");
+/// Background of the radio button (checked+disabled)
+pub const RADIO_BG_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.bg.checked.disabled");
+/// Border around the radio button
 pub const RADIO_BORDER: ThemeToken = ThemeToken::new_static("feathers.radio.border");
-/// Radio border around the checkmark (hovered)
+/// Border around the radio button (hovered)
 pub const RADIO_BORDER_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.border.hover");
-/// Radio border around the checkmark (disabled)
+/// Border around the radio button (pressed)
+pub const RADIO_BORDER_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.pressed");
+/// Border around the radio button (disabled)
 pub const RADIO_BORDER_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.radio.border.disabled");
+/// Border around the radio button (checked)
+pub const RADIO_BORDER_CHECKED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked");
+/// Border around the radio button (checked+hovered)
+pub const RADIO_BORDER_CHECKED_HOVER: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.hover");
+/// Border around the radio button (checked+pressed)
+pub const RADIO_BORDER_CHECKED_PRESSED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.pressed");
+/// Border around the radio button (checked+disabled)
+pub const RADIO_BORDER_CHECKED_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.radio.border.checked.disabled");
 /// Radio check mark
 pub const RADIO_MARK: ThemeToken = ThemeToken::new_static("feathers.radio.mark");
+/// Radio check mark (hovered)
+pub const RADIO_MARK_HOVER: ThemeToken = ThemeToken::new_static("feathers.radio.mark.hover");
+/// Radio check mark (pressed)
+pub const RADIO_MARK_PRESSED: ThemeToken = ThemeToken::new_static("feathers.radio.mark.pressed");
 /// Radio check mark (disabled)
 pub const RADIO_MARK_DISABLED: ThemeToken = ThemeToken::new_static("feathers.radio.mark.disabled");
 /// Radio label text
@@ -265,6 +365,8 @@ pub const COLOR_PLANE_BG: ThemeToken = ThemeToken::new_static("feathers.colorpla
 pub const MENU_BG: ThemeToken = ThemeToken::new_static("feathers.menu.bg");
 /// Menu border
 pub const MENU_BORDER: ThemeToken = ThemeToken::new_static("feathers.menu.border");
+/// Menu item
+pub const MENUITEM_BG: ThemeToken = ThemeToken::new_static("feathers.menuitem.bg");
 /// Menu item hovered
 pub const MENUITEM_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.menuitem.bg.hover");
 /// Menu item pressed
@@ -290,6 +392,19 @@ pub const TEXT_INPUT_TEXT_DISABLED: ThemeToken =
 pub const TEXT_INPUT_CURSOR: ThemeToken = ThemeToken::new_static("feathers.textinput.cursor");
 /// Selection color for text input
 pub const TEXT_INPUT_SELECTION: ThemeToken = ThemeToken::new_static("feathers.textinput.selection");
+/// Selection color for unfocused text input
+pub const TEXT_INPUT_SELECTION_UNFOCUSED: ThemeToken =
+    ThemeToken::new_static("feathers.textinput.selection.unfocused");
+/// Background color for label text
+pub const TEXT_INPUT_LABEL_BG: ThemeToken = ThemeToken::new_static("feathers.textinput.label.bg");
+/// Sigil color for X
+pub const TEXT_INPUT_X_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.x");
+/// Sigil color for Y
+pub const TEXT_INPUT_Y_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.y");
+/// Sigil color for Z
+pub const TEXT_INPUT_Z_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.z");
+/// Sigil color for W
+pub const TEXT_INPUT_W_AXIS: ThemeToken = ThemeToken::new_static("feathers.textinput.axis.w");
 
 // Pane
 
@@ -321,12 +436,134 @@ pub const SUBPANE_BODY_BORDER: ThemeToken = ThemeToken::new_static("feathers.sub
 // Group
 
 /// Group background
-pub const GROUP_HEADER_BG: ThemeToken = ThemeToken::new_static("feathers.group.header.bg");
+pub const GROUP_BG: ThemeToken = ThemeToken::new_static("feathers.group.bg");
 /// Group header border
-pub const GROUP_HEADER_BORDER: ThemeToken = ThemeToken::new_static("feathers.group.header.border");
+pub const GROUP_BORDER: ThemeToken = ThemeToken::new_static("feathers.group.border");
 /// Group header text color
 pub const GROUP_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.group.header.text");
-/// Group body background
-pub const GROUP_BODY_BG: ThemeToken = ThemeToken::new_static("feathers.group.body.bg");
-/// Group body border
-pub const GROUP_BODY_BORDER: ThemeToken = ThemeToken::new_static("feathers.group.body.border");
+
+// Listview
+
+/// Listview row background
+pub const LISTROW_BG: ThemeToken = ThemeToken::new_static("feathers.listrow.bg");
+/// Listview row background (hovered)
+pub const LISTROW_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.listrow.bg.hover");
+/// Listview row background (selected)
+pub const LISTROW_BG_SELECTED: ThemeToken = ThemeToken::new_static("feathers.listrow.bg.selected");
+/// Listview row text
+pub const LISTROW_TEXT: ThemeToken = ThemeToken::new_static("feathers.listrow.text");
+/// Listview row text (disabled)
+pub const LISTROW_TEXT_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.listrow.text.disabled");
+
+// Modal Dialog
+
+/// Dialog background
+pub const DIALOG_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.bg");
+/// Dialog border
+pub const DIALOG_BORDER: ThemeToken = ThemeToken::new_static("feathers.dialog.border");
+/// Dialog header background
+pub const DIALOG_HEADER_BG: ThemeToken = ThemeToken::new_static("feathers.dialog.header.bg");
+/// Dialog text
+pub const DIALOG_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.text");
+/// Dialog header text
+pub const DIALOG_HEADER_TEXT: ThemeToken = ThemeToken::new_static("feathers.dialog.header.text");
+
+/// Semantic tokens.
+///
+/// Terms:
+/// * **Surface** - the background color of a container
+/// * **Fill** - the fill color of a control, such as a button
+/// * **Item** - a list item or menu item
+pub mod semantic {
+    use crate::theme::SemanticToken;
+
+    // Surfaces
+
+    /// Base layer of window
+    pub const SURFACE_WINDOW: SemanticToken = SemanticToken::new_static("surface.window");
+    /// Fill for pane body
+    pub const SURFACE_PANE_BODY: SemanticToken = SemanticToken::new_static("surface.pane.body");
+    /// Fill for pane header
+    pub const SURFACE_PANE_HEADER: SemanticToken = SemanticToken::new_static("surface.pane.header");
+    /// Fill for subpane body
+    pub const SURFACE_SUBPANE_BODY: SemanticToken =
+        SemanticToken::new_static("surface.subpane.body");
+    /// Fill for subpane header
+    pub const SURFACE_SUBPANE_HEADER: SemanticToken =
+        SemanticToken::new_static("surface.subpane.header");
+    /// Fill for group
+    pub const SURFACE_GROUP: SemanticToken = SemanticToken::new_static("surface.group");
+    /// Fill for dialog
+    pub const SURFACE_DIALOG: SemanticToken = SemanticToken::new_static("surface.dialog");
+    /// Fill for menu
+    pub const SURFACE_MENU: SemanticToken = SemanticToken::new_static("surface.menu");
+
+    // Borders
+
+    /// Default border
+    pub const BORDER_DEFAULT: SemanticToken = SemanticToken::new_static("border.default");
+
+    // Text
+
+    /// Labels on neutral surfaces
+    pub const TEXT_DEFAULT: SemanticToken = SemanticToken::new_static("text.default");
+    /// Secondary / dim labels
+    pub const TEXT_DIM: SemanticToken = SemanticToken::new_static("text.dim");
+    /// Text on accent or saturated fills
+    pub const TEXT_ON_ACCENT: SemanticToken = SemanticToken::new_static("text.onAccent");
+    /// Disabled text
+    pub const TEXT_DISABLED: SemanticToken = SemanticToken::new_static("text.disabled");
+
+    // Fill: 4 tiers of prominence: ACCENT, SOLID, ITEM and FIELD
+
+    /// Accent fill - used for primary buttons, checked states
+    pub const FILL_ACCENT_DEFAULT: SemanticToken = SemanticToken::new_static("fill.accent.default");
+    /// Accent when hovered
+    pub const FILL_ACCENT_HOVER: SemanticToken = SemanticToken::new_static("fill.accent.hover");
+    /// Accent when pressed
+    pub const FILL_ACCENT_PRESSED: SemanticToken = SemanticToken::new_static("fill.accent.pressed");
+    /// Accent when disabled
+    pub const FILL_ACCENT_DISABLED: SemanticToken =
+        SemanticToken::new_static("fill.accent.disabled");
+
+    /// Default fill - buttons
+    pub const FILL_SOLID_DEFAULT: SemanticToken = SemanticToken::new_static("fill.solid.default");
+    /// Fill when hovered
+    pub const FILL_SOLID_HOVER: SemanticToken = SemanticToken::new_static("fill.solid.hover");
+    /// Fill when pressed
+    pub const FILL_SOLID_PRESSED: SemanticToken = SemanticToken::new_static("fill.solid.pressed");
+    /// Fill when disabled
+    pub const FILL_SOLID_DISABLED: SemanticToken = SemanticToken::new_static("fill.solid.disabled");
+
+    /// Item fill - list items, menus, plain buttons. This is normally transparent (which also
+    /// means no disabled color).
+    pub const FILL_ITEM_DEFAULT: SemanticToken = SemanticToken::new_static("fill.item.default");
+    /// Fill when hovered
+    pub const FILL_ITEM_HOVER: SemanticToken = SemanticToken::new_static("fill.item.hover");
+    /// Fill when pressed
+    pub const FILL_ITEM_PRESSED: SemanticToken = SemanticToken::new_static("fill.item.pressed");
+
+    /// Field fill - text inputs
+    pub const FILL_FIELD_DEFAULT: SemanticToken = SemanticToken::new_static("fill.field.default");
+    /// Field when hovered
+    pub const FILL_FIELD_HOVER: SemanticToken = SemanticToken::new_static("fill.field.hover");
+    /// Field when pressed
+    pub const FILL_FIELD_PRESSED: SemanticToken = SemanticToken::new_static("fill.field.pressed");
+
+    /// Transparent fill (plain buttons)
+    pub const FILL_NONE: SemanticToken = SemanticToken::new_static("fill.none");
+
+    // Decorations
+
+    /// X-Axis
+    pub const AXIS_X: SemanticToken = SemanticToken::new_static("axis.x");
+    /// Y-Axis
+    pub const AXIS_Y: SemanticToken = SemanticToken::new_static("axis.y");
+    /// Z-Axis
+    pub const AXIS_Z: SemanticToken = SemanticToken::new_static("axis.z");
+    /// Z-Axis
+    pub const AXIS_W: SemanticToken = SemanticToken::new_static("axis.w");
+    /// Focus ring
+    pub const FOCUS_RING: SemanticToken = SemanticToken::new_static("focus.ring");
+}

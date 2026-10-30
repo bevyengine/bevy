@@ -94,7 +94,11 @@ impl Decodable for AudioSource {
     type Decoder = rodio::Decoder<Cursor<AudioSource>>;
 
     fn decoder(&self) -> Self::Decoder {
-        rodio::Decoder::new(Cursor::new(self.clone())).unwrap()
+        rodio::Decoder::builder()
+            .with_byte_len(self.bytes.len() as u64)
+            .with_data(Cursor::new(self.clone()))
+            .build()
+            .unwrap()
     }
 }
 

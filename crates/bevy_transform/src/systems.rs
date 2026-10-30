@@ -4,8 +4,6 @@ use crate::{
 };
 
 use bevy_ecs::{prelude::*, query::QueryFilter};
-#[cfg(feature = "bevy_log")]
-use bevy_log::warn_once;
 
 /// Generic system that propagates transforms,
 /// using [`TransformHelper`] for any entity matching the filter `F`.
@@ -18,12 +16,12 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
         let result = tf_helper
             .compute_global_transform(entity)
             .inspect_err(|_err| {
-                #[cfg(feature = "bevy_log")]
-                warn_once!(
+                #[cfg(feature = "trace")]
+                bevy_utils::once!(tracing::warn!(
                     "Failed to compute GlobalTransform for entity {:?}: {:?}",
                     entity,
                     _err
-                );
+                ));
             });
 
         if let Ok(computed) = result {
@@ -32,9 +30,9 @@ pub fn propagate_transforms_for<F: QueryFilter + 'static>(
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "multi_threaded")]
 pub use parallel::propagate_parent_transforms;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 pub use serial::propagate_parent_transforms;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -56,15 +54,23 @@ pub fn sync_simple_transforms(
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
     // Update changed entities.
+    #[cfg(feature = "multi_threaded")]
     query
         .p0()
         .par_iter_mut()
         .for_each(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
+    #[cfg(not(feature = "multi_threaded"))]
+    query
+        .p0()
+        .iter_mut()
+        .for_each(|(transform, mut global_transform)| {
+            *global_transform = GlobalTransform::from(*transform);
+        });
     // Update orphaned entities.
     let mut query = query.p1();
-    let mut iter = query.iter_many_mut(orphaned.read());
+    let mut iter = query.iter_many_mut(orphaned.read()).matched();
     while let Some((transform, mut global_transform)) = iter.fetch_next() {
         if !transform.is_changed() && !global_transform.is_added() {
             *global_transform = GlobalTransform::from(*transform);
@@ -108,20 +114,26 @@ pub fn mark_dirty_trees(
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
     static_optimizations: Res<StaticTransformOptimizations>,
-    // Cached allocations for std-only parallel implementation
-    #[cfg(feature = "std")] mut shared_bitset: Local<
+    // Cached allocations for multi-threaded parallel implementation
+    #[cfg(feature = "multi_threaded")] mut shared_bitset: Local<
         alloc::vec::Vec<core::sync::atomic::AtomicU64>,
     >,
-    #[cfg(feature = "std")] mut local_bitset: Local<bevy_utils::Parallel<alloc::vec::Vec<u64>>>,
-    #[cfg(feature = "std")] mut consumer_channels: Local<bevy_utils::BufferedChannel<Entity>>,
-    #[cfg(feature = "std")] mut traversal_channels: Local<bevy_utils::BufferedChannel<Entity>>,
+    #[cfg(feature = "multi_threaded")] mut local_bitset: Local<
+        bevy_utils::Parallel<alloc::vec::Vec<u64>>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut consumer_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
+    #[cfg(feature = "multi_threaded")] mut traversal_channels: Local<
+        bevy_utils::BufferedChannel<Entity>,
+    >,
 ) {
     if !static_optimizations.is_enabled() {
         return;
     }
 
     // Simple serial implementation that iterates changed entities and traverses the tree.
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(feature = "multi_threaded"))]
     for entity in changed.iter().chain(orphaned.read()) {
         let mut next = entity;
         while let Ok(mut tree) = transforms.get_mut(next) {
@@ -150,25 +162,25 @@ pub fn mark_dirty_trees(
     // of the scope and asynchronously await incoming batches of work. This allows the entire
     // pipeline to start working as soon as there is available work to process, instead of running
     // each stage serially with inner parallelism.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "multi_threaded")]
     {
-        use bevy_log::info_span;
-        use bevy_log::tracing::Instrument;
         use bevy_tasks::ComputeTaskPool;
         use core::sync::atomic::Ordering;
+        #[cfg(feature = "trace")]
+        use tracing::{info_span, Instrument};
 
         ComputeTaskPool::get().scope(|scope| {
             traversal_channels.chunk_size = 1024;
             consumer_channels.chunk_size = 1024;
-            let (traversal_rx, mut traversal_tx) = traversal_channels.unbounded();
+            let (traversal_rx, traversal_tx) = traversal_channels.unbounded();
             let (consumer_rx, mut consumer_tx) = consumer_channels.unbounded();
             let shared_bitset: &[core::sync::atomic::AtomicU64] = &shared_bitset;
             let local_bitset = &*local_bitset;
             let parents_ref = &parents;
 
             // Consumer: drain the channel of moved entities and call set_changed() on the marker.
-            scope.spawn(
-                async move {
+            scope.spawn({
+                let fut = async move {
                     while let Ok(mut chunk) = consumer_rx.recv().await {
                         for entity in chunk.drain() {
                             if let Ok(mut tree) = transforms.get_mut(entity) {
@@ -176,17 +188,19 @@ pub fn mark_dirty_trees(
                             }
                         }
                     }
-                }
-                .instrument(info_span!("consumer_mark_dirty")),
-            );
+                };
+                #[cfg(feature = "trace")]
+                let fut = fut.instrument(info_span!("consumer_mark_dirty"));
+                fut
+            });
 
             // Traversal: each task loops until the producer channel is exhausted, walking each
             // entity's ancestor chain and forwarding newly marked entities to the consumer task.
             for _ in 0..(ComputeTaskPool::get().thread_num() - 1).max(1) {
                 let traversal_rx = traversal_rx.clone();
                 let mut consumer_tx = consumer_tx.clone();
-                scope.spawn(
-                    async move {
+                scope.spawn({
+                    let fut = async move {
                         while let Ok(mut chunk) = traversal_rx.recv().await {
                             for mut entity in chunk.drain() {
                                 let mut first_iteration = true;
@@ -237,21 +251,22 @@ pub fn mark_dirty_trees(
                                 }
                             }
                         }
-                    }
-                    .instrument(info_span!("par_traversal_mark_dirty")),
-                );
+                    };
+                    #[cfg(feature = "trace")]
+                    let fut = fut.instrument(info_span!("par_traversal_mark_dirty"));
+                    fut
+                });
             }
 
             // Producer: Feed changed entities and orphans into producer tasks. The senders are
             // dropped at the end of this closure, closing the channel and allowing the other tasks
             // to exit.
             //
-            // Note that we send the entity directly to the consumer as well, we do this to start
-            // feeding it work as soon as possible. The traversal worker should skip sending these
-            // leaves to the consumer because it has already been sent here.
-            info_span!("producer_mark_dirty").in_scope(move || {
+            // Note that we send changed entities directly to the consumer as well; we do this to
+            // start feeding it work as soon as possible. The traversal worker should skip sending
+            // these leaves to the consumer because they have already been sent here.
+            let mut producer = move || {
                 for entity in orphaned.read() {
-                    let _ = traversal_tx.send_blocking(entity);
                     let _ = consumer_tx.send_blocking(entity);
                 }
                 // Changed<> table scans are slow, so we parallelize them to improve performance.
@@ -262,7 +277,11 @@ pub fn mark_dirty_trees(
                         let _ = consumer_tx.send_blocking(entity);
                     },
                 );
-            });
+            };
+            #[cfg(feature = "trace")]
+            info_span!("producer_mark_dirty").in_scope(&mut producer);
+            #[cfg(not(feature = "trace"))]
+            producer();
         });
 
         // Merge thread-local bitsets into the shared bitset, growing it to accommodate the largest
@@ -300,7 +319,7 @@ pub fn mark_dirty_trees(
 // module, and make the multithreaded module no_std compatible.
 //
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "multi_threaded"))]
 mod serial {
     use crate::prelude::*;
     use alloc::vec::Vec;
@@ -335,7 +354,7 @@ mod serial {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
-            for (child, child_of) in child_query.iter_many(children) {
+            for (child, child_of) in child_query.iter_many(children).matched() {
                 assert_eq!(
                     child_of.parent(), entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
@@ -435,7 +454,7 @@ mod serial {
         };
 
         let Some(children) = children else { return };
-        for (child, child_of) in child_query.iter_many(children) {
+        for (child, child_of) in child_query.iter_many(children).matched() {
             assert_eq!(
             child_of.parent(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
@@ -462,13 +481,13 @@ mod serial {
 //
 /// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
-#[cfg(feature = "std")]
+#[cfg(feature = "multi_threaded")]
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use crate::systems::StaticTransformOptimizations;
     use alloc::{sync::Arc, vec::Vec};
-    use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
+    use bevy_ecs::{entity::UniqueEntitySlice, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
@@ -568,8 +587,8 @@ mod parallel {
         nodes: &NodeQuery,
         static_optimizations: &StaticTransformOptimizations,
     ) {
-        #[cfg(feature = "std")]
-        let _span = bevy_log::info_span!("transform propagation worker").entered();
+        #[cfg(feature = "trace")]
+        let _span = tracing::info_span!("transform propagation worker").entered();
 
         let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
@@ -678,10 +697,9 @@ mod parallel {
             // visiting disjoint entities in parallel, which is safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             let children_iter = unsafe {
-                nodes.iter_many_unique_unsafe(UniqueEntityIter::from_iterator_unchecked(
-                    p_children.iter(),
-                ))
-            };
+                nodes.iter_many_unique_unsafe(UniqueEntitySlice::from_slice_unchecked(p_children))
+            }
+            .matched();
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
@@ -798,7 +816,7 @@ mod parallel {
 mod test {
     use alloc::{vec, vec::Vec};
     use bevy_app::prelude::*;
-    use bevy_ecs::{prelude::*, world::CommandQueue};
+    use bevy_ecs::world::CommandQueue;
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
@@ -1199,5 +1217,70 @@ mod test {
             child_global_transform,
             *world.entity(child).get::<GlobalTransform>().unwrap()
         );
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/25416
+    #[test]
+    fn did_propagate_after_entity_index_reuse() {
+        // Enough same-frame removals to flush full chunks of stale entity IDs through
+        // `mark_dirty_trees` before the live replacements are processed.
+        const ROOT_COUNT: usize = 256;
+        const CHILDREN_PER_ROOT: usize = 8;
+
+        ComputeTaskPool::get_or_init(TaskPool::default);
+        let mut world = World::default();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
+            (
+                mark_dirty_trees,
+                sync_simple_transforms,
+                propagate_parent_transforms,
+            )
+                .chain(),
+        );
+        world.insert_resource(StaticTransformOptimizations::default());
+
+        let roots: Vec<Entity> = (0..ROOT_COUNT)
+            .map(|i| {
+                world
+                    .spawn(Transform::from_xyz(10.0 + i as f32, 0.0, 0.0))
+                    .id()
+            })
+            .collect();
+        let spawn_children = |world: &mut World| {
+            for &root in &roots {
+                for slot in 0..CHILDREN_PER_ROOT {
+                    world.spawn((
+                        Transform::from_xyz(0.0, 1.0 + slot as f32, 0.0),
+                        ChildOf(root),
+                    ));
+                }
+            }
+        };
+        spawn_children(&mut world);
+        schedule.run(&mut world);
+
+        // Despawn every child and spawn replacements in the same frame, reusing the freed
+        // entity indices.
+        let stale: Vec<Entity> = roots
+            .iter()
+            .flat_map(|&root| world.get::<Children>(root).unwrap().iter())
+            .collect();
+        for child in stale {
+            world.despawn(child);
+        }
+        spawn_children(&mut world);
+        schedule.run(&mut world);
+
+        let mut children = world.query::<(&Transform, &GlobalTransform, &ChildOf)>();
+        for (transform, global_transform, child_of) in children.iter(&world) {
+            let root_transform = world.get::<Transform>(child_of.parent()).unwrap();
+            assert_eq!(
+                global_transform,
+                &(GlobalTransform::from(*root_transform) * *transform),
+                "respawned child kept a stale GlobalTransform",
+            );
+        }
     }
 }

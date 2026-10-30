@@ -2,7 +2,11 @@
 
 use std::{f32::consts::PI, ops::Range};
 
-use bevy::{camera::ScalingMode, input::mouse::AccumulatedMouseScroll, prelude::*};
+use bevy::{
+    camera::ScalingMode,
+    input::mouse::{AccumulatedMouseScroll, MouseScrollPixelsPerLine},
+    prelude::*,
+};
 
 #[derive(Debug, Resource)]
 struct CameraSettings {
@@ -135,13 +139,18 @@ fn zoom(
     camera: Single<&mut Projection, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
+    scroll_conversion: Res<MouseScrollPixelsPerLine>,
 ) {
     // Usually, you won't need to handle both types of projection,
     // but doing so makes for a more complete example.
+
+    // Get a scroll amount proportional to the kind of input that generated it.
+    let scroll = mouse_wheel_input.to_lines(&scroll_conversion).delta.y;
+
     match *camera.into_inner() {
         Projection::Orthographic(ref mut orthographic) => {
             // We want scrolling up to zoom in, decreasing the scale, so we negate the delta.
-            let delta_zoom = -mouse_wheel_input.delta.y * camera_settings.orthographic_zoom_speed;
+            let delta_zoom = -scroll * camera_settings.orthographic_zoom_speed;
             // When changing scales, logarithmic changes are more intuitive.
             // To get this effect, we add 1 to the delta, so that a delta of 0
             // results in no multiplicative effect, positive values result in a multiplicative increase,
@@ -155,7 +164,7 @@ fn zoom(
         }
         Projection::Perspective(ref mut perspective) => {
             // We want scrolling up to zoom in, decreasing the scale, so we negate the delta.
-            let delta_zoom = -mouse_wheel_input.delta.y * camera_settings.perspective_zoom_speed;
+            let delta_zoom = -scroll * camera_settings.perspective_zoom_speed;
 
             // Adjust the field of view, but keep it within our stated range.
             perspective.fov = (perspective.fov + delta_zoom).clamp(

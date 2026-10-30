@@ -16,7 +16,9 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
+    mesh::MeshCompressionArgs,
     pbr::DefaultOpaqueRendererMethod,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
     render::occlusion_culling::OcclusionCulling,
 };
@@ -59,6 +61,15 @@ struct Args {
     /// disables the infinite grid
     #[argh(switch)]
     no_infinite_grid: bool,
+    /// enable mesh compression
+    #[argh(switch)]
+    mesh_compression: bool,
+    /// enable motion blur
+    #[argh(switch)]
+    motion_blur: bool,
+    /// set the motion blur shutter angle
+    #[argh(option)]
+    motion_blur_shutter_angle: Option<f32>,
 }
 
 impl Args {
@@ -99,6 +110,11 @@ fn main() {
                 ..default()
             })
             .set(GltfPlugin {
+                mesh_compression: if args.mesh_compression {
+                    MeshCompressionArgs::regular()
+                } else {
+                    MeshCompressionArgs::none()
+                },
                 convert_coordinates: GltfConvertCoordinates {
                     rotate_scene_entity: args.convert_scene_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
@@ -160,7 +176,6 @@ fn setup_scene_after_load(
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
-        *setup = true;
         // Find an approximate bounding box of the scene from its meshes
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
@@ -241,6 +256,20 @@ fn setup_scene_after_load(
                 .insert(DeferredPrepass);
         }
 
+        if args.motion_blur {
+            camera.insert((
+                MotionBlur {
+                    shutter_angle: args
+                        .motion_blur_shutter_angle
+                        .unwrap_or_else(|| MotionBlur::default().shutter_angle),
+                    ..Default::default()
+                },
+                // MSAA and MotionBlur are not compatible on WebGL.
+                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+                Msaa::Off,
+            ));
+        }
+
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light || args.add_light == Some(true) {
             info!("Spawning a directional light");
@@ -255,5 +284,7 @@ fn setup_scene_after_load(
 
             scene_handle.has_light = true;
         }
+
+        *setup = true;
     }
 }

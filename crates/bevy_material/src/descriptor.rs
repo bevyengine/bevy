@@ -64,7 +64,7 @@ impl RenderPipelineDescriptor {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -74,10 +74,12 @@ pub struct VertexState {
     pub entry_point: Option<Cow<'static, str>>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
+    /// Values for pipeline-overridable constants declared with `override` in this shader stage.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -87,6 +89,8 @@ pub struct FragmentState {
     pub entry_point: Option<Cow<'static, str>>,
     /// The color state of the render targets.
     pub targets: Vec<Option<ColorTargetState>>,
+    /// Values for pipeline-overridable constants declared with `override` in this shader stage.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 impl FragmentState {
@@ -96,7 +100,7 @@ impl FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayoutDescriptor>,
@@ -110,6 +114,8 @@ pub struct ComputePipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+    /// Values for pipeline-overridable constants declared with `override` in the shader.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 // utility function to set a value at the specified index, extending with
@@ -127,6 +133,58 @@ fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T)
 pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
+    MeshPipelineDescriptor(Box<MeshPipelineDescriptor>),
+}
+
+/// Describes a Task and Mesh pipeline.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct MeshPipelineDescriptor {
+    /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
+    pub label: Option<Cow<'static, str>>,
+    /// The layout of bind groups for this pipeline.
+    pub layout: Vec<BindGroupLayoutDescriptor>,
+    /// The immediate size for this pipeline.
+    /// Supply 0 if the pipeline doesn't use push constants/immediates.
+    pub immediate_size: u32,
+    /// The compiled task stage, its entry point, and the input buffers layout.
+    pub task: Option<TaskState>,
+    /// The compiled mesh stage, its entry point, and the input buffers layout.
+    pub mesh: MeshState,
+    /// The properties of the pipeline at the primitive assembly and rasterization level.
+    pub primitive: PrimitiveState,
+    /// The effect of draw calls on the depth and stencil aspects of the output target, if any.
+    pub depth_stencil: Option<DepthStencilState>,
+    /// The multi-sampling properties of the pipeline.
+    pub multisample: MultisampleState,
+    /// The compiled fragment stage, its entry point, and the color targets.
+    pub fragment: Option<FragmentState>,
+    // Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
+    // If this is false, reading from workgroup variables before writing to them will result in garbage values.
+    pub zero_initialize_workgroup_memory: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct TaskState {
+    /// The compiled shader module for this stage.
+    pub shader: Handle<Shader>,
+    pub shader_defs: Vec<ShaderDefVal>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
+    /// Values for pipeline-overridable constants declared with `override` in this shader stage.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct MeshState {
+    /// The compiled shader module for this stage.
+    pub shader: Handle<Shader>,
+    pub shader_defs: Vec<ShaderDefVal>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
+    /// Values for pipeline-overridable constants declared with `override` in this shader stage.
+    pub constants: Vec<(Cow<'static, str>, f64)>,
 }
 
 /// Index of a cached render pipeline in a `PipelineCache`.

@@ -5,7 +5,11 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::prelude::*;
+use bevy::{
+    picking::hover::Hovered,
+    prelude::*,
+    ui_widgets::{Activate, ActivateOnPress, Button},
+};
 
 fn main() {
     let mut app = App::new();
@@ -18,7 +22,8 @@ fn main() {
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
+        .add_systems(Update, hover_style.run_if(in_state(AppState::Menu)))
+        .add_observer(on_activate_start_game.run_if(in_state(AppState::Menu)))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
@@ -48,7 +53,6 @@ struct MenuData {
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
@@ -67,6 +71,8 @@ fn setup_menu(mut commands: Commands) {
             },
             children![(
                 Button,
+                ActivateOnPress,
+                Hovered::default(),
                 Node {
                     width: px(150),
                     height: px(65),
@@ -91,25 +97,18 @@ fn setup_menu(mut commands: Commands) {
     commands.insert_resource(MenuData { button_entity });
 }
 
-fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+fn on_activate_start_game(_: On<Activate>, mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::InGame);
+}
+
+fn hover_style(
+    mut button_query: Query<(&Hovered, &mut BackgroundColor), (Changed<Hovered>, With<Button>)>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                next_state.set(AppState::InGame);
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+    for (hovered, mut color) in &mut button_query {
+        if hovered.get() {
+            *color = HOVERED_BUTTON.into();
+        } else {
+            *color = NORMAL_BUTTON.into();
         }
     }
 }

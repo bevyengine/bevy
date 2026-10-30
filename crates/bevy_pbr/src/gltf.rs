@@ -55,6 +55,7 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         #[cfg(feature = "pbr_transmission_textures")]
         thickness_texture: material.thickness_texture.clone(),
         ior: material.ior,
+        dispersion: material.dispersion,
         attenuation_distance: material.attenuation_distance,
         attenuation_color: material.attenuation_color,
         normal_map_channel: material.normal_map_channel.clone(),
@@ -70,6 +71,10 @@ pub fn standard_material_from_gltf_material(material: &GltfMaterial) -> Standard
         #[cfg(feature = "pbr_specular_textures")]
         specular_tint_texture: material.specular_tint_texture.clone(),
         clearcoat: material.clearcoat,
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_channel: material.clearcoat_channel.clone(),
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        clearcoat_texture: material.clearcoat_texture.clone(),
         clearcoat_perceptual_roughness: material.clearcoat_perceptual_roughness,
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         clearcoat_roughness_channel: material.clearcoat_roughness_channel.clone(),

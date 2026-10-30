@@ -1,4 +1,6 @@
 use crate::Val;
+use crate::ValArithmeticError;
+use crate::ValNum;
 use bevy_derive::Deref;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
@@ -7,6 +9,7 @@ use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use bevy_text::{EmSize, RemSize};
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
@@ -34,46 +37,96 @@ impl Val2 {
         y: Val::ZERO,
     };
 
-    /// Creates a new [`Val2`] where both components are in logical pixels
-    pub const fn px(x: f32, y: f32) -> Self {
-        Self {
-            x: Val::Px(x),
-            y: Val::Px(y),
-        }
-    }
-
-    /// Creates a new [`Val2`] where both components are percentage values
-    pub const fn percent(x: f32, y: f32) -> Self {
-        Self {
-            x: Val::Percent(x),
-            y: Val::Percent(y),
-        }
-    }
-
     /// Creates a new [`Val2`]
     pub const fn new(x: Val, y: Val) -> Self {
         Self { x, y }
+    }
+
+    /// Creates a new [`Val2`] where both components are the same value
+    pub const fn all(val: Val) -> Self {
+        Self::new(val, val)
+    }
+
+    /// Creates a new [`Val2`] where both components are in logical pixels
+    pub fn px<X: ValNum, Y: ValNum>(x: X, y: Y) -> Self {
+        Self::new(Val::Px(x.val_num_f32()), Val::Px(y.val_num_f32()))
+    }
+
+    /// Creates a new [`Val2`] where both components are percentage values
+    pub fn percent<X: ValNum, Y: ValNum>(x: X, y: Y) -> Self {
+        Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
     /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
     /// and `viewport_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
-    pub fn resolve(&self, scale_factor: f32, base_size: Vec2, viewport_size: Vec2) -> Vec2 {
+    pub fn resolve(
+        &self,
+        scale_factor: f32,
+        base_size: Vec2,
+        viewport_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Vec2 {
         Vec2::new(
             self.x
-                .resolve(scale_factor, base_size.x, viewport_size)
+                .resolve(scale_factor, base_size.x, viewport_size, em_size, rem_size)
                 .unwrap_or(0.),
             self.y
-                .resolve(scale_factor, base_size.y, viewport_size)
+                .resolve(scale_factor, base_size.y, viewport_size, em_size, rem_size)
                 .unwrap_or(0.),
         )
+    }
+
+    /// Try to add two `Val2`s component-wise.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
+    /// assert_eq!(Val2::px(1., 2.).try_add(Val2::px(3., 4.)), Ok(Val2::px(4., 6.)));
+    /// assert_eq!(
+    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_add(Val2::new(Val::Percent(3.), Val::Px(4.))),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub fn try_add(self, other: Val2) -> Result<Self, ValArithmeticError> {
+        let (Ok(x), Ok(y)) = (self.x.try_add(other.x), self.y.try_add(other.y)) else {
+            return Err(ValArithmeticError::IncompatibleUnits);
+        };
+        Ok(Self { x, y })
+    }
+
+    /// Try to subtract two `Val2`s component-wise.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
+    /// assert_eq!(Val2::px(3., 4.).try_sub(Val2::px(1., 2.)), Ok(Val2::px(2., 2.)));
+    /// assert_eq!(
+    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_sub(Val2::new(Val::Percent(3.), Val::Px(4.))),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub fn try_sub(self, other: Val2) -> Result<Self, ValArithmeticError> {
+        let (Ok(x), Ok(y)) = (self.x.try_sub(other.x), self.y.try_sub(other.y)) else {
+            return Err(ValArithmeticError::IncompatibleUnits);
+        };
+        Ok(Self { x, y })
     }
 }
 
 impl Default for Val2 {
     fn default() -> Self {
         Self::ZERO
+    }
+}
+
+impl From<Val> for Val2 {
+    fn from(val: Val) -> Val2 {
+        Val2::all(val)
     }
 }
 
@@ -128,13 +181,28 @@ impl UiTransform {
         }
     }
 
+    /// Create a new UI transform at the position `(x, y)`
+    pub const fn from_xy(x: Val, y: Val) -> Self {
+        Self {
+            translation: Val2::new(x, y),
+            ..Self::IDENTITY
+        }
+    }
+
     /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
-    pub fn compute_affine(&self, scale_factor: f32, base_size: Vec2, target_size: Vec2) -> Affine2 {
+    pub fn compute_affine(
+        &self,
+        scale_factor: f32,
+        base_size: Vec2,
+        target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Affine2 {
         Affine2::from_mat2_translation(
             Mat2::from(self.rotation) * Mat2::from_diagonal(self.scale),
             self.translation
-                .resolve(scale_factor, base_size, target_size),
+                .resolve(scale_factor, base_size, target_size, em_size, rem_size),
         )
     }
 }

@@ -4,21 +4,23 @@
 
 extern crate proc_macro;
 
-mod component;
 mod event;
 mod message;
 mod query_data;
 mod query_filter;
+mod resource;
 mod template;
-mod variant_defaults;
 mod world_query;
 
-use crate::{
-    component::map_entities, query_data::derive_query_data_impl,
-    query_filter::derive_query_filter_impl,
+use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
+use bevy_ecs_macro_logic::{
+    component::{DeriveComponent, StorageAttribute, StorageTy},
+    map_entities::map_entities,
 };
 use bevy_macro_utils::{
-    derive_label, ensure_no_collision, get_struct_fields, pascal_to_snake_case, BevyManifest,
+    derive_label, ensure_no_collision,
+    fq_std::{FQDefault, FQIterator, FQOption, FQResult},
+    get_struct_fields, pascal_to_snake_case, BevyManifest,
 };
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -50,7 +52,9 @@ impl Default for BundleAttributes {
     }
 }
 
-/// Implement the `Bundle` trait.
+/// Implement the [`Bundle`] trait.
+///
+/// [`Bundle`]: trait.Bundle.html
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -140,13 +144,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
-            ) -> impl ::core::iter::Iterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
+            ) -> impl #FQIterator<Item = #ecs_path::component::ComponentId> + use<#(#generics_ty_list,)*> {
                 ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components)))*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
-            ) -> impl ::core::iter::Iterator<Item = ::core::option::Option<#ecs_path::component::ComponentId>> {
+            ) -> impl #FQIterator<Item = #FQOption<#ecs_path::component::ComponentId>> {
                 ::core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components)))*
             }
         }
@@ -154,15 +158,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
-            type Effect = ();
+            type Effect = Self;
             #[allow(unused_variables)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn get_components(
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
-                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+                func: &mut impl ::core::ops::FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                use #ecs_path::__macro_exports::DebugCheckedUnwrap;
-
                 #ecs_path::ptr::deconstruct_moving_ptr!({
                     let #struct_name { #(#active_field_members: #active_field_locals,)* #(#inactive_field_members: _,)* } = ptr;
                 });
@@ -174,16 +177,44 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 )*
             }
 
-            #[allow(unused_variables)]
+            #[allow(unused_variables, unused_unsafe)]
+            #[allow(non_snake_case, reason = "deconstruct_moving_ptr uses #active_field_locals as a local binding name")]
             #[inline]
             unsafe fn apply_effect(
                 ptr: #ecs_path::ptr::MovingPtr<'_, ::core::mem::MaybeUninit<Self>>,
-                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+                entity: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let MaybeUninit::<Self> { #(#active_field_members: #active_field_locals,)* #(#inactive_field_members: _,)* } = ptr;
+                });
+                // SAFETY: Ensured by caller.
+                unsafe {
+                    #(
+                        <#active_field_types as #ecs_path::bundle::DynamicBundle>::apply_effect(
+                            #active_field_locals,
+                            entity
+                        );
+                    )*
+                }
             }
         }
     };
 
+    let mut no_bundle_effect_where_clause =
+        where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+            where_token: Default::default(),
+            predicates: Default::default(),
+        });
+    no_bundle_effect_where_clause
+        .predicates
+        .extend(active_field_types.iter().map(|t| -> syn::WherePredicate {
+            parse_quote! { for<'__a> <#t as #ecs_path::bundle::DynamicBundle>::Effect: #ecs_path::bundle::NoBundleEffect }
+        }));
+    let no_bundle_effect_impl = quote! {
+        impl #impl_generics #ecs_path::bundle::NoBundleEffect for #struct_name #ty_generics #no_bundle_effect_where_clause {}
+    };
+
+    let fqdefault = FQDefault.into_token_stream();
     let from_components_impl = attributes.impl_from_components.then(|| quote! {
         // SAFETY:
         // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
@@ -191,11 +222,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
             where
-                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+                __F: ::core::ops::FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
                 Self {
                     #(#active_field_members: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
-                    #(#inactive_field_members: ::core::default::Default::default(),)*
+                    #(#inactive_field_members: #fqdefault::default(),)*
                 }
             }
         }
@@ -204,10 +235,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #bundle_impl
         #from_components_impl
         #dynamic_bundle_impl
+        #no_bundle_effect_impl
     })
 }
 
-/// Implement the `MapEntities` trait.
+/// Implement the [`MapEntities`] trait.
+///
+/// [`MapEntities`]: trait.MapEntities.html
 #[proc_macro_derive(MapEntities, attributes(entities))]
 pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -233,7 +267,9 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Implement `SystemParam` to use a struct as a parameter in a system
+/// Implement [`SystemParam`] to use a struct as a parameter in a system.
+///
+/// [`SystemParam`]: trait.SystemParam.html#derive
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
@@ -368,6 +404,7 @@ fn derive_system_param_impl(
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
     let mut builder_name = None;
+    let mut map_access_conflict = None;
     for meta in ast
         .attrs
         .iter()
@@ -377,11 +414,38 @@ fn derive_system_param_impl(
             if nested.path.is_ident("builder") {
                 builder_name = Some(format_ident!("{struct_name}Builder"));
                 Ok(())
+            } else if nested.path.is_ident("map_access_conflict") {
+                if nested.input.is_empty() {
+                    map_access_conflict = Some(quote! { Self::map_access_conflict });
+                    Ok(())
+                } else if nested.input.peek(syn::token::Paren) {
+                    map_access_conflict = Some(nested.input.parse()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Invalid `map_access_conflict` attribute"))
+                }
             } else {
                 Err(nested.error("Unsupported attribute"))
             }
         })?;
     }
+
+    let map_access_conflict = map_access_conflict.map_or_else(
+        || {
+            // If a type is `pub` and has no `pub` fields, then users will not know
+            // the inner types and we should hide them by default.
+            if matches!(ast.vis, syn::Visibility::Public { .. })
+                && !fields
+                    .iter()
+                    .any(|field| matches!(field.vis, syn::Visibility::Public { .. }))
+            {
+                quote! { .map_err(|err| #path::system::SystemParamAccessConflict::new::<Self>(err.access)) }
+            } else {
+                quote! {}
+            }
+        },
+        |map_access_conflict| quote! { .map_err(|err| #map_access_conflict (system_access, err) ) },
+    );
 
     let builder = builder_name.map(|builder_name| {
         let builder_type_parameters: Vec<Ident> = field_members.iter().map(|m| format_ident!("B{}", m)).collect();
@@ -441,8 +505,13 @@ fn derive_system_param_impl(
                     }
                 }
 
-                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet, world: &mut #path::world::World) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
+                fn init_access(
+                    state: &Self::State,
+                    system_meta: &mut #path::system::SystemMeta,
+                    system_access: &mut #path::system::SystemAccess,
+                ) -> Result<(), #path::system::SystemParamAccessConflict> {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, system_access)
+                        #map_access_conflict
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
@@ -459,14 +528,14 @@ fn derive_system_param_impl(
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::change_detection::Tick,
-                ) -> ::core::result::Result<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
+                ) -> #FQResult<Self::Item<'w, 's>, #path::system::SystemParamValidationError> {
                     let (#(#tuple_patterns,)*) = &mut state.state;
                     #(
                         let #field_locals = unsafe {
                             <#field_types as #path::system::SystemParam>::get_param(#field_locals, system_meta, world, change_tick)
                         }.map_err(|err| #path::system::SystemParamValidationError::new::<Self>(err.skipped, #field_validation_messages, #field_validation_names))?;
                     )*
-                    ::core::result::Result::Ok(#struct_name {
+                    #FQResult::Ok(#struct_name {
                         #(#field_members: #field_locals,)*
                     })
                 }
@@ -482,21 +551,27 @@ fn derive_system_param_impl(
     }))
 }
 
-/// Implement `QueryData` to use a struct as a data parameter in a query
+/// Implement [`QueryData`] to use a struct as a data parameter in a query.
+///
+/// [`QueryData`]: trait.QueryData.html
 #[proc_macro_derive(QueryData, attributes(query_data))]
 pub fn derive_query_data(input: TokenStream) -> TokenStream {
     derive_query_data_impl(input)
 }
 
-/// Implement `QueryFilter` to use a struct as a filter parameter in a query
+/// Implement [`QueryFilter`] to use a struct as a filter parameter in a query.
+///
+/// [`QueryFilter`]: trait.QueryFilter.html
 #[proc_macro_derive(QueryFilter, attributes(query_filter))]
 pub fn derive_query_filter(input: TokenStream) -> TokenStream {
     derive_query_filter_impl(input)
 }
 
-/// Derive macro generating an impl of the trait `ScheduleLabel`.
+/// Derive macro generating an impl of the trait [`ScheduleLabel`].
 ///
 /// This does not work for unions.
+///
+/// [`ScheduleLabel`]: trait.ScheduleLabel.html
 #[proc_macro_derive(ScheduleLabel)]
 pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -508,9 +583,11 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     derive_label(input, "ScheduleLabel", &trait_path)
 }
 
-/// Derive macro generating an impl of the trait `SystemSet`.
+/// Derive macro generating an impl of the trait [`SystemSet`].
 ///
 /// This does not work for unions.
+///
+/// [`SystemSet`]: trait.SystemSet.html
 #[proc_macro_derive(SystemSet)]
 pub fn derive_system_set(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -525,15 +602,19 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 pub(crate) fn bevy_settings_path() -> syn::Path {
-    BevyManifest::shared(|manifest| manifest.get_path("bevy_settings"))
+    BevyManifest::shared(|manifest| manifest.get_path("bevy-settings"))
 }
 
-/// Implement the `Event` trait.
+/// Implement the [`Event`] trait.
+///
+/// [`Event`]: trait.Event.html
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     event::derive_event(input)
 }
 
+/// Implement the [`EntityEvent`] trait.
+///
 /// Cheat sheet for derive syntax,
 /// see full explanation on `EntityEvent` trait docs.
 ///
@@ -547,24 +628,51 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// #[entity_event(auto_propagate)]
 /// struct MyEvent;
 /// ```
+/// [`EntityEvent`]: ../event/trait.EntityEvent.html
 #[proc_macro_derive(EntityEvent, attributes(entity_event, event_target))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     event::derive_entity_event(input)
 }
 
-/// Implement the `Message` trait.
+/// Implement the [`Message`] trait.
+///
+/// [`Message`]: ../message/trait.Message.html
 #[proc_macro_derive(Message)]
 pub fn derive_message(input: TokenStream) -> TokenStream {
     message::derive_message(input)
 }
 
-/// Implement the `Resource` trait.
-#[proc_macro_derive(Resource)]
+/// Implement the [`Resource`] trait.
+///
+/// ## Immutability
+/// ```ignore
+/// #[derive(Resource)]
+/// #[component(immutable)]
+/// struct MyResource;
+/// ```
+///
+/// ## Hooks
+/// ```ignore
+/// #[derive(Resource)]
+/// #[component(hook_name = function)]
+/// struct MyResource;
+/// ```
+/// where `hook_name` is `on_add`, `on_insert`, `on_discard` or `on_remove`;
+/// `function` can be either a path, e.g. `some_function::<Self>`,
+/// or a function call that returns a function that can be turned into
+/// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+/// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
+///
+/// [`Resource`]: ../resource/trait.Resource.html
+#[proc_macro_derive(Resource, attributes(component, require))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
-    component::derive_resource(input)
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    TokenStream::from(resource::derive_resource(&mut ast))
 }
 
-/// Cheat sheet for derive syntax,
+/// Implement [`SettingsGroup`].
+///
+/// Cheat sheet for derive syntax.
 ///
 /// ## Group Override
 /// ```ignore
@@ -579,6 +687,12 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// [my_group]
 /// test = true
 /// ```
+///
+/// Note that it's possible to make multiple different settings types share the same file,
+/// group, and even key. When loading, all fields sharing the same key will load from that
+/// same key. If the value is not valid for the type of a field, that field will be reset to
+/// the default value in that settings type. If two or more types are contending for a single
+/// key, which type ultimately saves in that key is not specified.
 ///
 /// ## File Override
 /// ```ignore
@@ -605,6 +719,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// [my_settings_enum]
 /// my_key = "variant1"
 /// ```
+///
+/// [`SettingsGroup`]: ../bevy_settings/trait.SettingsGroup.html
 #[proc_macro_derive(SettingsGroup, attributes(settings_group))]
 pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -677,11 +793,11 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 
     let group_name = override_group_name.unwrap_or(pascal_to_snake_case(&name.to_string()));
     let key_name = key_name
-        .map(|f| quote! { ::core::option::Option::Some(#f) })
-        .unwrap_or(quote! { ::core::option::Option::None });
+        .map(|f| quote! { #FQOption::Some(#f) })
+        .unwrap_or(quote! { #FQOption::None });
     let file_name = override_file
-        .map(|f| quote! { ::core::option::Option::Some(#f) })
-        .unwrap_or(quote! { ::core::option::Option::None });
+        .map(|f| quote! { #FQOption::Some(#f) })
+        .unwrap_or(quote! { #FQOption::None });
 
     let expanded = quote! {
         impl #path::SettingsGroup for #name {
@@ -689,11 +805,11 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
                 #group_name
             }
 
-            fn settings_key_name() -> ::core::option::Option<&'static str> {
+            fn settings_key_name() -> #FQOption<&'static str> {
                 #key_name
             }
 
-            fn settings_source() -> ::core::option::Option<&'static str> {
+            fn settings_source() -> #FQOption<&'static str> {
                 #file_name
             }
         }
@@ -702,8 +818,10 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// Implement the [`Component`] trait.
+///
 /// Cheat sheet for derive syntax,
-/// see full explanation and examples on the `Component` trait doc.
+/// see full explanation and examples on the [`Component`] trait doc.
 ///
 /// ## Immutability
 /// ```ignore
@@ -797,15 +915,36 @@ pub fn derive_settings_group(input: TokenStream) -> TokenStream {
 /// #[component(clone_behavior = Ignore)]
 /// struct MyComponent;
 /// ```
+///
+/// ## Summary ticks
+/// ```ignore
+/// #[derive(Component)]
+/// #[component(summary_tick)]
+/// ```
+///
+/// [`Component`]: ../component/trait.Component.html
 #[proc_macro_derive(
     Component,
     attributes(component, require, relationship, relationship_target, entities)
 )]
 pub fn derive_component(input: TokenStream) -> TokenStream {
-    component::derive_component(input)
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let derive_component = match DeriveComponent::parse(&ast, StorageAttribute::Allowed) {
+        Ok(value) => value,
+        Err(e) => return e.into_compile_error().into(),
+    };
+    let bevy_ecs = bevy_ecs_path();
+    let impl_component =
+        match derive_component.impl_component(&mut ast, &bevy_ecs, StorageTy::Table) {
+            Ok(value) => value,
+            Err(err) => return err.into_compile_error().into(),
+        };
+    TokenStream::from(impl_component)
 }
 
-/// Implement the `FromWorld` trait.
+/// Implement the [`FromWorld`] trait.
+///
+/// [`FromWorld`]: ../world/trait.FromWorld.html
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();
@@ -864,14 +1003,10 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derives `FromTemplate`.
+/// Derives [`FromTemplate`].
+///
+/// [`FromTemplate`]: ../template/trait.FromTemplate.html
 #[proc_macro_derive(FromTemplate, attributes(template, default))]
 pub fn derive_from_template(input: TokenStream) -> TokenStream {
     template::derive_from_template(input)
-}
-
-/// Derives `VariantDefaults`.
-#[proc_macro_derive(VariantDefaults)]
-pub fn derive_variant_defaults(input: TokenStream) -> TokenStream {
-    variant_defaults::derive_variant_defaults(input)
 }

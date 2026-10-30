@@ -710,7 +710,7 @@ where
             len: 0,
             buffer: None,
             capacity: 0,
-            item_size: size_of::<T>(),
+            item_size: T::SHADER_SIZE.get() as usize,
             buffer_usage,
             label: None,
             label_changed: false,
@@ -952,6 +952,24 @@ where
         self.uninit_element_count += count;
         first_index
     }
+
+    /// Sets the value at the given index to the given value.
+    pub fn set(&mut self, index: usize, value: T) {
+        self.values[index] = value;
+    }
+}
+
+impl<T> PartialBufferVec<T>
+where
+    T: NoUninit + Default,
+{
+    /// Pushes `count` copies of `T::default` to the array.
+    pub fn push_multiple_init(&mut self, count: usize) -> usize {
+        debug_assert_eq!(self.uninit_element_count, 0);
+        let index = self.values.len();
+        self.values.extend(iter::repeat_n(T::default(), count));
+        index
+    }
 }
 
 /// Error returned when `write_buffer_range` fails
@@ -981,4 +999,25 @@ pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a 
         return Some(core::any::type_name::<T>());
     }
     label.as_deref()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UninitBufferVec;
+    use bevy_math::Vec3;
+    use encase::ShaderType;
+    use wgpu::BufferUsages;
+
+    #[derive(ShaderType, Clone)]
+    struct Padded {
+        value: Vec3,
+    }
+
+    #[test]
+    fn uninit_buffer_vec_uses_shader_size() {
+        // A `Vec3` is 12 bytes on the CPU but the struct is 16 bytes in WGSL.
+        assert_eq!(size_of::<Padded>(), 12);
+        let buffer = UninitBufferVec::<Padded>::new(BufferUsages::STORAGE);
+        assert_eq!(buffer.item_size, 16);
+    }
 }

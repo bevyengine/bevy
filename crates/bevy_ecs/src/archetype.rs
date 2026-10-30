@@ -23,9 +23,8 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
-    event::Event,
+    event::{Event, EventKey},
     observer::Observers,
-    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -37,8 +36,13 @@ use core::{
 use nonmax::NonMaxU32;
 
 #[derive(Event)]
-#[expect(dead_code, reason = "Prepare for the upcoming Query as Entities")]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Prepare for the upcoming Query as Entities")
+)]
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
+
+pub(crate) const ARCHETYPE_CREATED: EventKey = EventKey(crate::component::ARCHETYPE_CREATED);
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -149,12 +153,12 @@ impl ArchetypeAfterBundleInsert {
 
     pub(crate) fn added(&self) -> &[ComponentId] {
         // SAFETY: `added_len` is always in range `0..=inserted.len()`
-        unsafe { self.inserted.get(..self.added_len).debug_checked_unwrap() }
+        unsafe { self.inserted.get(..self.added_len).unwrap_unchecked() }
     }
 
     pub(crate) fn existing(&self) -> &[ComponentId] {
         // SAFETY: `added_len` is always in range `0..=inserted.len()`
-        unsafe { self.inserted.get(self.added_len..).debug_checked_unwrap() }
+        unsafe { self.inserted.get(self.added_len..).unwrap_unchecked() }
     }
 }
 
@@ -589,8 +593,8 @@ impl Archetype {
     /// Allocates an entity to the archetype.
     ///
     /// # Safety
-    /// valid component values must be immediately written to the relevant storages
-    /// `table_row` must be valid
+    /// - valid component values must have been or be immediately written to the relevant storages
+    /// - `table_row` must be valid
     #[inline]
     pub(crate) unsafe fn allocate(
         &mut self,

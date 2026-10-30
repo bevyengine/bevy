@@ -7,7 +7,7 @@ use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource, template::FromTemplate};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::TypeIdMap;
+use bevy_utils::TypeIdHashMap;
 use core::{
     any::TypeId,
     hash::Hash,
@@ -99,7 +99,7 @@ pub struct ErasedGizmoConfigGroup;
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
     #[reflect(ignore)]
-    store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
+    store: TypeIdHashMap<(GizmoConfig, Box<dyn Reflect>)>,
 }
 
 impl GizmoConfigStore {
@@ -262,6 +262,12 @@ pub struct GizmoLineConfig {
     pub style: GizmoLineStyle,
     /// Describe how lines should join.
     pub joints: GizmoLineJoint,
+    /// This only applies to [`GizmoLineStyle::Dotted`] and [`GizmoLineStyle::Dashed`] and
+    /// determines how far the dots/dashes are offset from their original position. This can be used
+    /// to create animations.
+    ///
+    /// Defaults to `0.0`.
+    pub animation_offset: f32,
 }
 
 impl Default for GizmoLineConfig {
@@ -271,6 +277,7 @@ impl Default for GizmoLineConfig {
             perspective: false,
             style: GizmoLineStyle::Solid,
             joints: GizmoLineJoint::None,
+            animation_offset: 0.0,
         }
     }
 }

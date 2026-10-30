@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2d::new(" translation "),
         text_font.clone(),
-        TextLayout::new_with_justify(text_justification),
+        TextLayout::justify(text_justification),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
         AnimateTranslation,
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2d::new(" rotation "),
         text_font.clone(),
-        TextLayout::new_with_justify(text_justification),
+        TextLayout::justify(text_justification),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
         AnimateRotation,
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2d::new(" scale "),
         text_font,
-        TextLayout::new_with_justify(text_justification),
+        TextLayout::justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         slightly_smaller_text_font
             .clone()
             .with_font_smoothing(FontSmoothing::None),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::justify(Justify::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
         // Add a black shadow to the text
         Text2dShadow::default(),

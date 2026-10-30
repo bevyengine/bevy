@@ -78,6 +78,15 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
 
             #[allow(unused_variables)]
             #[inline(always)]
+            unsafe fn filter_table<'__w>(
+                _state: &Self::State,
+                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+            ) -> bool {
+                true #(&& <#field_types>::filter_table(&_state.#field_aliases, &mut _fetch.#field_aliases))*
+            }
+
+            #[allow(unused_variables)]
+            #[inline(always)]
             unsafe fn filter_fetch<'__w>(
                 _state: &Self::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
@@ -96,11 +105,11 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         const _: () = {
             #[doc(hidden)]
-            #[doc = concat!(
+            #[doc = ::core::concat!(
                 "Automatically generated internal [`WorldQuery`](",
-                stringify!(#path),
+                ::core::stringify!(#path),
                 "::query::WorldQuery) state type for [`",
-                stringify!(#struct_name),
+                ::core::stringify!(#struct_name),
                 "`], used for caching."
             )]
             #[automatically_derived]
