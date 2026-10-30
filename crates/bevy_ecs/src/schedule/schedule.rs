@@ -17,7 +17,7 @@ use bevy_platform::{
 };
 use bevy_utils::default;
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::{Debug, Write},
 };
 use fixedbitset::FixedBitSet;
@@ -3103,12 +3103,12 @@ mod tests {
         struct FirstInSetFirst;
 
         impl ScheduleBuildPass for FirstInSetFirst {
-            type EdgeOptions = ();
             fn add_dependency(
                 &mut self,
                 _from: crate::schedule::NodeId,
                 _to: crate::schedule::NodeId,
-                _options: Option<&Self::EdgeOptions>,
+                _is_weak: bool,
+                _is_deferred: bool,
             ) {
             }
             fn build(

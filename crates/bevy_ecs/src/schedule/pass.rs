@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use core::{fmt::Debug, ops::Deref};
+use core::{any::Any, fmt::Debug, ops::Deref};
 
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use indexmap::IndexSet;

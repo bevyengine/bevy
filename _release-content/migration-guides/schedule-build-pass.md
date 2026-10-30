@@ -1,6 +1,6 @@
 ---
 title: Schedule Build Pass API changes
-pull_requests: [19450]
+pull_requests: [26387]
 ---
 
 `ScheduleBuildPass::collapse_set` now also receives the `World` and the `ScheduleGraph`, as
