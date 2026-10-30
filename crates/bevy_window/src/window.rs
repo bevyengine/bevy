@@ -902,6 +902,9 @@ pub struct WindowResolution {
     /// Code-provided ratio of physical size to logical size.
     ///
     /// Should be used instead of `scale_factor` when set.
+    ///
+    /// Must be finite and greater than zero. The `winit` backend rejects invalid
+    /// values, warning and reverting or clearing the override.
     scale_factor_override: Option<f32>,
     /// OS-provided ratio of physical size to logical size.
     ///
@@ -931,6 +934,9 @@ impl WindowResolution {
     }
 
     /// Builder method for adding a scale factor override to the resolution.
+    ///
+    /// The override must be finite and greater than zero; the `winit` backend
+    /// rejects invalid values.
     pub fn with_scale_factor_override(mut self, scale_factor_override: f32) -> Self {
         self.set_scale_factor_override(Some(scale_factor_override));
         self
@@ -1037,6 +1043,9 @@ impl WindowResolution {
     ///
     /// This can change the logical and physical sizes if the resulting physical
     /// size is not within the limits.
+    ///
+    /// The override must be finite and greater than zero. The `winit` backend
+    /// rejects invalid values, warning and reverting the override.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
         self.scale_factor_override = scale_factor_override;
