@@ -140,7 +140,7 @@ impl BsnFmt for BsnListRoot {
 
 impl BsnFmt for BsnSceneList {
     fn fmt(&self, base: usize, level: usize) -> String {
-        if self.0 .0.len() == 0 {
+        if self.0 .0.is_empty() {
             return String::from("[]");
         }
 
@@ -218,8 +218,7 @@ impl BsnFmt for BsnEntry {
                 fmt_rust_expr(token_stream, base, level).trim().to_string()
             }
             BsnEntry::Function(fn_call) => fn_call.fmt(base, level),
-            BsnEntry::UncachedScene(s) => s.fmt(base, level),
-            BsnEntry::CachedScene(s) => s.fmt(base, level),
+            BsnEntry::UncachedScene(s) | BsnEntry::CachedScene(s) => s.fmt(base, level),
             BsnEntry::RelatedSceneList(r) => {
                 format!(
                     "{} {}",
@@ -257,7 +256,7 @@ impl BsnFmt for BsnScene {
             }) => {
                 let mut out = format!("@{}", fmt_quote(path));
                 if let Some(variant) = variant {
-                    out.push_str(&format!("::{}", variant.to_string()));
+                    out.push_str(&format!("::{}", variant));
                 };
                 out.push_str(&fields.fmt(base_indent, level));
                 out
@@ -285,8 +284,9 @@ impl BsnFmt for BsnType {
 impl BsnFmt for BsnValue {
     fn fmt(&self, base: usize, level: usize) -> String {
         match self {
-            BsnValue::Expr(ts) => fmt_rust_expr(ts, base, level).trim().to_string(),
-            BsnValue::Closure(ts) => fmt_rust_expr(ts, base, level).trim().to_string(),
+            BsnValue::Expr(ts) | BsnValue::Closure(ts) => {
+                fmt_rust_expr(ts, base, level).trim().to_string()
+            }
             BsnValue::Ident(i) => i.to_string(),
             BsnValue::Lit(l) => fmt_quote(l),
             BsnValue::Tuple(t) => {
@@ -302,7 +302,7 @@ impl BsnFmt for BsnValue {
 
 impl BsnFmt for BsnFnCall {
     fn fmt(&self, base_indent: usize, level: usize) -> String {
-        let mut out = format!("{}", self.path.to_token_stream().to_string());
+        let mut out = format!("{}", self.path.to_token_stream());
         out.push('(');
         out.push_str(&self.args.fmt(base_indent, level));
         out.push(')');
@@ -326,7 +326,7 @@ impl BsnFmt for BsnFields {
                             let mut s = String::new();
 
                             if f.is_prop {
-                                s.push_str("@");
+                                s.push('@');
                             }
 
                             s.push_str(&f.name.to_string());
@@ -362,7 +362,7 @@ impl BsnFmt for BsnFnArg {
         match self {
             BsnFnArg::Array(bsn_values) => bsn_values
                 .iter()
-                .map(|v| fmt_quote(v))
+                .map(fmt_quote)
                 .collect::<Vec<_>>()
                 .join(", "),
             BsnFnArg::EntityName(ident) => ident.to_string(),

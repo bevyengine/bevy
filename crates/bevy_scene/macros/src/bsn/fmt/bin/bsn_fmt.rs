@@ -1,3 +1,6 @@
+#![allow(unused, reason = "this is temporary")]
+//! TODO
+
 #[path = "../mod.rs"]
 mod fmt;
 
