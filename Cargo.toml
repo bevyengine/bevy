@@ -361,11 +361,8 @@ bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
 
-# Provides frame pacing and frame limiting
-bevy_window_framepace = ["bevy_internal/bevy_window_framepace"]
-
 # Adds frame pacing diagnostics and logs
-framepace_debug = ["bevy_window_framepace", "bevy_internal/framepace_debug"]
+framepace_debug = ["bevy_render", "bevy_internal/framepace_debug"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -4413,7 +4410,7 @@ wasm = true
 name = "framepace"
 path = "examples/window/framepace.rs"
 doc-scrape-examples = true
-required-features = ["bevy_window_framepace", "framepace_debug"]
+required-features = ["framepace_debug"]
 
 [package.metadata.example.framepace]
 name = "Framepace"

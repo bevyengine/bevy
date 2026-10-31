@@ -4,12 +4,12 @@ use bevy_app::prelude::*;
 use bevy_diagnostic::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
 use bevy_ecs::prelude::*;
 
-use crate::FramePaceStats;
+use super::FramePaceStats;
 
 /// Adds [`Diagnostics`] data from [`FramePaceStats`].
-pub struct DiagnosticsPlugin;
+pub struct FramepaceDiagnosticsPlugin;
 
-impl Plugin for DiagnosticsPlugin {
+impl Plugin for FramepaceDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, Self::diagnostic_system)
             .register_diagnostic(Diagnostic::new(Self::FRAMEPACE_FRAMETIME).with_suffix("ms"))
@@ -17,7 +17,7 @@ impl Plugin for DiagnosticsPlugin {
     }
 }
 
-impl DiagnosticsPlugin {
+impl FramepaceDiagnosticsPlugin {
     /// Frame time before the frame limiter sleeps, in milliseconds.
     pub const FRAMEPACE_FRAMETIME: DiagnosticPath =
         DiagnosticPath::const_new("framepace/frametime");

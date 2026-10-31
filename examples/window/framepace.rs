@@ -1,13 +1,20 @@
-use bevy::{color::palettes, prelude::*};
-use bevy::window::{CursorIcon, SystemCursorIcon, Window};
+use bevy::{
+    color::palettes,
+    diagnostic::LogDiagnosticsPlugin,
+    prelude::*,
+    render::framepace::{
+        debug::FramepaceDiagnosticsPlugin, FramepacePlugin, FramepaceSettings, Limiter,
+    },
+    window::{CursorIcon, SystemCursorIcon, Window},
+};
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            bevy::diagnostic::LogDiagnosticsPlugin::default(),
-            bevy::window_framepace::FramepacePlugin,
-            bevy::window_framepace::debug::DiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+            FramepacePlugin,
+            FramepaceDiagnosticsPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (toggle_plugin, update_ui, update_cursor))
@@ -17,12 +24,8 @@ fn main() {
 #[derive(Component)]
 struct EnableText;
 
-fn toggle_plugin(
-    mut settings: ResMut<bevy::window_framepace::FramepaceSettings>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
+fn toggle_plugin(mut settings: ResMut<FramepaceSettings>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
-        use bevy::window_framepace::Limiter;
         settings.limiter = match settings.limiter {
             Limiter::Auto => Limiter::Off,
             Limiter::Off => Limiter::from_framerate(30.0),
@@ -31,10 +34,7 @@ fn toggle_plugin(
     }
 }
 
-fn update_ui(
-    mut text: Single<&mut TextSpan, With<EnableText>>,
-    settings: Res<bevy::window_framepace::FramepaceSettings>,
-) {
+fn update_ui(mut text: Single<&mut TextSpan, With<EnableText>>, settings: Res<FramepaceSettings>) {
     text.0 = format!("{}", settings.limiter);
 }
 

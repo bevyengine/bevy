@@ -114,7 +114,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
-|bevy_window_framepace|Provides frame pacing and frame limiting|
 |bevy_winit|winit window and input backend|
 |bevy_world_serialization|Provides ECS serialization functionality|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|

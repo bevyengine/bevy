@@ -26,11 +26,6 @@
 //! ```
 
 #![deny(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
-#![doc(
-    html_logo_url = "https://bevy.org/assets/icon.png",
-    html_favicon_url = "https://bevy.org/assets/icon.png"
-)]
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -39,7 +34,7 @@ use bevy_platform::{
     time::Instant,
 };
 use bevy_reflect::prelude::*;
-use bevy_render::{Render, RenderApp, RenderSystems};
+use crate::{Render, RenderApp, RenderSystems};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_window::{Monitor, OnMonitor, Window};
 

@@ -42,6 +42,7 @@ serialize = ["bevy_mesh/serialize"]
 
 reflect_auto_register = ["bevy_app/reflect_auto_register"]
 reflect_functions = ["bevy_app/reflect_functions"]
+framepace_debug = []
 
 [dependencies]
 # bevy
@@ -126,6 +127,9 @@ proptest = "1"
 proptest-derive = "0.8"
 # noop backend used for tests via test_utils.rs
 wgpu = { version = "30", default-features = false, features = ["noop"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+spin_sleep = "1.3"
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }
