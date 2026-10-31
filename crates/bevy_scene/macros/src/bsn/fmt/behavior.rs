@@ -118,10 +118,6 @@ impl BsnFmt for Bsn {
             return String::new();
         }
 
-        if self.entries.len() == 1 {
-            return self.entries[0].fmt(base, level);
-        }
-
         let mut out = String::new();
         out.push_str(&self.fmt_content(base, level + 1));
         out.push_str(&indent(base, level));
@@ -145,11 +141,8 @@ impl BsnFmt for BsnListRoot {
 
 impl BsnFmt for BsnSceneList {
     fn fmt(&self, base: usize, level: usize) -> String {
-        // Keep it compact if it's only 1 item
-        if self.0 .0.len() == 1
-            && let BsnSceneListItem::Scene(bsn) = &self.0 .0[0]
-        {
-            return format!("[\n{}]", bsn.fmt(base, level));
+        if self.0 .0.len() == 0 {
+            return String::from("[]");
         }
 
         let mut out = String::from("[\n");
