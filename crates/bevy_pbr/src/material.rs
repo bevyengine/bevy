@@ -453,12 +453,9 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    // After propagation, a parent move is visible as a `GlobalTransform`
-                    // change in the same frame. Sorted phase items cache their sort center
-                    // at queue time, so that change has to be queued before the frame ends.
                     check_entities_needing_specialization::<M>
                         .after(AssetEventSystems)
-                        .after(TransformSystems::Propagate),
+                        .after(TransformSystems::Propagate), //needs to wait for transforms to  render
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -917,10 +914,7 @@ pub struct SpecializedMaterialViewPipelineCache {
 /// specialization and adds them to the [`EntitiesNeedingSpecialization`] list.
 ///
 /// A [`GlobalTransform`] change does not alter the specialized pipeline. It is
-/// included because transparent and transmissive phase items store a world-space
-/// mesh center when they are queued, and that center is rebuilt only when the
-/// entity is queued again. The pipeline cache still returns the existing
-/// pipeline.
+/// included in order to trigger updates to the retained cache
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
@@ -1912,23 +1906,39 @@ mod tests {
         );
     }
 
+    fn spawn_mesh(app: &mut App, parent: Option<Entity>) -> Entity {
+        let mut entity = app.world_mut().spawn((
+            Mesh3d::default(),
+            MeshMaterial3d::<StandardMaterial>::default(),
+        ));
+        if let Some(parent) = parent {
+            entity.insert(ChildOf(parent));
+        }
+        entity.id()
+    }
+
     #[test]
-    fn direct_global_transform_change_requeues_mesh() {
+    fn transform_change_requeues_affected_meshes() {
         let mut app = app();
-        let mesh = app
-            .world_mut()
-            .spawn((
-                Mesh3d::default(),
-                MeshMaterial3d::<StandardMaterial>::default(),
-            ))
-            .id();
+        let direct = spawn_mesh(&mut app, None);
+        let parent = app.world_mut().spawn(Transform::default()).id();
+        let moved = spawn_mesh(&mut app, Some(parent));
+        let stationary_parent = app.world_mut().spawn(Transform::default()).id();
+        let stationary = spawn_mesh(&mut app, Some(stationary_parent));
         settle(&mut app);
 
-        *app.world_mut().get_mut::<GlobalTransform>(mesh).unwrap() =
+        *app.world_mut().get_mut::<GlobalTransform>(direct).unwrap() =
             GlobalTransform::from_translation(Vec3::new(4.0, 5.0, 6.0));
+        app.world_mut()
+            .get_mut::<Transform>(parent)
+            .unwrap()
+            .translation = Vec3::new(1.0, 2.0, 3.0);
         app.update();
 
-        assert!(listed(&app).contains(&mesh));
+        let queued = listed(&app);
+        assert!(queued.contains(&direct));
+        assert!(queued.contains(&moved));
+        assert!(!queued.contains(&stationary));
         assert!(app
             .world()
             .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
@@ -1937,39 +1947,5 @@ mod tests {
 
         app.update();
         assert!(listed(&app).is_empty());
-    }
-
-    #[test]
-    fn parent_transform_change_requeues_child_mesh() {
-        let mut app = app();
-        let parent = app.world_mut().spawn(Transform::default()).id();
-        let moved = app
-            .world_mut()
-            .spawn((
-                Mesh3d::default(),
-                MeshMaterial3d::<StandardMaterial>::default(),
-                ChildOf(parent),
-            ))
-            .id();
-        let stationary_parent = app.world_mut().spawn(Transform::default()).id();
-        let stationary = app
-            .world_mut()
-            .spawn((
-                Mesh3d::default(),
-                MeshMaterial3d::<StandardMaterial>::default(),
-                ChildOf(stationary_parent),
-            ))
-            .id();
-        settle(&mut app);
-
-        app.world_mut()
-            .get_mut::<Transform>(parent)
-            .unwrap()
-            .translation = Vec3::new(1.0, 2.0, 3.0);
-        app.update();
-
-        let listed = listed(&app);
-        assert!(listed.contains(&moved));
-        assert!(!listed.contains(&stationary));
     }
 }

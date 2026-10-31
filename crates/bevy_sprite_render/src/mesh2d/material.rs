@@ -345,12 +345,9 @@ where
                 PostUpdate,
                 (
                     mark_2d_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    // After propagation, a parent move is visible as a `GlobalTransform`
-                    // change in the same frame. Transparent phase items cache their sort
-                    // key at queue time, so that change has to be queued before the frame ends.
                     check_entities_needing_specialization::<M>
                         .after(AssetEventSystems)
-                        .after(TransformSystems::Propagate)
+                        .after(TransformSystems::Propagate) //needs to wait for transforms to render
                         .ambiguous_with_all(),
                 )
                     .chain(),
@@ -722,8 +719,7 @@ pub struct SpecializedMaterial2dViewPipelineCache {
 /// specialization and adds them to the [`EntitiesNeedingSpecialization`] list.
 ///
 /// A [`GlobalTransform`] change does not alter the specialized pipeline. It is
-/// included because transparent phase items store a depth sort key when they are
-/// queued, and that key is rebuilt only when the entity is queued again.
+/// included here in order to trigger updates to the retained cache
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
@@ -1552,59 +1548,46 @@ mod tests {
         );
     }
 
-    #[test]
-    fn direct_global_transform_change_requeues_mesh() {
-        let mut app = app();
-        let mesh = app
-            .world_mut()
-            .spawn((
-                Mesh2d::default(),
-                MeshMaterial2d::<ColorMaterial>::default(),
-            ))
-            .id();
-        settle(&mut app);
-
-        *app.world_mut().get_mut::<GlobalTransform>(mesh).unwrap() =
-            GlobalTransform::from_translation(Vec3::new(0.0, 0.0, 4.0));
-        app.update();
-
-        assert!(listed(&app).contains(&mesh));
-
-        app.update();
-        assert!(listed(&app).is_empty());
+    fn spawn_mesh(app: &mut App, parent: Option<Entity>) -> Entity {
+        let mut entity = app.world_mut().spawn((
+            Mesh2d::default(),
+            MeshMaterial2d::<ColorMaterial>::default(),
+        ));
+        if let Some(parent) = parent {
+            entity.insert(ChildOf(parent));
+        }
+        entity.id()
     }
 
     #[test]
-    fn parent_transform_change_requeues_child_mesh() {
+    fn transform_change_requeues_affected_meshes() {
         let mut app = app();
+        let direct = spawn_mesh(&mut app, None);
         let parent = app.world_mut().spawn(Transform::default()).id();
-        let moved = app
-            .world_mut()
-            .spawn((
-                Mesh2d::default(),
-                MeshMaterial2d::<ColorMaterial>::default(),
-                ChildOf(parent),
-            ))
-            .id();
+        let moved = spawn_mesh(&mut app, Some(parent));
         let stationary_parent = app.world_mut().spawn(Transform::default()).id();
-        let stationary = app
-            .world_mut()
-            .spawn((
-                Mesh2d::default(),
-                MeshMaterial2d::<ColorMaterial>::default(),
-                ChildOf(stationary_parent),
-            ))
-            .id();
+        let stationary = spawn_mesh(&mut app, Some(stationary_parent));
         settle(&mut app);
 
+        *app.world_mut().get_mut::<GlobalTransform>(direct).unwrap() =
+            GlobalTransform::from_translation(Vec3::new(0.0, 0.0, 4.0));
         app.world_mut()
             .get_mut::<Transform>(parent)
             .unwrap()
             .translation = Vec3::new(1.0, 2.0, 3.0);
         app.update();
 
-        let listed = listed(&app);
-        assert!(listed.contains(&moved));
-        assert!(!listed.contains(&stationary));
+        let queued = listed(&app);
+        assert!(queued.contains(&direct));
+        assert!(queued.contains(&moved));
+        assert!(!queued.contains(&stationary));
+        assert!(app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<ColorMaterial>>()
+            .removed
+            .is_empty());
+
+        app.update();
+        assert!(listed(&app).is_empty());
     }
 }
