@@ -189,11 +189,11 @@ impl BsnFmt for BsnEntry {
             }
             BsnEntry::TemplateConstructor {
                 constructor,
-                dot_expression: _, // TODO
+                dot_expression,
             }
             | BsnEntry::FromTemplateConstructor {
                 constructor,
-                dot_expression: _, // TODO
+                dot_expression,
             } => {
                 let prefix = if matches!(self, BsnEntry::TemplateConstructor { .. }) {
                     "@"
@@ -208,6 +208,11 @@ impl BsnFmt for BsnEntry {
                 out.push('(');
                 out.push_str(&args);
                 out.push(')');
+
+                if let Some(dot_expression) = dot_expression {
+                    out.push_str(&fmt_rust_dot_expr(dot_expression));
+                }
+
                 out
             }
             BsnEntry::TemplateValue(token_stream) => token_stream.to_string(),

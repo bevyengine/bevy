@@ -67,6 +67,31 @@ fn fallback(tokens: &TokenStream, base: usize, level: usize) -> String {
     format!("{}{}", indent(base, level), raw)
 }
 
+pub(crate) fn fmt_rust_dot_expr(dot_expr: &TokenStream) -> String {
+    let dummy = quote::quote! {
+        fn __dummy() {
+            r#dummy #dot_expr
+        }
+    };
+
+    let file = syn::parse2::<syn::File>(dummy).unwrap();
+    let formatted = prettyplease::unparse(&file);
+    let mut lines: Vec<&str> = formatted.lines().collect();
+
+    // Remove `fn __dummy() {` and `}`
+    lines.remove(0);
+    lines.pop();
+    lines.iter().fold(String::new(), |mut out, line| {
+        let line = line.replace("r#dummy", "");
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            out.push_str(trimmed);
+        }
+
+        out
+    })
+}
+
 /// Formats standard Rust code (expressions, closures) by wrapping them in a dummy
 /// AST, formatting with prettyplease, and then stripping the wrapper.
 pub(crate) fn fmt_rust_expr(tokens: &TokenStream, base: usize, level: usize) -> String {

@@ -44,6 +44,21 @@ mod fmt_tests {
     }
 
     test_fmt!(
+        basic_entity,
+        BsnRoot,
+        r#"
+        # Name
+            InheritedVisibility
+Transform::from_xyz(10., 10., 10.,).looking_at(Vec3::ZERO, Vec3::Y)
+    "#,
+        r#"
+    #Name
+    InheritedVisibility
+    Transform::from_xyz(10., 10., 10.).looking_at(Vec3::ZERO, Vec3::Y)
+    "#
+    );
+
+    test_fmt!(
         ui_root_node,
         BsnRoot,
         r#"{
