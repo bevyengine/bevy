@@ -215,7 +215,9 @@ impl BsnFmt for BsnEntry {
 
                 out
             }
-            BsnEntry::TemplateValue(token_stream) => token_stream.to_string(),
+            BsnEntry::TemplateValue(token_stream) => {
+                fmt_rust_expr(token_stream, base, level).trim().to_string()
+            }
             BsnEntry::Function(fn_call) => fn_call.fmt(base, level),
             BsnEntry::UncachedScene(s) => s.fmt(base, level),
             BsnEntry::CachedScene(s) => s.fmt(base, level),
