@@ -1,6 +1,6 @@
 //! A Bevy app that can be used as an integration test target.
-//! It displays a button that must be clicked. The button is placed at a random position and
-//! moves every 5 seconds.
+//! It displays a button that must be clicked, then activated from the keyboard. The button is
+//! placed at a random position and moves every 5 seconds.
 //!
 //! Run with the `bevy_remote` and `bevy_feathers` feature enabled:
 //! ```bash
@@ -14,6 +14,7 @@ use bevy::{
         controls::FeathersButton, dark_theme::create_dark_theme, display::caption, theme::UiTheme,
         FeathersPlugins,
     },
+    input_focus::tab_navigation::TabGroup,
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
     time::common_conditions::on_timer,
@@ -83,6 +84,8 @@ fn setup(mut commands: Commands, mut rng: ResMut<SeededRng>) {
             width: percent(100),
             height: percent(100),
         }
+        // Lets Tab move keyboard focus to the button.
+        TabGroup::new(0)
         Children [
             @FeathersButton {
                 @caption: bsn! { @caption("Button") }

@@ -584,6 +584,74 @@
 //! Clients are expected to fetch this map once and cache it, which is why the server-side
 //! `inspect_cached` method has no remote counterpart.
 //!
+//! ### `input.click`
+//!
+//! Click on a UI node, or at a point in a window, with the same events a window backend sends for
+//! a real click. The cursor moves to the target, then the button is pressed and released, each on
+//! its own frame. If earlier input is still pending, the click is queued after it. A node hidden by
+//! a scrolled ancestor is scrolled into view first, and the cursor waits a frame for layout to move
+//! the node.
+//!
+//! `params`:
+//! - `entity`: The ID of a UI node to click. The click lands at the node's center. Give either
+//!   this, or `window` and `position`.
+//! - `window`: The ID of the window to click in, with `position`.
+//! - `position`: The point to click in `window`, as an array of two numbers, in physical pixels
+//!   from the window's top left.
+//! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
+//! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
+//!
+//! `result`: An object with a `frame` field: the frame on which the app receives the button's
+//! release, numbered as [`FrameCount`] numbers frames.
+//!
+//! ### `input.key`
+//!
+//! Press a key and release it `hold` frames later, with the same events a window backend sends for
+//! a real key. Give `state` to send only the press or only the release, for example to hold a
+//! modifier down across other input. Each event arrives on its own frame, queued after any input
+//! that is still pending.
+//!
+//! `params`:
+//! - `key_code`: The physical key, as a `KeyCode` variant such as `"KeyA"` or `"Escape"`.
+//! - `logical_key` (optional): What the key means in the keyboard layout, as a `Key` such as
+//!   `{ "Character": "a" }` or `"Escape"`. If omitted, the logical key and text are taken from a US
+//!   layout, and a key that layout doesn't cover is an error.
+//! - `text` (optional): The text the key types, if any. This takes precedence over the US layout's
+//!   text.
+//! - `state` (optional): `"Pressed"` or `"Released"`, to send only that event.
+//! - `hold` (optional): How many frames the key stays pressed. Defaults to 1. Can't be combined
+//!   with `state`.
+//! - `window` (optional): The ID of the window to send the key to. Defaults to the primary window.
+//!
+//! `result`: An object with a `frame` field: the frame on which the app receives the last key
+//! event.
+//!
+//! To test with another keyboard layout, give `logical_key` and `text` as that layout produces
+//! them. On a Russian keyboard, for example, the WASD keys type `ц`, `ф`, `ы` and `в`. A game that
+//! binds movement to physical keys sees the same `key_code`, while anything that reads text or
+//! logical keys sees the Russian letter:
+//!
+//! ```json
+//! { "key_code": "KeyW", "logical_key": { "Character": "ц" }, "text": "ц" }
+//! ```
+//!
+//! `input.type` always types as a US keyboard would, so to type text in another layout, send each
+//! key with `input.key`.
+//!
+//! ### `input.type`
+//!
+//! Type text as a US keyboard would. Each character becomes a press and a release of its key,
+//! with Shift pressed around them when the character needs it. Every event arrives on its own
+//! frame. A character a US keyboard can't type is sent with an unidentified key code, and with the
+//! character itself as the logical key and text, so it still reaches text fields.
+//!
+//! `params`:
+//! - `text`: The text to type.
+//! - `window` (optional): The ID of the window to type in. Defaults to the primary window.
+//!
+//! `result`: An object with a `frame` field: the frame on which the app receives the last key
+//! event.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -643,13 +711,16 @@ extern crate alloc;
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
+use bevy_dev_tools::synthetic_input::{write_due_input, InputQueue};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     entity::Entity,
+    message::Messages,
     observer::On,
     resource::Resource,
     schedule::{
-        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
-        ScheduleLabel, SystemSet,
+        common_conditions::resource_exists, InternedScheduleLabel, IntoScheduleConfigs,
+        ScheduleBuildMetadata, ScheduleBuilt, ScheduleLabel, SystemSet,
     },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
@@ -658,6 +729,7 @@ use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
 use bevy_render::{Render, RenderApp, RenderScheduleOrder, RenderStartup};
 use bevy_utils::prelude::default;
+use bevy_window::WindowEvent;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
@@ -667,9 +739,9 @@ pub mod builtin_methods;
 pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod input_methods;
 pub mod inspection_methods;
 pub mod schemas;
-#[cfg(feature = "bevy_debug_stepping")]
 pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
@@ -919,6 +991,29 @@ impl RemotePlugin {
         )
         .add_stepping_methods(to_main)
         .add_inspection_methods(to_main)
+        .add_input_methods(to_main)
+    }
+
+    /// Add the `input.*` BRP methods, which act on the main world only.
+    fn add_input_methods(self, to_main: bool) -> Self {
+        if !to_main {
+            return self;
+        }
+        self.with_method(
+            input_methods::BRP_CLICK_METHOD,
+            input_methods::process_remote_click_request,
+            to_main,
+        )
+        .with_method(
+            input_methods::BRP_KEY_METHOD,
+            input_methods::process_remote_key_request,
+            to_main,
+        )
+        .with_method(
+            input_methods::BRP_TYPE_METHOD,
+            input_methods::process_remote_type_request,
+            to_main,
+        )
     }
 
     /// Add the inspection BRP methods.
@@ -1061,6 +1156,25 @@ impl Plugin for RemotePlugin {
                     remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
+
+        let methods = &app.world().resource::<RemoteMethods>().0;
+        if [
+            input_methods::BRP_CLICK_METHOD,
+            input_methods::BRP_KEY_METHOD,
+            input_methods::BRP_TYPE_METHOD,
+        ]
+        .iter()
+        .any(|method| methods.contains_key(*method))
+        {
+            // After requests, so what a request queues for this frame is written in time.
+            app.init_resource::<InputQueue>().add_systems(
+                RemoteLast,
+                write_due_input
+                    .after(RemoteSystems::ProcessRequests)
+                    .run_if(resource_exists::<FrameCount>)
+                    .run_if(resource_exists::<Messages<WindowEvent>>),
+            );
+        }
 
         #[cfg(feature = "bevy_render")]
         {
