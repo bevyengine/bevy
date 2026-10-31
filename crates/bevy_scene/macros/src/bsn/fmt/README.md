@@ -1,11 +1,21 @@
 # BSN fmt
 
-```sh
-cargo install --path .\crates\bevy_scene2\macros --features fmt --bin bsnfmt
-```
+## Installation
 
 ```sh
-bsnfmt .\examples\scene\bsn.rs
+cargo install --path ./crates/bevy_scene/macros --features fmt --bin bsnfmt
+```
+
+## Usage
+
+Check:
+```sh
+bsnfmt ./path/to/module.rs
+```
+
+Write:
+```sh
+bsnfmt ./path/to/module.rs --write
 ```
 
 ## Editor integration
