@@ -16,7 +16,14 @@ impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
             return visit_macro(self, mac);
         };
 
-        let base_indent: usize = mac.path.span().start().column;
+        let mac_span = mac.span();
+        let line_indent = {
+            let start_line_number: usize = mac_span.start().line;
+            let line = self.source.lines().nth(start_line_number - 1).unwrap();
+            line.len() - line.trim_start().len()
+        };
+
+        let base_indent: usize = line_indent;
         let formatted = if is_bsn {
             syn::parse2::<BsnRoot>(mac.tokens.clone())
                 .ok()
@@ -35,14 +42,13 @@ impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
             return visit_macro(self, mac);
         };
 
-        let mac_span = mac.span();
         let mac_start_byte =
             col_to_offset(self.source, mac_span.start().line, mac_span.start().column);
         let mac_end_byte = col_to_offset(self.source, mac_span.end().line, mac_span.end().column);
         let mac_text = &self.source[mac_start_byte..mac_end_byte];
 
-        let is_comment = mac_text.contains("//") || mac_text.contains("/*");
-        if is_comment {
+        let contains_comments = mac_text.contains("//") || mac_text.contains("/*");
+        if contains_comments {
             eprintln!(
                 "\x1b[1;33m⚠ Skipped bsn! block at line {}:
                     Formatting blocks with comments is currently unsupported.\x1b[0m",
@@ -70,7 +76,7 @@ impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
             format!(
                 "\n{}\n{}",
                 new_text.trim_start_matches('\n').trim_end(),
-                " ".repeat(base_indent)
+                " ".repeat(line_indent)
             )
         };
 
