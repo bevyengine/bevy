@@ -1,3 +1,7 @@
+//! This examples shows how to use bevy's frame pacing and frame limiting
+//!
+//! The demo should also let you feel the effect of enabling it
+
 use bevy::{
     color::palettes,
     diagnostic::LogDiagnosticsPlugin,
