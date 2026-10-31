@@ -114,6 +114,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
+|bevy_window_framepace|Provides frame pacing and frame limiting|
 |bevy_winit|winit window and input backend|
 |bevy_world_serialization|Provides ECS serialization functionality|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
@@ -140,6 +141,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `claxon`)|
 |force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
+|framepace_debug|Adds frame pacing diagnostics and logs|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|

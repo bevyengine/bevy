@@ -255,6 +255,15 @@ bevy_animation = ["dep:bevy_animation", "bevy_mesh"]
 bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
 bevy_winit = ["dep:bevy_winit", "bevy_window"]
+bevy_window_framepace = [
+  "dep:bevy_window_framepace",
+  "bevy_render",
+  "bevy_window",
+]
+framepace_debug = [
+  "bevy_window_framepace",
+  "bevy_window_framepace/framepace_debug",
+]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_world_serialization = ["dep:bevy_world_serialization", "bevy_asset"]
 bevy_material = ["dep:bevy_material", "bevy_image", "bevy_shader"]
@@ -622,6 +631,7 @@ bevy_ui_render = { path = "../bevy_ui_render", optional = true, version = "0.20.
 bevy_window = { path = "../bevy_window", optional = true, version = "0.20.0-dev", default-features = false, features = [
   "bevy_reflect",
 ] }
+bevy_window_framepace = { path = "../bevy_window_framepace", optional = true, version = "0.20.0-dev" }
 bevy_clipboard = { path = "../bevy_clipboard", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.20.0-dev", default-features = false }
 

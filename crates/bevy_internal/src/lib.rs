@@ -116,6 +116,8 @@ pub use bevy_ui_widgets as ui_widgets;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;
+#[cfg(feature = "bevy_window_framepace")]
+pub use bevy_window_framepace as window_framepace;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
 #[cfg(feature = "bevy_world_serialization")]

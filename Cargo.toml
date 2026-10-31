@@ -361,6 +361,12 @@ bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
 
+# Provides frame pacing and frame limiting
+bevy_window_framepace = ["bevy_internal/bevy_window_framepace"]
+
+# Adds frame pacing diagnostics and logs
+framepace_debug = ["bevy_window_framepace", "bevy_internal/framepace_debug"]
+
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
@@ -4402,6 +4408,18 @@ name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "framepace"
+path = "examples/window/framepace.rs"
+doc-scrape-examples = true
+required-features = ["bevy_window_framepace", "framepace_debug"]
+
+[package.metadata.example.framepace]
+name = "Framepace"
+description = "Demonstrates frame pacing"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "low_power"
