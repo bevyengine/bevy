@@ -11,13 +11,35 @@ keywords = ["bevy"]
 [lib]
 proc-macro = true
 
+[[bin]]
+name = "bsnfmt"
+path = "src/bsn/fmt/bin/bsn_fmt.rs"
+required-features = ["fmt"]
+
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.20.0-dev" }
 bevy_ecs_macro_logic = { path = "../../bevy_ecs/macro_logic", version = "0.20.0-dev" }
 
+clap = { version = "4", features = ["derive"], optional = true }
+prettyplease = { version = "0.3", optional = true }
+similar = { version = "3.2.1", optional = true }
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "3", features = ["full", "extra-traits"] }
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+
+[features]
+fmt = [
+  "dep:clap",
+  "dep:prettyplease",
+  "dep:similar",
+  "syn/visit",
+  "syn/visit-mut",
+  "proc-macro2/span-locations",
+  "similar/inline",
+]
 
 [lints]
 workspace = true
