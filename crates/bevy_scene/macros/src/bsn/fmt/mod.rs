@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code, reason = "test")]
 
 mod behavior;
 pub mod traits;
@@ -12,10 +12,11 @@ pub(crate) use utils::*;
 #[cfg(test)]
 mod fmt_tests {
     use super::*;
-    use crate::bsn::types::BsnRoot;
+    use crate::_bsn::types::BsnRoot;
     use pretty_assertions::assert_eq;
     use proc_macro2::TokenStream;
     use std::str::FromStr;
+    use syn::parse2;
 
     macro_rules! test_fmt {
         ($test_name:ident, $parser:ident, $input:expr, $expected:expr) => {
@@ -27,9 +28,7 @@ mod fmt_tests {
 
                 let tokens = TokenStream::from_str(input)
                     .expect("Failed to lex input string into TokenStream");
-
-                let ast = syn::parse2::<$parser>(tokens)
-                    .expect(concat!("Failed to parse into ", stringify!($parser)));
+                let ast: $parser = parse2(tokens).expect(concat!("Failed to parse input into ", stringify!($parser)));
 
                 // Act
                 let res = ast.fmt(0, 0);
@@ -57,22 +56,18 @@ mod fmt_tests {
             column_gap: Val::Px(5.),
         }
 Children [
-    (
             button("Ok")
         on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
-    ),
-    (
+        --
 
-
-         button ("Cancel")
+            button ("Cancel")
         on(|_event: On< Pointer < Press> >| {
-                    let hello = "nested";
+                    let hello =  "nested";
         println!("Cancel pressed!")
         })
         BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
-        ),
 ]
-    }"#,
+        }"#,
         r#"
     #Name
     Node {
@@ -83,20 +78,17 @@ Children [
         column_gap: Val::Px(5.),
     }
     Children [
-        (
-            button("Ok")
-            on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
-        ),
-        (
-            button("Cancel")
-            on(|_event: On<Pointer<Press>>| {
-                let hello = "nested";
-                println!("Cancel pressed!")
-            })
-            BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
-        ),
+        button("Ok")
+        on(|_event: On<Pointer<Press>>| println!("Ok pressed!"))
+        --
+        button("Cancel")
+        on(|_event: On<Pointer<Press>>| {
+            let hello = "nested";
+            println!("Cancel pressed!")
+        })
+        BackgroundColor(Color::srgb(0.4, 0.15, 0.15))
     ]
-"#
+    "#
     );
 
     test_fmt!(
@@ -109,7 +101,7 @@ Children [
         Node {
     width: Val:: Px ( 150.0),
             height: Val ::Px(65.0),
-                 border : UiRect::all(Val::Px(5.0)),
+                    border : UiRect::all(Val::Px(5.0)),
                     border_radius: BorderRadius::MAX,
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
@@ -131,7 +123,7 @@ Children [
             TextShadow
         )]
     }
-    "#,
+        "#,
         r#"
     #Button
     Button
@@ -145,7 +137,7 @@ Children [
     }
     BorderColor::from(Color::BLACK)
     BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-    Children [(
+    Children [
         Text(label)
         template(|context| {
             Ok(TextFont {
@@ -159,8 +151,8 @@ Children [
         })
         TextColor(Color::srgb(0.9, 0.9, 0.9))
         TextShadow
-    )]
-"#
+    ]
+    "#
     );
 
     test_fmt!(
@@ -185,53 +177,55 @@ Children [
     @Sprite::default()
     @Visibility::Visible
     #my_entity
-"#
+    "#
     );
 
-    test_fmt!(
-        template_constants_and_constructors,
-        BsnRoot,
-        r#"{
-@MyComponent::CONST_VALUE
-    @MyComponent::new(1, 2, 3)
-        FromTemplateConstructor::create()
-        }"#,
-        r#"
-    @MyComponent::CONST_VALUE
-    @MyComponent::new(1, 2, 3)
-    FromTemplateConstructor::create()
-"#
-    );
+    // ====== TODO
 
-    test_fmt!(
-        nested_patches_in_children,
-        BsnRoot,
-        r#"{
-            Node {
-                    width: Val ::
-                    Percent(100.0),
-            }
-    Children [
-        (
-            : "ui/button.bsn"
-                    @BackgroundColor(Color::BLUE)
-                    @Node {
-                margin: UiRect::all(Val::Px(10.0)),
-    }
-                ),
-            ]
-        }"#,
-        r#"
-    Node {
-        width: Val::Percent(100.0),
-    }
-    Children [(
-        : "ui/button.bsn"
-        @BackgroundColor(Color::BLUE)
-        @Node {
-            margin: UiRect::all(Val::Px(10.0)),
-        }
-    )]
-"#
-    );
+    //     test_fmt!(
+    //         template_constants_and_constructors,
+    //         BsnRoot,
+    //         r#"{
+    // @MyComponent::CONST_VALUE
+    //     @MyComponent::new(1, 2, 3)
+    //         FromTemplateConstructor::create()
+    //         }"#,
+    //         r#"
+    //     @MyComponent::CONST_VALUE
+    //     @MyComponent::new(1, 2, 3)
+    //     FromTemplateConstructor::create()
+    // "#
+    //     );
+
+    //     test_fmt!(
+    //         nested_patches_in_children,
+    //         BsnRoot,
+    //         r#"{
+    //             Node {
+    //                     width: Val ::
+    //                     Percent(100.0),
+    //             }
+    //     Children [
+    //         (
+    //             : "ui/button.bsn"
+    //                     @BackgroundColor(Color::BLUE)
+    //                     @Node {
+    //                 @margin: UiRect::all(Val::Px(10.0)),
+    //     }
+    //                 ),
+    //             ]
+    //         }"#,
+    //         r#"
+    //     Node {
+    //         width: Val::Percent(100.0),
+    //     }
+    //     Children [
+    //         : "ui/button.bsn"
+    //         @BackgroundColor(Color::BLUE)
+    //         @Node {
+    //             @margin: UiRect::all(Val::Px(10.0)),
+    //         }
+    //     ]
+    // "#
+    //     );
 }

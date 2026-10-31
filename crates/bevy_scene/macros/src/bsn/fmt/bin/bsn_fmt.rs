@@ -1,15 +1,25 @@
-pub mod bsn {
-    #[path = "../../mod.rs"]
-    pub mod fmt;
+#[path = "../mod.rs"]
+mod fmt;
 
-    #[path = "../../../types.rs"]
-    pub mod types;
+#[path = "../../codegen.rs"]
+mod bsn_codegen;
+#[path = "../../parse.rs"]
+mod bsn_parse;
+#[path = "../../types.rs"]
+mod bsn_types;
 
-    #[path = "../../../parse.rs"]
-    pub mod parse;
+mod _bsn {
+    pub mod types {
+        pub use crate::bsn_types::*;
+    }
 
-    #[path = "../../../codegen.rs"]
-    pub mod codegen;
+    pub mod parse {
+        pub use crate::bsn_parse::*;
+    }
+
+    pub mod codegen {
+        pub use crate::bsn_codegen::*;
+    }
 }
 
 use clap::Parser;
@@ -21,7 +31,7 @@ use std::{
 };
 use syn::{visit::Visit, File};
 
-use bsn::fmt::{col_to_offset, BsnVisitor};
+use fmt::{col_to_offset, BsnVisitor};
 
 /// A CLI formatter for `bsn!` macros.
 #[derive(Parser, Debug)]

@@ -6,17 +6,17 @@ use syn::{
 };
 
 use super::*;
-use crate::bsn::types::*;
+use crate::_bsn::types::*;
 
 impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
     fn visit_macro(&mut self, mac: &'ast Macro) {
         let is_bsn = mac.path.is_ident("bsn");
         let is_bsn_list = mac.path.is_ident("bsn_list");
         if !is_bsn && !is_bsn_list {
-            return syn::visit::visit_macro(self, mac);
+            return visit_macro(self, mac);
         };
 
-        let base_indent = mac.path.span().start().column;
+        let base_indent: usize = mac.path.span().start().column;
         let formatted = if is_bsn {
             syn::parse2::<BsnRoot>(mac.tokens.clone())
                 .ok()
@@ -95,7 +95,7 @@ impl BsnFmt for BsnRoot {
     }
 }
 
-impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
+impl Bsn {
     fn fmt_content(&self, base: usize, level: usize) -> String {
         self.entries.iter().fold(String::new(), |mut out, entry| {
             out.push_str(&indent(base, level));
@@ -106,7 +106,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
     }
 }
 
-impl<const ALLOW_FLAT: bool> BsnFmt for Bsn<ALLOW_FLAT> {
+impl BsnFmt for Bsn {
     fn fmt(&self, base: usize, level: usize) -> String {
         if self.entries.is_empty() {
             return String::new();
@@ -116,10 +116,9 @@ impl<const ALLOW_FLAT: bool> BsnFmt for Bsn<ALLOW_FLAT> {
             return self.entries[0].fmt(base, level);
         }
 
-        let mut out = String::from("(\n");
+        let mut out = String::new();
         out.push_str(&self.fmt_content(base, level + 1));
         out.push_str(&indent(base, level));
-        out.push(')');
         out
     }
 }
@@ -144,12 +143,11 @@ impl BsnFmt for BsnSceneList {
         if self.0 .0.len() == 1
             && let BsnSceneListItem::Scene(bsn) = &self.0 .0[0]
         {
-            return format!("[{}]", bsn.fmt(base, level));
+            return format!("[\n{}]", bsn.fmt(base, level));
         }
 
         let mut out = String::from("[\n");
-        out.push_str(&self.0.fmt(base, level + 1));
-        out.push_str(&indent(base, level));
+        out.push_str(&self.0.fmt(base, level));
         out.push(']');
         out
     }
@@ -159,71 +157,63 @@ impl BsnFmt for BsnSceneListItem {
     fn fmt(&self, base: usize, level: usize) -> String {
         match self {
             BsnSceneListItem::Scene(bsn) => bsn.fmt(base, level),
-            BsnSceneListItem::Expression(stmts) => stmts
-                .iter()
-                .map(|s| {
-                    fmt_rust_expr(&s.to_token_stream(), base, level)
-                        .trim()
-                        .to_string()
-                })
-                .collect::<Vec<_>>()
-                .join("\n"),
+            BsnSceneListItem::Expression(token_stream) => {
+                fmt_rust_expr(token_stream, base, level).trim().to_string()
+            }
         }
     }
 }
 
 impl BsnFmt for BsnSceneListItems {
     fn fmt(&self, base: usize, level: usize) -> String {
-        self.0.iter().fold(String::new(), |mut out, item| {
-            out.push_str(&indent(base, level));
+        let mut out = String::new();
+        let mut items = self.0.iter().peekable();
+        while let Some(item) = items.next() {
             out.push_str(&item.fmt(base, level));
-            out.push_str(",\n");
-            out
-        })
+            if items.peek().is_some() {
+                out.push_str(&indent(base, level));
+                out.push_str("--\n");
+            }
+        }
+        out
     }
 }
 
 impl BsnFmt for BsnEntry {
     fn fmt(&self, base: usize, level: usize) -> String {
         match self {
-            BsnEntry::InheritedScene(s) => s.fmt(base, level),
             BsnEntry::Name(ident) => format!("#{}", ident),
-            BsnEntry::NameExpression(expr) => {
-                format!("#{{ {} }}", fmt_quote(expr))
-            }
-            BsnEntry::SceneExpression(block) => {
-                fmt_rust_expr(&block.to_token_stream(), base, level)
-                    .trim()
-                    .to_string()
-            }
+            BsnEntry::FromTemplatePatch(ty) => ty.fmt(base, level),
             BsnEntry::TemplatePatch(ty) => {
                 format!("@{}", ty.fmt(base, level))
             }
-            BsnEntry::FromTemplatePatch(ty) => ty.fmt(base, level),
-            BsnEntry::TemplateConst {
-                type_path,
-                const_ident,
-            } => {
-                format!("@{}::{}", fmt_quote(type_path), const_ident)
+            BsnEntry::TemplateConstructor {
+                constructor,
+                dot_expression: _, // TODO
             }
-            BsnEntry::TemplateConstructor(c) | BsnEntry::FromTemplateConstructor(c) => {
-                let prefix = if matches!(self, BsnEntry::TemplateConstructor(_)) {
+            | BsnEntry::FromTemplateConstructor {
+                constructor,
+                dot_expression: _, // TODO
+            } => {
+                let prefix = if matches!(self, BsnEntry::TemplateConstructor { .. }) {
                     "@"
                 } else {
                     ""
                 };
-                let mut out = format!("{}{}", prefix, fmt_quote(&c.type_path));
+                let mut out = format!("{}{}", prefix, fmt_quote(&constructor.type_path));
                 out.push_str("::");
-                out.push_str(&c.function.to_string());
+                out.push_str(&constructor.function.to_string());
 
-                if let Some(args) = &c.args {
-                    let formatted_args: Vec<_> = args.iter().map(fmt_quote).collect();
-                    out.push('(');
-                    out.push_str(&formatted_args.join(", "));
-                    out.push(')');
-                }
+                let args = constructor.args.fmt(base, level);
+                out.push('(');
+                out.push_str(&args);
+                out.push(')');
                 out
             }
+            BsnEntry::TemplateValue(token_stream) => token_stream.to_string(),
+            BsnEntry::Function(fn_call) => fn_call.fmt(base, level),
+            BsnEntry::UncachedScene(s) => s.fmt(base, level),
+            BsnEntry::CachedScene(s) => s.fmt(base, level),
             BsnEntry::RelatedSceneList(r) => {
                 format!(
                     "{} {}",
@@ -235,19 +225,39 @@ impl BsnFmt for BsnEntry {
     }
 }
 
-impl BsnFmt for BsnInheritedScene {
+impl BsnFmt for BsnScene {
     fn fmt(&self, _base: usize, _level: usize) -> String {
         match self {
-            BsnInheritedScene::Asset(lit) => format!(": {}", fmt_quote(lit)),
-            BsnInheritedScene::Fn { function, args } => {
-                let mut out = format!(":{}", function);
-                if let Some(a) = args {
-                    out.push('(');
-                    out.push_str(&a.iter().map(fmt_quote).collect::<Vec<_>>().join(", "));
-                    out.push(')');
+            BsnScene::Asset(lit) => format!(": {}", fmt_quote(lit)),
+            BsnScene::Fn(BsnSceneFn { path, args }) => {
+                let mut out = format!("@{}", fmt_quote(path));
+                out.push('(');
+                if !args.0.is_empty() {
+                    let args = args
+                        .0
+                        .iter()
+                        .map(|a| a.fmt(0, 0))
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    out.push_str(&args);
                 }
+                out.push(')');
                 out
             }
+            BsnScene::SceneComponent(BsnType {
+                path,
+                variant,
+                fields,
+            }) => {
+                let mut out = format!("@{}", fmt_quote(path));
+                if let Some(variant) = variant {
+                    out.push_str(&format!("::{}", variant.to_string()));
+                };
+
+                out.push_str(&fields.fmt(0, 1));
+                out
+            }
+            BsnScene::Expression(token_stream) => format!("@{}", fmt_quote(token_stream)),
         }
     }
 }
@@ -257,39 +267,12 @@ impl BsnFmt for BsnType {
         let mut out = String::new();
         out.push_str(&fmt_quote(&self.path));
 
-        if let Some(variant) = &self.enum_variant {
+        if let Some(variant) = &self.variant {
             out.push_str("::");
             out.push_str(&variant.to_string());
         }
 
-        match &self.fields {
-            BsnFields::Named(fields) => {
-                if !fields.is_empty() {
-                    out.push_str(" {\n");
-                    out.push_str(&fmt_list_with(fields, base, level + 1, ",\n", |f, b, l| {
-                        let mut s = f.name.to_string();
-                        if let Some(val) = &f.value {
-                            s.push_str(": ");
-                            s.push_str(&val.fmt(b, l));
-                        }
-                        s
-                    }));
-
-                    out.push_str(&indent(base, level));
-                    out.push('}');
-                }
-            }
-            BsnFields::Tuple(fields) => {
-                if !fields.is_empty() {
-                    out.push('(');
-                    let formatted_fields: Vec<_> =
-                        fields.iter().map(|f| f.value.fmt(base, level)).collect();
-
-                    out.push_str(&formatted_fields.join(", "));
-                    out.push(')');
-                }
-            }
-        }
+        out.push_str(&self.fields.fmt(base, level));
         out
     }
 }
@@ -307,6 +290,87 @@ impl BsnFmt for BsnValue {
             }
             BsnValue::Type(ty) => ty.fmt(base, level),
             BsnValue::Name(ident) => format!("#{}", ident),
+            BsnValue::Range { .. } => todo!(),
         }
+    }
+}
+
+impl BsnFmt for BsnFnCall {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
+        let mut out = format!("{}", self.path.to_token_stream().to_string());
+        out.push('(');
+        out.push_str(&self.args.fmt(base_indent, level));
+        out.push(')');
+        out
+    }
+}
+
+impl BsnFmt for BsnFields {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
+        let mut out = String::new();
+        match self {
+            BsnFields::Named { fields, .. } => {
+                if !fields.is_empty() {
+                    out.push_str(" {\n");
+                    out.push_str(&fmt_list_with(
+                        fields,
+                        base_indent,
+                        level + 1,
+                        ",\n",
+                        |f, b, l| {
+                            let mut s = f.name.to_string();
+                            if let Some(val) = &f.value {
+                                s.push_str(": ");
+                                s.push_str(&val.fmt(b, l));
+                            }
+                            s
+                        },
+                    ));
+
+                    out.push_str(&indent(base_indent, level));
+                    out.push('}');
+                }
+            }
+            BsnFields::Tuple(fields) => {
+                if !fields.is_empty() {
+                    out.push('(');
+                    let formatted_fields: Vec<_> = fields
+                        .iter()
+                        .map(|f| f.value.fmt(base_indent, level))
+                        .collect();
+
+                    out.push_str(&formatted_fields.join(", "));
+                    out.push(')');
+                }
+            }
+            BsnFields::Unit => {}
+        }
+        out
+    }
+}
+
+impl BsnFmt for BsnFnArg {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
+        match self {
+            BsnFnArg::Array(bsn_values) => bsn_values
+                .iter()
+                .map(|v| fmt_quote(v))
+                .collect::<Vec<_>>()
+                .join(", "),
+            BsnFnArg::EntityName(ident) => ident.to_string(),
+            BsnFnArg::Tokens(token_stream) => fmt_rust_expr(token_stream, base_indent, level)
+                .trim()
+                .to_string(),
+        }
+    }
+}
+
+impl BsnFmt for BsnFnArgs {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
+        self.0
+            .iter()
+            .map(|a| a.fmt(base_indent, level))
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
