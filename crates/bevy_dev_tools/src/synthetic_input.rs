@@ -1,7 +1,7 @@
 //! Mocked input, simulated as if it came from a windowing backend, designed for tools that drive an app from outside, such as
 //! end-to-end tests.
 //!
-//! [`click`], [`hover`], [`drag`], [`scroll`], [`key`] and [`type_text`] queue input in
+//! [`click`], [`move_cursor`], [`scroll`], [`key`] and [`type_text`] queue input in
 //! [`InputQueue`], as [`WindowEvent`]s one frame apart, and [`write_due_input`] writes each when its
 //! frame comes. Bevy's remote protocol exposes these as its `input.*` methods.
 
@@ -14,6 +14,7 @@ use alloc::{
 use core::fmt::{self, Display, Formatter};
 
 use bevy_camera::{Camera, NormalizedRenderTarget, RenderTarget};
+use bevy_curve::{Curve, EaseFunction};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     entity::{ContainsEntity, Entity},
@@ -44,11 +45,13 @@ pub struct InputQueue {
 
 enum QueuedInput {
     /// The cursor moves to `node` as it's drawn by then, or to `position` without one or once the
-    /// node has gone.
+    /// node has gone. With `from`, it moves only part of the way there: to the given fraction of
+    /// the way from the given starting point.
     Cursor {
         window: Entity,
         node: Option<Entity>,
         position: Vec2,
+        from: Option<(Vec2, f32)>,
     },
     Button {
         window: Entity,
@@ -78,9 +81,25 @@ impl InputQueue {
         self.last = frame;
         frame
     }
+
+    /// Where the cursor is in `window` once the queued input has been read, if known.
+    fn cursor_in(&self, window: Entity) -> Option<Vec2> {
+        self.events
+            .iter()
+            .rev()
+            .find_map(|(_, event)| match event {
+                QueuedInput::Cursor {
+                    window: queued,
+                    position,
+                    from: None,
+                    ..
+                } => Some((*queued == window).then_some(*position)),
+                _ => None,
+            })?
+    }
 }
 
-/// What [`click`] clicks on, and where [`hover`], [`drag`] and [`scroll`] move the cursor.
+/// What [`click`] clicks on, and where [`move_cursor`] and [`scroll`] move the cursor.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ClickTarget {
     /// The center of a UI node, in the window its camera renders to.
@@ -96,7 +115,7 @@ pub enum ClickTarget {
     },
 }
 
-/// Why [`click`], [`hover`], [`drag`] or [`scroll`] couldn't queue input.
+/// Why [`click`], [`move_cursor`] or [`scroll`] couldn't queue input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClickError {
     /// The click was to be held for zero frames.
@@ -109,8 +128,8 @@ pub enum ClickError {
     NoWindow(Entity),
     /// The target window isn't a window.
     NotAWindow(Entity),
-    /// A drag was to start and end in different windows.
-    AcrossWindows,
+    /// The cursor was to move over zero frames.
+    ZeroFrames,
 }
 
 impl Display for ClickError {
@@ -121,19 +140,20 @@ impl Display for ClickError {
             Self::NotDrawnToWindow(entity) => write!(f, "{entity} is not drawn to a window"),
             Self::NoWindow(entity) => write!(f, "{entity} has no window to be drawn in"),
             Self::NotAWindow(entity) => write!(f, "{entity} is not a window"),
-            Self::AcrossWindows => write!(f, "a drag starts and ends in different windows"),
+            Self::ZeroFrames => write!(f, "the cursor moves over at least one frame"),
         }
     }
 }
 
 impl core::error::Error for ClickError {}
 
-/// Queues a click on `target` with `button`, held for `hold` frames.
+/// Queues a click on `target` with `button`: a press and a release `hold` frames apart, or with
+/// [`ButtonAction::Press`] or [`ButtonAction::Release`], only one of them.
 ///
-/// The click is three [`WindowEvent`]s, each read on its own frame: the cursor moves to the target,
-/// the button is pressed, and the button is released `hold` frames after the press. Picking needs
-/// the cursor to move before the press, and an app may treat a press and release on the same frame
-/// differently from a click. A click queued while another is pending follows it.
+/// The click is [`WindowEvent`]s, each read on its own frame: the cursor moves to the target, then
+/// the button is pressed, released, or both. Picking needs the cursor to move before the press,
+/// and an app may treat a press and release on the same frame differently from a click. A click
+/// queued while another is pending follows it. A drag is a press, [`move_cursor`], and a release.
 ///
 /// Returns the frame on which the app receives the release, as counted by [`FrameCount`]. This assumes
 /// [`write_due_input`] runs after [`Last`](bevy_app::Last), where [`FrameCount`] advances, so
@@ -142,61 +162,57 @@ pub fn click(
     world: &mut World,
     target: ClickTarget,
     button: MouseButton,
-    hold: u32,
+    action: ButtonAction,
 ) -> Result<u32, ClickError> {
-    if hold == 0 {
+    if action == (ButtonAction::Tap { hold: 0 }) {
         return Err(ClickError::ZeroHold);
     }
     let aim = aim(world, target)?;
     let mut queue = world.get_resource_or_init::<InputQueue>();
     queue.push(aim.earliest, 1, aim.cursor());
-    queue.push(aim.earliest, 1, aim.button(button, ButtonState::Pressed));
-    Ok(queue.push(
-        aim.earliest,
-        hold,
-        aim.button(button, ButtonState::Released),
-    ))
+    let press = |queue: &mut InputQueue, gap, state| {
+        queue.push(aim.earliest, gap, aim.button(button, state))
+    };
+    Ok(match action {
+        ButtonAction::Tap { hold } => {
+            press(&mut queue, 1, ButtonState::Pressed);
+            press(&mut queue, hold, ButtonState::Released)
+        }
+        ButtonAction::Press => press(&mut queue, 1, ButtonState::Pressed),
+        ButtonAction::Release => press(&mut queue, 1, ButtonState::Released),
+    })
 }
 
-/// Queues a move of the cursor to `target`, without pressing anything, so that hover effects and
-/// tooltips respond.
+/// Queues a move of the cursor to `target` over `frames` frames, eased by `ease`, without
+/// pressing anything, so that hover effects and tooltips respond.
 ///
-/// The move is one [`WindowEvent`], read on its own frame, after any input already queued. A node
-/// hidden by a scrolled ancestor is scrolled into view first, as for [`click`].
+/// The move is one [`WindowEvent`] per frame, after any input already queued, starting where the
+/// cursor is once that input has been read. If it isn't in the target's window, it jumps there on
+/// the first frame. A node hidden by a scrolled ancestor is scrolled into view first, as for
+/// [`click`].
 ///
-/// Returns the frame on which the app receives the move, as [`click`] does.
-pub fn hover(world: &mut World, target: ClickTarget) -> Result<u32, ClickError> {
-    let aim = aim(world, target)?;
-    Ok(world
-        .get_resource_or_init::<InputQueue>()
-        .push(aim.earliest, 1, aim.cursor()))
-}
-
-/// Queues a drag from `from` to `to` with `button`, both in one window.
-///
-/// The drag is four [`WindowEvent`]s, each read on its own frame: the cursor moves to `from`, the
-/// button is pressed, the cursor moves to `to`, and the button is released. Picking sends its drag
-/// events on the move, and drops on what is under the cursor at the release.
-///
-/// Returns the frame on which the app receives the release, as [`click`] does. Returns
-/// [`ClickError::AcrossWindows`] if the targets are in different windows.
-pub fn drag(
+/// Returns the frame on which the app receives the last move, as [`click`] does.
+pub fn move_cursor(
     world: &mut World,
-    from: ClickTarget,
-    to: ClickTarget,
-    button: MouseButton,
+    target: ClickTarget,
+    frames: u32,
+    ease: EaseFunction,
 ) -> Result<u32, ClickError> {
-    let start = aim(world, from)?;
-    let end = aim(world, to)?;
-    if start.window != end.window {
-        return Err(ClickError::AcrossWindows);
+    if frames == 0 {
+        return Err(ClickError::ZeroFrames);
     }
-    let earliest = start.earliest.max(end.earliest);
+    let aim = aim(world, target)?;
+    let window_cursor = world
+        .get::<Window>(aim.window)
+        .and_then(Window::physical_cursor_position);
     let mut queue = world.get_resource_or_init::<InputQueue>();
-    queue.push(earliest, 1, start.cursor());
-    queue.push(earliest, 1, start.button(button, ButtonState::Pressed));
-    queue.push(earliest, 1, end.cursor());
-    Ok(queue.push(earliest, 1, end.button(button, ButtonState::Released)))
+    let start = queue.cursor_in(aim.window).or(window_cursor);
+    for step in 1..frames {
+        let along = ease.sample_clamped(step as f32 / frames as f32);
+        let from = start.map(|start| (start, along));
+        queue.push(aim.earliest, 1, aim.cursor_from(from));
+    }
+    Ok(queue.push(aim.earliest, 1, aim.cursor()))
 }
 
 /// Queues a turn of the mouse wheel over `target`, by `delta` in `unit`s.
@@ -237,10 +253,15 @@ struct Aim {
 
 impl Aim {
     fn cursor(&self) -> QueuedInput {
+        self.cursor_from(None)
+    }
+
+    fn cursor_from(&self, from: Option<(Vec2, f32)>) -> QueuedInput {
         QueuedInput::Cursor {
             window: self.window,
             node: self.node,
             position: self.position,
+            from,
         }
     }
 
@@ -280,17 +301,18 @@ fn aim(world: &mut World, target: ClickTarget) -> Result<Aim, ClickError> {
     })
 }
 
-/// What [`key`] does with a key.
+/// What [`click`] does with a mouse button, or [`key`] with a key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeyAction {
-    /// Presses the key, and releases it `hold` frames later.
+pub enum ButtonAction {
+    /// Presses the button, and releases it `hold` frames later.
     Tap {
-        /// How many frames the key stays pressed.
+        /// How many frames the button stays pressed.
         hold: u32,
     },
-    /// Presses the key and leaves it pressed, such as a modifier held across other input.
+    /// Presses the button and leaves it pressed, such as a modifier held across other input, or a
+    /// mouse button held through a drag.
     Press,
-    /// Releases a pressed key.
+    /// Releases a pressed button.
     Release,
 }
 
@@ -339,9 +361,9 @@ pub fn key(
     key_code: KeyCode,
     logical_key: Option<Key>,
     text: Option<&str>,
-    action: KeyAction,
+    action: ButtonAction,
 ) -> Result<u32, KeyError> {
-    if action == (KeyAction::Tap { hold: 0 }) {
+    if action == (ButtonAction::Tap { hold: 0 }) {
         return Err(KeyError::ZeroHold);
     }
     let window = keyboard_window(world, window)?;
@@ -366,12 +388,12 @@ pub fn key(
     let earliest = current_frame(world);
     let mut queue = world.get_resource_or_init::<InputQueue>();
     Ok(match action {
-        KeyAction::Tap { hold } => {
+        ButtonAction::Tap { hold } => {
             queue.push(earliest, 1, event(ButtonState::Pressed));
             queue.push(earliest, hold, event(ButtonState::Released))
         }
-        KeyAction::Press => queue.push(earliest, 1, event(ButtonState::Pressed)),
-        KeyAction::Release => queue.push(earliest, 1, event(ButtonState::Released)),
+        ButtonAction::Press => queue.push(earliest, 1, event(ButtonState::Pressed)),
+        ButtonAction::Release => queue.push(earliest, 1, event(ButtonState::Released)),
     })
 }
 
@@ -515,6 +537,7 @@ pub fn write_due_input(
                 window,
                 node,
                 position,
+                from,
             } => {
                 let position = node.and_then(|node| nodes.get(node).ok()).map_or(
                     position,
@@ -527,6 +550,7 @@ pub fn write_due_input(
                                 .map_or(Vec2::ZERO, |viewport| viewport.min.as_vec2())
                     },
                 );
+                let position = from.map_or(position, |(start, along)| start.lerp(position, along));
                 WindowEvent::CursorMoved(RawCursorMoved {
                     window,
                     physical_position: position.as_dvec2(),
@@ -648,7 +672,12 @@ mod tests {
         let (mut world, _) = world();
         let start = node(&mut world, 400.0, 300.0);
 
-        let frame = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1);
+        let frame = click(
+            &mut world,
+            ClickTarget::Node(start),
+            MouseButton::Left,
+            ButtonAction::Tap { hold: 1 },
+        );
 
         assert_eq!(frame, Ok(12));
         assert_eq!(
@@ -666,7 +695,12 @@ mod tests {
         let (mut world, _) = world();
         let start = node(&mut world, 400.0, 300.0);
 
-        let frame = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 3);
+        let frame = click(
+            &mut world,
+            ClickTarget::Node(start),
+            MouseButton::Left,
+            ButtonAction::Tap { hold: 3 },
+        );
 
         assert_eq!(frame, Ok(14));
         assert_eq!(
@@ -685,8 +719,19 @@ mod tests {
         let start = node(&mut world, 400.0, 300.0);
         let quit = node(&mut world, 400.0, 500.0);
 
-        click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1).unwrap();
-        let frame = click(&mut world, ClickTarget::Node(quit), MouseButton::Left, 1);
+        click(
+            &mut world,
+            ClickTarget::Node(start),
+            MouseButton::Left,
+            ButtonAction::Tap { hold: 1 },
+        )
+        .unwrap();
+        let frame = click(
+            &mut world,
+            ClickTarget::Node(quit),
+            MouseButton::Left,
+            ButtonAction::Tap { hold: 1 },
+        );
 
         assert_eq!(frame, Ok(15));
         assert_eq!(
@@ -707,7 +752,13 @@ mod tests {
             position: Vec2::new(5.0, 6.0),
         };
 
-        click(&mut world, target, MouseButton::Right, 1).unwrap();
+        click(
+            &mut world,
+            target,
+            MouseButton::Right,
+            ButtonAction::Tap { hold: 1 },
+        )
+        .unwrap();
 
         assert_eq!(
             frames_through(&mut world, 12),
@@ -732,7 +783,12 @@ mod tests {
             },
         );
 
-        let frame = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1);
+        let frame = click(
+            &mut world,
+            ClickTarget::Node(start),
+            MouseButton::Left,
+            ButtonAction::Tap { hold: 1 },
+        );
         // What layout does on frame 10, having seen the scroll.
         frames_through(&mut world, 10);
         world
@@ -775,7 +831,13 @@ mod tests {
             .get_field_mut::<Option<Entity>>("camera")
             .unwrap() = Some(camera);
 
-        click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1).unwrap();
+        click(
+            &mut world,
+            ClickTarget::Node(start),
+            MouseButton::Left,
+            ButtonAction::Tap { hold: 1 },
+        )
+        .unwrap();
         // Moved before the cursor event is written, which follows it.
         world
             .entity_mut(start)
@@ -803,28 +865,43 @@ mod tests {
             (point(other), 1, ClickError::NotAWindow(other)),
         ] {
             assert_eq!(
-                click(&mut world, target, MouseButton::Left, hold),
+                click(
+                    &mut world,
+                    target,
+                    MouseButton::Left,
+                    ButtonAction::Tap { hold }
+                ),
                 Err(error)
             );
         }
         world.despawn(window);
         assert_eq!(
-            click(&mut world, point(window), MouseButton::Left, 1),
+            click(
+                &mut world,
+                point(window),
+                MouseButton::Left,
+                ButtonAction::Tap { hold: 1 }
+            ),
             Err(ClickError::NotAWindow(window))
         );
         assert_eq!(
-            click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1),
+            click(
+                &mut world,
+                ClickTarget::Node(start),
+                MouseButton::Left,
+                ButtonAction::Tap { hold: 1 }
+            ),
             Err(ClickError::NoWindow(start))
         );
         assert!(frames_through(&mut world, 12).is_empty());
     }
 
     #[test]
-    fn hovering_moves_the_cursor_and_scrolling_turns_the_wheel_there() {
+    fn moving_the_cursor_and_scrolling_turns_the_wheel_there() {
         let (mut world, window) = world();
         let list = node(&mut world, 400.0, 300.0);
 
-        hover(&mut world, ClickTarget::Node(list)).unwrap();
+        move_cursor(&mut world, ClickTarget::Node(list), 1, EaseFunction::Linear).unwrap();
         let frame = scroll(
             &mut world,
             ClickTarget::Point {
@@ -847,48 +924,57 @@ mod tests {
     }
 
     #[test]
-    fn a_drag_presses_moves_and_releases() {
+    fn a_drag_is_a_press_an_eased_move_and_a_release() {
         let (mut world, _) = world();
         let card = node(&mut world, 100.0, 200.0);
         let column = node(&mut world, 500.0, 200.0);
 
-        let frame = drag(
+        let left = MouseButton::Left;
+        click(
             &mut world,
             ClickTarget::Node(card),
+            left,
+            ButtonAction::Press,
+        )
+        .unwrap();
+        let ease = EaseFunction::QuadraticIn;
+        move_cursor(&mut world, ClickTarget::Node(column), 4, ease).unwrap();
+        let frame = click(
+            &mut world,
             ClickTarget::Node(column),
-            MouseButton::Left,
+            left,
+            ButtonAction::Release,
         );
 
-        assert_eq!(frame, Ok(13));
+        assert_eq!(frame, Ok(17));
         assert_eq!(
-            frames_through(&mut world, 13),
+            frames_through(&mut world, 17),
             events(&[
                 (10, "move 100 200"),
                 (11, "Pressed Left"),
-                (12, "move 500 200"),
-                (13, "Released Left"),
+                (12, "move 125 200"),
+                (13, "move 200 200"),
+                (14, "move 325 200"),
+                (15, "move 500 200"),
+                (16, "move 500 200"),
+                (17, "Released Left"),
             ])
         );
-    }
-
-    #[test]
-    fn a_drag_stays_in_one_window() {
-        let (mut world, window) = world();
-        let other = world.spawn(Window::default()).id();
-        let point = |window| ClickTarget::Point {
-            window,
-            position: Vec2::ONE,
-        };
-
         assert_eq!(
-            drag(&mut world, point(window), point(other), MouseButton::Left),
-            Err(ClickError::AcrossWindows)
+            move_cursor(&mut world, ClickTarget::Node(card), 0, ease),
+            Err(ClickError::ZeroFrames)
         );
-        assert!(frames_through(&mut world, 12).is_empty());
     }
 
     fn tap(world: &mut World, key_code: KeyCode, hold: u32) -> Result<u32, KeyError> {
-        key(world, None, key_code, None, None, KeyAction::Tap { hold })
+        key(
+            world,
+            None,
+            key_code,
+            None,
+            None,
+            ButtonAction::Tap { hold },
+        )
     }
 
     #[test]
@@ -924,8 +1010,8 @@ mod tests {
             )
         };
 
-        numpad_plus(KeyAction::Press).unwrap();
-        let frame = numpad_plus(KeyAction::Release);
+        numpad_plus(ButtonAction::Press).unwrap();
+        let frame = numpad_plus(ButtonAction::Release);
 
         assert_eq!(frame, Ok(11));
         assert_eq!(

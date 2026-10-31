@@ -599,36 +599,35 @@
 //! - `position`: The point to click in `window`, as an array of two numbers, in physical pixels
 //!   from the window's top left.
 //! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
-//! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
+//! - `state` (optional): `"Pressed"` or `"Released"`, to send only the press or only the release,
+//!   for example to hold the button through a drag. When omitted, the button is pressed and
+//!   released.
+//! - `hold` (optional): How many frames the button stays pressed, when it is pressed and released.
+//!   Defaults to 1.
 //!
-//! `result`: An object with a `frame` field: the frame on which the app receives the button's
-//! release, numbered as [`FrameCount`] numbers frames.
+//! `result`: An object with a `frame` field: the frame on which the app receives the button's last
+//! event, numbered as [`FrameCount`] numbers frames.
 //!
-//! ### `input.hover`
+//! ### `input.move`
 //!
 //! Move the cursor to a UI node, or to a point in a window, without pressing anything, so that
-//! hover effects and tooltips respond. It is queued after any input that is still pending, and a
-//! node hidden by a scrolled ancestor is scrolled into view first.
-//!
-//! `params`: `entity`, or `window` and `position`, as for `input.click`.
-//!
-//! `result`: An object with a `frame` field: the frame on which the app receives the move.
-//!
-//! ### `input.drag`
-//!
-//! Drag from one target to another: the cursor moves to `from`, the button is pressed, the cursor
-//! moves to `to`, and the button is released, each on its own frame. Picking sends its drag events
-//! on the move, and drops on what is under the cursor at the release. Both targets must be in the
-//! same window.
+//! hover effects and tooltips respond. The cursor moves one step per frame over `frames` frames,
+//! from where it is once any pending input has been read; if it isn't in the target's window, it
+//! jumps there on the first frame. A node hidden by a scrolled ancestor is scrolled into view first.
 //!
 //! `params`:
-//! - `from`: Where the drag starts, as an object with `entity`, or `window` and `position`, as for
-//!   `input.click`.
-//! - `to`: Where the drag ends, in the same way, and in the same window.
-//! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
+//! - `entity`, or `window` and `position`: Where to move to, as for `input.click`.
+//! - `frames` (optional): How many frames the move takes. Defaults to 1.
+//! - `ease` (optional): How the cursor speeds up and slows down along the way, as an
+//!   [`EaseFunction`](bevy_curve::EaseFunction), such as `"QuadraticInOut"`. Defaults to
+//!   `"Linear"`.
 //!
-//! `result`: An object with a `frame` field: the frame on which the app receives the button's
-//! release.
+//! `result`: An object with a `frame` field: the frame on which the app receives the last move.
+//!
+//! To drag, chain calls: `input.click` with `state` `"Pressed"` where the drag starts, one or more
+//! `input.move`s, and `input.click` with `state` `"Released"` where it ends. Picking sends its drag
+//! events on the moves, and drops on what is under the cursor at the release. To cancel a drag
+//! partway, send `input.key` with `"Escape"` before the release, if the app cancels on Escape.
 //!
 //! ### `input.scroll`
 //!
@@ -1045,13 +1044,8 @@ impl RemotePlugin {
             to_main,
         )
         .with_method(
-            input_methods::BRP_HOVER_METHOD,
-            input_methods::process_remote_hover_request,
-            to_main,
-        )
-        .with_method(
-            input_methods::BRP_DRAG_METHOD,
-            input_methods::process_remote_drag_request,
+            input_methods::BRP_MOVE_METHOD,
+            input_methods::process_remote_move_request,
             to_main,
         )
         .with_method(
@@ -1215,8 +1209,7 @@ impl Plugin for RemotePlugin {
         let methods = &app.world().resource::<RemoteMethods>().0;
         if [
             input_methods::BRP_CLICK_METHOD,
-            input_methods::BRP_HOVER_METHOD,
-            input_methods::BRP_DRAG_METHOD,
+            input_methods::BRP_MOVE_METHOD,
             input_methods::BRP_SCROLL_METHOD,
             input_methods::BRP_KEY_METHOD,
             input_methods::BRP_TYPE_METHOD,
