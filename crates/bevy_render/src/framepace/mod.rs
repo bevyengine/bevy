@@ -27,6 +27,7 @@
 
 #![deny(missing_docs)]
 
+use crate::{Render, RenderApp, RenderSystems};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_platform::{
@@ -34,7 +35,6 @@ use bevy_platform::{
     time::Instant,
 };
 use bevy_reflect::prelude::*;
-use crate::{Render, RenderApp, RenderSystems};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_window::{Monitor, OnMonitor, Window};
 
@@ -240,18 +240,11 @@ pub struct FramePaceStats {
 /// `spin_sleep` sleeps as long as possible given the platform's sleep accuracy, and spins for the
 /// remainder. The dependency is however not WASM compatible, which is fine, because frame limiting
 /// should not be used in a browser; this would compete with the browser's frame limiter.
-#[cfg_attr(
-    target_arch = "wasm32",
-    expect(
-        unused_variables,
-        reason = "`settings` is only used when frame limiting is available"
-    )
-)]
 fn framerate_limiter(
     mut timer: ResMut<FrameTimer>,
     target_frametime: Res<FrametimeLimit>,
     stats: Res<FramePaceStats>,
-    settings: Res<FramepaceSettingsProxy>,
+    #[cfg(not(target_arch = "wasm32"))] settings: Res<FramepaceSettingsProxy>,
 ) {
     if let Ok(limit) = target_frametime.0.try_lock() {
         let frame_time = timer.sleep_end.elapsed();
