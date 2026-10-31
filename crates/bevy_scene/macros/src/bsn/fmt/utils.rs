@@ -15,6 +15,8 @@ pub(crate) fn fmt_quote<T: ToTokens>(item: &T) -> String {
 pub(crate) fn fmt_tokens(tokens: &TokenStream) -> String {
     tokens
         .to_string()
+        .replace(" < ", "<")
+        .replace(" >", ">")
         .replace("( ", "(")
         .replace(" )", ")")
         .replace(" (", "(")

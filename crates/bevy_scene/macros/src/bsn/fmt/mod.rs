@@ -49,12 +49,16 @@ mod fmt_tests {
         r#"
         # Name
             InheritedVisibility
-Transform::from_xyz(10., 10., 10.,).looking_at(Vec3::ZERO, Vec3::Y)
+Transform::from_xyz(10.,10.,  10.,).looking_at(Vec3::ZERO, Vec3::Y)
+        Mesh3d(asset_value(Cuboid::from_length(1.0)))
+                MeshMaterial3d <    StandardMaterial > ( asset_value(Color::srgb_u8(255, 0, 0)))
     "#,
         r#"
     #Name
     InheritedVisibility
     Transform::from_xyz(10., 10., 10.).looking_at(Vec3::ZERO, Vec3::Y)
+    Mesh3d(asset_value(Cuboid::from_length(1.0)))
+    MeshMaterial3d<StandardMaterial>(asset_value(Color::srgb_u8(255, 0, 0)))
     "#
     );
 
