@@ -56,8 +56,10 @@ mod fmt_tests {
             Component::Tuple
             (
             )
-    Component::Tuple(
-    3.0,    false
+    Component::Tuple(  3.0, 
+       false,
+    1.. 5, 0 ..
+    = 10
     ,
             )
                 Component:: Unit
@@ -69,7 +71,7 @@ mod fmt_tests {
         field_b: true,
     }
     Component::Tuple()
-    Component::Tuple(3.0, false)
+    Component::Tuple(3.0, false, 1..5, 0..=10)
     Component::Unit
     "#
     );

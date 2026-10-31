@@ -282,20 +282,30 @@ impl BsnFmt for BsnType {
 }
 
 impl BsnFmt for BsnValue {
-    fn fmt(&self, base: usize, level: usize) -> String {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
         match self {
             BsnValue::Expr(ts) | BsnValue::Closure(ts) => {
-                fmt_rust_expr(ts, base, level).trim().to_string()
+                fmt_rust_expr(ts, base_indent, level).trim().to_string()
             }
             BsnValue::Ident(i) => i.to_string(),
             BsnValue::Lit(l) => fmt_quote(l),
             BsnValue::Tuple(t) => {
-                let formatted_items: Vec<_> = t.0.iter().map(|val| val.fmt(base, level)).collect();
+                let formatted_items: Vec<_> =
+                    t.0.iter().map(|val| val.fmt(base_indent, level)).collect();
                 format!("({})", formatted_items.join(" "))
             }
-            BsnValue::Type(ty) => ty.fmt(base, level),
+            BsnValue::Type(ty) => ty.fmt(base_indent, level),
             BsnValue::Name(ident) => format!("#{}", ident),
-            BsnValue::Range { .. } => todo!(),
+            BsnValue::Range {
+                start,
+                end,
+                inclusive,
+            } => format!(
+                "{}..{}{}",
+                start.fmt(base_indent, level),
+                if *inclusive { "=" } else { "" },
+                end.fmt(base_indent, level)
+            ),
         }
     }
 }
