@@ -119,8 +119,7 @@ impl BsnFmt for Bsn {
         }
 
         let mut out = String::new();
-        out.push_str(&self.fmt_content(base, level + 1));
-        out.push_str(&indent(base, level));
+        out.push_str(&self.fmt_content(base, level));
         out
     }
 }
@@ -147,6 +146,7 @@ impl BsnFmt for BsnSceneList {
 
         let mut out = String::from("[\n");
         out.push_str(&self.0.fmt(base, level));
+        out.push_str(&indent(base, level));
         out.push(']');
         out
     }
@@ -155,7 +155,7 @@ impl BsnFmt for BsnSceneList {
 impl BsnFmt for BsnSceneListItem {
     fn fmt(&self, base: usize, level: usize) -> String {
         match self {
-            BsnSceneListItem::Scene(bsn) => bsn.fmt(base, level),
+            BsnSceneListItem::Scene(bsn) => bsn.fmt(base, level + 1),
             BsnSceneListItem::Expression(token_stream) => {
                 fmt_rust_expr(token_stream, base, level).trim().to_string()
             }
@@ -170,7 +170,7 @@ impl BsnFmt for BsnSceneListItems {
         while let Some(item) = items.next() {
             out.push_str(&item.fmt(base, level));
             if items.peek().is_some() {
-                out.push_str(&indent(base, level));
+                out.push_str(&indent(base, level + 1));
                 out.push_str("--\n");
             }
         }
