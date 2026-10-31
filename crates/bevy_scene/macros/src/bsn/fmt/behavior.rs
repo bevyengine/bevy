@@ -338,16 +338,13 @@ impl BsnFmt for BsnFields {
                 }
             }
             BsnFields::Tuple(fields) => {
-                if !fields.is_empty() {
-                    out.push('(');
-                    let formatted_fields: Vec<_> = fields
-                        .iter()
-                        .map(|f| f.value.fmt(base_indent, level))
-                        .collect();
-
-                    out.push_str(&formatted_fields.join(", "));
-                    out.push(')');
-                }
+                out.push('(');
+                let formatted_fields: Vec<_> = fields
+                    .iter()
+                    .map(|f| f.value.fmt(base_indent, level))
+                    .collect();
+                out.push_str(&formatted_fields.join(", "));
+                out.push(')');
             }
             BsnFields::Unit => {}
         }
