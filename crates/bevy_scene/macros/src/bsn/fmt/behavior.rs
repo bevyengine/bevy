@@ -232,7 +232,7 @@ impl BsnFmt for BsnEntry {
 }
 
 impl BsnFmt for BsnScene {
-    fn fmt(&self, _base: usize, _level: usize) -> String {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
         match self {
             BsnScene::Asset(lit) => format!(": {}", fmt_quote(lit)),
             BsnScene::Fn(BsnSceneFn { path, args }) => {
@@ -259,8 +259,7 @@ impl BsnFmt for BsnScene {
                 if let Some(variant) = variant {
                     out.push_str(&format!("::{}", variant.to_string()));
                 };
-
-                out.push_str(&fields.fmt(0, 1));
+                out.push_str(&fields.fmt(base_indent, level));
                 out
             }
             BsnScene::Expression(token_stream) => format!("@{}", fmt_quote(token_stream)),
@@ -324,7 +323,13 @@ impl BsnFmt for BsnFields {
                         level + 1,
                         ",\n",
                         |f, b, l| {
-                            let mut s = f.name.to_string();
+                            let mut s = String::new();
+
+                            if f.is_prop {
+                                s.push_str("@");
+                            }
+
+                            s.push_str(&f.name.to_string());
                             if let Some(val) = &f.value {
                                 s.push_str(": ");
                                 s.push_str(&val.fmt(b, l));
