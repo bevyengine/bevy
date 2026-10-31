@@ -48,13 +48,19 @@ mod fmt_tests {
         BsnRoot,
         r#"
         # Name
-    Component::Named {
+    Component::
+    Named {
         field_a: 1_000.0  ,
             field_b:     true
 }
-            Component::Tuple(
+            Component::Tuple
+            (
             )
-                Component::Unit
+    Component::Tuple(
+    3.0,    false
+    ,
+            )
+                Component:: Unit
     "#,
         r#"
     #Name
@@ -63,7 +69,38 @@ mod fmt_tests {
         field_b: true,
     }
     Component::Tuple()
+    Component::Tuple(3.0, false)
     Component::Unit
+    "#
+    );
+
+    test_fmt!(
+        nested_children,
+        BsnRoot,
+        r#"
+    #Parent Children
+    [
+        #ChildA --
+        #ChildB
+        Children[ #GrandChildA
+            Children []
+            -- #GrandChildB
+        ]
+    ]
+    "#,
+        r#"
+    #Parent
+    Children [
+        #ChildA
+        --
+        #ChildB
+        Children [
+            #GrandChildA
+            Children []
+            --
+            #GrandChildB
+        ]
+    ]
     "#
     );
 
