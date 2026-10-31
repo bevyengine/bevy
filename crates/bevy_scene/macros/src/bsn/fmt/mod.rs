@@ -44,18 +44,40 @@ mod fmt_tests {
     }
 
     test_fmt!(
+        component_fields,
+        BsnRoot,
+        r#"
+        # Name
+    Component::Named {
+        field_a: 1_000.0  ,
+            field_b:     true
+}
+            Component::Tuple(
+            )
+                Component::Unit
+    "#,
+        r#"
+    #Name
+    Component::Named {
+        field_a: 1_000.0,
+        field_b: true,
+    }
+    Component::Tuple()
+    Component::Unit
+    "#
+    );
+
+    test_fmt!(
         basic_entity,
         BsnRoot,
         r#"
         # Name
-            InheritedVisibility
-Transform::from_xyz(10.,10.,  10.,).looking_at(Vec3::ZERO, Vec3::Y)
+Transform::from_xyz(10.,10.,  10.,)     .looking_at( Vec3::ZERO , Vec3::Y)
         Mesh3d(asset_value(Cuboid::from_length(1.0)))
                 MeshMaterial3d <    StandardMaterial > ( asset_value(Color::srgb_u8(255, 0, 0)))
     "#,
         r#"
     #Name
-    InheritedVisibility
     Transform::from_xyz(10., 10., 10.).looking_at(Vec3::ZERO, Vec3::Y)
     Mesh3d(asset_value(Cuboid::from_length(1.0)))
     MeshMaterial3d<StandardMaterial>(asset_value(Color::srgb_u8(255, 0, 0)))
@@ -199,52 +221,35 @@ Children [
     "#
     );
 
-    // ====== TODO
-
-    //     test_fmt!(
-    //         template_constants_and_constructors,
-    //         BsnRoot,
-    //         r#"{
-    // @MyComponent::CONST_VALUE
-    //     @MyComponent::new(1, 2, 3)
-    //         FromTemplateConstructor::create()
-    //         }"#,
-    //         r#"
-    //     @MyComponent::CONST_VALUE
-    //     @MyComponent::new(1, 2, 3)
-    //     FromTemplateConstructor::create()
-    // "#
-    //     );
-
-    //     test_fmt!(
-    //         nested_patches_in_children,
-    //         BsnRoot,
-    //         r#"{
-    //             Node {
-    //                     width: Val ::
-    //                     Percent(100.0),
-    //             }
-    //     Children [
-    //         (
-    //             : "ui/button.bsn"
-    //                     @BackgroundColor(Color::BLUE)
-    //                     @Node {
-    //                 @margin: UiRect::all(Val::Px(10.0)),
-    //     }
-    //                 ),
-    //             ]
-    //         }"#,
-    //         r#"
-    //     Node {
-    //         width: Val::Percent(100.0),
-    //     }
-    //     Children [
-    //         : "ui/button.bsn"
-    //         @BackgroundColor(Color::BLUE)
-    //         @Node {
-    //             @margin: UiRect::all(Val::Px(10.0)),
-    //         }
-    //     ]
-    // "#
-    //     );
+    test_fmt!(
+        nested_patches_in_children,
+        BsnRoot,
+        r#"{
+            Node {
+                    width: Val ::
+                    Percent(100.0),
+            }
+    Children [
+        (
+            : "ui/button.bsn"
+                    @BackgroundColor(Color::BLUE)
+                    @Node {
+                @margin: UiRect::all(Val::Px(10.0)),
+    }
+                ),
+            ]
+        }"#,
+        r#"
+    Node {
+        width: Val::Percent(100.0),
+    }
+    Children [
+        : "ui/button.bsn"
+        @BackgroundColor(Color::BLUE)
+        @Node {
+            @margin: UiRect::all(Val::Px(10.0)),
+        }
+    ]
+    "#
+    );
 }
