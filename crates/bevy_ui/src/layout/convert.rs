@@ -1,7 +1,9 @@
 use bevy_platform::sync::Arc;
+use bevy_text::{EmSize, RemSize};
 use taffy::style_helpers;
 
 use crate::{
+    calc::{CalcOp, ValUnit},
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
     JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
@@ -14,6 +16,49 @@ use super::{
 };
 
 impl Val {
+    /// This value with every unit other than percent resolved to physical pixels, so that only
+    /// the percentage basis is needed to finish resolving it during layout.
+    ///
+    /// Rebuilding through the `Val` operators folds the resolved terms, so most expressions
+    /// collapse to a single `Px` or an inline sum of a length and a percentage.
+    fn to_physical(&self, context: &LayoutContext) -> Val {
+        let leaf = |(unit, value): (ValUnit, f32)| match unit {
+            ValUnit::Percent => Val::Percent(value),
+            _ => Val::Px(
+                Val::leaf(unit, value)
+                    .resolve(
+                        context.scale_factor,
+                        0.0,
+                        context.physical_size,
+                        EmSize(context.em_size),
+                        RemSize(context.rem_size),
+                    )
+                    .unwrap_or(0.0),
+            ),
+        };
+        match self {
+            Val::Auto => Val::Auto,
+            Val::Min(..) => self.terms().map(leaf).reduce(Val::min).unwrap_or(Val::ZERO),
+            Val::Max(..) => self.terms().map(leaf).reduce(Val::max).unwrap_or(Val::ZERO),
+            Val::Clamp(units, values) => leaf((units[1], values[1]))
+                .clamp(leaf((units[0], values[0])), leaf((units[2], values[2]))),
+            Val::Calc(calc) => match &*calc.0 {
+                CalcOp::Add(a, b) => a.to_physical(context) + b.to_physical(context),
+                CalcOp::Sub(a, b) => a.to_physical(context) - b.to_physical(context),
+                CalcOp::Min(a, b) => a.to_physical(context).min(b.to_physical(context)),
+                CalcOp::Max(a, b) => a.to_physical(context).max(b.to_physical(context)),
+                CalcOp::Clamp(min, value, max) => value
+                    .to_physical(context)
+                    .clamp(min.to_physical(context), max.to_physical(context)),
+            },
+            _ => self
+                .terms()
+                .map(leaf)
+                .reduce(|a, b| a + b)
+                .unwrap_or(Val::ZERO),
+        }
+    }
+
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &LayoutContext,
@@ -22,22 +67,11 @@ impl Val {
         match self {
             Val::Auto => style_helpers::auto(),
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                if !self.uses_percent() {
-                    return style_helpers::length(
-                        self.resolve(
-                            context.scale_factor,
-                            0.0,
-                            context.physical_size,
-                            bevy_text::EmSize(context.em_size),
-                            bevy_text::RemSize(context.rem_size),
-                        )
-                        .unwrap_or(0.0),
-                    );
+                let physical = self.to_physical(context);
+                if !physical.uses_percent() {
+                    return style_helpers::length(LayoutCalc(physical).resolve(0.0));
                 }
-                let calc = Arc::new(LayoutCalc {
-                    val: self.clone(),
-                    context: *context,
-                });
+                let calc = Arc::new(LayoutCalc(physical));
                 let value = taffy::style::LengthPercentageAuto::calc(Arc::as_ptr(&calc).cast());
                 calcs.push(calc);
                 value
@@ -68,22 +102,11 @@ impl Val {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                if !self.uses_percent() {
-                    return style_helpers::length(
-                        self.resolve(
-                            context.scale_factor,
-                            0.0,
-                            context.physical_size,
-                            bevy_text::EmSize(context.em_size),
-                            bevy_text::RemSize(context.rem_size),
-                        )
-                        .unwrap_or(0.0),
-                    );
+                let physical = self.to_physical(context);
+                if !physical.uses_percent() {
+                    return style_helpers::length(LayoutCalc(physical).resolve(0.0));
                 }
-                let calc = Arc::new(LayoutCalc {
-                    val: self.clone(),
-                    context: *context,
-                });
+                let calc = Arc::new(LayoutCalc(physical));
                 let value = taffy::style::LengthPercentage::calc(Arc::as_ptr(&calc).cast());
                 calcs.push(calc);
                 value
@@ -609,6 +632,36 @@ mod tests {
     use crate::BorderRadius;
 
     use super::*;
+
+    #[test]
+    fn expressions_resolve_to_physical_before_layout() {
+        let context =
+            LayoutContext::new(2.0, Vec2::new(1000.0, 500.0), EmSize(12.0), RemSize(20.0));
+        let value =
+            Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
+        assert_eq!(
+            value.to_physical(&context),
+            Val::Percent(50.0) + Val::Px(78.0)
+        );
+        assert_eq!(
+            (Val::Px(1.0) + Val::Em(1.0)).to_physical(&context),
+            Val::Px(26.0)
+        );
+        assert_eq!(
+            Val::Percent(80.0)
+                .clamp(Val::Px(100.0), Val::Px(300.0))
+                .to_physical(&context),
+            Val::Percent(80.0).clamp(Val::Px(200.0), Val::Px(600.0))
+        );
+        let nested: Val = CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into();
+        let physical = nested.to_physical(&context);
+        assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
+        assert_eq!(LayoutCalc(physical).resolve(100.0), 34.0);
+        assert_eq!(
+            LayoutCalc((Val::Px(1.0) + Val::Vh(10.0)).to_physical(&context)).resolve(0.0),
+            52.0
+        );
+    }
 
     #[test]
     fn test_convert_from() {

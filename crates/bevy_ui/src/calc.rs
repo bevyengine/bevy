@@ -405,6 +405,9 @@ impl Val {
     pub(crate) fn clamp_inline(min: &Val, value: &Val, max: &Val) -> Option<Val> {
         let term = |val: &Val| Some((val.unit()?, val.inner()?));
         let [lo, v, hi] = [term(min)?, term(value)?, term(max)?];
+        if lo.0 == v.0 && v.0 == hi.0 {
+            return Some(Val::leaf(v.0, lo.1.max(v.1.min(hi.1))));
+        }
         Some(Val::Clamp([lo.0, v.0, hi.0], [lo.1, v.1, hi.1]))
     }
 

@@ -23,9 +23,9 @@ use taffy::{
 };
 
 use crate::{
-    layout::{LayoutContext, UiTreeDirty},
-    ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure,
-    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform, Val,
+    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
+    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
+    UiTransform, Val,
 };
 
 #[expect(
@@ -45,22 +45,15 @@ unsafe impl Sync for TaffyStyle {}
 #[derive(Default, Component, Clone, Deref, DerefMut)]
 pub struct TaffyStyle(#[deref] pub Style, pub(crate) Vec<Arc<LayoutCalc>>);
 
+/// An expression with every unit other than percent already resolved to physical pixels,
+/// so only the percentage basis taffy supplies is needed to resolve it.
 #[repr(align(8))]
-pub(crate) struct LayoutCalc {
-    pub val: Val,
-    pub context: LayoutContext,
-}
+pub(crate) struct LayoutCalc(pub Val);
 
 impl LayoutCalc {
     pub fn resolve(&self, basis: f32) -> f32 {
-        self.val
-            .resolve(
-                self.context.scale_factor,
-                basis,
-                self.context.physical_size,
-                EmSize(self.context.em_size),
-                RemSize(self.context.rem_size),
-            )
+        self.0
+            .resolve(1.0, basis, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
             .unwrap_or(0.0)
     }
 }
