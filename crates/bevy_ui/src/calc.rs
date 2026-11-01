@@ -750,4 +750,45 @@ mod tests {
             Err(ValArithmeticError::NonEvaluable)
         );
     }
+
+    #[test]
+    fn direct_inline_clamp_negates_its_resolved_value() {
+        let value = Val::Clamp(
+            [ValUnit::Px, ValUnit::Percent, ValUnit::Px],
+            [100.0, 50.0, 20.0],
+        );
+        let resolve = |value: Val| {
+            value
+                .resolve(
+                    1.0,
+                    100.0,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap()
+        };
+        assert_eq!(resolve(value.clone()), 100.0);
+        assert_eq!(resolve(-value), -100.0);
+    }
+
+    #[test]
+    fn extrapolated_inline_clamp_negates_its_resolved_value() {
+        let a = Val::Percent(50.0).clamp(Val::Px(0.0), Val::Px(100.0));
+        let b = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Px(100.0));
+        let value = bevy_math::TryStableInterpolate::try_interpolate_stable(&a, &b, 2.0).unwrap();
+        let resolve = |value: Val| {
+            value
+                .resolve(
+                    1.0,
+                    100.0,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap()
+        };
+        assert_eq!(resolve(value.clone()), 200.0);
+        assert_eq!(resolve(-value), -200.0);
+    }
 }
