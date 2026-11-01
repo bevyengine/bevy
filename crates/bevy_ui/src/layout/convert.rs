@@ -21,7 +21,7 @@ impl Val {
     ) -> taffy::style::LengthPercentageAuto {
         match self {
             Val::Auto => style_helpers::auto(),
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Calc(_) => {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
                 if !self.uses_percent() {
                     return style_helpers::length(
                         self.resolve(
@@ -67,7 +67,7 @@ impl Val {
     ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Calc(_) => {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
                 if !self.uses_percent() {
                     return style_helpers::length(
                         self.resolve(

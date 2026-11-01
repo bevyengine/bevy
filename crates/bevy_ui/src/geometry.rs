@@ -79,6 +79,10 @@ pub enum Val {
     /// The largest of up to three terms with distinct units, laid out like [`Val::Sum`].
     /// Built by [`Val::max`].
     Max(ValUnitSet, [f32; 3]),
+    /// A value clamped between a minimum and a maximum, each a unit value, stored as the
+    /// `[min, value, max]` units and values. Built by [`Val::clamp`]; when an operand is itself
+    /// an expression it falls back to [`Val::Calc`].
+    Clamp([ValUnit; 3], [f32; 3]),
     Calc(Calc),
 }
 
@@ -157,6 +161,7 @@ impl PartialEq for Val {
             (Self::Min(a, x), Self::Min(b, y)) | (Self::Max(a, x), Self::Max(b, y)) => {
                 return ValTerms::new(*a, *x) == ValTerms::new(*b, *y);
             }
+            (Self::Clamp(a, x), Self::Clamp(b, y)) => return a == b && x == y,
             (Self::Sum(..), _) | (_, Self::Sum(..)) => {
                 return self.sum_terms() == other.sum_terms();
             }
@@ -204,7 +209,12 @@ impl Val {
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
     pub(crate) const fn inner(&self) -> Option<f32> {
         match self {
-            Self::Auto | Self::Sum(..) | Self::Min(..) | Self::Max(..) | Self::Calc(_) => None,
+            Self::Auto
+            | Self::Sum(..)
+            | Self::Min(..)
+            | Self::Max(..)
+            | Self::Clamp(..)
+            | Self::Calc(_) => None,
             Self::Px(v)
             | Self::Percent(v)
             | Self::Vw(v)
@@ -227,7 +237,12 @@ impl Val {
             Self::VMax(_) => ValUnit::VMax,
             Self::Em(_) => ValUnit::Em,
             Self::Rem(_) => ValUnit::Rem,
-            Self::Auto | Self::Sum(..) | Self::Min(..) | Self::Max(..) | Self::Calc(_) => {
+            Self::Auto
+            | Self::Sum(..)
+            | Self::Min(..)
+            | Self::Max(..)
+            | Self::Clamp(..)
+            | Self::Calc(_) => {
                 return None;
             }
         })
@@ -253,6 +268,7 @@ impl Val {
             Self::Sum(units, _) | Self::Min(units, _) | Self::Max(units, _) => {
                 units.contains(ValUnit::Percent)
             }
+            Self::Clamp(units, _) => units.contains(&ValUnit::Percent),
             Self::Calc(calc) => calc.0.uses_percent(),
             _ => false,
         }
@@ -456,8 +472,9 @@ impl Val {
         self.combine(other, TermOp::Max)
     }
 
+    /// `self` clamped between `min` and `max` once resolved.
     pub fn clamp(self, min: Val, max: Val) -> Val {
-        CalcOp::Clamp(min, self, max).into()
+        Val::clamp_inline(&min, &self, &max).unwrap_or_else(|| CalcOp::Clamp(min, self, max).into())
     }
 }
 
@@ -497,7 +514,7 @@ impl Mul<f32> for Val {
             Val::VMax(value) => Val::VMax(value * rhs),
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
-            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..)) => {
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
                 terms.map_terms(|value| value * rhs, rhs < 0.0)
             }
             Val::Calc(mut calc) => {
@@ -520,7 +537,7 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) => {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
                 *self = core::mem::take(self).map_terms(|value| value * rhs, rhs < 0.0);
             }
             Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs),
@@ -542,7 +559,7 @@ impl Div<f32> for Val {
             Val::VMax(value) => Val::VMax(value / rhs),
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
-            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..)) => {
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
                 terms.map_terms(|value| value / rhs, rhs < 0.0)
             }
             Val::Calc(mut calc) => {
@@ -565,7 +582,7 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) => {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
                 *self = core::mem::take(self).map_terms(|value| value / rhs, rhs < 0.0);
             }
             Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs.recip()),
@@ -587,7 +604,7 @@ impl Neg for Val {
             Val::VMax(value) => Val::VMax(-value),
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
-            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..)) => {
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
                 terms.map_terms(|value| -value, true)
             }
             Val::Calc(mut calc) => {
@@ -648,6 +665,15 @@ impl Val {
                     rem_size,
                 ))
             }
+            Val::Clamp(units, values) => Ok(Val::resolve_clamp(
+                *units,
+                *values,
+                scale_factor,
+                physical_base_value,
+                physical_target_size,
+                em_size,
+                rem_size,
+            )),
             Val::Calc(op) => op.0.resolve(
                 scale_factor,
                 physical_base_value,
@@ -678,7 +704,7 @@ impl TryFrom<Val> for FontSize {
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
             Val::Em(em) => FontSize::Rem(em), // see comment above
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Calc(_) => {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
                 return Err(ValArithmeticError::NonEvaluable);
             }
         })
@@ -718,6 +744,10 @@ impl TryStableInterpolate for Val {
                     _ => Val::Sum(units, values),
                 })
             }
+            (Val::Clamp(a, x), Val::Clamp(b, y)) if a == b => Ok(Val::Clamp(
+                *a,
+                core::array::from_fn(|i| x[i].interpolate_stable(&y[i], t)),
+            )),
             (Val::Auto, Val::Auto) => Ok(Val::Auto),
             _ => Err(MismatchedUnitsError),
         }

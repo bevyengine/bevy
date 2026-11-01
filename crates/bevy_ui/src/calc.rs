@@ -110,6 +110,7 @@ impl From<CalcOp> for Val {
 
 /// Discriminator enum, should match `Val`'s unit types.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum ValUnit {
     /// Use `Px` units
@@ -351,7 +352,7 @@ impl TermOp {
 
 impl Val {
     /// The terms of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`], or the single term of a
-    /// unit value. Empty for [`Val::Auto`] and [`Val::Calc`].
+    /// unit value. Empty for [`Val::Auto`], [`Val::Clamp`] and [`Val::Calc`].
     pub fn terms(&self) -> impl Iterator<Item = (ValUnit, f32)> {
         let terms = match self {
             Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
@@ -398,13 +399,51 @@ impl Val {
         Some(terms)
     }
 
-    /// Applies `f` to every term of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`].
-    /// `reverses` swaps `Min` and `Max`, for an `f` that reverses ordering.
+    /// The inline clamp of `value` between `min` and `max`, when all three are unit values.
+    pub(crate) fn clamp_inline(min: &Val, value: &Val, max: &Val) -> Option<Val> {
+        let term = |val: &Val| Some((val.unit()?, val.inner()?));
+        let [lo, v, hi] = [term(min)?, term(value)?, term(max)?];
+        Some(Val::Clamp([lo.0, v.0, hi.0], [lo.1, v.1, hi.1]))
+    }
+
+    pub(crate) fn resolve_clamp(
+        units: [ValUnit; 3],
+        values: [f32; 3],
+        scale_factor: f32,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> f32 {
+        let [lo, v, hi] = core::array::from_fn(|i| {
+            Val::leaf(units[i], values[i])
+                .resolve(
+                    scale_factor,
+                    physical_base_value,
+                    physical_target_size,
+                    em_size,
+                    rem_size,
+                )
+                .unwrap_or(0.0)
+        });
+        lo.max(v.min(hi))
+    }
+
+    /// Applies `f` to every term of a [`Val::Sum`], [`Val::Min`], [`Val::Max`] or [`Val::Clamp`].
+    /// `reverses` swaps `Min` and `Max` and the bounds of `Clamp`, for an `f` that reverses ordering.
     pub(crate) fn map_terms(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
         let (op, units, mut values) = match self {
             Val::Sum(units, values) => (TermOp::Sum, units, values),
             Val::Min(units, values) => (TermOp::Min, units, values),
             Val::Max(units, values) => (TermOp::Max, units, values),
+            Val::Clamp(mut units, values) => {
+                let mut values = values.map(&f);
+                if reverses {
+                    units.swap(0, 2);
+                    values.swap(0, 2);
+                }
+                return Val::Clamp(units, values);
+            }
             other => return other,
         };
         for value in &mut values[..units.len()] {
@@ -458,6 +497,38 @@ mod tests {
         assert_eq!(resolve(&min), Ok(10.0));
         assert_eq!(resolve(&Val::Px(10.0).max(Val::Percent(50.0))), Ok(50.0));
         assert_eq!(resolve(&(min * -2.0)), Ok(-20.0));
+    }
+
+    #[test]
+    fn clamp_folds_inline() {
+        use bevy_math::TryStableInterpolate;
+        let clamp = Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0));
+        assert!(matches!(clamp, Val::Clamp(..)), "got {clamp:?}");
+        let resolve = |value: &Val, base: f32| {
+            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+        };
+        assert_eq!(resolve(&clamp, 100.0), Ok(100.0));
+        assert_eq!(resolve(&clamp, 250.0), Ok(200.0));
+        assert_eq!(resolve(&clamp, 1000.0), Ok(300.0));
+        assert_eq!(
+            -clamp.clone(),
+            Val::Percent(-80.0).clamp(Val::Px(-300.0), Val::Px(-100.0))
+        );
+        assert_eq!(resolve(&(clamp.clone() * -2.0), 250.0), Ok(-400.0));
+        assert_eq!(
+            clamp.clone() * 2.0,
+            Val::Percent(160.0).clamp(Val::Px(200.0), Val::Px(600.0))
+        );
+        assert_eq!(
+            clamp
+                .try_interpolate_stable(&Val::Percent(0.0).clamp(Val::Px(0.0), Val::Px(100.0)), 0.5)
+                .ok(),
+            Some(Val::Percent(40.0).clamp(Val::Px(50.0), Val::Px(200.0)))
+        );
+        assert!(matches!(
+            (Val::Percent(80.0) + Val::Px(1.0)).clamp(Val::Px(100.0), Val::Px(300.0)),
+            Val::Calc(_)
+        ));
     }
 
     #[test]
