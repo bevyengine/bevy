@@ -413,7 +413,7 @@ pub(crate) fn update_scrollbar_thumb(
                 thumb_node.border_radius = border_radius;
             }
 
-            let resolve_border_val = |val: Val| {
+            let resolve_border_val = |val: &Val| {
                 val.resolve(
                     target_info.scale_factor(),
                     thumb_physical_size.x,
@@ -426,12 +426,12 @@ pub(crate) fn update_scrollbar_thumb(
 
             let mut resolved_border = BorderRect {
                 min_inset: Vec2::new(
-                    resolve_border_val(thumb.border.left),
-                    resolve_border_val(thumb.border.top),
+                    resolve_border_val(&thumb.border.left),
+                    resolve_border_val(&thumb.border.top),
                 ),
                 max_inset: Vec2::new(
-                    resolve_border_val(thumb.border.right),
-                    resolve_border_val(thumb.border.bottom),
+                    resolve_border_val(&thumb.border.right),
+                    resolve_border_val(&thumb.border.bottom),
                 ),
             };
 

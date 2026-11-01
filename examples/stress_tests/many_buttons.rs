@@ -197,7 +197,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                             column,
                             row,
                             args.text,
-                            border,
+                            border.clone(),
                             border_color,
                             images.as_ref().map(|images| {
                                 images[((column + row) / args.image_freq) % images.len()].clone()
@@ -253,7 +253,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                         column,
                         row,
                         args.text,
-                        border,
+                        border.clone(),
                         border_color,
                         images.as_ref().map(|images| {
                             images[((column + row) / args.image_freq) % images.len()].clone()
@@ -279,7 +279,7 @@ fn spawn_button(
 ) {
     let width = vw(90.0 / buttons);
     let height = vh(90.0 / buttons);
-    let margin = UiRect::axes(width * 0.05, height * 0.05);
+    let margin = UiRect::axes(width.clone() * 0.05, height.clone() * 0.05);
     let mut builder = commands.spawn((
         Button,
         Hovered(false),
@@ -399,7 +399,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                                 column,
                                 row,
                                 args.text,
-                                border,
+                                border.clone(),
                                 border_color,
                                 images.as_ref().map(|images| {
                                     images[((column + row) / args.image_freq) % images.len()]

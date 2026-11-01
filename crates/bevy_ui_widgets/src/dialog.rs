@@ -163,7 +163,7 @@ fn dialog_drag_start(
         return;
     };
 
-    if let Ok(translation) = q_transform.get(dialog).map(|t| t.translation) {
+    if let Ok(translation) = q_transform.get(dialog).map(|t| t.translation.clone()) {
         state.start_dialog_translation = translation;
     } else {
         warn!("Cannot get translation from dialog for dragging");
@@ -210,6 +210,7 @@ fn dialog_drag(
     if let Ok(mut transform) = q_transform.get_mut(dialog)
         && let Ok(translation) = state
             .start_dialog_translation
+            .clone()
             .try_add(Val2::px(clamped_offset.x, clamped_offset.y))
     {
         transform.translation = translation;

@@ -9,7 +9,8 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_text::{ComputedTextBlock, FontCx};
+use bevy_platform::{collections::HashMap, sync::Arc};
+use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize};
 use bevy_utils::default;
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
@@ -22,84 +23,109 @@ use taffy::{
 };
 
 use crate::{
-    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
-    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform,
+    calc::Calc,
+    layout::{LayoutContext, UiTreeDirty},
+    ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure,
+    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform,
 };
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "calc pointers are opaque lookup keys and are never dereferenced"
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: Calc pointers are only used as lookup keys, never dereferenced. The owned expressions are Send + Sync.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "calc pointers are opaque lookup keys and are never dereferenced"
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: Calc pointers are only used as lookup keys, never dereferenced. The owned expressions are Send + Sync.
 unsafe impl Sync for TaffyStyle {}
 
 #[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(pub Style);
+pub struct TaffyStyle(#[deref] pub Style, pub(crate) Vec<Arc<LayoutCalc>>);
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
-    dummy: core::marker::PhantomData,
-    display: Display::Grid,
-    item_is_table: false,
-    item_is_replaced: false,
-    item_is_compressible_replaced: false,
-    box_sizing: taffy::BoxSizing::BorderBox,
-    direction: taffy::Direction::Ltr,
-    overflow: taffy::Point {
-        x: taffy::Overflow::Visible,
-        y: taffy::Overflow::Visible,
+#[repr(align(8))]
+pub(crate) struct LayoutCalc {
+    pub calc: Calc,
+    pub context: LayoutContext,
+}
+
+impl LayoutCalc {
+    pub fn resolve(&self, basis: f32) -> f32 {
+        self.calc
+            .0
+            .resolve(
+                self.context.scale_factor,
+                basis,
+                self.context.physical_size,
+                EmSize(self.context.em_size),
+                RemSize(self.context.rem_size),
+            )
+            .unwrap_or(0.0)
+    }
+}
+
+pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(
+    Style {
+        dummy: core::marker::PhantomData,
+        display: Display::Grid,
+        item_is_table: false,
+        item_is_replaced: false,
+        item_is_compressible_replaced: false,
+        box_sizing: taffy::BoxSizing::BorderBox,
+        direction: taffy::Direction::Ltr,
+        overflow: taffy::Point {
+            x: taffy::Overflow::Visible,
+            y: taffy::Overflow::Visible,
+        },
+        scrollbar_width: 0.0,
+        contain: taffy::Contain::NONE,
+        position: taffy::Position::Relative,
+        inset: taffy::Rect::auto(),
+        size: taffy::Size {
+            width: taffy::Dimension::percent(1.0),
+            height: taffy::Dimension::percent(1.0),
+        },
+        min_size: taffy::Size::auto(),
+        max_size: taffy::Size::auto(),
+        aspect_ratio: None,
+        margin: taffy::Rect::zero(),
+        padding: taffy::Rect::zero(),
+        border: taffy::Rect::zero(),
+        align_items: taffy::AlignItems::START,
+        align_self: None,
+        justify_items: taffy::JustifyItems::START,
+        justify_self: None,
+        align_content: taffy::AlignContent::NORMAL,
+        justify_content: taffy::AlignContent::NORMAL,
+        gap: taffy::Size::zero(),
+        text_align: taffy::TextAlign::Auto,
+        flex_direction: taffy::FlexDirection::Row,
+        flex_wrap: taffy::FlexWrap::NoWrap,
+        flex_basis: taffy::Dimension::auto(),
+        flex_grow: 0.0,
+        flex_shrink: 1.0,
+        grid_template_rows: Vec::new(),
+        grid_template_columns: Vec::new(),
+        grid_auto_rows: Vec::new(),
+        grid_auto_columns: Vec::new(),
+        grid_auto_flow: taffy::GridAutoFlow::Row,
+        grid_template_areas: None,
+        grid_template_column_names: Vec::new(),
+        grid_template_row_names: Vec::new(),
+        grid_row: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
+        grid_column: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
     },
-    scrollbar_width: 0.0,
-    contain: taffy::Contain::NONE,
-    position: taffy::Position::Relative,
-    inset: taffy::Rect::auto(),
-    size: taffy::Size {
-        width: taffy::Dimension::percent(1.0),
-        height: taffy::Dimension::percent(1.0),
-    },
-    min_size: taffy::Size::auto(),
-    max_size: taffy::Size::auto(),
-    aspect_ratio: None,
-    margin: taffy::Rect::zero(),
-    padding: taffy::Rect::zero(),
-    border: taffy::Rect::zero(),
-    align_items: taffy::AlignItems::START,
-    align_self: None,
-    justify_items: taffy::JustifyItems::START,
-    justify_self: None,
-    align_content: taffy::AlignContent::NORMAL,
-    justify_content: taffy::AlignContent::NORMAL,
-    gap: taffy::Size::zero(),
-    text_align: taffy::TextAlign::Auto,
-    flex_direction: taffy::FlexDirection::Row,
-    flex_wrap: taffy::FlexWrap::NoWrap,
-    flex_basis: taffy::Dimension::auto(),
-    flex_grow: 0.0,
-    flex_shrink: 1.0,
-    grid_template_rows: Vec::new(),
-    grid_template_columns: Vec::new(),
-    grid_auto_rows: Vec::new(),
-    grid_auto_columns: Vec::new(),
-    grid_auto_flow: taffy::GridAutoFlow::Row,
-    grid_template_areas: None,
-    grid_template_column_names: Vec::new(),
-    grid_template_row_names: Vec::new(),
-    grid_row: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-    grid_column: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-});
+    Vec::new(),
+);
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
@@ -359,6 +385,29 @@ pub fn compute_layout<'w, 's>(
     };
 
     {
+        let mut calcs: HashMap<usize, &LayoutCalc> = HashMap::default();
+        child_stack.push(root_node_id);
+        while let Some(node_id) = child_stack.pop() {
+            let entity = entity_from_node_id(node_id).expect("Viewport node should not be a child");
+            let style = style_query
+                .get(entity)
+                .expect("Missing TaffyStyle on UI node.");
+            calcs.extend(
+                style
+                    .1
+                    .iter()
+                    .map(|calc| (Arc::as_ptr(calc) as usize, calc.as_ref())),
+            );
+            let layout = computed_layout_query
+                .get(entity)
+                .expect("Missing ComputedLayout on UI node.");
+            child_stack.extend_from_slice(&layout.ui_children);
+        }
+        let resolve_calc = |ptr: *const (), basis: f32| {
+            calcs
+                .get(&(ptr as usize))
+                .map_or(0.0, |calc| calc.resolve(basis))
+        };
         let mut measure_function = |known_dimensions: taffy::Size<Option<f32>>,
                                     available_space: taffy::Size<AvailableSpace>,
                                     entity: Entity,
@@ -377,6 +426,7 @@ pub fn compute_layout<'w, 's>(
                 font_system,
                 buffer: None,
                 style,
+                resolve_calc: &resolve_calc,
             };
             let buffer = get_text_buffer(
                 crate::widget::TextMeasure::needs_buffer(
@@ -403,6 +453,7 @@ pub fn compute_layout<'w, 's>(
                 ..default()
             },
             measure_function: &mut measure_function,
+            resolve_calc: &resolve_calc,
             layout_changed: false,
         };
 
@@ -603,6 +654,7 @@ struct UiLayoutTree<'a, 'w, 's> {
         &Style,
     ) -> taffy::Size<f32>,
     layout_changed: bool,
+    resolve_calc: &'a dyn Fn(*const (), f32) -> f32,
 }
 
 impl<'a> UiLayoutTree<'a, '_, '_> {
@@ -660,7 +712,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                 (_, false) => compute_leaf_layout(
                     inputs,
                     style,
-                    |_, _| 0.0,
+                    tree.resolve_calc,
                     |known_dimensions, available_space| {
                         (tree.measure_function)(
                             known_dimensions,
@@ -704,6 +756,10 @@ impl TraversePartialTree for UiLayoutTree<'_, '_, '_> {
 impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
 impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
+    fn resolve_calc_value(&self, val: *const (), basis: f32) -> f32 {
+        (self.resolve_calc)(val, basis)
+    }
+
     type CoreContainerStyle<'a>
         = &'a Style
     where

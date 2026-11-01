@@ -1075,7 +1075,10 @@ mod text_measurement {
                                                 BackgroundColor(Color::WHITE),
                                             ),
                                             (
-                                                Node { width, ..default() },
+                                                Node {
+                                                    width: width.clone(),
+                                                    ..default()
+                                                },
                                                 children![(
                                                     Text::new("+300 Some Long Item Title"),
                                                     TextFont {
@@ -1109,7 +1112,10 @@ mod text_measurement {
                                                 BackgroundColor(Color::WHITE),
                                             ),
                                             (
-                                                Node { width, ..default() },
+                                                Node {
+                                                    width: width.clone(),
+                                                    ..default()
+                                                },
                                                 Text::new("+300 Some Long Item Title"),
                                                 TextFont {
                                                     font_size: FontSize::Px(10.),
@@ -1240,8 +1246,8 @@ mod borders {
             },
         ];
 
-        let non_zero = |x, y| x != px(0) && y != px(0);
-        let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
+        let non_zero = |x: &Val, y: &Val| x != &px(0) && y != &px(0);
+        let border_size = |x: &Val, y: &Val| if non_zero(x, y) { f32::MAX } else { 0. };
 
         for border in borders {
             for rounded in [true, false] {
@@ -1250,16 +1256,16 @@ mod borders {
                         Node {
                             width: px(100),
                             height: px(100),
-                            border,
+                            border: border.clone(),
                             margin: UiRect::all(px(30)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
                             border_radius: if rounded {
                                 BorderRadius::px(
-                                    border_size(border.left, border.top),
-                                    border_size(border.right, border.top),
-                                    border_size(border.right, border.bottom),
-                                    border_size(border.left, border.bottom),
+                                    border_size(&border.left, &border.top),
+                                    border_size(&border.right, &border.top),
+                                    border_size(&border.right, &border.bottom),
+                                    border_size(&border.left, &border.bottom),
                                 )
                             } else {
                                 BorderRadius::ZERO
@@ -2332,8 +2338,8 @@ mod radial_gradient {
                                         },
                                         BackgroundGradient::from(RadialGradient {
                                             stops: color_stops.clone(),
-                                            position,
-                                            shape,
+                                            position: position.clone(),
+                                            shape: shape.clone(),
                                             ..default()
                                         }),
                                     ));
@@ -2846,14 +2852,42 @@ mod outer_color {
             ))
             .with_children(|builder| {
                 for (border, border_radius, invert) in [
-                    (UiRect::ZERO, BorderRadius::bottom_right(radius), true),
-                    (UiRect::top(width), BorderRadius::top(radius), false),
-                    (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
-                    (UiRect::left(width), BorderRadius::left(radius), false),
-                    (UiRect::all(width), BorderRadius::all(radius.x), true),
-                    (UiRect::right(width), BorderRadius::right(radius), false),
-                    (UiRect::ZERO, BorderRadius::top_right(radius), true),
-                    (UiRect::bottom(width), BorderRadius::bottom(radius), false),
+                    (
+                        UiRect::ZERO,
+                        BorderRadius::bottom_right(radius.clone()),
+                        true,
+                    ),
+                    (
+                        UiRect::top(width.clone()),
+                        BorderRadius::top(radius.clone()),
+                        false,
+                    ),
+                    (
+                        UiRect::ZERO,
+                        BorderRadius::bottom_left(radius.clone()),
+                        true,
+                    ),
+                    (
+                        UiRect::left(width.clone()),
+                        BorderRadius::left(radius.clone()),
+                        false,
+                    ),
+                    (
+                        UiRect::all(width.clone()),
+                        BorderRadius::all(radius.x.clone()),
+                        true,
+                    ),
+                    (
+                        UiRect::right(width.clone()),
+                        BorderRadius::right(radius.clone()),
+                        false,
+                    ),
+                    (UiRect::ZERO, BorderRadius::top_right(radius.clone()), true),
+                    (
+                        UiRect::bottom(width),
+                        BorderRadius::bottom(radius.clone()),
+                        false,
+                    ),
                     (UiRect::ZERO, BorderRadius::top_left(radius), true),
                 ] {
                     builder
@@ -3624,7 +3658,7 @@ mod node_material {
             border_radius: BorderRadius::all(px(20)),
             ..default()
         };
-        let material_label = |text: &str| (Text::new(text), TextFont::from_font_size(px(10.)));
+        let material_label = |text: &str| (Text::new(text), TextFont::from_font_size(10.));
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::NodeMaterial)));
         commands.spawn((
@@ -3645,7 +3679,7 @@ mod node_material {
             children![
                 (
                     Text::new("MaterialNode"),
-                    TextFont::from_font_size(px(30.)),
+                    TextFont::from_font_size(30.),
                     TextLayout::justify(Justify::Center),
                     Node {
                         grid_column: GridPlacement::span(2),
@@ -3675,8 +3709,8 @@ mod node_material {
                 material_label("'custom_ui_material.wgsl' clipped vertically"),
                 (
                     Node {
-                        width: material_node.width,
-                        height: material_node.height,
+                        width: material_node.width.clone(),
+                        height: material_node.height.clone(),
                         ..default()
                     },
                     Outline {
@@ -3698,8 +3732,8 @@ mod node_material {
                 material_label("'custom_ui_material.wgsl' end clipped on both axis"),
                 (
                     Node {
-                        width: material_node.width,
-                        height: material_node.height,
+                        width: material_node.width.clone(),
+                        height: material_node.height.clone(),
                         ..default()
                     },
                     Outline {
@@ -3731,8 +3765,8 @@ mod node_material {
                 material_label("'custom_ui_material.wgsl' start clipped on both axis"),
                 (
                     Node {
-                        width: material_node.width,
-                        height: material_node.height,
+                        width: material_node.width.clone(),
+                        height: material_node.height.clone(),
                         align_items: AlignItems::End,
                         justify_content: JustifyContent::End,
                         ..default()
@@ -3885,7 +3919,7 @@ mod font_relative_units {
                                     ..default()
                                 },
                                 Text::new("px sizing"),
-                                TextFont::from_font_size(px(16)),
+                                TextFont::from_font_size(16.),
                                 TextColor(LAVENDER.into()),
                             ),
                             (

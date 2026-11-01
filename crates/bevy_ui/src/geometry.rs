@@ -2,13 +2,13 @@ use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpola
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize};
 use bevy_utils::default;
-use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
+use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::calc::CalcId;
+use crate::calc::{Calc};
 
 /// Represents the possible value types for layout properties.
 ///
@@ -24,7 +24,7 @@ use crate::calc::CalcId;
 /// * `vmax`: percentage of the viewport's larger dimension
 ///
 /// Additionally, `auto` will be parsed as [`Val::Auto`].
-#[derive(Copy, Clone, Debug, Reflect)]
+#[derive(Clone, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -67,7 +67,7 @@ pub enum Val {
     /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
-    Calc(CalcId),
+    Calc(Calc),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -140,6 +140,9 @@ impl core::str::FromStr for Val {
 
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
+        if let (Self::Calc(a), Self::Calc(b)) = (self, other) {
+            return a == b;
+        }
         let same_unit = matches!(
             (self, other),
             (Self::Auto, Self::Auto)
@@ -176,13 +179,13 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`].
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`] and [`Val::Calc`].
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    const fn inner(self) -> Option<f32> {
+    const fn inner(&self) -> Option<f32> {
         match self {
-            Self::Auto => None,
+            Self::Auto | Self::Calc(_) => None,
             Self::Px(v)
             | Self::Percent(v)
             | Self::Vw(v)
@@ -190,7 +193,7 @@ impl Val {
             | Self::VMin(v)
             | Self::VMax(v)
             | Self::Em(v)
-            | Self::Rem(v) => Some(v),
+            | Self::Rem(v) => Some(*v),
         }
     }
 
@@ -210,7 +213,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn left(self) -> UiRect {
+    pub fn left(self) -> UiRect {
         UiRect::left(self)
     }
 
@@ -230,7 +233,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn right(self) -> UiRect {
+    pub fn right(self) -> UiRect {
         UiRect::right(self)
     }
 
@@ -250,7 +253,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::Px(1.));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn top(self) -> UiRect {
+    pub fn top(self) -> UiRect {
         UiRect::top(self)
     }
 
@@ -270,7 +273,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
-    pub const fn bottom(self) -> UiRect {
+    pub fn bottom(self) -> UiRect {
         UiRect::bottom(self)
     }
 
@@ -288,7 +291,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::Px(1.));
     /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
-    pub const fn all(self) -> UiRect {
+    pub fn all(self) -> UiRect {
         UiRect::all(self)
     }
 
@@ -307,7 +310,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn horizontal(self) -> UiRect {
+    pub fn horizontal(self) -> UiRect {
         UiRect::horizontal(self)
     }
 
@@ -326,7 +329,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::Px(1.));
     /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
-    pub const fn vertical(self) -> UiRect {
+    pub fn vertical(self) -> UiRect {
         UiRect::vertical(self)
     }
 
@@ -342,7 +345,7 @@ impl Val {
     ///     Err(ValArithmeticError::IncompatibleUnits)
     /// );
     /// ```
-    pub const fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
+    pub fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
         match (self, val) {
             (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
             (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
@@ -368,7 +371,7 @@ impl Val {
     ///     Err(ValArithmeticError::IncompatibleUnits)
     /// );
     /// ```
-    pub const fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
+    pub fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
         match (self, val) {
             (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
             (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
@@ -389,6 +392,22 @@ impl Default for Val {
     }
 }
 
+impl Add for Val {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        Calc::Add(self, rhs).into()
+    }
+}
+
+impl Sub for Val {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        Calc::Sub(self, rhs).into()
+    }
+}
+
 impl Mul<f32> for Val {
     type Output = Val;
 
@@ -403,6 +422,7 @@ impl Mul<f32> for Val {
             Val::VMax(value) => Val::VMax(value * rhs),
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
+            Val::Calc(op) => Calc::Scale(Val::Calc(op), rhs).into(),
         }
     }
 }
@@ -419,6 +439,7 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
+            Val::Calc(_) => *self = core::mem::take(self) * rhs,
         }
     }
 }
@@ -437,6 +458,7 @@ impl Div<f32> for Val {
             Val::VMax(value) => Val::VMax(value / rhs),
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
+            Val::Calc(op) => Calc::Scale(Val::Calc(op), rhs.recip()).into(),
         }
     }
 }
@@ -453,6 +475,7 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
+            Val::Calc(_) => *self = core::mem::take(self) / rhs,
         }
     }
 }
@@ -471,6 +494,7 @@ impl Neg for Val {
             Val::VMax(value) => Val::VMax(-value),
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
+            Val::Calc(op) => Calc::Scale(Val::Calc(op), -1.0).into(),
         }
     }
 }
@@ -488,8 +512,8 @@ impl Val {
     /// `physical_target_size`, `em_size`, and `rem_size` context values.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
-    pub const fn resolve(
-        self,
+    pub fn resolve(
+        &self,
         scale_factor: f32,
         physical_base_value: f32,
         physical_target_size: Vec2,
@@ -510,18 +534,27 @@ impl Val {
             Val::Em(value) => Ok(value * em_size.0 * scale_factor),
             Val::Rem(value) => Ok(value * rem_size.0 * scale_factor),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
+            Val::Calc(op) => op.0.resolve(
+                scale_factor,
+                physical_base_value,
+                physical_target_size,
+                em_size,
+                rem_size,
+            ),
         }
     }
 }
 
-impl From<Val> for FontSize {
+impl TryFrom<Val> for FontSize {
+    type Error = ValArithmeticError;
+
     /// Converts a [`Val`] into a [`FontSize`].
     ///
     /// [`Val::Em`] becomes [`FontSize::Rem`]: em is relative to the font size of the node
     /// itself, which is the very thing being defined here, so it resolves against the root
     /// size instead to avoid the circularity.
-    fn from(val: Val) -> Self {
-        match val {
+    fn try_from(val: Val) -> Result<Self, Self::Error> {
+        Ok(match val {
             Val::Auto => FontSize::Rem(1.),
             Val::Px(px) => FontSize::Px(px),
             Val::Percent(percent) => FontSize::Rem(percent / 100.),
@@ -531,7 +564,8 @@ impl From<Val> for FontSize {
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
             Val::Em(em) => FontSize::Rem(em), // see comment above
-        }
+            Val::Calc(_) => return Err(ValArithmeticError::NonEvaluable),
+        })
     }
 }
 
@@ -686,7 +720,7 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -705,9 +739,9 @@ pub struct UiRect {
 }
 
 impl UiRect {
-    pub const DEFAULT: Self = Self::all(Val::ZERO);
-    pub const ZERO: Self = Self::all(Val::ZERO);
-    pub const AUTO: Self = Self::all(Val::Auto);
+    pub const DEFAULT: Self = Self::ZERO;
+    pub const ZERO: Self = Self::new(Val::ZERO, Val::ZERO, Val::ZERO, Val::ZERO);
+    pub const AUTO: Self = Self::new(Val::Auto, Val::Auto, Val::Auto, Val::Auto);
 
     /// Creates a new [`UiRect`] from the values specified.
     ///
@@ -751,11 +785,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn all(value: Val) -> Self {
+    pub fn all(value: Val) -> Self {
         UiRect {
-            left: value,
-            right: value,
-            top: value,
+            left: value.clone(),
+            right: value.clone(),
+            top: value.clone(),
             bottom: value,
         }
     }
@@ -823,9 +857,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn horizontal(value: Val) -> Self {
+    pub fn horizontal(value: Val) -> Self {
         Self {
-            left: value,
+            left: value.clone(),
             right: value,
             ..Self::DEFAULT
         }
@@ -846,9 +880,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn vertical(value: Val) -> Self {
+    pub fn vertical(value: Val) -> Self {
         Self {
-            top: value,
+            top: value.clone(),
             bottom: value,
             ..Self::DEFAULT
         }
@@ -868,11 +902,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Percent(15.0));
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
-    pub const fn axes(horizontal: Val, vertical: Val) -> Self {
+    pub fn axes(horizontal: Val, vertical: Val) -> Self {
         Self {
-            left: horizontal,
+            left: horizontal.clone(),
             right: horizontal,
-            top: vertical,
+            top: vertical.clone(),
             bottom: vertical,
         }
     }
@@ -892,7 +926,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn left(left: Val) -> Self {
+    pub fn left(left: Val) -> Self {
         Self {
             left,
             ..Self::DEFAULT
@@ -914,7 +948,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn right(right: Val) -> Self {
+    pub fn right(right: Val) -> Self {
         Self {
             right,
             ..Self::DEFAULT
@@ -936,7 +970,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn top(top: Val) -> Self {
+    pub fn top(top: Val) -> Self {
         Self {
             top,
             ..Self::DEFAULT
@@ -958,7 +992,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn bottom(bottom: Val) -> Self {
+    pub fn bottom(bottom: Val) -> Self {
         Self {
             bottom,
             ..Self::DEFAULT
@@ -979,7 +1013,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_left(mut self, left: Val) -> Self {
+    pub fn with_left(mut self, left: Val) -> Self {
         self.left = left;
         self
     }
@@ -998,7 +1032,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_right(mut self, right: Val) -> Self {
+    pub fn with_right(mut self, right: Val) -> Self {
         self.right = right;
         self
     }
@@ -1017,7 +1051,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_top(mut self, top: Val) -> Self {
+    pub fn with_top(mut self, top: Val) -> Self {
         self.top = top;
         self
     }
@@ -1036,7 +1070,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     #[inline]
-    pub const fn with_bottom(mut self, bottom: Val) -> Self {
+    pub fn with_bottom(mut self, bottom: Val) -> Self {
         self.bottom = bottom;
         self
     }
@@ -1054,7 +1088,7 @@ impl From<Val> for UiRect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1120,83 +1154,83 @@ impl UiPosition {
     }
 
     /// Creates a position from self with the given `x` and `y` coordinates
-    pub const fn at(self, x: Val, y: Val) -> Self {
+    pub fn at(self, x: Val, y: Val) -> Self {
         Self { x, y, ..self }
     }
 
     /// Creates a position from self with the given `x` coordinate
-    pub const fn at_x(self, x: Val) -> Self {
+    pub fn at_x(self, x: Val) -> Self {
         Self { x, ..self }
     }
 
     /// Creates a position from self with the given `y` coordinate
-    pub const fn at_y(self, y: Val) -> Self {
+    pub fn at_y(self, y: Val) -> Self {
         Self { y, ..self }
     }
 
     /// Creates a position in logical pixels from self with the given `x` and `y` coordinates
-    pub const fn at_px(self, x: f32, y: f32) -> Self {
+    pub fn at_px(self, x: f32, y: f32) -> Self {
         self.at(Val::Px(x), Val::Px(y))
     }
 
     /// Creates a percentage position from self with the given `x` and `y` coordinates
-    pub const fn at_percent(self, x: f32, y: f32) -> Self {
+    pub fn at_percent(self, x: f32, y: f32) -> Self {
         self.at(Val::Percent(x), Val::Percent(y))
     }
 
     /// Creates a position from self with the given `anchor` point
-    pub const fn with_anchor(self, anchor: Vec2) -> Self {
+    pub fn with_anchor(self, anchor: Vec2) -> Self {
         Self { anchor, ..self }
     }
 
     /// Position relative to the top-left corner
-    pub const fn top_left(x: Val, y: Val) -> Self {
+    pub fn top_left(x: Val, y: Val) -> Self {
         Self::TOP_LEFT.at(x, y)
     }
 
     /// Position relative to the left edge
-    pub const fn left(x: Val, y: Val) -> Self {
+    pub fn left(x: Val, y: Val) -> Self {
         Self::LEFT.at(x, y)
     }
 
     /// Position relative to the bottom-left corner
-    pub const fn bottom_left(x: Val, y: Val) -> Self {
+    pub fn bottom_left(x: Val, y: Val) -> Self {
         Self::BOTTOM_LEFT.at(x, y)
     }
 
     /// Position relative to the top edge
-    pub const fn top(x: Val, y: Val) -> Self {
+    pub fn top(x: Val, y: Val) -> Self {
         Self::TOP.at(x, y)
     }
 
     /// Position relative to the center
-    pub const fn center(x: Val, y: Val) -> Self {
+    pub fn center(x: Val, y: Val) -> Self {
         Self::CENTER.at(x, y)
     }
 
     /// Position relative to the bottom edge
-    pub const fn bottom(x: Val, y: Val) -> Self {
+    pub fn bottom(x: Val, y: Val) -> Self {
         Self::BOTTOM.at(x, y)
     }
 
     /// Position relative to the top-right corner
-    pub const fn top_right(x: Val, y: Val) -> Self {
+    pub fn top_right(x: Val, y: Val) -> Self {
         Self::TOP_RIGHT.at(x, y)
     }
 
     /// Position relative to the right edge
-    pub const fn right(x: Val, y: Val) -> Self {
+    pub fn right(x: Val, y: Val) -> Self {
         Self::RIGHT.at(x, y)
     }
 
     /// Position relative to the bottom-right corner
-    pub const fn bottom_right(x: Val, y: Val) -> Self {
+    pub fn bottom_right(x: Val, y: Val) -> Self {
         Self::BOTTOM_RIGHT.at(x, y)
     }
 
     /// Resolves the `Position` into physical coordinates.
     pub fn resolve(
-        self,
+        &self,
         scale_factor: f32,
         physical_size: Vec2,
         physical_target_size: Vec2,
@@ -1258,7 +1292,7 @@ impl From<(Val, Val)> for UiPosition {
 /// let rem_size = RemSize(20.0);
 ///
 /// let c1 = CornerRadius {
-///     x: radius,
+///     x: radius.clone(),
 ///     y: Val::ZERO,
 /// };
 /// let c2 = CornerRadius {
@@ -1275,7 +1309,7 @@ impl From<(Val, Val)> for UiPosition {
 ///     Vec2::new(10.0, 0.0),
 /// );
 /// ```
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1322,7 +1356,7 @@ impl CornerRadius {
     /// let em_size = EmSize(20.0);
     /// let rem_size = RemSize(20.0);
     ///
-    /// let c1 = CornerRadius::circular(radius);
+    /// let c1 = CornerRadius::circular(radius.clone());
     /// let c2 = CornerRadius {
     ///     x: Val::Auto,
     ///     y: radius,
@@ -1362,9 +1396,9 @@ impl CornerRadius {
     /// let em_size = EmSize(20.0);
     /// let rem_size = RemSize(20.0);
     ///
-    /// let c1 = CornerRadius::all(radius);
+    /// let c1 = CornerRadius::all(radius.clone());
     /// let c2 = CornerRadius {
-    ///     x: radius,
+    ///     x: radius.clone(),
     ///     y: radius,
     /// };
     ///
@@ -1379,9 +1413,9 @@ impl CornerRadius {
     /// );
     /// ```
     #[inline]
-    pub const fn all(radius: Val) -> Self {
+    pub fn all(radius: Val) -> Self {
         Self {
-            x: radius,
+            x: radius.clone(),
             y: radius,
         }
     }
@@ -1394,7 +1428,7 @@ impl CornerRadius {
 
     /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
     pub fn resolve(
-        self,
+        &self,
         scale_factor: f32,
         size: Vec2,
         viewport_size: Vec2,
@@ -1784,7 +1818,7 @@ mod tests {
     fn test_uirect_axes() {
         let x = Val::Px(1.);
         let y = Val::Vw(4.);
-        let r = UiRect::axes(x, y);
+        let r = UiRect::axes(x.clone(), y.clone());
         let h = UiRect::horizontal(x);
         let v = UiRect::vertical(y);
 

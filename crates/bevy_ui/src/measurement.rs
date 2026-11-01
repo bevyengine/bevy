@@ -33,6 +33,7 @@ pub struct MeasureArgs<'a> {
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
     /// Resolved style for this node in physical pixels.
     pub style: &'a taffy::Style,
+    pub resolve_calc: &'a dyn Fn(*const (), f32) -> f32,
 }
 
 #[derive(Copy, Clone)]
@@ -54,8 +55,8 @@ fn resolve_axis(
     min_dim: taffy::style::LengthPercentageAuto,
     size_dim: taffy::style::Dimension,
     max_dim: taffy::style::LengthPercentageAuto,
+    calc: &dyn Fn(*const (), f32) -> f32,
 ) -> ResolvedAxis {
-    let calc = |_, _| 0.;
     let available = available_space.into_option();
     let min = min_dim.maybe_resolve(available, calc);
     let preferred = size_dim.maybe_resolve(available, calc);
@@ -77,6 +78,7 @@ impl MeasureArgs<'_> {
             self.style.min_size.width,
             self.style.size.width,
             self.style.max_size.width,
+            self.resolve_calc,
         )
     }
 
@@ -88,6 +90,7 @@ impl MeasureArgs<'_> {
             self.style.min_size.height,
             self.style.size.height,
             self.style.max_size.height,
+            self.resolve_calc,
         )
     }
 }

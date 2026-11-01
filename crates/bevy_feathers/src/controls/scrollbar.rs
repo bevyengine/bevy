@@ -143,7 +143,11 @@ fn update_scrollbar_visibility(
         if let Ok(child_of) = q_parents.get(scrollbar_ent)
             && let Ok((gutter, mut node)) = q_gutters.get_mut(child_of.parent())
         {
-            let padding = if overflows { gutter.0 } else { Val::ZERO };
+            let padding = if overflows {
+                gutter.0.clone()
+            } else {
+                Val::ZERO
+            };
             match scrollbar.orientation {
                 ControlOrientation::Vertical => {
                     if node.padding.right != padding {

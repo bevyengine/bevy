@@ -13,7 +13,7 @@ use bevy_text::{EmSize, RemSize};
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Debug, PartialEq, Clone, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -43,8 +43,8 @@ impl Val2 {
     }
 
     /// Creates a new [`Val2`] where both components are the same value
-    pub const fn all(val: Val) -> Self {
-        Self::new(val, val)
+    pub fn all(val: Val) -> Self {
+        Self::new(val.clone(), val)
     }
 
     /// Creates a new [`Val2`] where both components are in logical pixels
@@ -133,7 +133,7 @@ impl From<Val> for Val2 {
 /// Relative 2D transform for UI nodes
 ///
 /// [`UiGlobalTransform`] is automatically inserted whenever [`UiTransform`] is inserted.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
