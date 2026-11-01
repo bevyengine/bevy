@@ -8,7 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::calc::{Calc, CalcOps};
+use crate::calc::{Calc, CalcOp};
 
 /// Represents the possible value types for layout properties.
 ///
@@ -396,7 +396,7 @@ impl Add for Val {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        CalcOps::Add(self, rhs).into()
+        CalcOp::Add(self, rhs).into()
     }
 }
 
@@ -404,7 +404,7 @@ impl Sub for Val {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        CalcOps::Sub(self, rhs).into()
+        CalcOp::Sub(self, rhs).into()
     }
 }
 

@@ -173,7 +173,7 @@ fn calc_layout_handles_containers_and_parent_width_based_padding() {
     let child = app
         .world_mut()
         .spawn(Node {
-            width: crate::calc::CalcOps::Clamp(Val::Px(100.0), Val::Percent(80.0), Val::Px(300.0))
+            width: crate::calc::CalcOp::Clamp(Val::Px(100.0), Val::Percent(80.0), Val::Px(300.0))
                 .into(),
             height: Val::Percent(50.0) - Val::Px(10.0),
             padding: UiRect::all(Val::Percent(5.0) + Val::Px(2.0)),

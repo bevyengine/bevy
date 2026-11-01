@@ -14,7 +14,7 @@ use crate::{Val, ValArithmeticError};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Calc(pub Box<CalcOps>);
+pub struct Calc(pub Box<CalcOp>);
 
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
@@ -23,7 +23,7 @@ pub struct Calc(pub Box<CalcOps>);
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum CalcOps {
+pub enum CalcOp {
     Add(Val, Val),
     Sub(Val, Val),
     Min(Val, Val),
@@ -31,7 +31,7 @@ pub enum CalcOps {
     Clamp(Val, Val, Val),
 }
 
-impl CalcOps {
+impl CalcOp {
     pub(crate) fn uses_percent(&self) -> bool {
         let uses_percent = |val: &Val| match val {
             Val::Percent(_) => true,
@@ -98,8 +98,8 @@ impl CalcOps {
     }
 }
 
-impl From<CalcOps> for Val {
-    fn from(op: CalcOps) -> Self {
+impl From<CalcOp> for Val {
+    fn from(op: CalcOp) -> Self {
         Self::Calc(Calc(Box::new(op)))
     }
 }
@@ -126,19 +126,19 @@ mod tests {
         assert_eq!(resolve(&(value.clone() / 2.0)), Ok(139.0));
         assert_eq!(resolve(&-value.clone()), Ok(-278.0));
         assert_eq!(
-            resolve(&CalcOps::Min(value.clone(), Val::Px(100.0)).into()),
+            resolve(&CalcOp::Min(value.clone(), Val::Px(100.0)).into()),
             Ok(200.0)
         );
         assert_eq!(
-            resolve(&CalcOps::Max(value.clone(), Val::Px(200.0)).into()),
+            resolve(&CalcOp::Max(value.clone(), Val::Px(200.0)).into()),
             Ok(400.0)
         );
         assert_eq!(
-            resolve(&CalcOps::Clamp(Val::Px(100.0), value.clone(), Val::Px(125.0)).into()),
+            resolve(&CalcOp::Clamp(Val::Px(100.0), value.clone(), Val::Px(125.0)).into()),
             Ok(250.0)
         );
         assert_eq!(
-            resolve(&CalcOps::Clamp(Val::Px(200.0), value.clone(), Val::Px(100.0)).into()),
+            resolve(&CalcOp::Clamp(Val::Px(200.0), value.clone(), Val::Px(100.0)).into()),
             Ok(400.0)
         );
         let mut scaled = value;
@@ -156,15 +156,15 @@ mod tests {
         let resolve = |value: Val| value.resolve(1.0, 0.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0));
         let (a, b) = (Val::Px(10.0), Val::Px(20.0));
         assert_eq!(
-            resolve(-Val::from(CalcOps::Min(a.clone(), b.clone()))),
+            resolve(-Val::from(CalcOp::Min(a.clone(), b.clone()))),
             Ok(-10.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOps::Max(a.clone(), b.clone()))),
+            resolve(-Val::from(CalcOp::Max(a.clone(), b.clone()))),
             Ok(-20.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOps::Clamp(
+            resolve(-Val::from(CalcOp::Clamp(
                 a.clone(),
                 Val::Px(15.0),
                 b.clone()
@@ -172,7 +172,7 @@ mod tests {
             Ok(-15.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOps::Clamp(b, Val::Px(15.0), a))),
+            resolve(-Val::from(CalcOp::Clamp(b, Val::Px(15.0), a))),
             Ok(-20.0)
         );
     }
