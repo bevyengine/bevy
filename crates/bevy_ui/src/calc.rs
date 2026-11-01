@@ -459,13 +459,18 @@ impl Val {
             Val::Min(units, values) => (TermOp::Min, units, values),
             Val::Max(units, values) => (TermOp::Max, units, values),
             Val::Clamp(units, values) => {
+                // Inverted same-unit bounds make the clamp its minimum whatever the value is.
+                if units[0] == units[2] && values[0] > values[2] {
+                    return Val::leaf(units[0], f(values[0]));
+                }
                 let values = values.map(&f);
                 if !reverses {
                     return Val::Clamp(units, values);
                 }
                 // `f` reverses order, so `f(max(lo, min(v, hi)))` is `min(f(lo), max(f(v), f(hi)))`.
-                // With same-unit bounds `lo <= hi` holds, so that is the clamp with the bounds
-                // swapped; mixed-unit bounds may invert at some bases, so keep the exact form.
+                // Same-unit bounds are now known to satisfy `lo <= hi`, so that is the clamp with
+                // the bounds swapped; mixed-unit bounds may invert at some bases, so keep the
+                // exact form.
                 let [lo, v, hi] = core::array::from_fn(|i| Val::leaf(units[i], values[i]));
                 if units[0] == units[2] {
                     return Val::Clamp(
