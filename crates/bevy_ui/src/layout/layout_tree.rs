@@ -23,10 +23,9 @@ use taffy::{
 };
 
 use crate::{
-    calc::Calc,
     layout::{LayoutContext, UiTreeDirty},
     ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure,
-    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform,
+    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform, Val,
 };
 
 #[expect(
@@ -48,14 +47,13 @@ pub struct TaffyStyle(#[deref] pub Style, pub(crate) Vec<Arc<LayoutCalc>>);
 
 #[repr(align(8))]
 pub(crate) struct LayoutCalc {
-    pub calc: Calc,
+    pub val: Val,
     pub context: LayoutContext,
 }
 
 impl LayoutCalc {
     pub fn resolve(&self, basis: f32) -> f32 {
-        self.calc
-            .0
+        self.val
             .resolve(
                 self.context.scale_factor,
                 basis,

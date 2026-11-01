@@ -21,8 +21,8 @@ impl Val {
     ) -> taffy::style::LengthPercentageAuto {
         match self {
             Val::Auto => style_helpers::auto(),
-            Val::Calc(calc) => {
-                if !calc.0.uses_percent() {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Calc(_) => {
+                if !self.uses_percent() {
                     return style_helpers::length(
                         self.resolve(
                             context.scale_factor,
@@ -35,7 +35,7 @@ impl Val {
                     );
                 }
                 let calc = Arc::new(LayoutCalc {
-                    calc: calc.clone(),
+                    val: self.clone(),
                     context: *context,
                 });
                 let value = taffy::style::LengthPercentageAuto::calc(Arc::as_ptr(&calc).cast());
@@ -67,8 +67,8 @@ impl Val {
     ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
-            Val::Calc(calc) => {
-                if !calc.0.uses_percent() {
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Calc(_) => {
+                if !self.uses_percent() {
                     return style_helpers::length(
                         self.resolve(
                             context.scale_factor,
@@ -81,7 +81,7 @@ impl Val {
                     );
                 }
                 let calc = Arc::new(LayoutCalc {
-                    calc: calc.clone(),
+                    val: self.clone(),
                     context: *context,
                 });
                 let value = taffy::style::LengthPercentage::calc(Arc::as_ptr(&calc).cast());

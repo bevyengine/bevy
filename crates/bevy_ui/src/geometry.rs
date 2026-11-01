@@ -9,7 +9,7 @@ use thiserror::Error;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::calc::{Calc, CalcOp};
+use crate::calc::{Calc, CalcOp, TermOp, ValTerms, ValUnit, ValUnitSet};
 
 /// Represents the possible value types for layout properties.
 ///
@@ -68,6 +68,17 @@ pub enum Val {
     /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
+    /// The sum of up to three terms with distinct units, such as `Val::Percent(50.0) - Val::Px(10.0)`.
+    ///
+    /// The `n`th value belongs to the `n`th unit of the set, see [`ValUnitSet`].
+    /// Built by `+` and `-`; longer expressions fall back to [`Val::Calc`].
+    Sum(ValUnitSet, [f32; 3]),
+    /// The smallest of up to three terms with distinct units, laid out like [`Val::Sum`].
+    /// Built by [`Val::min`].
+    Min(ValUnitSet, [f32; 3]),
+    /// The largest of up to three terms with distinct units, laid out like [`Val::Sum`].
+    /// Built by [`Val::max`].
+    Max(ValUnitSet, [f32; 3]),
     Calc(Calc),
 }
 
@@ -141,8 +152,15 @@ impl core::str::FromStr for Val {
 
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
-        if let (Self::Calc(a), Self::Calc(b)) = (self, other) {
-            return a == b;
+        match (self, other) {
+            (Self::Calc(a), Self::Calc(b)) => return a == b,
+            (Self::Min(a, x), Self::Min(b, y)) | (Self::Max(a, x), Self::Max(b, y)) => {
+                return ValTerms::new(*a, *x) == ValTerms::new(*b, *y);
+            }
+            (Self::Sum(..), _) | (_, Self::Sum(..)) => {
+                return self.sum_terms() == other.sum_terms();
+            }
+            _ => {}
         }
         let same_unit = matches!(
             (self, other),
@@ -180,13 +198,13 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`] and [`Val::Calc`].
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`] and the expression variants.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    const fn inner(&self) -> Option<f32> {
+    pub(crate) const fn inner(&self) -> Option<f32> {
         match self {
-            Self::Auto | Self::Calc(_) => None,
+            Self::Auto | Self::Sum(..) | Self::Min(..) | Self::Max(..) | Self::Calc(_) => None,
             Self::Px(v)
             | Self::Percent(v)
             | Self::Vw(v)
@@ -195,6 +213,48 @@ impl Val {
             | Self::VMax(v)
             | Self::Em(v)
             | Self::Rem(v) => Some(*v),
+        }
+    }
+
+    /// The unit of a single-term value, or `None` for [`Val::Auto`] and the expression variants.
+    pub const fn unit(&self) -> Option<ValUnit> {
+        Some(match self {
+            Self::Px(_) => ValUnit::Px,
+            Self::Percent(_) => ValUnit::Percent,
+            Self::Vw(_) => ValUnit::Vw,
+            Self::Vh(_) => ValUnit::Vh,
+            Self::VMin(_) => ValUnit::VMin,
+            Self::VMax(_) => ValUnit::VMax,
+            Self::Em(_) => ValUnit::Em,
+            Self::Rem(_) => ValUnit::Rem,
+            Self::Auto | Self::Sum(..) | Self::Min(..) | Self::Max(..) | Self::Calc(_) => {
+                return None;
+            }
+        })
+    }
+
+    /// A single-term value of the given `unit`.
+    pub const fn leaf(unit: ValUnit, value: f32) -> Self {
+        match unit {
+            ValUnit::Px => Self::Px(value),
+            ValUnit::Percent => Self::Percent(value),
+            ValUnit::Vw => Self::Vw(value),
+            ValUnit::Vh => Self::Vh(value),
+            ValUnit::VMin => Self::VMin(value),
+            ValUnit::VMax => Self::VMax(value),
+            ValUnit::Em => Self::Em(value),
+            ValUnit::Rem => Self::Rem(value),
+        }
+    }
+
+    pub(crate) fn uses_percent(&self) -> bool {
+        match self {
+            Self::Percent(_) => true,
+            Self::Sum(units, _) | Self::Min(units, _) | Self::Max(units, _) => {
+                units.contains(ValUnit::Percent)
+            }
+            Self::Calc(calc) => calc.0.uses_percent(),
+            _ => false,
         }
     }
 
@@ -386,12 +446,14 @@ impl Val {
         }
     }
 
-    pub fn min(self, min: Val) -> Val {
-        CalcOp::Min(self, min).into()
+    /// The smaller of `self` and `other` once resolved.
+    pub fn min(self, other: Val) -> Val {
+        self.combine(other, TermOp::Min)
     }
 
-    pub fn max(self, max: Val) -> Val {
-        CalcOp::Max(self, max).into()
+    /// The larger of `self` and `other` once resolved.
+    pub fn max(self, other: Val) -> Val {
+        self.combine(other, TermOp::Max)
     }
 
     pub fn clamp(self, min: Val, max: Val) -> Val {
@@ -409,7 +471,7 @@ impl Add for Val {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        CalcOp::Add(self, rhs).into()
+        self.combine(rhs, TermOp::Sum)
     }
 }
 
@@ -417,7 +479,7 @@ impl Sub for Val {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        CalcOp::Sub(self, rhs).into()
+        self.combine(-rhs, TermOp::Sum)
     }
 }
 
@@ -435,6 +497,9 @@ impl Mul<f32> for Val {
             Val::VMax(value) => Val::VMax(value * rhs),
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..)) => {
+                terms.map_terms(|value| value * rhs, rhs < 0.0)
+            }
             Val::Calc(mut calc) => {
                 Arc::make_mut(&mut calc.0).scale(rhs);
                 Val::Calc(calc)
@@ -455,6 +520,9 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) => {
+                *self = core::mem::take(self).map_terms(|value| value * rhs, rhs < 0.0);
+            }
             Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs),
         }
     }
@@ -474,6 +542,9 @@ impl Div<f32> for Val {
             Val::VMax(value) => Val::VMax(value / rhs),
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..)) => {
+                terms.map_terms(|value| value / rhs, rhs < 0.0)
+            }
             Val::Calc(mut calc) => {
                 Arc::make_mut(&mut calc.0).scale(rhs.recip());
                 Val::Calc(calc)
@@ -494,6 +565,9 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) => {
+                *self = core::mem::take(self).map_terms(|value| value / rhs, rhs < 0.0);
+            }
             Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs.recip()),
         }
     }
@@ -513,6 +587,9 @@ impl Neg for Val {
             Val::VMax(value) => Val::VMax(-value),
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..)) => {
+                terms.map_terms(|value| -value, true)
+            }
             Val::Calc(mut calc) => {
                 Arc::make_mut(&mut calc.0).scale(-1.0);
                 Val::Calc(calc)
@@ -556,6 +633,21 @@ impl Val {
             Val::Em(value) => Ok(value * em_size.0 * scale_factor),
             Val::Rem(value) => Ok(value * rem_size.0 * scale_factor),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
+            Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
+                let op = match self {
+                    Val::Min(..) => TermOp::Min,
+                    Val::Max(..) => TermOp::Max,
+                    _ => TermOp::Sum,
+                };
+                Ok(ValTerms::new(*units, *values).resolve(
+                    op.apply(),
+                    scale_factor,
+                    physical_base_value,
+                    physical_target_size,
+                    em_size,
+                    rem_size,
+                ))
+            }
             Val::Calc(op) => op.0.resolve(
                 scale_factor,
                 physical_base_value,
@@ -586,7 +678,9 @@ impl TryFrom<Val> for FontSize {
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
             Val::Em(em) => FontSize::Rem(em), // see comment above
-            Val::Calc(_) => return Err(ValArithmeticError::NonEvaluable),
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Calc(_) => {
+                return Err(ValArithmeticError::NonEvaluable);
+            }
         })
     }
 }
@@ -611,6 +705,19 @@ impl TryStableInterpolate for Val {
             (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
             (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
             (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
+            (Val::Sum(a, x), Val::Sum(b, y))
+            | (Val::Min(a, x), Val::Min(b, y))
+            | (Val::Max(a, x), Val::Max(b, y)) => {
+                let (units, values) = ValTerms::new(*a, *x)
+                    .interpolate_stable(&ValTerms::new(*b, *y), t)
+                    .ok_or(MismatchedUnitsError)?
+                    .into_parts();
+                Ok(match self {
+                    Val::Min(..) => Val::Min(units, values),
+                    Val::Max(..) => Val::Max(units, values),
+                    _ => Val::Sum(units, values),
+                })
+            }
             (Val::Auto, Val::Auto) => Ok(Val::Auto),
             _ => Err(MismatchedUnitsError),
         }
