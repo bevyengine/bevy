@@ -11,12 +11,24 @@ use crate::{Val, ValArithmeticError};
 /// Wrapper around an opteration on `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(opaque, PartialEq, Debug, Clone)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Calc(pub(crate) Arc<CalcOp>);
+
+// Serialized as the `CalcOp` itself: serde only implements `Arc<T>` behind its `rc` feature,
+// and sharing is an implementation detail that should not leak into the format.
+#[cfg(feature = "serialize")]
+impl serde::Serialize for Calc {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de> serde::Deserialize<'de> for Calc {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        CalcOp::deserialize(deserializer).map(|op| Self(Arc::new(op)))
+    }
+}
 
 /// An operation performed on `Val`s
 #[derive(Clone, Debug, PartialEq, Reflect)]
@@ -710,6 +722,21 @@ mod tests {
         registry.register::<Val>();
         let dynamic = value.to_dynamic().unwrap();
         assert_eq!(Val::from_reflect(dynamic.as_ref()), Some(value));
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn expressions_round_trip_through_serde() {
+        let values = [
+            Val::Percent(50.0) - Val::Px(10.0),
+            Val::Px(10.0).min(Val::Percent(50.0)),
+            Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0)),
+            CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into(),
+        ];
+        for value in values {
+            let ron = ron::to_string(&value).unwrap();
+            assert_eq!(ron::from_str::<Val>(&ron).unwrap(), value, "{ron}");
+        }
     }
 
     #[test]
