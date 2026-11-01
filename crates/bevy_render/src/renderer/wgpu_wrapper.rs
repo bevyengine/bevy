@@ -20,19 +20,27 @@ use wgpu::{
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 pub(crate) unsafe trait WgpuSendSync {}
 
+/// Implements [`WgpuSendSync`] for the given types.
+///
+/// The caller must ensure each type is `Send + Sync` on every target where
+/// [`wgpu_wrapper!`] asserts the bound. A direct `Send + Sync` assertion here
+/// would recreate the overflow this marker exists to avoid.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 macro_rules! impl_wgpu_send_sync {
     ($($ty:ty),+ $(,)?) => {
         $(
-            // SAFETY: wgpu guarantees these types are `Send + Sync` on every target
-            // where `wgpu_wrapper!` asserts the bound. Its handles are statically
-            // asserted; `AdapterInfo` is plain data and `ErrorSource` is a boxed
-            // `Send + Sync` error.
-            unsafe impl WgpuSendSync for $ty {}
+            // SAFETY: the caller guarantees the type is `Send + Sync`; the
+            // invocation documents why.
+            unsafe impl $crate::renderer::WgpuSendSync for $ty {}
         )+
     };
 }
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+pub(crate) use impl_wgpu_send_sync;
 
+// SAFETY: every handle below is `Send + Sync` on every target where
+// `wgpu_wrapper!` asserts the bound; wgpu statically asserts this. `AdapterInfo`
+// is plain data and `ErrorSource` is a boxed `Send + Sync` error.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 impl_wgpu_send_sync!(
     Adapter,
@@ -58,6 +66,14 @@ impl_wgpu_send_sync!(
     Texture,
     TextureView,
 );
+
+// `AdapterInfo` and `ErrorSource` are not wgpu handles, so prove them directly.
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<AdapterInfo>();
+    assert_send_sync::<ErrorSource>();
+};
 
 /// A macro producing wrappers to safely make `wgpu` types Send / Sync on web with atomics enabled.
 ///

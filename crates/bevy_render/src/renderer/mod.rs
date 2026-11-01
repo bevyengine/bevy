@@ -11,7 +11,7 @@ pub use render_device::*;
 
 pub(crate) use wgpu_wrapper::wgpu_wrapper;
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-pub(crate) use wgpu_wrapper::WgpuSendSync;
+pub(crate) use wgpu_wrapper::{impl_wgpu_send_sync, WgpuSendSync};
 
 use crate::{
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},

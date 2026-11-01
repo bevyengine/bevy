@@ -2,7 +2,7 @@ use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use crate::renderer::WgpuSendSync;
+use crate::renderer::impl_wgpu_send_sync;
 use crate::renderer::{wgpu_wrapper, RenderDevice};
 use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
@@ -31,7 +31,7 @@ struct PendingCommandBuffersInner {
 // SAFETY: `PendingCommandBuffer` only contains `wgpu` command buffers and encoders,
 // which are `Send + Sync` on every target Bevy supports.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-unsafe impl WgpuSendSync for PendingCommandBuffersInner {}
+impl_wgpu_send_sync!(PendingCommandBuffersInner);
 
 enum PendingCommandBuffer {
     Buffer(CommandBuffer),
@@ -175,7 +175,7 @@ struct RenderContextStateInner {
 // SAFETY: `PendingCommandBuffer` and `RenderDevice` are `Send + Sync` on every
 // target Bevy supports; `RenderDevice` already has explicit `Send + Sync` impls.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-unsafe impl WgpuSendSync for RenderContextStateInner {}
+impl_wgpu_send_sync!(RenderContextStateInner);
 
 impl RenderContextStateInner {
     fn flush_encoder(&mut self) {

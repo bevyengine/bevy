@@ -17,7 +17,7 @@ use wgpu::{
 };
 
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use crate::renderer::WgpuSendSync;
+use crate::renderer::impl_wgpu_send_sync;
 use crate::renderer::{wgpu_wrapper, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use super::RecordDiagnostics;
@@ -43,7 +43,7 @@ struct DiagnosticsRecorderInternal {
 // `Arc<AtomicBool>`, and boxed `Send + Sync` callbacks; the rest are standard
 // library types. `tracy_client::GpuContext` is `Send + Sync`.
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-unsafe impl WgpuSendSync for DiagnosticsRecorderInternal {}
+impl_wgpu_send_sync!(DiagnosticsRecorderInternal);
 
 wgpu_wrapper!(struct WgpuDiagnosticsRecorderInternal(DiagnosticsRecorderInternal));
 
