@@ -9,6 +9,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use crate::{Val, ValArithmeticError};
 
+/// Wrapper around an opteration on `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(opaque, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -16,8 +17,9 @@ use crate::{Val, ValArithmeticError};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Calc(pub Arc<CalcOp>);
+pub struct Calc(pub(crate) Arc<CalcOp>);
 
+/// An operation performed on `Val`s
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -26,10 +28,15 @@ pub struct Calc(pub Arc<CalcOp>);
     reflect(Serialize, Deserialize)
 )]
 pub enum CalcOp {
+    /// Add two vals.
     Add(Val, Val),
+    /// Subtract the second `Val` from the first.
     Sub(Val, Val),
+    /// Return the minimum of the two `Val`s.
     Min(Val, Val),
+    /// Return the maximum of the two `Val`s.
     Max(Val, Val),
+    /// Clamp the second `Val` between the first and third.
     Clamp(Val, Val, Val),
 }
 
