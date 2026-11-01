@@ -18,6 +18,7 @@ pub mod measurement;
 pub mod update;
 pub mod widget;
 
+pub mod calc;
 pub mod gradients;
 #[cfg(feature = "bevy_picking")]
 pub mod picking_backend;

@@ -8,6 +8,8 @@ use thiserror::Error;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
+use crate::calc::CalcId;
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
@@ -65,6 +67,7 @@ pub enum Val {
     /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
+    Calc(CalcId),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
