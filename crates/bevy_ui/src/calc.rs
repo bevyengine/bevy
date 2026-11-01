@@ -144,6 +144,9 @@ impl ValUnit {
     }
 }
 
+/// If more unit types are added to `Val`, a `u8` discriminator won't be sufficient.
+const _: () = assert!(ValUnit::ALL.len() <= u8::BITS as usize);
+
 /// A set of [`ValUnit`]s.
 ///
 /// [`Val::Sum`], [`Val::Min`] and [`Val::Max`] pair one of these with an array of values:
