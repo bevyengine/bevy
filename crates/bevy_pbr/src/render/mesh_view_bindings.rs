@@ -712,9 +712,9 @@ pub fn prepare_mesh_view_bind_groups(
     linear_sampler: Res<LinearSampler>,
     // TODO: Figure out how to reuse the memory. `BindGroupEntry` is non-send on wasm with atomics.
     #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
+    mut entries_cache: bevy_ecs::system::Local<BindGroupEntryCache>,
     #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    mut entries_binding_array_cache: bevy_ecs::system::Local<Vec<BindGroupEntry>>,
+    mut entries_binding_array_cache: bevy_ecs::system::Local<BindGroupEntryCache>,
 ) {
     if let (
         Some(view_binding),
@@ -766,10 +766,12 @@ pub fn prepare_mesh_view_bind_groups(
                 // Take cache that has static lifetime for `DynamicBindGroupEntries`.
                 // See <https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10>.
                 entries.entries = core::mem::take(&mut *entries_cache)
+                    .0
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
                 entries_binding_array.entries = core::mem::take(&mut *entries_binding_array_cache)
+                    .0
                     .into_iter()
                     .map(|_| -> BindGroupEntry { unreachable!() })
                     .collect();
@@ -1044,16 +1046,20 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 entries.entries.clear();
                 entries_binding_array.entries.clear();
-                *entries_cache = entries
-                    .entries
-                    .into_iter()
-                    .map(|_| -> BindGroupEntry<'static> { unreachable!() })
-                    .collect();
-                *entries_binding_array_cache = entries_binding_array
-                    .entries
-                    .into_iter()
-                    .map(|_| -> BindGroupEntry<'static> { unreachable!() })
-                    .collect();
+                *entries_cache = BindGroupEntryCache(
+                    entries
+                        .entries
+                        .into_iter()
+                        .map(|_| -> BindGroupEntry<'static> { unreachable!() })
+                        .collect(),
+                );
+                *entries_binding_array_cache = BindGroupEntryCache(
+                    entries_binding_array
+                        .entries
+                        .into_iter()
+                        .map(|_| -> BindGroupEntry<'static> { unreachable!() })
+                        .collect(),
+                );
             }
         }
     }

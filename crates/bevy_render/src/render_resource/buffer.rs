@@ -58,6 +58,19 @@ pub struct BufferSlice<'a> {
     value: wgpu::BufferSlice<'a>,
 }
 
+// SAFETY: `BufferSlice` is a `BufferId` plus a `wgpu::BufferSlice`, which holds a
+// reference to a `wgpu::Buffer`. `BufferId` is an atomic ID and `wgpu::Buffer` is
+// `Send + Sync` on every target where these impls are present; on wasm with atomics
+// it is not, so the impls are omitted.
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+unsafe impl Send for BufferSlice<'_> {}
+// SAFETY: `BufferSlice` is a `BufferId` plus a `wgpu::BufferSlice`, which holds a
+// reference to a `wgpu::Buffer`. `BufferId` is an atomic ID and `wgpu::Buffer` is
+// `Send + Sync` on every target where these impls are present; on wasm with atomics
+// it is not, so the impls are omitted.
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+unsafe impl Sync for BufferSlice<'_> {}
+
 impl<'a> BufferSlice<'a> {
     #[inline]
     pub fn id(&self) -> BufferId {
