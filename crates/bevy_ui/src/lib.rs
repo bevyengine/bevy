@@ -32,6 +32,7 @@ pub use accessibility::AccessibilityUiSystems;
 mod focus;
 mod geometry;
 mod layout;
+mod scroll_into_view;
 mod stack;
 mod ui_node;
 
@@ -44,6 +45,7 @@ pub use interaction_states::{
 };
 pub use layout::*;
 pub use measurement::*;
+pub use scroll_into_view::{ScrollIntoView, ScrollIntoViewContainer};
 pub use ui_node::*;
 pub use ui_transform::*;
 pub use widget::TextNodeFlags;
@@ -246,7 +248,8 @@ impl Plugin for UiPlugin {
             .add_observer(interaction_states::on_add_selectable)
             .add_observer(interaction_states::on_remove_selectable)
             .add_observer(interaction_states::on_add_selected)
-            .add_observer(interaction_states::on_remove_selected);
+            .add_observer(interaction_states::on_remove_selected)
+            .add_observer(scroll_into_view::on_scroll_into_view);
 
         build_text_interop(app);
     }
