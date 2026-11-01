@@ -317,6 +317,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Diagnostics overlay](../examples/dev_tools/diagnostics_overlay.rs) | Demonstrates diagnostics overlay
 [Extract Schedule Data](../examples/dev_tools/schedule_data.rs) | Extracts the schedule data from a default app and writes it to a file
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
