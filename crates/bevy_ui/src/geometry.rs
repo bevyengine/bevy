@@ -8,7 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-use crate::calc::{Calc};
+use crate::calc::{Calc, CalcOps};
 
 /// Represents the possible value types for layout properties.
 ///
@@ -396,7 +396,7 @@ impl Add for Val {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        Calc::Add(self, rhs).into()
+        CalcOps::Add(self, rhs).into()
     }
 }
 
@@ -404,7 +404,7 @@ impl Sub for Val {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        Calc::Sub(self, rhs).into()
+        CalcOps::Sub(self, rhs).into()
     }
 }
 
@@ -422,7 +422,10 @@ impl Mul<f32> for Val {
             Val::VMax(value) => Val::VMax(value * rhs),
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
-            Val::Calc(op) => Calc::Scale(Val::Calc(op), rhs).into(),
+            Val::Calc(mut calc) => {
+                calc.0.scale(rhs);
+                Val::Calc(calc)
+            }
         }
     }
 }
@@ -439,7 +442,7 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
-            Val::Calc(_) => *self = core::mem::take(self) * rhs,
+            Val::Calc(calc) => calc.0.scale(rhs),
         }
     }
 }
@@ -458,7 +461,10 @@ impl Div<f32> for Val {
             Val::VMax(value) => Val::VMax(value / rhs),
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
-            Val::Calc(op) => Calc::Scale(Val::Calc(op), rhs.recip()).into(),
+            Val::Calc(mut calc) => {
+                calc.0.scale(rhs.recip());
+                Val::Calc(calc)
+            }
         }
     }
 }
@@ -475,7 +481,7 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
-            Val::Calc(_) => *self = core::mem::take(self) / rhs,
+            Val::Calc(calc) => calc.0.scale(rhs.recip()),
         }
     }
 }
@@ -494,7 +500,10 @@ impl Neg for Val {
             Val::VMax(value) => Val::VMax(-value),
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
-            Val::Calc(op) => Calc::Scale(Val::Calc(op), -1.0).into(),
+            Val::Calc(mut calc) => {
+                calc.0.scale(-1.0);
+                Val::Calc(calc)
+            }
         }
     }
 }

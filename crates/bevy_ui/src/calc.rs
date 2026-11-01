@@ -26,7 +26,6 @@ pub struct Calc(pub Box<CalcOps>);
 pub enum CalcOps {
     Add(Val, Val),
     Sub(Val, Val),
-    Scale(Val, f32),
     Min(Val, Val),
     Max(Val, Val),
     Clamp(Val, Val, Val),
@@ -43,7 +42,6 @@ impl CalcOps {
             Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
                 uses_percent(a) || uses_percent(b)
             }
-            Self::Scale(value, _) => uses_percent(value),
             Self::Clamp(min, value, max) => {
                 uses_percent(min) || uses_percent(value) || uses_percent(max)
             }
@@ -70,11 +68,33 @@ impl CalcOps {
         Ok(match self {
             Self::Add(a, b) => resolve(a)? + resolve(b)?,
             Self::Sub(a, b) => resolve(a)? - resolve(b)?,
-            Self::Scale(value, scale) => resolve(value)? * scale,
             Self::Min(a, b) => resolve(a)?.min(resolve(b)?),
             Self::Max(a, b) => resolve(a)?.max(resolve(b)?),
             Self::Clamp(min, value, max) => resolve(min)?.max(resolve(value)?.min(resolve(max)?)),
         })
+    }
+
+    pub(crate) fn scale(&mut self, k: f32) {
+        use core::mem::take;
+        match self {
+            Self::Min(a, b) if k < 0.0 => *self = Self::Max(take(a) * k, take(b) * k),
+            Self::Max(a, b) if k < 0.0 => *self = Self::Min(take(a) * k, take(b) * k),
+            Self::Clamp(min, value, max) if k < 0.0 => {
+                *self = Self::Min(
+                    take(min) * k,
+                    Self::Max(take(value) * k, take(max) * k).into(),
+                );
+            }
+            Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
+                *a *= k;
+                *b *= k;
+            }
+            Self::Clamp(min, value, max) => {
+                *min *= k;
+                *value *= k;
+                *max *= k;
+            }
+        }
     }
 }
 
@@ -84,7 +104,13 @@ impl From<CalcOps> for Val {
     }
 }
 
-#[cfg(te        let value =
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_expressions() {
+        let value =
             Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
         let resolve = |value: &Val| {
             value.resolve(
@@ -123,8 +149,42 @@ impl From<CalcOps> for Val {
             resolve(&(Val::Auto + Val::Px(1.0))),
             Err(ValArithmeticError::NonEvaluable)
         );
-k(139.0));
-        assert_eq!(resolve(&(Val::Auto + Val::Px(1.0))), Err(ValArithmeticError::NonEvaluable));
+    }
+
+    #[test]
+    fn negative_scale_swaps_min_and_max() {
+        let resolve = |value: Val| value.resolve(1.0, 0.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0));
+        let (a, b) = (Val::Px(10.0), Val::Px(20.0));
+        assert_eq!(
+            resolve(-Val::from(CalcOps::Min(a.clone(), b.clone()))),
+            Ok(-10.0)
+        );
+        assert_eq!(
+            resolve(-Val::from(CalcOps::Max(a.clone(), b.clone()))),
+            Ok(-20.0)
+        );
+        assert_eq!(
+            resolve(-Val::from(CalcOps::Clamp(
+                a.clone(),
+                Val::Px(15.0),
+                b.clone()
+            ))),
+            Ok(-15.0)
+        );
+        assert_eq!(
+            resolve(-Val::from(CalcOps::Clamp(b, Val::Px(15.0), a))),
+            Ok(-20.0)
+        );
+    }
+
+    #[test]
+    fn repeated_scaling_does_not_grow_the_tree() {
+        let mut value = Val::Px(1.0) + Val::Px(2.0);
+        for _ in 0..100_000 {
+            value *= 2.0;
+            value /= 2.0;
+        }
+        assert_eq!(value, Val::Px(1.0) + Val::Px(2.0));
     }
 
     #[test]
@@ -136,18 +196,22 @@ k(139.0));
         assert_eq!(value, cloned);
         cloned *= 2.0;
         assert_ne!(value, cloned);
-        assert_eq!(value, Val::Percent(100        assert_eq!(
-            bevy_text::FontSize::try_from(Val::Rem(2.0)),
-            Ok(bevy_text::FontSize::Rem(2.0))
-        );
-        assert_eq!(
-            bevy_text::FontSize::try_from(value.clone()),
-            Err(ValArithmeticError::NonEvaluable)
-        );
-.0) - Val::Px(24.0));
+        assert_eq!(value, Val::Percent(100.0) - Val::Px(24.0));
         let mut registry = TypeRegistry::default();
         registry.register::<Val>();
         let dynamic = value.to_dynamic().unwrap();
         assert_eq!(Val::from_reflect(dynamic.as_ref()), Some(value));
+    }
+
+    #[test]
+    fn font_size_rejects_expressions() {
+        assert_eq!(
+            bevy_text::FontSize::try_from(Val::Rem(2.0)),
+            Ok(bevy_text::FontSize::Rem(2.0))
+        );
+        assert_eq!(
+            bevy_text::FontSize::try_from(Val::Percent(100.0) - Val::Px(24.0)),
+            Err(ValArithmeticError::NonEvaluable)
+        );
     }
 }

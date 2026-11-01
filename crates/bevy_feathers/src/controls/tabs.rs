@@ -1320,7 +1320,7 @@ mod tests {
         assert_eq!(drag_proxy.pointer_id, PointerId::Touch(4));
         let ghost = app.world().entity(proxy);
         assert_eq!(
-            ghost.get::<Outline>().map(|outline| outline.width),
+            ghost.get::<Outline>().map(|outline| outline.width.clone()),
             Some(px(1))
         );
         assert!(ghost.contains::<BoxShadow>());
@@ -1774,7 +1774,9 @@ mod tests {
         let world = app.world();
         let list = world.entity(list).get::<Node>().unwrap();
         let tab = world.entity(tab).get::<Node>().unwrap();
-        let (Val::Px(tab_height), Val::Px(min_height)) = (tab.min_height, list.min_height) else {
+        let (Val::Px(tab_height), Val::Px(min_height)) =
+            (tab.min_height.clone(), list.min_height.clone())
+        else {
             panic!("expected pixel heights");
         };
         let Val::Px(top) = list.padding.top else {
