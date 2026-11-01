@@ -3,6 +3,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize};
 use bevy_utils::default;
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
+use std::sync::Arc;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -435,7 +436,7 @@ impl Mul<f32> for Val {
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
             Val::Calc(mut calc) => {
-                calc.0.scale(rhs);
+                Arc::make_mut(&mut calc.0).scale(rhs);
                 Val::Calc(calc)
             }
         }
@@ -454,7 +455,7 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
-            Val::Calc(calc) => calc.0.scale(rhs),
+            Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs),
         }
     }
 }
@@ -474,7 +475,7 @@ impl Div<f32> for Val {
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
             Val::Calc(mut calc) => {
-                calc.0.scale(rhs.recip());
+                Arc::make_mut(&mut calc.0).scale(rhs.recip());
                 Val::Calc(calc)
             }
         }
@@ -493,7 +494,7 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
-            Val::Calc(calc) => calc.0.scale(rhs.recip()),
+            Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs.recip()),
         }
     }
 }
@@ -513,7 +514,7 @@ impl Neg for Val {
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
             Val::Calc(mut calc) => {
-                calc.0.scale(-1.0);
+                Arc::make_mut(&mut calc.0).scale(-1.0);
                 Val::Calc(calc)
             }
         }

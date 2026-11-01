@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use bevy_text::{EmSize, RemSize};
@@ -14,7 +16,7 @@ use crate::{Val, ValArithmeticError};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Calc(pub Box<CalcOp>);
+pub struct Calc(pub Arc<CalcOp>);
 
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
@@ -100,7 +102,7 @@ impl CalcOp {
 
 impl From<CalcOp> for Val {
     fn from(op: CalcOp) -> Self {
-        Self::Calc(Calc(Box::new(op)))
+        Self::Calc(Calc(Arc::new(op)))
     }
 }
 
