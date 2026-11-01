@@ -113,6 +113,23 @@ impl From<CalcOp> for Val {
     }
 }
 
+/// Discriminator enum, should match `Val`'s unit types.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[repr(u8)]
+pub enum ValUnit {
+    /// Use `Px` units
+    Px,
+    /// Use `Percent` units
+    Percent,
+    /// Use `Vw` units
+    Vw,
+    Vh,
+    VMin,
+    VMax,
+    Em,
+    Rem,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
