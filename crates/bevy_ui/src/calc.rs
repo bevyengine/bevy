@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use bevy_math::{StableInterpolate as _, Vec2};
+use bevy_platform::sync::Arc;
 use bevy_reflect::Reflect;
 use bevy_text::{EmSize, RemSize};
 
