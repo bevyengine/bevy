@@ -1,10 +1,12 @@
-pub struct CalcId(u16);
+use crate::Val;
+
+pub struct CalcId(u32);
 
 pub enum CalcOps {
-    Add(CalcId, CalcId),
-    Sub(CalcId, CalcId),
-    Scale(CalcId, f32),
-    Min(CalcId, CalcId),
-    Max(CalcId, CalcId),
-    Clamp(CalcId, CalcId),
+    Add(Val, Val),
+    Sub(Val, Val),
+    Scale(Val, f32),
+    Min(Val, Val),
+    Max(Val, Val),
+    Clamp(Val, Val),
 }
