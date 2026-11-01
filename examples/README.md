@@ -322,6 +322,7 @@ Example | Description
 [Infinite grid](../examples/dev_tools/infinite_grid.rs) | Demonstrates Bevy's infinite grid, suitable as a ground plane for editors
 [Infinite grid 2D](../examples/dev_tools/infinite_grid_2d.rs) | Demonstrates Bevy's infinite grid in a 2D scene
 [Local Inspector](../examples/inspector/local_inspector.rs) | Inspects the app's own world with the bevy_inspector entity tree panel
+[Remote Inspector](../examples/inspector/remote_inspector.rs) | Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol
 
 ### Diagnostics
 
@@ -453,6 +454,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Annotations](../examples/reflection/annotations.rs) | Annotating reflected types with tooltips, ranges and units for tools
 [Automatic types registration](../examples/reflection/auto_register_static/src/lib.rs) | Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support
 [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection

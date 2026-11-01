@@ -121,7 +121,7 @@ fn run_query_root_entities(url: &str) -> Result<(), anyhow::Error> {
                 strict: false,
                 filter: BrpQueryFilter {
                     without: vec![type_name::<ChildOf>().to_string()],
-                    with: Vec::default(),
+                    ..Default::default()
                 },
             })
             .expect("Unable to convert query parameters to a valid JSON value"),

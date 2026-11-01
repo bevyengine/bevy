@@ -808,7 +808,7 @@ const _: () = {
     macro_rules! impl_from_arg_tuple {
     ($(#[$meta:meta])* $($name: ident),*) => {
         $(#[$meta])*
-        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
@@ -823,7 +823,7 @@ const _: () = {
     macro_rules! impl_into_return_tuple {
     ($(#[$meta:meta])* $($name: ident),+) => {
         $(#[$meta])*
-        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::impl_into_return!(($($name,)*); <$($name: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
