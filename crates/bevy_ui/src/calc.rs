@@ -408,6 +408,11 @@ impl Val {
         if lo.0 == v.0 && v.0 == hi.0 {
             return Some(Val::leaf(v.0, lo.1.max(v.1.min(hi.1))));
         }
+        // Inverted bounds always resolve to the minimum, so an inline clamp with same-unit
+        // bounds is guaranteed to have `min <= max`.
+        if lo.0 == hi.0 && lo.1 > hi.1 {
+            return Some(Val::leaf(lo.0, lo.1));
+        }
         Some(Val::Clamp([lo.0, v.0, hi.0], [lo.1, v.1, hi.1]))
     }
 
@@ -441,13 +446,22 @@ impl Val {
             Val::Sum(units, values) => (TermOp::Sum, units, values),
             Val::Min(units, values) => (TermOp::Min, units, values),
             Val::Max(units, values) => (TermOp::Max, units, values),
-            Val::Clamp(mut units, values) => {
-                let mut values = values.map(&f);
-                if reverses {
-                    units.swap(0, 2);
-                    values.swap(0, 2);
+            Val::Clamp(units, values) => {
+                let values = values.map(&f);
+                if !reverses {
+                    return Val::Clamp(units, values);
                 }
-                return Val::Clamp(units, values);
+                // `f` reverses order, so `f(max(lo, min(v, hi)))` is `min(f(lo), max(f(v), f(hi)))`.
+                // With same-unit bounds `lo <= hi` holds, so that is the clamp with the bounds
+                // swapped; mixed-unit bounds may invert at some bases, so keep the exact form.
+                let [lo, v, hi] = core::array::from_fn(|i| Val::leaf(units[i], values[i]));
+                if units[0] == units[2] {
+                    return Val::Clamp(
+                        [units[2], units[1], units[0]],
+                        [values[2], values[1], values[0]],
+                    );
+                }
+                return lo.min(v.max(hi));
             }
             other => return other,
         };
@@ -505,10 +519,36 @@ mod tests {
     }
 
     #[test]
+    fn negating_a_clamp_negates_its_result() {
+        let clamp = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Percent(20.0));
+        let resolve = |value: &Val, base: f32| {
+            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+        };
+        for base in [50.0, 100.0, 150.0, 300.0, 1000.0] {
+            let expected = resolve(&clamp, base).unwrap();
+            assert_eq!(resolve(&-clamp.clone(), base), Ok(-expected), "base {base}");
+            assert_eq!(
+                resolve(&(clamp.clone() * -2.0), base),
+                Ok(-2.0 * expected),
+                "base {base}"
+            );
+            assert_eq!(
+                resolve(&(Val::ZERO - clamp.clone()), base),
+                Ok(-expected),
+                "base {base}"
+            );
+        }
+    }
+
+    #[test]
     fn clamp_folds_inline() {
         use bevy_math::TryStableInterpolate;
         let clamp = Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0));
         assert!(matches!(clamp, Val::Clamp(..)), "got {clamp:?}");
+        assert_eq!(
+            Val::Percent(80.0).clamp(Val::Px(300.0), Val::Px(100.0)),
+            Val::Px(300.0)
+        );
         let resolve = |value: &Val, base: f32| {
             value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
         };
