@@ -1,12 +1,14 @@
-use quote::ToTokens;
+use super::{
+    traits::BsnFmt,
+    types::{BsnVisitor, Edit},
+    utils::*,
+};
+use crate::_bsn::types::*;
 use syn::{
     spanned::Spanned,
     visit::{visit_macro, Visit},
     Macro,
 };
-
-use super::*;
-use crate::_bsn::types::*;
 
 impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
     fn visit_macro(&mut self, mac: &'ast Macro) {
@@ -312,6 +314,7 @@ impl BsnFmt for BsnValue {
 
 impl BsnFmt for BsnFnCall {
     fn fmt(&self, base_indent: usize, level: usize) -> String {
+        use quote::ToTokens;
         let mut out = format!("{}", self.path.to_token_stream());
         out.push('(');
         out.push_str(&self.args.fmt(base_indent, level));

@@ -1,17 +1,13 @@
 #![allow(dead_code, reason = "test")]
 
 mod behavior;
-pub mod traits;
+mod traits;
 pub mod types;
-mod utils;
-
-pub use traits::*;
-pub use types::*;
-pub(crate) use utils::*;
+pub mod utils;
 
 #[cfg(test)]
-mod fmt_tests {
-    use super::*;
+mod tests {
+    use super::traits::BsnFmt;
     use crate::_bsn::types::BsnRoot;
     use pretty_assertions::assert_eq;
     use proc_macro2::TokenStream;

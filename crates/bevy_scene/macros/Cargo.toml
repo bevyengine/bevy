@@ -13,7 +13,7 @@ proc-macro = true
 
 [[bin]]
 name = "bsnfmt"
-path = "src/bsn/fmt/bin/bsn_fmt.rs"
+path = "src/bsn/bsnfmt/bin/bsnfmt.rs"
 required-features = ["fmt"]
 
 [dependencies]
