@@ -519,6 +519,33 @@ mod tests {
     }
 
     #[test]
+    fn negating_min_and_max_negates_their_results() {
+        assert_eq!(-Val::Px(10.0).max(Val::Px(20.0)), Val::Px(-20.0));
+        assert_eq!(-Val::Px(10.0).min(Val::Px(20.0)), Val::Px(-10.0));
+        let resolve = |value: &Val, base: f32| {
+            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+        };
+        for expr in [
+            Val::Px(10.0).max(Val::Percent(50.0)),
+            Val::Px(10.0).min(Val::Percent(50.0)),
+        ] {
+            for base in [0.0, 20.0, 100.0] {
+                let expected = resolve(&expr, base).unwrap();
+                assert_eq!(
+                    resolve(&-expr.clone(), base),
+                    Ok(-expected),
+                    "{expr:?} at {base}"
+                );
+                assert_eq!(
+                    resolve(&(expr.clone() * -2.0), base),
+                    Ok(-2.0 * expected),
+                    "{expr:?} at {base}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn negating_a_clamp_negates_its_result() {
         let clamp = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Percent(20.0));
         let resolve = |value: &Val, base: f32| {
