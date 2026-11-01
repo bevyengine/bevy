@@ -22,7 +22,7 @@ use bevy_sprite::BorderRect;
 use layout_tree::ComputedLayout;
 use thiserror::Error;
 
-use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
+use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont};
 
 pub mod clipping;
 mod convert;
@@ -89,51 +89,7 @@ impl UiRoots {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct LayoutContext {
-    pub scale_factor: f32,
-    pub physical_size: Vec2,
-    pub em_size: f32,
-    pub rem_size: f32,
-}
-
-impl LayoutContext {
-    pub const DEFAULT: Self = Self {
-        scale_factor: 1.0,
-        physical_size: Vec2::ZERO,
-        em_size: DEFAULT_REM_SIZE_PX,
-        rem_size: DEFAULT_REM_SIZE_PX,
-    };
-    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
-    #[inline]
-    const fn new(
-        scale_factor: f32,
-        physical_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Self {
-        Self {
-            scale_factor,
-            physical_size,
-            em_size: em_size.0,
-            rem_size: rem_size.0,
-        }
-    }
-}
-
-#[cfg(test)]
-impl LayoutContext {
-    pub const TEST_CONTEXT: Self = Self {
-        physical_size: Vec2::new(1000.0, 1000.0),
-        ..Self::DEFAULT
-    };
-}
-
-impl Default for LayoutContext {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
+pub use convert::LayoutContext;
 
 #[derive(Debug, Error)]
 pub enum LayoutError {

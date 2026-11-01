@@ -1,5 +1,6 @@
+use bevy_math::Vec2;
 use bevy_platform::sync::Arc;
-use bevy_text::{EmSize, RemSize};
+use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 use taffy::style_helpers;
 
 use crate::{
@@ -10,10 +11,54 @@ use crate::{
     RepeatedGridTrack, UiRect, Val,
 };
 
-use super::{
-    layout_tree::{LayoutCalc, TaffyStyle},
-    LayoutContext,
-};
+use super::layout_tree::{LayoutCalc, TaffyStyle};
+
+/// The values a [`Node`]'s [`Val`]s are converted against when its taffy style is rebuilt.
+#[derive(Copy, Clone)]
+pub struct LayoutContext {
+    pub scale_factor: f32,
+    pub physical_size: Vec2,
+    pub em_size: f32,
+    pub rem_size: f32,
+}
+
+impl LayoutContext {
+    pub const DEFAULT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::ZERO,
+        em_size: DEFAULT_REM_SIZE_PX,
+        rem_size: DEFAULT_REM_SIZE_PX,
+    };
+    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
+    #[inline]
+    pub(super) const fn new(
+        scale_factor: f32,
+        physical_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Self {
+        Self {
+            scale_factor,
+            physical_size,
+            em_size: em_size.0,
+            rem_size: rem_size.0,
+        }
+    }
+}
+
+#[cfg(test)]
+impl LayoutContext {
+    pub const TEST_CONTEXT: Self = Self {
+        physical_size: Vec2::new(1000.0, 1000.0),
+        ..Self::DEFAULT
+    };
+}
+
+impl Default for LayoutContext {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 impl Val {
     /// This value with every unit other than percent resolved to physical pixels, so that only
