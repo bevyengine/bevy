@@ -384,6 +384,18 @@ impl Val {
             _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
+
+    pub fn min(self, min: Val) -> Val {
+        CalcOp::Min(self, min).into()
+    }
+
+    pub fn max(self, max: Val) -> Val {
+        CalcOp::Max(self, max).into()
+    }
+
+    pub fn clamp(self, min: Val, max: Val) -> Val {
+        CalcOp::Clamp(min, self, max).into()
+    }
 }
 
 impl Default for Val {
