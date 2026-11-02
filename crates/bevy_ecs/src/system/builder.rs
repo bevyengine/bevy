@@ -1017,7 +1017,6 @@ mod tests {
         assert_eq!(output, 1);
     }
 
-    #[cfg(feature = "debug")]
     #[test]
     fn builder_system_name() {
         let mut world = World::new();
