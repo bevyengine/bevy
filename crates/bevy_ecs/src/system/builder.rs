@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
 use bevy_utils::prelude::DebugName;
 use smallvec::SmallVec;
@@ -314,6 +314,47 @@ where
                 meta: SystemMeta::new::<Func>(),
             },
         }
+    }
+
+    /// Return this system with a new name.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_utils::DebugName;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::{ParamBuilder, RunSystemOnce, SystemName};
+    /// # let mut world = World::new();
+    /// let builder = ParamBuilder;
+    /// let function = |name: SystemName| {
+    ///     assert_eq!(name.name(), DebugName::borrowed("system name"));
+    /// };
+    /// let system =
+    ///     IntoSystem::into_system(builder.build_system(function)).with_name("system name");
+    /// let name = world.run_system_once(system).unwrap();
+    /// ```
+    pub fn with_name(self, new_name: impl Into<Cow<'static, str>>) -> Self {
+        let inner = match self.inner {
+            BuilderSystemInner::Initialized { system } => BuilderSystemInner::Initialized {
+                system: system.with_name(new_name),
+            },
+            BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                mut meta,
+            } => {
+                meta.set_name(new_name);
+                BuilderSystemInner::Uninitialized {
+                    builder,
+                    func,
+                    meta,
+                }
+            }
+            BuilderSystemInner::Invalid => unreachable!(),
+        };
+        Self { inner }
     }
 }
 
