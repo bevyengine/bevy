@@ -569,15 +569,17 @@ fn update_uinode_geometry_recursive(
             });
 
             inherited_transform *= transform.compute_affine(
-                inverse_target_scale_factor.recip(),
                 // Normally percentage translations are resolved based on a node's own size
                 // but the size of a `GhostNode` is always zero.
                 // Instead for a `GhostNode` percentage translations are resolved using the size
                 // of its parent.
                 parent_size,
-                target_size,
-                *em_size,
-                rem_size,
+                &ValContext::new(
+                    inverse_target_scale_factor.recip(),
+                    target_size,
+                    *em_size,
+                    rem_size,
+                ),
             );
 
             if inherited_transform != **global_transform {
@@ -673,11 +675,13 @@ fn update_uinode_geometry_recursive(
 
         // Compute the node's new global transform
         let mut local_transform = transform.compute_affine(
-            inverse_target_scale_factor.recip(),
             layout_size,
-            target_size,
-            *em_size,
-            rem_size,
+            &ValContext::new(
+                inverse_target_scale_factor.recip(),
+                target_size,
+                *em_size,
+                rem_size,
+            ),
         );
         local_transform.translation += local_center;
         inherited_transform *= local_transform;
@@ -802,11 +806,13 @@ pub fn update_border_radius(
             // We don't trigger change detection for changes to border radius
             // unless the border radius actually changed
             let new_border_radius = style.border_radius.resolve(
-                node.inverse_scale_factor.recip(),
                 node.size,
-                target.physical_size.as_vec2(),
-                node.em_size,
-                node.rem_size,
+                &ValContext::new(
+                    node.inverse_scale_factor.recip(),
+                    target.physical_size.as_vec2(),
+                    node.em_size,
+                    node.rem_size,
+                ),
             );
             if node.border_radius != new_border_radius {
                 node.border_radius = new_border_radius;

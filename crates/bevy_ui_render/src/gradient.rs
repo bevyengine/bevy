@@ -558,11 +558,13 @@ pub fn extract_gradients(
                         stops,
                     }) => {
                         let c = center.resolve(
-                            target.scale_factor(),
                             uinode.size,
-                            target.physical_size().as_vec2(),
-                            uinode.em_size,
-                            uinode.rem_size,
+                            &ValContext {
+                                scale_factor: target.scale_factor(),
+                                physical_size: target.physical_size().as_vec2(),
+                                em_size: uinode.em_size.0,
+                                rem_size: uinode.rem_size.0,
+                            },
                         );
 
                         let size = shape.resolve(
@@ -617,11 +619,13 @@ pub fn extract_gradients(
                         stops,
                     }) => {
                         let g_start = center.resolve(
-                            target.scale_factor(),
                             uinode.size,
-                            target.physical_size().as_vec2(),
-                            uinode.em_size,
-                            uinode.rem_size,
+                            &ValContext {
+                                scale_factor: target.scale_factor(),
+                                physical_size: target.physical_size().as_vec2(),
+                                em_size: uinode.em_size.0,
+                                rem_size: uinode.rem_size.0,
+                            },
                         );
 
                         // sort the explicit stops
