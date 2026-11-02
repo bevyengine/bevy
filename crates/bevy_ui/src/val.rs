@@ -122,20 +122,14 @@ pub enum Val {
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
     /// The sum of up to three terms with distinct units, such as `Val::Percent(50.0) - Val::Px(10.0)`.
-    ///
-    /// The `n`th value belongs to the `n`th unit of the set, see [`ValUnitSet`].
-    /// Built by `+` and `-`; longer expressions fall back to [`Val::Calc`].
     Sum(ValUnitSet, [f32; 3]),
-    /// The smallest of up to three terms with distinct units, laid out like [`Val::Sum`].
-    /// Built by [`Val::min`].
+    /// The smallest of up to three terms with distinct units.
     Min(ValUnitSet, [f32; 3]),
-    /// The largest of up to three terms with distinct units, laid out like [`Val::Sum`].
-    /// Built by [`Val::max`].
+    /// The largest of up to three terms with distinct units.
     Max(ValUnitSet, [f32; 3]),
-    /// A value clamped between a minimum and a maximum, each a unit value, stored as the
-    /// `[min, value, max]` units and values. Built by [`Val::clamp`]; when an operand is itself
-    /// an expression it falls back to [`Val::Calc`].
+    /// A value clamped between a minimum and a maximum. Stored in order `[min, value, max]`.
     Clamp([ValUnit; 3], [f32; 3]),
+    /// A wrapped operation between `Val`s.
     Calc(Calc),
 }
 
@@ -315,6 +309,7 @@ impl Val {
         }
     }
 
+    /// Returns true if this `Val` is a percentage value or any of the operations in its calc expression tree uses percentage values.
     pub(crate) fn uses_percent(&self) -> bool {
         match self {
             Self::Percent(_) => true,
@@ -879,8 +874,6 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 #[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Calc(pub(crate) Arc<CalcOp>);
 
-// Serialized as the `CalcOp` itself: serde only implements `Arc<T>` behind its `rc` feature,
-// and sharing is an implementation detail that should not leak into the format.
 #[cfg(feature = "serialize")]
 impl serde::Serialize for Calc {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -917,6 +910,7 @@ pub enum CalcOp {
 }
 
 impl CalcOp {
+    /// Returns true if any of the operations in the expression tree uses percentage values.
     pub(crate) fn uses_percent(&self) -> bool {
         match self {
             Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
@@ -944,6 +938,8 @@ impl CalcOp {
         })
     }
 
+    /// Multiply an operation by a scalar.
+    /// If the scale is negative, the direction of the operation is changed.
     pub(crate) fn scale(&mut self, k: f32) {
         use core::mem::take;
         match self {
@@ -1310,33 +1306,29 @@ impl Val {
         lo.max(v.min(hi))
     }
 
-    /// Applies `f` to every term of a [`Val::Sum`], [`Val::Min`], [`Val::Max`] or [`Val::Clamp`].
-    /// `reverses` swaps `Min` and `Max` and the bounds of `Clamp`, for an `f` that reverses ordering.
+    /// Applies the function to every term of a [`Val::Sum`], [`Val::Min`], [`Val::Max`] or [`Val::Clamp`].
+    /// If `reverses` is true, min and max are swapped.
     pub(crate) fn map_operands(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
         let (op, units, mut values) = match self {
             Val::Sum(units, values) => (ReduceOp::Sum, units, values),
             Val::Min(units, values) => (ReduceOp::Min, units, values),
             Val::Max(units, values) => (ReduceOp::Max, units, values),
             Val::Clamp(units, values) => {
-                // Inverted same-unit bounds make the clamp its minimum whatever the value is.
-                if units[0] == units[2] && values[0] > values[2] {
+                // If min is greater than max, we reduce to min by CSS rules.
+                if units[0] == units[2] && values[2] < values[0] {
                     return Val::leaf(units[0], f(values[0]));
                 }
                 let values = values.map(&f);
                 if !reverses {
                     return Val::Clamp(units, values);
                 }
-                // `f` reverses order, so `f(max(lo, min(v, hi)))` is `min(f(lo), max(f(v), f(hi)))`.
-                // Same-unit bounds are now known to satisfy `lo <= hi`, so that is the clamp with
-                // the bounds swapped; mixed-unit bounds may invert at some bases, so keep the
-                // exact form.
-                let [lo, v, hi] = core::array::from_fn(|i| Val::leaf(units[i], values[i]));
                 if units[0] == units[2] {
                     return Val::Clamp(
                         [units[2], units[1], units[0]],
                         [values[2], values[1], values[0]],
                     );
                 }
+                let [lo, v, hi] = core::array::from_fn(|i| Val::leaf(units[i], values[i]));
                 return lo.min(v.max(hi));
             }
             other => return other,
