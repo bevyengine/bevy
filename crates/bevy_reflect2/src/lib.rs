@@ -1607,7 +1607,7 @@ mod tests {
         let crate::KindMut::Struct(mut struct_mut) = reflect.kind_mut() else {
             panic!("expected struct");
         };
-        let mut list = struct_mut.field_mut(0).unwrap().list_mut().unwrap();
+        let list = struct_mut.field_mut(0).unwrap().list_mut().unwrap();
         list.push(Box::new(2u32)).unwrap();
         assert_eq!(foo.list, [1, 2]);
     }

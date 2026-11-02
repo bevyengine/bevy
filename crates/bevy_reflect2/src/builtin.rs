@@ -107,7 +107,7 @@ impl dyn Reflect {
             }
             KindRef::List(value) => {
                 let mut clone = ty.default()?;
-                let mut list = clone.list_mut()?;
+                let list = clone.list_mut()?;
                 for item in value.iter() {
                     list.push(item.reflect_clone()?).ok()?;
                 }
@@ -115,7 +115,7 @@ impl dyn Reflect {
             }
             KindRef::Map(value) => {
                 let mut clone = ty.default()?;
-                let mut map = clone.map_mut()?;
+                let map = clone.map_mut()?;
                 for (key, value) in value.iter() {
                     map.insert(key.reflect_clone()?, value.reflect_clone()?)
                         .ok()?;
@@ -124,7 +124,7 @@ impl dyn Reflect {
             }
             KindRef::Set(value) => {
                 let mut clone = ty.default()?;
-                let mut set = clone.set_mut()?;
+                let set = clone.set_mut()?;
                 for item in value.iter() {
                     set.insert(item.reflect_clone()?).ok()?;
                 }

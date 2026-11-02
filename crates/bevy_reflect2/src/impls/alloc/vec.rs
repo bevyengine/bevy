@@ -78,7 +78,7 @@ mod tests {
             assert_eq!(items, [1, 2, 3]);
         }
         {
-            let mut list = reflect.list_mut().unwrap();
+            let list = reflect.list_mut().unwrap();
             list.push(Box::new(4u32)).unwrap();
             let rejected = list.push(Box::new(5u64)).unwrap_err();
             assert_eq!(rejected.downcast_ref::<u64>(), Some(&5));

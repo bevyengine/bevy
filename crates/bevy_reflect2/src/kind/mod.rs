@@ -39,14 +39,14 @@ pub enum KindRef<'a> {
     Struct(StructRef<'a>),
     /// An [`EnumRef`], corresponding to an [`Enum`].
     Enum(EnumRef<'a>),
-    /// A [`ListRef`], corresponding to a [`List`].
-    List(ListRef<'a>),
+    /// The [`ListAccess`] of a [`List`].
+    List(&'a dyn ListAccess),
     /// An [`ArrayRef`], corresponding to an [`Array`].
     Array(ArrayRef<'a>),
-    /// A [`MapRef`], corresponding to a [`Map`].
-    Map(MapRef<'a>),
-    /// A [`SetRef`], corresponding to a [`Set`].
-    Set(SetRef<'a>),
+    /// The [`MapAccess`] of a [`Map`].
+    Map(&'a dyn MapAccess),
+    /// The [`SetAccess`] of a [`Set`].
+    Set(&'a dyn SetAccess),
     /// A [`Primitive`].
     Primitive(&'static Primitive),
 }
@@ -57,14 +57,14 @@ pub enum KindMut<'a> {
     Struct(StructMut<'a>),
     /// An [`EnumMut`], corresponding to an [`Enum`].
     Enum(EnumMut<'a>),
-    /// A [`ListMut`], corresponding to a [`List`].
-    List(ListMut<'a>),
+    /// The mutable [`ListAccess`] of a [`List`].
+    List(&'a mut dyn ListAccess),
     /// An [`ArrayMut`], corresponding to an [`Array`].
     Array(ArrayMut<'a>),
-    /// A [`MapMut`], corresponding to a [`Map`].
-    Map(MapMut<'a>),
-    /// A [`SetMut`], corresponding to a [`Set`].
-    Set(SetMut<'a>),
+    /// The mutable [`MapAccess`] of a [`Map`].
+    Map(&'a mut dyn MapAccess),
+    /// The mutable [`SetAccess`] of a [`Set`].
+    Set(&'a mut dyn SetAccess),
     /// A [`Primitive`].
     Primitive(&'static Primitive),
 }

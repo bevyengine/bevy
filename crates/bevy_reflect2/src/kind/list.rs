@@ -69,7 +69,7 @@ impl List {
 /// from the list) must have the type described by [`List::item`].
 #[expect(
     clippy::len_without_is_empty,
-    reason = "`is_empty` is provided by the `Ref` / `Mut` wrappers"
+    reason = "`is_empty` is provided by `impl dyn ListAccess`"
 )]
 pub unsafe trait ListAccess: 'static {
     /// Returns the number of items in the list.
@@ -97,153 +97,23 @@ pub fn cast_list_access<L: ListAccess>(ptr: *const u8) -> *const dyn ListAccess 
     ptr.cast::<L>() as *const dyn ListAccess
 }
 
-/// A reflected reference to a [`List`] value, providing read-only reflection operations on that value.
-pub struct ListRef<'a> {
-    access: &'a dyn ListAccess,
-    list_type: &'static List,
-}
-
-impl<'a> ListRef<'a> {
-    /// Create a new instance.
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must be a valid, initialized value that exactly matches the type described in `list_type`
-    pub unsafe fn new(ptr: Ptr<'a>, list_type: &'static List) -> Self {
-        Self {
-            // SAFETY: the caller guarantees that `ptr` matches `list_type`
-            access: unsafe { list_type.list_access(ptr) },
-            list_type,
-        }
-    }
-
-    /// The [`List`] of this type.
-    #[inline]
-    pub fn list_type(&self) -> &'static List {
-        self.list_type
-    }
-
-    /// The number of items in the list.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.access.len()
-    }
-
+impl dyn ListAccess {
     /// Returns `true` if there are no items in the list. Otherwise returns `false`.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// Returns a reference to the value in the list at the `index`, if it exists. Otherwise returns [`None`].
-    #[inline]
-    pub fn get(&self, index: usize) -> Option<&'a dyn Reflect> {
-        self.access.get(index)
-    }
-
     /// Returns an iterator over references to all items in the list.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &'a dyn Reflect> + use<'a> {
-        let access = self.access;
-        (0..access.len()).map(move |index| access.get(index).expect("index is less than len"))
-    }
-}
-
-/// A reflected mutable reference to a [`List`] value, providing reflection operations on that value.
-pub struct ListMut<'a> {
-    access: &'a mut dyn ListAccess,
-    list_type: &'static List,
-}
-
-impl<'a> ListMut<'a> {
-    /// # Safety
-    ///
-    /// `ptr` must be a valid, initialized value that exactly matches the type described in `list_type`
-    pub unsafe fn new(ptr: PtrMut<'a>, list_type: &'static List) -> Self {
-        Self {
-            // SAFETY: the caller guarantees that `ptr` matches `list_type`
-            access: unsafe { list_type.list_access_mut(ptr) },
-            list_type,
-        }
-    }
-
-    /// Returns a read-only view of this list.
-    #[inline]
-    pub fn as_ref(&self) -> ListRef<'_> {
-        ListRef {
-            access: self.access,
-            list_type: self.list_type,
-        }
-    }
-
-    /// The [`List`] of this type.
-    #[inline]
-    pub fn list_type(&self) -> &'static List {
-        self.list_type
-    }
-
-    /// The number of items in the list.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.access.len()
-    }
-
-    /// Returns `true` if there are no items in the list. Otherwise returns `false`.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Returns a reference to the value in the list at the `index`, if it exists. Otherwise returns [`None`].
-    #[inline]
-    pub fn get(&self, index: usize) -> Option<&dyn Reflect> {
-        self.access.get(index)
-    }
-
-    /// Returns a mutable reference to the value in the list at the `index`, if it exists. Otherwise returns [`None`].
-    #[inline]
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        self.access.get_mut(index)
-    }
-
-    /// Returns an iterator over references to all items in the list.
-    #[inline]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &dyn Reflect> {
-        self.as_ref().iter()
-    }
-
-    /// Inserts `value` at `index`, shifting all items after it. Returns `value` if it does not
-    /// match [`List::item`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if `index > len`.
-    #[inline]
-    pub fn insert(
-        &mut self,
-        index: usize,
-        value: Box<dyn Reflect>,
-    ) -> Result<(), Box<dyn Reflect>> {
-        self.access.insert(index, value)
-    }
-
-    /// Appends `value` to the _back_ of the list. Returns `value` if it does not match [`List::item`].
-    #[inline]
-    pub fn push(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        self.access.push(value)
-    }
-
-    /// Removes and returns the item at `index`, shifting all items after it. Returns `None` if
-    /// `index` is out of bounds.
-    #[inline]
-    pub fn remove(&mut self, index: usize) -> Option<Box<dyn Reflect>> {
-        self.access.remove(index)
+        (0..self.len()).map(|index| self.get(index).expect("index is less than len"))
     }
 
     /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
     #[inline]
     pub fn pop(&mut self) -> Option<Box<dyn Reflect>> {
-        let last = self.access.len().checked_sub(1)?;
-        self.access.remove(last)
+        let last = self.len().checked_sub(1)?;
+        self.remove(last)
     }
 
     /// Clears all items in the list, resulting in an empty list. Items are removed (and dropped)

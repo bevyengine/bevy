@@ -3,8 +3,8 @@ pub use bevy_reflect2_macros::Reflect;
 use crate::{
     kind::Kind,
     ty::{Type, Typed},
-    ArrayMut, ArrayRef, EnumMut, EnumRef, KindMut, KindRef, ListMut, ListRef, MapMut, MapRef,
-    SetMut, SetRef, StructMut, StructRef,
+    ArrayMut, ArrayRef, EnumMut, EnumRef, KindMut, KindRef, ListAccess, MapAccess, SetAccess,
+    StructMut, StructRef,
 };
 use alloc::boxed::Box;
 use bevy_ptr::{Ptr, PtrMut};
@@ -59,10 +59,10 @@ impl dyn Reflect {
             match self.ty().kind() {
                 Kind::Struct(struct_type) => KindRef::Struct(StructRef::new(ptr, struct_type)),
                 Kind::Enum(enum_type) => KindRef::Enum(EnumRef::new(ptr, enum_type)),
-                Kind::List(list_type) => KindRef::List(ListRef::new(ptr, list_type)),
+                Kind::List(list_type) => KindRef::List(list_type.list_access(ptr)),
                 Kind::Array(array_type) => KindRef::Array(ArrayRef::new(ptr, array_type)),
-                Kind::Map(map_type) => KindRef::Map(MapRef::new(ptr, map_type)),
-                Kind::Set(set_type) => KindRef::Set(SetRef::new(ptr, set_type)),
+                Kind::Map(map_type) => KindRef::Map(map_type.map_access(ptr)),
+                Kind::Set(set_type) => KindRef::Set(set_type.set_access(ptr)),
                 Kind::Primitive(primitive) => KindRef::Primitive(primitive),
             }
         }
@@ -78,10 +78,10 @@ impl dyn Reflect {
             match ty.kind() {
                 Kind::Struct(struct_type) => KindMut::Struct(StructMut::new(ptr, struct_type)),
                 Kind::Enum(enum_type) => KindMut::Enum(EnumMut::new(ptr, enum_type)),
-                Kind::List(list_type) => KindMut::List(ListMut::new(ptr, list_type)),
+                Kind::List(list_type) => KindMut::List(list_type.list_access_mut(ptr)),
                 Kind::Array(array_type) => KindMut::Array(ArrayMut::new(ptr, array_type)),
-                Kind::Map(map_type) => KindMut::Map(MapMut::new(ptr, map_type)),
-                Kind::Set(set_type) => KindMut::Set(SetMut::new(ptr, set_type)),
+                Kind::Map(map_type) => KindMut::Map(map_type.map_access_mut(ptr)),
+                Kind::Set(set_type) => KindMut::Set(set_type.set_access_mut(ptr)),
                 Kind::Primitive(primitive) => KindMut::Primitive(primitive),
             }
         }
@@ -196,22 +196,22 @@ impl dyn Reflect {
         Some(unsafe { EnumMut::new(self.ptr_mut(), enum_type) })
     }
 
-    /// Returns a [`ListRef`], if this type is a [`Kind::List`].
-    pub fn list_ref(&self) -> Option<ListRef<'_>> {
+    /// Returns the [`ListAccess`] of this value, if this type is a [`Kind::List`].
+    pub fn list_ref(&self) -> Option<&dyn ListAccess> {
         let Kind::List(list_type) = self.ty().kind() else {
             return None;
         };
         // SAFETY: self.ptr() is a valid, initialized type that matches the type described in list_type
-        Some(unsafe { ListRef::new(self.ptr(), list_type) })
+        Some(unsafe { list_type.list_access(self.ptr()) })
     }
 
-    /// Returns a [`ListMut`], if this type is a [`Kind::List`].
-    pub fn list_mut(&mut self) -> Option<ListMut<'_>> {
+    /// Returns the mutable [`ListAccess`] of this value, if this type is a [`Kind::List`].
+    pub fn list_mut(&mut self) -> Option<&mut dyn ListAccess> {
         let Kind::List(list_type) = self.ty().kind() else {
             return None;
         };
         // SAFETY: self.ptr_mut() is a valid, initialized type that matches the type described in list_type
-        Some(unsafe { ListMut::new(self.ptr_mut(), list_type) })
+        Some(unsafe { list_type.list_access_mut(self.ptr_mut()) })
     }
 
     /// Returns an [`ArrayRef`], if this type is a [`Kind::Array`].
@@ -232,40 +232,40 @@ impl dyn Reflect {
         Some(unsafe { ArrayMut::new(self.ptr_mut(), array_type) })
     }
 
-    /// Returns an [`MapRef`], if this type is a [`Kind::Map`].
-    pub fn map_ref(&self) -> Option<MapRef<'_>> {
+    /// Returns the [`MapAccess`] of this value, if this type is a [`Kind::Map`].
+    pub fn map_ref(&self) -> Option<&dyn MapAccess> {
         let Kind::Map(map_type) = self.ty().kind() else {
             return None;
         };
         // SAFETY: self.ptr() is a valid, initialized type that matches the type described in map_type
-        Some(unsafe { MapRef::new(self.ptr(), map_type) })
+        Some(unsafe { map_type.map_access(self.ptr()) })
     }
 
-    /// Returns an [`MapMut`], if this type is a [`Kind::Map`].
-    pub fn map_mut(&mut self) -> Option<MapMut<'_>> {
+    /// Returns the mutable [`MapAccess`] of this value, if this type is a [`Kind::Map`].
+    pub fn map_mut(&mut self) -> Option<&mut dyn MapAccess> {
         let Kind::Map(map_type) = self.ty().kind() else {
             return None;
         };
         // SAFETY: self.ptr_mut() is a valid, initialized type that matches the type described in map_type
-        Some(unsafe { MapMut::new(self.ptr_mut(), map_type) })
+        Some(unsafe { map_type.map_access_mut(self.ptr_mut()) })
     }
 
-    /// Returns an [`SetRef`], if this type is a [`Kind::Set`].
-    pub fn set_ref(&self) -> Option<SetRef<'_>> {
+    /// Returns the [`SetAccess`] of this value, if this type is a [`Kind::Set`].
+    pub fn set_ref(&self) -> Option<&dyn SetAccess> {
         let Kind::Set(set_type) = self.ty().kind() else {
             return None;
         };
         // SAFETY: self.ptr() is a valid, initialized type that matches the type described in set_type
-        Some(unsafe { SetRef::new(self.ptr(), set_type) })
+        Some(unsafe { set_type.set_access(self.ptr()) })
     }
 
-    /// Returns an [`SetMut`], if this type is a [`Kind::Set`].
-    pub fn set_mut(&mut self) -> Option<SetMut<'_>> {
+    /// Returns the mutable [`SetAccess`] of this value, if this type is a [`Kind::Set`].
+    pub fn set_mut(&mut self) -> Option<&mut dyn SetAccess> {
         let Kind::Set(set_type) = self.ty().kind() else {
             return None;
         };
         // SAFETY: self.ptr_mut() is a valid, initialized type that matches the type described in set_type
-        Some(unsafe { SetMut::new(self.ptr_mut(), set_type) })
+        Some(unsafe { set_type.set_access_mut(self.ptr_mut()) })
     }
 }
 
