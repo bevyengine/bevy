@@ -717,13 +717,7 @@ impl Val {
                 physical_base_value,
                 context,
             )),
-            Val::Calc(op) => op.0.resolve(
-                context.scale_factor,
-                physical_base_value,
-                context.physical_size,
-                EmSize(context.em_size),
-                RemSize(context.rem_size),
-            ),
+            Val::Calc(op) => op.0.resolve(physical_base_value, context),
         }
     }
 }
@@ -937,14 +931,10 @@ impl CalcOp {
     /// Resolve a `CalcOp` to a value in physical pixels.
     pub fn resolve(
         &self,
-        scale_factor: f32,
         physical_base_value: f32,
-        physical_target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
+        context: &ValContext,
     ) -> Result<f32, ValArithmeticError> {
-        let context = ValContext::new(scale_factor, physical_target_size, em_size, rem_size);
-        let resolve = |val: &Val| val.resolve(physical_base_value, &context);
+        let resolve = |val: &Val| val.resolve(physical_base_value, context);
         Ok(match self {
             Self::Add(a, b) => resolve(a)? + resolve(b)?,
             Self::Sub(a, b) => resolve(a)? - resolve(b)?,
