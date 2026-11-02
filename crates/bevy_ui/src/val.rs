@@ -1033,11 +1033,10 @@ impl ValUnit {
 /// If more unit types are added to `Val`, a `u8` discriminator won't be sufficient.
 const _: () = assert!(ValUnit::ALL.len() <= u8::BITS as usize);
 
-/// A set of [`ValUnit`]s.
+/// A set of distinct [`ValUnit`]s.
 ///
-/// [`Val::Sum`], [`Val::Min`] and [`Val::Max`] pair one of these with an array of values:
-/// the `n`th value belongs to the `n`th unit in [`ValUnitSet::iter`] order, and the
-/// slots after the last unit are unused.
+/// We can immediately reduce sum, min and max expressions to a single `Val` if it has compatible units,
+/// so [`Val::Sum`], [`Val::Min`] and [`Val::Max`] always store distinct units.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
