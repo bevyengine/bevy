@@ -1000,21 +1000,26 @@ impl From<CalcOp> for Val {
     }
 }
 
-/// Discriminator enum, should match `Val`'s unit types.
+/// Discriminator enum, used for packing. Should match `Val`'s unit types.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum ValUnit {
-    /// Use `Px` units
+    /// Use `Val::Px` units.
     Px,
-    /// Use `Percent` units
+    /// Use `Val::Percent` units.
     Percent,
-    /// Use `Vw` units
+    /// Use `Val::Vw` units.
     Vw,
+    /// Use `Val::Vh` units.
     Vh,
+    /// Use `Val::VMin` units.
     VMin,
+    /// Use `Val::VMax` units.
     VMax,
+    /// Use `Val::Em` units.
     Em,
+    /// Use `Val::Rem` units.
     Rem,
 }
 
@@ -1033,6 +1038,22 @@ impl ValUnit {
 
     const fn bit(self) -> u8 {
         1 << self as u8
+    }
+
+    /// Resolve a `ValUnit` and a length to a value in physical pixels from the given local physical percentage basis
+    /// and context values.
+    #[inline]
+    pub fn resolve(self, value: f32, basis: f32, context: &ValContext) -> Val {
+        match self {
+            ValUnit::Percent => Val::Percent(value * basis),
+            ValUnit::Px => Val::Px(value * context.scale_factor),
+            ValUnit::Vw => Val::Px(context.physical_size.x * value / 100.0),
+            ValUnit::Vh => Val::Px(context.physical_size.y * value / 100.0),
+            ValUnit::VMin => Val::Px(context.physical_size.min_element() * value / 100.0),
+            ValUnit::VMax => Val::Px(context.physical_size.max_element() * value / 100.0),
+            ValUnit::Em => Val::Px(value * context.em_size * context.scale_factor),
+            ValUnit::Rem => Val::Px(value * context.rem_size * context.scale_factor),
+        }
     }
 }
 
