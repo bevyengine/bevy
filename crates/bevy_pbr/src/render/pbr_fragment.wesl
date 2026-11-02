@@ -108,8 +108,10 @@ fn pbr_input_from_standard_material(
     // Fill in the sample bias so we can sample from textures.
     var bias: SampleBias;
 @if(MESHLET_MESH_MATERIAL_PASS) {
-    bias.ddx_uv = in.ddx_uv;
-    bias.ddy_uv = in.ddy_uv;
+    // Apply mip bias by scaling the gradients used by textureSampleGrad.
+    let mip_scale = exp2(view.mip_bias);
+    bias.ddx_uv = in.ddx_uv * mip_scale;
+    bias.ddy_uv = in.ddy_uv * mip_scale;
 }
 @else {
     bias.mip_bias = view.mip_bias;
@@ -233,6 +235,8 @@ pbr_input.material.uv_transform = uv_transform;
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 @if(BINDLESS) {
         pbr_input.material.ior = pbr_bindings::material_array[material_indices[slot].material].ior;
+        pbr_input.material.dispersion =
+                pbr_bindings::material_array[material_indices[slot].material].dispersion;
         pbr_input.material.attenuation_color =
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_color;
         pbr_input.material.attenuation_distance =
@@ -240,6 +244,7 @@ pbr_input.material.uv_transform = uv_transform;
 }
 @else {
         pbr_input.material.ior = pbr_bindings::material.ior;
+        pbr_input.material.dispersion = pbr_bindings::material.dispersion;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
 }
@@ -533,7 +538,7 @@ pbr_input.material.uv_transform = uv_transform;
             diffuse_occlusion *= textureSampleBias(texture, sampler_, coords, bias.mip_bias).r;
         }
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao_tex_pos = vec2<i32>(in.position.xy - view.viewport.xy);
+        let ssao_tex_pos = vec2<i32>(in.position.xy - view.main_pass_viewport.xy);
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);

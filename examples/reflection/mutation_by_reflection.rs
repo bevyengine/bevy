@@ -192,7 +192,7 @@ fn modify_selected_component(world: &mut World) {
             //
             // We want to increase or decrease the value here,
             // so we need the `AddAssign` trait
-            // which are already implemented for f32.
+            // which is already implemented for f32.
             //
             // But `AddAssign` is not a supertrait of `PartialReflect`!
             // We don't have access to its methods! How could that possibly work?

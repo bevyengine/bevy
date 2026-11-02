@@ -215,14 +215,14 @@ impl Hash for AnimationTargetId {
 pub struct AnimatedBy(#[entities] pub Entity);
 
 impl AnimationClip {
-    #[inline]
     /// [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    #[inline]
     pub fn curves(&self) -> &AnimationCurves {
         &self.curves
     }
 
-    #[inline]
     /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    #[inline]
     pub fn curves_mut(&mut self) -> &mut AnimationCurves {
         &mut self.curves
     }

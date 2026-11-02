@@ -329,20 +329,17 @@ fn setup_bsn(mut commands: Commands, time: Res<Time>, mut delta: ResMut<Delta>) 
         Transform::from_scale(Vec3::splat(0.75))
         DespawnOnExit::<Showcase>(Showcase::Bsn)
         Children [
-            (
-                Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75))
-                Sprite {
-                    image: "branding/icon.png",
-                    color: BLUE,
-                }
-            ),
-            (
-                Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75))
-                Sprite {
-                    image: "branding/icon.png",
-                    color: LIME,
-                }
-            ),
+            Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75))
+            Sprite {
+                image: "branding/icon.png",
+                color: BLUE,
+            }
+            --
+            Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75))
+            Sprite {
+                image: "branding/icon.png",
+                color: LIME,
+            }
         ]
     });
 }

@@ -345,7 +345,8 @@ impl DlssFeature for DlssRayReconstructionFeature {
         DlssRayReconstruction::new(
             upscaled_resolution.to_array(),
             perf_quality_mode,
-            feature_flags,
+            // Not supported by ray reconstruction
+            feature_flags - dlss_wgpu::DlssFeatureFlags::AutoExposure,
             DlssRayReconstructionRoughnessMode::Packed,
             DlssRayReconstructionDepthMode::Hardware,
             sdk,

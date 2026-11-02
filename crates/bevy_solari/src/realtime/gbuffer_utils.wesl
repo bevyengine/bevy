@@ -22,7 +22,7 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
     let reflectance = props.r;
     let metallic = props.g;
     let emissive = rgb9e5_to_vec3_(gpixel.g);
-    let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic);
+    let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic, false);
 
     return ResolvedGPixel(world_position, world_normal, material);
 }

@@ -8,7 +8,7 @@ use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
-/// Color in Okhsl color space with alpha
+/// Color in Okhsl color space with alpha.
 /// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
 ///
 /// Okhsl is defined relative to the sRGB (Rec. 709) gamut. Converting a wide-gamut or

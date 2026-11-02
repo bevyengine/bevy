@@ -2,13 +2,14 @@ use bevy_app::prelude::*;
 use bevy_asset::{
     embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
 };
-use bevy_camera::Camera;
+use bevy_camera::{Camera, CompositingSpace};
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_log::error;
 use bevy_log::warn;
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
@@ -18,7 +19,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
-    view::{ColorGrading, ExtractedView, ViewTarget, ViewUniform},
+    view::{ColorGrading, ExtractedView, ResolvedCompositingSpace, ViewTarget, ViewUniform},
     GpuResourceAppExt, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
@@ -100,7 +101,11 @@ impl Plugin for TonemappingPlugin {
             .add_systems(RenderStartup, init_tonemapping_pipeline)
             .add_systems(
                 Render,
-                prepare_view_tonemapping_pipelines.in_set(RenderSystems::Prepare),
+                // `block_on_render_pipeline` mutates `PipelineCache`, which conflicts
+                // with every other system that uses the cache. Their order doesn't matter.
+                prepare_view_tonemapping_pipelines
+                    .in_set(RenderSystems::Prepare)
+                    .ambiguous_with_all(),
             );
     }
 }
@@ -166,6 +171,10 @@ bitflags! {
         /// Saturation/contrast/gamma/gain/lift for one or more sections
         /// (shadows, midtones, highlights) need to be adjusted.
         const SECTIONAL_COLOR_GRADING   = 0x04;
+        /// The view composites in gamma-encoded sRGB space.
+        const SRGB_COMPOSITING          = 0x08;
+        /// The view composites in Oklab space.
+        const OKLAB_COMPOSITING         = 0x10;
     }
 }
 
@@ -211,6 +220,19 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
             .contains(TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING)
         {
             shader_defs.push("SECTIONAL_COLOR_GRADING".into());
+        }
+
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::SRGB_COMPOSITING)
+        {
+            shader_defs.push("COMPOSITING_SPACE_SRGB".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::OKLAB_COMPOSITING)
+        {
+            shader_defs.push("COMPOSITING_SPACE_OKLAB".into());
         }
 
         match key.tonemapping {
@@ -306,53 +328,102 @@ pub fn init_tonemapping_pipeline(
     });
 }
 
+/// A view's specialized tonemapping pipeline and the method it runs.
 #[derive(Component)]
-pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
+pub struct ViewTonemappingPipeline {
+    pipeline_id: CachedRenderPipelineId,
+    /// The tonemapping method the pipeline runs.
+    method: Tonemapping,
+}
+
+/// Picks the pipeline flags for a view's color grading and compositing space.
+fn tonemapping_key_flags(
+    color_grading: &ColorGrading,
+    compositing_space: Option<CompositingSpace>,
+) -> TonemappingPipelineKeyFlags {
+    // As an optimization, we omit parts of the shader that are unneeded.
+    let mut flags = TonemappingPipelineKeyFlags::empty();
+    flags.set(
+        TonemappingPipelineKeyFlags::HUE_ROTATE,
+        color_grading.global.hue != 0.0,
+    );
+    flags.set(
+        TonemappingPipelineKeyFlags::WHITE_BALANCE,
+        color_grading.global.temperature != 0.0 || color_grading.global.tint != 0.0,
+    );
+    flags.set(
+        TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
+        color_grading
+            .all_sections()
+            .any(|section| *section != default()),
+    );
+
+    flags.set(
+        TonemappingPipelineKeyFlags::SRGB_COMPOSITING,
+        compositing_space == Some(CompositingSpace::Srgb),
+    );
+    flags.set(
+        TonemappingPipelineKeyFlags::OKLAB_COMPOSITING,
+        compositing_space == Some(CompositingSpace::Oklab),
+    );
+    flags
+}
 
 pub fn prepare_view_tonemapping_pipelines(
     mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
     view_targets: Query<
         (
             Entity,
             &ExtractedView,
+            Option<&ResolvedCompositingSpace>,
             Option<&Tonemapping>,
             Option<&DebandDither>,
+            Option<&ViewTonemappingPipeline>,
+            Option<&ExtractedCamera>,
         ),
         With<ViewTarget>,
     >,
 ) {
-    for (entity, view, tonemapping, dither) in view_targets.iter() {
-        // As an optimization, we omit parts of the shader that are unneeded.
-        let mut flags = TonemappingPipelineKeyFlags::empty();
-        flags.set(
-            TonemappingPipelineKeyFlags::HUE_ROTATE,
-            view.color_grading.global.hue != 0.0,
-        );
-        flags.set(
-            TonemappingPipelineKeyFlags::WHITE_BALANCE,
-            view.color_grading.global.temperature != 0.0 || view.color_grading.global.tint != 0.0,
-        );
-        flags.set(
-            TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
-            view.color_grading
-                .all_sections()
-                .any(|section| *section != default()),
+    for (entity, view, resolved_space, tonemapping, dither, existing_pipeline, camera) in
+        view_targets.iter()
+    {
+        let method = *tonemapping.unwrap_or(&Tonemapping::None);
+
+        // `Tonemapping::None` views and views that tonemap in their material shaders
+        // don't run the pass. Render world entities persist across frames, so remove a
+        // pipeline left from an earlier frame.
+        if !method.is_enabled() || camera.is_some_and(|camera| camera.tonemap_in_shader) {
+            if existing_pipeline.is_some() {
+                commands.entity(entity).remove::<ViewTonemappingPipeline>();
+            }
+            continue;
+        }
+
+        let flags = tonemapping_key_flags(
+            &view.color_grading,
+            ResolvedCompositingSpace::space(resolved_space),
         );
 
         let key = TonemappingPipelineKey {
             target_format: view.target_format,
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
-            tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
+            tonemapping: method,
             flags,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
-        commands
-            .entity(entity)
-            .insert(ViewTonemappingPipeline(pipeline));
+        // Without a ready pipeline the pass is skipped, and the camera shows untonemapped
+        // output. Block until the pipeline compiles. This returns at once when it's
+        // already compiled.
+        pipeline_cache.block_on_render_pipeline(pipeline);
+
+        commands.entity(entity).insert(ViewTonemappingPipeline {
+            pipeline_id: pipeline,
+            method,
+        });
     }
 }
 
@@ -434,5 +505,30 @@ pub fn lut_placeholder() -> Image {
         texture_view_descriptor: None,
         asset_usage: RenderAssetUsages::RENDER_WORLD,
         copy_on_resize: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compositing_space_sets_exactly_its_flag() {
+        let flags_for = |space: Option<CompositingSpace>| {
+            tonemapping_key_flags(&ColorGrading::default(), space)
+        };
+        assert_eq!(
+            flags_for(Some(CompositingSpace::Srgb)),
+            TonemappingPipelineKeyFlags::SRGB_COMPOSITING
+        );
+        assert_eq!(
+            flags_for(Some(CompositingSpace::Oklab)),
+            TonemappingPipelineKeyFlags::OKLAB_COMPOSITING
+        );
+        assert_eq!(
+            flags_for(Some(CompositingSpace::Linear)),
+            TonemappingPipelineKeyFlags::empty()
+        );
+        assert_eq!(flags_for(None), TonemappingPipelineKeyFlags::empty());
     }
 }

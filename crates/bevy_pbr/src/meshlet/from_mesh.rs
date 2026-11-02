@@ -9,7 +9,7 @@ use bevy_render::render_resource::PrimitiveTopology;
 use bevy_shape::{Aabb3d, BoundingSphere, BoundingVolume};
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::{f32, ops::Range};
+use core::ops::Range;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, ffi::meshopt_Meshlet, generate_position_remap,
@@ -75,7 +75,7 @@ impl MeshletMesh {
         let vertex_buffer = mesh.create_packed_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
-        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
+        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..]);
 
         // Generate a position-only vertex buffer for determining triangle/meshlet connectivity
         let position_only_vertex_remap = generate_position_remap(&vertices);

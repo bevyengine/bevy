@@ -96,15 +96,12 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            Res, ResMut, Single, SkipIfAny, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
         template::{template, FromTemplate, Template},
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
-
-    #[expect(deprecated, reason = "`FilteredResources` will be removed.")]
-    pub use crate::world::{FilteredResources, FilteredResourcesMut};
 
     #[doc(hidden)]
     #[cfg(feature = "std")]
@@ -130,7 +127,6 @@ pub mod __macro_exports {
     // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
-    pub use crate::query::DebugCheckedUnwrap;
     pub use alloc::format;
     pub use alloc::vec::Vec;
 }

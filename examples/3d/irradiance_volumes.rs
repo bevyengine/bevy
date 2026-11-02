@@ -530,15 +530,11 @@ fn create_cubes(
     mut commands: Commands,
     irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
     voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,
-    voxel_cubes: Query<Entity, With<VoxelCube>>,
+    // If voxel cubes have already been spawned, don't do anything.
+    _skip_existing: SkipIfAny<With<VoxelCube>>,
     example_assets: Res<ExampleAssets>,
     mut voxel_visualization_material_assets: ResMut<Assets<VoxelVisualizationMaterial>>,
 ) {
-    // If voxel cubes have already been spawned, don't do anything.
-    if !voxel_cubes.is_empty() {
-        return;
-    }
-
     let Some(voxel_cube_parent) = voxel_cube_parents.iter().next() else {
         return;
     };

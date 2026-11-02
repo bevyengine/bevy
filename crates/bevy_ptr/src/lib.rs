@@ -385,7 +385,7 @@ macro_rules! impl_ptr {
             pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
                     // SAFETY: The caller upholds safety for `offset` and ensures the result is not null.
-                    unsafe { NonNull::new_unchecked(self.as_ptr().offset(count)) },
+                    unsafe { NonNull::new_unchecked(self.0.as_ptr().offset(count)) },
                     PhantomData,
                 )
             }
@@ -407,7 +407,7 @@ macro_rules! impl_ptr {
             pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
                     // SAFETY: The caller upholds safety for `add` and ensures the result is not null.
-                    unsafe { NonNull::new_unchecked(self.as_ptr().add(count)) },
+                    unsafe { NonNull::new_unchecked(self.0.as_ptr().add(count)) },
                     PhantomData,
                 )
             }
@@ -886,8 +886,8 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    pub fn as_ptr(self) -> *mut u8 {
-        self.0.as_ptr()
+    pub fn as_ptr(self) -> *const u8 {
+        self.0.as_ptr().cast_const()
     }
 }
 
@@ -1313,6 +1313,25 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 
 #[cfg(any(not(debug_assertions), miri))]
 impl<T: Sized> DebugEnsureAligned for *mut T {
+    #[inline(always)]
+    fn debug_ensure_aligned(self) -> Self {
+        self
+    }
+}
+
+// Same as above, but for *const T.
+#[cfg(all(debug_assertions, not(miri)))]
+impl<T: Sized> DebugEnsureAligned for *const T {
+    #[track_caller]
+    fn debug_ensure_aligned(self) -> Self {
+        // Call into the *mut version.
+        self.cast_mut().debug_ensure_aligned();
+        self
+    }
+}
+
+#[cfg(any(not(debug_assertions), miri))]
+impl<T: Sized> DebugEnsureAligned for *const T {
     #[inline(always)]
     fn debug_ensure_aligned(self) -> Self {
         self

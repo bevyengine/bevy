@@ -1,14 +1,12 @@
 use crate::{
     batching::BatchingStrategy,
     change_detection::Tick,
-    entity::{EntityEquivalent, UniqueEntityEquivalentVec},
+    entity::{EntityEquivalent, UniqueEntityEquivalentSlice},
     query::{ArchetypeFilter, ContiguousQueryData, QueryContiguousIter, QueryEntityError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
 use super::{IterQueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
-
-use alloc::vec::Vec;
 
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
@@ -345,17 +343,24 @@ where
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent> {
+pub struct QueryParManyIter<
+    'w,
+    's,
+    'e,
+    D: IterQueryData,
+    F: QueryFilter,
+    E: EntityEquivalent + Sync,
+> {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
-    pub(crate) entity_list: Vec<E>,
+    pub(crate) entity_list: &'e [E],
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-    QueryParManyIter<'w, 's, D, F, E>
+impl<'w, 's, 'e, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
+    QueryParManyIter<'w, 's, 'e, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -406,20 +411,10 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// #[derive(Resource)]
     /// struct V(Vec<Entity>);
     ///
-    /// impl<'a> IntoIterator for &'a V {
-    /// // ...
-    /// #   type Item = &'a Entity;
-    /// #   type IntoIter = slice::Iter<'a, Entity>;
-    /// #
-    /// #    fn into_iter(self) -> Self::IntoIter {
-    /// #        self.0.iter()
-    /// #    }
-    /// }
-    ///
     /// fn system(query: Query<&T>, entities: Res<V>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
+    ///     query.par_iter_many(&entities.0).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item.unwrap());
     ///     });
     ///
@@ -456,7 +451,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
             unsafe {
                 self.state
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
-                    .iter_many_inner(&self.entity_list)
+                    .iter_many_inner(self.entity_list)
                     .fold(init, func);
             }
         }
@@ -469,7 +464,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
                 unsafe {
                     self.state
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
-                        .iter_many_inner(&self.entity_list)
+                        .iter_many_inner(self.entity_list)
                         .fold(init, func);
                 }
             } else {
@@ -480,7 +475,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
                     self.state.par_many_fold_init_unchecked_manual(
                         init,
                         self.world,
-                        &self.entity_list,
+                        self.entity_list,
                         batch_size,
                         func,
                         self.last_run,
@@ -508,20 +503,21 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 pub struct QueryParManyUniqueIter<
     'w,
     's,
+    'e,
     D: IterQueryData,
     F: QueryFilter,
     E: EntityEquivalent + Sync,
 > {
     pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<D, F>,
-    pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
+    pub(crate) entity_list: &'e UniqueEntityEquivalentSlice<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-    QueryParManyUniqueIter<'w, 's, D, F, E>
+impl<'w, 's, 'e, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
+    QueryParManyUniqueIter<'w, 's, 'e, D, F, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -572,20 +568,10 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// #[derive(Resource)]
     /// struct V(UniqueEntityVec);
     ///
-    /// impl<'a> IntoIterator for &'a V {
-    /// // ...
-    /// #   type Item = &'a Entity;
-    /// #   type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
-    /// #
-    /// #    fn into_iter(self) -> Self::IntoIter {
-    /// #        self.0.iter()
-    /// #    }
-    /// }
-    ///
     /// fn system(query: Query<&T>, entities: Res<V>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
+    ///     query.par_iter_many_unique(&entities.0).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item.unwrap());
     ///     });
     ///
@@ -646,7 +632,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
                     self.state.par_many_unique_fold_init_unchecked_manual(
                         init,
                         self.world,
-                        &self.entity_list,
+                        self.entity_list,
                         batch_size,
                         func,
                         self.last_run,

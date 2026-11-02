@@ -1,3 +1,8 @@
+//! Macros for [`bevy_scene`], including the `bsn!` scene notation macros and the
+//! `SceneComponent` derive.
+//!
+//! [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
+
 // work around Rust-Analyzer issue where it prefers the module highlighting and docs over the macro, even for private modules, if both share a name
 // https://github.com/rust-lang/rust-analyzer/issues/19421
 // done this way to avoid the large diff of renaming the folder
@@ -61,19 +66,17 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// ### Scene Lists
 ///
-/// Scene list syntax appears in Relationships and the [`bsn_list!`] macro, surrounded by `[ ]`.
+/// Scene list syntax appears inside "relationship" syntax (ex: `Relationship []`) and the [`bsn_list!`] macro.
 ///
-/// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are comma-separated.
-/// Each comma-separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
+/// Unlike parts of a scene, which are whitespace-separated, the scenes in a scene list are `--` separated.
+/// Each `--` separated single-entity scene uses the same syntax as a single [`bsn!`] macro call.
 ///
-/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn_list![<scene list>]`
+/// Note: The examples below omit the relationship or macro call, `Children [<scene list>]` or `bsn_list! { <scene list> }`
 ///
 /// | Example                      | Meaning                                                                                                               |
 /// | ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-/// | `[ #Child1 CompA, #Child2 ]`     | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
-/// | `[ (#Child1 CompA), (#Child2) ]` | Same as above, with explicit parentheses                                                                          |
-/// | `[ #First, { expr }, #Last ]`   | Spawns an entity with name `First`, then every entity from the [`SceneList`] returned by expr, then one named `Last` |
-/// | `[ #First, ({ expr }), #Last ]` | Same as above, but the `expr` should result in a [`Scene`] and will only spawn one entity using it                   |
+/// | `[ #Child1 CompA -- #Child2 ]`   | Spawns 2 children, one with `(Name("Child1"), CompA::default())` and the other with `Name("Child2")`              |
+/// | `[ #First -- { expr } -- #Last ]`| Spawns an entity with name `First`, then every entity from the [`SceneList`] returned by expr, then one named `Last` |
 ///
 /// ### Values
 ///
@@ -129,27 +132,24 @@ use syn::{parse_macro_input, DeriveInput};
 ///     })
 ///     Children [                   // spawning multiple related entities using a RelationshipTarget component
 ///         #Child1 ComponentA       // whitespace doesn't have to be newlines
-///         ,                        // entities are comma-separated
-///         (@other_scene() #Child3), // parentheses around a single entity are optional
-///         Link(#SomeName),         // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
+///         --                        // entities are separated by --
+///         Link(#SomeName)          // passing a entity reference to a component as `Entity`, component has to implement FromTemplate
 ///         @MySceneComponent {      // components which derive SceneComponent have scenes and can be inherited from
 ///             @some_prop: 3,       // props, look like fields prefixed with @ but end up passed to the components scene as arguments
 ///             normal_field: 5      // while normal fields are the actual fields of the component
-///         },
-///         (
-///             Node {
-///                 width: some_var      // you can directly use variables without {}
+///         }
+///         --
+///         Node {
+///             width: some_var           // you can directly use variables without {}
+///         }
+///         ComponentB({some_var + 3.})   // values can be expressions, when wrapped in {}
+///         @Container {
+///             @items: bsn_list! {       // sometimes you may need to nest macro calls
+///                 #Item1 SomeComponent  // note: the name #Item1 here is in its own scope
+///                 --
+///                 #Item2 @some_scene()
 ///             }
-///             ComponentB({some_var + 3.})  // values can be expressions, when wrapped in {}
-///             @Container {
-///                 @items: {
-///                     bsn_list![                // sometimes you may need to nest macro calls
-///                         #Item1 SomeComponent, // note: the name #item1 here is in its own scope
-///                         @some_scene() #Item2
-///                     ]
-///                 }
-///             }
-///         ),
+///         }
 ///     ]
 /// };
 /// ```
@@ -175,7 +175,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 #[proc_macro]
 pub fn bsn(input: TokenStream) -> TokenStream {
-    crate::_bsn::bsn(input)
+    _bsn::bsn(input)
 }
 
 /// Creates a [`SceneList`] using BSN (Bevy Scene Notation) syntax.
@@ -183,7 +183,7 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 /// This is useful when you want multiple root entities in your scene
 /// that do not share a common parent, or if you want to create multiple scenes at once.
 ///
-/// Like in relationships in [`bsn!`], commas separate entities,
+/// Like in relationships in [`bsn!`], `--` separates entities,
 /// while whitespace separates components on the same entity.
 ///
 /// All root entries in a [`bsn_list!`] share a single name scope, so sibling root entities
@@ -197,9 +197,13 @@ pub fn bsn(input: TokenStream) -> TokenStream {
 /// [`bevy_scene`]: https://docs.rs/bevy/latest/bevy/scene/index.html
 #[proc_macro]
 pub fn bsn_list(input: TokenStream) -> TokenStream {
-    crate::_bsn::bsn_list(input)
+    _bsn::bsn_list(input)
 }
 
+/// Derives [`SceneComponent`], registering which components the annotated type carries and how
+/// they are constructed from BSN.
+///
+/// [`SceneComponent`]: https://docs.rs/bevy/latest/bevy/scene/trait.SceneComponent.html
 #[proc_macro_derive(
     SceneComponent,
     attributes(component, require, relationship, relationship_target, entities, scene)

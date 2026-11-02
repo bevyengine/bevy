@@ -12,6 +12,7 @@ struct StandardMaterial {
     specular_transmission: f32,
     thickness: f32,
     ior: f32,
+    dispersion: f32,
     attenuation_distance: f32,
     clearcoat: f32,
     clearcoat_perceptual_roughness: f32,
@@ -77,6 +78,7 @@ fn standard_material_new() -> StandardMaterial {
     material.specular_transmission = 0.0;
     material.thickness = 0.0;
     material.ior = 1.5;
+    material.dispersion = 0.0;
     material.attenuation_distance = 1.0;
     material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     material.clearcoat = 0.0;
@@ -129,7 +131,7 @@ fn pbr_input_new() -> PbrInput {
 
     pbr_input.material = standard_material_new();
     pbr_input.diffuse_occlusion = vec3<f32>(1.0);
-    // If SSAO is enabled, then this gets overwritten with proper specular occlusion. If its not, then we get specular environment map unoccluded (we have no data with which to occlude it with).
+    // If SSAO is enabled, then this gets overwritten with proper specular occlusion. If it's not, then we get specular environment map unoccluded (we have no data with which to occlude it with).
     pbr_input.specular_occlusion = 1.0;
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);

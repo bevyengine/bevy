@@ -202,6 +202,8 @@ pub use server::*;
 
 pub use uuid;
 
+pub mod common_loaders;
+
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},

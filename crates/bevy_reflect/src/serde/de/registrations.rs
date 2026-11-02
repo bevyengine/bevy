@@ -41,9 +41,24 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
             where
                 E: Error,
             {
-                self.0.get_with_type_path(type_path).ok_or_else(|| {
-                    make_custom_error(format_args!("no registration found for `{type_path}`"))
-                })
+                if let Some(registration) = self.0.get_with_type_path(type_path) {
+                    return Ok(registration);
+                }
+
+                match self.0.get_with_short_type_path(type_path) {
+                    Some(registration) => Ok(registration),
+                    None => Err({
+                        if self.0.is_ambiguous(type_path) {
+                            make_custom_error(format_args!(
+                                "found short type path `{type_path}`, but this short type path is ambiguous between multiple different types"
+                            ))
+                        } else {
+                            make_custom_error(format_args!(
+                                "no registration found for `{type_path}`"
+                            ))
+                        }
+                    }),
+                }
             }
         }
 

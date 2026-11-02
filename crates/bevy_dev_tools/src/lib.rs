@@ -36,6 +36,8 @@ pub mod schedule_data;
 
 pub mod states;
 
+pub mod synthetic_input;
+
 pub use easy_camera::*;
 
 #[cfg(feature = "render")]
