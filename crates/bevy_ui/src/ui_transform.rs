@@ -1,5 +1,6 @@
 use crate::Val;
 use crate::ValArithmeticError;
+use crate::ValContext;
 use crate::ValNum;
 use bevy_derive::Deref;
 use bevy_ecs::component::Component;
@@ -69,13 +70,10 @@ impl Val2 {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> Vec2 {
+        let context = ValContext::new(scale_factor, viewport_size, em_size, rem_size);
         Vec2::new(
-            self.x
-                .resolve(scale_factor, base_size.x, viewport_size, em_size, rem_size)
-                .unwrap_or(0.),
-            self.y
-                .resolve(scale_factor, base_size.y, viewport_size, em_size, rem_size)
-                .unwrap_or(0.),
+            self.x.resolve(base_size.x, &context).unwrap_or(0.),
+            self.y.resolve(base_size.y, &context).unwrap_or(0.),
         )
     }
 

@@ -687,17 +687,17 @@ fn update_uinode_geometry_recursive(
         }
 
         if let Some(outline) = maybe_outline {
+            let context = ValContext::new(
+                inverse_target_scale_factor.recip(),
+                target_size,
+                *em_size,
+                rem_size,
+            );
             // don't trigger change detection unless the outline actually changed
             let new_outline_width = if style.display != Display::None {
                 outline
                     .width
-                    .resolve(
-                        inverse_target_scale_factor.recip(),
-                        computed_node.size().x,
-                        target_size,
-                        *em_size,
-                        rem_size,
-                    )
+                    .resolve(computed_node.size().x, &context)
                     .unwrap_or(0.)
                     .max(0.)
             } else {
@@ -710,13 +710,7 @@ fn update_uinode_geometry_recursive(
 
             let new_outline_offset = outline
                 .offset
-                .resolve(
-                    inverse_target_scale_factor.recip(),
-                    computed_node.size().x,
-                    target_size,
-                    *em_size,
-                    rem_size,
-                )
+                .resolve(computed_node.size().x, &context)
                 .unwrap_or(0.)
                 // Clamp outline offsets to at least the length of the node's shorter side
                 // Negative offset outlines can be useful to create thing like in-set focus indicators

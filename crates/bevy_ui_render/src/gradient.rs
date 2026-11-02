@@ -36,7 +36,7 @@ use bevy_text::{EmSize, RemSize};
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ComputedStackIndex, ComputedUiRenderTargetInfo,
     ConicGradient, Gradient, InterpolationColorSpace, LinearGradient, RadialGradient,
-    ResolvedBorderRadius, Val,
+    ResolvedBorderRadius, Val, ValContext,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -301,11 +301,17 @@ fn compute_color_stops(
     rem_size: RemSize,
 ) -> Vec<(LinearRgba, f32, f32)> {
     let mut extracted_color_stops = vec![];
+    let context = ValContext {
+        scale_factor,
+        physical_size: target_size,
+        em_size: em_size.0,
+        rem_size: rem_size.0,
+    };
 
     // resolve the physical distances of explicit stops and sort them
     scratch.extend(stops.iter().filter_map(|stop| {
         stop.point
-            .resolve(scale_factor, length, target_size, em_size, rem_size)
+            .resolve(length, &context)
             .ok()
             .map(|physical_point| (stop.color.to_linear(), physical_point, stop.hint))
     }));

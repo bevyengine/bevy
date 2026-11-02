@@ -25,7 +25,7 @@ use taffy::{
 use crate::{
     layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
     LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform, Val,
+    UiTransform, Val, ValContext,
 };
 
 #[expect(
@@ -63,7 +63,10 @@ pub(crate) struct PercentageCalc(pub Val);
 impl PercentageCalc {
     pub fn resolve(&self, basis: f32) -> f32 {
         self.0
-            .resolve(1.0, basis, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+            .resolve(
+                basis,
+                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+            )
             .unwrap_or(0.0)
     }
 }

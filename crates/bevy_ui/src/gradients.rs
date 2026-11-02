@@ -1,4 +1,4 @@
-use crate::{UiPosition, Val, ValNum};
+use crate::{UiPosition, Val, ValContext, ValNum};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
@@ -615,6 +615,7 @@ impl RadialGradientShape {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> Vec2 {
+        let context = ValContext::new(scale_factor, physical_target_size, em_size, rem_size);
         let half_size = 0.5 * physical_size;
         match self {
             RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),
@@ -627,34 +628,12 @@ impl RadialGradientShape {
                 far_side(position.x, half_size.x),
                 far_side(position.y, half_size.y),
             ),
-            RadialGradientShape::Circle(radius) => Vec2::splat(
-                radius
-                    .resolve(
-                        scale_factor,
-                        physical_size.x,
-                        physical_target_size,
-                        em_size,
-                        rem_size,
-                    )
-                    .unwrap_or(0.),
-            ),
+            RadialGradientShape::Circle(radius) => {
+                Vec2::splat(radius.resolve(physical_size.x, &context).unwrap_or(0.))
+            }
             RadialGradientShape::Ellipse(x, y) => Vec2::new(
-                x.resolve(
-                    scale_factor,
-                    physical_size.x,
-                    physical_target_size,
-                    em_size,
-                    rem_size,
-                )
-                .unwrap_or(0.),
-                y.resolve(
-                    scale_factor,
-                    physical_size.y,
-                    physical_target_size,
-                    em_size,
-                    rem_size,
-                )
-                .unwrap_or(0.),
+                x.resolve(physical_size.x, &context).unwrap_or(0.),
+                y.resolve(physical_size.y, &context).unwrap_or(0.),
             ),
         }
     }

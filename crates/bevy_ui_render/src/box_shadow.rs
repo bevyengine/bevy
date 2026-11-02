@@ -29,7 +29,7 @@ use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiRenderTargetInfo,
-    ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, Val,
+    ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, Val, ValContext,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -317,11 +317,13 @@ pub fn extract_shadows(
                 Val::Auto => 0.,
                 Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => val
                     .resolve(
-                        scale_factor,
                         base,
-                        ui_physical_viewport_size,
-                        uinode.em_size,
-                        uinode.rem_size,
+                        &ValContext {
+                            scale_factor,
+                            physical_size: ui_physical_viewport_size,
+                            em_size: uinode.em_size.0,
+                            rem_size: uinode.rem_size.0,
+                        },
                     )
                     .unwrap_or(0.),
                 Val::Px(px) => px * scale_factor,

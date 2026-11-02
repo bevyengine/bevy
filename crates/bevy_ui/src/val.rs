@@ -677,31 +677,27 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
-    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
-    /// `physical_target_size`, `em_size`, and `rem_size` context values.
+    /// Resolves this [`Val`] to a value in physical pixels from the given `physical_base_value` and `context`.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
     pub fn resolve(
         &self,
-        scale_factor: f32,
         physical_base_value: f32,
-        physical_target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
+        context: &ValContext,
     ) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(physical_base_value * value / 100.0),
-            Val::Px(value) => Ok(value * scale_factor),
-            Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
-            Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
+            Val::Px(value) => Ok(value * context.scale_factor),
+            Val::Vw(value) => Ok(context.physical_size.x * value / 100.0),
+            Val::Vh(value) => Ok(context.physical_size.y * value / 100.0),
             Val::VMin(value) => {
-                Ok(physical_target_size.x.min(physical_target_size.y) * value / 100.0)
+                Ok(context.physical_size.x.min(context.physical_size.y) * value / 100.0)
             }
             Val::VMax(value) => {
-                Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
+                Ok(context.physical_size.x.max(context.physical_size.y) * value / 100.0)
             }
-            Val::Em(value) => Ok(value * em_size.0 * scale_factor),
-            Val::Rem(value) => Ok(value * rem_size.0 * scale_factor),
+            Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
+            Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
             Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
                 let op = match self {
@@ -711,28 +707,22 @@ impl Val {
                 };
                 Ok(ValOperands::new(*units, *values).resolve_to_physical(
                     op.apply(),
-                    scale_factor,
                     physical_base_value,
-                    physical_target_size,
-                    em_size,
-                    rem_size,
+                    context,
                 ))
             }
             Val::Clamp(units, values) => Ok(Val::resolve_clamp(
                 *units,
                 *values,
-                scale_factor,
                 physical_base_value,
-                physical_target_size,
-                em_size,
-                rem_size,
+                context,
             )),
             Val::Calc(op) => op.0.resolve(
-                scale_factor,
+                context.scale_factor,
                 physical_base_value,
-                physical_target_size,
-                em_size,
-                rem_size,
+                context.physical_size,
+                EmSize(context.em_size),
+                RemSize(context.rem_size),
             ),
         }
     }
@@ -944,6 +934,7 @@ impl CalcOp {
         }
     }
 
+    /// Resolve a `CalcOp` to a value in physical pixels.
     pub fn resolve(
         &self,
         scale_factor: f32,
@@ -952,15 +943,8 @@ impl CalcOp {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> Result<f32, ValArithmeticError> {
-        let resolve = |val: &Val| {
-            val.resolve(
-                scale_factor,
-                physical_base_value,
-                physical_target_size,
-                em_size,
-                rem_size,
-            )
-        };
+        let context = ValContext::new(scale_factor, physical_target_size, em_size, rem_size);
+        let resolve = |val: &Val| val.resolve(physical_base_value, &context);
         Ok(match self {
             Self::Add(a, b) => resolve(a)? + resolve(b)?,
             Self::Sub(a, b) => resolve(a)? - resolve(b)?,
@@ -1177,22 +1161,13 @@ impl ValOperands {
     pub(crate) fn resolve_to_physical(
         &self,
         op: fn(f32, f32) -> f32,
-        scale_factor: f32,
         physical_base_value: f32,
-        physical_target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
+        context: &ValContext,
     ) -> f32 {
         self.iter()
             .map(|(unit, value)| {
                 Val::leaf(unit, value)
-                    .resolve(
-                        scale_factor,
-                        physical_base_value,
-                        physical_target_size,
-                        em_size,
-                        rem_size,
-                    )
+                    .resolve(physical_base_value, context)
                     .unwrap_or(0.0)
             })
             .reduce(op)
@@ -1334,21 +1309,12 @@ impl Val {
     pub(crate) fn resolve_clamp(
         units: [ValUnit; 3],
         values: [f32; 3],
-        scale_factor: f32,
         physical_base_value: f32,
-        physical_target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
+        context: &ValContext,
     ) -> f32 {
         let [lo, v, hi] = core::array::from_fn(|i| {
             Val::leaf(units[i], values[i])
-                .resolve(
-                    scale_factor,
-                    physical_base_value,
-                    physical_target_size,
-                    em_size,
-                    rem_size,
-                )
+                .resolve(physical_base_value, context)
                 .unwrap_or(0.0)
         });
         lo.max(v.min(hi))
@@ -1408,33 +1374,33 @@ mod tests {
 
         assert_eq!(
             Val::Percent(80.)
-                .resolve(1., size, viewport_size, em_size, rem_size)
+                .resolve(size, &ValContext::new(1., viewport_size, em_size, rem_size))
                 .unwrap(),
             size * 0.8
         );
         // Check em and rem
         assert_eq!(
             Val::Em(2.)
-                .resolve(1., size, viewport_size, em_size, rem_size)
+                .resolve(size, &ValContext::new(1., viewport_size, em_size, rem_size))
                 .unwrap(),
             em_size.0 * 2.
         );
         assert_eq!(
             Val::Rem(5.)
-                .resolve(1., size, viewport_size, em_size, rem_size)
+                .resolve(size, &ValContext::new(1., viewport_size, em_size, rem_size))
                 .unwrap(),
             rem_size.0 * 5.
         );
         // Check scale_factor is considered
         assert_eq!(
             Val::Em(2.)
-                .resolve(2., size, viewport_size, em_size, rem_size)
+                .resolve(size, &ValContext::new(2., viewport_size, em_size, rem_size))
                 .unwrap(),
             em_size.0 * 2. * 2.
         );
         assert_eq!(
             Val::Rem(5.)
-                .resolve(2., size, viewport_size, em_size, rem_size)
+                .resolve(size, &ValContext::new(2., viewport_size, em_size, rem_size))
                 .unwrap(),
             rem_size.0 * 5. * 2.
         );
@@ -1446,25 +1412,40 @@ mod tests {
         let viewport_size = vec2(1000., 500.);
 
         let result = Val::Px(10.)
-            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .resolve(
+                size,
+                &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0)),
+            )
             .unwrap();
         assert_eq!(result, 10.);
 
         let result = Val::Px(10.)
-            .resolve(3., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .resolve(
+                size,
+                &ValContext::new(3., viewport_size, EmSize(20.0), RemSize(20.0)),
+            )
             .unwrap();
         assert_eq!(result, 30.);
         let result = Val::Px(10.)
-            .resolve(0.25, size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .resolve(
+                size,
+                &ValContext::new(0.25, viewport_size, EmSize(20.0), RemSize(20.0)),
+            )
             .unwrap();
         assert_eq!(result, 2.5);
 
         let result = Val::Em(1.)
-            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .resolve(
+                size,
+                &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0)),
+            )
             .unwrap();
         assert_eq!(result, 20.0);
         let result = Val::Rem(1.)
-            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .resolve(
+                size,
+                &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0)),
+            )
             .unwrap();
         assert_eq!(result, 20.0);
     }
@@ -1482,53 +1463,89 @@ mod tests {
         for value in (-10..10).map(|value| value as f32) {
             // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
             assert_eq!(
-                Val::Vw(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
-                Val::Vh(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                Val::Vw(value).resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                ),
+                Val::Vh(value).resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
             );
             assert_eq!(
-                Val::VMin(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
-                Val::VMax(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                Val::VMin(value).resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                ),
+                Val::VMax(value).resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
             );
             assert_eq!(
-                Val::VMin(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
-                Val::Vw(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                Val::VMin(value).resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                ),
+                Val::Vw(value).resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
             );
         }
 
         let viewport_size = vec2(1000., 500.);
         assert_eq!(
             Val::Vw(100.)
-                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
                 .unwrap(),
             1000.
         );
         assert_eq!(
             Val::Vh(100.)
-                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
                 .unwrap(),
             500.
         );
         assert_eq!(
             Val::Vw(60.)
-                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
                 .unwrap(),
             600.
         );
         assert_eq!(
             Val::Vh(40.)
-                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
                 .unwrap(),
             200.
         );
         assert_eq!(
             Val::VMin(50.)
-                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
                 .unwrap(),
             250.
         );
         assert_eq!(
             Val::VMax(75.)
-                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .resolve(
+                    size,
+                    &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0))
+                )
                 .unwrap(),
             750.
         );
@@ -1538,7 +1555,10 @@ mod tests {
     fn val_auto_is_non_evaluable() {
         let size = 250.;
         let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0));
+        let resolve_auto = Val::Auto.resolve(
+            size,
+            &ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0)),
+        );
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
     }
@@ -1703,8 +1723,12 @@ mod tests {
         assert_eq!(Val::Percent(50.0).min(Val::Px(10.0)), min);
         assert_eq!(-min.clone(), Val::Px(-10.0).max(Val::Percent(-50.0)));
         assert!(matches!(min.clone().max(Val::Px(5.0)), Val::Calc(_)));
-        let resolve =
-            |value: &Val| value.resolve(1.0, 100.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0));
+        let resolve = |value: &Val| {
+            value.resolve(
+                100.0,
+                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+            )
+        };
         assert_eq!(resolve(&min), Ok(10.0));
         assert_eq!(resolve(&Val::Px(10.0).max(Val::Percent(50.0))), Ok(50.0));
         assert_eq!(resolve(&(min * -2.0)), Ok(-20.0));
@@ -1715,7 +1739,10 @@ mod tests {
         assert_eq!(-Val::Px(10.0).max(Val::Px(20.0)), Val::Px(-20.0));
         assert_eq!(-Val::Px(10.0).min(Val::Px(20.0)), Val::Px(-10.0));
         let resolve = |value: &Val, base: f32| {
-            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+            value.resolve(
+                base,
+                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+            )
         };
         for expr in [
             Val::Px(10.0).max(Val::Percent(50.0)),
@@ -1741,7 +1768,10 @@ mod tests {
     fn negating_a_clamp_negates_its_result() {
         let clamp = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Percent(20.0));
         let resolve = |value: &Val, base: f32| {
-            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+            value.resolve(
+                base,
+                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+            )
         };
         for base in [50.0, 100.0, 150.0, 300.0, 1000.0] {
             let expected = resolve(&clamp, base).unwrap();
@@ -1769,7 +1799,10 @@ mod tests {
             Val::Px(300.0)
         );
         let resolve = |value: &Val, base: f32| {
-            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+            value.resolve(
+                base,
+                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+            )
         };
         assert_eq!(resolve(&clamp, 100.0), Ok(100.0));
         assert_eq!(resolve(&clamp, 250.0), Ok(200.0));
@@ -1815,11 +1848,8 @@ mod tests {
             Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
         let resolve = |value: &Val| {
             value.resolve(
-                2.0,
                 400.0,
-                Vec2::new(1000.0, 500.0),
-                EmSize(12.0),
-                RemSize(20.0),
+                &ValContext::new(2.0, Vec2::new(1000.0, 500.0), EmSize(12.0), RemSize(20.0)),
             )
         };
         assert_eq!(resolve(&value), Ok(278.0));
@@ -1854,7 +1884,12 @@ mod tests {
 
     #[test]
     fn negative_scale_swaps_min_and_max() {
-        let resolve = |value: Val| value.resolve(1.0, 0.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0));
+        let resolve = |value: Val| {
+            value.resolve(
+                0.0,
+                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+            )
+        };
         let (a, b) = (Val::Px(10.0), Val::Px(20.0));
         assert_eq!(
             resolve(-Val::from(CalcOp::Min(a.clone(), b.clone()))),
@@ -1937,11 +1972,13 @@ mod tests {
         let resolve = |value: Val| {
             value
                 .resolve(
-                    1.0,
                     100.0,
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
+                    &ValContext::new(
+                        1.0,
+                        Default::default(),
+                        Default::default(),
+                        Default::default(),
+                    ),
                 )
                 .unwrap()
         };
@@ -1957,11 +1994,13 @@ mod tests {
         let resolve = |value: Val| {
             value
                 .resolve(
-                    1.0,
                     100.0,
-                    Default::default(),
-                    Default::default(),
-                    Default::default(),
+                    &ValContext::new(
+                        1.0,
+                        Default::default(),
+                        Default::default(),
+                        Default::default(),
+                    ),
                 )
                 .unwrap()
         };

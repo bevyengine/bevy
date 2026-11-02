@@ -23,7 +23,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
     prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
     ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ValContext, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -413,16 +413,14 @@ pub(crate) fn update_scrollbar_thumb(
                 thumb_node.border_radius = border_radius;
             }
 
-            let resolve_border_val = |val: &Val| {
-                val.resolve(
-                    target_info.scale_factor(),
-                    thumb_physical_size.x,
-                    target_info.physical_size().as_vec2(),
-                    thumb_node.em_size,
-                    thumb_node.rem_size,
-                )
-                .unwrap_or(0.)
+            let context = ValContext {
+                scale_factor: target_info.scale_factor(),
+                physical_size: target_info.physical_size().as_vec2(),
+                em_size: thumb_node.em_size.0,
+                rem_size: thumb_node.rem_size.0,
             };
+            let resolve_border_val =
+                |val: &Val| val.resolve(thumb_physical_size.x, &context).unwrap_or(0.);
 
             let mut resolved_border = BorderRect {
                 min_inset: Vec2::new(

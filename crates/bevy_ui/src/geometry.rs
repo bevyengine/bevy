@@ -567,28 +567,13 @@ impl UiPosition {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> Vec2 {
+        let context = ValContext::new(scale_factor, physical_target_size, em_size, rem_size);
         let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
         physical_size * self.anchor
             + d * Vec2::new(
-                self.x
-                    .resolve(
-                        scale_factor,
-                        physical_size.x,
-                        physical_target_size,
-                        em_size,
-                        rem_size,
-                    )
-                    .unwrap_or(0.),
-                self.y
-                    .resolve(
-                        scale_factor,
-                        physical_size.y,
-                        physical_target_size,
-                        em_size,
-                        rem_size,
-                    )
-                    .unwrap_or(0.),
+                self.x.resolve(physical_size.x, &context).unwrap_or(0.),
+                self.y.resolve(physical_size.y, &context).unwrap_or(0.),
             )
     }
 }
@@ -765,6 +750,7 @@ impl CornerRadius {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> Vec2 {
+        let context = ValContext::new(scale_factor, viewport_size, em_size, rem_size);
         match self {
             Self {
                 x: Val::Auto,
@@ -779,21 +765,13 @@ impl CornerRadius {
                 y: radius,
             } => Vec2::splat(
                 radius
-                    .resolve(
-                        scale_factor,
-                        size.min_element(),
-                        viewport_size,
-                        em_size,
-                        rem_size,
-                    )
+                    .resolve(size.min_element(), &context)
                     .unwrap_or(0.)
                     .clamp(0., 0.5 * size.min_element()),
             ),
             Self { x, y } => Vec2::new(
-                x.resolve(scale_factor, size.x, viewport_size, em_size, rem_size)
-                    .unwrap_or(0.),
-                y.resolve(scale_factor, size.y, viewport_size, em_size, rem_size)
-                    .unwrap_or(0.),
+                x.resolve(size.x, &context).unwrap_or(0.),
+                y.resolve(size.y, &context).unwrap_or(0.),
             )
             .clamp(Vec2::ZERO, 0.5 * size),
         }
