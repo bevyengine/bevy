@@ -273,7 +273,7 @@ impl Val {
         }
     }
 
-    /// The unit of a single-term value, or `None` for [`Val::Auto`] and the expression variants.
+    /// Returns a `Val`'s units if it isn't auto or an expression, otherwise `None`.
     pub const fn unit(&self) -> Option<ValUnit> {
         Some(match self {
             Self::Px(_) => ValUnit::Px,
@@ -295,7 +295,7 @@ impl Val {
         })
     }
 
-    /// A single-term value of the given `unit`.
+    /// Construct a plain unit value.
     pub const fn leaf(unit: ValUnit, value: f32) -> Self {
         match unit {
             ValUnit::Px => Self::Px(value),
