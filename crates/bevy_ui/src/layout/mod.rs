@@ -1,6 +1,7 @@
 use crate::{
     layout_tree::{compute_layout, TaffyStyle},
     ui_transform::{UiGlobalTransform, UiTransform},
+    val::ValContext,
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
     IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
 };
@@ -15,7 +16,6 @@ use bevy_ecs::{
     system::{Local, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
-
 use bevy_log::warn_once;
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
@@ -88,8 +88,6 @@ impl UiRoots {
         self.fixed_nodes.clear();
     }
 }
-
-pub use convert::ValContext;
 
 #[derive(Debug, Error)]
 pub enum LayoutError {

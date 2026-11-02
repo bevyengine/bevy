@@ -1,0 +1,1949 @@
+use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use bevy_platform::sync::Arc;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
+use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
+use thiserror::Error;
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+use crate::UiRect;
+
+/// All the context needed to resolve a [`Val`] into a length in physical pixels, except the percentage basis.
+#[derive(Copy, Clone)]
+pub struct ValContext {
+    /// Logical pixel lengths are multiplied by the scale factor to get a physical length.
+    pub scale_factor: f32,
+    /// Size of the target surface in physical pixels.
+    pub physical_size: Vec2,
+    /// The local font size in logical pixels.
+    /// `Val::Em` values are normalized, so `em(1)` is `em_size * scale_factor` in physical pixels.
+    pub em_size: f32,
+    /// The root font size in logical pixels.
+    /// `Val::Em` values are normalized, so `rem(1)` is `rem_size * scale_factor` in physical pixels.
+    pub rem_size: f32,
+}
+
+impl ValContext {
+    pub const DEFAULT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::ZERO,
+        em_size: DEFAULT_REM_SIZE_PX,
+        rem_size: DEFAULT_REM_SIZE_PX,
+    };
+
+    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
+    #[inline]
+    pub(super) const fn new(
+        scale_factor: f32,
+        physical_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Self {
+        Self {
+            scale_factor,
+            physical_size,
+            em_size: em_size.0,
+            rem_size: rem_size.0,
+        }
+    }
+}
+
+#[cfg(test)]
+impl ValContext {
+    pub const TEST_CONTEXT: Self = Self {
+        physical_size: Vec2::new(1000.0, 1000.0),
+        ..Self::DEFAULT
+    };
+}
+
+impl Default for ValContext {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Represents the possible value types for layout properties.
+///
+/// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
+/// such as logical pixels, percentages, or automatically determined values.
+///
+/// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
+/// * `px`: logical pixels
+/// * `%`: percentage
+/// * `vw`: percentage of the viewport width
+/// * `vh`: percentage of the viewport height
+/// * `vmin`: percentage of the viewport's smaller dimension
+/// * `vmax`: percentage of the viewport's larger dimension
+///
+/// Additionally, `auto` will be parsed as [`Val::Auto`].
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum Val {
+    /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
+    Auto,
+    /// Set this value in logical pixels.
+    Px(f32),
+    /// Set the value as a percentage of its parent node's length along a specific axis.
+    ///
+    /// If the UI node has no parent, the percentage is calculated based on the window's length
+    /// along the corresponding axis.
+    ///
+    /// The chosen axis depends on the [`Node`](crate::Node) field set:
+    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+    /// * For `gap`, `min_size`, `size`, and `max_size`:
+    ///   - `width` is relative to the parent's width.
+    ///   - `height` is relative to the parent's height.
+    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
+    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
+    Percent(f32),
+    /// Set this value in percent of the viewport width
+    Vw(f32),
+    /// Set this value in percent of the viewport height
+    Vh(f32),
+    /// Set this value in percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Set this value in percent of the viewport's larger dimension.
+    VMax(f32),
+    /// Set this value as a multiple of the node's own font size.
+    ///
+    /// `1em` is the node's font size, so `Val::Em(2.0)` is twice that.
+    /// Resolved from the node's [`EmSize`] component.
+    Em(f32),
+    /// Set this value as a multiple of the root font size.
+    ///
+    /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
+    /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
+    Rem(f32),
+    /// The sum of up to three terms with distinct units, such as `Val::Percent(50.0) - Val::Px(10.0)`.
+    ///
+    /// The `n`th value belongs to the `n`th unit of the set, see [`ValUnitSet`].
+    /// Built by `+` and `-`; longer expressions fall back to [`Val::Calc`].
+    Sum(ValUnitSet, [f32; 3]),
+    /// The smallest of up to three terms with distinct units, laid out like [`Val::Sum`].
+    /// Built by [`Val::min`].
+    Min(ValUnitSet, [f32; 3]),
+    /// The largest of up to three terms with distinct units, laid out like [`Val::Sum`].
+    /// Built by [`Val::max`].
+    Max(ValUnitSet, [f32; 3]),
+    /// A value clamped between a minimum and a maximum, each a unit value, stored as the
+    /// `[min, value, max]` units and values. Built by [`Val::clamp`]; when an operand is itself
+    /// an expression it falls back to [`Val::Calc`].
+    Clamp([ValUnit; 3], [f32; 3]),
+    Calc(Calc),
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ValParseError {
+    UnitMissing,
+    ValueMissing,
+    InvalidValue,
+    InvalidUnit,
+}
+
+impl core::fmt::Display for ValParseError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ValParseError::UnitMissing => write!(f, "unit missing"),
+            ValParseError::ValueMissing => write!(f, "value missing"),
+            ValParseError::InvalidValue => write!(f, "invalid value"),
+            ValParseError::InvalidUnit => write!(f, "invalid unit"),
+        }
+    }
+}
+
+impl core::str::FromStr for Val {
+    type Err = ValParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+
+        if s.eq_ignore_ascii_case("auto") {
+            return Ok(Val::Auto);
+        }
+
+        let Some(end_of_number) = s
+            .bytes()
+            .position(|c| !(c.is_ascii_digit() || c == b'.' || c == b'-' || c == b'+'))
+        else {
+            return Err(ValParseError::UnitMissing);
+        };
+
+        if end_of_number == 0 {
+            return Err(ValParseError::ValueMissing);
+        }
+
+        let (value, unit) = s.split_at(end_of_number);
+
+        let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
+
+        let unit = unit.trim();
+
+        if unit.eq_ignore_ascii_case("px") {
+            Ok(Val::Px(value))
+        } else if unit.eq_ignore_ascii_case("%") {
+            Ok(Val::Percent(value))
+        } else if unit.eq_ignore_ascii_case("vw") {
+            Ok(Val::Vw(value))
+        } else if unit.eq_ignore_ascii_case("vh") {
+            Ok(Val::Vh(value))
+        } else if unit.eq_ignore_ascii_case("vmin") {
+            Ok(Val::VMin(value))
+        } else if unit.eq_ignore_ascii_case("vmax") {
+            Ok(Val::VMax(value))
+        } else if unit.eq_ignore_ascii_case("rem") {
+            Ok(Val::Rem(value))
+        } else if unit.eq_ignore_ascii_case("em") {
+            Ok(Val::Em(value))
+        } else {
+            Err(ValParseError::InvalidUnit)
+        }
+    }
+}
+
+impl PartialEq for Val {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Calc(a), Self::Calc(b)) => return a == b,
+            (Self::Min(a, x), Self::Min(b, y)) | (Self::Max(a, x), Self::Max(b, y)) => {
+                return ValTerms::new(*a, *x) == ValTerms::new(*b, *y);
+            }
+            (Self::Clamp(a, x), Self::Clamp(b, y)) => return a == b && x == y,
+            (Self::Sum(..), _) | (_, Self::Sum(..)) => {
+                return self.sum_terms() == other.sum_terms();
+            }
+            _ => {}
+        }
+        let same_unit = matches!(
+            (self, other),
+            (Self::Auto, Self::Auto)
+                | (Self::Px(_), Self::Px(_))
+                | (Self::Percent(_), Self::Percent(_))
+                | (Self::Vw(_), Self::Vw(_))
+                | (Self::Vh(_), Self::Vh(_))
+                | (Self::VMin(_), Self::VMin(_))
+                | (Self::VMax(_), Self::VMax(_))
+                | (Self::Em(_), Self::Em(_))
+                | (Self::Rem(_), Self::Rem(_))
+        );
+
+        // as long as the units are the same comparing `inner`
+        // is valid.
+        let left = self.inner();
+        let right = other.inner();
+
+        match (same_unit, left, right) {
+            (true, a, b) => a == b,
+            // All zero-value variants are considered equal.
+            (false, Some(a), Some(b)) => a == 0. && b == 0.,
+            _ => false,
+        }
+    }
+}
+
+impl Val {
+    pub const DEFAULT: Self = Self::Auto;
+
+    /// Zero. In [`Val::Px`], but zero is the same in any unit.
+    pub const ZERO: Self = Self::Px(0.0);
+
+    /// The largest finite [`Val::Px`] value.
+    pub const MAX: Self = Self::Px(f32::MAX);
+
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`] and the expression variants.
+    ///
+    /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
+    /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
+    pub(crate) const fn inner(&self) -> Option<f32> {
+        match self {
+            Self::Auto
+            | Self::Sum(..)
+            | Self::Min(..)
+            | Self::Max(..)
+            | Self::Clamp(..)
+            | Self::Calc(_) => None,
+            Self::Px(v)
+            | Self::Percent(v)
+            | Self::Vw(v)
+            | Self::Vh(v)
+            | Self::VMin(v)
+            | Self::VMax(v)
+            | Self::Em(v)
+            | Self::Rem(v) => Some(*v),
+        }
+    }
+
+    /// The unit of a single-term value, or `None` for [`Val::Auto`] and the expression variants.
+    pub const fn unit(&self) -> Option<ValUnit> {
+        Some(match self {
+            Self::Px(_) => ValUnit::Px,
+            Self::Percent(_) => ValUnit::Percent,
+            Self::Vw(_) => ValUnit::Vw,
+            Self::Vh(_) => ValUnit::Vh,
+            Self::VMin(_) => ValUnit::VMin,
+            Self::VMax(_) => ValUnit::VMax,
+            Self::Em(_) => ValUnit::Em,
+            Self::Rem(_) => ValUnit::Rem,
+            Self::Auto
+            | Self::Sum(..)
+            | Self::Min(..)
+            | Self::Max(..)
+            | Self::Clamp(..)
+            | Self::Calc(_) => {
+                return None;
+            }
+        })
+    }
+
+    /// A single-term value of the given `unit`.
+    pub const fn leaf(unit: ValUnit, value: f32) -> Self {
+        match unit {
+            ValUnit::Px => Self::Px(value),
+            ValUnit::Percent => Self::Percent(value),
+            ValUnit::Vw => Self::Vw(value),
+            ValUnit::Vh => Self::Vh(value),
+            ValUnit::VMin => Self::VMin(value),
+            ValUnit::VMax => Self::VMax(value),
+            ValUnit::Em => Self::Em(value),
+            ValUnit::Rem => Self::Rem(value),
+        }
+    }
+
+    pub(crate) fn uses_percent(&self) -> bool {
+        match self {
+            Self::Percent(_) => true,
+            Self::Sum(units, _) | Self::Min(units, _) | Self::Max(units, _) => {
+                units.contains(ValUnit::Percent)
+            }
+            Self::Clamp(units, _) => units.contains(&ValUnit::Percent),
+            Self::Calc(calc) => calc.0.uses_percent(),
+            _ => false,
+        }
+    }
+
+    /// Returns a [`UiRect`] with its `left` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).left();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub fn left(self) -> UiRect {
+        UiRect::left(self)
+    }
+
+    /// Returns a [`UiRect`] with its `right` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).right();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub fn right(self) -> UiRect {
+        UiRect::right(self)
+    }
+
+    /// Returns a [`UiRect`] with its `top` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).top();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub fn top(self) -> UiRect {
+        UiRect::top(self)
+    }
+
+    /// Returns a [`UiRect`] with its `bottom` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).bottom();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub fn bottom(self) -> UiRect {
+        UiRect::bottom(self)
+    }
+
+    /// Returns a [`UiRect`] with all its fields equal to this value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).all();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub fn all(self) -> UiRect {
+        UiRect::all(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `left` and `right` equal to this value,
+    /// and its `top` and `bottom` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).horizontal();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub fn horizontal(self) -> UiRect {
+        UiRect::horizontal(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `top` and `bottom` equal to this value,
+    /// and its `left` and `right` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).vertical();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub fn vertical(self) -> UiRect {
+        UiRect::vertical(self)
+    }
+
+    /// Try to add two `Val`s.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
+    /// assert_eq!(
+    ///     Val::Px(1.).try_add(Val::Percent(2.)),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
+        match (self, val) {
+            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
+            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
+            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
+            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
+            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
+            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
+            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u + v)),
+            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u + v)),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
+
+    /// Try to subtract one `Val` from another.
+    ///
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
+    /// assert_eq!(
+    ///     Val::Px(1.).try_sub(Val::Percent(2.)),
+    ///     Err(ValArithmeticError::IncompatibleUnits)
+    /// );
+    /// ```
+    pub fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
+        match (self, val) {
+            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
+            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
+            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
+            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
+            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
+            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
+            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u - v)),
+            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u - v)),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
+
+    /// The smaller of `self` and `other` once resolved.
+    pub fn min(self, other: Val) -> Val {
+        self.combine(other, TermOp::Min)
+    }
+
+    /// The larger of `self` and `other` once resolved.
+    pub fn max(self, other: Val) -> Val {
+        self.combine(other, TermOp::Max)
+    }
+
+    /// `self` clamped between `min` and `max` once resolved.
+    pub fn clamp(self, min: Val, max: Val) -> Val {
+        Val::clamp_inline(&min, &self, &max).unwrap_or_else(|| CalcOp::Clamp(min, self, max).into())
+    }
+}
+
+impl Default for Val {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl Add for Val {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        self.combine(rhs, TermOp::Sum)
+    }
+}
+
+impl Sub for Val {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        self.combine(-rhs, TermOp::Sum)
+    }
+}
+
+impl Mul<f32> for Val {
+    type Output = Val;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value * rhs),
+            Val::Percent(value) => Val::Percent(value * rhs),
+            Val::Vw(value) => Val::Vw(value * rhs),
+            Val::Vh(value) => Val::Vh(value * rhs),
+            Val::VMin(value) => Val::VMin(value * rhs),
+            Val::VMax(value) => Val::VMax(value * rhs),
+            Val::Em(value) => Val::Em(value * rhs),
+            Val::Rem(value) => Val::Rem(value * rhs),
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
+                terms.map_terms(|value| value * rhs, rhs < 0.0)
+            }
+            Val::Calc(mut calc) => {
+                Arc::make_mut(&mut calc.0).scale(rhs);
+                Val::Calc(calc)
+            }
+        }
+    }
+}
+
+impl MulAssign<f32> for Val {
+    fn mul_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Auto => {}
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value)
+            | Val::Em(value)
+            | Val::Rem(value) => *value *= rhs,
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
+                *self = core::mem::take(self).map_terms(|value| value * rhs, rhs < 0.0);
+            }
+            Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs),
+        }
+    }
+}
+
+impl Div<f32> for Val {
+    type Output = Val;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value / rhs),
+            Val::Percent(value) => Val::Percent(value / rhs),
+            Val::Vw(value) => Val::Vw(value / rhs),
+            Val::Vh(value) => Val::Vh(value / rhs),
+            Val::VMin(value) => Val::VMin(value / rhs),
+            Val::VMax(value) => Val::VMax(value / rhs),
+            Val::Em(value) => Val::Em(value / rhs),
+            Val::Rem(value) => Val::Rem(value / rhs),
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
+                terms.map_terms(|value| value / rhs, rhs < 0.0)
+            }
+            Val::Calc(mut calc) => {
+                Arc::make_mut(&mut calc.0).scale(rhs.recip());
+                Val::Calc(calc)
+            }
+        }
+    }
+}
+
+impl DivAssign<f32> for Val {
+    fn div_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Auto => {}
+            Val::Px(value)
+            | Val::Percent(value)
+            | Val::Vw(value)
+            | Val::Vh(value)
+            | Val::VMin(value)
+            | Val::VMax(value)
+            | Val::Em(value)
+            | Val::Rem(value) => *value /= rhs,
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
+                *self = core::mem::take(self).map_terms(|value| value / rhs, rhs < 0.0);
+            }
+            Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs.recip()),
+        }
+    }
+}
+
+impl Neg for Val {
+    type Output = Val;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(-value),
+            Val::Percent(value) => Val::Percent(-value),
+            Val::Vw(value) => Val::Vw(-value),
+            Val::Vh(value) => Val::Vh(-value),
+            Val::VMin(value) => Val::VMin(-value),
+            Val::VMax(value) => Val::VMax(-value),
+            Val::Em(value) => Val::Em(-value),
+            Val::Rem(value) => Val::Rem(-value),
+            terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
+                terms.map_terms(|value| -value, true)
+            }
+            Val::Calc(mut calc) => {
+                Arc::make_mut(&mut calc.0).scale(-1.0);
+                Val::Calc(calc)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+pub enum ValArithmeticError {
+    #[error("the given variant of Val is not evaluable (non-numeric)")]
+    NonEvaluable,
+    #[error("the given variants of Val have incompatible units")]
+    IncompatibleUnits,
+}
+
+impl Val {
+    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
+    /// `physical_target_size`, `em_size`, and `rem_size` context values.
+    ///
+    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    pub fn resolve(
+        &self,
+        scale_factor: f32,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Result<f32, ValArithmeticError> {
+        match self {
+            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
+            Val::Px(value) => Ok(value * scale_factor),
+            Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
+            Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
+            Val::VMin(value) => {
+                Ok(physical_target_size.x.min(physical_target_size.y) * value / 100.0)
+            }
+            Val::VMax(value) => {
+                Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
+            }
+            Val::Em(value) => Ok(value * em_size.0 * scale_factor),
+            Val::Rem(value) => Ok(value * rem_size.0 * scale_factor),
+            Val::Auto => Err(ValArithmeticError::NonEvaluable),
+            Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
+                let op = match self {
+                    Val::Min(..) => TermOp::Min,
+                    Val::Max(..) => TermOp::Max,
+                    _ => TermOp::Sum,
+                };
+                Ok(ValTerms::new(*units, *values).resolve(
+                    op.apply(),
+                    scale_factor,
+                    physical_base_value,
+                    physical_target_size,
+                    em_size,
+                    rem_size,
+                ))
+            }
+            Val::Clamp(units, values) => Ok(Val::resolve_clamp(
+                *units,
+                *values,
+                scale_factor,
+                physical_base_value,
+                physical_target_size,
+                em_size,
+                rem_size,
+            )),
+            Val::Calc(op) => op.0.resolve(
+                scale_factor,
+                physical_base_value,
+                physical_target_size,
+                em_size,
+                rem_size,
+            ),
+        }
+    }
+}
+
+impl TryFrom<Val> for FontSize {
+    type Error = ValArithmeticError;
+
+    /// Converts a [`Val`] into a [`FontSize`].
+    ///
+    /// [`Val::Em`] becomes [`FontSize::Rem`]: em is relative to the font size of the node
+    /// itself, which is the very thing being defined here, so it resolves against the root
+    /// size instead to avoid the circularity.
+    fn try_from(val: Val) -> Result<Self, Self::Error> {
+        Ok(match val {
+            Val::Auto => FontSize::Rem(1.),
+            Val::Px(px) => FontSize::Px(px),
+            Val::Percent(percent) => FontSize::Rem(percent / 100.),
+            Val::Vw(vw) => FontSize::Vw(vw),
+            Val::Vh(vh) => FontSize::Vh(vh),
+            Val::VMin(vmin) => FontSize::VMin(vmin),
+            Val::VMax(vmax) => FontSize::VMax(vmax),
+            Val::Rem(rem) => FontSize::Rem(rem),
+            Val::Em(em) => FontSize::Rem(em), // see comment above
+            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
+                return Err(ValArithmeticError::NonEvaluable);
+            }
+        })
+    }
+}
+
+impl TryStableInterpolate for Val {
+    type Error = MismatchedUnitsError;
+
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// # use bevy_math::TryStableInterpolate;
+    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
+    /// ```
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
+        match (self, other) {
+            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
+            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
+            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
+            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
+            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
+            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
+            (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
+            (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
+            (Val::Sum(a, x), Val::Sum(b, y))
+            | (Val::Min(a, x), Val::Min(b, y))
+            | (Val::Max(a, x), Val::Max(b, y)) => {
+                let (units, values) = ValTerms::new(*a, *x)
+                    .interpolate_stable(&ValTerms::new(*b, *y), t)
+                    .ok_or(MismatchedUnitsError)?
+                    .into_parts();
+                Ok(match self {
+                    Val::Min(..) => Val::Min(units, values),
+                    Val::Max(..) => Val::Max(units, values),
+                    _ => Val::Sum(units, values),
+                })
+            }
+            (Val::Clamp(a, x), Val::Clamp(b, y)) if a == b => Ok(Val::Clamp(
+                *a,
+                core::array::from_fn(|i| x[i].interpolate_stable(&y[i], t)),
+            )),
+            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            _ => Err(MismatchedUnitsError),
+        }
+    }
+}
+
+/// All the types that should be able to be used in the [`Val`] enum should implement this trait.
+///
+/// Instead of just implementing `Into<Val>` a custom trait is added.
+/// This is done in order to prevent having to define a default unit, which could lead to confusion especially for newcomers.
+pub trait ValNum {
+    /// Called by the [`Val`] helper functions to convert the implementing type to an `f32` that can
+    /// be used by [`Val`].
+    fn val_num_f32(self) -> f32;
+}
+
+macro_rules! impl_to_val_num {
+    ($($impl_type:ty),*$(,)?) => {
+        $(
+            impl ValNum for $impl_type {
+                fn val_num_f32(self) -> f32 {
+                    self as f32
+                }
+            }
+        )*
+    };
+}
+
+impl_to_val_num!(f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
+
+/// Returns a [`Val::Auto`] where the value is automatically determined
+/// based on the context and other [`Node`](crate::Node) properties.
+pub const fn auto() -> Val {
+    Val::Auto
+}
+
+/// Returns a [`Val::Px`] representing a value in logical pixels.
+pub fn px<T: ValNum>(value: T) -> Val {
+    Val::Px(value.val_num_f32())
+}
+
+/// Returns a [`Val::Em`] representing a value proportional to the node's own font size, represented by an [`EmSize`] component.
+pub fn em<T: ValNum>(value: T) -> Val {
+    Val::Em(value.val_num_f32())
+}
+
+/// Returns a [`Val::Rem`] representing a value proportional to the root font size.
+pub fn rem<T: ValNum>(value: T) -> Val {
+    Val::Rem(value.val_num_f32())
+}
+
+/// Returns a [`Val::Percent`] representing a percentage of the parent node's length
+/// along a specific axis.
+///
+/// If the UI node has no parent, the percentage is based on the window's length
+/// along that axis.
+///
+/// Axis rules:
+/// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+/// * For `gap`, `min_size`, `size`, and `max_size`:
+///   - `width` is relative to the parent's width.
+///   - `height` is relative to the parent's height.
+/// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
+/// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
+pub fn percent<T: ValNum>(value: T) -> Val {
+    Val::Percent(value.val_num_f32())
+}
+
+/// Returns a [`Val::Vw`] representing a percentage of the viewport width.
+pub fn vw<T: ValNum>(value: T) -> Val {
+    Val::Vw(value.val_num_f32())
+}
+
+/// Returns a [`Val::Vh`] representing a percentage of the viewport height.
+pub fn vh<T: ValNum>(value: T) -> Val {
+    Val::Vh(value.val_num_f32())
+}
+
+/// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
+pub fn vmin<T: ValNum>(value: T) -> Val {
+    Val::VMin(value.val_num_f32())
+}
+
+/// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
+pub fn vmax<T: ValNum>(value: T) -> Val {
+    Val::VMax(value.val_num_f32())
+}
+
+/// Wrapper around an opteration on `Val`s.
+#[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(opaque, PartialEq, Debug, Clone)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+pub struct Calc(pub(crate) Arc<CalcOp>);
+
+// Serialized as the `CalcOp` itself: serde only implements `Arc<T>` behind its `rc` feature,
+// and sharing is an implementation detail that should not leak into the format.
+#[cfg(feature = "serialize")]
+impl serde::Serialize for Calc {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de> serde::Deserialize<'de> for Calc {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        CalcOp::deserialize(deserializer).map(|op| Self(Arc::new(op)))
+    }
+}
+
+/// An operation performed on `Val`s.
+#[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum CalcOp {
+    /// Add two vals.
+    Add(Val, Val),
+    /// Subtract the second `Val` from the first.
+    Sub(Val, Val),
+    /// Return the minimum of the two `Val`s.
+    Min(Val, Val),
+    /// Return the maximum of the two `Val`s.
+    Max(Val, Val),
+    /// Clamp the second `Val` between the first and third.
+    Clamp(Val, Val, Val),
+}
+
+impl CalcOp {
+    pub(crate) fn uses_percent(&self) -> bool {
+        match self {
+            Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
+                a.uses_percent() || b.uses_percent()
+            }
+            Self::Clamp(min, value, max) => {
+                min.uses_percent() || value.uses_percent() || max.uses_percent()
+            }
+        }
+    }
+
+    pub fn resolve(
+        &self,
+        scale_factor: f32,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Result<f32, ValArithmeticError> {
+        let resolve = |val: &Val| {
+            val.resolve(
+                scale_factor,
+                physical_base_value,
+                physical_target_size,
+                em_size,
+                rem_size,
+            )
+        };
+        Ok(match self {
+            Self::Add(a, b) => resolve(a)? + resolve(b)?,
+            Self::Sub(a, b) => resolve(a)? - resolve(b)?,
+            Self::Min(a, b) => resolve(a)?.min(resolve(b)?),
+            Self::Max(a, b) => resolve(a)?.max(resolve(b)?),
+            Self::Clamp(min, value, max) => resolve(min)?.max(resolve(value)?.min(resolve(max)?)),
+        })
+    }
+
+    pub(crate) fn scale(&mut self, k: f32) {
+        use core::mem::take;
+        match self {
+            Self::Min(a, b) if k < 0.0 => *self = Self::Max(take(a) * k, take(b) * k),
+            Self::Max(a, b) if k < 0.0 => *self = Self::Min(take(a) * k, take(b) * k),
+            Self::Clamp(min, value, max) if k < 0.0 => {
+                *self = Self::Min(
+                    take(min) * k,
+                    Self::Max(take(value) * k, take(max) * k).into(),
+                );
+            }
+            Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
+                *a *= k;
+                *b *= k;
+            }
+            Self::Clamp(min, value, max) => {
+                *min *= k;
+                *value *= k;
+                *max *= k;
+            }
+        }
+    }
+}
+
+impl From<CalcOp> for Val {
+    fn from(op: CalcOp) -> Self {
+        Self::Calc(Calc(Arc::new(op)))
+    }
+}
+
+/// Discriminator enum, should match `Val`'s unit types.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u8)]
+pub enum ValUnit {
+    /// Use `Px` units
+    Px,
+    /// Use `Percent` units
+    Percent,
+    /// Use `Vw` units
+    Vw,
+    Vh,
+    VMin,
+    VMax,
+    Em,
+    Rem,
+}
+
+impl ValUnit {
+    /// Every unit, in discriminant order.
+    pub const ALL: [Self; 8] = [
+        Self::Px,
+        Self::Percent,
+        Self::Vw,
+        Self::Vh,
+        Self::VMin,
+        Self::VMax,
+        Self::Em,
+        Self::Rem,
+    ];
+
+    const fn bit(self) -> u8 {
+        1 << self as u8
+    }
+}
+
+/// If more unit types are added to `Val`, a `u8` discriminator won't be sufficient.
+const _: () = assert!(ValUnit::ALL.len() <= u8::BITS as usize);
+
+/// A set of [`ValUnit`]s.
+///
+/// [`Val::Sum`], [`Val::Min`] and [`Val::Max`] pair one of these with an array of values:
+/// the `n`th value belongs to the `n`th unit in [`ValUnitSet::iter`] order, and the
+/// slots after the last unit are unused.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
+#[reflect(PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ValUnitSet(u8);
+
+impl ValUnitSet {
+    /// The empty set.
+    pub const EMPTY: Self = Self(0);
+
+    /// The number of units in the set.
+    pub const fn len(&self) -> usize {
+        self.0.count_ones() as usize
+    }
+
+    /// Whether the set has no units.
+    pub const fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// Whether `unit` is in the set.
+    pub const fn contains(&self, unit: ValUnit) -> bool {
+        self.0 & unit.bit() != 0
+    }
+
+    /// The position `unit` has, or would have, among the set's units in ascending order.
+    pub const fn slot(&self, unit: ValUnit) -> usize {
+        (self.0 & (unit.bit() - 1)).count_ones() as usize
+    }
+
+    /// The units in ascending order.
+    pub fn iter(self) -> impl Iterator<Item = ValUnit> {
+        ValUnit::ALL
+            .into_iter()
+            .filter(move |unit| self.contains(*unit))
+    }
+
+    const fn insert(&mut self, unit: ValUnit) {
+        self.0 |= unit.bit();
+    }
+}
+
+impl core::fmt::Debug for ValUnitSet {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}
+
+/// Working copy of the terms of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`].
+#[derive(Clone, Copy)]
+pub(crate) struct ValTerms {
+    units: ValUnitSet,
+    values: [f32; 3],
+}
+
+impl ValTerms {
+    /// The maximum number of terms.
+    pub(crate) const CAPACITY: usize = 3;
+
+    pub(crate) const fn new(units: ValUnitSet, values: [f32; 3]) -> Self {
+        Self { units, values }
+    }
+
+    pub(crate) const fn into_parts(self) -> (ValUnitSet, [f32; 3]) {
+        (self.units, self.values)
+    }
+
+    const fn single(unit: ValUnit, value: f32) -> Self {
+        let mut units = ValUnitSet::EMPTY;
+        units.insert(unit);
+        Self::new(units, [value, 0.0, 0.0])
+    }
+
+    /// The terms in ascending unit order.
+    pub(crate) fn terms(self) -> impl Iterator<Item = (ValUnit, f32)> {
+        self.units.iter().zip(self.values)
+    }
+
+    /// Folds `value` into the existing term for `unit` with `op`, or inserts it as a new term.
+    ///
+    /// Returns `false` and leaves `self` unchanged when a new term would exceed [`Self::CAPACITY`].
+    fn fold(&mut self, unit: ValUnit, value: f32, op: fn(f32, f32) -> f32) -> bool {
+        let slot = self.units.slot(unit);
+        if self.units.contains(unit) {
+            self.values[slot] = op(self.values[slot], value);
+        } else if self.units.len() < Self::CAPACITY {
+            self.values[slot..].rotate_right(1);
+            self.values[slot] = value;
+            self.units.insert(unit);
+        } else {
+            return false;
+        }
+        true
+    }
+
+    /// Removes the terms whose value is zero.
+    fn retain_nonzero(&mut self) {
+        let mut kept = Self::new(ValUnitSet::EMPTY, [0.0; 3]);
+        for (unit, value) in self.terms().filter(|(_, value)| *value != 0.0) {
+            kept.values[kept.units.len()] = value;
+            kept.units.insert(unit);
+        }
+        *self = kept;
+    }
+
+    pub(crate) fn resolve(
+        &self,
+        op: fn(f32, f32) -> f32,
+        scale_factor: f32,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> f32 {
+        self.terms()
+            .map(|(unit, value)| {
+                Val::leaf(unit, value)
+                    .resolve(
+                        scale_factor,
+                        physical_base_value,
+                        physical_target_size,
+                        em_size,
+                        rem_size,
+                    )
+                    .unwrap_or(0.0)
+            })
+            .reduce(op)
+            .unwrap_or(0.0)
+    }
+
+    /// Interpolates term-wise, or `None` when the units differ.
+    pub(crate) fn interpolate_stable(&self, other: &Self, t: f32) -> Option<Self> {
+        (self.units == other.units).then(|| {
+            let mut result = *self;
+            for (value, other) in result.values.iter_mut().zip(other.values) {
+                *value = value.interpolate_stable(&other, t);
+            }
+            result
+        })
+    }
+}
+
+impl PartialEq for ValTerms {
+    fn eq(&self, other: &Self) -> bool {
+        self.units == other.units && self.terms().eq(other.terms())
+    }
+}
+
+/// The operation a [`Val::Sum`], [`Val::Min`] or [`Val::Max`] applies to its terms.
+#[derive(Clone, Copy)]
+pub(crate) enum TermOp {
+    Sum,
+    Min,
+    Max,
+}
+
+impl TermOp {
+    pub(crate) fn apply(self) -> fn(f32, f32) -> f32 {
+        match self {
+            Self::Sum => |a, b| a + b,
+            Self::Min => f32::min,
+            Self::Max => f32::max,
+        }
+    }
+
+    /// The operation that gives the same result after every term is negated.
+    const fn reversed(self) -> Self {
+        match self {
+            Self::Sum => Self::Sum,
+            Self::Min => Self::Max,
+            Self::Max => Self::Min,
+        }
+    }
+
+    /// The [`Val`] for `terms` under this operation, as a single unit value when there is one term.
+    fn wrap(self, terms: ValTerms) -> Val {
+        if terms.units.len() == 1
+            && let Some((unit, value)) = terms.terms().next()
+        {
+            return Val::leaf(unit, value);
+        }
+        match self {
+            Self::Sum => Val::Sum(terms.units, terms.values),
+            Self::Min => Val::Min(terms.units, terms.values),
+            Self::Max => Val::Max(terms.units, terms.values),
+        }
+    }
+
+    fn calc(self, a: Val, b: Val) -> Val {
+        match self {
+            Self::Sum => CalcOp::Add(a, b),
+            Self::Min => CalcOp::Min(a, b),
+            Self::Max => CalcOp::Max(a, b),
+        }
+        .into()
+    }
+}
+
+impl Val {
+    /// The terms of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`], or the single term of a
+    /// unit value. Empty for [`Val::Auto`], [`Val::Clamp`] and [`Val::Calc`].
+    pub fn terms(&self) -> impl Iterator<Item = (ValUnit, f32)> {
+        let terms = match self {
+            Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
+                ValTerms::new(*units, *values)
+            }
+            _ => match (self.unit(), self.inner()) {
+                (Some(unit), Some(value)) => ValTerms::single(unit, value),
+                _ => ValTerms::new(ValUnitSet::EMPTY, [0.0; 3]),
+            },
+        };
+        terms.terms()
+    }
+
+    /// Combines two values with `op`, folding them into one set of terms when both sides are
+    /// unit values or terms of the same operation, and building a [`Calc`] otherwise.
+    pub(crate) fn combine(self, rhs: Val, op: TermOp) -> Val {
+        if let (Some(mut terms), Some(rhs_terms)) = (self.terms_for(op), rhs.terms_for(op))
+            && rhs_terms
+                .terms()
+                .all(|(unit, value)| terms.fold(unit, value, op.apply()))
+        {
+            return op.wrap(terms);
+        }
+        op.calc(self, rhs)
+    }
+
+    fn terms_for(&self, op: TermOp) -> Option<ValTerms> {
+        match (self, op) {
+            (Val::Sum(units, values), TermOp::Sum)
+            | (Val::Min(units, values), TermOp::Min)
+            | (Val::Max(units, values), TermOp::Max) => Some(ValTerms::new(*units, *values)),
+            _ => Some(ValTerms::single(self.unit()?, self.inner()?)),
+        }
+    }
+
+    /// The terms of a [`Val::Sum`] or unit value with zero terms removed, so that sums
+    /// compare equal whatever zero terms they carry. `None` for other values.
+    pub(crate) fn sum_terms(&self) -> Option<ValTerms> {
+        let mut terms = match self {
+            Val::Sum(units, values) => ValTerms::new(*units, *values),
+            _ => ValTerms::single(self.unit()?, self.inner()?),
+        };
+        terms.retain_nonzero();
+        Some(terms)
+    }
+
+    /// The inline clamp of `value` between `min` and `max`, when all three are unit values.
+    pub(crate) fn clamp_inline(min: &Val, value: &Val, max: &Val) -> Option<Val> {
+        let term = |val: &Val| Some((val.unit()?, val.inner()?));
+        let [lo, v, hi] = [term(min)?, term(value)?, term(max)?];
+        if lo.0 == v.0 && v.0 == hi.0 {
+            return Some(Val::leaf(v.0, lo.1.max(v.1.min(hi.1))));
+        }
+        // Inverted bounds always resolve to the minimum, so an inline clamp with same-unit
+        // bounds is guaranteed to have `min <= max`.
+        if lo.0 == hi.0 && lo.1 > hi.1 {
+            return Some(Val::leaf(lo.0, lo.1));
+        }
+        Some(Val::Clamp([lo.0, v.0, hi.0], [lo.1, v.1, hi.1]))
+    }
+
+    pub(crate) fn resolve_clamp(
+        units: [ValUnit; 3],
+        values: [f32; 3],
+        scale_factor: f32,
+        physical_base_value: f32,
+        physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> f32 {
+        let [lo, v, hi] = core::array::from_fn(|i| {
+            Val::leaf(units[i], values[i])
+                .resolve(
+                    scale_factor,
+                    physical_base_value,
+                    physical_target_size,
+                    em_size,
+                    rem_size,
+                )
+                .unwrap_or(0.0)
+        });
+        lo.max(v.min(hi))
+    }
+
+    /// Applies `f` to every term of a [`Val::Sum`], [`Val::Min`], [`Val::Max`] or [`Val::Clamp`].
+    /// `reverses` swaps `Min` and `Max` and the bounds of `Clamp`, for an `f` that reverses ordering.
+    pub(crate) fn map_terms(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
+        let (op, units, mut values) = match self {
+            Val::Sum(units, values) => (TermOp::Sum, units, values),
+            Val::Min(units, values) => (TermOp::Min, units, values),
+            Val::Max(units, values) => (TermOp::Max, units, values),
+            Val::Clamp(units, values) => {
+                // Inverted same-unit bounds make the clamp its minimum whatever the value is.
+                if units[0] == units[2] && values[0] > values[2] {
+                    return Val::leaf(units[0], f(values[0]));
+                }
+                let values = values.map(&f);
+                if !reverses {
+                    return Val::Clamp(units, values);
+                }
+                // `f` reverses order, so `f(max(lo, min(v, hi)))` is `min(f(lo), max(f(v), f(hi)))`.
+                // Same-unit bounds are now known to satisfy `lo <= hi`, so that is the clamp with
+                // the bounds swapped; mixed-unit bounds may invert at some bases, so keep the
+                // exact form.
+                let [lo, v, hi] = core::array::from_fn(|i| Val::leaf(units[i], values[i]));
+                if units[0] == units[2] {
+                    return Val::Clamp(
+                        [units[2], units[1], units[0]],
+                        [values[2], values[1], values[0]],
+                    );
+                }
+                return lo.min(v.max(hi));
+            }
+            other => return other,
+        };
+        for value in &mut values[..units.len()] {
+            *value = f(*value);
+        }
+        let op = if reverses { op.reversed() } else { op };
+        op.wrap(ValTerms::new(units, values))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::vec2;
+
+    use super::*;
+
+    #[test]
+    fn val_evaluate() {
+        let size = 250.;
+        let viewport_size = vec2(1000., 500.);
+        let em_size = EmSize(10.);
+        let rem_size = RemSize(20.);
+
+        assert_eq!(
+            Val::Percent(80.)
+                .resolve(1., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            size * 0.8
+        );
+        // Check em and rem
+        assert_eq!(
+            Val::Em(2.)
+                .resolve(1., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            em_size.0 * 2.
+        );
+        assert_eq!(
+            Val::Rem(5.)
+                .resolve(1., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            rem_size.0 * 5.
+        );
+        // Check scale_factor is considered
+        assert_eq!(
+            Val::Em(2.)
+                .resolve(2., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            em_size.0 * 2. * 2.
+        );
+        assert_eq!(
+            Val::Rem(5.)
+                .resolve(2., size, viewport_size, em_size, rem_size)
+                .unwrap(),
+            rem_size.0 * 5. * 2.
+        );
+    }
+
+    #[test]
+    fn val_resolve_px() {
+        let size = 250.;
+        let viewport_size = vec2(1000., 500.);
+
+        let result = Val::Px(10.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 10.);
+
+        let result = Val::Px(10.)
+            .resolve(3., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 30.);
+        let result = Val::Px(10.)
+            .resolve(0.25, size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 2.5);
+
+        let result = Val::Em(1.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 20.0);
+        let result = Val::Rem(1.)
+            .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            .unwrap();
+        assert_eq!(result, 20.0);
+    }
+
+    #[test]
+    fn val_fits_in_two_words() {
+        assert!(size_of::<Val>() <= 16);
+    }
+
+    #[test]
+    fn val_resolve_viewport_coords() {
+        let size = 250.;
+        let viewport_size = vec2(500., 500.);
+
+        for value in (-10..10).map(|value| value as f32) {
+            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
+            assert_eq!(
+                Val::Vw(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
+                Val::Vh(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            );
+            assert_eq!(
+                Val::VMin(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
+                Val::VMax(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            );
+            assert_eq!(
+                Val::VMin(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0)),
+                Val::Vw(value).resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+            );
+        }
+
+        let viewport_size = vec2(1000., 500.);
+        assert_eq!(
+            Val::Vw(100.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            1000.
+        );
+        assert_eq!(
+            Val::Vh(100.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            500.
+        );
+        assert_eq!(
+            Val::Vw(60.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            600.
+        );
+        assert_eq!(
+            Val::Vh(40.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            200.
+        );
+        assert_eq!(
+            Val::VMin(50.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            250.
+        );
+        assert_eq!(
+            Val::VMax(75.)
+                .resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0))
+                .unwrap(),
+            750.
+        );
+    }
+
+    #[test]
+    fn val_auto_is_non_evaluable() {
+        let size = 250.;
+        let viewport_size = vec2(1000., 500.);
+        let resolve_auto = Val::Auto.resolve(1., size, viewport_size, EmSize(20.0), RemSize(20.0));
+
+        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
+    }
+
+    #[test]
+    fn val_try_add_compatible_variants() {
+        assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
+        assert_eq!(
+            Val::Percent(1.).try_add(Val::Percent(2.)),
+            Ok(Val::Percent(3.))
+        );
+        assert_eq!(Val::Vw(1.).try_add(Val::Vw(2.)), Ok(Val::Vw(3.)));
+        assert_eq!(Val::Vh(1.).try_add(Val::Vh(2.)), Ok(Val::Vh(3.)));
+        assert_eq!(Val::VMin(1.).try_add(Val::VMin(2.)), Ok(Val::VMin(3.)));
+        assert_eq!(Val::VMax(1.).try_add(Val::VMax(2.)), Ok(Val::VMax(3.)));
+    }
+
+    #[test]
+    fn val_try_add_incompatible_variants() {
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Px(1.).try_add(Val::Percent(2.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_add(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+    }
+
+    #[test]
+    fn val_try_sub_compatible_variants() {
+        assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
+        assert_eq!(
+            Val::Percent(3.).try_sub(Val::Percent(2.)),
+            Ok(Val::Percent(1.))
+        );
+        assert_eq!(Val::Vw(3.).try_sub(Val::Vw(2.)), Ok(Val::Vw(1.)));
+        assert_eq!(Val::Vh(3.).try_sub(Val::Vh(2.)), Ok(Val::Vh(1.)));
+        assert_eq!(Val::VMin(3.).try_sub(Val::VMin(2.)), Ok(Val::VMin(1.)));
+        assert_eq!(Val::VMax(3.).try_sub(Val::VMax(2.)), Ok(Val::VMax(1.)));
+    }
+
+    #[test]
+    fn val_try_sub_incompatible_variants() {
+        assert_eq!(
+            Val::Auto.try_sub(Val::Auto),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Px(1.).try_sub(Val::Percent(2.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_sub(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+    }
+
+    #[test]
+    fn val_str_parse() {
+        assert_eq!("auto".parse::<Val>(), Ok(Val::Auto));
+        assert_eq!("Auto".parse::<Val>(), Ok(Val::Auto));
+        assert_eq!("AUTO".parse::<Val>(), Ok(Val::Auto));
+
+        assert_eq!("3px".parse::<Val>(), Ok(Val::Px(3.)));
+        assert_eq!("3 px".parse::<Val>(), Ok(Val::Px(3.)));
+        assert_eq!("3.5px".parse::<Val>(), Ok(Val::Px(3.5)));
+        assert_eq!("-3px".parse::<Val>(), Ok(Val::Px(-3.)));
+        assert_eq!("3.5 PX".parse::<Val>(), Ok(Val::Px(3.5)));
+
+        assert_eq!("3%".parse::<Val>(), Ok(Val::Percent(3.)));
+        assert_eq!("3 %".parse::<Val>(), Ok(Val::Percent(3.)));
+        assert_eq!("3.5%".parse::<Val>(), Ok(Val::Percent(3.5)));
+        assert_eq!("-3%".parse::<Val>(), Ok(Val::Percent(-3.)));
+
+        assert_eq!("3vw".parse::<Val>(), Ok(Val::Vw(3.)));
+        assert_eq!("3 vw".parse::<Val>(), Ok(Val::Vw(3.)));
+        assert_eq!("3.5vw".parse::<Val>(), Ok(Val::Vw(3.5)));
+        assert_eq!("-3vw".parse::<Val>(), Ok(Val::Vw(-3.)));
+        assert_eq!("3.5 VW".parse::<Val>(), Ok(Val::Vw(3.5)));
+
+        assert_eq!("3vh".parse::<Val>(), Ok(Val::Vh(3.)));
+        assert_eq!("3 vh".parse::<Val>(), Ok(Val::Vh(3.)));
+        assert_eq!("3.5vh".parse::<Val>(), Ok(Val::Vh(3.5)));
+        assert_eq!("-3vh".parse::<Val>(), Ok(Val::Vh(-3.)));
+        assert_eq!("3.5 VH".parse::<Val>(), Ok(Val::Vh(3.5)));
+
+        assert_eq!("3vmin".parse::<Val>(), Ok(Val::VMin(3.)));
+        assert_eq!("3 vmin".parse::<Val>(), Ok(Val::VMin(3.)));
+        assert_eq!("3.5vmin".parse::<Val>(), Ok(Val::VMin(3.5)));
+        assert_eq!("-3vmin".parse::<Val>(), Ok(Val::VMin(-3.)));
+        assert_eq!("3.5 VMIN".parse::<Val>(), Ok(Val::VMin(3.5)));
+
+        assert_eq!("3vmax".parse::<Val>(), Ok(Val::VMax(3.)));
+        assert_eq!("3 vmax".parse::<Val>(), Ok(Val::VMax(3.)));
+        assert_eq!("3.5vmax".parse::<Val>(), Ok(Val::VMax(3.5)));
+        assert_eq!("-3vmax".parse::<Val>(), Ok(Val::VMax(-3.)));
+        assert_eq!("3.5 VMAX".parse::<Val>(), Ok(Val::VMax(3.5)));
+
+        assert_eq!("3em".parse::<Val>(), Ok(Val::Em(3.)));
+        assert_eq!("3rem".parse::<Val>(), Ok(Val::Rem(3.)));
+
+        assert_eq!("".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!(
+            "hello world".parse::<Val>(),
+            Err(ValParseError::ValueMissing)
+        );
+        assert_eq!("3".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!("3.5".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!("3pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
+        assert_eq!("3.5pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
+        assert_eq!("3-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
+        assert_eq!("3.5-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
+    }
+
+    #[test]
+    fn default_val_equals_const_default_val() {
+        assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
+    }
+
+    #[test]
+    fn sums_fold_inline() {
+        let sum = Val::Px(10.0) + Val::Percent(50.0);
+        assert!(matches!(sum, Val::Sum(..)), "got {sum:?}");
+        assert_eq!(
+            sum.terms().collect::<Vec<_>>(),
+            [(ValUnit::Px, 10.0), (ValUnit::Percent, 50.0)]
+        );
+        assert_eq!(Val::Percent(50.0) + Val::Px(10.0), sum);
+        assert_eq!(Val::Px(1.0) + Val::Px(2.0), Val::Px(3.0));
+        assert_eq!(sum.clone() - Val::Px(10.0), Val::Percent(50.0));
+        assert_eq!(Val::Px(0.0) + Val::Percent(0.0), Val::ZERO);
+        assert_ne!(sum, Val::Px(10.0));
+        assert_eq!(
+            (Val::Px(1.0) + Val::Percent(2.0)) + (Val::Px(3.0) + Val::Em(4.0)),
+            Val::Em(4.0) + Val::Px(4.0) + Val::Percent(2.0)
+        );
+        assert!(matches!(sum + Val::Em(1.0) + Val::Rem(1.0), Val::Calc(_)));
+    }
+
+    #[test]
+    fn min_and_max_fold_inline() {
+        assert_eq!(Val::Px(10.0).min(Val::Px(20.0)), Val::Px(10.0));
+        assert_eq!(Val::Px(10.0).max(Val::Px(20.0)), Val::Px(20.0));
+        let min = Val::Px(10.0).min(Val::Percent(50.0));
+        assert!(matches!(min, Val::Min(..)));
+        assert_eq!(Val::Percent(50.0).min(Val::Px(10.0)), min);
+        assert_eq!(-min.clone(), Val::Px(-10.0).max(Val::Percent(-50.0)));
+        assert!(matches!(min.clone().max(Val::Px(5.0)), Val::Calc(_)));
+        let resolve =
+            |value: &Val| value.resolve(1.0, 100.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0));
+        assert_eq!(resolve(&min), Ok(10.0));
+        assert_eq!(resolve(&Val::Px(10.0).max(Val::Percent(50.0))), Ok(50.0));
+        assert_eq!(resolve(&(min * -2.0)), Ok(-20.0));
+    }
+
+    #[test]
+    fn negating_min_and_max_negates_their_results() {
+        assert_eq!(-Val::Px(10.0).max(Val::Px(20.0)), Val::Px(-20.0));
+        assert_eq!(-Val::Px(10.0).min(Val::Px(20.0)), Val::Px(-10.0));
+        let resolve = |value: &Val, base: f32| {
+            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+        };
+        for expr in [
+            Val::Px(10.0).max(Val::Percent(50.0)),
+            Val::Px(10.0).min(Val::Percent(50.0)),
+        ] {
+            for base in [0.0, 20.0, 100.0] {
+                let expected = resolve(&expr, base).unwrap();
+                assert_eq!(
+                    resolve(&-expr.clone(), base),
+                    Ok(-expected),
+                    "{expr:?} at {base}"
+                );
+                assert_eq!(
+                    resolve(&(expr.clone() * -2.0), base),
+                    Ok(-2.0 * expected),
+                    "{expr:?} at {base}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn negating_a_clamp_negates_its_result() {
+        let clamp = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Percent(20.0));
+        let resolve = |value: &Val, base: f32| {
+            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+        };
+        for base in [50.0, 100.0, 150.0, 300.0, 1000.0] {
+            let expected = resolve(&clamp, base).unwrap();
+            assert_eq!(resolve(&-clamp.clone(), base), Ok(-expected), "base {base}");
+            assert_eq!(
+                resolve(&(clamp.clone() * -2.0), base),
+                Ok(-2.0 * expected),
+                "base {base}"
+            );
+            assert_eq!(
+                resolve(&(Val::ZERO - clamp.clone()), base),
+                Ok(-expected),
+                "base {base}"
+            );
+        }
+    }
+
+    #[test]
+    fn clamp_folds_inline() {
+        use bevy_math::TryStableInterpolate;
+        let clamp = Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0));
+        assert!(matches!(clamp, Val::Clamp(..)), "got {clamp:?}");
+        assert_eq!(
+            Val::Percent(80.0).clamp(Val::Px(300.0), Val::Px(100.0)),
+            Val::Px(300.0)
+        );
+        let resolve = |value: &Val, base: f32| {
+            value.resolve(1.0, base, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
+        };
+        assert_eq!(resolve(&clamp, 100.0), Ok(100.0));
+        assert_eq!(resolve(&clamp, 250.0), Ok(200.0));
+        assert_eq!(resolve(&clamp, 1000.0), Ok(300.0));
+        assert_eq!(
+            -clamp.clone(),
+            Val::Percent(-80.0).clamp(Val::Px(-300.0), Val::Px(-100.0))
+        );
+        assert_eq!(resolve(&(clamp.clone() * -2.0), 250.0), Ok(-400.0));
+        assert_eq!(
+            clamp.clone() * 2.0,
+            Val::Percent(160.0).clamp(Val::Px(200.0), Val::Px(600.0))
+        );
+        assert_eq!(
+            clamp
+                .try_interpolate_stable(&Val::Percent(0.0).clamp(Val::Px(0.0), Val::Px(100.0)), 0.5)
+                .ok(),
+            Some(Val::Percent(40.0).clamp(Val::Px(50.0), Val::Px(200.0)))
+        );
+        assert!(matches!(
+            (Val::Percent(80.0) + Val::Px(1.0)).clamp(Val::Px(100.0), Val::Px(300.0)),
+            Val::Calc(_)
+        ));
+    }
+
+    #[test]
+    fn terms_interpolate_term_wise() {
+        use bevy_math::TryStableInterpolate;
+        let a = Val::Px(0.0) + Val::Percent(0.0);
+        let b = Val::Px(10.0) + Val::Percent(100.0);
+        assert_eq!(
+            a.try_interpolate_stable(&b, 0.5).ok(),
+            Some(Val::Px(5.0) + Val::Percent(50.0))
+        );
+        assert!(a
+            .try_interpolate_stable(&(Val::Px(1.0) + Val::Em(1.0)), 0.5)
+            .is_err());
+    }
+
+    #[test]
+    fn resolve_expressions() {
+        let value =
+            Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
+        let resolve = |value: &Val| {
+            value.resolve(
+                2.0,
+                400.0,
+                Vec2::new(1000.0, 500.0),
+                EmSize(12.0),
+                RemSize(20.0),
+            )
+        };
+        assert_eq!(resolve(&value), Ok(278.0));
+        assert_eq!(resolve(&(value.clone() * 2.0)), Ok(556.0));
+        assert_eq!(resolve(&(value.clone() / 2.0)), Ok(139.0));
+        assert_eq!(resolve(&-value.clone()), Ok(-278.0));
+        assert_eq!(
+            resolve(&CalcOp::Min(value.clone(), Val::Px(100.0)).into()),
+            Ok(200.0)
+        );
+        assert_eq!(
+            resolve(&CalcOp::Max(value.clone(), Val::Px(200.0)).into()),
+            Ok(400.0)
+        );
+        assert_eq!(
+            resolve(&CalcOp::Clamp(Val::Px(100.0), value.clone(), Val::Px(125.0)).into()),
+            Ok(250.0)
+        );
+        assert_eq!(
+            resolve(&CalcOp::Clamp(Val::Px(200.0), value.clone(), Val::Px(100.0)).into()),
+            Ok(400.0)
+        );
+        let mut scaled = value;
+        scaled *= 2.0;
+        scaled /= 4.0;
+        assert_eq!(resolve(&scaled), Ok(139.0));
+        assert_eq!(
+            resolve(&(Val::Auto + Val::Px(1.0))),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn negative_scale_swaps_min_and_max() {
+        let resolve = |value: Val| value.resolve(1.0, 0.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0));
+        let (a, b) = (Val::Px(10.0), Val::Px(20.0));
+        assert_eq!(
+            resolve(-Val::from(CalcOp::Min(a.clone(), b.clone()))),
+            Ok(-10.0)
+        );
+        assert_eq!(
+            resolve(-Val::from(CalcOp::Max(a.clone(), b.clone()))),
+            Ok(-20.0)
+        );
+        assert_eq!(
+            resolve(-Val::from(CalcOp::Clamp(
+                a.clone(),
+                Val::Px(15.0),
+                b.clone()
+            ))),
+            Ok(-15.0)
+        );
+        assert_eq!(
+            resolve(-Val::from(CalcOp::Clamp(b, Val::Px(15.0), a))),
+            Ok(-20.0)
+        );
+    }
+
+    #[test]
+    fn repeated_scaling_does_not_grow_the_tree() {
+        let mut value = Val::Px(1.0) + Val::Px(2.0);
+        for _ in 0..100_000 {
+            value *= 2.0;
+            value /= 2.0;
+        }
+        assert_eq!(value, Val::Px(1.0) + Val::Px(2.0));
+    }
+
+    #[test]
+    fn clone_and_reflection_preserve_expressions() {
+        use bevy_reflect::{FromReflect, PartialReflect, TypeRegistry};
+
+        let value = Val::Percent(100.0) - Val::Px(24.0);
+        let mut cloned = value.clone();
+        assert_eq!(value, cloned);
+        cloned *= 2.0;
+        assert_ne!(value, cloned);
+        assert_eq!(value, Val::Percent(100.0) - Val::Px(24.0));
+        let mut registry = TypeRegistry::default();
+        registry.register::<Val>();
+        let dynamic = value.to_dynamic().unwrap();
+        assert_eq!(Val::from_reflect(dynamic.as_ref()), Some(value));
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn expressions_round_trip_through_serde() {
+        let values = [
+            Val::Percent(50.0) - Val::Px(10.0),
+            Val::Px(10.0).min(Val::Percent(50.0)),
+            Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0)),
+            CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into(),
+        ];
+        for value in values {
+            let ron = ron::to_string(&value).unwrap();
+            assert_eq!(ron::from_str::<Val>(&ron).unwrap(), value, "{ron}");
+        }
+    }
+
+    #[test]
+    fn font_size_rejects_expressions() {
+        assert_eq!(FontSize::try_from(Val::Rem(2.0)), Ok(FontSize::Rem(2.0)));
+        assert_eq!(
+            FontSize::try_from(Val::Percent(100.0) - Val::Px(24.0)),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn direct_inline_clamp_negates_its_resolved_value() {
+        let value = Val::Clamp(
+            [ValUnit::Px, ValUnit::Percent, ValUnit::Px],
+            [100.0, 50.0, 20.0],
+        );
+        let resolve = |value: Val| {
+            value
+                .resolve(
+                    1.0,
+                    100.0,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap()
+        };
+        assert_eq!(resolve(value.clone()), 100.0);
+        assert_eq!(resolve(-value), -100.0);
+    }
+
+    #[test]
+    fn extrapolated_inline_clamp_negates_its_resolved_value() {
+        let a = Val::Percent(50.0).clamp(Val::Px(0.0), Val::Px(100.0));
+        let b = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Px(100.0));
+        let value = TryStableInterpolate::try_interpolate_stable(&a, &b, 2.0).unwrap();
+        let resolve = |value: Val| {
+            value
+                .resolve(
+                    1.0,
+                    100.0,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+                .unwrap()
+        };
+        assert_eq!(resolve(value.clone()), 200.0);
+        assert_eq!(resolve(-value), -200.0);
+    }
+}

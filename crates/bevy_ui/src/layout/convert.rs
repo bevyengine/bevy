@@ -3,7 +3,7 @@ use bevy_text::{EmSize, RemSize};
 use taffy::style_helpers;
 
 use crate::{
-    calc::{CalcOp, ValContext, ValUnit},
+    val::{CalcOp, ValContext, ValUnit},
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
     JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
