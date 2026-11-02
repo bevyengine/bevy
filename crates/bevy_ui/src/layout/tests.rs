@@ -132,7 +132,6 @@ fn calc_layout_resolves_percentages_and_updates_context() {
 
     let clone = app.world().get::<TaffyStyle>(child).unwrap().clone();
     let mut font_system = bevy_text::FontCx::default();
-    let resolve_calc = |_, basis| clone.1[0].resolve(basis);
     let measure_args = crate::MeasureArgs {
         known_width: None,
         known_height: None,
@@ -141,7 +140,6 @@ fn calc_layout_resolves_percentages_and_updates_context() {
         font_system: &mut font_system,
         buffer: None,
         style: &clone,
-        resolve_calc: &resolve_calc,
     };
     assert_eq!(measure_args.resolve_width().preferred, Some(230.0));
     app.world_mut().get_mut::<Node>(child).unwrap().width = Val::Px(90.0);

@@ -7,6 +7,7 @@ pub use taffy::style::AvailableSpace;
 use taffy::MaybeMath;
 use taffy::MaybeResolve;
 
+use crate::layout::layout_tree::resolve_calc;
 use crate::widget::ImageMeasure;
 
 use crate::widget::TextMeasure;
@@ -18,6 +19,9 @@ impl core::fmt::Debug for ContentSize {
 }
 
 /// Inputs provided to [`Measure::measure`].
+///
+/// Only the layout system builds these, which keeps the calc pointers in `style` valid.
+#[non_exhaustive]
 pub struct MeasureArgs<'a> {
     /// The known width from Taffy if this size is definite.
     pub known_width: Option<f32>,
@@ -33,7 +37,6 @@ pub struct MeasureArgs<'a> {
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
     /// Resolved style for this node in physical pixels.
     pub style: &'a taffy::Style,
-    pub resolve_calc: &'a dyn Fn(*const (), f32) -> f32,
 }
 
 #[derive(Copy, Clone)]
@@ -55,12 +58,11 @@ fn resolve_axis(
     min_dim: taffy::style::LengthPercentageAuto,
     size_dim: taffy::style::Dimension,
     max_dim: taffy::style::LengthPercentageAuto,
-    calc: &dyn Fn(*const (), f32) -> f32,
 ) -> ResolvedAxis {
     let available = available_space.into_option();
-    let min = min_dim.maybe_resolve(available, calc);
-    let preferred = size_dim.maybe_resolve(available, calc);
-    let max = max_dim.maybe_resolve(available, calc);
+    let min = min_dim.maybe_resolve(available, resolve_calc);
+    let preferred = size_dim.maybe_resolve(available, resolve_calc);
+    let max = max_dim.maybe_resolve(available, resolve_calc);
     ResolvedAxis {
         min,
         preferred,
@@ -78,7 +80,6 @@ impl MeasureArgs<'_> {
             self.style.min_size.width,
             self.style.size.width,
             self.style.max_size.width,
-            self.resolve_calc,
         )
     }
 
@@ -90,7 +91,6 @@ impl MeasureArgs<'_> {
             self.style.min_size.height,
             self.style.size.height,
             self.style.max_size.height,
-            self.resolve_calc,
         )
     }
 }

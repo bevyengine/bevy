@@ -1,4 +1,4 @@
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -9,7 +9,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_platform::{collections::HashMap, sync::Arc};
+use bevy_platform::sync::Arc;
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize};
 use bevy_utils::default;
 use taffy::{
@@ -30,20 +30,30 @@ use crate::{
 
 #[expect(
     unsafe_code,
-    reason = "calc pointers are opaque lookup keys and are never dereferenced"
+    reason = "the calc pointers in the style point into the `Arc<PercentageCalc>`s owned by the same `TaffyStyle`"
 )]
-// SAFETY: Calc pointers are only used as lookup keys, never dereferenced. The owned expressions are Send + Sync.
+// SAFETY: `Style` is only `!Send` because of its raw calc pointers, which point into the
+// `Arc<PercentageCalc>`s held alongside it. `PercentageCalc` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "calc pointers are opaque lookup keys and are never dereferenced"
+    reason = "the calc pointers in the style point into the `Arc<PercentageCalc>`s owned by the same `TaffyStyle`"
 )]
-// SAFETY: Calc pointers are only used as lookup keys, never dereferenced. The owned expressions are Send + Sync.
+// SAFETY: `Style` is only `!Sync` because of its raw calc pointers, which point into the
+// `Arc<PercentageCalc>`s held alongside it. `PercentageCalc` is `Send + Sync`.
 unsafe impl Sync for TaffyStyle {}
 
-#[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(#[deref] pub Style, pub(crate) Vec<Arc<PercentageCalc>>);
+/// A node's resolved taffy style, with the expressions its calc values point to.
+///
+/// Every calc pointer in the style points into one of the `Arc<PercentageCalc>`s stored next
+/// to it, which is what `resolve_calc` relies on. The fields are crate-private so nothing
+/// else can put a pointer in the style, and it can only be read through [`Deref`].
+#[derive(Default, Component, Clone, Deref)]
+pub struct TaffyStyle(
+    #[deref] pub(crate) Style,
+    pub(crate) Vec<Arc<PercentageCalc>>,
+);
 
 /// An expression with every unit other than percent already resolved to physical pixels,
 /// so only the percentage basis taffy supplies is needed to resolve it.
@@ -56,6 +66,24 @@ impl PercentageCalc {
             .resolve(1.0, basis, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
             .unwrap_or(0.0)
     }
+}
+
+/// Resolves a calc pointer that taffy read back out of a [`TaffyStyle`] against the
+/// percentage `basis`.
+#[expect(
+    unsafe_code,
+    reason = "taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`"
+)]
+pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
+    // SAFETY: Calc pointers only enter a `TaffyStyle` through `update_taffy_style_from_node`,
+    // which creates each one with `Arc::as_ptr` on an `Arc<PercentageCalc>` that it pushes
+    // into the same style, and rewrites every length field whenever it clears that `Vec`.
+    // `TaffyStyle`'s fields are crate-private and it is not `DerefMut`, so no other code can
+    // store a pointer in one, and `MeasureArgs` cannot be built outside the crate. Layout
+    // borrows styles immutably for as long as taffy can hand a pointer back, and clones share
+    // the `Arc`s, so the pointee is alive and not being written.
+    let calc = unsafe { &*ptr.cast::<PercentageCalc>() };
+    calc.resolve(basis)
 }
 
 pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(
@@ -376,29 +404,6 @@ pub fn compute_layout<'w, 's>(
     };
 
     {
-        let mut calcs: HashMap<usize, &PercentageCalc> = HashMap::default();
-        child_stack.push(root_node_id);
-        while let Some(node_id) = child_stack.pop() {
-            let entity = entity_from_node_id(node_id).expect("Viewport node should not be a child");
-            let style = style_query
-                .get(entity)
-                .expect("Missing TaffyStyle on UI node.");
-            calcs.extend(
-                style
-                    .1
-                    .iter()
-                    .map(|calc| (Arc::as_ptr(calc) as usize, calc.as_ref())),
-            );
-            let layout = computed_layout_query
-                .get(entity)
-                .expect("Missing ComputedLayout on UI node.");
-            child_stack.extend_from_slice(&layout.ui_children);
-        }
-        let resolve_calc = |ptr: *const (), basis: f32| {
-            calcs
-                .get(&(ptr as usize))
-                .map_or(0.0, |calc| calc.resolve(basis))
-        };
         let mut measure_function = |known_dimensions: taffy::Size<Option<f32>>,
                                     available_space: taffy::Size<AvailableSpace>,
                                     entity: Entity,
@@ -417,7 +422,6 @@ pub fn compute_layout<'w, 's>(
                 font_system,
                 buffer: None,
                 style,
-                resolve_calc: &resolve_calc,
             };
             let buffer = get_text_buffer(
                 crate::widget::TextMeasure::needs_buffer(
@@ -444,7 +448,6 @@ pub fn compute_layout<'w, 's>(
                 ..default()
             },
             measure_function: &mut measure_function,
-            resolve_calc: &resolve_calc,
             layout_changed: false,
         };
 
@@ -645,7 +648,6 @@ struct UiLayoutTree<'a, 'w, 's> {
         &Style,
     ) -> taffy::Size<f32>,
     layout_changed: bool,
-    resolve_calc: &'a dyn Fn(*const (), f32) -> f32,
 }
 
 impl<'a> UiLayoutTree<'a, '_, '_> {
@@ -703,7 +705,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                 (_, false) => compute_leaf_layout(
                     inputs,
                     style,
-                    tree.resolve_calc,
+                    resolve_calc,
                     |known_dimensions, available_space| {
                         (tree.measure_function)(
                             known_dimensions,
@@ -748,7 +750,7 @@ impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
 impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
     fn resolve_calc_value(&self, val: *const (), basis: f32) -> f32 {
-        (self.resolve_calc)(val, basis)
+        resolve_calc(val, basis)
     }
 
     type CoreContainerStyle<'a>
