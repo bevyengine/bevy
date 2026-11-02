@@ -35,7 +35,7 @@ commands.spawn((
 The rotation happens in the vertex shader, so billboards need no per-frame `Transform` updates, and the ones that share a mesh and settings are drawn together.
 
 Frustum culling bounds are automatically calculated using meshes `Aabb`, scaled into a cube.
-You can disable this and use your own frustrum culling or `Aabb` by using `NoFrustrumCulling`/`NoAutoAabb`.
+You can disable this and use your own frustum culling or `Aabb` by using `NoFrustumCulling`/`NoAutoAabb`.
 
 This is initial implementation of the feature, and it has few limitations for the time being:
 - Billboards don't cast shadows (but receive shadows fine);
