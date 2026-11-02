@@ -250,10 +250,7 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`] and the expression variants.
-    ///
-    /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
-    /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
+    /// Returns the `Val`'s raw inner value without its units, or `None` if it's `Auto` or an expression.    
     pub(crate) const fn inner(&self) -> Option<f32> {
         match self {
             Self::Auto
