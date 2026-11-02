@@ -5,8 +5,8 @@ use crate::{
     change_detection::Tick,
     entity::{Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
     query::{
-        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, DebugCheckedUnwrap,
-        IterQueryData, QueryEntityError, QueryState, SingleEntityQueryData, StorageId,
+        ArchetypeFilter, ArchetypeQueryData, ContiguousQueryData, IterQueryData, QueryEntityError,
+        QueryState, SingleEntityQueryData, StorageId,
     },
     storage::{Table, TableId, TableRow, Tables},
     world::{
@@ -189,7 +189,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
             let table_id = unsafe { storage.table_id };
             // SAFETY: Matched table IDs are guaranteed to still exist.
-            let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+            let table = unsafe { self.tables.get(table_id).unwrap_unchecked() };
 
             let range = range.unwrap_or(0..table.entity_count());
             accum =
@@ -202,9 +202,9 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
             let archetype_id = unsafe { storage.archetype_id };
             // SAFETY: Matched archetype IDs are guaranteed to still exist.
-            let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
+            let archetype = unsafe { self.archetypes.get(archetype_id).unwrap_unchecked() };
             // SAFETY: Matched table IDs are guaranteed to still exist.
-            let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+            let table = unsafe { self.tables.get(archetype.table_id()).unwrap_unchecked() };
 
             let range = range.unwrap_or(0..archetype.len());
 
@@ -334,7 +334,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             return accum;
         }
         let table_id = archetype.table_id();
-        let table = self.tables.get(table_id).debug_checked_unwrap();
+        let table = self.tables.get(table_id).unwrap_unchecked();
 
         // Note: we cannot use `filter_table` here because the table might have been accessed by another system.
         // If that happens the summary_tick might have traveled backwards, and that would hide some updates from
@@ -419,7 +419,7 @@ impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             return accum;
         }
         let table_id = archetype.table_id();
-        let table = self.tables.get(table_id).debug_checked_unwrap();
+        let table = self.tables.get(table_id).unwrap_unchecked();
         debug_assert!(
             archetype.len() == table.entity_count(),
             "archetype and its table must have the same length. "
@@ -1215,7 +1215,7 @@ impl<'w, 's, D: ContiguousQueryData, F: ArchetypeFilter> Iterator
             let table_id = unsafe { self.storage_id_iter.next()?.table_id };
             // SAFETY: `table_id` was returned by `self.storage_id_iter` which always returns a
             // valid id
-            let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+            let table = unsafe { self.tables.get(table_id).unwrap_unchecked() };
             if table.is_empty() {
                 continue;
             }
@@ -1387,12 +1387,12 @@ where
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
         unsafe {
-            location = self.entities.get_spawned(entity).debug_checked_unwrap();
+            location = self.entities.get_spawned(entity).unwrap_unchecked();
             archetype = self
                 .archetypes
                 .get(location.archetype_id)
-                .debug_checked_unwrap();
-            table = self.tables.get(location.table_id).debug_checked_unwrap();
+                .unwrap_unchecked();
+            table = self.tables.get(location.table_id).unwrap_unchecked();
         }
 
         // SAFETY: `archetype` is from the world that `fetch` was created for,
@@ -1577,8 +1577,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
             ));
         }
 
-        let archetype = archetypes.get(location.archetype_id).debug_checked_unwrap();
-        let table = tables.get(location.table_id).debug_checked_unwrap();
+        let archetype = archetypes.get(location.archetype_id).unwrap_unchecked();
+        let table = tables.get(location.table_id).unwrap_unchecked();
 
         // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
         // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -2662,12 +2662,12 @@ impl<
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
         // was initialized for.
         unsafe {
-            location = self.entities.get_spawned(entity).debug_checked_unwrap();
+            location = self.entities.get_spawned(entity).unwrap_unchecked();
             archetype = self
                 .archetypes
                 .get(location.archetype_id)
-                .debug_checked_unwrap();
-            table = self.tables.get(location.table_id).debug_checked_unwrap();
+                .unwrap_unchecked();
+            table = self.tables.get(location.table_id).unwrap_unchecked();
         }
 
         // SAFETY: `archetype` is from the world that `fetch` was created for,
@@ -3208,7 +3208,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     ) -> Option<()> {
         loop {
             let table_id = self.storage_id_iter.next()?.table_id;
-            let table = tables.get(table_id).debug_checked_unwrap();
+            let table = tables.get(table_id).unwrap_unchecked();
             if table.is_empty() {
                 continue;
             }
@@ -3251,12 +3251,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     ) -> Option<()> {
         loop {
             let archetype_id = self.storage_id_iter.next()?.archetype_id;
-            let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+            let archetype = archetypes.get(archetype_id).unwrap_unchecked();
             if archetype.is_empty() {
                 continue;
             }
             let table_id = archetype.table_id();
-            let table = tables.get(table_id).debug_checked_unwrap();
+            let table = tables.get(table_id).unwrap_unchecked();
 
             // SAFETY: `archetype` and `tables` are from the world that `fetch` was created for,
             // `fetch_state` is the state that `fetch` was initialized with.

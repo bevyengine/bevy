@@ -2985,6 +2985,31 @@ mod tests {
     }
 
     #[test]
+    fn a_removed_set_can_be_used_again() {
+        #[derive(SystemSet, Hash, PartialEq, Eq, Clone, Debug)]
+        struct B;
+
+        fn system() {}
+
+        let mut schedule = Schedule::default();
+        let mut world = World::new();
+        schedule.add_systems(system.in_set(B));
+        schedule.run(&mut world);
+
+        let removed = schedule.remove_systems_in_set(
+            B,
+            &mut world,
+            ScheduleCleanupPolicy::RemoveSetAndSystems,
+        );
+        assert_eq!(removed.unwrap(), 1);
+
+        // `SystemSets::remove` keeps `B` in `ids`, so `B` maps to its removed key
+        schedule.add_systems(system.in_set(B));
+        schedule.run(&mut world);
+        assert_eq!(schedule.graph().systems.len(), 1);
+    }
+
+    #[test]
     fn build_pass_iteration_order() {
         #[derive(Debug)]
         struct Pass<const N: usize>;
