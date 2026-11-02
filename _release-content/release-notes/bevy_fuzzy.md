@@ -1,7 +1,7 @@
 ---
 title: Fuzzy matching for tools
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [26410]
 ---
 
 The new `bevy_fuzzy` crate is a small, dependency-free fuzzy matcher for tools like inspectors, pickers and command palettes.
