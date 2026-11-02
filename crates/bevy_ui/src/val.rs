@@ -212,7 +212,7 @@ impl PartialEq for Val {
         match (self, other) {
             (Self::Calc(a), Self::Calc(b)) => return a == b,
             (Self::Min(a, x), Self::Min(b, y)) | (Self::Max(a, x), Self::Max(b, y)) => {
-                return ValTerms::new(*a, *x) == ValTerms::new(*b, *y);
+                return ValOperands::new(*a, *x) == ValOperands::new(*b, *y);
             }
             (Self::Clamp(a, x), Self::Clamp(b, y)) => return a == b && x == y,
             (Self::Sum(..), _) | (_, Self::Sum(..)) => {
@@ -517,12 +517,12 @@ impl Val {
 
     /// The smaller of `self` and `other` once resolved.
     pub fn min(self, other: Val) -> Val {
-        self.combine(other, TermOp::Min)
+        self.combine(other, ReduceOp::Min)
     }
 
     /// The larger of `self` and `other` once resolved.
     pub fn max(self, other: Val) -> Val {
-        self.combine(other, TermOp::Max)
+        self.combine(other, ReduceOp::Max)
     }
 
     /// `self` clamped between `min` and `max` once resolved.
@@ -541,7 +541,7 @@ impl Add for Val {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        self.combine(rhs, TermOp::Sum)
+        self.combine(rhs, ReduceOp::Sum)
     }
 }
 
@@ -549,7 +549,7 @@ impl Sub for Val {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
-        self.combine(-rhs, TermOp::Sum)
+        self.combine(-rhs, ReduceOp::Sum)
     }
 }
 
@@ -705,11 +705,11 @@ impl Val {
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
             Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
                 let op = match self {
-                    Val::Min(..) => TermOp::Min,
-                    Val::Max(..) => TermOp::Max,
-                    _ => TermOp::Sum,
+                    Val::Min(..) => ReduceOp::Min,
+                    Val::Max(..) => ReduceOp::Max,
+                    _ => ReduceOp::Sum,
                 };
-                Ok(ValTerms::new(*units, *values).resolve(
+                Ok(ValOperands::new(*units, *values).resolve_to_physical(
                     op.apply(),
                     scale_factor,
                     physical_base_value,
@@ -787,8 +787,8 @@ impl TryStableInterpolate for Val {
             (Val::Sum(a, x), Val::Sum(b, y))
             | (Val::Min(a, x), Val::Min(b, y))
             | (Val::Max(a, x), Val::Max(b, y)) => {
-                let (units, values) = ValTerms::new(*a, *x)
-                    .interpolate_stable(&ValTerms::new(*b, *y), t)
+                let (units, values) = ValOperands::new(*a, *x)
+                    .interpolate_stable(&ValOperands::new(*b, *y), t)
                     .ok_or(MismatchedUnitsError)?
                     .into_parts();
                 Ok(match self {
@@ -1040,12 +1040,12 @@ impl ValUnit {
         1 << self as u8
     }
 
-    /// Resolve a `ValUnit` and a length to a value in physical pixels from the given local physical percentage basis
-    /// and context values.
+    /// Resolve a `ValUnit` and `f32` length to physical coords except for percentage values.
+    /// `Percentage` values depend on the size of the parent, and can't be resolved except during layout.
     #[inline]
-    pub fn resolve(self, value: f32, basis: f32, context: &ValContext) -> Val {
+    pub fn resolve_physical_except_percent(self, value: f32, context: &ValContext) -> Val {
         match self {
-            ValUnit::Percent => Val::Percent(value * basis),
+            ValUnit::Percent => Val::Percent(value),
             ValUnit::Px => Val::Px(value * context.scale_factor),
             ValUnit::Vw => Val::Px(context.physical_size.x * value / 100.0),
             ValUnit::Vh => Val::Px(context.physical_size.y * value / 100.0),
@@ -1116,15 +1116,16 @@ impl core::fmt::Debug for ValUnitSet {
     }
 }
 
-/// Working copy of the terms of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`].
+/// Working copy of the operands of a `Sum`, `Min` or `Max` operation.
+/// Operations are automatically reduced, so each unit type can only occur once.
 #[derive(Clone, Copy)]
-pub(crate) struct ValTerms {
+pub(crate) struct ValOperands {
     units: ValUnitSet,
     values: [f32; 3],
 }
 
-impl ValTerms {
-    /// The maximum number of terms.
+impl ValOperands {
+    /// The maximum number of operands.
     pub(crate) const CAPACITY: usize = 3;
 
     pub(crate) const fn new(units: ValUnitSet, values: [f32; 3]) -> Self {
@@ -1141,8 +1142,8 @@ impl ValTerms {
         Self::new(units, [value, 0.0, 0.0])
     }
 
-    /// The terms in ascending unit order.
-    pub(crate) fn terms(self) -> impl Iterator<Item = (ValUnit, f32)> {
+    /// The operands in ascending unit order.
+    pub(crate) fn iter(self) -> impl Iterator<Item = (ValUnit, f32)> {
         self.units.iter().zip(self.values)
     }
 
@@ -1166,14 +1167,14 @@ impl ValTerms {
     /// Removes the terms whose value is zero.
     fn retain_nonzero(&mut self) {
         let mut kept = Self::new(ValUnitSet::EMPTY, [0.0; 3]);
-        for (unit, value) in self.terms().filter(|(_, value)| *value != 0.0) {
+        for (unit, value) in self.iter().filter(|(_, value)| *value != 0.0) {
             kept.values[kept.units.len()] = value;
             kept.units.insert(unit);
         }
         *self = kept;
     }
 
-    pub(crate) fn resolve(
+    pub(crate) fn resolve_to_physical(
         &self,
         op: fn(f32, f32) -> f32,
         scale_factor: f32,
@@ -1182,7 +1183,7 @@ impl ValTerms {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> f32 {
-        self.terms()
+        self.iter()
             .map(|(unit, value)| {
                 Val::leaf(unit, value)
                     .resolve(
@@ -1198,7 +1199,7 @@ impl ValTerms {
             .unwrap_or(0.0)
     }
 
-    /// Interpolates term-wise, or `None` when the units differ.
+    /// Interpolates operand-wise, or `None` when the units differ.
     pub(crate) fn interpolate_stable(&self, other: &Self, t: f32) -> Option<Self> {
         (self.units == other.units).then(|| {
             let mut result = *self;
@@ -1210,21 +1211,21 @@ impl ValTerms {
     }
 }
 
-impl PartialEq for ValTerms {
+impl PartialEq for ValOperands {
     fn eq(&self, other: &Self) -> bool {
-        self.units == other.units && self.terms().eq(other.terms())
+        self.units == other.units && self.iter().eq(other.iter())
     }
 }
 
-/// The operation a [`Val::Sum`], [`Val::Min`] or [`Val::Max`] applies to its terms.
+/// The operation a [`Val::Sum`], [`Val::Min`] or [`Val::Max`] applies to its operands.
 #[derive(Clone, Copy)]
-pub(crate) enum TermOp {
+pub(crate) enum ReduceOp {
     Sum,
     Min,
     Max,
 }
 
-impl TermOp {
+impl ReduceOp {
     pub(crate) fn apply(self) -> fn(f32, f32) -> f32 {
         match self {
             Self::Sum => |a, b| a + b,
@@ -1233,7 +1234,7 @@ impl TermOp {
         }
     }
 
-    /// The operation that gives the same result after every term is negated.
+    /// The operation that gives the same result after every operand is negated.
     const fn reversed(self) -> Self {
         match self {
             Self::Sum => Self::Sum,
@@ -1242,17 +1243,17 @@ impl TermOp {
         }
     }
 
-    /// The [`Val`] for `terms` under this operation, as a single unit value when there is one term.
-    fn wrap(self, terms: ValTerms) -> Val {
-        if terms.units.len() == 1
-            && let Some((unit, value)) = terms.terms().next()
+    /// The [`Val`] for `operands` under this operation, as a single unit value when there is one operand.
+    fn wrap(self, operands: ValOperands) -> Val {
+        if operands.units.len() == 1
+            && let Some((unit, value)) = operands.iter().next()
         {
             return Val::leaf(unit, value);
         }
         match self {
-            Self::Sum => Val::Sum(terms.units, terms.values),
-            Self::Min => Val::Min(terms.units, terms.values),
-            Self::Max => Val::Max(terms.units, terms.values),
+            Self::Sum => Val::Sum(operands.units, operands.values),
+            Self::Min => Val::Min(operands.units, operands.values),
+            Self::Max => Val::Max(operands.units, operands.values),
         }
     }
 
@@ -1267,27 +1268,27 @@ impl TermOp {
 }
 
 impl Val {
-    /// The terms of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`], or the single term of a
+    /// The operands of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`], or the single operand of a
     /// unit value. Empty for [`Val::Auto`], [`Val::Clamp`] and [`Val::Calc`].
-    pub fn terms(&self) -> impl Iterator<Item = (ValUnit, f32)> {
-        let terms = match self {
+    pub fn operands(&self) -> impl Iterator<Item = (ValUnit, f32)> {
+        let operands = match self {
             Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
-                ValTerms::new(*units, *values)
+                ValOperands::new(*units, *values)
             }
             _ => match (self.unit(), self.inner()) {
-                (Some(unit), Some(value)) => ValTerms::single(unit, value),
-                _ => ValTerms::new(ValUnitSet::EMPTY, [0.0; 3]),
+                (Some(unit), Some(value)) => ValOperands::single(unit, value),
+                _ => ValOperands::new(ValUnitSet::EMPTY, [0.0; 3]),
             },
         };
-        terms.terms()
+        operands.iter()
     }
 
     /// Combines two values with `op`, folding them into one set of terms when both sides are
     /// unit values or terms of the same operation, and building a [`Calc`] otherwise.
-    pub(crate) fn combine(self, rhs: Val, op: TermOp) -> Val {
-        if let (Some(mut terms), Some(rhs_terms)) = (self.terms_for(op), rhs.terms_for(op))
+    pub(crate) fn combine(self, rhs: Val, op: ReduceOp) -> Val {
+        if let (Some(mut terms), Some(rhs_terms)) = (self.operands_for(op), rhs.operands_for(op))
             && rhs_terms
-                .terms()
+                .iter()
                 .all(|(unit, value)| terms.fold(unit, value, op.apply()))
         {
             return op.wrap(terms);
@@ -1295,21 +1296,21 @@ impl Val {
         op.calc(self, rhs)
     }
 
-    fn terms_for(&self, op: TermOp) -> Option<ValTerms> {
+    fn operands_for(&self, op: ReduceOp) -> Option<ValOperands> {
         match (self, op) {
-            (Val::Sum(units, values), TermOp::Sum)
-            | (Val::Min(units, values), TermOp::Min)
-            | (Val::Max(units, values), TermOp::Max) => Some(ValTerms::new(*units, *values)),
-            _ => Some(ValTerms::single(self.unit()?, self.inner()?)),
+            (Val::Sum(units, values), ReduceOp::Sum)
+            | (Val::Min(units, values), ReduceOp::Min)
+            | (Val::Max(units, values), ReduceOp::Max) => Some(ValOperands::new(*units, *values)),
+            _ => Some(ValOperands::single(self.unit()?, self.inner()?)),
         }
     }
 
     /// The terms of a [`Val::Sum`] or unit value with zero terms removed, so that sums
     /// compare equal whatever zero terms they carry. `None` for other values.
-    pub(crate) fn sum_terms(&self) -> Option<ValTerms> {
+    pub(crate) fn sum_terms(&self) -> Option<ValOperands> {
         let mut terms = match self {
-            Val::Sum(units, values) => ValTerms::new(*units, *values),
-            _ => ValTerms::single(self.unit()?, self.inner()?),
+            Val::Sum(units, values) => ValOperands::new(*units, *values),
+            _ => ValOperands::single(self.unit()?, self.inner()?),
         };
         terms.retain_nonzero();
         Some(terms)
@@ -1357,9 +1358,9 @@ impl Val {
     /// `reverses` swaps `Min` and `Max` and the bounds of `Clamp`, for an `f` that reverses ordering.
     pub(crate) fn map_terms(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
         let (op, units, mut values) = match self {
-            Val::Sum(units, values) => (TermOp::Sum, units, values),
-            Val::Min(units, values) => (TermOp::Min, units, values),
-            Val::Max(units, values) => (TermOp::Max, units, values),
+            Val::Sum(units, values) => (ReduceOp::Sum, units, values),
+            Val::Min(units, values) => (ReduceOp::Min, units, values),
+            Val::Max(units, values) => (ReduceOp::Max, units, values),
             Val::Clamp(units, values) => {
                 // Inverted same-unit bounds make the clamp its minimum whatever the value is.
                 if units[0] == units[2] && values[0] > values[2] {
@@ -1388,7 +1389,7 @@ impl Val {
             *value = f(*value);
         }
         let op = if reverses { op.reversed() } else { op };
-        op.wrap(ValTerms::new(units, values))
+        op.wrap(ValOperands::new(units, values))
     }
 }
 
@@ -1678,7 +1679,7 @@ mod tests {
         let sum = Val::Px(10.0) + Val::Percent(50.0);
         assert!(matches!(sum, Val::Sum(..)), "got {sum:?}");
         assert_eq!(
-            sum.terms().collect::<Vec<_>>(),
+            sum.operands().collect::<Vec<_>>(),
             [(ValUnit::Px, 10.0), (ValUnit::Percent, 50.0)]
         );
         assert_eq!(Val::Percent(50.0) + Val::Px(10.0), sum);

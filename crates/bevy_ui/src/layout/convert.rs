@@ -1,5 +1,4 @@
 use bevy_platform::sync::Arc;
-use bevy_text::{EmSize, RemSize};
 use taffy::style_helpers;
 
 use crate::{
@@ -19,17 +18,18 @@ impl Val {
     ///
     /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
     /// collapse to a single `Px` or a `Px` and `Percent` sum.
-    fn to_physical(&self, context: &ValContext) -> Val {
-        let resolve_leaf_val = |(unit, value): (ValUnit, f32)| unit.resolve(value, 1., context);
+    fn to_physical_except_percent(&self, context: &ValContext) -> Val {
+        let resolve_leaf_val =
+            |(unit, value): (ValUnit, f32)| unit.resolve_physical_except_percent(value, context);
         match self {
             Val::Auto => Val::Auto,
             Val::Min(..) => self
-                .terms()
+                .operands()
                 .map(resolve_leaf_val)
                 .reduce(Val::min)
                 .unwrap_or(Val::ZERO),
             Val::Max(..) => self
-                .terms()
+                .operands()
                 .map(resolve_leaf_val)
                 .reduce(Val::max)
                 .unwrap_or(Val::ZERO),
@@ -38,16 +38,25 @@ impl Val {
                 resolve_leaf_val((units[2], values[2])),
             ),
             Val::Calc(calc) => match &*calc.0 {
-                CalcOp::Add(a, b) => a.to_physical(context) + b.to_physical(context),
-                CalcOp::Sub(a, b) => a.to_physical(context) - b.to_physical(context),
-                CalcOp::Min(a, b) => a.to_physical(context).min(b.to_physical(context)),
-                CalcOp::Max(a, b) => a.to_physical(context).max(b.to_physical(context)),
-                CalcOp::Clamp(min, value, max) => value
-                    .to_physical(context)
-                    .clamp(min.to_physical(context), max.to_physical(context)),
+                CalcOp::Add(a, b) => {
+                    a.to_physical_except_percent(context) + b.to_physical_except_percent(context)
+                }
+                CalcOp::Sub(a, b) => {
+                    a.to_physical_except_percent(context) - b.to_physical_except_percent(context)
+                }
+                CalcOp::Min(a, b) => a
+                    .to_physical_except_percent(context)
+                    .min(b.to_physical_except_percent(context)),
+                CalcOp::Max(a, b) => a
+                    .to_physical_except_percent(context)
+                    .max(b.to_physical_except_percent(context)),
+                CalcOp::Clamp(min, value, max) => value.to_physical_except_percent(context).clamp(
+                    min.to_physical_except_percent(context),
+                    max.to_physical_except_percent(context),
+                ),
             },
             _ => self
-                .terms()
+                .operands()
                 .map(resolve_leaf_val)
                 .reduce(|a, b| a + b)
                 .unwrap_or(Val::ZERO),
@@ -65,7 +74,7 @@ impl Val {
         match self {
             Val::Auto => style_helpers::auto(),
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                let physical = self.to_physical(context);
+                let physical = self.to_physical_except_percent(context);
                 if !physical.uses_percent() {
                     return style_helpers::length(PercentageCalc(physical).resolve(0.0));
                 }
@@ -104,7 +113,7 @@ impl Val {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                let physical = self.to_physical(context);
+                let physical = self.to_physical_except_percent(context);
                 if !physical.uses_percent() {
                     return style_helpers::length(PercentageCalc(physical).resolve(0.0));
                 }
@@ -644,25 +653,26 @@ mod tests {
         let value =
             Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
         assert_eq!(
-            value.to_physical(&context),
+            value.to_physical_except_percent(&context),
             Val::Percent(50.0) + Val::Px(78.0)
         );
         assert_eq!(
-            (Val::Px(1.0) + Val::Em(1.0)).to_physical(&context),
+            (Val::Px(1.0) + Val::Em(1.0)).to_physical_except_percent(&context),
             Val::Px(26.0)
         );
         assert_eq!(
             Val::Percent(80.0)
                 .clamp(Val::Px(100.0), Val::Px(300.0))
-                .to_physical(&context),
+                .to_physical_except_percent(&context),
             Val::Percent(80.0).clamp(Val::Px(200.0), Val::Px(600.0))
         );
         let nested: Val = CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into();
-        let physical = nested.to_physical(&context);
+        let physical = nested.to_physical_except_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
         assert_eq!(PercentageCalc(physical).resolve(100.0), 34.0);
         assert_eq!(
-            PercentageCalc((Val::Px(1.0) + Val::Vh(10.0)).to_physical(&context)).resolve(0.0),
+            PercentageCalc((Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context))
+                .resolve(0.0),
             52.0
         );
     }
