@@ -29,6 +29,7 @@ impl LayoutContext {
         em_size: DEFAULT_REM_SIZE_PX,
         rem_size: DEFAULT_REM_SIZE_PX,
     };
+
     /// Create a new [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
     pub(super) const fn new(
@@ -61,13 +62,14 @@ impl Default for LayoutContext {
 }
 
 impl Val {
-    /// This value with every unit other than percent resolved to physical pixels, so that only
-    /// the percentage basis is needed to finish resolving it during layout.
+    /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels
+    /// before handing them over to Taffy for layout, which provides the percentage basis to finish
+    /// finish resolving them during layout.
     ///
-    /// Rebuilding through the `Val` operators folds the resolved terms, so most expressions
-    /// collapse to a single `Px` or an inline sum of a length and a percentage.
+    /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
+    /// collapse to a single `Px` or a `Px` and `Percent` sum`.
     fn to_physical(&self, context: &LayoutContext) -> Val {
-        let leaf = |(unit, value): (ValUnit, f32)| match unit {
+        let resolve_leaf_val = |(unit, value): (ValUnit, f32)| match unit {
             ValUnit::Percent => Val::Percent(value),
             _ => Val::Px(
                 Val::leaf(unit, value)
@@ -83,10 +85,20 @@ impl Val {
         };
         match self {
             Val::Auto => Val::Auto,
-            Val::Min(..) => self.terms().map(leaf).reduce(Val::min).unwrap_or(Val::ZERO),
-            Val::Max(..) => self.terms().map(leaf).reduce(Val::max).unwrap_or(Val::ZERO),
-            Val::Clamp(units, values) => leaf((units[1], values[1]))
-                .clamp(leaf((units[0], values[0])), leaf((units[2], values[2]))),
+            Val::Min(..) => self
+                .terms()
+                .map(resolve_leaf_val)
+                .reduce(Val::min)
+                .unwrap_or(Val::ZERO),
+            Val::Max(..) => self
+                .terms()
+                .map(resolve_leaf_val)
+                .reduce(Val::max)
+                .unwrap_or(Val::ZERO),
+            Val::Clamp(units, values) => resolve_leaf_val((units[1], values[1])).clamp(
+                resolve_leaf_val((units[0], values[0])),
+                resolve_leaf_val((units[2], values[2])),
+            ),
             Val::Calc(calc) => match &*calc.0 {
                 CalcOp::Add(a, b) => a.to_physical(context) + b.to_physical(context),
                 CalcOp::Sub(a, b) => a.to_physical(context) - b.to_physical(context),
@@ -98,12 +110,15 @@ impl Val {
             },
             _ => self
                 .terms()
-                .map(leaf)
+                .map(resolve_leaf_val)
                 .reduce(|a, b| a + b)
                 .unwrap_or(Val::ZERO),
         }
     }
 
+    /// Convert a `Val` to Taffy's packed `LengthPercentageAuto`.
+    /// Every leaf that isn't a percentage is resolved using `to_physical`.
+    /// Only store a calc length if a percent term remains, otherwise precalculate before layout.
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &LayoutContext,
@@ -139,6 +154,10 @@ impl Val {
         }
     }
 
+    /// Convert a `Val` to Taffy's packed `LengthPercentage`.
+    /// `Val::Auto` is mapped to a zero length.
+    /// Every leaf that isn't a percentage is resolved using `to_physical`.
+    /// Only store a calc length if a percent term remains, otherwise precalculate before layout.
     pub(super) fn to_length_percentage(
         &self,
         context: &LayoutContext,
@@ -196,6 +215,9 @@ impl Val {
         }
     }
 
+    /// Convert a `Val` to Taffy's packed `Dimension`.
+    /// `Dimension` is a superset of `LengthPercentageAuto`, it also supports "min-content", "max-content", "fit-content", "stretch" and "content" values.
+    /// `bevy_ui` doesn't expose any of these additional values yet.
     fn to_dimension(
         &self,
         context: &LayoutContext,
