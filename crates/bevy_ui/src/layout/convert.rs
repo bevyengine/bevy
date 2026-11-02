@@ -11,7 +11,7 @@ use crate::{
     RepeatedGridTrack, UiRect, Val,
 };
 
-use super::layout_tree::{LayoutCalc, TaffyStyle};
+use super::layout_tree::{PercentageCalc, TaffyStyle};
 
 /// The values a [`Node`]'s [`Val`]s are converted against when its taffy style is rebuilt.
 #[derive(Copy, Clone)]
@@ -107,16 +107,16 @@ impl Val {
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &LayoutContext,
-        calcs: &mut Vec<Arc<LayoutCalc>>,
+        calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
             Val::Auto => style_helpers::auto(),
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
                 let physical = self.to_physical(context);
                 if !physical.uses_percent() {
-                    return style_helpers::length(LayoutCalc(physical).resolve(0.0));
+                    return style_helpers::length(PercentageCalc(physical).resolve(0.0));
                 }
-                let calc = Arc::new(LayoutCalc(physical));
+                let calc = Arc::new(PercentageCalc(physical));
                 let value = taffy::style::LengthPercentageAuto::calc(Arc::as_ptr(&calc).cast());
                 calcs.push(calc);
                 value
@@ -142,16 +142,16 @@ impl Val {
     pub(super) fn to_length_percentage(
         &self,
         context: &LayoutContext,
-        calcs: &mut Vec<Arc<LayoutCalc>>,
+        calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
                 let physical = self.to_physical(context);
                 if !physical.uses_percent() {
-                    return style_helpers::length(LayoutCalc(physical).resolve(0.0));
+                    return style_helpers::length(PercentageCalc(physical).resolve(0.0));
                 }
-                let calc = Arc::new(LayoutCalc(physical));
+                let calc = Arc::new(PercentageCalc(physical));
                 let value = taffy::style::LengthPercentage::calc(Arc::as_ptr(&calc).cast());
                 calcs.push(calc);
                 value
@@ -184,7 +184,7 @@ impl Val {
     fn to_length_percentage_for_border(
         &self,
         context: &LayoutContext,
-        calcs: &mut Vec<Arc<LayoutCalc>>,
+        calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::LengthPercentage {
         let length = self.to_length_percentage(context, calcs);
         let raw = length.into_raw();
@@ -199,7 +199,7 @@ impl Val {
     fn to_dimension(
         &self,
         context: &LayoutContext,
-        calcs: &mut Vec<Arc<LayoutCalc>>,
+        calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::Dimension {
         self.to_length_percentage_auto(context, calcs).into()
     }
@@ -701,9 +701,9 @@ mod tests {
         let nested: Val = CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into();
         let physical = nested.to_physical(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
-        assert_eq!(LayoutCalc(physical).resolve(100.0), 34.0);
+        assert_eq!(PercentageCalc(physical).resolve(100.0), 34.0);
         assert_eq!(
-            LayoutCalc((Val::Px(1.0) + Val::Vh(10.0)).to_physical(&context)).resolve(0.0),
+            PercentageCalc((Val::Px(1.0) + Val::Vh(10.0)).to_physical(&context)).resolve(0.0),
             52.0
         );
     }

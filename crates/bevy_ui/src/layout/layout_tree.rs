@@ -43,14 +43,14 @@ unsafe impl Send for TaffyStyle {}
 unsafe impl Sync for TaffyStyle {}
 
 #[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(#[deref] pub Style, pub(crate) Vec<Arc<LayoutCalc>>);
+pub struct TaffyStyle(#[deref] pub Style, pub(crate) Vec<Arc<PercentageCalc>>);
 
 /// An expression with every unit other than percent already resolved to physical pixels,
 /// so only the percentage basis taffy supplies is needed to resolve it.
 #[repr(align(8))]
-pub(crate) struct LayoutCalc(pub Val);
+pub(crate) struct PercentageCalc(pub Val);
 
-impl LayoutCalc {
+impl PercentageCalc {
     pub fn resolve(&self, basis: f32) -> f32 {
         self.0
             .resolve(1.0, basis, Vec2::ZERO, EmSize(0.0), RemSize(0.0))
@@ -376,7 +376,7 @@ pub fn compute_layout<'w, 's>(
     };
 
     {
-        let mut calcs: HashMap<usize, &LayoutCalc> = HashMap::default();
+        let mut calcs: HashMap<usize, &PercentageCalc> = HashMap::default();
         child_stack.push(root_node_id);
         while let Some(node_id) = child_stack.pop() {
             let entity = entity_from_node_id(node_id).expect("Viewport node should not be a child");
