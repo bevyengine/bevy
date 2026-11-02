@@ -30,25 +30,21 @@ use crate::{
 
 #[expect(
     unsafe_code,
-    reason = "the calc pointers in the style point into the `Arc<PercentageCalc>`s owned by the same `TaffyStyle`"
+    reason = "`TaffyStyle`' uses raw pointers to its `PercentageCalc` values."
 )]
-// SAFETY: `Style` is only `!Send` because of its raw calc pointers, which point into the
-// `Arc<PercentageCalc>`s held alongside it. `PercentageCalc` is `Send + Sync`.
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `PercentageCalc` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "the calc pointers in the style point into the `Arc<PercentageCalc>`s owned by the same `TaffyStyle`"
+    reason = "`TaffyStyle` owns the `PercentageCalc`s that its `Style` points to."
 )]
-// SAFETY: `Style` is only `!Sync` because of its raw calc pointers, which point into the
-// `Arc<PercentageCalc>`s held alongside it. `PercentageCalc` is `Send + Sync`.
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `PercentageCalc` is `Send + Sync`.
 unsafe impl Sync for TaffyStyle {}
 
-/// A node's resolved taffy style, with the expressions its calc values point to.
-///
-/// Every calc pointer in the style points into one of the `Arc<PercentageCalc>`s stored next
-/// to it, which is what `resolve_calc` relies on. The fields are crate-private so nothing
-/// else can put a pointer in the style, and it can only be read through [`Deref`].
+/// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
+/// Lengths using percentages that can't be resolved until layout are stored in `Arc<PercentageCalc>`s
+/// and `Style` references them using raw pointers. The `Vec` is used to keep the arcs alive.
 #[derive(Default, Component, Clone, Deref)]
 pub struct TaffyStyle(
     #[deref] pub(crate) Style,
@@ -78,13 +74,6 @@ impl PercentageCalc {
     reason = "taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`"
 )]
 pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
-    // SAFETY: Calc pointers only enter a `TaffyStyle` through `update_taffy_style_from_node`,
-    // which creates each one with `Arc::as_ptr` on an `Arc<PercentageCalc>` that it pushes
-    // into the same style, and rewrites every length field whenever it clears that `Vec`.
-    // `TaffyStyle`'s fields are crate-private and it is not `DerefMut`, so no other code can
-    // store a pointer in one, and `MeasureArgs` cannot be built outside the crate. Layout
-    // borrows styles immutably for as long as taffy can hand a pointer back, and clones share
-    // the `Arc`s, so the pointee is alive and not being written.
     let calc = unsafe { &*ptr.cast::<PercentageCalc>() };
     calc.resolve(basis)
 }
