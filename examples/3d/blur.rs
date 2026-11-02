@@ -354,12 +354,13 @@ fn ui_root(state: &BlurDemoState) -> impl Scene + use<> {
             (
                 BlurRegion
                 Node {
-                    width: percent(100),
-                    height: percent(100),
+                    width: percent(75),
+                    height: percent(75),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::FlexEnd,
                     padding: UiRect::all(px(14)),
                     border_radius: BorderRadius::all(px(36)),
+                    border: UiRect::all(px(12)),
                 }
                 BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.45))
                 Children [(
