@@ -3,7 +3,7 @@ use crate::{
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
+    query::{FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -928,7 +928,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         let table_ticks = Some(
             table
                 .get_added_ticks_slice_for(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -937,7 +937,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         if T::HAS_SUMMARY_TICK {
             fetch.summary_tick = table
                 .get_summary_tick(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .get();
         }
     }
@@ -998,7 +998,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         fetch.ticks.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
@@ -1008,9 +1008,9 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     sparse_set
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                         .get_added_tick(entity)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -1188,7 +1188,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         let table_ticks = Some(
             table
                 .get_changed_ticks_slice_for(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
@@ -1197,7 +1197,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         if T::HAS_SUMMARY_TICK {
             fetch.summary_tick = table
                 .get_summary_tick(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .get();
         }
     }
@@ -1258,7 +1258,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         fetch.ticks.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
@@ -1268,9 +1268,9 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     sparse_set
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                         .get_changed_tick(entity)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)

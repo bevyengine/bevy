@@ -298,7 +298,7 @@ fn translate_ui_children_recursive(
     };
 
     *ui_global_transform =
-        (ui_global_transform.affine() * Affine2::from_translation(translation)).into();
+        (Affine2::from_translation(translation) * ui_global_transform.affine()).into();
 
     if let Ok(children) = q_children.get(entity) {
         for child in children.iter() {
@@ -327,5 +327,80 @@ fn scale_rect(rect: Rect, factor: f32) -> Rect {
     Rect {
         min: rect.min * factor,
         max: rect.max * factor,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::Update;
+
+    #[test]
+    fn moving_popover_translates_scaled_child() {
+        let mut app = App::new();
+        app.add_systems(Update, position_popover);
+
+        let anchor_center = Vec2::new(50.0, 10.0);
+        let anchor_size = Vec2::new(100.0, 20.0);
+        let popover_size = Vec2::new(100.0, 40.0);
+
+        let anchor = app
+            .world_mut()
+            .spawn((
+                ComputedNode {
+                    size: anchor_size,
+                    ..Default::default()
+                },
+                UiGlobalTransform::from_translation(anchor_center),
+            ))
+            .id();
+        // The popover and its child start on top of the anchor.
+        let popover = app
+            .world_mut()
+            .spawn((
+                Popover {
+                    positions: vec![PopoverPlacement {
+                        side: PopoverSide::Bottom,
+                        align: PopoverAlign::Center,
+                        gap: 0.0,
+                    }],
+                    window_margin: 0.0,
+                },
+                Node::default(),
+                ComputedNode {
+                    size: popover_size,
+                    ..Default::default()
+                },
+                ComputedUiRenderTargetInfo::default(),
+                UiGlobalTransform::from_translation(anchor_center),
+                ChildOf(anchor),
+            ))
+            .id();
+        let child = app
+            .world_mut()
+            .spawn((
+                UiGlobalTransform::from(Affine2::from_scale_angle_translation(
+                    Vec2::splat(0.5),
+                    0.0,
+                    anchor_center,
+                )),
+                ChildOf(popover),
+            ))
+            .id();
+
+        app.update();
+
+        // Directly below the anchor, centered on it.
+        let expected_center =
+            anchor_center + Vec2::new(0.0, (anchor_size.y + popover_size.y) / 2.0);
+        let world = app.world();
+        assert_eq!(
+            world.get::<UiGlobalTransform>(popover).unwrap().translation,
+            expected_center
+        );
+        assert_eq!(
+            world.get::<UiGlobalTransform>(child).unwrap().translation,
+            expected_center
+        );
     }
 }

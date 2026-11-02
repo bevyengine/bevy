@@ -22,8 +22,8 @@ use bevy_platform::sync::Arc;
 
 use super::{
     unique_slice::{self, UniqueEntityEquivalentSlice},
-    Entity, EntityEquivalent, EntitySet, FromEntitySetIterator, UniqueEntityEquivalentArray,
-    UniqueEntityIter,
+    Entity, EntityEquivalent, EntityHashSet, EntitySet, FromEntitySetIterator,
+    UniqueEntityEquivalentArray, UniqueEntityIter,
 };
 
 /// A `Vec` that contains only unique entities.
@@ -105,6 +105,35 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     pub const unsafe fn from_vec_mut_unchecked(vec: &mut Vec<T>) -> &mut Self {
         // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
         unsafe { &mut *ptr::from_mut(vec).cast() }
+    }
+
+    /// Extends a collection with the contents of an iterator.
+    ///
+    /// Use with caution, because this has O(n<sup>2</sup>) complexity.
+    /// To prevent duplicates, it scans the entire existing list for each item added.
+    ///
+    /// Consider using [`EntityEquivalentIndexSet`](super::EntityEquivalentIndexSet)
+    /// for an [`EntitySet`] that can be efficiently modified.
+    pub fn extend_slow(&mut self, iter: impl IntoIterator<Item = T>) {
+        // Matches the `HashSet::extend` reservation logic. Their reasoning:
+        //  "Keys may be already present or show multiple times in the iterator.
+        //  Reserve the entire hint lower bound if the map is empty.
+        //  Otherwise reserve half the hint (rounded up), so the map
+        //  will only resize twice in the worst case."
+        let iter = iter.into_iter();
+        let reserve = if self.is_empty() {
+            iter.size_hint().0
+        } else {
+            iter.size_hint().0.div_ceil(2)
+        };
+        self.reserve(reserve);
+        // Internal iteration (fold/for_each) is known to result in better code generation
+        // over a for loop.
+        iter.for_each(move |item| {
+            if !self.0.contains(&item) {
+                self.0.push(item);
+            }
+        });
     }
 
     /// Returns the inner [`Vec<T>`].
@@ -909,21 +938,24 @@ impl<T: EntityEquivalent> From<BTreeSet<T>> for UniqueEntityEquivalentVec<T> {
 }
 
 impl<T: EntityEquivalent> FromIterator<T> for UniqueEntityEquivalentVec<T> {
-    /// This impl only uses `Eq` to validate uniqueness, resulting in O(n^2) complexity.
-    /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
-    /// When possible, use `FromEntitySetIterator::from_entity_iter` instead.
+    /// When possible, use [`FromEntitySetIterator::from_entity_set_iter`] instead,
+    /// which can avoid the cost of creating an [`EntityHashSet`] to check for duplicates.
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         // Matches the `HashSet::from_iter` reservation logic.
         let iter = iter.into_iter();
-        let unique_vec = Self::with_capacity(iter.size_hint().0);
+        let size = iter.size_hint().0;
+        let mut unique_vec = Self::with_capacity(size);
+        let mut entities = EntityHashSet::with_capacity(size);
         // Internal iteration (fold/for_each) is known to result in better code generation
         // over a for loop.
-        iter.fold(unique_vec, |mut unique_vec, item| {
-            if !unique_vec.0.contains(&item) {
+        iter.for_each(|item| {
+            if entities.insert(item.entity()) {
+                // `EntityEquivalent` ensures that item equality is consistent with `Entity` equality,
+                // so the `EntityHashSet` check ensures that this item is unique.
                 unique_vec.0.push(item);
             }
-            unique_vec
-        })
+        });
+        unique_vec
     }
 }
 
@@ -931,60 +963,6 @@ impl<T: EntityEquivalent> FromEntitySetIterator<T> for UniqueEntityEquivalentVec
     fn from_entity_set_iter<I: EntitySet<Item = T>>(iter: I) -> Self {
         // SAFETY: `iter` is an `EntitySet`.
         unsafe { Self::from_vec_unchecked(Vec::from_iter(iter)) }
-    }
-}
-
-impl<T: EntityEquivalent> Extend<T> for UniqueEntityEquivalentVec<T> {
-    /// Use with caution, because this impl only uses `Eq` to validate uniqueness,
-    /// resulting in O(n^2) complexity.
-    /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        // Matches the `HashSet::extend` reservation logic. Their reasoning:
-        //  "Keys may be already present or show multiple times in the iterator.
-        //  Reserve the entire hint lower bound if the map is empty.
-        //  Otherwise reserve half the hint (rounded up), so the map
-        //  will only resize twice in the worst case."
-        let iter = iter.into_iter();
-        let reserve = if self.is_empty() {
-            iter.size_hint().0
-        } else {
-            iter.size_hint().0.div_ceil(2)
-        };
-        self.reserve(reserve);
-        // Internal iteration (fold/for_each) is known to result in better code generation
-        // over a for loop.
-        iter.for_each(move |item| {
-            if !self.0.contains(&item) {
-                self.0.push(item);
-            }
-        });
-    }
-}
-
-impl<'a, T: EntityEquivalent + Copy + 'a> Extend<&'a T> for UniqueEntityEquivalentVec<T> {
-    /// Use with caution, because this impl only uses `Eq` to validate uniqueness,
-    /// resulting in O(n^2) complexity.
-    /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
-    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
-        // Matches the `HashSet::extend` reservation logic. Their reasoning:
-        //  "Keys may be already present or show multiple times in the iterator.
-        //  Reserve the entire hint lower bound if the map is empty.
-        //  Otherwise reserve half the hint (rounded up), so the map
-        //  will only resize twice in the worst case."
-        let iter = iter.into_iter();
-        let reserve = if self.is_empty() {
-            iter.size_hint().0
-        } else {
-            iter.size_hint().0.div_ceil(2)
-        };
-        self.reserve(reserve);
-        // Internal iteration (fold/for_each) is known to result in better code generation
-        // over a for loop.
-        iter.for_each(move |item| {
-            if !self.0.contains(item) {
-                self.0.push(*item);
-            }
-        });
     }
 }
 
