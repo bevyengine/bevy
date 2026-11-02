@@ -725,6 +725,8 @@ impl TryFrom<Val> for FontSize {
     /// [`Val::Em`] becomes [`FontSize::Rem`]: em is relative to the font size of the node
     /// itself, which is the very thing being defined here, so it resolves against the root
     /// size instead to avoid the circularity.
+    ///
+    /// Expressions cannot be converted.
     fn try_from(val: Val) -> Result<Self, Self::Error> {
         Ok(match val {
             Val::Auto => FontSize::Rem(1.),
@@ -1006,6 +1008,7 @@ impl ValUnit {
         Self::Rem,
     ];
 
+    /// A bit mask with only the bit for this unit set.
     const fn bit(self) -> u8 {
         1 << self as u8
     }
