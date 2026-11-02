@@ -18,7 +18,7 @@ impl Val {
     /// finish resolving them during layout.
     ///
     /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
-    /// collapse to a single `Px` or a `Px` and `Percent` sum`.
+    /// collapse to a single `Px` or a `Px` and `Percent` sum.
     fn to_physical(&self, context: &ValContext) -> Val {
         let resolve_leaf_val = |(unit, value): (ValUnit, f32)| match unit {
             ValUnit::Percent => Val::Percent(value),
