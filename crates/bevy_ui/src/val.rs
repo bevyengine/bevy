@@ -1146,6 +1146,7 @@ impl ValOperands {
         *self = kept;
     }
 
+    /// Resolve the operands to physical values and apply the operation.
     pub(crate) fn resolve_to_physical(
         &self,
         op: fn(f32, f32) -> f32,
@@ -1162,7 +1163,16 @@ impl ValOperands {
             .unwrap_or(0.0)
     }
 
-    /// Interpolates operand-wise, or `None` when the units differ.
+    /// Interpolates between two sets of operands, when their units are compatible.
+    ///
+    /// Called by `Val::try_interpolate_stable`, for example:
+    /// ```
+    /// # use bevy_ui::val::{px, percent};
+    /// # use bevy_math::TryStableInterpolate;
+    /// let a = px(0) + percent(0);
+    /// let b = px(10) + percent(100);
+    /// assert_eq!(a.try_interpolate_stable(&b, 0.5).unwrap(), px(5) + percent(50));
+    /// ```
     pub(crate) fn interpolate_stable(&self, other: &Self, t: f32) -> Option<Self> {
         (self.units == other.units).then(|| {
             let mut result = *self;
