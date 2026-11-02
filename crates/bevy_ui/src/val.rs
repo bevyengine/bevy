@@ -1108,10 +1108,9 @@ impl ValOperands {
         (self.units, self.values)
     }
 
+    /// Creates a `ValOperands` containing a single value.
     const fn single(unit: ValUnit, value: f32) -> Self {
-        let mut units = ValUnitSet::EMPTY;
-        units.insert(unit);
-        Self::new(units, [value, 0.0, 0.0])
+        Self::new(ValUnitSet(unit.bit()), [value, 0.0, 0.0])
     }
 
     /// The operands in ascending unit order.
