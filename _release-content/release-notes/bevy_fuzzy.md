@@ -1,0 +1,23 @@
+---
+title: Fuzzy matching for tools
+authors: ["@jbuehler23"]
+pull_requests: []
+---
+
+The new `bevy_fuzzy` crate is a small, dependency-free fuzzy matcher for tools like inspectors, pickers and command palettes.
+Patterns are split on whitespace and every part must match, ignoring case.
+Consecutive characters, word starts and camelCase humps score higher, so `pl` ranks `PointLight` above `Spline`.
+
+```rust
+use bevy::fuzzy::{segments, FuzzyPattern};
+
+let names = ["Spline", "PointLight", "Transform"];
+let ranked = FuzzyPattern::new("pl").rank(&names, |name| *name);
+assert_eq!(names[ranked[0].index], "PointLight");
+
+let highlighted: Vec<_> = segments(names[ranked[0].index], &ranked[0].matched.indices).collect();
+assert_eq!(
+    highlighted,
+    [("P", true), ("oint", false), ("L", true), ("ight", false)]
+);
+```
