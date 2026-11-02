@@ -47,13 +47,7 @@ macro_rules! parse_punctuated_vec_autocomplete_friendly {
 
 impl Parse for BsnRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(Brace) {
-            let content;
-            syn::braced!(content in input);
-            Ok(BsnRoot(content.parse::<Bsn>()?))
-        } else {
-            Ok(BsnRoot(input.parse::<Bsn>()?))
-        }
+        Ok(BsnRoot(input.parse::<Bsn>()?))
     }
 }
 
@@ -220,7 +214,6 @@ impl BsnEntry {
         })
     }
 }
-
 impl Parse for BsnSceneList {
     fn parse(input: ParseStream) -> Result<Self> {
         let content;
