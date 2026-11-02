@@ -2,16 +2,23 @@
 
 use crate::{
     shader_ref, ExtendedMaterial, MaterialExtension, MaterialExtensionKey,
-    MaterialExtensionPipeline, MaterialPlugin, StandardMaterial,
+    MaterialExtensionPipeline, MaterialPlugin, MeshMaterial3d, StandardMaterial,
 };
-use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, embedded_path, Asset};
-use bevy_mesh::MeshVertexBufferLayoutRef;
+use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::{embedded_asset, embedded_path, Asset, Assets};
+use bevy_camera::{
+    primitives::{Aabb, MeshAabb},
+    visibility::{calculate_bounds, NoAutoAabb, NoFrustumCulling, VisibilitySystems},
+};
+use bevy_ecs::prelude::*;
+use bevy_math::{Vec3, Vec3A};
+use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_reflect::Reflect;
 use bevy_render::render_resource::{
     AsBindGroup, CompareFunction, RenderPipelineDescriptor, SpecializedMeshPipelineError,
 };
 use bevy_shader::{ShaderDefVal, ShaderRef};
+use bevy_transform::components::GlobalTransform;
 
 /// Adds support for [`BillboardMaterial`].
 pub struct BillboardPlugin;
@@ -19,7 +26,13 @@ pub struct BillboardPlugin;
 impl Plugin for BillboardPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "billboard.wesl");
-        app.add_plugins(MaterialPlugin::<BillboardMaterial>::default());
+        app.add_plugins(MaterialPlugin::<BillboardMaterial>::default())
+            .add_systems(
+                PostUpdate,
+                update_billboard_bounds
+                    .after(calculate_bounds)
+                    .in_set(VisibilitySystems::CalculateBounds),
+            );
     }
 }
 
@@ -29,9 +42,11 @@ impl Plugin for BillboardPlugin {
 /// - Billboards receive shadows but do not cast them (you can disable
 ///   shadows with [`NotShadowReceiver`](bevy_light::NotShadowReceiver)).
 /// - Skinned and morphed meshes are not supported.
-/// - The mesh should lie in its local XY plane, and its
-///   [`Aabb`](bevy_camera::primitives::Aabb) must enclose the mesh at every
-///   rotation for frustum culling to be correct.
+/// - The mesh should lie in its local XY plane.
+///
+/// The [`Aabb`] of a billboard is replaced with one that encloses its mesh at
+/// every rotation, for frustum culling to be correct. Add [`NoAutoAabb`] to
+/// provide your own instead.
 ///
 /// A negative `Transform` scale does not mirror a billboard. Use
 /// [`StandardMaterial::flip`] on the base material instead. This only flips the
@@ -139,5 +154,73 @@ impl MaterialExtension for BillboardExtension {
         }
 
         Ok(())
+    }
+}
+
+/// Replaces the [`Aabb`] of billboards, which [`calculate_bounds`] fits to the
+/// unrotated mesh, with one that encloses the mesh at every rotation.
+fn update_billboard_bounds(
+    meshes: Res<Assets<Mesh>>,
+    mut billboards: Query<
+        (&Mesh3d, &GlobalTransform, &mut Aabb),
+        (
+            With<MeshMaterial3d<BillboardMaterial>>,
+            Without<NoFrustumCulling>,
+            Without<NoAutoAabb>,
+            Or<(
+                Changed<Aabb>,
+                Changed<GlobalTransform>,
+                Changed<MeshMaterial3d<BillboardMaterial>>,
+            )>,
+        ),
+    >,
+) {
+    billboards
+        .par_iter_mut()
+        .for_each(|(mesh, transform, mut aabb)| {
+            let matrix = transform.affine().matrix3;
+            let scale = Vec3::new(
+                matrix.x_axis.length(),
+                matrix.y_axis.length(),
+                matrix.z_axis.length(),
+            );
+            if let Some(mesh_aabb) = meshes.get(mesh).and_then(MeshAabb::get_aabb)
+                && let Some(billboard_aabb) = billboard_aabb(&mesh_aabb, scale)
+            {
+                aabb.set_if_neq(billboard_aabb);
+            }
+        });
+}
+
+/// Returns the local [`Aabb`] of a billboard with the given mesh bounds and
+/// world scale, or [`None`] if it's scaled to nothing. The bounds are a cube
+/// that still encloses the billboard along the least scaled axis.
+fn billboard_aabb(mesh_aabb: &Aabb, scale: Vec3) -> Option<Aabb> {
+    let farthest_corner = Vec3::from(mesh_aabb.center.abs() + mesh_aabb.half_extents);
+    let min_scale = scale.min_element();
+    (min_scale > 0.0).then(|| Aabb {
+        center: Vec3A::ZERO,
+        half_extents: Vec3A::splat((farthest_corner * scale).length() / min_scale),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn billboard_aabb_encloses_every_rotation() {
+        let mesh_aabb = Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::new(0.5, 0.5, 0.0),
+        };
+        let half_extents = |scale| Some(billboard_aabb(&mesh_aabb, scale)?.half_extents);
+
+        assert_eq!(half_extents(Vec3::ONE), Some(Vec3A::splat(0.5_f32.sqrt())));
+        assert_eq!(
+            half_extents(Vec3::new(2.0, 1.0, 1.0)),
+            Some(Vec3A::splat(1.25_f32.sqrt()))
+        );
+        assert_eq!(half_extents(Vec3::ZERO), None);
     }
 }
