@@ -1,10 +1,9 @@
-use bevy_math::Vec2;
 use bevy_platform::sync::Arc;
-use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
+use bevy_text::{EmSize, RemSize};
 use taffy::style_helpers;
 
 use crate::{
-    calc::{CalcOp, ValUnit},
+    calc::{CalcOp, ValContext, ValUnit},
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
     JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
@@ -12,54 +11,6 @@ use crate::{
 };
 
 use super::layout_tree::{PercentageCalc, TaffyStyle};
-
-/// The values a [`Node`]'s [`Val`]s are converted against when its taffy style is rebuilt.
-#[derive(Copy, Clone)]
-pub struct ValContext {
-    pub scale_factor: f32,
-    pub physical_size: Vec2,
-    pub em_size: f32,
-    pub rem_size: f32,
-}
-
-impl ValContext {
-    pub const DEFAULT: Self = Self {
-        scale_factor: 1.0,
-        physical_size: Vec2::ZERO,
-        em_size: DEFAULT_REM_SIZE_PX,
-        rem_size: DEFAULT_REM_SIZE_PX,
-    };
-
-    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
-    #[inline]
-    pub(super) const fn new(
-        scale_factor: f32,
-        physical_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Self {
-        Self {
-            scale_factor,
-            physical_size,
-            em_size: em_size.0,
-            rem_size: rem_size.0,
-        }
-    }
-}
-
-#[cfg(test)]
-impl ValContext {
-    pub const TEST_CONTEXT: Self = Self {
-        physical_size: Vec2::new(1000.0, 1000.0),
-        ..Self::DEFAULT
-    };
-}
-
-impl Default for ValContext {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
 
 impl Val {
     /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels

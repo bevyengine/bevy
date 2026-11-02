@@ -1,12 +1,66 @@
 use bevy_math::{StableInterpolate as _, Vec2};
 use bevy_platform::sync::Arc;
 use bevy_reflect::Reflect;
-use bevy_text::{EmSize, RemSize};
+use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use crate::{Val, ValArithmeticError};
+
+/// All the context needed to resolve a [`Val`] into a length in physical pixels, except the percentage basis.
+#[derive(Copy, Clone)]
+pub struct ValContext {
+    /// Logical pixel lengths are multiplied by the scale factor to get a physical length.
+    pub scale_factor: f32,
+    /// Size of the target surface in physical pixels.
+    pub physical_size: Vec2,
+    /// The local font size in logical pixels.
+    /// `Val::Em` values are normalized, so `em(1)` is `em_size * scale_factor` in physical pixels.
+    pub em_size: f32,
+    /// The root font size in logical pixels.
+    /// `Val::Em` values are normalized, so `rem(1)` is `rem_size * scale_factor` in physical pixels.
+    pub rem_size: f32,
+}
+
+impl ValContext {
+    pub const DEFAULT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::ZERO,
+        em_size: DEFAULT_REM_SIZE_PX,
+        rem_size: DEFAULT_REM_SIZE_PX,
+    };
+
+    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
+    #[inline]
+    pub(super) const fn new(
+        scale_factor: f32,
+        physical_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
+    ) -> Self {
+        Self {
+            scale_factor,
+            physical_size,
+            em_size: em_size.0,
+            rem_size: rem_size.0,
+        }
+    }
+}
+
+#[cfg(test)]
+impl ValContext {
+    pub const TEST_CONTEXT: Self = Self {
+        physical_size: Vec2::new(1000.0, 1000.0),
+        ..Self::DEFAULT
+    };
+}
+
+impl Default for ValContext {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 /// Wrapper around an opteration on `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
@@ -30,7 +84,7 @@ impl<'de> serde::Deserialize<'de> for Calc {
     }
 }
 
-/// An operation performed on `Val`s
+/// An operation performed on `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
