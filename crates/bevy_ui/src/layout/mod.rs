@@ -89,7 +89,7 @@ impl UiRoots {
     }
 }
 
-pub use convert::LayoutContext;
+pub use convert::ValContext;
 
 #[derive(Debug, Error)]
 pub enum LayoutError {
@@ -212,7 +212,7 @@ pub fn sync_taffy_styles_with_nodes(
             {
                 convert::update_taffy_style_from_node(
                     &node,
-                    &LayoutContext::new(
+                    &ValContext::new(
                         target.scale_factor(),
                         target.physical_size().as_vec2(),
                         *em_size,

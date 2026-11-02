@@ -15,14 +15,14 @@ use super::layout_tree::{PercentageCalc, TaffyStyle};
 
 /// The values a [`Node`]'s [`Val`]s are converted against when its taffy style is rebuilt.
 #[derive(Copy, Clone)]
-pub struct LayoutContext {
+pub struct ValContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
     pub em_size: f32,
     pub rem_size: f32,
 }
 
-impl LayoutContext {
+impl ValContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
@@ -48,14 +48,14 @@ impl LayoutContext {
 }
 
 #[cfg(test)]
-impl LayoutContext {
+impl ValContext {
     pub const TEST_CONTEXT: Self = Self {
         physical_size: Vec2::new(1000.0, 1000.0),
         ..Self::DEFAULT
     };
 }
 
-impl Default for LayoutContext {
+impl Default for ValContext {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -68,7 +68,7 @@ impl Val {
     ///
     /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
     /// collapse to a single `Px` or a `Px` and `Percent` sum`.
-    fn to_physical(&self, context: &LayoutContext) -> Val {
+    fn to_physical(&self, context: &ValContext) -> Val {
         let resolve_leaf_val = |(unit, value): (ValUnit, f32)| match unit {
             ValUnit::Percent => Val::Percent(value),
             _ => Val::Px(
@@ -121,7 +121,7 @@ impl Val {
     /// Only store a calc length if a percent term remains, otherwise precalculate before layout.
     pub(super) fn to_length_percentage_auto(
         &self,
-        context: &LayoutContext,
+        context: &ValContext,
         calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
@@ -160,7 +160,7 @@ impl Val {
     /// Only store a calc length if a percent term remains, otherwise precalculate before layout.
     pub(super) fn to_length_percentage(
         &self,
-        context: &LayoutContext,
+        context: &ValContext,
         calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::LengthPercentage {
         match self {
@@ -202,7 +202,7 @@ impl Val {
     // * A border larger than one physical pixel is rounded down to a whole pixel.
     fn to_length_percentage_for_border(
         &self,
-        context: &LayoutContext,
+        context: &ValContext,
         calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::LengthPercentage {
         let length = self.to_length_percentage(context, calcs);
@@ -220,7 +220,7 @@ impl Val {
     /// `bevy_ui` doesn't expose any of these additional values yet.
     fn to_dimension(
         &self,
-        context: &LayoutContext,
+        context: &ValContext,
         calcs: &mut Vec<Arc<PercentageCalc>>,
     ) -> taffy::style::Dimension {
         self.to_length_percentage_auto(context, calcs).into()
@@ -244,7 +244,7 @@ impl UiRect {
 // Update taffy style in place from the given `Node` and context
 pub fn update_taffy_style_from_node(
     node: &Node,
-    context: &LayoutContext,
+    context: &ValContext,
     taffy_style: &mut TaffyStyle,
 ) {
     let TaffyStyle(style, calcs) = taffy_style;
@@ -552,7 +552,7 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement<S
 }
 
 impl MinTrackSizingFunction {
-    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
+    fn into_taffy(self, context: &ValContext) -> taffy::style::MinTrackSizingFunction {
         match self {
             MinTrackSizingFunction::Px(val) => Val::Px(val)
                 .to_length_percentage(context, &mut Vec::new())
@@ -590,7 +590,7 @@ impl MinTrackSizingFunction {
 }
 
 impl MaxTrackSizingFunction {
-    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
+    fn into_taffy(self, context: &ValContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
             MaxTrackSizingFunction::Px(val) => Val::Px(val)
                 .to_length_percentage(context, &mut Vec::new())
@@ -649,7 +649,7 @@ impl MaxTrackSizingFunction {
 impl GridTrack {
     pub(super) fn into_taffy_track(
         self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::TrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(context);
         let max = self.max_sizing_function.into_taffy(context);
@@ -660,7 +660,7 @@ impl GridTrack {
 impl RepeatedGridTrack {
     pub(super) fn clone_into_repeated_taffy_track(
         &self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::GridTemplateComponent<String> {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(context);
@@ -702,8 +702,7 @@ mod tests {
 
     #[test]
     fn expressions_resolve_to_physical_before_layout() {
-        let context =
-            LayoutContext::new(2.0, Vec2::new(1000.0, 500.0), EmSize(12.0), RemSize(20.0));
+        let context = ValContext::new(2.0, Vec2::new(1000.0, 500.0), EmSize(12.0), RemSize(20.0));
         let value =
             Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
         assert_eq!(
@@ -806,7 +805,7 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(
+        let viewport_values = ValContext::new(
             1.0,
             Vec2::new(800., 600.),
             EmSize(DEFAULT_REM_SIZE_PX),
@@ -980,7 +979,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, Vec2::new(800., 600.), EmSize(10.), RemSize(20.));
+        let context = ValContext::new(2.0, Vec2::new(800., 600.), EmSize(10.), RemSize(20.));
         let cases = [
             (Val::Auto, LengthPercentage::length(0.)),
             (Val::Percent(1.), LengthPercentage::percent(0.01)),
