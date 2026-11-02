@@ -507,17 +507,20 @@ impl Val {
         }
     }
 
-    /// The smaller of `self` and `other` once resolved.
+    /// Creates an expression that returns the minimum of two `Val`s when resolved.
+    /// If both `Val`s have the same units, their minimum is returned immediately.
     pub fn min(self, other: Val) -> Val {
         self.combine(other, ReduceOp::Min)
     }
 
-    /// The larger of `self` and `other` once resolved.
+    /// Creates an expression that returns the maximum of two `Val`s when resolved.
+    /// If both `Val`s have the same units, their maximum is returned immediately.
     pub fn max(self, other: Val) -> Val {
         self.combine(other, ReduceOp::Max)
     }
 
-    /// `self` clamped between `min` and `max` once resolved.
+    /// Creates an expression that returns `self` clamped between `min`` and `max` when resolved.
+    /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     pub fn clamp(self, min: Val, max: Val) -> Val {
         Val::clamp_inline(&min, &self, &max).unwrap_or_else(|| CalcOp::Clamp(min, self, max).into())
     }
