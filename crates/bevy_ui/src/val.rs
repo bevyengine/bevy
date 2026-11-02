@@ -216,7 +216,7 @@ impl PartialEq for Val {
             }
             (Self::Clamp(a, x), Self::Clamp(b, y)) => return a == b && x == y,
             (Self::Sum(..), _) | (_, Self::Sum(..)) => {
-                return self.sum_terms() == other.sum_terms();
+                return self.sum_operands() == other.sum_operands();
             }
             _ => {}
         }
@@ -568,7 +568,7 @@ impl Mul<f32> for Val {
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
             terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
-                terms.map_terms(|value| value * rhs, rhs < 0.0)
+                terms.map_operands(|value| value * rhs, rhs < 0.0)
             }
             Val::Calc(mut calc) => {
                 Arc::make_mut(&mut calc.0).scale(rhs);
@@ -591,7 +591,7 @@ impl MulAssign<f32> for Val {
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
-                *self = core::mem::take(self).map_terms(|value| value * rhs, rhs < 0.0);
+                *self = core::mem::take(self).map_operands(|value| value * rhs, rhs < 0.0);
             }
             Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs),
         }
@@ -613,7 +613,7 @@ impl Div<f32> for Val {
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
             terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
-                terms.map_terms(|value| value / rhs, rhs < 0.0)
+                terms.map_operands(|value| value / rhs, rhs < 0.0)
             }
             Val::Calc(mut calc) => {
                 Arc::make_mut(&mut calc.0).scale(rhs.recip());
@@ -636,7 +636,7 @@ impl DivAssign<f32> for Val {
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
-                *self = core::mem::take(self).map_terms(|value| value / rhs, rhs < 0.0);
+                *self = core::mem::take(self).map_operands(|value| value / rhs, rhs < 0.0);
             }
             Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs.recip()),
         }
@@ -658,7 +658,7 @@ impl Neg for Val {
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
             terms @ (Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..)) => {
-                terms.map_terms(|value| -value, true)
+                terms.map_operands(|value| -value, true)
             }
             Val::Calc(mut calc) => {
                 Arc::make_mut(&mut calc.0).scale(-1.0);
@@ -1307,7 +1307,7 @@ impl Val {
 
     /// The terms of a [`Val::Sum`] or unit value with zero terms removed, so that sums
     /// compare equal whatever zero terms they carry. `None` for other values.
-    pub(crate) fn sum_terms(&self) -> Option<ValOperands> {
+    pub(crate) fn sum_operands(&self) -> Option<ValOperands> {
         let mut terms = match self {
             Val::Sum(units, values) => ValOperands::new(*units, *values),
             _ => ValOperands::single(self.unit()?, self.inner()?),
@@ -1356,7 +1356,7 @@ impl Val {
 
     /// Applies `f` to every term of a [`Val::Sum`], [`Val::Min`], [`Val::Max`] or [`Val::Clamp`].
     /// `reverses` swaps `Min` and `Max` and the bounds of `Clamp`, for an `f` that reverses ordering.
-    pub(crate) fn map_terms(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
+    pub(crate) fn map_operands(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
         let (op, units, mut values) = match self {
             Val::Sum(units, values) => (ReduceOp::Sum, units, values),
             Val::Min(units, values) => (ReduceOp::Min, units, values),
