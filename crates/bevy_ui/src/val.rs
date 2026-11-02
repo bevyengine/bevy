@@ -1065,8 +1065,8 @@ impl ValUnitSet {
         self.0 & unit.bit() != 0
     }
 
-    /// The position `unit` has, or would have, among the set's units in ascending order.
-    pub const fn slot(&self, unit: ValUnit) -> usize {
+    /// The index where the value is stored in an expression's values array.
+    pub const fn index(&self, unit: ValUnit) -> usize {
         (self.0 & (unit.bit() - 1)).count_ones() as usize
     }
 
@@ -1123,7 +1123,7 @@ impl ValOperands {
     ///
     /// Returns `false` and leaves `self` unchanged when a new term would exceed [`Self::CAPACITY`].
     fn fold(&mut self, unit: ValUnit, value: f32, op: fn(f32, f32) -> f32) -> bool {
-        let slot = self.units.slot(unit);
+        let slot = self.units.index(unit);
         if self.units.contains(unit) {
             self.values[slot] = op(self.values[slot], value);
         } else if self.units.len() < Self::CAPACITY {
