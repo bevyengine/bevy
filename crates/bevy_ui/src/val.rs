@@ -1199,6 +1199,7 @@ pub(crate) enum ReduceOp {
 }
 
 impl ReduceOp {
+    /// Apply the operation to unitless values
     pub(crate) fn apply(self) -> fn(f32, f32) -> f32 {
         match self {
             Self::Sum => |a, b| a + b,
@@ -1230,6 +1231,7 @@ impl ReduceOp {
         }
     }
 
+    /// Creates a `CalcOp` from the `ReduceOp` and the given operands.
     fn calc(self, a: Val, b: Val) -> Val {
         match self {
             Self::Sum => CalcOp::Add(a, b),
@@ -1256,8 +1258,8 @@ impl Val {
         operands.iter()
     }
 
-    /// Combines two values with `op`, folding them into one set of terms when both sides are
-    /// unit values or terms of the same operation, and building a [`Calc`] otherwise.
+    /// Combines two `Val`s with an operation. Unit values and expressions with the same operation are combined into
+    /// one inline operand set, if they fit. Otherwise, a `[Calc] is built`.
     pub(crate) fn combine(self, rhs: Val, op: ReduceOp) -> Val {
         if let (Some(mut terms), Some(rhs_terms)) = (self.operands_for(op), rhs.operands_for(op))
             && rhs_terms
