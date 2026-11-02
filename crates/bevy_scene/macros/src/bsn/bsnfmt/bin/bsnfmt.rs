@@ -107,7 +107,7 @@ fn main() {
 
     if visitor.edits.is_empty() {
         if !is_stdin && !args.write {
-            eprintln!("\x1b[1;32mNo formatting changes needed in {}\x1b[0m", path);
+            eprintln!("\x1b[1;32mNo formatting changes made in {}\x1b[0m", path);
         }
 
         if is_stdin {

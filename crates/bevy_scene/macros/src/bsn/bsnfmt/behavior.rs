@@ -3,7 +3,7 @@ use super::{
     types::{BsnVisitor, Edit},
     utils::*,
 };
-use crate::_bsn::types::*;
+use crate::{_bsn::types::*, bsnfmt::format_tokens};
 use syn::{
     spanned::Spanned,
     visit::{visit_macro, Visit},
@@ -26,22 +26,22 @@ impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
         };
 
         let base_indent: usize = line_indent;
-        let formatted = if is_bsn {
-            syn::parse2::<BsnRoot>(mac.tokens.clone())
-                .ok()
-                .map(|ast| ast.fmt(base_indent, 0))
+        let formatted_res = if is_bsn {
+            format_tokens::<BsnRoot>(mac.tokens.clone(), base_indent, 0)
         } else {
-            syn::parse2::<BsnListRoot>(mac.tokens.clone())
-                .ok()
-                .map(|ast| ast.fmt(base_indent, 0))
+            format_tokens::<BsnListRoot>(mac.tokens.clone(), base_indent, 0)
         };
 
-        let Some(new_text) = formatted else {
-            eprintln!(
-                "\x1b[1;31mFailed to parse bsn block at line {}\x1b[0m",
-                mac.span().start().line
-            );
-            return visit_macro(self, mac);
+        let formatted = match formatted_res {
+            Ok(res) => res,
+            Err(e) => {
+                // TODO: Print the error for more details
+                eprintln!(
+                    "\x1b[1;31mFailed to parse bsn block at line {}: \x1b[0m\n\t- {e}",
+                    mac.span().start().line,
+                );
+                return visit_macro(self, mac);
+            }
         };
 
         let mac_start_byte =
@@ -72,12 +72,12 @@ impl<'ast, 'a> Visit<'ast> for BsnVisitor<'a> {
         let (end_line, end_col) = offset_to_col(self.source, end_byte);
         let original = &self.source[start_byte..end_byte];
 
-        let r#final = if is_bsn_list && !new_text.contains('\n') {
-            new_text.trim().to_string()
+        let r#final = if is_bsn_list && !formatted.contains('\n') {
+            formatted.trim().to_string()
         } else {
             format!(
                 "\n{}\n{}",
-                new_text.trim_start_matches('\n').trim_end(),
+                formatted.trim_start_matches('\n').trim_end(),
                 " ".repeat(line_indent)
             )
         };

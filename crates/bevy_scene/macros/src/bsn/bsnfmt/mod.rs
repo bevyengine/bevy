@@ -5,31 +5,72 @@ mod traits;
 pub mod types;
 pub mod utils;
 
+use crate::bsnfmt::traits::BsnFmt;
+use proc_macro2::TokenStream;
+use std::{fmt::Display, str::FromStr};
+use syn::parse::Parse;
+
+// TODO: Use thiserror
+#[derive(Debug)]
+pub enum FormatterError {
+    Lexing(proc_macro2::LexError),
+    Parsing(String, syn::Error),
+}
+
+impl Display for FormatterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FormatterError::Lexing(e) => {
+                write!(
+                    f,
+                    "Failed to lex input string into TokenStream: {}",
+                    e.to_string()
+                )
+            }
+            FormatterError::Parsing(r#type, e) => {
+                write!(
+                    f,
+                    "Failed to parse input into {}: {}",
+                    r#type,
+                    e.to_string()
+                )
+            }
+        }
+    }
+}
+
+fn format_tokens<P: BsnFmt + Parse>(
+    input: TokenStream,
+    base_indent: usize,
+    level: usize,
+) -> Result<String, FormatterError> {
+    syn::parse2::<P>(input)
+        .map_err(|e| FormatterError::Parsing(std::any::type_name::<P>().to_owned(), e))
+        .map(|ast| ast.fmt(base_indent, level))
+}
+
+fn format_str<P: BsnFmt + Parse>(
+    input: &str,
+    base_indent: usize,
+    level: usize,
+) -> Result<String, FormatterError> {
+    let tokens = TokenStream::from_str(input).map_err(|e| FormatterError::Lexing(e))?;
+    format_tokens::<P>(tokens, base_indent, level)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::traits::BsnFmt;
+    use super::format_str;
     use crate::_bsn::types::BsnRoot;
     use pretty_assertions::assert_eq;
-    use proc_macro2::TokenStream;
-    use std::str::FromStr;
-    use syn::parse2;
 
     macro_rules! test_fmt {
         ($test_name:ident, $parser:ident, $input:expr, $expected:expr) => {
             #[test]
             fn $test_name() {
-                // Arrange
                 let input = $input;
                 let expected = $expected.trim_start_matches('\n').trim_end();
-
-                let tokens = TokenStream::from_str(input)
-                    .expect("Failed to lex input string into TokenStream");
-                let ast: $parser = parse2(tokens).expect(concat!("Failed to parse input into ", stringify!($parser)));
-
-                // Act
-                let res = ast.fmt(0, 0);
-
-                // Assert
+                let res = format_str::<$parser>(input, 0, 0).unwrap();
                 assert_eq!(
                     res, expected,
                     "\n\n BSN fmt result does not match expected. \n\ngot:\n[{}]\n\nexpected:\n[{}]\n",
