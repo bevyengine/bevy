@@ -447,15 +447,10 @@ impl Val {
     /// );
     /// ```
     pub fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
-            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u + v)),
-            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u + v)),
+        match (self.unit(), self.inner(), val.unit(), val.inner()) {
+            (Some(unit), Some(u), Some(other), Some(v)) if unit == other => {
+                Ok(Val::leaf(unit, u + v))
+            }
             _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
@@ -473,15 +468,10 @@ impl Val {
     /// );
     /// ```
     pub fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
-            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u - v)),
-            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u - v)),
+        match (self.unit(), self.inner(), val.unit(), val.inner()) {
+            (Some(unit), Some(u), Some(other), Some(v)) if unit == other => {
+                Ok(Val::leaf(unit, u - v))
+            }
             _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
