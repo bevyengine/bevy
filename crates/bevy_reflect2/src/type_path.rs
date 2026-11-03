@@ -137,18 +137,22 @@ impl TypePath {
         self.full.get()
     }
 
-    /// Returns the full type pat. This includes the full module/crate path, including for generic types.
-    /// This is intended to be usable as a roughly "unique" identifier, provided there are no crate name overlaps.
+    /// Returns the short type path. This includes just the [`Self::type_ident`] / type name, and the type identifiers for generic types.
+    ///
+    /// This is very likely to collide with other short type paths, so it should not be used as an "identity" (just a "friendly name").
+    ///
+    /// For `Option<Vec<usize>>`, this is `"Option<Vec<usize>>"`.
+    ///
     /// For example: `String`, `Player`, `Vec<Item>`
     pub fn short(&self) -> &'static str {
         self.short.get()
     }
 
-    /// Returns the name of the type
+    /// Returns the name of the type.
     ///
     /// For `Option<Vec<usize>>`, this is `"Option"`.
     pub fn type_ident(&self) -> &'static str {
-        const_index(self.short(), &self.type_ident)
+        const_substring(self.short(), &self.type_ident)
     }
 
     /// Returns the name of the crate the type is in, or [`None`] if it has no crate name.
@@ -156,7 +160,7 @@ impl TypePath {
     /// For `Option<Vec<usize>>`, this is `"core"`.
     pub fn crate_name(&self) -> Option<&'static str> {
         match &self.crate_name {
-            Some(range) => Some(const_index(self.full(), range)),
+            Some(range) => Some(const_substring(self.full(), range)),
             None => None,
         }
     }
@@ -166,7 +170,7 @@ impl TypePath {
     /// For `Option<Vec<usize>>`, this is `"core::option"`.
     pub fn module_path(&self) -> Option<&'static str> {
         match &self.module_path {
-            Some(range) => Some(const_index(self.full(), range)),
+            Some(range) => Some(const_substring(self.full(), range)),
             None => None,
         }
     }
@@ -184,7 +188,7 @@ impl TypePath {
     /// Returns [`TypePath::type_ident`] if it is known at compile time (ex: the type is not generic).
     pub const fn try_type_ident(&self) -> Option<&'static str> {
         match self.try_short() {
-            Some(short) => Some(const_index(short, &self.type_ident)),
+            Some(short) => Some(const_substring(short, &self.type_ident)),
             None => None,
         }
     }
@@ -193,7 +197,7 @@ impl TypePath {
     pub const fn try_crate_name(&self) -> Option<Option<&'static str>> {
         match self.try_full() {
             Some(full) => Some(match &self.crate_name {
-                Some(range) => Some(const_index(full, range)),
+                Some(range) => Some(const_substring(full, range)),
                 None => None,
             }),
             None => None,
@@ -204,7 +208,7 @@ impl TypePath {
     pub const fn try_module_path(&self) -> Option<Option<&'static str>> {
         match self.try_full() {
             Some(full) => Some(match &self.module_path {
-                Some(range) => Some(const_index(full, range)),
+                Some(range) => Some(const_substring(full, range)),
                 None => None,
             }),
             None => None,
@@ -212,7 +216,7 @@ impl TypePath {
     }
 }
 
-const fn const_index<'a>(s: &'a str, range: &Range<usize>) -> &'a str {
+const fn const_substring<'a>(s: &'a str, range: &Range<usize>) -> &'a str {
     s.split_at(range.start)
         .1
         .split_at(range.end - range.start)
