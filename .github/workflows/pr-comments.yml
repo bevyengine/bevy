@@ -4,7 +4,7 @@ name: PR Comments
 # It must not checkout a PR and run untrusted code!
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] no checkout or artifacts, PR data never interpolated, static comment bodies
     workflows: ["PR Events"]
     types:
       - completed
