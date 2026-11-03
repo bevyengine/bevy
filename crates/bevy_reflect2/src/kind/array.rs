@@ -1,5 +1,6 @@
 use crate::{Reflect, TypeRef};
 use bevy_ptr::{Ptr, PtrMut};
+use core::ptr;
 
 /// Describes a fixed-size sequence of items that are laid out contiguously in memory (ex: `[T; N]`).
 ///
@@ -187,5 +188,38 @@ impl<'a> ArrayMut<'a> {
     #[inline]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &dyn Reflect> {
         self.as_ref().iter()
+    }
+
+    /// Swaps the items at indices `a` and `b`. If `a == b`, the array is unchanged.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `a` or `b` are out of bounds.
+    pub fn swap(&mut self, a: usize, b: usize) {
+        let len = self.array_type.len;
+        assert!(a < len, "swap index a (is {a}) should be < len (is {len})");
+        assert!(b < len, "swap index b (is {b}) should be < len (is {len})");
+        if a == b {
+            return;
+        }
+        let size = self
+            .array_type
+            .item
+            .get()
+            .layout()
+            .expect("array items are sized")
+            .size();
+        let ptr = self.ptr.as_ptr();
+        // SAFETY: `a` and `b` are in bounds and distinct, so `Array::new` guarantees that both
+        // offsets point to distinct, non-overlapping, valid values of the item type, each `size`
+        // bytes long. All Rust values can be moved with a bitwise copy, and `&mut self` guarantees
+        // exclusive access.
+        unsafe {
+            ptr::swap_nonoverlapping(
+                ptr.add(a * self.array_type.stride),
+                ptr.add(b * self.array_type.stride),
+                size,
+            );
+        }
     }
 }

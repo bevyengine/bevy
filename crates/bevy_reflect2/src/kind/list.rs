@@ -90,6 +90,12 @@ pub unsafe trait ListAccess: 'static {
     /// Removes and returns the item at `index`, shifting all items after it. Returns `None` if
     /// `index` is out of bounds.
     fn remove(&mut self, index: usize) -> Option<Box<dyn Reflect>>;
+    /// Swaps the items at indices `a` and `b`. If `a == b`, the list is unchanged.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `a` or `b` are out of bounds.
+    fn swap(&mut self, a: usize, b: usize);
 }
 
 /// Casts the given pointer to a [`ListAccess`] pointer.

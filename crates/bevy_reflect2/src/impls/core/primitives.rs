@@ -140,7 +140,7 @@ impl<T: Typed + GetTypeRegistration, const N: usize> GetTypeRegistration for [T;
 #[cfg(test)]
 mod tests {
     use crate::{Reflect, Typed};
-    use alloc::string::ToString;
+    use alloc::string::{String, ToString};
 
     #[test]
     fn primitive_builtins() {
@@ -208,6 +208,20 @@ mod tests {
         let clone = reflect.reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<[u32; 3]>(), Some(&[1, 2, 10]));
         assert_eq!(value, [1, 2, 10]);
+        {
+            let mut array = (&mut value as &mut dyn Reflect).array_mut().unwrap();
+            array.swap(0, 2);
+            array.swap(1, 1);
+        }
+        assert_eq!(value, [10, 2, 1]);
+
+        // Non-trivial items
+        let mut strings = [String::from("a"), String::from("b"), String::from("c")];
+        (&mut strings as &mut dyn Reflect)
+            .array_mut()
+            .unwrap()
+            .swap(2, 0);
+        assert_eq!(strings, ["c", "b", "a"]);
 
         // Zero-sized items
         let units = [(), ()];
@@ -217,5 +231,15 @@ mod tests {
             "[(), ()]",
             alloc::format!("{:?}", &units as &dyn Reflect).to_string()
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn array_swap_out_of_bounds() {
+        let mut value = [1u32, 2, 3];
+        (&mut value as &mut dyn Reflect)
+            .array_mut()
+            .unwrap()
+            .swap(0, 3);
     }
 }

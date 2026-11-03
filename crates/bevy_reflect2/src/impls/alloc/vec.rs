@@ -28,6 +28,10 @@ unsafe impl<T: Typed> ListAccess for Vec<T> {
     fn remove(&mut self, index: usize) -> Option<Box<dyn Reflect>> {
         (index < Vec::len(self)).then(|| Box::new(Vec::remove(self, index)) as Box<dyn Reflect>)
     }
+
+    fn swap(&mut self, a: usize, b: usize) {
+        <[T]>::swap(self, a, b);
+    }
 }
 
 impl_reflect_list!(
@@ -89,8 +93,10 @@ mod tests {
             assert!(list.remove(10).is_none());
             let popped = list.pop().unwrap();
             assert_eq!(popped.downcast_ref::<u32>(), Some(&4));
+            list.swap(0, 2);
+            list.swap(1, 1);
         }
-        assert_eq!(value, [0, 10, 3]);
+        assert_eq!(value, [3, 10, 0]);
         (&mut value as &mut dyn Reflect).list_mut().unwrap().clear();
         assert!(value.is_empty());
         assert!((&mut value as &mut dyn Reflect)
@@ -134,5 +140,15 @@ mod tests {
         assert!(registry
             .get_with_type_path("alloc::vec::Vec<u32>")
             .is_some());
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_swap_out_of_bounds() {
+        let mut value = vec![1u32, 2, 3];
+        (&mut value as &mut dyn Reflect)
+            .list_mut()
+            .unwrap()
+            .swap(3, 0);
     }
 }
