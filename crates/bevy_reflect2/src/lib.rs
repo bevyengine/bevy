@@ -48,12 +48,14 @@ mod reflect;
 mod ty;
 mod type_path;
 mod type_registry;
+mod type_vtable;
 
 pub use kind::*;
 pub use reflect::*;
 pub use ty::*;
 pub use type_path::*;
 pub use type_registry::*;
+pub use type_vtable::*;
 
 pub use bevy_reflect2_macros::{impl_reflect, impl_reflect_primitive, load_type_registrations};
 
