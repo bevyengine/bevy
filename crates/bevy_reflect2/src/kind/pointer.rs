@@ -76,11 +76,15 @@ pub struct PointerVTable {
     /// Casts a pointer to a value of [`Pointer::ty`] to a pointer to the value it points to, using
     /// the value's `Reflect` implementation (like [`TypeVTable::cast_reflect`](crate::type_vtable::TypeVTable)).
     ///
-    /// The returned pointer is valid for as long as the pointer value is borrowed, and can be
-    /// written to if that borrow is exclusive. If [`Pointer::pointee`] is `Some`, it points to a
-    /// value of that type.
+    /// The returned pointer is valid for reads for as long as the pointer value is borrowed. If
+    /// [`Pointer::pointee`] is `Some`, it points to a value of that type.
     pub cast_pointee: unsafe fn(&'static Pointer, *const u8) -> *const dyn Reflect,
-    /// Replaces the value the pointer points to.
+    /// Like [`PointerVTable::cast_pointee`], but the returned pointer can be written to for as long
+    /// as the pointer value is exclusively borrowed. Returns `None` if the value can't be mutated
+    /// through this pointer (ex: an `Arc<T>` whose value is shared with other `Arc`s or `Weak`s).
+    pub cast_pointee_mut: unsafe fn(&'static Pointer, PtrMut<'_>) -> Option<*mut dyn Reflect>,
+    /// Replaces the value the pointer points to. Pointers that share their value (ex: `Arc<T>`)
+    /// point to the new value instead of modifying the shared value.
     pub set:
         unsafe fn(&'static Pointer, PtrMut<'_>, Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>,
     /// Returns a new value of [`Pointer::ty`] that owns the given value, or returns the given
@@ -289,18 +293,22 @@ impl<'a> PointerMut<'a> {
         self.as_ref().get()
     }
 
-    /// Returns the value the pointer points to.
+    /// Returns the value the pointer points to, or `None` if it can't be mutated through this
+    /// pointer (ex: an `Arc<T>` whose value is shared with other `Arc`s or `Weak`s).
     #[inline]
-    pub fn get_mut(&mut self) -> &mut dyn Reflect {
-        let pointee = self.pointer_type.vtable.cast_pointee;
+    pub fn get_mut(&mut self) -> Option<&mut dyn Reflect> {
+        let pointee = self.pointer_type.vtable.cast_pointee_mut;
         // SAFETY: `PointerMut::new` guarantees that `ptr` matches `pointer_type`, and it is
         // exclusively borrowed for the lifetime of `self`, so the value can be written to
-        unsafe { &mut *pointee(self.pointer_type, self.ptr.as_ptr()).cast_mut() }
+        unsafe { pointee(self.pointer_type, self.ptr.reborrow()).map(|value| &mut *value) }
     }
 
     /// Replaces the value the pointer points to with `value`. Returns `value` if the pointer can't
     /// store it (ex: it has the wrong type, or the pointee is a trait object, which can't be
     /// created from a `Box<dyn Reflect>`).
+    ///
+    /// Pointers that share their value (ex: `Arc<T>`) point to the new value instead of modifying
+    /// the shared value.
     #[inline]
     pub fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         // SAFETY: `PointerMut::new` guarantees that `ptr` matches `pointer_type`

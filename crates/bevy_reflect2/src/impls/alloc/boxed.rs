@@ -43,6 +43,7 @@ unsafe impl<T: ?Sized + ReflectPointee> Typed for Box<T> {
 /// with `Some` [`Pointer::pointee`].
 const THIN_BOX_VTABLE: PointerVTable = PointerVTable {
     cast_pointee: thin_box_cast_pointee,
+    cast_pointee_mut: box_cast_pointee_mut,
     set: thin_box_set,
     wrap: thin_box_wrap,
 };
@@ -113,10 +114,26 @@ fn thin_box_wrap(
     Ok(unsafe { ty.box_from_raw(dst) })
 }
 
+/// Implements [`PointerVTable::cast_pointee_mut`] for every `Box<T>`, using its
+/// [`PointerVTable::cast_pointee`]. A box owns its value, and its `cast_pointee` functions return a
+/// pointer that can be written to whenever the box is exclusively borrowed, so this never fails.
+///
+/// # Safety
+///
+/// `ptr` must be a valid value of [`Pointer::ty`], which must be a `Box<T>`.
+unsafe fn box_cast_pointee_mut(
+    pointer: &'static Pointer,
+    ptr: PtrMut<'_>,
+) -> Option<*mut dyn Reflect> {
+    // SAFETY: the caller guarantees that `ptr` is a valid value of `pointer.ty()`
+    Some(unsafe { (pointer.vtable().cast_pointee)(pointer, ptr.as_ptr()) }.cast_mut())
+}
+
 /// Returns the [`PointerVTable`] of `Box<T>` for any `T` (ex: trait objects).
 const fn box_vtable<T: ?Sized + ReflectPointee>() -> PointerVTable {
     PointerVTable {
         cast_pointee: box_cast_pointee::<T>,
+        cast_pointee_mut: box_cast_pointee_mut,
         set: box_set::<T>,
         wrap: box_wrap::<T>,
     }
@@ -219,6 +236,7 @@ mod tests {
             .pointer_mut()
             .unwrap()
             .get_mut()
+            .unwrap()
             .downcast_mut::<u32>()
             .unwrap() = 2;
         reflect.pointer_mut().unwrap().set(Box::new(3u32)).unwrap();
@@ -284,7 +302,12 @@ mod tests {
         let mut struct_mut = reflect.struct_mut().unwrap();
         let mut pointer = struct_mut.field_mut(0).unwrap().pointer_mut().unwrap();
         assert_eq!(pointer.get().downcast_ref(), Some(&Square(2.0)));
-        pointer.get_mut().downcast_mut::<Square>().unwrap().0 = 3.0;
+        pointer
+            .get_mut()
+            .unwrap()
+            .downcast_mut::<Square>()
+            .unwrap()
+            .0 = 3.0;
         // Trait objects can't be created from a `Box<dyn Reflect>`
         assert!(pointer.set(Box::new(Square(4.0))).is_err());
         assert_eq!(scene.shape.area(), 9.0);
@@ -316,6 +339,7 @@ mod tests {
             .pointer_mut()
             .unwrap()
             .get_mut()
+            .unwrap()
             .downcast_mut::<String>()
             .unwrap()
             .push('c');
