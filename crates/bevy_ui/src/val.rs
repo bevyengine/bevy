@@ -808,7 +808,7 @@ pub struct Calc(pub(crate) Box<CalcOp>);
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum CalcOp {
+pub(crate) enum CalcOp {
     /// Add two vals.
     Add(Val, Val),
     /// Subtract the second `Val` from the first.
