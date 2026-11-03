@@ -295,7 +295,7 @@ impl dyn Reflect {
 
     /// Returns a hash of this value, or `None` if any part of it cannot be hashed.
     ///
-    /// See [`Self::reflect_hash_into`].
+    /// See [`<dyn Reflect>::reflect_hash_into`](trait.Reflect.html#method.reflect_hash_into).
     pub fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = FixedHasher.build_hasher();
         self.reflect_hash_into(&mut hasher)?;
@@ -307,9 +307,11 @@ impl dyn Reflect {
     ///
     /// This will use the reflected [`Hash`] implementation, if one is present. If not, it will rely
     /// on a "structural" hash using the reflected type information, which hashes the same values
-    /// that the structural [`reflect_partial_eq`](Self::reflect_partial_eq) compares. Values with a
-    /// reflected [`PartialEq`] implementation but no reflected [`Hash`] implementation cannot be
-    /// hashed, because a structural hash could disagree with their equality.
+    /// that the structural
+    /// [`<dyn Reflect>::reflect_partial_eq`](trait.Reflect.html#method.reflect_partial_eq)
+    /// compares. Values with a reflected [`PartialEq`] implementation but no reflected [`Hash`]
+    /// implementation cannot be hashed, because a structural hash could disagree with their
+    /// equality.
     ///
     /// Values of different types produce different hashes, even if their contents are the same.
     pub fn reflect_hash_into(&self, mut hasher: &mut dyn Hasher) -> Option<()> {

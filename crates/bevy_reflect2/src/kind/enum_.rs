@@ -120,7 +120,7 @@ pub struct EnumField {
     /// The name of the field. For named fields, this will be "field". For "unnamed" fields, this will
     /// be the index in string form (ex: "0").
     pub name: &'static str,
-    /// A reference to the [`Type`] of the field.
+    /// A reference to the [`Type`](crate::Type) of the field.
     pub ty: TypeRef,
 }
 

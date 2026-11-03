@@ -306,7 +306,7 @@ impl dyn Reflect + Send + Sync {
         self.downcast::<T>().map(|value| *value)
     }
 
-    /// Returns a clone of this value (see `reflect_clone` on `dyn Reflect`). Unlike that method,
+    /// Returns a clone of this value (see [`<dyn Reflect>::reflect_clone`](trait.Reflect.html#method.reflect_clone)). Unlike that method,
     /// the clone is known to be [`Send`] and [`Sync`].
     pub fn reflect_clone(&self) -> Option<Box<dyn Reflect + Send + Sync>> {
         let clone = (**self).reflect_clone()?;

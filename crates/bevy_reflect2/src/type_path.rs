@@ -221,7 +221,7 @@ const fn const_index<'a>(s: &'a str, range: &Range<usize>) -> &'a str {
 
 /// Concatenates the bytes of an array of strings in a const context, returning a combined array of
 /// bytes. The final size of the output bytes must be known at compile time and passed as the const `N`.
-/// This is used by [`const_concat`].
+/// This is used by `const_concat`.
 pub const fn concat_many<const N: usize>(values: &[&str]) -> [u8; N] {
     let mut total_len = 0;
     let mut i = 0;
