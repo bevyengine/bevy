@@ -18,6 +18,17 @@ use core::{
     ptr::{self, NonNull},
 };
 
+/// Implemented for Rust types that have an associated [`Type`].
+///
+/// # Safety
+///
+/// [`Typed::TYPE`] must accurately describe `Self` (see [`Type::new`]). Its
+/// [`type_id`](Type::type_id) must be the [`TypeId`] of `Self`.
+pub unsafe trait Typed: Any {
+    /// The [`Type`] of this type.
+    const TYPE: &'static Type;
+}
+
 /// Describes a Rust type.
 ///
 /// Unsafe code relies on this information being accurate (ex: field offsets, layout, and vtable
@@ -404,15 +415,6 @@ impl<I: Iterator<Item = (usize, &'static Type)>> Drop for PartialConstruct<'_, I
         // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
         unsafe { self.ty.dealloc(self.dst) };
     }
-}
-
-/// # Safety
-///
-/// [`Typed::TYPE`] must accurately describe `Self` (see [`Type::new`]). Its
-/// [`type_id`](Type::type_id) must be the [`TypeId`] of `Self`.
-pub unsafe trait Typed: Any {
-    /// The [`Type`] of this type.
-    const TYPE: &'static Type;
 }
 
 impl Debug for Type {
