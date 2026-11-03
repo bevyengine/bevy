@@ -519,7 +519,7 @@ impl Val {
         self.combine(other, ReduceOp::Max)
     }
 
-    /// Creates an expression that returns `self` clamped between `min`` and `max` when resolved.
+    /// Creates an expression that returns `self` clamped between `min` and `max` when resolved.
     /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     pub fn clamp(self, min: Val, max: Val) -> Val {
         Val::clamp_inline(&min, &self, &max).unwrap_or_else(|| CalcOp::Clamp(min, self, max).into())
