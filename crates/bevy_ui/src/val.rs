@@ -855,14 +855,6 @@ impl CalcOp {
     pub(crate) fn scale(&mut self, k: f32) {
         use core::mem::take;
         match self {
-            Self::Min(a, b) if k < 0.0 => *self = Self::Max(take(a) * k, take(b) * k),
-            Self::Max(a, b) if k < 0.0 => *self = Self::Min(take(a) * k, take(b) * k),
-            Self::Clamp(min, value, max) if k < 0.0 => {
-                *self = Self::Min(
-                    take(min) * k,
-                    Self::Max(take(value) * k, take(max) * k).into(),
-                );
-            }
             Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
                 *a *= k;
                 *b *= k;
@@ -871,6 +863,16 @@ impl CalcOp {
                 *min *= k;
                 *value *= k;
                 *max *= k;
+            }
+        }
+        if k < 0.0 {
+            match self {
+                Self::Min(a, b) => *self = Self::Max(take(a), take(b)),
+                Self::Max(a, b) => *self = Self::Min(take(a), take(b)),
+                Self::Clamp(min, value, max) => {
+                    *self = Self::Min(take(min), Self::Max(take(value), take(max)).into());
+                }
+                Self::Add(..) | Self::Sub(..) => {}
             }
         }
     }
