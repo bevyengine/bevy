@@ -71,8 +71,9 @@ impl PercentageCalc {
 /// percentage `basis`.
 #[expect(
     unsafe_code,
-    reason = "taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`"
+    reason = "Taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`"
 )]
+/// SAFETY: Taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`
 pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
     let calc = unsafe { &*ptr.cast::<PercentageCalc>() };
     calc.resolve(basis)
