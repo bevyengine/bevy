@@ -1,5 +1,4 @@
 use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
-use bevy_platform::sync::Arc;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -566,7 +565,7 @@ impl Mul<f32> for Val {
                 terms.map_operands(|value| value * rhs, rhs < 0.0)
             }
             Val::Calc(mut calc) => {
-                Arc::make_mut(&mut calc.0).scale(rhs);
+                calc.0.scale(rhs);
                 Val::Calc(calc)
             }
         }
@@ -588,7 +587,7 @@ impl MulAssign<f32> for Val {
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
                 *self = core::mem::take(self).map_operands(|value| value * rhs, rhs < 0.0);
             }
-            Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs),
+            Val::Calc(calc) => calc.0.scale(rhs),
         }
     }
 }
@@ -611,7 +610,7 @@ impl Div<f32> for Val {
                 terms.map_operands(|value| value / rhs, rhs < 0.0)
             }
             Val::Calc(mut calc) => {
-                Arc::make_mut(&mut calc.0).scale(rhs.recip());
+                calc.0.scale(rhs.recip());
                 Val::Calc(calc)
             }
         }
@@ -633,7 +632,7 @@ impl DivAssign<f32> for Val {
             Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
                 *self = core::mem::take(self).map_operands(|value| value / rhs, rhs < 0.0);
             }
-            Val::Calc(calc) => Arc::make_mut(&mut calc.0).scale(rhs.recip()),
+            Val::Calc(calc) => calc.0.scale(rhs.recip()),
         }
     }
 }
@@ -656,7 +655,7 @@ impl Neg for Val {
                 terms.map_operands(|value| -value, true)
             }
             Val::Calc(mut calc) => {
-                Arc::make_mut(&mut calc.0).scale(-1.0);
+                calc.0.scale(-1.0);
                 Val::Calc(calc)
             }
         }
@@ -873,22 +872,12 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 /// Wrapper around an opteration on `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(opaque, PartialEq, Debug, Clone)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
-pub struct Calc(pub(crate) Arc<CalcOp>);
-
-#[cfg(feature = "serialize")]
-impl serde::Serialize for Calc {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serialize")]
-impl<'de> serde::Deserialize<'de> for Calc {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        CalcOp::deserialize(deserializer).map(|op| Self(Arc::new(op)))
-    }
-}
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Calc(pub(crate) Box<CalcOp>);
 
 /// An operation performed on `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
@@ -968,7 +957,7 @@ impl CalcOp {
 
 impl From<CalcOp> for Val {
     fn from(op: CalcOp) -> Self {
-        Self::Calc(Calc(Arc::new(op)))
+        Self::Calc(Calc(Box::new(op)))
     }
 }
 
