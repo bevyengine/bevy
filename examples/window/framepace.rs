@@ -42,7 +42,7 @@ fn update_ui(mut text: Single<&mut TextSpan, With<EnableText>>, settings: Res<Fr
     text.0 = format!("{}", settings.limiter);
 }
 
-pub fn update_cursor(window: Single<&Window>, mut gizmos: Gizmos) {
+fn update_cursor(window: Single<&Window>, mut gizmos: Gizmos) {
     if let Some(pos) = window.cursor_position() {
         let pos = Vec2::new(pos.x - window.width() / 2.0, window.height() / 2.0 - pos.y);
         gizmos.circle_2d(pos, 10.0, palettes::basic::GREEN);
