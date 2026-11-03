@@ -1,5 +1,7 @@
 //! A panel showing the components of the selected entity, and the systems that keep it in sync.
 
+use core::{any::Any, borrow::Borrow};
+
 use alloc::{
     borrow::Cow,
     format,
@@ -7,7 +9,11 @@ use alloc::{
     vec::Vec,
 };
 
-use bevy_color::{Color, LinearRgba, Srgba};
+use bevy_annotations::{DisplayName, ReadOnly, Step, Unit, ValueRange};
+use bevy_color::{
+    Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba,
+    Oklaba, Oklcha, Srgba, Xyza,
+};
 use bevy_dev_tools::inspection::{
     component_inspection::{ComponentDetailLevel, ComponentInspectionSettings},
     entity_inspection::EntityInspectionSettings,
@@ -30,29 +36,42 @@ use bevy_ecs::{
 use bevy_feathers::{
     containers::{group, group_body, group_header, subpane, subpane_body, subpane_header},
     controls::{
-        list_rows_from_strings, ColorSwatchValue, FeathersCheckbox, FeathersColorSwatch,
+        list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, OptionIndex, ScrollbarGutter,
+        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputStep, OptionIndex,
+        ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
 };
-use bevy_log::warn;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_input::{
+    keyboard::{KeyCode, KeyboardInput},
+    ButtonState,
+};
+use bevy_input_focus::{FocusLost, FocusedInput};
+use bevy_log::{warn, warn_once};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use bevy_reflect::{
-    enums::{DynamicEnum, DynamicVariant, VariantType},
+    attributes::CustomAttributes,
+    enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
-    GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
+    structs::DynamicStruct,
+    tuple::DynamicTuple,
+    GetPath, NamedField, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo,
+    TypeRegistry, UnnamedField,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
 use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, Checked, Display, FlexDirection, Node, Overflow,
-    PositionType, UiRect,
+    PositionType, UiRect, Val,
 };
 use bevy_ui_widgets::{ControlOrientation, NumericRange, NumericValue, ScrollArea, ValueChange};
-use bevy_utils::prelude::ShortName;
+use bevy_utils::prelude::{DebugName, ShortName};
 
 use crate::{
     column_split::{ColumnSplit, ColumnSplitLeading},
@@ -85,10 +104,51 @@ pub struct InspectorDetailsBody;
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorDetailsFields;
 
-/// The [`ComponentId`] of the component a group's toggle or field container belongs to.
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+/// Identifies a component in the details panel, independently of the world it lives in.
+///
+/// This is the full type path of the component, so it is the same for every entity and across
+/// runs. Components without a type registration use [`ComponentInfo::name`] instead, or their
+/// [`ComponentId`] when the `debug` feature of `bevy_utils` is disabled and no name is recorded.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect)]
+#[reflect(Debug, Clone, PartialEq, Hash)]
+pub struct ComponentKey(pub Arc<str>);
+
+impl ComponentKey {
+    /// The key of the component `id` in `world`.
+    pub fn of(world: &World, id: ComponentId) -> Self {
+        let Some(info) = world.components().get_info(id) else {
+            return Self::from(format!("{id:?}").as_str());
+        };
+        let registered = info.type_id().and_then(|type_id| {
+            let registry = world.get_resource::<AppTypeRegistry>()?.read();
+            Some(Self::from(registry.get(type_id)?.type_info().type_path()))
+        });
+        registered.unwrap_or_else(|| {
+            if DebugName::ENABLED {
+                Self::from(&*ComponentInfo::name(info))
+            } else {
+                Self::from(format!("{id:?}").as_str())
+            }
+        })
+    }
+}
+
+impl From<&str> for ComponentKey {
+    fn from(path: &str) -> Self {
+        Self(Arc::from(path))
+    }
+}
+
+impl Borrow<str> for ComponentKey {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The [`ComponentKey`] of the component a group's toggle or field container belongs to.
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Clone)]
-pub struct InspectorDetailsComponent(pub ComponentId);
+pub struct InspectorDetailsComponent(pub ComponentKey);
 
 /// The kind of widget a field value is rendered with, as returned by [`FieldValue::kind`].
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -100,9 +160,9 @@ pub enum FieldKind {
     Number,
     /// A text input.
     Text,
-    /// A color swatch and its hexadecimal value.
+    /// A color picker and a text input holding its hexadecimal value.
     Color,
-    /// A select listing the variants of a unit-only enum.
+    /// A select listing the variants an enum can switch to.
     Variant,
     /// A plain text label.
     #[default]
@@ -122,9 +182,9 @@ pub enum FieldValue {
     Text(String),
     /// A color value.
     Color(Color),
-    /// The variants of a unit-only enum, and the index of the current one.
+    /// The variants an enum can switch to, and the index of the current one.
     Variant {
-        /// The names of every variant of the enum.
+        /// The names of the variants the enum can switch to.
         variants: Vec<String>,
         /// The index of the current variant in `variants`.
         selected: usize,
@@ -150,9 +210,8 @@ impl FieldValue {
 /// A request to write a new value into one field of a component on an inspected entity.
 ///
 /// The edit is applied through commands, and only when the [`InspectorSource`] is
-/// [`InspectorSource::Local`]; it is ignored otherwise. [`FieldValue::Color`] and
-/// [`FieldValue::Label`] values are not supported. An edit that cannot be applied logs a warning
-/// and leaves the component unchanged.
+/// [`InspectorSource::Local`]; it is ignored otherwise. [`FieldValue::Label`] values are not
+/// supported. An edit that cannot be applied logs a warning and leaves the component unchanged.
 #[derive(EntityEvent, Debug, Clone)]
 pub struct FieldEdit {
     /// The inspected entity holding the component.
@@ -170,10 +229,8 @@ pub struct FieldEdit {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Clone)]
 pub struct InspectorField {
-    /// The component, as used to key [`DetailsIndex`].
-    pub component: ComponentId,
-    /// The full type path of the component.
-    pub type_path: String,
+    /// The component, whose key is its full type path.
+    pub component: ComponentKey,
     /// The path of the field within the component, in [`bevy_reflect::GetPath`] syntax.
     pub path: String,
 }
@@ -191,8 +248,135 @@ pub struct FieldEntry {
     pub depth: usize,
     /// The value of the field.
     pub value: FieldValue,
-    /// The range of an integer field whose type is narrower than its number input.
+    /// The range a number input is limited to: that of an integer type narrower than the input,
+    /// narrowed to the [`ValueRange`] annotation of the field.
     pub limit: Option<NumericRange>,
+    /// The annotations of the field.
+    pub annotations: FieldAnnotations,
+}
+
+impl FieldEntry {
+    /// This entry in its read-only caption form, with the unit of a number appended and the
+    /// display name of a variant.
+    fn into_read_only(self) -> Self {
+        let value = match (self.value, self.annotations.unit) {
+            (FieldValue::Number(number), Some(unit)) => {
+                FieldValue::Label(format!("{number} {unit}"))
+            }
+            (FieldValue::Variant { variants, selected }, _) => FieldValue::Label(
+                variants
+                    .get(selected)
+                    .map(|name| self.annotations.variant_label(name).to_string())
+                    .unwrap_or_default(),
+            ),
+            (value, _) => read_only(value),
+        };
+        Self {
+            value,
+            limit: None,
+            annotations: FieldAnnotations {
+                read_only: true,
+                ..self.annotations
+            },
+            ..self
+        }
+    }
+}
+
+/// The [`bevy_annotations`] of a field or type that the details panel honors.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FieldAnnotations {
+    /// The label shown in place of the field or type name.
+    pub display_name: Option<&'static str>,
+    /// Whether the value is shown without an editable widget, also set on the fields of a
+    /// read-only value.
+    pub read_only: bool,
+    /// The range a number is limited to.
+    pub range: Option<ValueRange>,
+    /// The increment of a number input.
+    pub step: Option<f64>,
+    /// The unit shown with a number.
+    pub unit: Option<&'static str>,
+    /// The display names of the variants of an enum, as pairs of variant and display name.
+    pub variant_names: Vec<(&'static str, &'static str)>,
+}
+
+impl FieldAnnotations {
+    /// Reads the annotations from the custom attributes of a field or type.
+    pub fn from_attributes(attributes: &CustomAttributes) -> Self {
+        Self {
+            display_name: attributes.get::<DisplayName>().map(|name| name.0),
+            read_only: attributes.contains::<ReadOnly>(),
+            range: ValueRange::from_attributes(attributes),
+            step: attributes.get::<Step>().map(|step| step.0),
+            unit: attributes.get::<Unit>().map(|unit| unit.0),
+            variant_names: Vec::new(),
+        }
+    }
+
+    /// Reads the annotations of a struct, tuple struct or enum type, and of the variants of an
+    /// enum.
+    fn of_type(info: Option<&TypeInfo>) -> Self {
+        match info {
+            Some(TypeInfo::Struct(info)) => Self::from_attributes(info.custom_attributes()),
+            Some(TypeInfo::TupleStruct(info)) => Self::from_attributes(info.custom_attributes()),
+            Some(TypeInfo::Enum(info)) => Self {
+                variant_names: info
+                    .iter()
+                    .filter_map(|variant| {
+                        let name = variant.get_attribute::<DisplayName>()?;
+                        Some((variant.name(), name.0))
+                    })
+                    .collect(),
+                ..Self::from_attributes(info.custom_attributes())
+            },
+            _ => Self::default(),
+        }
+    }
+
+    /// Reads the annotations a field inherits from its type, which are those of the type except
+    /// its display name.
+    fn of_field_type(info: Option<&TypeInfo>) -> Self {
+        Self {
+            display_name: None,
+            ..Self::of_type(info)
+        }
+    }
+
+    /// The annotations that also constrain the items of a list, array, map or set, and the
+    /// payload of an `Option`: the range, step and unit.
+    fn value_constraints(&self) -> Self {
+        Self {
+            range: self.range.clone(),
+            step: self.step,
+            unit: self.unit,
+            ..Self::default()
+        }
+    }
+
+    /// The name shown for the enum variant `name`.
+    fn variant_label<'a>(&self, name: &'a str) -> &'a str {
+        self.variant_names
+            .iter()
+            .find(|(variant, _)| *variant == name)
+            .map_or(name, |(_, label)| label)
+    }
+
+    /// Fills the annotations missing from `self` with those of `other`.
+    fn or(self, other: Self) -> Self {
+        Self {
+            display_name: self.display_name.or(other.display_name),
+            read_only: self.read_only || other.read_only,
+            range: self.range.or(other.range),
+            step: self.step.or(other.step),
+            unit: self.unit.or(other.unit),
+            variant_names: if self.variant_names.is_empty() {
+                other.variant_names
+            } else {
+                self.variant_names
+            },
+        }
+    }
 }
 
 /// The widgets rendering one field, and the value they were last given.
@@ -206,10 +390,9 @@ struct FieldWidget {
 /// A component of the inspected entity, with its fields flattened into rows.
 #[derive(Debug, Clone)]
 pub(crate) struct ComponentDetails {
-    pub(crate) id: ComponentId,
+    pub(crate) key: ComponentKey,
     /// The name shown in the group header, a [`ShortName`] of the component type.
     pub(crate) name: String,
-    pub(crate) type_path: String,
     pub(crate) memory: String,
     pub(crate) fields: Vec<FieldEntry>,
 }
@@ -231,6 +414,7 @@ struct RowLayout {
     depth: usize,
     kind: FieldKind,
     limit: Option<NumericRange>,
+    annotations: FieldAnnotations,
 }
 
 impl RowLayout {
@@ -241,6 +425,7 @@ impl RowLayout {
             depth: entry.depth,
             kind: entry.value.kind(),
             limit: entry.limit.clone(),
+            annotations: entry.annotations.clone(),
         }
     }
 
@@ -250,6 +435,7 @@ impl RowLayout {
             && self.depth == entry.depth
             && self.kind == entry.value.kind()
             && self.limit == entry.limit
+            && self.annotations == entry.annotations
     }
 }
 
@@ -274,24 +460,25 @@ impl EmptyState {
 /// Maps the components and fields shown by the details panel to the widgets displaying them.
 #[derive(Resource, Debug, Default)]
 pub struct DetailsIndex {
-    fields: HashMap<(ComponentId, String), FieldWidget>,
-    groups: HashMap<ComponentId, GroupWidget>,
+    fields: HashMap<(ComponentKey, String), FieldWidget>,
+    groups: HashMap<ComponentKey, GroupWidget>,
     body: Option<Entity>,
     selection: Option<Entity>,
     empty: Option<EmptyState>,
 }
 
 impl DetailsIndex {
-    /// The widget displaying the field at `path` of `component`, if one exists.
-    pub fn widget(&self, component: ComponentId, path: &str) -> Option<Entity> {
+    /// The widget displaying the field at `path` of the component with the type path
+    /// `component`, if one exists.
+    pub fn widget(&self, component: &str, path: &str) -> Option<Entity> {
         self.fields
-            .get(&(component, path.to_string()))
+            .get(&(ComponentKey::from(component), path.to_string()))
             .map(|widget| widget.entity)
     }
 
-    /// The group entity of `component`, if one is shown.
-    pub(crate) fn group(&self, component: ComponentId) -> Option<Entity> {
-        self.groups.get(&component).map(|group| group.entity)
+    /// The group entity of the component with the type path `component`, if one is shown.
+    pub(crate) fn group(&self, component: &str) -> Option<Entity> {
+        self.groups.get(component).map(|group| group.entity)
     }
 
     /// The number of fields currently tracked.
@@ -308,12 +495,12 @@ impl DetailsIndex {
 /// The components whose field lists are collapsed.
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsCollapsed(pub HashSet<ComponentId>);
+pub struct DetailsCollapsed(pub HashSet<ComponentKey>);
 
 /// The [`ColumnSplit::fraction`] of each component's field rows, kept while groups respawn.
 #[derive(Resource, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsColumnSplits(pub HashMap<ComponentId, f32>);
+pub struct DetailsColumnSplits(pub HashMap<ComponentKey, f32>);
 
 /// Records the column split of each component group in [`DetailsColumnSplits`].
 pub fn store_column_splits(
@@ -321,7 +508,7 @@ pub fn store_column_splits(
     mut stored: ResMut<DetailsColumnSplits>,
 ) {
     for (split, component) in &splits {
-        stored.0.insert(component.0, split.fraction);
+        stored.0.insert(component.0.clone(), split.fraction);
     }
 }
 
@@ -414,7 +601,7 @@ pub fn inspector_details_toggled(
     if change.value {
         collapsed.0.remove(&component.0);
     } else {
-        collapsed.0.insert(component.0);
+        collapsed.0.insert(component.0.clone());
     }
     sync.set_dirty();
 }
@@ -438,7 +625,10 @@ fn emit_field_edit(
     let Some(entity) = index.selection else {
         return;
     };
-    let Some(stored) = index.fields.get_mut(&(field.component, field.path.clone())) else {
+    let Some(stored) = index
+        .fields
+        .get_mut(&(field.component.clone(), field.path.clone()))
+    else {
         return;
     };
     let Some(value) = value(&stored.value) else {
@@ -450,7 +640,7 @@ fn emit_field_edit(
     commands.queue(move |world: &mut World| apply_value(world, &displayed, &displayed.value));
     commands.trigger(FieldEdit {
         entity,
-        component: field.type_path.clone(),
+        component: field.component.0.to_string(),
         path: field.path.clone(),
         value,
     });
@@ -502,7 +692,8 @@ number_changed_observer!(inspector_field_i64_changed, i64, I64);
 /// Observer that turns a details panel text input edit into a [`FieldEdit`].
 ///
 /// Text equal to the value the input last showed is skipped, since it is the panel writing that
-/// value into the input.
+/// value into the input. Hexadecimal color inputs are committed by [`inspector_field_hex_entered`]
+/// and [`inspector_field_hex_focus_lost`] instead.
 pub(crate) fn inspector_field_text_changed(
     change: On<TextEditChange>,
     texts: Query<&EditableText>,
@@ -519,12 +710,131 @@ pub(crate) fn inspector_field_text_changed(
         widget,
         |current| match current {
             FieldValue::Text(current) if *current == text => None,
+            FieldValue::Color(_) => None,
             _ => Some(FieldValue::Text(text)),
         },
         &fields,
         &mut index,
         &mut commands,
     );
+}
+
+/// Observer that commits a details panel hexadecimal color input when Enter is pressed.
+pub(crate) fn inspector_field_hex_entered(
+    key: On<FocusedInput<KeyboardInput>>,
+    texts: Query<&EditableText>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    if key.input.state != ButtonState::Pressed
+        || !matches!(key.input.key_code, KeyCode::Enter | KeyCode::NumpadEnter)
+    {
+        return;
+    }
+    commit_hex_color(
+        key.event_target(),
+        &texts,
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// Observer that commits a details panel hexadecimal color input when it loses focus.
+pub(crate) fn inspector_field_hex_focus_lost(
+    focus_lost: On<FocusLost>,
+    texts: Query<&EditableText>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    commit_hex_color(
+        focus_lost.event_target(),
+        &texts,
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// Emits a [`FieldEdit`] for the color typed into the hexadecimal input `widget`.
+///
+/// Text that does not parse, or that names the stored color, is replaced by the stored color's
+/// hexadecimal code.
+fn commit_hex_color(
+    widget: Entity,
+    texts: &Query<&EditableText>,
+    fields: &Query<&InspectorField>,
+    index: &mut DetailsIndex,
+    commands: &mut Commands,
+) {
+    let Ok(editable) = texts.get(widget) else {
+        return;
+    };
+    let text = editable.value().to_string();
+    let mut restore = None;
+    emit_field_edit(
+        widget,
+        |current| {
+            let FieldValue::Color(stored) = current else {
+                return None;
+            };
+            match parse_hex_color(&text) {
+                Some(color) if color_to_hex(color) != color_to_hex(*stored) => {
+                    edited_color(*stored, color)
+                }
+                _ => {
+                    restore = Some(color_to_hex(*stored));
+                    None
+                }
+            }
+        },
+        fields,
+        index,
+        commands,
+    );
+    if let Some(hex) = restore {
+        commands.queue(move |world: &mut World| replace_text(world, Some(widget), &hex));
+    }
+}
+
+/// Observer that turns a details panel color picker change into a [`FieldEdit`].
+pub(crate) fn inspector_field_color_changed(
+    change: On<ValueChange<Color>>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    let value = change.value;
+    emit_field_edit(
+        change.source,
+        |current| match current {
+            FieldValue::Color(stored) => edited_color(*stored, value),
+            _ => Some(FieldValue::Color(value)),
+        },
+        &fields,
+        &mut index,
+        &mut commands,
+    );
+}
+
+/// The edit replacing `stored` with `color`, logging a warning once if `stored` is outside the
+/// `0..=1` range that the color picker and hexadecimal input are limited to.
+fn edited_color(stored: Color, color: Color) -> Option<FieldValue> {
+    if is_out_of_range(stored) {
+        warn_once!("Color values outside 0..=1 are clamped by the inspector color picker");
+    }
+    Some(FieldValue::Color(color))
+}
+
+/// Whether any sRGB channel of `color` is outside `0..=1`, allowing for rounding errors.
+fn is_out_of_range(color: Color) -> bool {
+    const TOLERANCE: f32 = 1e-4;
+    Srgba::from(color)
+        .to_f32_array()
+        .into_iter()
+        .any(|channel| !(-TOLERANCE..=1.0 + TOLERANCE).contains(&channel))
 }
 
 /// Observer that turns a details panel variant selection into a [`FieldEdit`].
@@ -600,6 +910,17 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
         return;
     };
 
+    let annotations = walk_entries(component.as_partial_reflect(), &registry, Some(&edit.path))
+        .into_iter()
+        .find(|entry| entry.path == edit.path)
+        .map(|entry| entry.annotations)
+        .unwrap_or_default();
+    if annotations.read_only {
+        warn!("`{}` at `{}` is read-only", edit.component, edit.path);
+        return;
+    }
+    let value = clamp_to_range(&edit.value, annotations.range.as_ref());
+
     let target = component.bypass_change_detection();
     let field = if edit.path.is_empty() {
         Ok(target.as_partial_reflect_mut())
@@ -608,7 +929,7 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     };
     let (write, held, typing_a_char) = match field {
         Ok(field) => {
-            let write = write_field_value(field, &edit.value);
+            let write = write_field_value(field, &value, &registry);
             let held = write != FieldWrite::Rejected && holds_value(field, &edit.value);
             let typing_a_char = matches!(edit.value, FieldValue::Text(_))
                 && field.try_downcast_ref::<char>().is_some();
@@ -630,6 +951,70 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     }
 }
 
+/// Clamps a number to `range`, leaving other values and empty ranges untouched.
+fn clamp_to_range(value: &FieldValue, range: Option<&ValueRange>) -> FieldValue {
+    match (value, range) {
+        (FieldValue::Number(number), Some(range)) => match numeric_range(range, *number) {
+            Some(range) => FieldValue::Number(range.clamp(*number)),
+            None => value.clone(),
+        },
+        _ => value.clone(),
+    }
+}
+
+/// `range` in the format of `number`, rounded inward for integers, or `None` if it is empty.
+fn numeric_range(range: &ValueRange, number: NumericValue) -> Option<NumericRange> {
+    let (min, max) = (range.min(), range.max());
+    if min.is_nan() || max.is_nan() || min > max {
+        return None;
+    }
+    let (min, max) = match number {
+        NumericValue::F32(_) => return Some(NumericRange::F32(min as f32..=max as f32)),
+        NumericValue::F64(_) => return Some(NumericRange::F64(min..=max)),
+        _ => (min.ceil(), max.floor()),
+    };
+    if min > max {
+        return None;
+    }
+    Some(match number {
+        NumericValue::I32(_) => NumericRange::I32(min as i32..=max as i32),
+        _ => NumericRange::I64(min as i64..=max as i64),
+    })
+}
+
+/// The range a number input showing `value` is limited to: `limit`, the range of the field type,
+/// narrowed to the annotated `range` where they overlap.
+fn narrowed_limit(
+    limit: Option<NumericRange>,
+    range: Option<&ValueRange>,
+    value: NumericValue,
+) -> Option<NumericRange> {
+    let Some(range) = range.and_then(|range| numeric_range(range, value)) else {
+        return limit;
+    };
+    match (limit, range) {
+        (Some(NumericRange::I32(limit)), NumericRange::I32(range)) => {
+            let start = *limit.start().max(range.start());
+            let end = *limit.end().min(range.end());
+            Some(NumericRange::I32(if start <= end {
+                start..=end
+            } else {
+                limit
+            }))
+        }
+        (Some(NumericRange::I64(limit)), NumericRange::I64(range)) => {
+            let start = *limit.start().max(range.start());
+            let end = *limit.end().min(range.end());
+            Some(NumericRange::I64(if start <= end {
+                start..=end
+            } else {
+                limit
+            }))
+        }
+        (_, range) => Some(range),
+    }
+}
+
 /// Forces a details panel synchronization pass on the next tick, if the panel is set up.
 fn refresh_details_panel(world: &mut World) {
     if let Some(mut sync) = world.get_resource_mut::<DetailsPanelSync>() {
@@ -642,10 +1027,12 @@ fn holds_value(field: &dyn PartialReflect, value: &FieldValue) -> bool {
     scalar_value(field).is_some_and(|current| same_value(&current, value))
 }
 
-/// Whether two field values are equal, comparing floats bit for bit so that a NaN equals itself.
+/// Whether two field values are equal, comparing floats bit for bit so that a NaN equals itself,
+/// and colors by the hexadecimal code they show.
 fn same_value(left: &FieldValue, right: &FieldValue) -> bool {
-    use FieldValue::Number;
+    use FieldValue::{Color, Number};
     match (left, right) {
+        (Color(left), Color(right)) => color_to_hex(*left) == color_to_hex(*right),
         (Number(NumericValue::F32(left)), Number(NumericValue::F32(right))) => {
             left.to_bits() == right.to_bits()
         }
@@ -677,7 +1064,11 @@ fn assign<T: PartialEq>(target: &mut T, value: T) -> FieldWrite {
     }
 }
 
-fn write_field_value(field: &mut dyn PartialReflect, value: &FieldValue) -> FieldWrite {
+fn write_field_value(
+    field: &mut dyn PartialReflect,
+    value: &FieldValue,
+    registry: &TypeRegistry,
+) -> FieldWrite {
     match value {
         FieldValue::Bool(new) => match field.try_downcast_mut::<bool>() {
             Some(target) => assign(target, *new),
@@ -685,11 +1076,12 @@ fn write_field_value(field: &mut dyn PartialReflect, value: &FieldValue) -> Fiel
         },
         FieldValue::Number(number) => write_number_field(field, *number),
         FieldValue::Text(text) => write_text_field(field, text),
+        FieldValue::Color(color) => write_color_field(field, *color),
         FieldValue::Variant { variants, selected } => match variants.get(*selected) {
-            Some(name) => write_variant_field(field, name),
+            Some(name) => write_variant_field(field, name, registry),
             None => FieldWrite::Rejected,
         },
-        FieldValue::Color(_) | FieldValue::Label(_) => FieldWrite::Rejected,
+        FieldValue::Label(_) => FieldWrite::Rejected,
     }
 }
 
@@ -785,8 +1177,79 @@ fn assign_bits<T: Copy, B: PartialEq>(target: &mut T, value: T, bits: fn(T) -> B
     }
 }
 
-/// Switches a unit-only enum field to the variant `name`.
-fn write_variant_field(field: &mut dyn PartialReflect, name: &str) -> FieldWrite {
+/// Writes a color into a color field, keeping the field's color space.
+fn write_color_field(field: &mut dyn PartialReflect, color: Color) -> FieldWrite {
+    if let Some(target) = field.try_downcast_mut::<Color>() {
+        let value = in_color_space(color, *target);
+        return assign(target, value);
+    }
+
+    let writers: [fn(&mut dyn PartialReflect, Color) -> Option<FieldWrite>; 13] = [
+        write_color_as::<Srgba>,
+        write_color_as::<LinearRgba>,
+        write_color_as::<Hsla>,
+        write_color_as::<Hsva>,
+        write_color_as::<Hwba>,
+        write_color_as::<Laba>,
+        write_color_as::<Lcha>,
+        write_color_as::<Oklaba>,
+        write_color_as::<Oklcha>,
+        write_color_as::<Xyza>,
+        write_color_as::<Okhsla>,
+        write_color_as::<Okhsva>,
+        write_color_as::<Okhwba>,
+    ];
+    writers
+        .into_iter()
+        .find_map(|write| write(field, color))
+        .unwrap_or(FieldWrite::Rejected)
+}
+
+/// Writes `color` into `field` if it is a `T`.
+fn write_color_as<T: From<Color> + PartialEq + Any>(
+    field: &mut dyn PartialReflect,
+    color: Color,
+) -> Option<FieldWrite> {
+    field
+        .try_downcast_mut::<T>()
+        .map(|target| assign(target, T::from(color)))
+}
+
+/// Converts `color` into the color space of the `space` variant.
+fn in_color_space(color: Color, space: Color) -> Color {
+    match space {
+        Color::Srgba(_) => Color::Srgba(color.into()),
+        Color::LinearRgba(_) => Color::LinearRgba(color.into()),
+        Color::Hsla(_) => Color::Hsla(color.into()),
+        Color::Hsva(_) => Color::Hsva(color.into()),
+        Color::Hwba(_) => Color::Hwba(color.into()),
+        Color::Laba(_) => Color::Laba(color.into()),
+        Color::Lcha(_) => Color::Lcha(color.into()),
+        Color::Oklaba(_) => Color::Oklaba(color.into()),
+        Color::Oklcha(_) => Color::Oklcha(color.into()),
+        Color::Xyza(_) => Color::Xyza(color.into()),
+        Color::Okhsla(_) => Color::Okhsla(color.into()),
+        Color::Okhsva(_) => Color::Okhsva(color.into()),
+        Color::Okhwba(_) => Color::Okhwba(color.into()),
+    }
+}
+
+/// Parses a `#RRGGBB` or `#RRGGBBAA` hexadecimal sRGB color.
+fn parse_hex_color(text: &str) -> Option<Color> {
+    let text = text.trim();
+    let digits = text.strip_prefix('#').unwrap_or(text);
+    if !matches!(digits.len(), 6 | 8) {
+        return None;
+    }
+    Srgba::hex(digits).ok().map(Color::from)
+}
+
+/// Switches an enum field to the variant `name`, building any variant fields from their defaults.
+fn write_variant_field(
+    field: &mut dyn PartialReflect,
+    name: &str,
+    registry: &TypeRegistry,
+) -> FieldWrite {
     let ReflectRef::Enum(current) = field.reflect_ref() else {
         return FieldWrite::Rejected;
     };
@@ -796,16 +1259,50 @@ fn write_variant_field(field: &mut dyn PartialReflect, name: &str) -> FieldWrite
     let Some(TypeInfo::Enum(info)) = field.get_represented_type_info() else {
         return FieldWrite::Rejected;
     };
-    if info.variant(name).is_none()
-        || info
-            .iter()
-            .any(|variant| variant.variant_type() != VariantType::Unit)
-    {
+    let Some(variant) = info
+        .variant(name)
+        .and_then(|variant| default_variant(variant, registry))
+    else {
         return FieldWrite::Rejected;
-    }
-    match field.try_apply(&DynamicEnum::new(name, DynamicVariant::Unit)) {
+    };
+    match field.try_apply(&DynamicEnum::new(name, variant)) {
         Ok(()) => FieldWrite::Written,
         Err(_) => FieldWrite::Rejected,
+    }
+}
+
+fn default_variant(variant: &VariantInfo, registry: &TypeRegistry) -> Option<DynamicVariant> {
+    let default = |type_id| {
+        registry
+            .get_type_data::<ReflectDefault>(type_id)
+            .map(|default| default.default().into_partial_reflect())
+    };
+    Some(match variant {
+        VariantInfo::Unit(_) => DynamicVariant::Unit,
+        VariantInfo::Tuple(info) => {
+            let mut tuple = DynamicTuple::default();
+            for field in info.iter() {
+                tuple.insert_boxed(default(field.type_id())?);
+            }
+            DynamicVariant::Tuple(tuple)
+        }
+        VariantInfo::Struct(info) => {
+            let mut fields = DynamicStruct::default();
+            for field in info.iter() {
+                fields.insert_boxed(field.name(), default(field.type_id())?);
+            }
+            DynamicVariant::Struct(fields)
+        }
+    })
+}
+
+/// Whether every field of `variant` has a registered [`ReflectDefault`].
+fn has_defaults(variant: &VariantInfo, registry: &TypeRegistry) -> bool {
+    let has_default = |type_id| registry.get_type_data::<ReflectDefault>(type_id).is_some();
+    match variant {
+        VariantInfo::Unit(_) => true,
+        VariantInfo::Tuple(info) => info.iter().all(|field| has_default(field.type_id())),
+        VariantInfo::Struct(info) => info.iter().all(|field| has_default(field.type_id())),
     }
 }
 
@@ -898,24 +1395,20 @@ pub(crate) fn inspect_components(
                 .get_info(component.component_id)
                 .is_some_and(ComponentInfo::mutable);
             if !(local && mutable) {
-                fields = fields
-                    .into_iter()
-                    .map(|entry| FieldEntry {
-                        value: read_only(entry.value),
-                        limit: None,
-                        ..entry
-                    })
-                    .collect();
+                fields = fields.into_iter().map(FieldEntry::into_read_only).collect();
             }
-            ComponentDetails {
-                id: component.component_id,
-                name: crate::component_short_name(world, component.component_id),
-                type_path: component
+            let display_name = FieldAnnotations::of_type(
+                component
                     .reflected_value
                     .as_deref()
-                    .and_then(PartialReflect::get_represented_type_info)
-                    .map(|info| info.type_path().to_string())
-                    .unwrap_or_default(),
+                    .and_then(PartialReflect::get_represented_type_info),
+            )
+            .display_name;
+            ComponentDetails {
+                key: ComponentKey::of(world, component.component_id),
+                name: display_name
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| crate::component_short_name(world, component.component_id)),
                 memory: component.memory_size.to_string(),
                 fields,
             }
@@ -923,9 +1416,10 @@ pub(crate) fn inspect_components(
         .collect();
     #[cfg(feature = "remote")]
     if let Some(record) = world.component_id::<crate::remote::RemoteComponents>() {
-        components.retain(|component| component.id != record);
+        let record = ComponentKey::of(world, record);
+        components.retain(|component| component.key != record);
     }
-    components.sort_by(|left, right| (&left.name, left.id).cmp(&(&right.name, right.id)));
+    components.sort_by(|left, right| (&left.name, &left.key).cmp(&(&right.name, &right.key)));
     components
 }
 
@@ -978,32 +1472,33 @@ fn reset_body(
 /// respawned or despawned. The remaining groups have their widget values updated in place.
 fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
     let collapsed = world.resource::<DetailsCollapsed>().0.clone();
-    let present: HashSet<ComponentId> = components.iter().map(|component| component.id).collect();
-    let stale: Vec<ComponentId> = world
+    let present: HashSet<&ComponentKey> =
+        components.iter().map(|component| &component.key).collect();
+    let stale: Vec<ComponentKey> = world
         .resource::<DetailsIndex>()
         .groups
         .iter()
-        .filter(|(id, group)| !present.contains(*id) || group.expanded == collapsed.contains(*id))
-        .map(|(id, _)| *id)
+        .filter(|(key, group)| !present.contains(key) || group.expanded == collapsed.contains(*key))
+        .map(|(key, _)| key.clone())
         .collect();
 
     let mut reordered = !stale.is_empty();
-    for id in stale {
-        despawn_group(world, id);
+    for key in stale {
+        despawn_group(world, &key);
     }
 
     for component in components {
         if world
             .resource::<DetailsIndex>()
             .groups
-            .contains_key(&component.id)
+            .contains_key(&component.key)
         {
             if update_in_place(world, component) {
                 continue;
             }
-            despawn_group(world, component.id);
+            despawn_group(world, &component.key);
         }
-        let expanded = !collapsed.contains(&component.id);
+        let expanded = !collapsed.contains(&component.key);
         spawn_group(world, body, component, expanded);
         reordered = true;
     }
@@ -1021,7 +1516,7 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
     let mut updates = Vec::new();
     {
         let index = world.resource::<DetailsIndex>();
-        let Some(group) = index.groups.get(&component.id) else {
+        let Some(group) = index.groups.get(&component.key) else {
             return false;
         };
         if !group.expanded {
@@ -1037,7 +1532,7 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
             return false;
         }
         for entry in &component.fields {
-            let key = (component.id, entry.path.clone());
+            let key = (component.key.clone(), entry.path.clone());
             let Some(widget) = index.fields.get(&key) else {
                 return false;
             };
@@ -1061,10 +1556,10 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
 }
 
 /// Despawns the group of `component` and forgets its field widgets.
-fn despawn_group(world: &mut World, component: ComponentId) {
+fn despawn_group(world: &mut World, component: &ComponentKey) {
     let mut index = world.resource_mut::<DetailsIndex>();
-    let group = index.groups.remove(&component);
-    index.fields.retain(|(id, _), _| *id != component);
+    let group = index.groups.remove(component);
+    index.fields.retain(|(key, _), _| key != component);
     if let Some(group) = group
         && let Ok(entity) = world.get_entity_mut(group.entity)
     {
@@ -1078,7 +1573,7 @@ fn order_groups(world: &mut World, body: Entity, components: &[ComponentDetails]
     let order: HashMap<Entity, usize> = components
         .iter()
         .enumerate()
-        .filter_map(|(position, component)| Some((index.group(component.id)?, position)))
+        .filter_map(|(position, component)| Some((index.group(&component.key.0)?, position)))
         .collect();
     if let Some(mut children) = world.get_mut::<Children>(body) {
         children.sort_by_key(|child| order.get(child).copied().unwrap_or(usize::MAX));
@@ -1096,7 +1591,7 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
         return;
     };
     world.resource_mut::<DetailsIndex>().groups.insert(
-        component.id,
+        component.key.clone(),
         GroupWidget {
             entity: group,
             expanded,
@@ -1106,7 +1601,7 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
 
     if let Some(toggle) = descendant_with::<FeathersDisclosureToggle>(world, group) {
         let mut toggle = world.entity_mut(toggle);
-        toggle.insert(InspectorDetailsComponent(component.id));
+        toggle.insert(InspectorDetailsComponent(component.key.clone()));
         if expanded {
             toggle.insert(Checked);
         }
@@ -1121,12 +1616,16 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
     };
     if !component.fields.is_empty() {
         let mut split = ColumnSplit::default();
-        if let Some(&fraction) = world.resource::<DetailsColumnSplits>().0.get(&component.id) {
+        if let Some(&fraction) = world
+            .resource::<DetailsColumnSplits>()
+            .0
+            .get(&component.key)
+        {
             split.fraction = fraction;
         }
         world
             .entity_mut(container)
-            .insert((InspectorDetailsComponent(component.id), split));
+            .insert((InspectorDetailsComponent(component.key.clone()), split));
     }
 
     for entry in &component.fields {
@@ -1134,7 +1633,7 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
             world
                 .resource_mut::<DetailsIndex>()
                 .fields
-                .insert((component.id, entry.path.clone()), widget);
+                .insert((component.key.clone(), entry.path.clone()), widget);
         }
     }
 }
@@ -1207,19 +1706,20 @@ fn spawn_field_row(
         apply_value(world, &widget, &entry.value);
     }
 
-    let input = match entry.value {
+    let inputs = match entry.value {
         FieldValue::Bool(_)
         | FieldValue::Number(_)
         | FieldValue::Text(_)
-        | FieldValue::Variant { .. } => Some(widget.entity),
-        FieldValue::Color(_) | FieldValue::Label(_) => None,
+        | FieldValue::Variant { .. } => [Some(widget.entity), None],
+        FieldValue::Color(_) => [Some(widget.entity), widget.text],
+        FieldValue::Label(_) => [None, None],
     };
-    if let Some(input) = input
-        && let Ok(mut entity) = world.get_entity_mut(input)
-    {
+    for input in inputs.into_iter().flatten() {
+        let Ok(mut entity) = world.get_entity_mut(input) else {
+            continue;
+        };
         entity.insert(InspectorField {
-            component: component.id,
-            type_path: component.type_path.clone(),
+            component: component.key.clone(),
             path: entry.path.clone(),
         });
     }
@@ -1247,12 +1747,15 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             }
         }
         FieldValue::Number(_) => {
+            let unit = entry.annotations.unit;
             let entity = spawn_child_scene(
                 world,
                 row,
                 bsn! {
                     InspectorUi
-                    @FeathersNumberInput
+                    @FeathersNumberInput {
+                        @interior_label_text: {unit},
+                    }
                     on(inspector_field_f32_changed)
                     on(inspector_field_f64_changed)
                     on(inspector_field_i32_changed)
@@ -1266,6 +1769,9 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             if let Some(limit) = &entry.limit {
                 world.entity_mut(entity).insert(HardLimit(limit.clone()));
             }
+            if let Some(step) = entry.annotations.step {
+                world.entity_mut(entity).insert(NumberInputStep(step));
+            }
             FieldWidget {
                 entity,
                 text: None,
@@ -1273,7 +1779,7 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             }
         }
         FieldValue::Text(_) => {
-            let entity = spawn_text_input(world, row, FIELD_WIDGET_WIDTH)?;
+            let entity = spawn_text_input(world, row, px(FIELD_WIDGET_WIDTH), 0.0)?;
             FieldWidget {
                 entity,
                 text: None,
@@ -1301,15 +1807,15 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                 cell,
                 bsn! {
                     InspectorUi
-                    @FeathersColorSwatch
-                    Node {
-                        width: px(24),
-                        height: px(14),
-                        flex_grow: 0.0,
-                    }
+                    @FeathersColorInput
+                    on(inspector_field_color_changed)
                 },
             )?;
-            let text = spawn_value_caption(world, cell, String::new())?;
+            let text = spawn_text_input(world, cell, Val::Auto, 1.0)?;
+            world
+                .entity_mut(text)
+                .observe(inspector_field_hex_entered)
+                .observe(inspector_field_hex_focus_lost);
             FieldWidget {
                 entity,
                 text: Some(text),
@@ -1320,7 +1826,11 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             variants,
             selected: index,
         } => {
-            let options = list_rows_from_strings(variants.clone(), Some(*index));
+            let labels: Vec<String> = variants
+                .iter()
+                .map(|name| entry.annotations.variant_label(name).to_string())
+                .collect();
+            let options = list_rows_from_strings(labels, Some(*index));
             let entity = spawn_child_scene(
                 world,
                 row,
@@ -1354,17 +1864,24 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
     Some(widget)
 }
 
-/// Spawns a text input of the given width, returning the entity holding its [`EditableText`].
-fn spawn_text_input(world: &mut World, row: Entity, width: f32) -> Option<Entity> {
+/// Spawns a text input sized by `width` and `flex_grow`, returning the entity holding its
+/// [`EditableText`].
+fn spawn_text_input(
+    world: &mut World,
+    parent: Entity,
+    width: Val,
+    flex_grow: f32,
+) -> Option<Entity> {
     let container = spawn_child_scene(
         world,
-        row,
+        parent,
         bsn! {
             InspectorUi
             @FeathersTextInputContainer
             Node {
-                width: px(width),
-                flex_grow: 0.0,
+                width: {width},
+                min_width: px(0),
+                flex_grow: {flex_grow},
             }
             Children [
                 @FeathersTextInput
@@ -1418,9 +1935,9 @@ fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
         FieldValue::Text(text) => replace_text(world, Some(widget.entity), text),
         FieldValue::Color(color) => {
             if let Ok(mut entity) = world.get_entity_mut(widget.entity) {
-                entity.insert(ColorSwatchValue(*color));
+                entity.insert(ColorInputValue(*color));
             }
-            set_text(world, widget.text, color_to_hex(*color));
+            replace_text(world, widget.text, &color_to_hex(*color));
         }
         FieldValue::Variant { .. } => {}
         FieldValue::Label(text) => set_text(world, Some(widget.entity), text.clone()),
@@ -1432,7 +1949,7 @@ fn replace_text(world: &mut World, entity: Option<Entity>, text: &str) {
     if let Some(mut editable) = entity.and_then(|entity| world.get_mut::<EditableText>(entity))
         && editable.value() != text
     {
-        editable.queue_edit(TextEdit::SelectAll);
+        editable.clear();
         editable.queue_edit(TextEdit::Insert(text.into()));
     }
 }
@@ -1489,8 +2006,18 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
 
 /// Flattens a reflected component value into the rows the details panel renders.
 ///
-/// `registry` rebuilds dynamic values into their concrete types so that their fields can be read.
+/// `registry` decides which enum variants can be built from defaults and so offered for switching.
 pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec<FieldEntry> {
+    walk_entries(value, registry, None)
+}
+
+/// Flattens `value` into rows like [`field_entries`], skipping the rows that are not on the way
+/// to the `target` path, if any.
+fn walk_entries(
+    value: &dyn PartialReflect,
+    registry: &TypeRegistry,
+    target: Option<&str>,
+) -> Vec<FieldEntry> {
     let concrete = value
         .try_as_reflect()
         .is_none()
@@ -1506,6 +2033,8 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         .map(PartialReflect::as_partial_reflect)
         .unwrap_or(value);
     let mut walk = Walk {
+        registry,
+        target,
         entries: Vec::new(),
     };
     if let Some(name) = value.try_downcast_ref::<Name>() {
@@ -1514,53 +2043,77 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
             "value".to_string(),
             0,
             FieldValue::Label(name.as_str().to_string()),
+            &FieldAnnotations::default(),
         );
         return walk.entries;
     }
-    let (value, path) = flatten_newtypes(value, String::new());
-    if let Some(scalar) = scalar_value(value) {
-        walk.push_scalar(path, "value".to_string(), 0, value, scalar);
-    } else if let Some(variant) = variant_value(value) {
-        walk.push(path.clone(), "variant".to_string(), 0, variant);
-        walk.children(value, &path, 0, true);
+    let root = FieldAnnotations::of_field_type(value.get_represented_type_info());
+    let (value, path, annotations) = flatten_newtypes(value, String::new(), root);
+    let label = |name: &str| annotations.display_name.unwrap_or(name).to_string();
+    let editable = !annotations.read_only;
+    if let Some(caption) = asset_handle_label(value) {
+        walk.push(
+            path,
+            label("value"),
+            0,
+            FieldValue::Label(caption),
+            &annotations,
+        );
+    } else if let Some(scalar) = scalar_value(value) {
+        walk.push_scalar(path, label("value"), 0, value, scalar, &annotations);
+    } else if let Some(variant) = variant_value(value, registry) {
+        walk.push(path.clone(), label("variant"), 0, variant, &annotations);
+        walk.children(value, &path, 0, editable, &annotations);
     } else if let Some(summary) = summary(value) {
         if !summary.is_empty() {
             walk.push(
                 path.clone(),
-                "value".to_string(),
+                label("value"),
                 0,
                 FieldValue::Label(summary),
+                &annotations,
             );
         }
-        walk.children(value, &path, 0, true);
+        walk.children(value, &path, 0, editable, &annotations);
     } else {
         walk.push(
             path,
-            "value".to_string(),
+            label("value"),
             0,
             FieldValue::Label(format_fallback(value)),
+            &annotations,
         );
     }
     walk.entries
 }
 
 /// The state of a walk over a reflected value.
-struct Walk {
+struct Walk<'a> {
+    registry: &'a TypeRegistry,
+    target: Option<&'a str>,
     entries: Vec<FieldEntry>,
 }
 
-impl Walk {
-    fn push(&mut self, path: String, label: String, depth: usize, value: FieldValue) {
-        self.entries.push(FieldEntry {
+impl Walk<'_> {
+    fn push(
+        &mut self,
+        path: String,
+        label: String,
+        depth: usize,
+        value: FieldValue,
+        annotations: &FieldAnnotations,
+    ) {
+        self.push_entry(FieldEntry {
             path,
             label,
             depth,
             value,
             limit: None,
+            annotations: annotations.clone(),
         });
     }
 
-    /// Adds the row of `scalar`, the value read from `value`, keeping the range of an integer.
+    /// Adds the row of `scalar`, the value read from `value`, keeping the range of a number.
     fn push_scalar(
         &mut self,
         path: String,
@@ -1568,17 +2121,29 @@ impl Walk {
         depth: usize,
         value: &dyn PartialReflect,
         scalar: FieldValue,
+        annotations: &FieldAnnotations,
     ) {
         let limit = match scalar {
-            FieldValue::Number(_) => integer_limit(value),
+            FieldValue::Number(number) => {
+                narrowed_limit(integer_limit(value), annotations.range.as_ref(), number)
+            }
             _ => None,
         };
-        self.entries.push(FieldEntry {
+        self.push_entry(FieldEntry {
             path,
             label,
             depth,
             value: scalar,
             limit,
+            annotations: annotations.clone(),
+        });
+    }
+
+    fn push_entry(&mut self, entry: FieldEntry) {
+        self.entries.push(if entry.annotations.read_only {
+            entry.into_read_only()
+        } else {
+            entry
         });
     }
 
@@ -1590,43 +2155,73 @@ impl Walk {
         label: String,
         depth: usize,
         editable: bool,
+        annotations: FieldAnnotations,
     ) {
-        let (value, path) = flatten_newtypes(value, path);
-        let lock = |value| if editable { value } else { read_only(value) };
+        let on_target = self.target.is_none_or(|target| {
+            target
+                .strip_prefix(path.as_str())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(['.', '[']))
+        });
+        if !on_target {
+            return;
+        }
+        let annotations = annotations.or(FieldAnnotations::of_field_type(
+            value.get_represented_type_info(),
+        ));
+        let (value, path, mut annotations) = flatten_newtypes(value, path, annotations);
+        annotations.read_only |= !editable;
+        let editable = !annotations.read_only;
+        let label = annotations
+            .display_name
+            .map(ToString::to_string)
+            .unwrap_or(label);
 
         if depth >= MAX_DEPTH {
-            self.push(path, label, depth, FieldValue::Label("...".to_string()));
+            let value = FieldValue::Label("...".to_string());
+            self.push(path, label, depth, value, &annotations);
+            return;
+        }
+
+        if let Some(caption) = asset_handle_label(value) {
+            self.push(path, label, depth, FieldValue::Label(caption), &annotations);
             return;
         }
 
         if let Some(scalar) = scalar_value(value) {
-            self.push_scalar(path, label, depth, value, lock(scalar));
+            self.push_scalar(path, label, depth, value, scalar, &annotations);
             return;
         }
 
-        if let Some(variant) = variant_value(value) {
-            self.push(path.clone(), label, depth, lock(variant));
-            self.children(value, &path, depth + 1, editable);
+        if let Some(variant) = variant_value(value, self.registry) {
+            self.push(path.clone(), label, depth, variant, &annotations);
+            self.children(value, &path, depth + 1, editable, &annotations);
             return;
         }
 
         let Some(summary) = summary(value) else {
-            self.push(
-                path,
-                label,
-                depth,
-                FieldValue::Label(format_fallback(value)),
-            );
+            let value = FieldValue::Label(format_fallback(value));
+            self.push(path, label, depth, value, &annotations);
             return;
         };
 
-        self.push(path.clone(), label, depth, FieldValue::Label(summary));
-        self.children(value, &path, depth + 1, editable);
+        let summary = FieldValue::Label(summary);
+        self.push(path.clone(), label, depth, summary, &annotations);
+        self.children(value, &path, depth + 1, editable, &annotations);
     }
 
-    fn children(&mut self, value: &dyn PartialReflect, prefix: &str, depth: usize, editable: bool) {
+    /// Adds the rows of the fields or items of `value`, whose own annotations are `annotations`.
+    fn children(
+        &mut self,
+        value: &dyn PartialReflect,
+        prefix: &str,
+        depth: usize,
+        editable: bool,
+        annotations: &FieldAnnotations,
+    ) {
+        let constraints = annotations.value_constraints();
         match value.reflect_ref() {
             ReflectRef::Struct(value) => {
+                let info = value.get_represented_struct_info();
                 for index in 0..value.field_len() {
                     let Some(field) = value.field_at(index) else {
                         continue;
@@ -1635,47 +2230,88 @@ impl Walk {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(
+                        info.and_then(|info| info.field_at(index))
+                            .map(NamedField::custom_attributes),
+                    );
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::TupleStruct(value) => {
+                let info = value.get_represented_tuple_struct_info();
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(
+                        info.and_then(|info| info.field_at(index))
+                            .map(UnnamedField::custom_attributes),
+                    );
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::Tuple(value) => {
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = FieldAnnotations::default();
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::List(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    let annotations = constraints.clone();
+                    self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Array(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    let annotations = constraints.clone();
+                    self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Map(value) => {
                 for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, key, index);
                     let editable = editable && key_access(key).is_some();
-                    self.field(item, path, display_value(key), depth, editable);
+                    let annotations = constraints.clone();
+                    self.field(item, path, display_value(key), depth, editable, annotations);
                 }
             }
             ReflectRef::Set(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, item, index);
-                    self.field(item, path, index.to_string(), depth, false);
+                    let annotations = constraints.clone();
+                    self.field(item, path, index.to_string(), depth, false, annotations);
                 }
             }
             ReflectRef::Enum(value) => {
+                let is_option = value
+                    .get_represented_type_info()
+                    .is_some_and(|info| info.type_path().starts_with(OPTION_PREFIX));
+                let variant = value
+                    .get_represented_enum_info()
+                    .and_then(|info| info.variant(value.variant_name()));
                 for index in 0..value.field_len() {
                     let Some(field) = value.field_at(index) else {
                         continue;
@@ -1684,13 +2320,47 @@ impl Walk {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let mut annotations = annotations_of(match variant {
+                        Some(VariantInfo::Struct(info)) => {
+                            info.field_at(index).map(NamedField::custom_attributes)
+                        }
+                        Some(VariantInfo::Tuple(info)) => {
+                            info.field_at(index).map(UnnamedField::custom_attributes)
+                        }
+                        _ => None,
+                    });
+                    if is_option {
+                        annotations = annotations.or(constraints.clone());
+                    }
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             _ => {}
         }
     }
 }
+
+/// The read-only caption of an asset handle, or `None` if `value` is not one.
+///
+/// Handles are matched by type path, since this crate does not depend on `bevy_asset`.
+fn asset_handle_label(value: &dyn PartialReflect) -> Option<String> {
+    let type_path = value.get_represented_type_info()?.type_path();
+    type_path
+        .starts_with(ASSET_HANDLE_PREFIX)
+        .then(|| ShortName(type_path).to_string())
+}
+
+const ASSET_HANDLE_PREFIX: &str = "bevy_asset::handle::Handle<";
+
+/// The type path prefix of `Option`, whose `Some` payload takes the constraints of its field.
+const OPTION_PREFIX: &str = "core::option::Option<";
 
 /// The read-only caption form of a field value.
 pub(crate) fn read_only(value: FieldValue) -> FieldValue {
@@ -1708,10 +2378,22 @@ pub(crate) fn read_only(value: FieldValue) -> FieldValue {
     })
 }
 
-/// Follows single-field tuple structs down to their inner value, returning it and its path.
+/// The annotations read from `attributes`, or none if there are no attributes.
+fn annotations_of(attributes: Option<&CustomAttributes>) -> FieldAnnotations {
+    attributes
+        .map(FieldAnnotations::from_attributes)
+        .unwrap_or_default()
+}
+
+/// Follows single-field tuple structs down to their inner value, returning it, its path, and
+/// `annotations` filled with those of the inner fields and their types.
 ///
 /// This keeps newtypes from adding a nesting level of their own.
-fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn PartialReflect, String) {
+fn flatten_newtypes(
+    value: &dyn PartialReflect,
+    mut path: String,
+    mut annotations: FieldAnnotations,
+) -> (&dyn PartialReflect, String, FieldAnnotations) {
     let mut value = value;
     while let ReflectRef::TupleStruct(tuple) = value.reflect_ref() {
         if tuple.field_len() != 1 {
@@ -1720,10 +2402,19 @@ fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn Parti
         let Some(field) = tuple.field(0) else {
             break;
         };
+        let inner = tuple
+            .get_represented_tuple_struct_info()
+            .and_then(|info| info.field_at(0))
+            .map(UnnamedField::custom_attributes);
+        annotations = annotations
+            .or(annotations_of(inner))
+            .or(FieldAnnotations::of_field_type(
+                field.get_represented_type_info(),
+            ));
         path = join(&path, "0");
         value = field;
     }
-    (value, path)
+    (value, path, annotations)
 }
 
 /// The caption shown on the row of a container value, or `None` if the value has no fields.
@@ -1867,7 +2558,10 @@ fn color_value(value: &dyn PartialReflect) -> Option<FieldValue> {
         };
     }
 
-    color!(Srgba, LinearRgba);
+    color!(
+        Srgba, LinearRgba, Hsla, Hsva, Hwba, Laba, Lcha, Oklaba, Oklcha, Xyza, Okhsla, Okhsva,
+        Okhwba
+    );
     None
 }
 
@@ -1920,27 +2614,29 @@ fn integer_limit(value: &dyn PartialReflect) -> Option<NumericRange> {
     None
 }
 
-/// The variants of a unit-only enum, and the index of the current one.
+/// The variants an enum can switch to: its current variant, and every variant whose fields have
+/// registered defaults.
 ///
-/// Returns `None` for an enum with data, whose variant is shown as a caption instead.
-fn variant_value(value: &dyn PartialReflect) -> Option<FieldValue> {
+/// Returns `None` for an enum with data that cannot switch to any other variant.
+fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<FieldValue> {
     let ReflectRef::Enum(reflected) = value.reflect_ref() else {
         return None;
     };
     let TypeInfo::Enum(info) = value.get_represented_type_info()? else {
         return None;
     };
-    if info
-        .iter()
-        .any(|variant| variant.variant_type() != VariantType::Unit)
-    {
-        return None;
-    }
     let current = reflected.variant_name();
     let variants: Vec<String> = info
         .iter()
+        .filter(|variant| variant.name() == current || has_defaults(variant, registry))
         .map(|variant| variant.name().to_string())
         .collect();
+    let unit_only = info
+        .iter()
+        .all(|variant| variant.variant_type() == VariantType::Unit);
+    if !unit_only && variants.len() < 2 {
+        return None;
+    }
     let selected = variants.iter().position(|name| name == current)?;
     Some(FieldValue::Variant { variants, selected })
 }
@@ -2013,6 +2709,21 @@ mod tests {
 
     #[derive(Reflect, Debug, Default, PartialEq)]
     struct Point(f32, f32);
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    struct Pointer(bevy_asset::Handle<bevy_image::Image>);
+
+    #[derive(Reflect, Debug)]
+    struct Texture(bevy_asset::Handle<bevy_image::Image>);
+
+    #[derive(Component, Reflect, Debug)]
+    #[reflect(Component)]
+    struct Skin {
+        texture: Texture,
+        direct: bevy_asset::Handle<bevy_image::Image>,
+        mode: Mode,
+    }
 
     #[derive(Reflect, Debug, Default)]
     struct Outer {
@@ -2434,7 +3145,7 @@ mod tests {
         app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
         app.update();
 
-        let component = app.world().component_id::<Subject>().unwrap();
+        let component = Subject::type_path();
         let index = app.world().resource::<DetailsIndex>();
         let scale = index.widget(component, "scale").unwrap();
         let enabled = index.widget(component, "enabled").unwrap();
@@ -2468,6 +3179,49 @@ mod tests {
             "expected one caption row, got {entries:?}"
         );
         assert_eq!(entries[0].value, FieldValue::Label("Left Cube".to_string()));
+    }
+
+    #[test]
+    fn asset_handles_are_read_only_labels() {
+        let handle = bevy_asset::Handle::<bevy_image::Image>::default();
+        assert!(
+            bevy_asset::Handle::<bevy_image::Image>::type_path().starts_with(ASSET_HANDLE_PREFIX)
+        );
+        let mut registry = TypeRegistry::new();
+        registry.register::<Mode>();
+        registry.register_type_data::<Mode, ReflectDefault>();
+
+        let entries = field_entries(&Pointer(handle.clone()), &registry);
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        assert_eq!(
+            entries[0].value,
+            FieldValue::Label("Handle<Image>".to_string())
+        );
+
+        let entries = field_entries(
+            &Skin {
+                texture: Texture(handle.clone()),
+                direct: handle,
+                mode: Mode::Idle,
+            },
+            &registry,
+        );
+        let label = FieldValue::Label("Handle<Image>".to_string());
+        assert_eq!(entry(&entries, "texture.0").value, label);
+        assert_eq!(entry(&entries, "direct").value, label);
+        assert!(
+            entries
+                .iter()
+                .filter(
+                    |entry| entry.path.starts_with("texture") || entry.path.starts_with("direct")
+                )
+                .all(|entry| entry.value == label),
+            "{entries:?}"
+        );
+        assert!(matches!(
+            entry(&entries, "mode").value,
+            FieldValue::Variant { .. }
+        ));
     }
 
     #[test]
@@ -2529,7 +3283,7 @@ mod tests {
         }
     }
 
-    fn fields_container(app: &App, component: ComponentId) -> Entity {
+    fn fields_container(app: &App, component: &str) -> Entity {
         let world = app.world();
         let group = world.resource::<DetailsIndex>().group(component).unwrap();
         descendant_with::<InspectorDetailsFields>(world, group).unwrap()
@@ -2540,8 +3294,8 @@ mod tests {
         let mut app = test_app();
         app.register_type::<Wrapper>();
         inspect(&mut app, (Subject::default(), Wrapper::default()));
-        let subject = app.world().component_id::<Subject>().unwrap();
-        let wrapper = app.world().component_id::<Wrapper>().unwrap();
+        let subject = Subject::type_path();
+        let wrapper = Wrapper::type_path();
 
         let container = fields_container(&app, subject);
         app.world_mut()
@@ -2553,12 +3307,12 @@ mod tests {
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .0
-            .insert(subject);
+            .insert(subject.into());
         refresh(&mut app);
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .0
-            .remove(&subject);
+            .remove(subject);
         refresh(&mut app);
 
         let respawned = fields_container(&app, subject);
@@ -2566,6 +3320,62 @@ mod tests {
         let fraction = |entity| app.world().get::<ColumnSplit>(entity).unwrap().fraction;
         assert_eq!(fraction(respawned), 0.6);
         assert_eq!(fraction(fields_container(&app, wrapper)), 0.4);
+    }
+
+    #[test]
+    fn keeps_collapsed_and_column_split_state_across_selections() {
+        let mut app = test_app();
+        app.register_type::<Wrapper>();
+        inspect(&mut app, (Subject::default(), Wrapper::default()));
+        let subject = Subject::type_path();
+        let wrapper = Wrapper::type_path();
+
+        let container = fields_container(&app, wrapper);
+        app.world_mut()
+            .get_mut::<ColumnSplit>(container)
+            .unwrap()
+            .fraction = 0.7;
+        app.update();
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .0
+            .insert(subject.into());
+        refresh(&mut app);
+
+        let other = app
+            .world_mut()
+            .spawn((Subject::default(), Wrapper::default()))
+            .id();
+        select(&mut app, Some(other));
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.group(subject).is_some());
+        assert!(index.widget(subject, "scale").is_none());
+        let respawned = fields_container(&app, wrapper);
+        assert_ne!(respawned, container);
+        assert_eq!(
+            app.world().get::<ColumnSplit>(respawned).unwrap().fraction,
+            0.7
+        );
+    }
+
+    #[test]
+    fn shows_an_unreflected_component_under_a_name_based_key() {
+        let mut app = test_app();
+        inspect(&mut app, (Subject::default(), Marker));
+        let id = app.world().component_id::<Marker>().unwrap();
+
+        let key = ComponentKey::of(app.world(), id);
+        let expected = if DebugName::ENABLED {
+            core::any::type_name::<Marker>().to_string()
+        } else {
+            format!("{id:?}")
+        };
+        assert_eq!(&*key.0, expected);
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.group(&key.0).is_some());
+        assert!(index.group(Subject::type_path()).is_some());
+        assert_eq!(body_children(&mut app).len(), 2);
     }
 
     #[derive(Reflect, Debug, Clone, PartialEq)]
@@ -2982,11 +3792,17 @@ mod tests {
             .world_mut()
             .spawn((first::Duplicate::default(), second::Duplicate::default()))
             .id();
-        let first = app.world().component_id::<first::Duplicate>().unwrap();
-        let second = app.world().component_id::<second::Duplicate>().unwrap();
+        let first = first::Duplicate::type_path();
+        let second = second::Duplicate::type_path();
         assert_eq!(
-            crate::component_short_name(app.world(), first),
-            crate::component_short_name(app.world(), second)
+            crate::component_short_name(
+                app.world(),
+                app.world().component_id::<first::Duplicate>().unwrap()
+            ),
+            crate::component_short_name(
+                app.world(),
+                app.world().component_id::<second::Duplicate>().unwrap()
+            )
         );
 
         select(&mut app, Some(subject));
@@ -3000,7 +3816,7 @@ mod tests {
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .0
-            .insert(first);
+            .insert(first.into());
         refresh(&mut app);
 
         let index = app.world().resource::<DetailsIndex>();
@@ -3062,7 +3878,7 @@ mod tests {
         assert_eq!(entry(&entries, "linear").value.kind(), FieldKind::Color);
         assert_eq!(
             entry(&entries, "shape").value,
-            FieldValue::Label("Circle".to_string())
+            variant(&["Empty", "Circle"], 1)
         );
         assert_eq!(
             entry(&entries, "shape.radius").value.kind(),
@@ -3070,7 +3886,7 @@ mod tests {
         );
         assert_eq!(
             entry(&entries, "maybe").value,
-            FieldValue::Label("None".to_string())
+            variant(&["None", "Some"], 0)
         );
         assert_eq!(
             entry(&entries, "outer.inner.depth").value.kind(),
@@ -3229,13 +4045,35 @@ mod tests {
     }
 
     #[test]
-    fn edits_fields_of_the_current_variant_only() {
+    fn edits_colors_in_their_own_space() {
         let (mut app, entity) = kinds_app();
-        {
-            let mut kinds = app.world_mut().get_mut::<Kinds>(entity).unwrap();
-            kinds.shape = Shape::Circle { radius: 1.0 };
-            kinds.maybe = Some(1);
-        }
+        app.world_mut().get_mut::<Kinds>(entity).unwrap().color = Color::hsla(0.0, 0.5, 0.5, 1.0);
+        let red = parse_hex_color("#FF0000").unwrap();
+        assert_eq!(parse_hex_color("#F00"), None);
+        assert_eq!(parse_hex_color("#GG0000"), None);
+        assert!(parse_hex_color("#00FF0080").is_some());
+
+        edit_kinds(&mut app, entity, "color", FieldValue::Color(red));
+        edit_kinds(&mut app, entity, "srgba", FieldValue::Color(red));
+        edit_kinds(&mut app, entity, "linear", FieldValue::Color(red));
+
+        let kinds = app.world().get::<Kinds>(entity).unwrap();
+        assert!(matches!(kinds.color, Color::Hsla(_)));
+        assert_eq!(color_to_hex(kinds.color), "#FF0000");
+        assert_eq!(kinds.srgba, Srgba::RED);
+        assert_eq!(kinds.linear, LinearRgba::RED);
+    }
+
+    #[test]
+    fn switches_data_enum_variants_from_defaults() {
+        let (mut app, entity) = kinds_app();
+        let shape = ["Empty", "Circle", "Custom"];
+
+        edit_kinds(&mut app, entity, "shape", variant(&shape, 1));
+        assert_eq!(
+            app.world().get::<Kinds>(entity).unwrap().shape,
+            Shape::Circle { radius: 0.0 }
+        );
 
         edit_kinds(
             &mut app,
@@ -3243,18 +4081,55 @@ mod tests {
             "shape.radius",
             FieldValue::Number(NumericValue::F32(2.0)),
         );
-        edit_kinds(&mut app, entity, "maybe.0", int(5));
-        edit_kinds(
-            &mut app,
-            entity,
-            "shape",
-            variant(&["Empty", "Circle", "Custom"], 0),
+        edit_kinds(&mut app, entity, "shape", variant(&shape, 2));
+        assert_eq!(
+            app.world().get::<Kinds>(entity).unwrap().shape,
+            Shape::Circle { radius: 2.0 }
         );
-        edit_kinds(&mut app, entity, "maybe", variant(&["None", "Some"], 0));
 
-        let kinds = app.world().get::<Kinds>(entity).unwrap();
-        assert_eq!(kinds.shape, Shape::Circle { radius: 2.0 });
-        assert_eq!(kinds.maybe, Some(5));
+        edit_kinds(&mut app, entity, "shape", variant(&shape, 0));
+        assert_eq!(
+            app.world().get::<Kinds>(entity).unwrap().shape,
+            Shape::Empty
+        );
+    }
+
+    #[test]
+    fn does_not_offer_variants_without_defaults() {
+        let registry = TypeRegistry::new();
+        let entries = field_entries(
+            &Kinds {
+                shape: Shape::Custom(Locked(3)),
+                ..Default::default()
+            },
+            &registry,
+        );
+
+        assert_eq!(
+            entry(&entries, "shape").value,
+            variant(&["Empty", "Circle", "Custom"], 2)
+        );
+
+        let entries = field_entries(&Kinds::default(), &registry);
+        assert_eq!(
+            entry(&entries, "shape").value,
+            variant(&["Empty", "Circle"], 0)
+        );
+    }
+
+    #[test]
+    fn switches_an_option_between_none_and_some() {
+        let (mut app, entity) = kinds_app();
+        let options = ["None", "Some"];
+
+        edit_kinds(&mut app, entity, "maybe", variant(&options, 1));
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().maybe, Some(0));
+
+        edit_kinds(&mut app, entity, "maybe.0", int(5));
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().maybe, Some(5));
+
+        edit_kinds(&mut app, entity, "maybe", variant(&options, 0));
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().maybe, None);
     }
 
     #[test]
@@ -3321,6 +4196,13 @@ mod tests {
         }
 
         assert_eq!(app.world().resource::<EditCount>().0, 0);
+        let component = Kinds::type_path();
+        let index = app.world().resource::<DetailsIndex>();
+        let color = &index.fields[&(component.into(), "color".to_string())];
+        assert!(app
+            .world()
+            .get::<InspectorField>(color.text.unwrap())
+            .is_some());
     }
 
     fn widget_app() -> (App, Entity) {
@@ -3423,7 +4305,7 @@ mod tests {
         app.register_type::<Holder>();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
-        let subject_id = app.world().component_id::<Subject>().unwrap();
+        let subject_id = Subject::type_path();
         select(&mut app, Some(subject));
         let group = app
             .world()
@@ -3441,7 +4323,7 @@ mod tests {
             .insert(Holder(Arc::new(StrongHandle)));
         refresh(&mut app);
 
-        let holder_id = app.world().component_id::<Holder>().unwrap();
+        let holder_id = Holder::type_path();
         let index = app.world().resource::<DetailsIndex>();
         let holder = index.group(holder_id).unwrap();
         assert_eq!(index.group(subject_id), Some(group));
@@ -3636,6 +4518,7 @@ mod tests {
     struct Frozen {
         flag: bool,
         mode: Mode,
+        tint: Color,
     }
 
     #[derive(Component, Reflect, Debug, Default, PartialEq)]
@@ -3665,7 +4548,7 @@ mod tests {
         let mut app = test_app();
         app.register_type::<Frozen>();
         let entity = inspect(&mut app, Frozen::default());
-        let component = app.world().component_id::<Frozen>().unwrap();
+        let component = Frozen::type_path();
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(!index.is_empty());
@@ -3676,7 +4559,7 @@ mod tests {
         let mut fields = app.world_mut().query::<&InspectorField>();
         assert!(fields
             .iter(app.world())
-            .all(|field| field.component != component));
+            .all(|field| &*field.component.0 != component));
 
         edit_component::<Frozen>(&mut app, entity, "flag", FieldValue::Bool(true));
         refresh(&mut app);
@@ -3785,6 +4668,10 @@ mod tests {
 
         let byte = |value| FieldValue::Number(NumericValue::I32(value));
         edit_kinds(&mut app, entity, "byte", byte(12));
+        assert_eq!(elapsed(&mut app), Duration::ZERO);
+
+        let red = Color::hsla(0.0, 1.0, 0.5, 1.0);
+        edit_kinds(&mut app, entity, "color", FieldValue::Color(red));
         assert_eq!(elapsed(&mut app), Duration::ZERO);
 
         edit_kinds(&mut app, entity, "byte", byte(300));
@@ -3933,7 +4820,7 @@ mod tests {
         let mut app = test_app();
         app.register_type::<Level>();
         let entity = inspect(&mut app, Level::Low);
-        let component = app.world().component_id::<Level>().unwrap();
+        let component = Level::type_path();
         assert_eq!(tracked_paths(&app), alloc::vec![String::new()]);
 
         edit_component::<Level>(&mut app, entity, "", variant(&["Low", "High"], 1));
@@ -3942,7 +4829,7 @@ mod tests {
         assert_eq!(app.world().get::<Level>(entity), Some(&Level::High));
         let index = app.world().resource::<DetailsIndex>();
         assert_eq!(
-            index.fields[&(component, String::new())].value,
+            index.fields[&(component.into(), String::new())].value,
             variant(&["Low", "High"], 1)
         );
     }
@@ -3959,7 +4846,7 @@ mod tests {
                     .collect(),
             ),
         );
-        let component = app.world().component_id::<Lookup>().unwrap();
+        let component = Lookup::type_path();
         let group = app
             .world()
             .resource::<DetailsIndex>()
@@ -4005,5 +4892,468 @@ mod tests {
         assert_eq!(app.world().get::<Subject>(subject).unwrap().scale, 1.0);
         let mut fields = app.world_mut().query::<&InspectorField>();
         assert_eq!(fields.iter(app.world()).count(), 0);
+    }
+
+    #[test]
+    fn picking_a_color_edits_the_field() {
+        let (mut app, entity) = kinds_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.update();
+        let mut pickers = app
+            .world_mut()
+            .query_filtered::<(Entity, &InspectorField), With<FeathersColorInput>>();
+        let picker = pickers
+            .iter(app.world())
+            .find(|(_, field)| field.path == "color")
+            .map(|(picker, _)| picker)
+            .unwrap();
+
+        for value in [Color::srgb(1.0, 0.0, 0.0), Color::srgb(0.0, 1.0, 0.0)] {
+            app.world_mut().trigger(ValueChange {
+                source: picker,
+                value,
+                is_final: false,
+            });
+            app.update();
+            let color = app.world().get::<Kinds>(entity).unwrap().color;
+            assert_eq!(color_to_hex(color), color_to_hex(value));
+            assert_eq!(
+                app.world()
+                    .get::<ColorInputValue>(picker)
+                    .map(|input| input.0),
+                Some(value)
+            );
+        }
+
+        settle(&mut app);
+        let color = app.world().get::<Kinds>(entity).unwrap().color;
+        assert_eq!(color_to_hex(color), "#00FF00");
+    }
+
+    fn hex_input(app: &mut App, entity: Entity) -> Entity {
+        app.init_resource::<bevy_text::FontCx>()
+            .init_resource::<bevy_text::LayoutCx>()
+            .init_resource::<bevy_clipboard::Clipboard>()
+            .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.update();
+        let mut inputs = app
+            .world_mut()
+            .query_filtered::<(Entity, &InspectorField), With<EditableText>>();
+        inputs
+            .iter(app.world())
+            .find(|(_, field)| field.path == "color")
+            .map(|(input, _)| input)
+            .unwrap()
+    }
+
+    fn type_text(app: &mut App, input: Entity, text: &str) {
+        replace_text(app.world_mut(), Some(input), text);
+        app.update();
+    }
+
+    fn input_text(app: &App, input: Entity) -> String {
+        app.world()
+            .get::<EditableText>(input)
+            .unwrap()
+            .value()
+            .to_string()
+    }
+
+    #[test]
+    fn hex_input_commits_on_focus_lost() {
+        let (mut app, entity) = kinds_app();
+        let input = hex_input(&mut app, entity);
+        let before = app.world().get::<Kinds>(entity).unwrap().color;
+
+        type_text(&mut app, input, "#00FF00");
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().color, before);
+
+        app.world_mut().trigger(FocusLost { entity: input });
+        app.update();
+        let color = app.world().get::<Kinds>(entity).unwrap().color;
+        assert_eq!(color_to_hex(color), "#00FF00");
+    }
+
+    #[test]
+    fn hex_input_restores_invalid_text() {
+        let (mut app, entity) = kinds_app();
+        let input = hex_input(&mut app, entity);
+        let before = app.world().get::<Kinds>(entity).unwrap().color;
+
+        type_text(&mut app, input, "#00FF");
+        app.world_mut().trigger(FocusLost { entity: input });
+        app.update();
+
+        assert_eq!(app.world().get::<Kinds>(entity).unwrap().color, before);
+        assert_eq!(input_text(&app, input), color_to_hex(before));
+    }
+
+    #[test]
+    fn detects_out_of_range_colors() {
+        assert!(!is_out_of_range(Color::WHITE));
+        assert!(!is_out_of_range(Color::hsla(0.0, 0.5, 0.5, 1.0)));
+        assert!(is_out_of_range(Color::linear_rgb(2.0, 1.0, 1.0)));
+        assert!(is_out_of_range(Color::srgb(-0.5, 0.0, 0.0)));
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    struct Meters(#[reflect(@Unit("m"))] f32);
+
+    #[derive(Reflect, Debug, Default)]
+    struct Span(#[reflect(@DisplayName("Left"))] f32, f32);
+
+    #[derive(Reflect, Debug, Default)]
+    enum Gait {
+        #[default]
+        Still,
+        Walk {
+            #[reflect(@ValueRange(0.0..=1.0))]
+            pace: f32,
+        },
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    #[reflect(@DisplayName("Limits"), @ReadOnly)]
+    struct Caps {
+        max: f32,
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    #[reflect(@DisplayName("Tuning"))]
+    struct Tuning {
+        gain: f32,
+    }
+
+    #[derive(Reflect, Debug, Default, PartialEq)]
+    enum Stance {
+        #[default]
+        #[reflect(@DisplayName("Standing Still"))]
+        Idle,
+        Crouched,
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default, @DisplayName("Movement Settings"))]
+    struct Annotated {
+        #[reflect(@ValueRange(0.0..=10.0), @Step(0.5), @Unit("m/s"))]
+        speed: f32,
+        #[reflect(@DisplayName("Jump Height"))]
+        jump: f32,
+        #[reflect(@ReadOnly)]
+        grounded: bool,
+        #[reflect(@ValueRange(-5.0..=500.0))]
+        level: u8,
+        #[reflect(@1_u32..=10_u32)]
+        count: u32,
+        #[reflect(@ReadOnly, @Unit("kg"))]
+        mass: f32,
+        #[reflect(@ReadOnly)]
+        nested: Nested,
+        height: Meters,
+        span: Span,
+        gait: Gait,
+        caps: Caps,
+        #[reflect(@DisplayName("Custom Tuning"))]
+        tuning: Tuning,
+        stance: Stance,
+    }
+
+    fn has_text(world: &World, entity: Entity, expected: &str) -> bool {
+        world
+            .get::<Text>(entity)
+            .is_some_and(|text| text.0 == expected)
+            || world.get::<Children>(entity).is_some_and(|children| {
+                children
+                    .iter()
+                    .any(|&child| has_text(world, child, expected))
+            })
+    }
+
+    fn annotated() -> Annotated {
+        Annotated {
+            count: 1,
+            mass: 2.5,
+            gait: Gait::Walk { pace: 0.5 },
+            ..Default::default()
+        }
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default, @ReadOnly)]
+    struct Sealed {
+        value: f32,
+    }
+
+    #[test]
+    fn reads_annotations_into_field_entries() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let speed = entry(&entries, "speed");
+        assert_eq!(speed.limit, Some(NumericRange::F32(0.0..=10.0)));
+        assert_eq!(speed.annotations.step, Some(0.5));
+        assert_eq!(speed.annotations.unit, Some("m/s"));
+        assert_eq!(entry(&entries, "jump").label, "Jump Height");
+        assert_eq!(entry(&entries, "span.0").label, "Left");
+        assert_eq!(entry(&entries, "span.1").label, "1");
+        assert_eq!(
+            entry(&entries, "level").limit,
+            Some(NumericRange::I32(0..=255))
+        );
+        assert_eq!(
+            entry(&entries, "count").limit,
+            Some(NumericRange::I64(1..=10))
+        );
+        assert_eq!(entry(&entries, "height.0").annotations.unit, Some("m"));
+        assert_eq!(
+            entry(&entries, "gait.pace").limit,
+            Some(NumericRange::F32(0.0..=1.0))
+        );
+    }
+
+    #[test]
+    fn shows_annotated_fields_read_only() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let grounded = entry(&entries, "grounded");
+        assert_eq!(grounded.value, FieldValue::Label("false".to_string()));
+        assert!(grounded.annotations.read_only);
+        assert_eq!(
+            entry(&entries, "mass").value,
+            FieldValue::Label("2.5 kg".to_string())
+        );
+        assert_eq!(
+            entry(&entries, "nested.depth").value,
+            FieldValue::Label("0".to_string())
+        );
+        assert_eq!(entry(&entries, "jump").value.kind(), FieldKind::Number);
+    }
+
+    #[test]
+    fn rejects_edits_to_read_only_fields() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+
+        edit_component::<Annotated>(&mut app, entity, "grounded", FieldValue::Bool(true));
+        edit_component::<Annotated>(&mut app, entity, "nested.depth", int(4));
+        edit_component::<Annotated>(&mut app, entity, "jump", float(1.5));
+
+        let annotated = app.world().get::<Annotated>(entity).unwrap();
+        assert!(!annotated.grounded);
+        assert_eq!(annotated.nested.depth, 0);
+        assert_eq!(annotated.jump, 1.5);
+    }
+
+    fn float(value: f32) -> FieldValue {
+        FieldValue::Number(NumericValue::F32(value))
+    }
+
+    #[test]
+    fn clamps_edits_to_the_annotated_range() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+
+        edit_component::<Annotated>(&mut app, entity, "speed", float(25.0));
+        edit_component::<Annotated>(&mut app, entity, "count", int(50));
+        edit_component::<Annotated>(&mut app, entity, "gait.pace", float(-3.0));
+        edit_component::<Annotated>(&mut app, entity, "height.0", float(-3.0));
+
+        let annotated = app.world().get::<Annotated>(entity).unwrap();
+        assert_eq!(annotated.speed, 10.0);
+        assert_eq!(annotated.count, 10);
+        assert!(matches!(annotated.gait, Gait::Walk { pace: 0.0 }));
+        assert_eq!(annotated.height.0, -3.0);
+
+        edit_component::<Annotated>(&mut app, entity, "speed", float(-1.0));
+        assert_eq!(app.world().get::<Annotated>(entity).unwrap().speed, 0.0);
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Wrapped {
+        #[reflect(@ValueRange(0.0..=2.0), @Step(0.25), @Unit("m"), @DisplayName("Reach"))]
+        reach: Option<f32>,
+        #[reflect(@ValueRange(0.0..=1.0))]
+        samples: Vec<f32>,
+    }
+
+    fn wrapped() -> Wrapped {
+        Wrapped {
+            reach: Some(1.0),
+            samples: vec![0.5],
+        }
+    }
+
+    #[test]
+    fn constrains_wrapped_values_with_their_field_annotations() {
+        let entries = field_entries(&wrapped(), &TypeRegistry::new());
+
+        let reach = entry(&entries, "reach.0");
+        assert_eq!(reach.limit, Some(NumericRange::F32(0.0..=2.0)));
+        assert_eq!(reach.annotations.step, Some(0.25));
+        assert_eq!(reach.annotations.unit, Some("m"));
+        assert_eq!(reach.label, "0");
+        assert_eq!(entry(&entries, "reach").label, "Reach");
+        assert_eq!(
+            entry(&entries, "samples[0]").limit,
+            Some(NumericRange::F32(0.0..=1.0))
+        );
+    }
+
+    #[test]
+    fn clamps_edits_to_wrapped_values() {
+        let mut app = test_app();
+        app.register_type::<Wrapped>();
+        let entity = app.world_mut().spawn(wrapped()).id();
+
+        edit_component::<Wrapped>(&mut app, entity, "reach.0", float(5.0));
+        edit_component::<Wrapped>(&mut app, entity, "samples[0]", float(-1.0));
+
+        let wrapped = app.world().get::<Wrapped>(entity).unwrap();
+        assert_eq!(wrapped.reach, Some(2.0));
+        assert_eq!(wrapped.samples, vec![0.0]);
+    }
+
+    #[test]
+    fn configures_number_inputs_from_annotations() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        inspect(&mut app, annotated());
+
+        let speed = field_widget(&mut app, "speed");
+        let world = app.world();
+        assert_eq!(
+            world.get::<HardLimit>(speed).map(|limit| limit.0.clone()),
+            Some(NumericRange::F32(0.0..=10.0))
+        );
+        assert_eq!(
+            world.get::<NumberInputStep>(speed).map(|step| step.0),
+            Some(0.5)
+        );
+        assert!(has_text(world, speed, "m/s"));
+
+        let jump = widget_at(&app, "jump").unwrap();
+        assert!(world.get::<NumberInputStep>(jump).is_none());
+        assert!(!has_text(world, jump, "m/s"));
+        assert!(row_labels(&app).contains(&"Jump Height".to_string()));
+        assert!(matches!(
+            world
+                .resource::<DetailsIndex>()
+                .fields
+                .iter()
+                .find(|((_, path), _)| path == "grounded"),
+            Some((
+                _,
+                FieldWidget {
+                    value: FieldValue::Label(_),
+                    ..
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn honors_component_annotations() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        app.register_type::<Sealed>();
+        let entity = inspect(&mut app, (annotated(), Sealed { value: 1.0 }));
+
+        let names: Vec<String> = inspect_components(app.world(), Some(entity))
+            .into_iter()
+            .map(|component| component.name)
+            .collect();
+        assert!(
+            names.contains(&"Movement Settings".to_string()),
+            "{names:?}"
+        );
+        assert!(names.contains(&"Sealed".to_string()), "{names:?}");
+
+        let value = widget_at(&app, "value").unwrap();
+        assert!(app.world().get::<InspectorField>(value).is_none());
+        edit_component::<Sealed>(&mut app, entity, "value", float(2.0));
+        assert_eq!(app.world().get::<Sealed>(entity).unwrap().value, 1.0);
+    }
+
+    #[test]
+    fn honors_type_annotations_on_fields() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let caps = entry(&entries, "caps");
+        assert_eq!(caps.label, "caps");
+        assert!(caps.annotations.read_only);
+        assert_eq!(
+            entry(&entries, "caps.max").value,
+            FieldValue::Label("0".to_string())
+        );
+        assert_eq!(entry(&entries, "tuning").label, "Custom Tuning");
+        assert_eq!(
+            entry(&entries, "tuning.gain").value.kind(),
+            FieldKind::Number
+        );
+
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+        edit_component::<Annotated>(&mut app, entity, "caps.max", float(4.0));
+        assert_eq!(app.world().get::<Annotated>(entity).unwrap().caps.max, 0.0);
+        assert!(inspect_components(app.world(), Some(entity))
+            .iter()
+            .any(|component| component.name == "Movement Settings"));
+    }
+
+    #[test]
+    fn shows_variant_display_names() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+        let stance = entry(&entries, "stance");
+        assert_eq!(stance.value, variant(&["Idle", "Crouched"], 0));
+        assert_eq!(stance.annotations.variant_label("Idle"), "Standing Still");
+        assert_eq!(
+            stance.clone().into_read_only().value,
+            FieldValue::Label("Standing Still".to_string())
+        );
+
+        let mut app = test_app();
+        app.add_plugins(bevy_text::TextPlugin);
+        app.register_type::<Annotated>();
+        let entity = inspect(
+            &mut app,
+            Annotated {
+                stance: Stance::Crouched,
+                ..annotated()
+            },
+        );
+        let select = field_widget(&mut app, "stance");
+        assert!(has_text(app.world(), select, "Standing Still"));
+        assert!(!has_text(app.world(), select, "Idle"));
+
+        let listbox = descendant_with::<bevy_ui_widgets::ListBox>(app.world(), select).unwrap();
+        let idle = option_rows(&app, select)[0].0;
+        app.world_mut().trigger(ValueChange {
+            source: listbox,
+            value: idle,
+            is_final: true,
+        });
+        app.update();
+        assert_eq!(
+            app.world().get::<Annotated>(entity).unwrap().stance,
+            Stance::Idle
+        );
+    }
+
+    #[test]
+    fn resolves_edit_annotations_like_the_panel() {
+        let value = annotated();
+        let registry = TypeRegistry::new();
+        for full in field_entries(&value, &registry) {
+            let targeted = walk_entries(&value, &registry, Some(&full.path));
+            let found = entry(&targeted, &full.path);
+            assert_eq!(found.annotations, full.annotations, "{}", full.path);
+            assert!(targeted.len() < 10, "{}: {targeted:?}", full.path);
+        }
     }
 }

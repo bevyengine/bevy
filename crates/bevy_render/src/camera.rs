@@ -10,9 +10,10 @@ use crate::{
     sync_world::{MainEntity, MainEntityHashSet, RenderEntity, SyncToRenderWorld},
     texture::{GpuImage, ManualTextureViews},
     view::{
-        ColorGrading, ExtractedView, ExtractedWindow, Msaa, NoIndirectDrawing,
-        RenderExtractedVisibleEntities, RenderVisibleEntities, RenderVisibleEntitiesClass,
-        ResolvedCompositingSpace, RetainedViewEntity, Tonemapping, ViewUniformOffset,
+        resolve_view_display_target, ColorGrading, ExtractedView, ExtractedWindow,
+        ManualDisplayTargets, Msaa, NoIndirectDrawing, RenderExtractedVisibleEntities,
+        RenderVisibleEntities, RenderVisibleEntitiesClass, ResolvedCompositingSpace,
+        RetainedViewEntity, Tonemapping, ViewDisplayTarget, ViewUniformOffset,
         VisibilityExtractionSystemParam,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -105,7 +106,8 @@ impl Plugin for CameraPlugin {
                     ExtractSchedule,
                     (
                         extract_cameras
-                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>),
+                            .after(extract_resource::<ManualTextureViews, RenderApp, ()>)
+                            .after(extract_resource::<ManualDisplayTargets, RenderApp, ()>),
                         clear_dirty_specializations.in_set(DirtySpecializationSystems::Clear),
                         clear_dirty_wireframe_specializations
                             .in_set(DirtySpecializationSystems::Clear),
@@ -455,7 +457,7 @@ pub fn camera_system(
 /// view comes from a camera. For example, views can come from lights,
 /// for drawing shadow maps.
 #[derive(Component, Debug)]
-#[require(RenderVisibleEntities)]
+#[require(RenderVisibleEntities, ViewDisplayTarget)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
     pub physical_viewport_size: Option<UVec2>,
@@ -468,6 +470,8 @@ pub struct ExtractedCamera {
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
+    /// Whether the main texture holds HDR values, because the camera has
+    /// [`Hdr`] or renders to an HDR display target.
     pub hdr: bool,
     /// Whether the camera tonemaps in its material shaders instead of in the
     /// tonemapping pass.
@@ -508,6 +512,7 @@ pub fn extract_cameras(
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    manual_display_targets: Res<ManualDisplayTargets>,
     manual_texture_views: Res<ManualTextureViews>,
     images: Res<RenderAssets<GpuImage>>,
     mut existing_render_visible_entities_cpu_culling: Query<
@@ -643,13 +648,22 @@ pub fn extract_cameras(
                         .map(|format| normalize_bgra8(target, format))
                 })
                 .unwrap_or(TextureFormat::Rgba8UnormSrgb);
+            // Last frame's negotiated color space, like the swap chain format
+            // read above.
+            let view_display_target = resolve_view_display_target(
+                target.as_ref(),
+                extracted_swap_chains.iter(),
+                &manual_display_targets,
+            );
+            // An HDR color space needs values above 1.0, like a camera with `Hdr`.
+            let hdr_output = hdr || view_display_target.is_hdr();
             let tonemapping_enabled = tonemapping.is_some_and(Tonemapping::is_enabled);
             let shares_target = target
                 .as_ref()
                 .and_then(|t| active_cameras_per_target.get(t))
                 .is_some_and(|&count| count > 1);
             let in_shader = tonemaps_in_shader(
-                hdr,
+                hdr_output,
                 tonemapping_enabled,
                 tonemapping_pass,
                 compositing_space.copied(),
@@ -657,7 +671,7 @@ pub fn extract_cameras(
                 shares_target,
             );
             let target_format = main_texture_format(
-                hdr,
+                hdr_output,
                 tonemapping_enabled && !in_shader,
                 compositing_space.copied(),
                 output_texture_format,
@@ -681,10 +695,11 @@ pub fn extract_cameras(
                     exposure: exposure
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
-                    hdr,
+                    hdr: hdr_output,
                     tonemap_in_shader: in_shader,
                 },
                 ResolvedCompositingSpace(compositing_space.copied()),
+                view_display_target,
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
@@ -860,7 +875,7 @@ pub fn sort_cameras(
     }
 }
 
-/// A subpixel offset to jitter a perspective camera's frustum by.
+/// A subpixel offset to jitter a camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
 #[derive(Component, Clone, Default, Reflect)]
@@ -873,15 +888,18 @@ pub struct TemporalJitter {
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
         // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
-        let mut jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
+        let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
-        // orthographic
         if clip_from_view.w_axis.w == 1.0 {
-            jitter *= vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5;
+            // orthographic: w is 1 at every depth, so translate in clip space
+            // by the same screen offset the perspective path gives (-jitter)
+            clip_from_view.w_axis.x -= jitter.x;
+            clip_from_view.w_axis.y -= jitter.y;
+        } else {
+            // perspective: w is the view depth, so the z_axis term is a constant shift
+            clip_from_view.z_axis.x += jitter.x;
+            clip_from_view.z_axis.y += jitter.y;
         }
-
-        clip_from_view.z_axis.x += jitter.x;
-        clip_from_view.z_axis.y += jitter.y;
     }
 }
 
@@ -1258,7 +1276,9 @@ impl PendingQueues {
 mod tests {
     use super::*;
     use bevy_app::Main;
+    use bevy_camera::{CameraProjection, OrthographicProjection, PerspectiveProjection};
     use bevy_ecs::{system::RunSystemOnce, world::World};
+    use bevy_math::{Rect, Vec4};
     use bevy_window::WindowRef;
 
     fn window_target() -> NormalizedRenderTarget {
@@ -1537,5 +1557,40 @@ mod tests {
         assert_eq!(index(lower), 0);
         assert_eq!(index(upper), 1);
         assert_eq!(index(solo), 0);
+    }
+
+    /// How far the jitter moves a point at view depth `z`, in pixels.
+    fn jitter_in_pixels(clip_from_view: Mat4, jitter: &TemporalJitter, z: f32) -> Vec2 {
+        let view_size = vec2(1200.0, 800.0);
+        let mut jittered = clip_from_view;
+        jitter.jitter_projection(&mut jittered, view_size);
+        let point = Vec4::new(0.3, -0.2, z, 1.0);
+        let before = clip_from_view * point;
+        let after = jittered * point;
+        let ndc_shift =
+            after.truncate().truncate() / after.w - before.truncate().truncate() / before.w;
+        ndc_shift * view_size * 0.5
+    }
+
+    #[test]
+    fn orthographic_jitter_matches_perspective_at_every_depth() {
+        let jitter = TemporalJitter {
+            offset: vec2(0.25, -0.4),
+        };
+        let perspective = PerspectiveProjection::default().get_clip_from_view();
+        let orthographic = OrthographicProjection {
+            area: Rect::new(-12.0, -8.0, 12.0, 8.0),
+            ..OrthographicProjection::default_3d()
+        }
+        .get_clip_from_view();
+
+        for z in [-1.0, -10.0, -200.0] {
+            let expected = jitter_in_pixels(perspective, &jitter, z);
+            let actual = jitter_in_pixels(orthographic, &jitter, z);
+            assert!(
+                actual.abs_diff_eq(expected, 1e-3),
+                "depth {z}: orthographic {actual}, perspective {expected}"
+            );
+        }
     }
 }

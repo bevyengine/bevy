@@ -137,12 +137,12 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// }
 /// ```
 ///
-/// In WGSL shaders, the material's binding would look like this:
+/// In WESL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -171,19 +171,19 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         OpaqueRendererMethod::Forward
     }
 
-    #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
     /// for meshes with similar depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
+    #[inline]
     fn depth_bias(&self) -> f32 {
         0.0
     }
 
-    #[inline]
     /// Returns whether the material would like to read from [`ViewTransmissionTexture`].
     ///
     /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
     /// rendering to take place in a separate [`Transmissive3d`] pass.
+    #[inline]
     fn reads_view_transmission_texture(&self) -> bool {
         false
     }

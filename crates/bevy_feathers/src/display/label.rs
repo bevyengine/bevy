@@ -23,7 +23,7 @@ pub fn label(text: impl Into<String>) -> impl Scene {
     bsn! {
         Text(text)
         TextFont {
-            font: FontSourceTemplate::Handle(fonts::REGULAR),
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
@@ -37,7 +37,7 @@ pub fn label_dim(text: impl Into<String>) -> impl Scene {
     bsn! {
         Text(text)
         TextFont {
-            font: FontSourceTemplate::Handle(fonts::REGULAR),
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
@@ -51,7 +51,7 @@ pub fn label_small(text: impl Into<String>) -> impl Scene {
     bsn! {
         Text(text)
         TextFont {
-            font: FontSourceTemplate::Handle(fonts::REGULAR),
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::EXTRA_SMALL_FONT,
             weight: FontWeight::NORMAL,
         }

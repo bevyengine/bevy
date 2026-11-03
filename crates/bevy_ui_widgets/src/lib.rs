@@ -47,9 +47,12 @@
 //!
 //! For more guidance on this, see the documentation for [`EntityEvent`].
 
+extern crate alloc;
+
 mod button;
 mod checkbox;
 mod dialog;
+mod dock;
 mod drag_proxy;
 mod list;
 mod menu;
@@ -70,6 +73,7 @@ use bevy_input_focus::pointer_focus::PointerFocusPlugin;
 pub use button::*;
 pub use checkbox::*;
 pub use dialog::*;
+pub use dock::*;
 pub use drag_proxy::*;
 pub use list::*;
 pub use menu::*;

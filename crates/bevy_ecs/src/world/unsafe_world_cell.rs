@@ -16,7 +16,7 @@ use crate::{
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData, SingleEntityQueryData},
+    query::{QueryAccessError, ReleaseStateQueryData, SingleEntityQueryData},
     resource::{Resource, ResourceEntities},
     storage::{ComponentSparseSet, Storages, Table},
     system::Commands,
@@ -156,7 +156,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub unsafe fn new_mutable_from_ptr(world: *mut World) -> Self {
         Self {
             // SAFETY: caller ensures that the pointer came from a already valid `UnsafeWorldCell`
-            ptr: unsafe { NonNull::new(world).debug_checked_unwrap() },
+            ptr: unsafe { NonNull::new(world).unwrap_unchecked() },
             #[cfg(debug_assertions)]
             allows_mutable_access: true,
             _marker: PhantomData,
@@ -172,7 +172,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub unsafe fn new_readonly_from_ptr(world: *const World) -> Self {
         Self {
             // SAFETY: caller ensures that the pointer came from a already valid `UnsafeWorldCell`
-            ptr: unsafe { NonNull::new(world.cast_mut()).debug_checked_unwrap() },
+            ptr: unsafe { NonNull::new(world.cast_mut()).unwrap_unchecked() },
             #[cfg(debug_assertions)]
             allows_mutable_access: false,
             _marker: PhantomData,
@@ -1104,7 +1104,7 @@ impl<'w> UnsafeEntityCell<'w> {
             self.world
                 .archetypes()
                 .get(location.archetype_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
         if Q::matches_component_set(&state, &|id| archetype.contains(id)) {
             // SAFETY: state was initialized above using the world passed into this function
@@ -1116,11 +1116,20 @@ impl<'w> UnsafeEntityCell<'w> {
                     .storages()
                     .tables
                     .get(location.table_id)
-                    .debug_checked_unwrap()
+                    .unwrap_unchecked()
             };
             // SAFETY: Archetype and table are from the same world used to initialize state and fetch.
             // Table corresponds to archetype. State is the same state used to init fetch above.
-            unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
+            unsafe {
+                Q::set_archetype(
+                    &mut fetch,
+                    &state,
+                    location.archetype_id,
+                    archetype,
+                    location.table_id,
+                    table,
+                );
+            }
             // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
             let item = unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) };
             item.map(Q::release_state)
@@ -1367,13 +1376,13 @@ unsafe fn get_component_and_ticks(
                     ComponentTickCells {
                         added: table
                             .get_added_tick(component_id, location.table_row)
-                            .debug_checked_unwrap(),
+                            .unwrap_unchecked(),
                         changed: table
                             .get_changed_tick(component_id, location.table_row)
-                            .debug_checked_unwrap(),
+                            .unwrap_unchecked(),
                         changed_by: table
                             .get_changed_by(component_id, location.table_row)
-                            .map(|changed_by| changed_by.debug_checked_unwrap()),
+                            .map(|changed_by| changed_by.unwrap_unchecked()),
                         summary_tick: table.get_summary_tick(component_id),
                     },
                 )

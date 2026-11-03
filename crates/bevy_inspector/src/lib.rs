@@ -13,6 +13,8 @@
 extern crate alloc;
 
 pub mod column_split;
+#[cfg(feature = "remote")]
+pub mod connection_panel;
 pub mod details_panel;
 pub mod entity_tree;
 #[cfg(feature = "remote")]
@@ -132,16 +134,30 @@ impl Plugin for InspectorPlugin {
         app.init_resource::<remote::RemoteConnection>()
             .init_resource::<remote::RemoteSnapshot>()
             .init_resource::<remote::RemoteWorld>()
+            .init_resource::<remote::stepping::RemoteStepping>()
+            .init_resource::<remote::stepping::SteppingStatus>()
             .add_systems(
                 PostUpdate,
                 (
                     remote::sync_remote_source,
                     remote::poll_remote_connection,
+                    remote::stepping::poll_remote_stepping,
                     remote::sync_remote_world,
                 )
                     .chain()
                     .before(sync_entity_tree)
                     .before(sync_details_panel),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    connection_panel::init_address_input,
+                    connection_panel::sync_connection_status,
+                    remote::stepping::sync_stepping_controls
+                        .after(remote::stepping::poll_remote_stepping),
+                )
+                    .after(remote::poll_remote_connection)
+                    .before(UiSystems::Prepare),
             );
     }
 }
