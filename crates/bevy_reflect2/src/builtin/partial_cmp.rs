@@ -35,6 +35,7 @@ impl dyn Reflect {
             },
             (KindRef::List(a), KindRef::List(b)) => lexicographic_cmp(a.iter(), b.iter()),
             (KindRef::Array(a), KindRef::Array(b)) => lexicographic_cmp(a.iter(), b.iter()),
+            (KindRef::Pointer(a), KindRef::Pointer(b)) => a.get().reflect_partial_cmp(b.get()),
             _ => Err(ReflectPartialCmpError { ty }),
         }
     }

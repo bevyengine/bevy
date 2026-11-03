@@ -67,6 +67,7 @@ impl dyn Reflect {
                     item.reflect_hash_into(hasher)?;
                 }
             }
+            KindRef::Pointer(value) => value.get().reflect_hash_into(hasher)?,
             KindRef::Map(_) | KindRef::Set(_) | KindRef::Primitive(_) => {
                 // Primitives, maps, and sets are either handled above by the custom hash impl, or
                 // they fail to hash

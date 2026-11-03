@@ -10,6 +10,8 @@ use crate::{
     kind::KindRef,
     kind::ListAccess,
     kind::MapAccess,
+    kind::PointerMut,
+    kind::PointerRef,
     kind::SetAccess,
     kind::StructMut,
     kind::StructRef,
@@ -73,6 +75,7 @@ impl dyn Reflect {
                 Kind::Array(array_type) => KindRef::Array(ArrayRef::new(ptr, array_type)),
                 Kind::Map(map_type) => KindRef::Map(map_type.map_access(ptr)),
                 Kind::Set(set_type) => KindRef::Set(set_type.set_access(ptr)),
+                Kind::Pointer(pointer_type) => KindRef::Pointer(PointerRef::new(ptr, pointer_type)),
                 Kind::Primitive(primitive) => KindRef::Primitive(primitive),
             }
         }
@@ -92,6 +95,7 @@ impl dyn Reflect {
                 Kind::Array(array_type) => KindMut::Array(ArrayMut::new(ptr, array_type)),
                 Kind::Map(map_type) => KindMut::Map(map_type.map_access_mut(ptr)),
                 Kind::Set(set_type) => KindMut::Set(set_type.set_access_mut(ptr)),
+                Kind::Pointer(pointer_type) => KindMut::Pointer(PointerMut::new(ptr, pointer_type)),
                 Kind::Primitive(primitive) => KindMut::Primitive(primitive),
             }
         }
@@ -276,6 +280,24 @@ impl dyn Reflect {
         };
         // SAFETY: self.ptr_mut() is a valid, initialized type that matches the type described in set_type
         Some(unsafe { set_type.set_access_mut(self.ptr_mut()) })
+    }
+
+    /// Returns a [`PointerRef`], if this type is a [`Kind::Pointer`].
+    pub fn pointer_ref(&self) -> Option<PointerRef<'_>> {
+        let Kind::Pointer(pointer_type) = self.ty().kind() else {
+            return None;
+        };
+        // SAFETY: self.ptr() is a valid, initialized type that matches the type described in pointer_type
+        Some(unsafe { PointerRef::new(self.ptr(), pointer_type) })
+    }
+
+    /// Returns a [`PointerMut`], if this type is a [`Kind::Pointer`].
+    pub fn pointer_mut(&mut self) -> Option<PointerMut<'_>> {
+        let Kind::Pointer(pointer_type) = self.ty().kind() else {
+            return None;
+        };
+        // SAFETY: self.ptr_mut() is a valid, initialized type that matches the type described in pointer_type
+        Some(unsafe { PointerMut::new(self.ptr_mut(), pointer_type) })
     }
 }
 

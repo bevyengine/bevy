@@ -130,6 +130,10 @@ impl dyn Reflect {
                 }
                 Ok(clone)
             }
+            KindRef::Pointer(value) => value
+                .pointer_type()
+                .wrap(value.get().reflect_clone()?)
+                .map_err(|_| error(WrapFailed)),
             // Primitives that don't have a reflected Clone impl cannot be cloned
             KindRef::Primitive(_) => Err(error(NotCloneable)),
         }
@@ -265,6 +269,10 @@ pub enum ReflectCloneErrorReason {
     /// The type is a list, map, or set that rejected one of its cloned items.
     #[error("a cloned item could not be inserted into it")]
     InsertFailed,
+    /// The type is a [`Pointer`](crate::kind::Pointer) that could not wrap a clone of the value it
+    /// points to (ex: a `Box<dyn MyTrait>`, which can't be created from a `Box<dyn Reflect>`).
+    #[error("it is a pointer that cannot wrap a clone of the value it points to")]
+    WrapFailed,
 }
 
 impl ReflectCloneError {
