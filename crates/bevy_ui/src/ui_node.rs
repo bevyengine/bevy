@@ -905,7 +905,7 @@ pub enum InlineDirection {
 )]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -935,7 +935,7 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Default;
+    pub const DEFAULT: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -946,7 +946,7 @@ impl AlignItems {
             | AlignItems::FlexStartSafe
             | AlignItems::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            AlignItems::Default
+            AlignItems::Normal
             | AlignItems::Start
             | AlignItems::Center
             | AlignItems::End
@@ -966,7 +966,7 @@ impl AlignItems {
             AlignItems::End => AlignItems::EndSafe,
             AlignItems::FlexStart => AlignItems::FlexStartSafe,
             AlignItems::FlexEnd => AlignItems::FlexEndSafe,
-            AlignItems::Default
+            AlignItems::Normal
             | AlignItems::StartSafe
             | AlignItems::EndSafe
             | AlignItems::CenterSafe
@@ -1003,7 +1003,7 @@ impl Default for AlignItems {
 )]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1023,14 +1023,14 @@ pub enum JustifyItems {
 }
 
 impl JustifyItems {
-    pub const DEFAULT: Self = Self::Default;
+    pub const DEFAULT: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            JustifyItems::Default
+            JustifyItems::Normal
             | JustifyItems::Start
             | JustifyItems::Center
             | JustifyItems::End
@@ -1046,7 +1046,7 @@ impl JustifyItems {
             JustifyItems::Start => JustifyItems::StartSafe,
             JustifyItems::Center => JustifyItems::CenterSafe,
             JustifyItems::End => JustifyItems::EndSafe,
-            JustifyItems::Default
+            JustifyItems::Normal
             | JustifyItems::StartSafe
             | JustifyItems::EndSafe
             | JustifyItems::CenterSafe
@@ -1257,7 +1257,7 @@ impl Default for JustifySelf {
 )]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1291,7 +1291,7 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Default;
+    pub const DEFAULT: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1302,7 +1302,7 @@ impl AlignContent {
             | AlignContent::FlexStartSafe
             | AlignContent::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            AlignContent::Default
+            AlignContent::Normal
             | AlignContent::Start
             | AlignContent::Center
             | AlignContent::End
@@ -1324,7 +1324,7 @@ impl AlignContent {
             AlignContent::End => AlignContent::EndSafe,
             AlignContent::FlexStart => AlignContent::FlexStartSafe,
             AlignContent::FlexEnd => AlignContent::FlexEndSafe,
-            AlignContent::Default
+            AlignContent::Normal
             | AlignContent::StartSafe
             | AlignContent::EndSafe
             | AlignContent::CenterSafe
@@ -1363,7 +1363,7 @@ impl Default for AlignContent {
 )]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1397,7 +1397,7 @@ pub enum JustifyContent {
 }
 
 impl JustifyContent {
-    pub const DEFAULT: Self = Self::Default;
+    pub const DEFAULT: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1408,7 +1408,7 @@ impl JustifyContent {
             | JustifyContent::FlexStartSafe
             | JustifyContent::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            JustifyContent::Default
+            JustifyContent::Normal
             | JustifyContent::Start
             | JustifyContent::Center
             | JustifyContent::End
@@ -1430,7 +1430,7 @@ impl JustifyContent {
             JustifyContent::End => JustifyContent::EndSafe,
             JustifyContent::FlexStart => JustifyContent::FlexStartSafe,
             JustifyContent::FlexEnd => JustifyContent::FlexEndSafe,
-            JustifyContent::Default
+            JustifyContent::Normal
             | JustifyContent::StartSafe
             | JustifyContent::EndSafe
             | JustifyContent::CenterSafe
