@@ -38,7 +38,9 @@ approx = "0.5"
 rand = "0.10"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", default-features = false, features = ["approx"] }
-glam = { version = "0.34.1", default-features = false, features = ["approx"] }
+glam = { version = "0.34.1", default-features = false, features = [
+  "approx-05",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 getrandom = { version = "0.4", default-features = false, features = [
@@ -60,9 +62,9 @@ alloc = ["serde?/alloc", "rand?/alloc"]
 
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
-approx = ["dep:approx", "glam/approx"]
+approx = ["dep:approx", "glam/approx-05"]
 # Enable interoperation of glam types with mint-compatible libraries
-mint = ["glam/mint"]
+mint = ["glam/mint-05"]
 # Enable libm mathematical functions for glam types to ensure consistent outputs
 # across platforms at the cost of losing hardware-level optimization using intrinsics
 libm = ["dep:libm", "glam/libm"]
@@ -71,7 +73,7 @@ glam_assert = ["glam/glam-assert"]
 # Enable assertions in debug builds to check the validity of parameters passed to glam
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
-rand = ["dep:rand", "glam/rand"]
+rand = ["dep:rand", "glam/rand-010"]
 # Enable bevy_reflect (requires alloc)
 bevy_reflect = ["dep:bevy_reflect", "alloc"]
 # Enable libm mathematical functions as a fallback for no_std environments.

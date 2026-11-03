@@ -47,7 +47,7 @@ bevy_platform = { path = "../crates/bevy_platform", optional = true, default-fea
 glam = { version = "0.34.1", default-features = false, features = [
   "std",
   "all-types",
-  "rand",
+  "rand-010",
   "bytemuck",
 ] }
 rand = "0.10"
