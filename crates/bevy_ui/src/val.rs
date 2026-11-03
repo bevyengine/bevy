@@ -203,39 +203,19 @@ impl core::str::FromStr for Val {
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Calc(a), Self::Calc(b)) => return a == b,
+            (Self::Auto, Self::Auto) => true,
+            (Self::Calc(a), Self::Calc(b)) => a == b,
             (Self::Min(a, x), Self::Min(b, y)) | (Self::Max(a, x), Self::Max(b, y)) => {
-                return ValOperands::new(*a, *x) == ValOperands::new(*b, *y);
+                ValOperands::new(*a, *x) == ValOperands::new(*b, *y)
             }
-            (Self::Clamp(a, x), Self::Clamp(b, y)) => return a == b && x == y,
-            (Self::Sum(..), _) | (_, Self::Sum(..)) => {
-                return self.sum_operands() == other.sum_operands();
-            }
-            _ => {}
-        }
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-                | (Self::Em(_), Self::Em(_))
-                | (Self::Rem(_), Self::Rem(_))
-        );
-
-        // as long as the units are the same comparing `inner`
-        // is valid.
-        let left = self.inner();
-        let right = other.inner();
-
-        match (same_unit, left, right) {
-            (true, a, b) => a == b,
-            // All zero-value variants are considered equal.
-            (false, Some(a), Some(b)) => a == 0. && b == 0.,
-            _ => false,
+            (Self::Clamp(a, x), Self::Clamp(b, y)) => a == b && x == y,
+            (Self::Sum(..), _) | (_, Self::Sum(..)) => self.sum_operands() == other.sum_operands(),
+            _ => match (self.unit(), self.inner(), other.unit(), other.inner()) {
+                (Some(unit), Some(a), Some(other_unit), Some(b)) if unit == other_unit => a == b,
+                // All zero-value variants are considered equal.
+                (Some(_), Some(a), Some(_), Some(b)) => a == 0. && b == 0.,
+                _ => false,
+            },
         }
     }
 }
