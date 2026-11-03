@@ -618,6 +618,12 @@ impl Archetype {
         self.entities.reserve(additional);
     }
 
+    /// Shrinks the capacity of the archetype's entity list as much as possible.
+    #[inline]
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.entities.shrink_to_fit();
+    }
+
     /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
