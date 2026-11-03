@@ -1,4 +1,3 @@
-use bevy_platform::sync::Arc;
 use taffy::style_helpers;
 
 use crate::{
@@ -9,7 +8,7 @@ use crate::{
     RepeatedGridTrack, UiRect, Val,
 };
 
-use super::layout_tree::{PercentageCalc, TaffyStyle};
+use super::layout_tree::{PercentageCalc, PercentageCalcs, TaffyStyle};
 
 impl Val {
     /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels
@@ -69,7 +68,7 @@ impl Val {
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Arc<PercentageCalc>>,
+        calcs: &mut PercentageCalcs,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
             Val::Auto => style_helpers::auto(),
@@ -78,8 +77,8 @@ impl Val {
                 if !physical.uses_percent() {
                     return style_helpers::length(PercentageCalc(physical).resolve(0.0));
                 }
-                let calc = Arc::new(PercentageCalc(physical));
-                let value = taffy::style::LengthPercentageAuto::calc(Arc::as_ptr(&calc).cast());
+                let calc = Box::new(PercentageCalc(physical));
+                let value = taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
                 value
             }
@@ -108,7 +107,7 @@ impl Val {
     pub(super) fn to_length_percentage(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Arc<PercentageCalc>>,
+        calcs: &mut PercentageCalcs,
     ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto => style_helpers::length(0.0_f32),
@@ -117,8 +116,8 @@ impl Val {
                 if !physical.uses_percent() {
                     return style_helpers::length(PercentageCalc(physical).resolve(0.0));
                 }
-                let calc = Arc::new(PercentageCalc(physical));
-                let value = taffy::style::LengthPercentage::calc(Arc::as_ptr(&calc).cast());
+                let calc = Box::new(PercentageCalc(physical));
+                let value = taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
                 value
             }
@@ -150,7 +149,7 @@ impl Val {
     fn to_length_percentage_for_border(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Arc<PercentageCalc>>,
+        calcs: &mut PercentageCalcs,
     ) -> taffy::style::LengthPercentage {
         let length = self.to_length_percentage(context, calcs);
         let raw = length.into_raw();
@@ -168,7 +167,7 @@ impl Val {
     fn to_dimension(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Arc<PercentageCalc>>,
+        calcs: &mut PercentageCalcs,
     ) -> taffy::style::Dimension {
         self.to_length_percentage_auto(context, calcs).into()
     }

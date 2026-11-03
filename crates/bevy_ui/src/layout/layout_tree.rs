@@ -9,7 +9,6 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_platform::sync::Arc;
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize};
 use bevy_utils::default;
 use taffy::{
@@ -43,13 +42,15 @@ unsafe impl Send for TaffyStyle {}
 unsafe impl Sync for TaffyStyle {}
 
 /// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
-/// Lengths using percentages that can't be resolved until layout are stored in `Arc<PercentageCalc>`s
-/// and `Style` references them using raw pointers. The `Vec` is used to keep the arcs alive.
-#[derive(Default, Component, Clone, Deref)]
-pub struct TaffyStyle(
-    #[deref] pub(crate) Style,
-    pub(crate) Vec<Arc<PercentageCalc>>,
-);
+/// Lengths using percentages that can't be resolved until layout are stored in `Box<PercentageCalc>`es
+/// and `Style` references them using raw pointers. The `Vec` is used to keep the boxes alive.
+///
+/// Not `Clone`: a copy of the `Style` would keep pointing into the original's boxes.
+#[derive(Default, Component, Deref)]
+pub struct TaffyStyle(#[deref] pub(crate) Style, pub(crate) PercentageCalcs);
+
+/// Each calc is boxed so that it has a stable address for the pointer `Style` holds.
+pub(crate) type PercentageCalcs = Vec<Box<PercentageCalc>>;
 
 /// An expression with every unit other than percent already resolved to physical pixels,
 /// so only the percentage basis taffy supplies is needed to resolve it.
@@ -71,10 +72,10 @@ impl PercentageCalc {
 /// percentage `basis`.
 #[expect(
     unsafe_code,
-    reason = "Taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`"
+    reason = "Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`"
 )]
 pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
-    // SAFETY: Taffy hands back the pointer it was given, which points into an `Arc<PercentageCalc>` owned by the same `TaffyStyle`
+    // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`
     let calc = unsafe { &*ptr.cast::<PercentageCalc>() };
     calc.resolve(basis)
 }
