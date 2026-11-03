@@ -70,32 +70,19 @@ impl Val {
         context: &ValContext,
         calcs: &mut PercentageCalcs,
     ) -> taffy::style::LengthPercentageAuto {
-        match self {
+        match self.to_physical_except_percent(context) {
             Val::Auto => style_helpers::auto(),
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                let physical = self.to_physical_except_percent(context);
-                if !physical.uses_percent() {
-                    return style_helpers::length(PercentageCalc(physical).resolve(0.0));
-                }
+            Val::Percent(value) => style_helpers::percent(value / 100.),
+            Val::Px(value) => style_helpers::length(value),
+            physical if !physical.uses_percent() => {
+                style_helpers::length(PercentageCalc(physical).resolve(0.0))
+            }
+            physical => {
                 let calc = Box::new(PercentageCalc(physical));
-                let value = taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
+                let value =
+                    taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
                 value
-            }
-
-            Val::Percent(value) => style_helpers::percent(value / 100.),
-            Val::Px(value) => style_helpers::length(context.scale_factor * value),
-            Val::VMin(value) => {
-                style_helpers::length(context.physical_size.min_element() * value / 100.)
-            }
-            Val::VMax(value) => {
-                style_helpers::length(context.physical_size.max_element() * value / 100.)
-            }
-            Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
-            Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
-            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
-            Val::Rem(value) => {
-                style_helpers::length(context.scale_factor * value * context.rem_size)
             }
         }
     }
@@ -109,32 +96,19 @@ impl Val {
         context: &ValContext,
         calcs: &mut PercentageCalcs,
     ) -> taffy::style::LengthPercentage {
-        match self {
+        match self.to_physical_except_percent(context) {
             Val::Auto => style_helpers::length(0.0_f32),
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                let physical = self.to_physical_except_percent(context);
-                if !physical.uses_percent() {
-                    return style_helpers::length(PercentageCalc(physical).resolve(0.0));
-                }
+            Val::Percent(value) => style_helpers::percent(value / 100.),
+            Val::Px(value) => style_helpers::length(value),
+            physical if !physical.uses_percent() => {
+                style_helpers::length(PercentageCalc(physical).resolve(0.0))
+            }
+            physical => {
                 let calc = Box::new(PercentageCalc(physical));
-                let value = taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
+                let value =
+                    taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
                 value
-            }
-
-            Val::Percent(value) => style_helpers::percent(value / 100.),
-            Val::Px(value) => style_helpers::length(context.scale_factor * value),
-            Val::VMin(value) => {
-                style_helpers::length(context.physical_size.min_element() * value / 100.)
-            }
-            Val::VMax(value) => {
-                style_helpers::length(context.physical_size.max_element() * value / 100.)
-            }
-            Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
-            Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
-            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
-            Val::Rem(value) => {
-                style_helpers::length(context.scale_factor * value * context.rem_size)
             }
         }
     }
