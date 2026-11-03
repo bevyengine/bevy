@@ -809,14 +809,12 @@ pub struct Calc(pub(crate) Box<CalcOp>);
     reflect(Serialize, Deserialize)
 )]
 pub(crate) enum CalcOp {
-    /// Add two vals.
-    Add(Val, Val),
-    /// Subtract the second `Val` from the first.
-    Sub(Val, Val),
-    /// Return the minimum of the two `Val`s.
-    Min(Val, Val),
-    /// Return the maximum of the two `Val`s.
-    Max(Val, Val),
+    /// The sum of the terms.
+    Sum(Vec<Val>),
+    /// The smallest of the terms.
+    Min(Vec<Val>),
+    /// The largest of the terms.
+    Max(Vec<Val>),
     /// Clamp the second `Val` between the first and third.
     Clamp(Val, Val, Val),
 }
@@ -825,8 +823,8 @@ impl CalcOp {
     /// Returns true if any of the operations in the expression tree uses percentage values.
     pub(crate) fn uses_percent(&self) -> bool {
         match self {
-            Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
-                a.uses_percent() || b.uses_percent()
+            Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
+                terms.iter().any(Val::uses_percent)
             }
             Self::Clamp(min, value, max) => {
                 min.uses_percent() || value.uses_percent() || max.uses_percent()
@@ -841,13 +839,20 @@ impl CalcOp {
         context: &ValContext,
     ) -> Result<f32, ValArithmeticError> {
         let resolve = |val: &Val| val.resolve(physical_base_value, context);
-        Ok(match self {
-            Self::Add(a, b) => resolve(a)? + resolve(b)?,
-            Self::Sub(a, b) => resolve(a)? - resolve(b)?,
-            Self::Min(a, b) => resolve(a)?.min(resolve(b)?),
-            Self::Max(a, b) => resolve(a)?.max(resolve(b)?),
-            Self::Clamp(min, value, max) => resolve(min)?.max(resolve(value)?.min(resolve(max)?)),
-        })
+        let reduce = |terms: &[Val], init: f32, op: fn(f32, f32) -> f32| {
+            terms
+                .iter()
+                .map(resolve)
+                .try_fold(init, |acc, value| Ok(op(acc, value?)))
+        };
+        match self {
+            Self::Sum(terms) => reduce(terms, 0.0, |a, b| a + b),
+            Self::Min(terms) => reduce(terms, f32::INFINITY, f32::min),
+            Self::Max(terms) => reduce(terms, f32::NEG_INFINITY, f32::max),
+            Self::Clamp(min, value, max) => {
+                Ok(resolve(min)?.max(resolve(value)?.min(resolve(max)?)))
+            }
+        }
     }
 
     /// Multiply an operation by a scalar.
@@ -855,9 +860,10 @@ impl CalcOp {
     pub(crate) fn scale(&mut self, k: f32) {
         use core::mem::take;
         match self {
-            Self::Add(a, b) | Self::Sub(a, b) | Self::Min(a, b) | Self::Max(a, b) => {
-                *a *= k;
-                *b *= k;
+            Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
+                for term in terms {
+                    *term *= k;
+                }
             }
             Self::Clamp(min, value, max) => {
                 *min *= k;
@@ -867,12 +873,15 @@ impl CalcOp {
         }
         if k < 0.0 {
             match self {
-                Self::Min(a, b) => *self = Self::Max(take(a), take(b)),
-                Self::Max(a, b) => *self = Self::Min(take(a), take(b)),
+                Self::Min(terms) => *self = Self::Max(take(terms)),
+                Self::Max(terms) => *self = Self::Min(take(terms)),
                 Self::Clamp(min, value, max) => {
-                    *self = Self::Min(take(min), Self::Max(take(value), take(max)).into());
+                    *self = Self::Min(vec![
+                        take(min),
+                        Self::Max(vec![take(value), take(max)]).into(),
+                    ]);
                 }
-                Self::Add(..) | Self::Sub(..) => {}
+                Self::Sum(_) => {}
             }
         }
     }
@@ -1102,7 +1111,7 @@ impl PartialEq for ValOperands {
 }
 
 /// The operation a [`Val::Sum`], [`Val::Min`] or [`Val::Max`] applies to its operands.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReduceOp {
     Sum,
     Min,
@@ -1142,12 +1151,26 @@ impl ReduceOp {
         }
     }
 
-    /// Creates a `CalcOp` from the `ReduceOp` and the given operands.
-    fn calc(self, a: Val, b: Val) -> Val {
+    /// The [`Val`] applying this operation to the inline `operands` followed by the `rest` of the terms.
+    fn build(self, mut operands: ValOperands, rest: Vec<Val>) -> Val {
+        if rest.is_empty() {
+            return self.wrap(operands);
+        }
+        if self == Self::Sum {
+            operands.retain_nonzero();
+        }
+        let mut terms = Vec::with_capacity(rest.len() + 1);
+        if !operands.units.is_empty() {
+            terms.push(self.wrap(operands));
+        }
+        terms.extend(rest);
+        if terms.len() == 1 {
+            return terms.remove(0);
+        }
         match self {
-            Self::Sum => CalcOp::Add(a, b),
-            Self::Min => CalcOp::Min(a, b),
-            Self::Max => CalcOp::Max(a, b),
+            Self::Sum => CalcOp::Sum(terms),
+            Self::Min => CalcOp::Min(terms),
+            Self::Max => CalcOp::Max(terms),
         }
         .into()
     }
@@ -1169,17 +1192,41 @@ impl Val {
         operands.iter()
     }
 
-    /// Combines two `Val`s with an operation. Unit values and expressions with the same operation are combined into
-    /// one inline operand set, if they fit. Otherwise, a `[Calc] is built`.
+    /// Combines two `Val`s with an operation. Unit values and expressions with the same operation are merged into
+    /// one inline operand set, as far as they fit. Any other terms follow it in a [`Calc`].
     pub(crate) fn combine(self, rhs: Val, op: ReduceOp) -> Val {
-        if let (Some(mut terms), Some(rhs_terms)) = (self.operands_for(op), rhs.operands_for(op))
-            && rhs_terms
-                .iter()
-                .all(|(unit, value)| terms.fold(unit, value, op.apply()))
-        {
-            return op.wrap(terms);
+        let mut operands = ValOperands::new(ValUnitSet::EMPTY, [0.0; 3]);
+        let mut rest = Vec::new();
+        self.push_terms(op, &mut operands, &mut rest);
+        rhs.push_terms(op, &mut operands, &mut rest);
+        op.build(operands, rest)
+    }
+
+    /// Folds the terms of `self` under `op` into `operands`, or appends them to `rest` when they don't fit.
+    fn push_terms(self, op: ReduceOp, operands: &mut ValOperands, rest: &mut Vec<Val>) {
+        match self {
+            Val::Calc(calc) => match (*calc.0, op) {
+                (CalcOp::Sum(terms), ReduceOp::Sum)
+                | (CalcOp::Min(terms), ReduceOp::Min)
+                | (CalcOp::Max(terms), ReduceOp::Max) => {
+                    for term in terms {
+                        term.push_terms(op, operands, rest);
+                    }
+                }
+                (other, _) => rest.push(other.into()),
+            },
+            val => {
+                if let Some(terms) = val.operands_for(op) {
+                    for (unit, value) in terms.iter() {
+                        if !operands.fold(unit, value, op.apply()) {
+                            rest.push(Val::leaf(unit, value));
+                        }
+                    }
+                } else {
+                    rest.push(val);
+                }
+            }
         }
-        op.calc(self, rhs)
     }
 
     fn operands_for(&self, op: ReduceOp) -> Option<ValOperands> {
@@ -1764,11 +1811,11 @@ mod tests {
         assert_eq!(resolve(&(value.clone() / 2.0)), Ok(139.0));
         assert_eq!(resolve(&-value.clone()), Ok(-278.0));
         assert_eq!(
-            resolve(&CalcOp::Min(value.clone(), Val::Px(100.0)).into()),
+            resolve(&CalcOp::Min(vec![value.clone(), Val::Px(100.0)]).into()),
             Ok(200.0)
         );
         assert_eq!(
-            resolve(&CalcOp::Max(value.clone(), Val::Px(200.0)).into()),
+            resolve(&CalcOp::Max(vec![value.clone(), Val::Px(200.0)]).into()),
             Ok(400.0)
         );
         assert_eq!(
@@ -1799,11 +1846,11 @@ mod tests {
         };
         let (a, b) = (Val::Px(10.0), Val::Px(20.0));
         assert_eq!(
-            resolve(-Val::from(CalcOp::Min(a.clone(), b.clone()))),
+            resolve(-Val::from(CalcOp::Min(vec![a.clone(), b.clone()]))),
             Ok(-10.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOp::Max(a.clone(), b.clone()))),
+            resolve(-Val::from(CalcOp::Max(vec![a.clone(), b.clone()]))),
             Ok(-20.0)
         );
         assert_eq!(
@@ -1853,12 +1900,29 @@ mod tests {
             Val::Percent(50.0) - Val::Px(10.0),
             Val::Px(10.0).min(Val::Percent(50.0)),
             Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0)),
-            CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into(),
+            CalcOp::Min(vec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)]).into(),
         ];
         for value in values {
             let ron = ron::to_string(&value).unwrap();
             assert_eq!(ron::from_str::<Val>(&ron).unwrap(), value, "{ron}");
         }
+    }
+
+    #[test]
+    fn terms_merge_across_nested_expressions() {
+        let max = Val::Px(10.0).max(Val::Vh(20.0));
+        let sum = Val::Vw(10.0) + max.clone() + Val::Vw(20.0);
+        assert_eq!(sum, max.clone() + Val::Vw(30.0));
+        assert!(
+            matches!(&sum, Val::Calc(calc) if matches!(&*calc.0, CalcOp::Sum(terms) if terms.len() == 2)),
+            "got {sum:?}"
+        );
+        // Nested sums are flattened and same-unit terms are folded away.
+        let sum = (Val::Vw(10.0) + max.clone()) + (max.clone() - Val::Vw(10.0));
+        assert_eq!(sum, CalcOp::Sum(vec![max.clone(), max.clone()]).into());
+        // Minimums behave the same way.
+        let min = Val::Px(1.0).min(max.clone()).min(Val::Px(2.0));
+        assert_eq!(min, CalcOp::Min(vec![Val::Px(1.0), max]).into());
     }
 
     #[test]

@@ -36,24 +36,18 @@ impl Val {
                 resolve_leaf_val((units[0], values[0])),
                 resolve_leaf_val((units[2], values[2])),
             ),
-            Val::Calc(calc) => match &*calc.0 {
-                CalcOp::Add(a, b) => {
-                    a.to_physical_except_percent(context) + b.to_physical_except_percent(context)
+            Val::Calc(calc) => {
+                let physical = |val: &Val| val.to_physical_except_percent(context);
+                match &*calc.0 {
+                    CalcOp::Sum(terms) => terms.iter().map(physical).reduce(|a, b| a + b),
+                    CalcOp::Min(terms) => terms.iter().map(physical).reduce(Val::min),
+                    CalcOp::Max(terms) => terms.iter().map(physical).reduce(Val::max),
+                    CalcOp::Clamp(min, value, max) => {
+                        Some(physical(value).clamp(physical(min), physical(max)))
+                    }
                 }
-                CalcOp::Sub(a, b) => {
-                    a.to_physical_except_percent(context) - b.to_physical_except_percent(context)
-                }
-                CalcOp::Min(a, b) => a
-                    .to_physical_except_percent(context)
-                    .min(b.to_physical_except_percent(context)),
-                CalcOp::Max(a, b) => a
-                    .to_physical_except_percent(context)
-                    .max(b.to_physical_except_percent(context)),
-                CalcOp::Clamp(min, value, max) => value.to_physical_except_percent(context).clamp(
-                    min.to_physical_except_percent(context),
-                    max.to_physical_except_percent(context),
-                ),
-            },
+                .unwrap_or(Val::ZERO)
+            }
             _ => self
                 .operands()
                 .map(resolve_leaf_val)
@@ -639,7 +633,8 @@ mod tests {
                 .to_physical_except_percent(&context),
             Val::Percent(80.0).clamp(Val::Px(200.0), Val::Px(600.0))
         );
-        let nested: Val = CalcOp::Min(Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)).into();
+        let nested: Val =
+            CalcOp::Min(vec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)]).into();
         let physical = nested.to_physical_except_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
         assert_eq!(PercentageCalc(physical).resolve(100.0), 34.0);
