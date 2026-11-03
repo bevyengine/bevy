@@ -50,6 +50,10 @@ mod type_path;
 mod type_registry;
 mod type_vtable;
 
+pub use builtin::{
+    ReflectCloneError, ReflectCloneErrorReason, ReflectHashError, ReflectHashErrorReason,
+    ReflectPartialCmpError, ReflectPartialEqError,
+};
 pub use kind::*;
 pub use reflect::*;
 pub use ty::*;
@@ -99,8 +103,8 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect2, CreateTypeData, FieldKind, Kind, KindRef, Reflect, StructKind,
-        TypeRegistry, Typed,
+        self as bevy_reflect2, CreateTypeData, FieldKind, Kind, KindRef, Reflect,
+        ReflectCloneErrorReason, ReflectHashErrorReason, StructKind, TypeRegistry, Typed,
     };
     use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
     use core::{
@@ -925,30 +929,37 @@ mod tests {
             a: 2,
             b: String::from("a"),
         };
-        assert_eq!(reflect.reflect_partial_eq(&other), Some(false));
-        assert_eq!(reflect.reflect_partial_cmp(&other), Some(Ordering::Less));
+        assert_eq!(reflect.reflect_partial_eq(&other).ok(), Some(false));
         assert_eq!(
-            reflect.reflect_hash(),
+            reflect.reflect_partial_cmp(&other).unwrap(),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            reflect.reflect_hash().ok(),
             (&Named {
                 a: 1,
                 b: String::from("b"),
             } as &dyn Reflect)
                 .reflect_hash()
+                .ok()
         );
         assert_ne!(
-            reflect.reflect_hash(),
-            (&other as &dyn Reflect).reflect_hash()
+            reflect.reflect_hash().ok(),
+            (&other as &dyn Reflect).reflect_hash().ok()
         );
         let clone = reflect.reflect_clone().unwrap();
-        assert_eq!(clone.reflect_partial_eq(reflect), Some(true));
+        assert_eq!(clone.reflect_partial_eq(reflect).ok(), Some(true));
         assert_eq!(clone.downcast_ref::<Named>().unwrap().b, "b");
 
         let unnamed = &Unnamed(1, 2.5) as &dyn Reflect;
         assert_eq!(format!("{unnamed:?}"), "Unnamed(1, 2.5)");
-        assert_eq!(unnamed.reflect_partial_eq(&Unnamed(1, 2.5)), Some(true));
+        assert_eq!(
+            unnamed.reflect_partial_eq(&Unnamed(1, 2.5)).ok(),
+            Some(true)
+        );
         assert_eq!(format!("{:?}", &Unit as &dyn Reflect), "Unit");
         assert_eq!(
-            (&Unit as &dyn Reflect).reflect_partial_eq(&Unit),
+            (&Unit as &dyn Reflect).reflect_partial_eq(&Unit).ok(),
             Some(true)
         );
 
@@ -956,23 +967,26 @@ mod tests {
         assert_eq!(format!("{x:?}"), "X { value: 1 }");
         assert_eq!(format!("{:?}", &Enum::Y(2) as &dyn Reflect), "Y(2)");
         assert_eq!(format!("{:?}", &Enum::Z as &dyn Reflect), "Z");
-        assert_eq!(x.reflect_partial_eq(&Enum::X { value: 1 }), Some(true));
-        assert_eq!(x.reflect_partial_eq(&Enum::Z), Some(false));
-        assert_eq!(x.reflect_partial_cmp(&Enum::Y(0)), Some(Ordering::Less));
+        assert_eq!(x.reflect_partial_eq(&Enum::X { value: 1 }).ok(), Some(true));
+        assert_eq!(x.reflect_partial_eq(&Enum::Z).ok(), Some(false));
         assert_eq!(
-            x.reflect_hash(),
-            (&Enum::X { value: 1 } as &dyn Reflect).reflect_hash()
+            x.reflect_partial_cmp(&Enum::Y(0)).unwrap(),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            x.reflect_hash().ok(),
+            (&Enum::X { value: 1 } as &dyn Reflect).reflect_hash().ok()
         );
         assert_ne!(
-            x.reflect_hash(),
-            (&Enum::X { value: 2 } as &dyn Reflect).reflect_hash()
+            x.reflect_hash().ok(),
+            (&Enum::X { value: 2 } as &dyn Reflect).reflect_hash().ok()
         );
         let clone = (&Enum::Y(3) as &dyn Reflect).reflect_clone().unwrap();
         assert!(matches!(clone.downcast_ref::<Enum>(), Some(Enum::Y(3))));
 
         // Values of different types are never equal
-        assert_eq!(reflect.reflect_partial_eq(&Unit), Some(false));
-        assert_eq!(reflect.reflect_partial_cmp(&Unit), None);
+        assert_eq!(reflect.reflect_partial_eq(&Unit).ok(), Some(false));
+        assert_eq!(reflect.reflect_partial_cmp(&Unit).unwrap(), None);
 
         // Nested values
         let nested = vec![Some(Unnamed(1, 2.0)), None];
@@ -981,7 +995,7 @@ mod tests {
             "[Some(Unnamed(1, 2.0)), None]"
         );
         let clone = (&nested as &dyn Reflect).reflect_clone().unwrap();
-        assert_eq!(clone.reflect_partial_eq(&nested), Some(true));
+        assert_eq!(clone.reflect_partial_eq(&nested).ok(), Some(true));
     }
 
     #[test]
@@ -1014,7 +1028,7 @@ mod tests {
         struct Float(f32);
 
         fn hash(value: &dyn Reflect) -> Option<u64> {
-            value.reflect_hash()
+            value.reflect_hash().ok()
         }
 
         // Equal values have equal hashes
@@ -1068,9 +1082,12 @@ mod tests {
         // Ignored fields are not compared, so they are not hashed either
         let foo = &Foo { a: 1, cache: 2 } as &dyn Reflect;
         let other = Foo { a: 1, cache: 3 };
-        assert_eq!(foo.reflect_partial_eq(&other), Some(true));
-        assert_eq!(foo.reflect_hash(), (&other as &dyn Reflect).reflect_hash());
-        assert!(foo.reflect_hash().is_some());
+        assert_eq!(foo.reflect_partial_eq(&other).ok(), Some(true));
+        assert_eq!(
+            foo.reflect_hash().ok(),
+            (&other as &dyn Reflect).reflect_hash().ok()
+        );
+        assert!(foo.reflect_hash().is_ok());
     }
 
     #[test]
@@ -1095,15 +1112,19 @@ mod tests {
         }
 
         let a = &Struct(11) as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(&Struct(19)), Some(true));
-        assert!(a.reflect_hash().is_none());
+        assert_eq!(a.reflect_partial_eq(&Struct(19)).ok(), Some(true));
+        assert!(a.reflect_hash().is_err());
 
         let a = &Enum::A(11) as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(&Enum::A(19)), Some(true));
-        assert!(a.reflect_hash().is_none());
+        assert_eq!(a.reflect_partial_eq(&Enum::A(19)).ok(), Some(true));
+        assert!(a.reflect_hash().is_err());
 
-        // Containers of these values can't be hashed either
-        assert!((&vec![Struct(11)] as &dyn Reflect).reflect_hash().is_none());
+        // Containers of these values can't be hashed either, and the error describes the nested value
+        let error = (&vec![Struct(11)] as &dyn Reflect)
+            .reflect_hash()
+            .unwrap_err();
+        assert_eq!(error.ty.type_id(), TypeId::of::<Struct>());
+        assert_eq!(error.reason, ReflectHashErrorReason::PartialEqWithoutHash);
 
         // A registered `Hash` is used instead of the structural hash
         #[derive(Reflect)]
@@ -1114,11 +1135,11 @@ mod tests {
         struct WithHash(u32);
 
         let a = &WithHash(11) as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(&WithHash(19)), Some(true));
-        assert!(a.reflect_hash().is_some());
+        assert_eq!(a.reflect_partial_eq(&WithHash(19)).ok(), Some(true));
+        assert!(a.reflect_hash().is_ok());
         assert_eq!(
-            a.reflect_hash(),
-            (&WithHash(19) as &dyn Reflect).reflect_hash()
+            a.reflect_hash().ok(),
+            (&WithHash(19) as &dyn Reflect).reflect_hash().ok()
         );
     }
 
@@ -1133,15 +1154,15 @@ mod tests {
         let foo = &Foo { value: 1 } as &dyn Reflect;
         assert!(Foo::TYPE.vtable().debug.is_some());
         assert_eq!(format!("{foo:?}"), "Foo { value: 1 }");
-        assert_eq!(foo.reflect_partial_eq(&Foo { value: 1 }), Some(true));
+        assert_eq!(foo.reflect_partial_eq(&Foo { value: 1 }).ok(), Some(true));
         assert_eq!(
-            foo.reflect_partial_cmp(&Foo { value: 2 }),
+            foo.reflect_partial_cmp(&Foo { value: 2 }).unwrap(),
             Some(Ordering::Less)
         );
         // Unlike the structural implementation, the registered `Hash` supports structs
         assert_eq!(
-            foo.reflect_hash(),
-            (&Foo { value: 1 } as &dyn Reflect).reflect_hash()
+            foo.reflect_hash().ok(),
+            (&Foo { value: 1 } as &dyn Reflect).reflect_hash().ok()
         );
         let clone = foo.reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<Foo>(), Some(&Foo { value: 1 }));
@@ -1185,12 +1206,15 @@ mod tests {
                 .0,
             12
         );
-        assert_eq!(foo.reflect_partial_eq(&Foo(19)), Some(true));
-        assert_eq!(foo.reflect_partial_eq(&Foo(20)), Some(false));
-        assert_eq!(foo.reflect_partial_cmp(&Foo(20)), Some(Ordering::Greater));
+        assert_eq!(foo.reflect_partial_eq(&Foo(19)).ok(), Some(true));
+        assert_eq!(foo.reflect_partial_eq(&Foo(20)).ok(), Some(false));
         assert_eq!(
-            foo.reflect_hash(),
-            (&Foo(15) as &dyn Reflect).reflect_hash()
+            foo.reflect_partial_cmp(&Foo(20)).unwrap(),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            foo.reflect_hash().ok(),
+            (&Foo(15) as &dyn Reflect).reflect_hash().ok()
         );
     }
 
@@ -1209,8 +1233,8 @@ mod tests {
         assert_eq!(format!("{foo:?}"), "Foo<7>");
         let clone = foo.reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<Foo>().unwrap().0, 14);
-        assert_eq!(foo.reflect_partial_eq(&Foo(9)), Some(true));
-        assert_eq!(foo.reflect_partial_eq(&Foo(8)), Some(false));
+        assert_eq!(foo.reflect_partial_eq(&Foo(9)).ok(), Some(true));
+        assert_eq!(foo.reflect_partial_eq(&Foo(8)).ok(), Some(false));
     }
 
     #[test]
@@ -1260,11 +1284,11 @@ mod tests {
             ignored: NotReflect(String::from("y")),
             b: 2,
         };
-        assert_eq!(reflect.reflect_partial_eq(&other), Some(true));
+        assert_eq!(reflect.reflect_partial_eq(&other).ok(), Some(true));
         assert_eq!(foo.ignored.0, "x");
 
         // Ignored fields can't be initialized or cloned structurally
-        assert!(reflect.reflect_clone().is_none());
+        assert!(reflect.reflect_clone().is_err());
         // SAFETY: `func` is never called with an invalid pointer, because this returns `None`
         assert!(unsafe { Foo::TYPE.initialize_struct(|_, _| {}) }.is_none());
 
@@ -1348,7 +1372,7 @@ mod tests {
             .downcast_mut::<u32>()
             .unwrap() = 20;
         assert!(reflect.enum_ref().unwrap().field(1).is_none());
-        assert!(reflect.reflect_clone().is_none());
+        assert!(reflect.reflect_clone().is_err());
         let Foo::A { ignored, value } = &a else {
             panic!("expected `Foo::A`");
         };
@@ -1357,7 +1381,7 @@ mod tests {
         let b_value = Foo::B(NotReflect(3));
         let b = &b_value as &dyn Reflect;
         assert_eq!(format!("{b:?}"), "B(..)");
-        assert!(b.reflect_clone().is_none());
+        assert!(b.reflect_clone().is_err());
         let Foo::B(ignored) = &b_value else {
             panic!("expected `Foo::B`");
         };
@@ -1427,7 +1451,7 @@ mod tests {
         let value = DefaultOnly {
             ignored: String::new(),
         };
-        assert!((&value as &dyn Reflect).reflect_clone().is_none());
+        assert!((&value as &dyn Reflect).reflect_clone().is_err());
         assert!(value.ignored.is_empty());
 
         #[derive(Reflect)]
@@ -1478,14 +1502,27 @@ mod tests {
             c: NotCloneable(3),
             d: Counted(4),
         };
-        assert!((&foo as &dyn Reflect).reflect_clone().is_none());
+        // The error describes the nested value that failed
+        let error = (&foo as &dyn Reflect).reflect_clone().unwrap_err();
+        assert_eq!(error.ty.type_id(), TypeId::of::<NotCloneable>());
+        assert!(matches!(
+            error.reason,
+            ReflectCloneErrorReason::IgnoredFieldNoClone { name: "0" }
+        ));
+        assert_eq!(
+            format!("{error}"),
+            format!(
+                "cannot clone `{}`: ignored field `0` has no clone function",
+                NotCloneable::TYPE.type_path().full()
+            )
+        );
         // The clones of `a` and `b` were dropped, and `d` was never cloned
         assert_eq!(DROPS.load(Relaxed), 2);
         drop(foo);
         assert_eq!(DROPS.load(Relaxed), 5);
 
         let bar = Bar::A(Counted(1), NotCloneable(2), Counted(3));
-        assert!((&bar as &dyn Reflect).reflect_clone().is_none());
+        assert!((&bar as &dyn Reflect).reflect_clone().is_err());
         assert_eq!(DROPS.load(Relaxed), 6);
         drop(bar);
         assert_eq!(DROPS.load(Relaxed), 8);

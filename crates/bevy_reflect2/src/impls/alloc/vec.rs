@@ -111,23 +111,26 @@ mod tests {
         let a = &vec![1, 2, 3] as &dyn Reflect;
         let b = &vec![1, 2, 3] as &dyn Reflect;
         let c = &vec![3, 2, 1] as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(b), Some(true));
-        assert_eq!(a.reflect_partial_eq(c), Some(false));
-        assert_eq!(a.reflect_partial_eq(&vec![1, 2]), Some(false));
-        assert_eq!(a.reflect_partial_cmp(c), Some(core::cmp::Ordering::Less));
+        assert_eq!(a.reflect_partial_eq(b).ok(), Some(true));
+        assert_eq!(a.reflect_partial_eq(c).ok(), Some(false));
+        assert_eq!(a.reflect_partial_eq(&vec![1, 2]).ok(), Some(false));
         assert_eq!(
-            a.reflect_partial_cmp(&vec![1, 2]),
+            a.reflect_partial_cmp(c).unwrap(),
+            Some(core::cmp::Ordering::Less)
+        );
+        assert_eq!(
+            a.reflect_partial_cmp(&vec![1, 2]).unwrap(),
             Some(core::cmp::Ordering::Greater)
         );
-        assert_eq!(a.reflect_hash(), b.reflect_hash());
-        assert_ne!(a.reflect_hash(), c.reflect_hash());
+        assert_eq!(a.reflect_hash().ok(), b.reflect_hash().ok());
+        assert_ne!(a.reflect_hash().ok(), c.reflect_hash().ok());
         assert_eq!(format!("{a:?}"), "[1, 2, 3]");
         let clone = a.reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<Vec<i32>>(), Some(&vec![1, 2, 3]));
         let default = Vec::<i32>::TYPE.default().unwrap();
         assert_eq!(default.downcast_ref::<Vec<i32>>(), Some(&Vec::new()));
         // Floats can't be hashed
-        assert!((&vec![1.0f32] as &dyn Reflect).reflect_hash().is_none());
+        assert!((&vec![1.0f32] as &dyn Reflect).reflect_hash().is_err());
     }
 
     #[test]

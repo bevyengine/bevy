@@ -127,10 +127,10 @@ mod tests {
 
         let clone: Box<dyn Reflect> = reflect.reflect_clone().unwrap();
         assert!(clone.is::<PhantomData<fn() -> NotReflect>>());
-        assert_eq!(reflect.reflect_partial_eq(&*clone), Some(true));
-        assert!(reflect.reflect_hash().is_some());
+        assert_eq!(reflect.reflect_partial_eq(&*clone).ok(), Some(true));
+        assert!(reflect.reflect_hash().is_ok());
         assert_eq!(
-            reflect.reflect_partial_cmp(&*clone),
+            reflect.reflect_partial_cmp(&*clone).unwrap(),
             Some(core::cmp::Ordering::Equal)
         );
         assert_eq!(format!("{reflect:?}"), "PhantomData<fn() -> NotReflect>");

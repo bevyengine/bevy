@@ -56,20 +56,20 @@ mod tests {
     #[test]
     fn option_builtins() {
         let a = &Some(123) as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(&Some(123)), Some(true));
-        assert_eq!(a.reflect_partial_eq(&Some(321)), Some(false));
-        assert_eq!(a.reflect_partial_eq(&None::<i32>), Some(false));
+        assert_eq!(a.reflect_partial_eq(&Some(123)).ok(), Some(true));
+        assert_eq!(a.reflect_partial_eq(&Some(321)).ok(), Some(false));
+        assert_eq!(a.reflect_partial_eq(&None::<i32>).ok(), Some(false));
         assert_eq!(
-            a.reflect_partial_cmp(&None::<i32>),
+            a.reflect_partial_cmp(&None::<i32>).unwrap(),
             Some(core::cmp::Ordering::Greater)
         );
         assert_eq!(
-            a.reflect_hash(),
-            (&Some(123) as &dyn Reflect).reflect_hash()
+            a.reflect_hash().ok(),
+            (&Some(123) as &dyn Reflect).reflect_hash().ok()
         );
         assert_ne!(
-            a.reflect_hash(),
-            (&Some(321) as &dyn Reflect).reflect_hash()
+            a.reflect_hash().ok(),
+            (&Some(321) as &dyn Reflect).reflect_hash().ok()
         );
         assert_eq!(format!("{a:?}"), "Some(123)");
         assert_eq!(format!("{:?}", &None::<i32> as &dyn Reflect), "None");

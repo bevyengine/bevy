@@ -146,18 +146,24 @@ mod tests {
     fn primitive_builtins() {
         let a = &10u32 as &dyn Reflect;
         let b = &20u32 as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(&10u32), Some(true));
-        assert_eq!(a.reflect_partial_eq(b), Some(false));
-        assert_eq!(a.reflect_partial_eq(&10u64), Some(false));
-        assert_eq!(a.reflect_partial_cmp(b), Some(core::cmp::Ordering::Less));
-        assert_eq!(a.reflect_hash(), (&10u32 as &dyn Reflect).reflect_hash());
-        assert_ne!(a.reflect_hash(), b.reflect_hash());
+        assert_eq!(a.reflect_partial_eq(&10u32).ok(), Some(true));
+        assert_eq!(a.reflect_partial_eq(b).ok(), Some(false));
+        assert_eq!(a.reflect_partial_eq(&10u64).ok(), Some(false));
+        assert_eq!(
+            a.reflect_partial_cmp(b).unwrap(),
+            Some(core::cmp::Ordering::Less)
+        );
+        assert_eq!(
+            a.reflect_hash().ok(),
+            (&10u32 as &dyn Reflect).reflect_hash().ok()
+        );
+        assert_ne!(a.reflect_hash().ok(), b.reflect_hash().ok());
         assert_eq!(alloc::format!("{a:?}"), "10");
         assert_eq!(
             *a.reflect_clone().unwrap().downcast_ref::<u32>().unwrap(),
             10
         );
-        assert!((&1.0f32 as &dyn Reflect).reflect_hash().is_none());
+        assert!((&1.0f32 as &dyn Reflect).reflect_hash().is_err());
     }
 
     #[test]
@@ -168,7 +174,7 @@ mod tests {
         assert_eq!(reflect.ty().type_path().short(), "&str");
         assert_eq!(reflect.ty().type_path().type_ident(), "str");
         assert_eq!(reflect.ty().type_path().crate_name(), None);
-        assert_eq!(reflect.reflect_partial_eq(&"hello"), Some(true));
+        assert_eq!(reflect.reflect_partial_eq(&"hello").ok(), Some(true));
         assert_eq!(alloc::format!("{reflect:?}"), "\"hello\"");
         let default = <&'static str>::TYPE.default().unwrap();
         assert_eq!(*default.downcast_ref::<&'static str>().unwrap(), "");
@@ -198,13 +204,13 @@ mod tests {
             .downcast_mut::<u32>()
             .unwrap() = 10;
         assert_eq!(alloc::format!("{reflect:?}"), "[1, 2, 10]");
-        assert_eq!(reflect.reflect_partial_eq(&[1u32, 2, 10]), Some(true));
-        assert_eq!(reflect.reflect_partial_eq(&[1u32, 2, 11]), Some(false));
+        assert_eq!(reflect.reflect_partial_eq(&[1u32, 2, 10]).ok(), Some(true));
+        assert_eq!(reflect.reflect_partial_eq(&[1u32, 2, 11]).ok(), Some(false));
         assert_eq!(
-            reflect.reflect_partial_cmp(&[1u32, 3, 0]),
+            reflect.reflect_partial_cmp(&[1u32, 3, 0]).unwrap(),
             Some(core::cmp::Ordering::Less)
         );
-        assert!(reflect.reflect_hash().is_some());
+        assert!(reflect.reflect_hash().is_ok());
         let clone = reflect.reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<[u32; 3]>(), Some(&[1, 2, 10]));
         assert_eq!(value, [1, 2, 10]);

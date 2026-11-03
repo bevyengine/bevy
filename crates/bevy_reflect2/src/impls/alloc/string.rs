@@ -15,8 +15,8 @@ mod tests {
         let a = &String::from("Hello") as &dyn Reflect;
         let b = &String::from("Hello") as &dyn Reflect;
         let c = &String::from("World") as &dyn Reflect;
-        assert_eq!(a.reflect_partial_eq(b), Some(true));
-        assert_eq!(a.reflect_partial_eq(c), Some(false));
+        assert_eq!(a.reflect_partial_eq(b).ok(), Some(true));
+        assert_eq!(a.reflect_partial_eq(c).ok(), Some(false));
         assert_eq!(a.ty().type_path().full(), "alloc::string::String");
         assert_eq!(alloc::format!("{a:?}"), "\"Hello\"");
     }

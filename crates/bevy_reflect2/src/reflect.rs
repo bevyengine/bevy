@@ -27,8 +27,9 @@ use core::{
 /// `#[reflect(Debug)]` or `#[reflect(Debug(custom_debug_fn))]`. If the type doesn't register one, a
 /// structural implementation based on its [`Kind`] is used.
 ///
-/// Structural implementations fail (return `None`) if any nested value does not support the
-/// operation.
+/// Structural implementations fail if any nested value does not support the operation. They return
+/// an error (ex: [`ReflectCloneError`](crate::ReflectCloneError)) describing the type of the nested
+/// value that failed, and why.
 ///
 /// # Safety
 ///
@@ -308,13 +309,15 @@ impl dyn Reflect + Send + Sync {
 
     /// Returns a clone of this value (see [`<dyn Reflect>::reflect_clone`](trait.Reflect.html#method.reflect_clone)). Unlike that method,
     /// the clone is known to be [`Send`] and [`Sync`].
-    pub fn reflect_clone(&self) -> Option<Box<dyn Reflect + Send + Sync>> {
+    pub fn reflect_clone(
+        &self,
+    ) -> Result<Box<dyn Reflect + Send + Sync>, crate::ReflectCloneError> {
         let clone = (**self).reflect_clone()?;
         let raw = Box::into_raw(clone);
         // SAFETY: a clone has the type of the value it was cloned from. This value is `Send` and
         // `Sync`, so the clone is too. Auto traits don't affect the vtable, so the
         // pointers have the same representation.
-        Some(unsafe {
+        Ok(unsafe {
             Box::from_raw(core::mem::transmute::<
                 *mut dyn Reflect,
                 *mut (dyn Reflect + Send + Sync),
