@@ -27,9 +27,7 @@ auto_register_static = [
   "auto_register",
   "bevy_reflect2_macros/auto_register_static",
 ]
-std = [
-  "bevy_platform/std",
-]
+std = ["bevy_platform/std"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.

@@ -47,6 +47,29 @@ impl TypeVTable {
     }
 }
 
+impl Debug for TypeVTable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        /// Debug-formats an optional function as `Some(..)` or `None`, since function pointer
+        /// addresses aren't useful.
+        struct Entry(bool);
+
+        impl Debug for Entry {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                f.write_str(if self.0 { "Some(..)" } else { "None" })
+            }
+        }
+
+        f.debug_struct("TypeVTable")
+            .field("set_default", &Entry(self.set_default.is_some()))
+            .field("clone", &Entry(self.clone.is_some()))
+            .field("debug", &Entry(self.debug.is_some()))
+            .field("hash", &Entry(self.hash.is_some()))
+            .field("partial_eq", &Entry(self.partial_eq.is_some()))
+            .field("partial_cmp", &Entry(self.partial_cmp.is_some()))
+            .finish_non_exhaustive()
+    }
+}
+
 /// Casts the pointer to a dyn Reflect pointer using this type's Reflect vtable.
 pub fn cast_reflect<T: Reflect>(ptr: *const u8) -> *const dyn Reflect {
     ptr.cast::<T>() as *const dyn Reflect

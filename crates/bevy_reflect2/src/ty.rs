@@ -13,7 +13,7 @@ use alloc::{
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
-    fmt::{self, Debug, Formatter},
+    fmt::Debug,
     mem,
     ptr::{self, NonNull},
 };
@@ -33,6 +33,7 @@ pub unsafe trait Typed: Any {
 ///
 /// Unsafe code relies on this information being accurate (ex: field offsets, layout, and vtable
 /// functions), so it can only be constructed using [`Type::new`].
+#[derive(Debug)]
 pub struct Type {
     type_id: TypeId,
     kind: Kind,
@@ -414,16 +415,5 @@ impl<I: Iterator<Item = (usize, &'static Type)>> Drop for PartialConstruct<'_, I
         }
         // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
         unsafe { self.ty.dealloc(self.dst) };
-    }
-}
-
-impl Debug for Type {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Type")
-            .field("type_id", &self.type_id)
-            .field("kind", &self.kind)
-            .field("layout", &self.layout)
-            .field("type_path", &self.type_path)
-            .finish()
     }
 }
