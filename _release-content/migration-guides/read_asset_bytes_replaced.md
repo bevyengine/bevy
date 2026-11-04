@@ -9,4 +9,3 @@ the `Reader` to allow you to read the bytes as needed (to avoid loading the whol
 unless you want to).
 
 If you still want to read the whole asset as a `Vec<u8>`, this can be done with `Reader::read_to_end`:
-
