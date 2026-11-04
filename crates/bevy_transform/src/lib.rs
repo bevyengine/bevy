@@ -13,6 +13,9 @@ extern crate std;
 extern crate alloc;
 
 #[cfg(feature = "bevy-support")]
+mod bitset_storage;
+
+#[cfg(feature = "bevy-support")]
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
