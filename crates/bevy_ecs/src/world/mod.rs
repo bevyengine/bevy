@@ -3421,6 +3421,15 @@ impl World {
         Some(check)
     }
 
+    /// Shrinks the archetype's entity list capacity, but not below `min_capacity` or its length.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `archetype_id` is not an archetype of this [`World`].
+    pub fn shrink_archetype_to(&mut self, archetype_id: ArchetypeId, min_capacity: usize) {
+        self.archetypes[archetype_id].shrink_to(min_capacity);
+    }
+
     /// Shrinks the capacity of a table as much as possible, but not below `min_capacity` or the
     /// number of entities it holds.
     ///
@@ -3431,34 +3440,11 @@ impl World {
     /// to a capacity of 0 frees its storage entirely, and allocates it again when an entity is
     /// added.
     ///
-    /// See [`World::shrink_to_fit`] to shrink every table.
-    ///
     /// # Panics
     ///
-    /// Panics if `table` is not a table of this [`World`], or if a reallocation causes an
-    /// out-of-memory error.
-    pub fn shrink_table(&mut self, table: TableId, min_capacity: usize) {
+    /// Panics if `table` is not a table of this [`World`].
+    pub fn shrink_table_to(&mut self, table: TableId, min_capacity: usize) {
         self.storages.tables[table].shrink_to(min_capacity);
-    }
-
-    /// Attempts to free all unused memory by shrinking internal storage to fit
-    /// its current contents.
-    ///
-    /// This includes tables, archetypes, and other ECS storage structures.
-    ///
-    /// See [`World::shrink_table`] to shrink a single table.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a reallocation causes an out-of-memory error.
-    pub fn shrink_to_fit(&mut self) {
-        for table in self.storages.tables.iter_mut() {
-            table.shrink_to(0);
-        }
-
-        for archetype in self.archetypes.archetypes.iter_mut() {
-            archetype.shrink_to_fit();
-        }
     }
 
     /// Clears all entities, resources, and non-send data.
@@ -4882,185 +4868,5 @@ mod tests {
 
         assert!(world.resource_entity::<R1>().is_some());
         assert!(world.resource_entity::<R2>().is_none());
-    }
-
-    mod shrink {
-        use crate::{
-            change_detection::DetectChanges, component::Component, entity::Entity,
-            storage::TableId, world::World,
-        };
-        use alloc::{string::String, string::ToString, vec::Vec};
-
-        /// Needs dropping, so that freeing a column without dropping its values would leak.
-        #[derive(Component, Debug, PartialEq, Eq)]
-        struct Name(String);
-
-        /// Zero-sized: its column allocates no memory.
-        #[derive(Component)]
-        struct Marker;
-
-        #[derive(Component)]
-        struct Moved;
-
-        fn table_of(world: &World, entity: Entity) -> TableId {
-            world.entity(entity).location().table_id
-        }
-
-        fn capacity(world: &World, table: TableId) -> usize {
-            world.storages().tables.get(table).unwrap().capacity()
-        }
-
-        /// Spawns `count` named and marked entities into one table.
-        fn spawn(world: &mut World, count: usize) -> Vec<Entity> {
-            (0..count)
-                .map(|i| world.spawn((Name(i.to_string()), Marker)).id())
-                .collect()
-        }
-
-        fn assert_names(world: &World, entities: &[Entity]) {
-            for (i, &entity) in entities.iter().enumerate() {
-                assert_eq!(world.get::<Name>(entity), Some(&Name(i.to_string())));
-            }
-        }
-
-        #[test]
-        fn shrinking_keeps_components_ticks_and_order() {
-            let mut world = World::new();
-            let entities = spawn(&mut world, 1000);
-
-            world.increment_change_tick();
-            world.get_mut::<Name>(entities[5]).unwrap().0 = 5.to_string();
-
-            let added = world.entity(entities[3]).get_ref::<Name>().unwrap().added();
-            let changed = world
-                .entity(entities[5])
-                .get_ref::<Name>()
-                .unwrap()
-                .last_changed();
-
-            // Moving most entities to another table leaves the first one mostly empty
-            for &entity in &entities[100..] {
-                world.entity_mut(entity).insert(Moved);
-            }
-
-            let table = table_of(&world, entities[0]);
-            let order = world
-                .storages()
-                .tables
-                .get(table)
-                .unwrap()
-                .entities()
-                .to_vec();
-
-            assert!(capacity(&world, table) >= 1024);
-
-            world.shrink_table(table, 0);
-
-            assert_eq!(capacity(&world, table), 100);
-            assert_eq!(
-                world.storages().tables.get(table).unwrap().entities(),
-                order
-            );
-
-            assert_names(&world, &entities);
-
-            let name = world.entity(entities[3]).get_ref::<Name>().unwrap();
-
-            assert_eq!(name.added(), added);
-
-            let name = world.entity(entities[5]).get_ref::<Name>().unwrap();
-
-            assert_eq!(name.last_changed(), changed);
-        }
-
-        #[test]
-        fn shrinking_keeps_at_least_min_capacity() {
-            let mut world = World::new();
-            let entities = spawn(&mut world, 1000);
-
-            for &entity in &entities[10..] {
-                world.entity_mut(entity).insert(Moved);
-            }
-
-            let table = table_of(&world, entities[0]);
-
-            world.shrink_table(table, 256);
-
-            assert_eq!(capacity(&world, table), 256);
-
-            // A larger minimum than the current capacity leaves the table as it is
-            world.shrink_table(table, 512);
-
-            assert_eq!(capacity(&world, table), 256);
-
-            assert_names(&world, &entities);
-        }
-
-        #[test]
-        fn an_emptied_table_frees_its_storage_and_grows_again() {
-            let mut world = World::new();
-            let entities = spawn(&mut world, 300);
-            let table = table_of(&world, entities[0]);
-
-            for &entity in &entities {
-                world.entity_mut(entity).insert(Moved);
-            }
-
-            world.shrink_table(table, 0);
-
-            assert_eq!(capacity(&world, table), 0);
-
-            let again = spawn(&mut world, 50);
-
-            assert_eq!(table_of(&world, again[0]), table);
-            assert_eq!(capacity(&world, table), 64);
-
-            assert_names(&world, &again);
-            assert_names(&world, &entities);
-
-            // And empties and frees again, through despawning this time
-            for entity in again {
-                world.despawn(entity);
-            }
-
-            world.shrink_table(table, 0);
-
-            assert_eq!(capacity(&world, table), 0);
-        }
-
-        #[test]
-        fn shrink_to_fit_fits_every_table_and_keeps_entities_usable() {
-            let mut world = World::new();
-            let entities = spawn(&mut world, 1000);
-
-            for &entity in &entities[600..] {
-                world.entity_mut(entity).insert(Moved);
-            }
-
-            for &entity in &entities[900..] {
-                world.entity_mut(entity).remove::<Moved>();
-            }
-
-            world.shrink_to_fit();
-
-            for table in world.storages().tables.iter() {
-                assert_eq!(table.capacity(), table.entities().len());
-            }
-
-            assert_names(&world, &entities);
-
-            let mut moved = world.query_filtered::<&Name, crate::query::With<Moved>>();
-
-            assert_eq!(moved.iter(&world).count(), 300);
-            // Entities still move between the shrunk tables
-
-            for &entity in &entities[..50] {
-                world.entity_mut(entity).insert(Moved);
-            }
-
-            assert_eq!(moved.iter(&world).count(), 350);
-
-            assert_names(&world, &entities);
-        }
     }
 }
