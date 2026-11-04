@@ -284,14 +284,7 @@ impl Time<Virtual> {
             self.context().relative_speed
         };
         let wall_delta = match self.context().max_wall_delta {
-            Some(max_wall_delta) if raw_delta > max_wall_delta => {
-                debug!(
-                    "wall delta time larger than maximum wall delta, clamping it to {:?} and skipping {:?}",
-                    max_wall_delta,
-                    raw_delta - max_wall_delta
-                );
-                max_wall_delta
-            }
+            Some(max_wall_delta) if raw_delta > max_wall_delta => max_wall_delta,
             _ => raw_delta,
         };
         let scaled = if speed != 1.0 {
