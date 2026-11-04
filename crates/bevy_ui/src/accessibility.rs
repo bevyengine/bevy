@@ -1,5 +1,4 @@
 use crate::{
-    experimental::UiChildren,
     prelude::Label,
     ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
@@ -10,7 +9,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    hierarchy::ChildOf,
+    hierarchy::{ChildOf, Children},
     lifecycle::HookContext,
     prelude::Entity,
     query::{Changed, With},
@@ -89,11 +88,14 @@ fn sync_bounds_and_transforms(
 fn image_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<ImageNode>>,
-    ui_children: UiChildren,
+    ui_children: Query<&Children, With<crate::Node>>,
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
+        let label = calc_label(
+            &mut text_reader,
+            ui_children.get(entity).into_iter().flatten().copied(),
+        );
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(label) = label {

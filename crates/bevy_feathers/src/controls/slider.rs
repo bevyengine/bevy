@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::{FontWeight, TextLayout};
+use bevy_text::{FontSourceTemplate, FontWeight, TextLayout};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection,
     Gradient, InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
@@ -111,7 +111,7 @@ impl FeathersSlider {
                     justify_content: JustifyContent::Center,
                 }
                 InheritableFont {
-                    font: fonts::MONO,
+                    font: FontSourceTemplate::Handle(fonts::MONO),
                     font_size: size::SMALL_FONT,
                     weight: FontWeight::NORMAL,
                 }

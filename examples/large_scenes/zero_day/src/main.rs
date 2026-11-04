@@ -18,11 +18,10 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     gltf::Gltf,
     math::ops,
-    mesh::Indices,
     platform::collections::{HashMap, HashSet},
     post_process::bloom::Bloom,
     prelude::*,
-    render::render_resource::TextureUsages,
+    render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
     solari::prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     time::common_conditions::on_timer,
     window::{PresentMode, WindowResolution},
@@ -219,6 +218,7 @@ fn main() {
                 max_history_length: 1000,
                 ..default()
             },
+            RenderDiagnosticsPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, spawn_scene_when_ready)
@@ -517,15 +517,10 @@ fn setup_flythrough_camera(
     p.near = film.near;
 }
 
-/// Adds `RaytracingMesh3d` to each mesh and widens 16-bit indices to 32-bit, which the
-/// Solari BLAS build needs. The conversion script prepares the rest of the mesh layout,
-/// but it can't set the index width because the glTF exporter always writes the smallest
-/// sufficient index type.
 fn setup_raytracing_meshes(
     scene_ready: On<WorldInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<&Mesh3d>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
     for descendant in children.iter_descendants(scene_ready.entity) {
@@ -535,19 +530,6 @@ fn setup_raytracing_meshes(
         commands
             .entity(descendant)
             .insert(RaytracingMesh3d(mesh_handle.clone()));
-
-        // Check with `get`, since `get_mut` would mark the mesh Modified and trigger a
-        // re-upload and BLAS rebuild.
-        let needs_widening = matches!(
-            meshes.get(mesh_handle).and_then(Mesh::indices),
-            Some(Indices::U16(_))
-        );
-        if needs_widening
-            && let Some(mut mesh) = meshes.get_mut(mesh_handle)
-            && let Some(indices) = mesh.indices_mut()
-        {
-            *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
-        }
     }
 }
 
@@ -671,11 +653,12 @@ fn frame_stats(
 
 /// The `B` key rewinds the flythrough, measures one full loop, and prints a summary.
 /// Rewinding and switching to cinematic mode make the runs comparable. The percentiles
-/// are calculated once at the end, so the 1% values cover the whole run.
+/// are calculated once at the end, so the 1% values cover the whole run. GPU span
+/// times are averaged over the run.
 #[allow(clippy::too_many_arguments)]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     film_length: Res<FilmLength>,
     meshes: Res<Assets<Mesh>>,
     materials: Res<Assets<StandardMaterial>>,
@@ -684,6 +667,8 @@ fn benchmark(
     mut cinematic: ResMut<Cinematic>,
     mut running: Local<Option<Instant>>,
     mut samples: Local<Vec<f64>>,
+    diagnostics: Res<DiagnosticsStore>,
+    mut gpu_spans: Local<HashMap<String, (f64, u32, Instant)>>,
 ) {
     if input.just_pressed(KeyCode::KeyB) && running.is_none() && film_length.0 > 0.0 {
         cinematic.active = true;
@@ -692,6 +677,7 @@ fn benchmark(
         }
         *running = Some(Instant::now());
         samples.clear();
+        gpu_spans.clear();
         println!(
             "zero_day: benchmarking one flythrough loop (~{:.1}s)...",
             film_length.0
@@ -701,6 +687,23 @@ fn benchmark(
         return;
     };
     samples.push(time.delta_secs_f64() * 1000.0);
+    // GPU timings arrive whenever the readback finishes, so only take measurements
+    // newer than the last ones seen, and sum spans that ran more than once in a frame.
+    for diagnostic in diagnostics.iter() {
+        let Some(span) = diagnostic.path().as_str().strip_suffix("/elapsed_gpu") else {
+            continue;
+        };
+        let (total, frames, seen) = gpu_spans.entry(span.to_string()).or_insert((0.0, 0, start));
+        let mut latest = *seen;
+        for measurement in diagnostic.measurements().filter(|m| m.time > *seen) {
+            *total += measurement.value;
+            latest = latest.max(measurement.time);
+        }
+        if latest > *seen {
+            *frames += 1;
+            *seen = latest;
+        }
+    }
     let elapsed = start.elapsed().as_secs_f64();
     if elapsed < film_length.0 as f64 {
         return;
@@ -720,6 +723,18 @@ fn benchmark(
         mesh_instances.iter().count(),
         materials.len()
     );
+    let mut spans: Vec<_> = gpu_spans
+        .iter()
+        .filter(|(_, (_, frames, _))| *frames > 0)
+        .map(|(span, (total, frames, _))| (span, total / *frames as f64))
+        .collect();
+    spans.sort_by(|a, b| a.0.cmp(b.0));
+    if spans.is_empty() {
+        println!("  no GPU timings (adapter lacks timestamp query support)");
+    }
+    for (span, ms) in spans {
+        println!("  gpu {span}: {ms:.3} ms");
+    }
     *running = None;
 }
 

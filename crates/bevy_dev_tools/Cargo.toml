@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+bevy_audio = ["dep:bevy_audio"]
 bevy_ci_testing = ["dep:serde", "dep:ron", "dep:bevy_render"]
 screenrecording = ["dep:x264", "render"]
 render = [
@@ -32,7 +33,7 @@ serialize = [
 # bevy
 bevy_animation = { path = "../bevy_animation", version = "0.20.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
-bevy_audio = { path = "../bevy_audio", version = "0.20.0-dev" }
+bevy_audio = { path = "../bevy_audio", version = "0.20.0-dev", optional = true }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
