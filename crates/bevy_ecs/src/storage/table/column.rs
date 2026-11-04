@@ -164,7 +164,6 @@ impl Column {
     /// # Safety
     /// - `current_capacity` must be the current capacity of this column (the capacity of
     ///   `self.data`, `self.added_ticks`, `self.changed_tick`)
-    /// - The column holds no values: any it held were dropped or moved out
     /// - The caller should make sure their saved `capacity` value is updated to 0 after this
     ///   operation.
     pub(crate) unsafe fn dealloc(&mut self, current_capacity: NonZeroUsize) {
