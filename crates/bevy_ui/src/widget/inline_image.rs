@@ -3,13 +3,7 @@ use bevy_asset::AsAssetId;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_color::Color;
-use bevy_ecs::change_detection::DetectChangesMut;
-use bevy_ecs::component::Component;
-use bevy_ecs::query::Changed;
-use bevy_ecs::query::Or;
-use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
+use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_image::TRANSPARENT_IMAGE_HANDLE;
 use bevy_math::Vec2;
@@ -18,7 +12,7 @@ use bevy_reflect::Reflect;
 use bevy_text::InlineBox;
 
 /// An inline image
-#[derive(Component, Debug, Clone, Reflect, PartialEq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, FromTemplate)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(InlineBox)]
 pub struct InlineImage {
@@ -56,7 +50,7 @@ impl Default for InlineImage {
 }
 
 impl InlineImage {
-    /// Resolve the inline box size. Preserves the image's aspect ratio if dimensions unset.
+    /// Resolve the inline box size. Preserves the image's aspect ratio if dimensions are unset.
     pub fn resolve_inline_box_size(&self, image_size: Vec2) -> Vec2 {
         match (self.width, self.height) {
             (Some(w), Some(h)) => Vec2::new(w, h),
@@ -75,7 +69,7 @@ impl AsAssetId for InlineImage {
     }
 }
 
-/// For each `InlineImage` update the size of its `InlineBox` with its image size, if it changed.
+/// For each `InlineImage`, update the size of its `InlineBox` with its image size if it changed.
 pub fn update_inline_image_boxes(
     image_assets: Res<Assets<Image>>,
     mut query: Query<

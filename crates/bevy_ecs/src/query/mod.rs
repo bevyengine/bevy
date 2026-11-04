@@ -28,87 +28,6 @@ pub use par_iter::*;
 pub use state::*;
 pub use world_query::*;
 
-/// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
-/// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
-/// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
-/// in release mode.
-#[doc(hidden)]
-pub trait DebugCheckedUnwrap {
-    type Item;
-    /// # Panics
-    /// Panics if the value is `None` or `Err`, only in debug mode.
-    ///
-    /// # Safety
-    /// This must never be called on a `None` or `Err` value. This can
-    /// only be called on `Some` or `Ok` values.
-    unsafe fn debug_checked_unwrap(self) -> Self::Item;
-}
-
-// These two impls are explicitly split to ensure that the unreachable! macro
-// does not cause inlining to fail when compiling in release mode.
-#[cfg(debug_assertions)]
-impl<T> DebugCheckedUnwrap for Option<T> {
-    type Item = T;
-
-    #[inline(always)]
-    #[track_caller]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Some(inner) = self {
-            inner
-        } else {
-            unreachable!()
-        }
-    }
-}
-
-// These two impls are explicitly split to ensure that the unreachable! macro
-// does not cause inlining to fail when compiling in release mode.
-#[cfg(debug_assertions)]
-impl<T, U> DebugCheckedUnwrap for Result<T, U> {
-    type Item = T;
-
-    #[inline(always)]
-    #[track_caller]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Ok(inner) = self {
-            inner
-        } else {
-            unreachable!()
-        }
-    }
-}
-
-// These two impls are explicitly split to ensure that the unreachable! macro
-// does not cause inlining to fail when compiling in release mode.
-#[cfg(not(debug_assertions))]
-impl<T, U> DebugCheckedUnwrap for Result<T, U> {
-    type Item = T;
-
-    #[inline(always)]
-    #[track_caller]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Ok(inner) = self {
-            inner
-        } else {
-            core::hint::unreachable_unchecked()
-        }
-    }
-}
-
-#[cfg(not(debug_assertions))]
-impl<T> DebugCheckedUnwrap for Option<T> {
-    type Item = T;
-
-    #[inline(always)]
-    unsafe fn debug_checked_unwrap(self) -> Self::Item {
-        if let Some(inner) = self {
-            inner
-        } else {
-            core::hint::unreachable_unchecked()
-        }
-    }
-}
-
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
@@ -816,6 +735,42 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
+    }
+
+    #[test]
+    fn par_iter_many_unique_visits_each_listed_entity_once() {
+        use crate::entity::UniqueEntityVec;
+        use core::sync::atomic::{AtomicUsize, Ordering};
+
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::new);
+
+        let mut world = World::new();
+        let entities: Vec<Entity> = world.spawn_batch((0..1000).map(|i| (A(i), B(0)))).collect();
+        // Every other entity.
+        let subset: UniqueEntityVec = entities.iter().copied().step_by(2).collect();
+
+        let mut state = SystemState::<Query<(&A, &mut B)>>::new(&mut world);
+        let mut query = state.get_mut(&mut world).unwrap();
+        query.par_iter_many_unique_mut(&subset).for_each(|item| {
+            let (a, mut b) = item.unwrap();
+            b.0 = a.0 + 1;
+        });
+
+        let sum = AtomicUsize::new(0);
+        query.par_iter_many_unique(&subset).for_each(|item| {
+            let (_, b) = item.unwrap();
+            sum.fetch_add(b.0, Ordering::Relaxed);
+        });
+        // Listed entities hold A(i) + 1 for i = 0, 2, ..., 998.
+        assert_eq!(
+            sum.into_inner(),
+            (0..1000).step_by(2).map(|i| i + 1).sum::<usize>()
+        );
+
+        for (i, &entity) in entities.iter().enumerate() {
+            let expected = if i % 2 == 0 { i + 1 } else { 0 };
+            assert_eq!(world.get::<B>(entity).unwrap().0, expected);
+        }
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/23352

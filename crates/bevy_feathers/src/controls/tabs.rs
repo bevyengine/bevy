@@ -24,7 +24,7 @@ use bevy_picking::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::{FontWeight, LineBreak, TextLayout};
+use bevy_text::{FontSourceTemplate, FontWeight, LineBreak, TextLayout};
 use bevy_ui::{
     px, AlignItems, BorderRadius, BoxShadow, ComputedNode, Display, FlexDirection, GlobalZIndex,
     InlineDirection, InteractionDisabled, Node, OuterColor, Outline, Overflow, PositionType,
@@ -291,7 +291,7 @@ impl FeathersTab {
             ThemeBorderColor(tokens::TAB_STRIPE)
             InheritableThemeTextColor(tokens::TAB_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }

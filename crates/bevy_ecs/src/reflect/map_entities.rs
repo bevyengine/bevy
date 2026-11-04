@@ -25,7 +25,7 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: FromReflect + MapEntities> CreateTypeData<C> for ReflectMapEntities {
+impl<C: PartialReflect + FromReflect + MapEntities> CreateTypeData<C> for ReflectMapEntities {
     fn create_type_data(_input: ()) -> Self {
         ReflectMapEntities {
             map_entities: |reflected, mut mapper| {
