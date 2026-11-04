@@ -20,7 +20,7 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, ViewQuery},
         view::ViewTarget,
-        RenderApp, RenderStartup,
+        Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
 
@@ -59,43 +59,102 @@ impl Plugin for PostProcessPlugin {
             return;
         };
 
-        render_app.add_systems(RenderStartup, init_post_process_pipeline);
-        render_app.add_systems(
-            Core3d,
-            post_process_system.in_set(Core3dSystems::PostProcess),
-        );
+        render_app
+            .add_systems(RenderStartup, init_post_process_pipeline)
+            .add_systems(
+                Render,
+                prepare_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+            )
+            .add_systems(
+                Core3d,
+                post_process_system.in_set(Core3dSystems::PostProcess),
+            );
     }
 }
 
-#[derive(Default)]
-struct PostProcessBindGroupCache {
-    cached: Option<(TextureViewId, BindGroup)>,
+/// Holds the bind groups for both main textures
+///
+/// We can't know ahead of time which one is the source or destination so we create a bind group
+/// for both
+#[derive(Component)]
+struct PostProcessBindGroups {
+    a: (TextureViewId, BindGroup),
+    b: (TextureViewId, BindGroup),
+}
+
+/// Create the bind groups for both main textures
+///
+/// We will pick the correct one in the encoding system
+fn prepare_bind_groups(
+    mut commands: Commands,
+    mut views: Query<(Entity, &ViewTarget, Option<&mut PostProcessBindGroups>)>,
+    post_process_pipeline: Option<Res<PostProcessPipeline>>,
+    pipeline_cache: Res<PipelineCache>,
+    settings_uniforms: Res<ComponentUniforms<PostProcessSettings>>,
+    render_device: Res<RenderDevice>,
+) {
+    let Some(post_process_pipeline) = post_process_pipeline else {
+        return;
+    };
+    let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
+        return;
+    };
+
+    let create_bind_group = |texture: &TextureView| {
+        (
+            texture.id(),
+            render_device.create_bind_group(
+                "post_process_bind_group",
+                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
+                &BindGroupEntries::sequential((
+                    texture,
+                    &post_process_pipeline.sampler,
+                    settings_binding.clone(),
+                )),
+            ),
+        )
+    };
+
+    for (entity, view_target, mut maybe_bind_groups) in &mut views {
+        let main_texture_view = view_target.main_texture_view();
+        let main_texture_other_view = view_target.main_texture_other_view();
+
+        // Only update the cached bind groups if the main texture has changed
+        if let Some(bind_groups) = &mut maybe_bind_groups {
+            if bind_groups.a.0 != main_texture_view.id() {
+                bind_groups.a = create_bind_group(main_texture_view);
+            }
+            if bind_groups.b.0 != main_texture_other_view.id() {
+                bind_groups.b = create_bind_group(main_texture_other_view);
+            }
+        } else {
+            // Create the bind groups and add them to the view
+            commands.entity(entity).insert(PostProcessBindGroups {
+                a: create_bind_group(main_texture_view),
+                b: create_bind_group(main_texture_other_view),
+            });
+        }
+    }
 }
 
 fn post_process_system(
     view: ViewQuery<(
         &ViewTarget,
-        &PostProcessSettings,
         &DynamicUniformIndex<PostProcessSettings>,
+        &PostProcessBindGroups,
     )>,
     post_process_pipeline: Option<Res<PostProcessPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    settings_uniforms: Res<ComponentUniforms<PostProcessSettings>>,
-    mut cache: Local<PostProcessBindGroupCache>,
     mut ctx: RenderContext,
 ) {
     let Some(post_process_pipeline) = post_process_pipeline else {
         return;
     };
 
-    let (view_target, _post_process_settings, settings_index) = view.into_inner();
+    let (view_target, settings_index, bind_groups) = view.into_inner();
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(post_process_pipeline.pipeline_id)
     else {
-        return;
-    };
-
-    let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
         return;
     };
 
@@ -108,33 +167,12 @@ fn post_process_system(
     // the current main texture information to be lost.
     let post_process = view_target.post_process_write();
 
-    let bind_group = match &mut cache.cached {
-        Some((texture_id, bind_group)) if post_process.source.id() == *texture_id => bind_group,
-        cached => {
-            // The bind_group gets created each frame.
-            //
-            // Normally, you would create a bind_group in the Queue set,
-            // but this doesn't work with the post_process_write().
-            // The reason it doesn't work is because each post_process_write will alternate the source/destination.
-            // The only way to have the correct source/destination for the bind_group
-            // is to make sure you get it during the node execution.
-            let bind_group = ctx.render_device().create_bind_group(
-                "post_process_bind_group",
-                &pipeline_cache.get_bind_group_layout(&post_process_pipeline.layout),
-                // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
-                &BindGroupEntries::sequential((
-                    // Make sure to use the source view
-                    post_process.source,
-                    // Use the sampler created for the pipeline
-                    &post_process_pipeline.sampler,
-                    // Set the settings binding
-                    settings_binding.clone(),
-                )),
-            );
-
-            let (_, bind_group) = cached.insert((post_process.source.id(), bind_group));
-            bind_group
-        }
+    // We prepared the bind group ahead of time but now we need to make sure
+    // we pick the bind group associated with the source texture
+    let (_, bind_group) = if bind_groups.a.0 == post_process.source.id() {
+        &bind_groups.a
+    } else {
+        &bind_groups.b
     };
 
     let mut render_pass = ctx

@@ -177,6 +177,30 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// assert_eq!(my_list.path::<u32>("[2]").unwrap(), &3);
 /// ```
 ///
+/// ## Maps and Sets
+///
+/// [`Map`] and [`Set`] elements are accessed by a quoted key in brackets: `["key"]`.
+/// Integer keys are quoted too, like `["42"]` or `["-1"]`.
+///
+/// Supported key types are `String`, `Cow<'static, str>`, and the primitive integers.
+/// Set elements can't be accessed mutably.
+///
+/// The only allowed escapes in a key are `\"` and `\\`.
+/// Any other character, including unicode and newlines, is written directly,
+/// since the path is an ordinary Rust string.
+/// Any other backslash sequence is an error.
+///
+/// ### Example
+/// ```
+/// # use bevy_reflect::GetPath;
+/// # use std::collections::HashMap;
+/// let names = HashMap::from([(String::from("alice"), 1_u32)]);
+/// assert_eq!(names.path::<u32>(r#"["alice"]"#).unwrap(), &1);
+///
+/// let ids = HashMap::from([(7_u64, 2_u32)]);
+/// assert_eq!(ids.path::<u32>(r#"["7"]"#).unwrap(), &2);
+/// ```
+///
 /// ## Enums
 ///
 /// Pathing for [`Enum`] elements works a bit differently than in normal Rust.
@@ -244,6 +268,8 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`TupleStruct`]: crate::tuple_struct::TupleStruct
 /// [`List`]: crate::list::List
 /// [`Array`]: crate::array::Array
+/// [`Map`]: crate::map::Map
+/// [`Set`]: crate::set::Set
 /// [`Enum`]: crate::enums::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
@@ -645,7 +671,12 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 mod tests {
     use super::*;
     use crate::{enums::VariantType, *};
-    use alloc::vec;
+    use alloc::{
+        collections::BTreeMap,
+        string::{String, ToString},
+        vec,
+    };
+    use bevy_platform::collections::{HashMap, HashSet};
 
     #[derive(Reflect, PartialEq, Debug)]
     struct A {
@@ -930,6 +961,111 @@ mod tests {
             a.reflect_path("y.x").err().unwrap(),
             invalid_access(2, ReflectKind::List, ReflectKind::Struct, "y.x")
         );
+    }
+
+    #[test]
+    fn parse_key() {
+        assert_eq!(
+            ParsedPath::parse(r#"m["a.b[c]"].x"#).unwrap().0,
+            &[
+                offset(access_field("m"), 1),
+                offset(Access::Key("a.b[c]".into()), 2),
+                offset(access_field("x"), 12),
+            ]
+        );
+        let path = ParsedPath::parse(r#"["q\"b\\"]"#).unwrap();
+        assert_eq!(path.0, &[offset(Access::Key(r#"q"b\"#.into()), 1)]);
+        assert_eq!(path, ParsedPath::parse(&path.to_string()).unwrap());
+        assert!(ParsedPath::parse(r#"["abc]"#).is_err());
+        assert!(ParsedPath::parse(r#"["a\n"]"#).is_err());
+    }
+
+    #[test]
+    fn reflect_path_map() {
+        #[derive(Reflect)]
+        struct M {
+            names: HashMap<String, C>,
+            ids: HashMap<u32, u8>,
+            signed: BTreeMap<i64, u8>,
+            set: HashSet<String>,
+        }
+
+        let mut m = M {
+            names: HashMap::from([("a.b".into(), C { mосква: 1.0 })]),
+            ids: HashMap::from([(7, 1)]),
+            signed: BTreeMap::from([(-3, 2), (5, 3)]),
+            set: HashSet::from(["x".into(), "\u{e9}t\u{e9}".into()]),
+        };
+
+        assert_eq!(*m.path::<f32>(r#"names["a.b"].mосква"#).unwrap(), 1.0);
+        *m.path_mut::<f32>(r#"names["a.b"].mосква"#).unwrap() = 2.0;
+        assert_eq!(m.names["a.b"].mосква, 2.0);
+
+        assert_eq!(*m.path::<u8>(r#"ids["7"]"#).unwrap(), 1);
+        *m.path_mut::<u8>(r#"ids["7"]"#).unwrap() = 4;
+        assert_eq!(m.ids[&7], 4);
+        assert_eq!(*m.path::<u8>(r#"signed["5"]"#).unwrap(), 3);
+        assert_eq!(*m.path::<u8>(r#"signed["-3"]"#).unwrap(), 2);
+
+        assert_eq!(*m.path::<String>(r#"set["x"]"#).unwrap(), "x");
+        assert_eq!(
+            *m.path::<String>("set[\"\u{e9}t\u{e9}\"]").unwrap(),
+            "\u{e9}t\u{e9}"
+        );
+
+        let u32_key = AccessErrorKind::InvalidKey {
+            key_type: Some("u32"),
+        };
+        let not_struct = AccessErrorKind::IncompatibleTypes {
+            expected: ReflectKind::Struct,
+            actual: ReflectKind::Map,
+        };
+        let not_list = AccessErrorKind::IncompatibleTypes {
+            expected: ReflectKind::List,
+            actual: ReflectKind::Map,
+        };
+        for (path, kind) in [
+            (
+                r#"ids["8"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Map),
+            ),
+            (
+                r#"names["b"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Map),
+            ),
+            (
+                r#"set["y"]"#,
+                AccessErrorKind::MissingField(ReflectKind::Set),
+            ),
+            ("ids[7]", not_list),
+            (r#"ids["a"]"#, u32_key.clone()),
+            (r#"ids["4294967296"]"#, u32_key),
+            ("ids.x", not_struct),
+        ] {
+            let Err(ReflectPathError::InvalidAccess(error)) = m.reflect_path(path) else {
+                panic!("expected an access error for {path}");
+            };
+            assert_eq!(error.kind, kind, "{path}");
+        }
+        assert_eq!(
+            m.reflect_path(r#"ids["x"]"#).unwrap_err().to_string(),
+            r#"Error accessing element with `["x"]` access(offset 4): The key in the path can't be converted to the map or set key type `u32`."#
+        );
+        assert_eq!(
+            m.reflect_path_mut(r#"set["x"]"#).unwrap_err(),
+            ReflectPathError::InvalidAccess(AccessError {
+                kind: AccessErrorKind::MutableSetAccess,
+                access: Access::Key("x".into()),
+                offset: Some(4),
+            })
+        );
+
+        let a = a_sample();
+        assert_eq!(
+            a.reflect_path(r#"y["k"]"#).err().unwrap(),
+            invalid_access(2, ReflectKind::List, ReflectKind::Map, r#"y["k"]"#)
+        );
+        assert_eq!(*a.path::<f32>("y[1].mосква").unwrap(), 2.0);
     }
 
     #[test]

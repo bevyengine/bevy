@@ -50,7 +50,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
-                MeshTag(current_color_id % 5),
+                MeshTag::new(current_color_id % 5),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
             current_color_id += 1;

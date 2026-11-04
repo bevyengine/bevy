@@ -659,12 +659,12 @@ impl fmt::Display for OcclusionCullingSetting {
 }
 
 /// Spawns buttons at the bottom of the screen which allow the user to
-/// toggle occlusion culling on or off.  
+/// toggle occlusion culling on or off.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Toggle occlusion culling",
                 &[
                     (OcclusionCullingSetting::On, "ON"),

@@ -157,17 +157,15 @@ impl Plugin for ScheduleRunnerPlugin {
 
                             exit.take()
                         }
-                        _ =>{
-                            loop {
-                                match tick(&mut app, wait) {
-                                    Ok(Some(delay)) => {
-                                        bevy_platform::thread::sleep(delay);
-                                    }
-                                    Ok(None) => continue,
-                                    Err(exit) => return exit,
+                        _ => loop {
+                            match tick(&mut app, wait) {
+                                Ok(Some(delay)) => {
+                                    bevy_platform::thread::sleep(delay);
                                 }
+                                Ok(None) => continue,
+                                Err(exit) => return exit,
                             }
-                        }
+                        },
                     }
                 }
             }

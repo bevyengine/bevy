@@ -8,6 +8,7 @@ use bevy_ecs::{
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
+use core::any::TypeId;
 use derive_more::derive::From;
 
 /// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a [`ColorMaterial`].
@@ -23,7 +24,7 @@ use derive_more::derive::From;
 /// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Circle;
+/// # use bevy_shape::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
@@ -77,7 +78,7 @@ impl AsAssetId for Mesh2d {
 /// # use bevy_mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Capsule3d;
+/// # use bevy_shape::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(
@@ -178,7 +179,116 @@ pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
     });
 }
 
-/// A component that stores an arbitrary index used to identify the mesh instance when rendering.
+/// A component that stores an arbitrary index used to identify the mesh
+/// instance when rendering.
+///
+/// You can fetch the value of the tag in the shader using the `tag` field on
+/// `bevy_pbr::mesh_bindings::mesh`.
+///
+/// When using a `GpuComponentArrayBuffer`, the tag represents the index of the
+/// mesh instance data in the buffer. In this case, Bevy automatically manages
+/// the tag, keeping it up to date as component data are extracted to and
+/// removed from the buffer. If you aren't using a `GpuComponentArrayBuffer`,
+/// the tag is free for you to use for whatever purpose you wish.
+///
+/// You may optionally supply a [`TypeId`] to accompany the mesh tag. Bevy
+/// ignores this type and treats it only as an opaque marker. It's not stored
+/// except in debug mode. Its only purpose is to provide diagnostics so that
+/// `GpuComponentArrayBuffer` can emit warnings if it overwrites a mesh tag.
+/// Examples of misuse that `GpuComponentArrayBuffer` can detect are cases in
+/// which you were using a [`MeshTag`] for application-specific purposes in
+/// addition to storing a component backed by a `GpuComponentArrayBuffer` on
+/// your mesh and cases in which you attempted to store multiple components
+/// backed by `GpuComponentArrayBuffer`s on the same mesh.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Clone, PartialEq)]
-pub struct MeshTag(pub u32);
+pub struct MeshTag {
+    /// The value made available to the shader.
+    #[deref]
+    pub value: u32,
+
+    /// The optional opaque type ID.
+    ///
+    /// See the documentation of [`MeshTag`] for more information.
+    ///
+    /// This field is only present in debug mode.
+    #[cfg(debug_assertions)]
+    type_id: Option<TypeId>,
+}
+
+impl MeshTag {
+    /// Creates a new [`MeshTag`] with the given value.
+    ///
+    /// No type ID is specified.
+    pub const fn new(value: u32) -> MeshTag {
+        MeshTag {
+            value,
+            #[cfg(debug_assertions)]
+            type_id: None,
+        }
+    }
+
+    /// Creates a new [`MeshTag`] with the given value and type.
+    ///
+    /// In debug mode, the type is stored on the [`MeshTag`] component and used
+    /// for detecting accidental tag overwriting.
+    pub fn with_type<T>(value: u32) -> MeshTag
+    where
+        T: 'static + Sized,
+    {
+        MeshTag::with_type_id(value, TypeId::of::<T>())
+    }
+
+    /// Creates a new [`MeshTag`] with the given value and type ID.
+    ///
+    /// This is the equivalent of [`Self::with_type`], except that the type ID
+    /// can be supplied dynamically.
+    ///
+    /// In debug mode, the type ID is stored on the [`MeshTag`] component and
+    /// used for detecting accidental tag overwriting.
+    pub fn with_type_id(value: u32, _type_id: TypeId) -> MeshTag {
+        MeshTag {
+            value,
+            #[cfg(debug_assertions)]
+            type_id: Some(_type_id),
+        }
+    }
+
+    /// Returns true if the type ID is present and equal to the ID of the given
+    /// type.
+    ///
+    /// `GpuComponentArrayBuffer` uses this to emit diagnostics if the component
+    /// array buffer logic overwrites a tag that might have been used for
+    /// application-specific purposes or for storing other components backed by
+    /// array buffers.
+    ///
+    /// In debug mode, this always returns true.
+    pub fn type_is<T>(&self) -> bool
+    where
+        T: 'static + Sized,
+    {
+        self.type_id_is(TypeId::of::<T>())
+    }
+
+    /// Returns true if the type ID is present and equal to the given type ID.
+    ///
+    /// This is the equivalent of [`Self::type_is`], except that the type ID can
+    /// be supplied dynamically.
+    ///
+    /// In debug mode, this always returns true.
+    #[cfg(debug_assertions)]
+    pub fn type_id_is(&self, type_id: TypeId) -> bool {
+        self.type_id == Some(type_id)
+    }
+
+    /// Returns true if the type ID is present and equal to the given type ID.
+    ///
+    /// This is the equivalent of [`Self::type_is`], except that the type ID can
+    /// be supplied dynamically.
+    ///
+    /// In debug mode, this always returns true.
+    #[cfg(not(debug_assertions))]
+    pub fn type_id_is(&self, _: TypeId) -> bool {
+        true
+    }
+}

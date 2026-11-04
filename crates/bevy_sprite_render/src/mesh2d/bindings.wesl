@@ -1,4 +1,4 @@
-import bevy_sprite_render::mesh2d::types::Mesh2d;
+import package::mesh2d::types::Mesh2d;
 import bevy_render::mesh::metadata_types::MeshMetadata;
 
 @if(PER_OBJECT_BUFFER_BATCH_SIZE)

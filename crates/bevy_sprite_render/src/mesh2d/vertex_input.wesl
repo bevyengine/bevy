@@ -1,4 +1,4 @@
-import bevy_sprite_render::mesh2d::functions as mesh_functions;
+import package::mesh2d::functions as mesh_functions;
 
 struct UncompressedVertex {
     @builtin(instance_index) instance_index: u32,
@@ -36,8 +36,8 @@ struct Vertex {
     @location(4) color: vec4<f32>,
 };
 
-// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
-// See https://github.com/gfx-rs/naga/issues/2416
+/// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+/// See https://github.com/gfx-rs/naga/issues/2416
 fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVertex {
     let mesh_metadata = mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;

@@ -1,4 +1,4 @@
-import bevy_sprite_render::mesh2d::{
+import package::mesh2d::{
     view_bindings::view,
     bindings::{mesh, metadata},
 };

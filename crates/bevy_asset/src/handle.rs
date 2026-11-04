@@ -1,6 +1,6 @@
 use crate::{
-    meta::MetaTransform, Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer,
-    Assets, ErasedAssetIndex, ReflectHandle, UntypedAssetId,
+    Asset, AssetId, AssetIndex, AssetIndexAllocator, AssetPath, AssetServer, Assets,
+    ErasedAssetIndex, ReflectHandle, UntypedAssetId,
 };
 use alloc::sync::Arc;
 use bevy_ecs::template::{FromTemplate, SpecializeFromTemplate, Template, TemplateContext};
@@ -47,7 +47,7 @@ impl AssetHandleProvider {
     /// [`UntypedHandle`] will match the [`Asset`] [`TypeId`] assigned to this [`AssetHandleProvider`].
     pub fn reserve_handle(&self) -> UntypedHandle {
         let index = self.allocator.reserve();
-        UntypedHandle::Strong(self.get_handle(index, false, None, None))
+        UntypedHandle::Strong(self.get_handle(index, false, None))
     }
 
     pub(crate) fn get_handle(
@@ -55,13 +55,11 @@ impl AssetHandleProvider {
         index: AssetIndex,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         Arc::new(StrongHandle {
             index,
             type_id: self.type_id,
             drop_sender: self.drop_sender.clone(),
-            meta_transform,
             path,
             asset_server_managed,
         })
@@ -71,25 +69,20 @@ impl AssetHandleProvider {
         &self,
         asset_server_managed: bool,
         path: Option<AssetPath<'static>>,
-        meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
         let index = self.allocator.reserve();
-        self.get_handle(index, asset_server_managed, path, meta_transform)
+        self.get_handle(index, asset_server_managed, path)
     }
 }
 
 /// The internal "strong" [`Asset`] handle storage for [`Handle::Strong`] and [`UntypedHandle::Strong`]. When this is dropped,
 /// the [`Asset`] will be freed. It also stores some asset metadata for easy access from handles.
-#[derive(TypePath)]
+#[derive(TypePath, Debug)]
 pub struct StrongHandle {
     pub(crate) index: AssetIndex,
     pub(crate) type_id: TypeId,
     pub(crate) asset_server_managed: bool,
     pub(crate) path: Option<AssetPath<'static>>,
-    /// Modifies asset meta. This is stored on the handle because it is:
-    /// 1. configuration tied to the lifetime of a specific asset load
-    /// 2. configuration that must be repeatable when the asset is hot-reloaded
-    pub(crate) meta_transform: Option<MetaTransform>,
     pub(crate) drop_sender: Sender<DropEvent>,
 }
 
@@ -99,18 +92,6 @@ impl Drop for StrongHandle {
             index: ErasedAssetIndex::new(self.index, self.type_id),
             asset_server_managed: self.asset_server_managed,
         });
-    }
-}
-
-impl core::fmt::Debug for StrongHandle {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("StrongHandle")
-            .field("index", &self.index)
-            .field("type_id", &self.type_id)
-            .field("asset_server_managed", &self.asset_server_managed)
-            .field("path", &self.path)
-            .field("drop_sender", &self.drop_sender)
-            .finish()
     }
 }
 
@@ -566,16 +547,6 @@ impl UntypedHandle {
     #[inline]
     pub fn try_typed<A: Asset>(self) -> Result<Handle<A>, UntypedAssetConversionError> {
         Handle::try_from(self)
-    }
-
-    /// The "meta transform" for the strong handle. This will only be [`Some`] if the handle is strong and there is a meta transform
-    /// associated with it.
-    #[inline]
-    pub fn meta_transform(&self) -> Option<&MetaTransform> {
-        match self {
-            UntypedHandle::Strong(handle) => handle.meta_transform.as_ref(),
-            UntypedHandle::Uuid { .. } => None,
-        }
     }
 }
 

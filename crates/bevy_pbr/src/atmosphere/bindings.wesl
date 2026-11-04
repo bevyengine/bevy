@@ -1,6 +1,6 @@
 import bevy_render::view::View;
 
-import bevy_pbr::{
+import package::{
     render::mesh_view_types::Lights,
     atmosphere::types::{Atmosphere, AtmosphereSettings, AtmosphereTransforms}
 };

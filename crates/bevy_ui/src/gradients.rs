@@ -3,6 +3,7 @@ use bevy_color::{Color, Srgba};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use bevy_text::{EmSize, RemSize};
 use bevy_utils::default;
 use core::{f32, f32::consts::TAU};
 
@@ -611,6 +612,8 @@ impl RadialGradientShape {
         scale_factor: f32,
         physical_size: Vec2,
         physical_target_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> Vec2 {
         let half_size = 0.5 * physical_size;
         match self {
@@ -626,14 +629,32 @@ impl RadialGradientShape {
             ),
             RadialGradientShape::Circle(radius) => Vec2::splat(
                 radius
-                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .resolve(
+                        scale_factor,
+                        physical_size.x,
+                        physical_target_size,
+                        em_size,
+                        rem_size,
+                    )
                     .unwrap_or(0.),
             ),
             RadialGradientShape::Ellipse(x, y) => Vec2::new(
-                x.resolve(scale_factor, physical_size.x, physical_target_size)
-                    .unwrap_or(0.),
-                y.resolve(scale_factor, physical_size.y, physical_target_size)
-                    .unwrap_or(0.),
+                x.resolve(
+                    scale_factor,
+                    physical_size.x,
+                    physical_target_size,
+                    em_size,
+                    rem_size,
+                )
+                .unwrap_or(0.),
+                y.resolve(
+                    scale_factor,
+                    physical_size.y,
+                    physical_target_size,
+                    em_size,
+                    rem_size,
+                )
+                .unwrap_or(0.),
             ),
         }
     }
@@ -666,6 +687,10 @@ pub enum InterpolationColorSpace {
     Hsva,
     /// Interpolates in HSVA space, taking the longest hue path.
     HsvaLong,
+    /// Interpolates in OKHSLA space, taking the shortest hue path.
+    Okhsla,
+    /// Interpolates in OKHSLA space, taking the longest hue path.
+    OkhslaLong,
 }
 
 /// Set the color space used for interpolation.
@@ -686,6 +711,16 @@ pub trait InColorSpace: Sized {
     /// Interpolate in OKLCH space (long hue path).
     fn in_oklch_long(self) -> Self {
         self.in_color_space(InterpolationColorSpace::OklchaLong)
+    }
+
+    /// Interpolates in OKHSLA space (short hue path)
+    fn in_okhsla(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::Okhsla)
+    }
+
+    /// Interpolates in OKHSLA space (long hue path)
+    fn in_okhsla_long(self) -> Self {
+        self.in_color_space(InterpolationColorSpace::OkhslaLong)
     }
 
     /// Interpolate in sRGB space.

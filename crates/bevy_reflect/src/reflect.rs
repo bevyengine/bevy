@@ -29,13 +29,13 @@ pub enum ApplyError {
         to_kind: ReflectKind,
     },
 
-    #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
-    /// Enum variant that we tried to apply to was missing a field.
-    MissingEnumField {
+    #[error("enum variant `{variant_name}` was unable to be converted to an enum value through `FromReflect`")]
+    /// Enum variant that we tried to apply could not be converted using the enum's [`FromReflect`].
+    ///
+    /// [`FromReflect`]: crate::FromReflect
+    InvalidEnumVariant {
         /// Name of the enum variant.
         variant_name: Box<str>,
-        /// Name of the missing field.
-        field_name: Box<str>,
     },
 
     #[error("`{from_type}` is not `{to_type}`")]

@@ -4,7 +4,6 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
-    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     world::World,
 };
@@ -19,6 +18,7 @@ use derive_more::From;
 /// Provides read access to the source component (the component being cloned) in a [`ComponentCloneFn`].
 pub struct SourceComponent<'a> {
     ptr: Ptr<'a>,
+    id: ComponentId,
     info: &'a ComponentInfo,
 }
 
@@ -46,6 +46,11 @@ impl<'a> SourceComponent<'a> {
         self.ptr
     }
 
+    /// Returns the [`ComponentId`] of the source component.
+    pub fn id(&self) -> ComponentId {
+        self.id
+    }
+
     /// Returns a reference to the component on the source entity as [`&dyn Reflect`](bevy_reflect::Reflect).
     ///
     /// Will return `None` if:
@@ -65,7 +70,7 @@ impl<'a> SourceComponent<'a> {
             return None;
         }
         // SAFETY: `source_component_ptr` stores data represented by `component_id`, which we used to get `ReflectFromPtr`.
-        unsafe { Some(reflect_from_ptr.as_reflect(self.ptr)) }
+        unsafe { Some(reflect_from_ptr.ptr_as_reflect(self.ptr)) }
     }
 }
 
@@ -634,9 +639,10 @@ impl EntityCloner {
                 // - There are no other mutable references to source entity.
                 // - `component` is from `source_entity`'s archetype
                 let source_component_ptr =
-                    unsafe { source_entity.get_by_id(component).debug_checked_unwrap() };
+                    unsafe { source_entity.get_by_id(component).unwrap_unchecked() };
 
                 let source_component = SourceComponent {
+                    id: component,
                     info,
                     ptr: source_component_ptr,
                 };
@@ -2108,6 +2114,7 @@ mod tests {
                 layout,
                 None,
                 true,
+                false,
                 ComponentCloneBehavior::Custom(test_handler),
                 None,
             )

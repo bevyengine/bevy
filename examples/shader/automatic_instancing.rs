@@ -61,7 +61,7 @@ fn setup(
             Mesh3d(mesh_handle.clone()),
             MeshMaterial3d(material_handle.clone()),
             // This is an optional component that can be used to help tie external data to a mesh instance
-            MeshTag(index),
+            MeshTag::new(index),
             Transform::from_xyz(world_x, world_y, 0.0),
         ));
     }
@@ -77,7 +77,7 @@ fn setup(
 fn update(time: Res<Time>, mut transforms: Query<(&mut Transform, &MeshTag)>) {
     for (mut transform, index) in transforms.iter_mut() {
         // Animate the z position based on time using the index to create a spiral
-        transform.translation.z = ops::sin(time.elapsed_secs() + index.0 as f32 * 0.01);
+        transform.translation.z = ops::sin(time.elapsed_secs() + index.value as f32 * 0.01);
     }
 }
 

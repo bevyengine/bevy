@@ -6,8 +6,8 @@ struct Color {
     base_color: vec4<f32>,
 }
 
-// This structure is a mapping from bindless index to the index in the
-// appropriate slab
+/// This structure is a mapping from bindless index to the index in the
+/// appropriate slab
 struct MaterialBindings {
     material: u32,              // 0
     color_texture: u32,         // 1

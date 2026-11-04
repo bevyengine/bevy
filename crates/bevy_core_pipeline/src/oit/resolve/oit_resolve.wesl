@@ -28,7 +28,8 @@ const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     atomic_counter = 0u;
-    let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
+    let pixel = vec2<u32>(in.position.xy - view.main_pass_viewport.xy);
+    let screen_index = pixel.x + pixel.y * u32(view.main_pass_viewport.z);
 
     let head = heads[screen_index] - 1u;
     if head == LINKED_LIST_END_SENTINEL {
@@ -60,7 +61,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     var fragment_list: array<OitFragment, SORTED_FRAGMENT_MAX_COUNT>;
     var final_color = vec4<f32>(0.0);
 
-    var packed_opaque_depth = bevy_core_pipeline::oit::draw::pack_24bit_depth_8bit_alpha(opaque_depth, 1.0);
+    var packed_opaque_depth = package::oit::draw::pack_24bit_depth_8bit_alpha(opaque_depth, 1.0);
 
     // fill list
     var current_node = head;
@@ -132,5 +133,5 @@ fn blend(color_a: vec4<f32>, color_b: vec4<f32>) -> vec4<f32> {
 }
 
 fn packed_depth_alpha_get_alpha(packed: u32) -> f32 {
-    return bevy_core_pipeline::oit::draw::unpack_24bit_depth_8bit_alpha(packed).y;
+    return package::oit::draw::unpack_24bit_depth_8bit_alpha(packed).y;
 }

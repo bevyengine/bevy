@@ -121,6 +121,8 @@ pub enum BindlessResourceType {
     None,
     /// A storage buffer.
     Buffer,
+    /// A handle to a [`ShaderBuffer`](bevy_render::storage::ShaderBuffer).
+    ShaderBuffer,
     /// A filtering sampler.
     SamplerFiltering,
     /// A non-filtering sampler (nearest neighbor).
@@ -285,6 +287,7 @@ pub fn create_bindless_bind_group_layout_entries(
             }
             BindlessResourceType::None
             | BindlessResourceType::Buffer
+            | BindlessResourceType::ShaderBuffer
             | BindlessResourceType::DataBuffer => None,
         }) else {
             continue;

@@ -1,4 +1,4 @@
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     bindings::{view, settings},
     bruneton_functions::sample_transmittance_lut_segment,
     functions::{

@@ -192,9 +192,9 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns the buttons that allow the user to change the lighting mode.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-            main_ui_node_scene()
+            @main_ui_node_scene()
             Children [
-                feathers_option_buttons(
+                @feathers_option_buttons(
                 "Lighting",
                 &[
                     (LightingMode::Baked, "Baked"),

@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     render::{
         pbr_types,
         pbr_functions::alpha_discard,
@@ -8,28 +8,28 @@ import bevy_pbr::{
 };
 
 @if(PREPASS_PIPELINE)
-import bevy_pbr::{
+import package::{
     prepass::io::{VertexOutput, FragmentOutput},
     deferred::functions::deferred_output,
 };
 @else
-import bevy_pbr::render::{
+import package::render::{
     forward_io::{VertexOutput, FragmentOutput},
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
 };
 
 @if(VISIBILITY_RANGE_DITHER)
-import bevy_pbr::render::pbr_functions::visibility_range_dither;
+import package::render::pbr_functions::visibility_range_dither;
 
 @if(MESHLET_MESH_MATERIAL_PASS)
-import bevy_pbr::meshlet::visibility_buffer_resolve::resolve_vertex_output;
+import package::meshlet::visibility_buffer_resolve::resolve_vertex_output;
 
 @if(MATERIAL_OIT_ENABLED)
 import bevy_core_pipeline::oit::draw::oit_draw;
 
 @if(FORWARD_DECAL)
-import bevy_pbr::decal::forward::get_forward_decal_info;
+import package::decal::forward::get_forward_decal_info;
 
 @fragment
 fn fragment(
@@ -86,7 +86,7 @@ fn fragment(
         out.color = pbr_input.material.base_color;
     }
 
-    // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
+    // apply in-shader post processing (fog, alpha-premultiply, plus tonemapping and debanding when TONEMAP_IN_SHADER is set)
     // note this does not include fullscreen postprocessing effects like bloom.
 @if(!PREPASS_PIPELINE)
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);

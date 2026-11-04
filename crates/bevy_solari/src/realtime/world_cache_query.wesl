@@ -1,7 +1,7 @@
 import constants::WORLD_CACHE_SIZE;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
 import bevy_render::maths::orthonormalize;
-import bevy_solari::realtime::bindings::{
+import package::realtime::bindings::{
     world_cache,
     constants,
 };

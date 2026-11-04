@@ -6,12 +6,14 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
+        material_bind_groups::FallbackBuffer,
         render_asset::RenderAssets,
         render_resource::{
             binding_types::{sampler, texture_2d},
             *,
         },
         renderer::RenderDevice,
+        storage::GpuShaderBuffer,
         texture::{FallbackImage, GpuImage},
         RenderApp, RenderStartup,
     },
@@ -105,8 +107,11 @@ impl AsBindGroup for BindlessMaterial {
         layout: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
+        _: &FallbackBuffer,
+        shader_buffer_assets: &RenderAssets<GpuShaderBuffer>,
         (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
+        let _ = shader_buffer_assets;
         // retrieve the render resources from handles
         let mut images = vec![];
         for handle in self.textures.iter().take(MAX_TEXTURE_COUNT) {
@@ -167,7 +172,7 @@ impl AsBindGroup for BindlessMaterial {
             (
                 // Screen texture
                 //
-                // @group(#{MATERIAL_BIND_GROUP}) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                // @group(constants::MATERIAL_BIND_GROUP) @binding(0) var textures: binding_array<texture_2d<f32>>;
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
@@ -175,7 +180,7 @@ impl AsBindGroup for BindlessMaterial {
                 ),
                 // Sampler
                 //
-                // @group(#{MATERIAL_BIND_GROUP}) @binding(1) var nearest_sampler: sampler;
+                // @group(constants::MATERIAL_BIND_GROUP) @binding(1) var nearest_sampler: sampler;
                 //
                 // Note: as with textures, multiple samplers can also be bound
                 // onto one binding slot:

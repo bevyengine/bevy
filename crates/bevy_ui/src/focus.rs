@@ -47,7 +47,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 // TODO this should be removed in 0.20.
-pub(crate) enum DeprecatedInteraction {
+pub enum DeprecatedInteraction {
     /// The node has been pressed.
     ///
     /// Note: This does not capture click/press-release action.
@@ -61,11 +61,6 @@ pub(crate) enum DeprecatedInteraction {
 #[deprecated(
     since = "0.20.0",
     note = "Use picking::hover::Hovered and ui::Pressed."
-)]
-#[expect(
-    private_interfaces,
-    reason = "We have to use a type alias here to deprecate `Interaction` because\
-              deprecating the `DeprecatedInteraction` struct would cause lints that are not `expect`able."
 )]
 pub type Interaction = DeprecatedInteraction;
 

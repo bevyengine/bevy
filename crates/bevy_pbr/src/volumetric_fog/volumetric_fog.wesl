@@ -1,55 +1,54 @@
-// A postprocessing shader that implements volumetric fog via raymarching and
-// sampling directional light shadow maps.
-//
-// The overall approach is a combination of the volumetric rendering in [1] and
-// the shadow map raymarching in [2]. First, we raytrace the AABB of the fog
-// volume in order to determine how long our ray is. Then we do a raymarch, with
-// physically-based calculations at each step to determine how much light was
-// absorbed, scattered out, and scattered in. To determine in-scattering, we
-// sample the shadow map for the light to determine whether the point was in
-// shadow or not.
-//
-// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
-//
-// [2]: http://www.alexandre-pestana.com/volumetric-lights/
+//! A postprocessing shader that implements volumetric fog via raymarching and
+//! sampling directional light shadow maps.
+//!
+//! The overall approach is a combination of the volumetric rendering in [1] and
+//! the shadow map raymarching in [2]. First, we raytrace the AABB of the fog
+//! volume in order to determine how long our ray is. Then we do a raymarch, with
+//! physically-based calculations at each step to determine how much light was
+//! absorbed, scattered out, and scattered in. To determine in-scattering, we
+//! sample the shadow map for the light to determine whether the point was in
+//! shadow or not.
+//!
+//! [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/intro-volume-rendering.html
+//!
+//! [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     functions::{calculate_visible_sun_ratio, clamp_to_surface},
     bruneton_functions::transmittance_lut_r_mu_to_uv,
 };
-import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
-import bevy_pbr::render::mesh_view_bindings::{
+import package::render::mesh_functions::{get_world_from_local, mesh_position_local_to_clip};
+import package::render::mesh_view_bindings::{
     globals, lights, view, clustered_lights,
-    atmosphere, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+    atmosphere, atmosphere_transmittance_texture, linear_sampler
 };
-import bevy_pbr::render::mesh_view_types::{
+import package::render::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
 };
-import bevy_pbr::render::shadow_sampling::{
+import package::render::shadow_sampling::{
     sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
 };
-import bevy_pbr::render::shadows::{get_cascade_index, world_to_directional_light_local};
-import bevy_pbr::render::utils::interleaved_gradient_noise;
-import bevy_pbr::render::view_transformations::{
-    depth_ndc_to_view_z,
+import package::render::shadows::{get_cascade_index, world_to_directional_light_local};
+import package::render::utils::interleaved_gradient_noise;
+import package::render::view_transformations::{
+    direction_view_to_world,
     frag_coord_to_ndc,
     position_ndc_to_view,
-    position_ndc_to_world,
     position_view_to_world
 };
 import bevy_render::maths::orthonormalize;
-import bevy_pbr::render::clustered_forward as clustering;
-import bevy_pbr::render::pbr_lighting::getDistanceAttenuation;
+import package::render::clustered_forward as clustering;
+import package::render::pbr_lighting::getDistanceAttenuation;
 
-// The GPU version of [`VolumetricFog`]. See the comments in
-// `volumetric_fog/mod.rs` for descriptions of the fields here.
+/// The GPU version of [`VolumetricFog`]. See the comments in
+/// `volumetric_fog/mod.rs` for descriptions of the fields here.
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,
     uvw_from_world: mat4x4<f32>,
@@ -81,7 +80,7 @@ struct VolumetricFog {
 @group(1) @binding(3) var density_sampler: sampler;
 }
 
-// 1 / (4π)
+/// 1 / (4π)
 const FRAC_4_PI: f32 = 0.07957747154594767;
 
 struct Vertex {
@@ -94,15 +93,15 @@ fn vertex(vertex: Vertex) -> @builtin(position) vec4<f32> {
     return volumetric_fog.clip_from_local * vec4<f32>(vertex.position, 1.0);
 }
 
-// The common Henyey-Greenstein asymmetric phase function [1] [2].
-//
-// This determines how much light goes toward the viewer as opposed to away from
-// the viewer. From a visual point of view, it controls how the light shafts
-// appear and disappear as the camera looks at the light source.
-//
-// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
-//
-// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
+/// The common Henyey-Greenstein asymmetric phase function [1] [2].
+///
+/// This determines how much light goes toward the viewer as opposed to away from
+/// the viewer. From a visual point of view, it controls how the light shafts
+/// appear and disappear as the camera looks at the light source.
+///
+/// [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
+///
+/// [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = volumetric_fog.scattering_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
@@ -137,48 +136,42 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_end_depth_from_buffer = -position_ndc_to_view(
         frag_coord_to_ndc(vec4(position.xy, ndc_end_depth_from_buffer, 1.0))).z;
 
-    // Calculate the start position of the ray. Since we're only rendering front
-    // faces of the AABB, this is the current fragment's depth.
-    let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
+    // Build the view ray from the near plane so this works for orthographic
+    // projections too, then clip it against the six face planes.
+    let ndc_xy = frag_coord_to_ndc(frag_coord).xy;
+    let Ro_view = position_ndc_to_view(vec3(ndc_xy, 1.0));
+    let Rd_view = normalize(position_ndc_to_view(vec3(ndc_xy, 0.5)) - Ro_view);
 
-    // Calculate the end position of the ray. This requires us to raytrace the
-    // back faces of the AABB to find the one that our ray intersects.
-    var end_depth_view = 0.0;
+    var t_enter = 0.0;
+    var t_exit = 3.402823e+38;
+    var misses = false;
     for (var plane_index = 0; plane_index < 6; plane_index += 1) {
         let plane = volumetric_fog.far_planes[plane_index];
-        let other_plane_a = volumetric_fog.far_planes[(plane_index + 1) % 6];
-        let other_plane_b = volumetric_fog.far_planes[(plane_index + 2) % 6];
-        let other_plane_c = volumetric_fog.far_planes[(plane_index + 3) % 6];
-        let other_plane_d = volumetric_fog.far_planes[(plane_index + 4) % 6];
-        let other_plane_e = volumetric_fog.far_planes[(plane_index + 5) % 6];
-
-        // Calculate the intersection of the ray and the plane. The ray must
-        // intersect in front of us (t > 0).
-        let t = -plane.w / dot(plane.xyz, view_start_pos.xyz);
-        if (t < 0.0) {
+        let dist = dot(plane.xyz, Ro_view) + plane.w;
+        let denom = dot(plane.xyz, Rd_view);
+        if (abs(denom) < 1e-9) {
+            if (dist < 0.0) {
+                misses = true;
+            }
             continue;
         }
-        let hit_pos = view_start_pos.xyz * t;
-
-        // The intersection point must be in front of the other backfaces.
-        // If those tests pass, we found our backface.
-        if (dot(vec4(hit_pos, 1.0), other_plane_a) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_b) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_c) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_d) >= 0.0 &&
-            dot(vec4(hit_pos, 1.0), other_plane_e) >= 0.0)
-        {
-            end_depth_view = -hit_pos.z;
-            break;
+        let t = -dist / denom;
+        if (denom > 0.0) {
+            t_enter = max(t_enter, t);
+        } else {
+            t_exit = min(t_exit, t);
         }
     }
 
-    // Starting at the end depth, which we got above, figure out how long the
-    // ray we want to trace is and the length of each increment.
-    end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
+    if (misses || t_exit <= t_enter) {
+        return vec4(0.0, 0.0, 0.0, 0.0);
+    }
+
+    let start_pos_view = Ro_view + Rd_view * t_enter;
 
     // We assume world and view have the same scale here.
-    let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
+    let start_depth_view = -start_pos_view.z;
+    let end_depth_view = min(-(Ro_view + Rd_view * t_exit).z, view_end_depth_from_buffer);
 
     let ray_length_view = max(0.0, end_depth_view - start_depth_view);
     // If the end is behind the start of the first opaque pixel, then we know it
@@ -191,12 +184,10 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     let directional_light_count = lights.n_directional_lights;
 
-    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in NDC,
-    // view, and world coordinates.
-    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
-    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
-    var Ro_world = position_view_to_world(view_start_pos.xyz);
-    let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
+    // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in world
+    // coordinates.
+    var Ro_world = position_view_to_world(start_pos_view);
+    let Rd_world = normalize(direction_view_to_world(Rd_view));
 
     // Offset by jitter.
     let jitter = interleaved_gradient_noise(position.xy, globals.frame_count) * jitter_strength;
@@ -211,9 +202,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     //
     // [2]: https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law
 
-    // Use Beer's law again to accumulate the ambient light all along the path.
-    var accumulated_color = exp(-ray_length_view * (absorption + scattering)) * ambient_color *
-        ambient_intensity;
+    var accumulated_color = vec3(0.0);
 
     // This is the amount of the background that shows through. We're actually
     // going to recompute this over and over again for each directional light,
@@ -257,7 +246,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             // Calculate where we are in the ray.
             let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-            let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
+            let P_view = start_pos_view + Rd_view * f32(step) * step_size_world;
 
             var density = density_factor;
             // Take the density texture into account, if there is one.
@@ -336,7 +325,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         }
     }
 
-    // Point lights and Spot lights
+    // Point lights, Spot lights, and ambient light
     let is_orthographic = view.clip_from_view[3].w == 1.0;
 
     // Reset `background_alpha` for a new raymarch.
@@ -351,7 +340,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
         // Calculate where we are in the ray.
         let P_world = Ro_world + Rd_world * f32(step) * step_size_world;
-        let P_view = view_start_pos + Rd_view * f32(step) * step_size_world;
+        let P_view = start_pos_view + Rd_view * f32(step) * step_size_world;
 
         var density = density_factor;
             // Take the density texture into account, if there is one.
@@ -373,7 +362,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         let cluster_index = clustering::view_fragment_cluster_index(frag_coord.xy, P_view.z, is_orthographic);
         var clusterable_object_index_ranges = clustering::unpack_clusterable_object_index_ranges(cluster_index);
         for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
-            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i < clusterable_object_index_ranges.first_rect_light_index_offset;
             i = i + 1u)
         {
             let light_id = clustering::get_clusterable_object_id(i);
@@ -436,6 +425,12 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         // Process absorption and out-scattering.
         background_alpha *= sample_attenuation;
         accumulated_color += sample_color * background_alpha;
+
+    }
+    let extinction = absorption + scattering;
+    if (extinction > 0.0) {
+      // Use Beer's law again to accumulate the ambient light all along the path.
+      accumulated_color += ambient_color * ambient_intensity * fog_color * (scattering / extinction) * (1.0 - background_alpha);
     }
 
     // We're done! Return the color with alpha so it can be blended onto the
@@ -526,5 +521,5 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSampleLevel(
         atmosphere_transmittance_texture,
-        atmosphere_transmittance_sampler, uv, 0.0).rgb;
+        linear_sampler, uv, 0.0).rgb;
 }

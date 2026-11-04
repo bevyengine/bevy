@@ -1,4 +1,4 @@
-import bevy_pbr::{
+import package::{
     prepass::{
         bindings as prepass_bindings,
         io::{Vertex, UncompressedVertex, VertexOutput, FragmentOutput, decompress_vertex},
@@ -15,7 +15,7 @@ import bevy_pbr::{
 };
 
 @if(DEFERRED_PREPASS)
-import bevy_pbr::render::rgb9e5;
+import package::render::rgb9e5;
 
 @if(MORPH_TARGETS)
 // The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
@@ -42,13 +42,13 @@ fn morph_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> Uncompres
 }
 
 @if(MORPH_TARGETS)
-// Returns the morphed position of the given vertex from the previous frame.
-//
-// This function is used for motion vector calculation, and, as such, it doesn't
-// bother morphing the normals and tangents.
-//
-// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
-// See https://github.com/gfx-rs/naga/issues/2416
+/// Returns the morphed position of the given vertex from the previous frame.
+///
+/// This function is used for motion vector calculation, and, as such, it doesn't
+/// bother morphing the normals and tangents.
+///
+/// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
+/// See https://github.com/gfx-rs/naga/issues/2416
 fn morph_prev_vertex(vertex_in: UncompressedVertex, instance_index: u32) -> UncompressedVertex {
     var vertex = vertex_in;
     let first_vertex = mesh[instance_index].first_vertex_index;
@@ -202,7 +202,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     // emissive magenta out to the deferred gbuffer to be rendered by the first deferred lighting pass layer.
     // This is here so if the default prepass fragment is used for deferred magenta will be rendered, and also
     // as an example to show that a user could write to the deferred gbuffer if they were to start from this shader.
-    out.deferred = vec4(0u, bevy_pbr::render::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
+    out.deferred = vec4(0u, package::render::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
     out.deferred_lighting_pass_id = 1u;
 }
 

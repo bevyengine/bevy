@@ -1,4 +1,4 @@
-import bevy_sprite_render::mesh2d::{
+import package::mesh2d::{
     functions as mesh_functions,
     view_bindings::view,
     vertex_output::VertexOutput,

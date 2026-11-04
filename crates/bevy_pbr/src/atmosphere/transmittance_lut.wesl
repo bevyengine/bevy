@@ -1,4 +1,4 @@
-import bevy_pbr::atmosphere::{
+import package::atmosphere::{
     bindings::settings,
     functions::{
         sample_density_lut, get_local_r, max_atmosphere_distance,

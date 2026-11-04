@@ -1,48 +1,48 @@
-import bevy_pbr::cluster::{
+//! The shader that divides clusterable objects into Z slices.
+//!
+//! Treating the cluster froxel space as a grid of size WxHxD, for each
+//! clusterable object, we seek to rasterize D overlapping quads into a viewport
+//! of size WxH. Each quad represents a *Z slice* of the object. This shader
+//! calculates the number of Z slices needed for each object in parallel and
+//! prepares the `ClusterableObjectZSlice` data that the rasterization passes
+//! will consume. It also updates the indirect draw parameters for the
+//! rasterization pass and calculates statistics about the farthest Z value
+//! encountered that the CPU can later read back for dynamic froxel range tuning.
+
+import package::cluster::{
     CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
     CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
-    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, ClusterMetadata, ClusterableObjectZSlice,
-    calculate_sphere_cluster_bounds, compute_view_from_world_scale
+    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterMetadata,
+    ClusterableObjectZSlice, calculate_sphere_cluster_bounds, compute_view_from_world_scale
 };
-import bevy_pbr::render::mesh_view_types::{
-    ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT
+import package::render::mesh_view_types::{
+    ClusteredDecals, ClusteredLights, LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT, POINT_LIGHT_FLAGS_RECT_LIGHT_BIT
 };
 import bevy_render::view::View;
 
-// The shader that divides clusterable objects into Z slices.
-//
-// Treating the cluster froxel space as a grid of size WxHxD, for each
-// clusterable object, we seek to rasterize D overlapping quads into a viewport
-// of size WxH. Each quad represents a *Z slice* of the object. This shader
-// calculates the number of Z slices needed for each object in parallel and
-// prepares the `ClusterableObjectZSlice` data that the rasterization passes
-// will consume. It also updates the indirect draw parameters for the
-// rasterization pass and calculates statistics about the farthest Z value
-// encountered that the CPU can later read back for dynamic froxel range tuning.
-
-// Metadata, including the indirect draw parameters that we write to.
+/// Metadata, including the indirect draw parameters that we write to.
 @group(0) @binding(0) var<storage, read_write> cluster_metadata: ClusterMetadata;
-// The list of clusterable object Z slices that we write to.
+/// The list of clusterable object Z slices that we write to.
 @group(0) @binding(1) var<storage, read_write> z_slices: array<ClusterableObjectZSlice>;
-// Information about each light.
+/// Information about each light.
 @group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
-// Information about each light probe (reflection probe or irradiance volume).
+/// Information about each light probe (reflection probe or irradiance volume).
 @group(0) @binding(3) var<uniform> light_probes: LightProbes;
-// Information about each clustered decal.
+/// Information about each clustered decal.
 @group(0) @binding(4) var<storage> clustered_decals: ClusteredDecals;
-// Information about the clusters as a whole, including the dimensions of the
-// cluster grid.
+/// Information about the clusters as a whole, including the dimensions of the
+/// cluster grid.
 @group(0) @binding(5) var<uniform> lights: Lights;
-// Information about the view.
+/// Information about the view.
 @group(0) @binding(6) var<uniform> view: View;
 
-// A temporary workgroup-local buffer used to accelerate the "farthest depth of
-// any object" calculation.
+/// A temporary workgroup-local buffer used to accelerate the "farthest depth of
+/// any object" calculation.
 var<workgroup> shared_farthest_z: array<f32, 64>;
 
-// The shader entry point.
-//
-// We have one invocation per clusterable object.
+/// The shader entry point.
+///
+/// We have one invocation per clusterable object.
 @compute @workgroup_size(64, 1, 1)
 fn z_slice_main(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
@@ -75,14 +75,18 @@ fn z_slice_main(
     // Figure out which type of object we are, and calculate our position and range.
     // We use a sphere to conservatively construct our AABB.
     if (id < last_clustered_light_id) {
-        // We're a light (either point light or spot light).
+        // We're a light (point, spot, or rect light).
         object_index = id;
         let flags = clustered_lights.data[object_index].flags;
-        object_type = select(
-            CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
-            CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
-            (flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT) != 0u
-        );
+        if ((flags & POINT_LIGHT_FLAGS_RECT_LIGHT_BIT) != 0u) {
+            object_type = CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT;
+        } else {
+            object_type = select(
+                CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
+                CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
+                (flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT) != 0u
+            );
+        }
         position = clustered_lights.data[object_index].position_radius.xyz;
         radius = clustered_lights.data[object_index].range;
     } else if (id < last_reflection_probe_id) {
@@ -135,11 +139,11 @@ fn z_slice_main(
     }
 }
 
-// Writes a Z slice to the list.
-//
-// This silently fails if the list is too small, but it still updates the
-// instance count, which the CPU reads back. So, if the list is too small, the
-// CPU will end up being notified and can resize the buffer.
+/// Writes a Z slice to the list.
+///
+/// This silently fails if the list is too small, but it still updates the
+/// instance count, which the CPU reads back. So, if the list is too small, the
+/// CPU will end up being notified and can resize the buffer.
 fn try_write_z_slice(object_index: u32, object_type: u32, z_slice: u32) {
     let z_slice_offset = atomicAdd(&cluster_metadata.indirect_draw_params.instance_count, 1u);
     if (z_slice_offset >= cluster_metadata.z_slice_list_capacity) {
@@ -151,8 +155,8 @@ fn try_write_z_slice(object_index: u32, object_type: u32, z_slice: u32) {
     z_slices[z_slice_offset].z_slice = z_slice;
 }
 
-// Records the farthest Z value for clusterable objects in this workgroup for
-// the CPU to read back.
+/// Records the farthest Z value for clusterable objects in this workgroup for
+/// the CPU to read back.
 fn accumulate_farthest_z_value(
     local_id: u32,
     position: vec3<f32>,
@@ -189,12 +193,12 @@ fn accumulate_farthest_z_value(
     atomicMax(&cluster_metadata.farthest_z, f32_bits_to_sortable_u32(bitcast<u32>(shared_farthest_z[0u])));
 }
 
-// Encodes f32 bits into a u32 whose unsigned ordering matches
-// the float's total order. Positive floats get the sign bit set so they
-// sort above negative floats; negative floats get all bits flipped so
-// their ordering is reversed (more negative -> smaller u32).
-//
-// The CPU decodes with `sortable_u32_to_f32_bits` in `gpu.rs`.
+/// Encodes f32 bits into a u32 whose unsigned ordering matches
+/// the float's total order. Positive floats get the sign bit set so they
+/// sort above negative floats; negative floats get all bits flipped so
+/// their ordering is reversed (more negative -> smaller u32).
+///
+/// The CPU decodes with `sortable_u32_to_f32_bits` in `gpu.rs`.
 fn f32_bits_to_sortable_u32(bits: u32) -> u32 {
     let mask = bitcast<u32>(bitcast<i32>(bits) >> 31) | 0x80000000u;
     return bits ^ mask;

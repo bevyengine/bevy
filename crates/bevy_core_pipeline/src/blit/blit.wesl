@@ -1,4 +1,4 @@
-import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
+import package::fullscreen_vertex_shader::FullscreenVertexOutput;
 @if(SRGB_TO_LINEAR) import bevy_render::color_operations::srgb_to_linear;
 @if(OKLAB_TO_LINEAR) import bevy_render::color_operations::oklab_to_linear_rgb;
 

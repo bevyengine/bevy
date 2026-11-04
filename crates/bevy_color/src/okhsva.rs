@@ -10,6 +10,9 @@ use bevy_reflect::prelude::*;
 
 /// Color in Okhsv color space with alpha.
 /// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
+///
+/// Okhsv is defined relative to the sRGB (Rec. 709) gamut. Converting a wide-gamut or
+/// HDR color can push saturation and value outside `[0.0, 1.0]`.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]

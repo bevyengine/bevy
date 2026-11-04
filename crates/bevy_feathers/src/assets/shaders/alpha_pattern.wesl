@@ -1,4 +1,4 @@
-// This shader draws a checkerboard pattern
+//! This shader draws a checkerboard pattern
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 import bevy_ui_render::ui::sd_rounded_box;
 
@@ -9,7 +9,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let bg = mix(vec3<f32>(0.2, 0.2, 0.2), vec3<f32>(0.6, 0.6, 0.6), check);
 
     let size = vec2<f32>(in.size.x, in.size.y);
-    // With rounded non-elliptical border radius, in.border_radius_x == in.border_radius.y. 
+    // With rounded non-elliptical border radius, in.border_radius_x == in.border_radius.y.
     let external_distance = sd_rounded_box((in.uv - 0.5) * size, size, in.border_radius_x, in.border_radius_y);
     let alpha = smoothstep(0.5, -0.5, external_distance);
 
