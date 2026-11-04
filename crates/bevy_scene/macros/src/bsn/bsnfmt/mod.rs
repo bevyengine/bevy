@@ -21,19 +21,10 @@ impl Display for FormatterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FormatterError::Lexing(e) => {
-                write!(
-                    f,
-                    "Failed to lex input string into TokenStream: {}",
-                    e.to_string()
-                )
+                write!(f, "Failed to lex input string into TokenStream: {}", e)
             }
             FormatterError::Parsing(r#type, e) => {
-                write!(
-                    f,
-                    "Failed to parse input into {}: {}",
-                    r#type,
-                    e.to_string()
-                )
+                write!(f, "Failed to parse input into {}: {}", r#type, e)
             }
         }
     }
@@ -54,7 +45,7 @@ fn format_str<P: BsnFmt + Parse>(
     base_indent: usize,
     level: usize,
 ) -> Result<String, FormatterError> {
-    let tokens = TokenStream::from_str(input).map_err(|e| FormatterError::Lexing(e))?;
+    let tokens = TokenStream::from_str(input).map_err(FormatterError::Lexing)?;
     format_tokens::<P>(tokens, base_indent, level)
 }
 

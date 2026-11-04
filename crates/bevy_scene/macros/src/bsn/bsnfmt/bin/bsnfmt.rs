@@ -1,3 +1,12 @@
+#![allow(
+    unused,
+    reason = "Importing modules from bevy_scene_macros, but only using a few types and trait implementations"
+)]
+#![allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "Working with stdout and stderr is needed for better tooling & IDE integration"
+)]
 //! CLI BSN Formatter
 
 #[path = "../mod.rs"]
@@ -10,7 +19,6 @@ mod bsn_parse;
 #[path = "../../types.rs"]
 mod bsn_types;
 
-#[expect(unused, reason = "Only using a few things from these modules")]
 mod _bsn {
     pub mod types {
         pub use crate::bsn_types::*;
