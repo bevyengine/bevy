@@ -171,19 +171,19 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         OpaqueRendererMethod::Forward
     }
 
-    #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
     /// for meshes with similar depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
+    #[inline]
     fn depth_bias(&self) -> f32 {
         0.0
     }
 
-    #[inline]
     /// Returns whether the material would like to read from [`ViewTransmissionTexture`].
     ///
     /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
     /// rendering to take place in a separate [`Transmissive3d`] pass.
+    #[inline]
     fn reads_view_transmission_texture(&self) -> bool {
         false
     }

@@ -1875,7 +1875,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut accum = init_accum();
                     for (table_id, range) in queue {
                         let table = &tables[table_id];
-                        D::set_table(&mut fetch, &self.fetch_state, table);
+                        D::set_table(&mut fetch, &self.fetch_state, table_id, table);
                         let item = D::fetch_contiguous(
                             &self.fetch_state,
                             &mut fetch,

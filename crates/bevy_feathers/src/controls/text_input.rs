@@ -61,7 +61,7 @@ impl FeathersTextInputContainer {
             ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
             InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::COMPACT_FONT,
                 weight: FontWeight::NORMAL,
             }
@@ -118,7 +118,7 @@ impl FeathersTextInput {
                 linebreak: LineBreak::NoWrap,
             }
             TextFont {
-                font: FontSourceTemplate::Handle(fonts::REGULAR),
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::COMPACT_FONT,
                 weight: FontWeight::NORMAL,
             }

@@ -30,7 +30,9 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{prelude::*, Ready};
 #[cfg(feature = "bevy_settings")]
 use bevy_settings::{ReflectSettingsGroup, SettingsGroup};
-use bevy_text::{EditableText, FontSize, Justify, LineHeight, TextEdit, TextLayout};
+use bevy_text::{
+    EditableText, FontSize, FontSourceTemplate, Justify, LineHeight, TextEdit, TextLayout,
+};
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
     GridTrack, JustifySelf, Node, RepeatedGridTrack,
@@ -446,7 +448,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                     @corners: RoundedCorners::Left,
                 }
                 InheritableFont {
-                    font: "embedded://bevy_feathers/assets/fonts/NotoSansSymbols2-U+1F7D5.ttf",
+                    font: FontSourceTemplate::Handle("embedded://bevy_feathers/assets/fonts/NotoSansSymbols2-U+1F7D5.ttf"),
                     font_size: FontSize::Px(17.0),
                 }
                 Node {
@@ -713,7 +715,7 @@ fn color_input_popup() -> Box<dyn Scene> {
                         justify: Justify::Center,
                     }
                     InheritableFont {
-                        font: fonts::MONO
+                        font: FontSourceTemplate::Handle(fonts::MONO)
                     }
                     LineHeight::Px(24.0) // TODO: Make const for this
                     on(hex_input_on_enter_key)
@@ -886,7 +888,7 @@ fn hex_input_value_change(
     editable_text: &EditableText,
     commands: &mut Commands,
 ) {
-    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value().to_string())
+    if let Ok(new_rgb_color) = Srgba::hex(editable_text.value())
         && state.rgb != new_rgb_color
     {
         state.rgb = new_rgb_color;
