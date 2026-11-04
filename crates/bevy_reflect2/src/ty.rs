@@ -397,8 +397,9 @@ impl Type {
 }
 
 /// A lazy reference to a [`Type`] via a function pointer. This makes evaluation lazy, which moves
-/// const-eval to runtime, preventing exponential const-evaluation costs / boosting compile times. This
-/// also allows reflecting recursive types.
+/// const-eval to runtime, preventing exponential const-evaluation costs / boosting compile times. In
+/// a compile time benchmark 30 levels deep, the [`TypeRef`] version compiled in 0.11 seconds and direct
+/// &'static Type nesting compiled in 37 seconds. [`TypeRef`] also allows for reflecting recursive types.
 #[derive(Clone, Copy)]
 pub struct TypeRef(pub fn() -> &'static Type);
 
