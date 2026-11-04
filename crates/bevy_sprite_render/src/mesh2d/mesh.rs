@@ -457,18 +457,24 @@ pub fn init_mesh_2d_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    let view_layout = BindGroupLayoutDescriptor::new(
-        "mesh2d_view_layout",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::VERTEX_FRAGMENT,
-            (
-                uniform_buffer::<ViewUniform>(true),
-                uniform_buffer::<GlobalsUniform>(false),
-                tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-            ),
+
+    let view_layout_entries = DynamicBindGroupLayoutEntries::sequential(
+        ShaderStages::VERTEX_FRAGMENT,
+        (
+            uniform_buffer::<ViewUniform>(true),
+            uniform_buffer::<GlobalsUniform>(false),
+            tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+            tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
         ),
     );
+
+    #[cfg(feature = "bevy_sprite_light")]
+    let view_layout_entries = view_layout_entries.extend_with_indices(((
+        4,
+        uniform_buffer::<crate::light::Lights2dUniform>(false).visibility(ShaderStages::FRAGMENT),
+    ),));
+
+    let view_layout = BindGroupLayoutDescriptor::new("mesh2d_view_layout", &view_layout_entries);
 
     let limits = render_device.limits();
     let mesh_layout = BindGroupLayoutDescriptor::new(
@@ -837,6 +843,15 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             shader_defs.push("OKLAB_OUTPUT".into());
         }
 
+        #[cfg(feature = "bevy_sprite_light")]
+        {
+            shader_defs.push("LIGHTING_2D".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "MAX_POINT_LIGHTS_2D".into(),
+                crate::light::MAX_POINT_LIGHTS_2D as u32,
+            ));
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let format = key.target_format();
@@ -965,6 +980,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
+    #[cfg(feature = "bevy_sprite_light")] lights_2d_buffer: Res<crate::light::Lights2dBuffer>,
 ) {
     let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
@@ -972,19 +988,26 @@ pub fn prepare_mesh2d_view_bind_groups(
     ) else {
         return;
     };
+    #[cfg(feature = "bevy_sprite_light")]
+    let Some(lights_2d) = lights_2d_buffer.buffer.binding() else {
+        return;
+    };
 
     for (entity, tonemapping) in &views {
         let lut_bindings =
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let entries = DynamicBindGroupEntries::sequential((
+            view_binding.clone(),
+            globals.clone(),
+            lut_bindings.0,
+            lut_bindings.1,
+        ));
+        #[cfg(feature = "bevy_sprite_light")]
+        let entries = entries.extend_with_indices(((4, lights_2d.clone()),));
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.view_layout),
-            &BindGroupEntries::sequential((
-                view_binding.clone(),
-                globals.clone(),
-                lut_bindings.0,
-                lut_bindings.1,
-            )),
+            &entries,
         );
 
         commands.entity(entity).insert(Mesh2dViewBindGroup {
