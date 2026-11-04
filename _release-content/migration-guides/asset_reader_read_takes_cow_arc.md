@@ -3,7 +3,7 @@ title: AssetReader::read and AssetReader::read_meta now take a CowArc Path.
 pull_requests: [26092]
 ---
 
-Previously `AssetReader::read` and `AssetReader::read_meta` take a `Path` borrow. This limited the
+Previously `AssetReader::read` and `AssetReader::read_meta` took a `Path` borrow. This limited the
 use of these methods since they `Path` had to **outlive** the reader.
 
 Now, these methods both take `CowArc<'_, Path>`, allowing you to **move an owned `Path`** into these

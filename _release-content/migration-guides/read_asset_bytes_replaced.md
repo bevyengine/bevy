@@ -7,3 +7,6 @@ Previously, `LoadContext::read_asset_bytes` would read the **whole** asset into 
 handing it to you. This has been deprecated in favor of `LoadContext::read_asset`, which returns you
 the `Reader` to allow you to read the bytes as needed (to avoid loading the whole asset into memory
 unless you want to).
+
+If you still want to read the whole asset as a `Vec<u8>`, this can be done with `Reader::read_to_end`:
+
