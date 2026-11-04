@@ -469,6 +469,11 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
     }
 
     #[inline]
+    fn swap(&mut self, a: usize, b: usize) {
+        <[T]>::swap(self, a, b);
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         N
     }

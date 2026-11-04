@@ -18,6 +18,7 @@
 //! [`World`]: bevy_ecs::world::World
 
 mod source;
+pub mod stepping;
 pub mod world;
 
 pub(crate) use source::is_remote;

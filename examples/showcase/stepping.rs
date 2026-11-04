@@ -105,7 +105,7 @@ fn build_ui(
 ) {
     let mut text_spans = Vec::new();
     let mut always_run: Vec<(
-        bevy_ecs::intern::Interned<dyn ScheduleLabel + 'static>,
+        bevy::ecs::intern::Interned<dyn ScheduleLabel + 'static>,
         NodeId,
     )> = Vec::new();
 

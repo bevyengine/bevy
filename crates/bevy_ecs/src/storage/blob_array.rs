@@ -3,8 +3,6 @@ use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
 use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 
-use crate::query::DebugCheckedUnwrap;
-
 /// A flat, type-erased data storage type.
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
@@ -305,7 +303,7 @@ impl BlobArray {
                 alloc::alloc::realloc(
                     self.get_ptr_mut().as_ptr(),
                     // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-                    layout.debug_checked_unwrap(),
+                    layout.unwrap_unchecked(),
                     new_layout.size(),
                 )
             };

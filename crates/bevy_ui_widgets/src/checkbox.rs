@@ -56,7 +56,9 @@ fn checkbox_on_key_input(
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
-            && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+            && (event.key_code == KeyCode::Enter
+                || event.key_code == KeyCode::NumpadEnter
+                || event.key_code == KeyCode::Space)
         {
             ev.propagate(false);
             commands.trigger(ValueChange {
@@ -463,6 +465,36 @@ mod tests {
         assert!(
             app.world().entity(checkbox).contains::<Checked>(),
             "Space should toggle the focused checkbox"
+        );
+    }
+
+    /// With a checkbox focused, pressing `NumpadEnter` toggles it as `Enter` does.
+    #[test]
+    fn numpad_enter_toggles_focused_checkbox() {
+        let (mut app, window) = checkbox_app();
+        let checkbox = app
+            .world_mut()
+            .spawn((Checkbox, TabIndex(0), ChildOf(window)))
+            .id();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(checkbox, FocusCause::Navigated);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::NumpadEnter,
+            logical_key: Key::Enter,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        assert!(
+            app.world().entity(checkbox).contains::<Checked>(),
+            "NumpadEnter should toggle the focused checkbox"
         );
     }
 

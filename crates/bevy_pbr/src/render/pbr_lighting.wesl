@@ -35,8 +35,7 @@
 import package::{
     render::mesh_view_types::{POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE, RectLight},
     render::mesh_view_bindings as view_bindings,
-    atmosphere::functions::{calculate_visible_sun_ratio, clamp_to_surface},
-    atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
+    atmosphere::functions::directional_light_transmittance,
 };
 import bevy_render::maths::{PI, orthonormalize, quat_rotate};
 
@@ -526,7 +525,7 @@ fn Fd_Burley(
 // Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
 @if(DFG_LUT)
-    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::linear_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
 @else {
     // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
     let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
@@ -924,24 +923,15 @@ fn directional_light(
 
 color *= (*light).color.rgb * texture_sample;
 
-@if(ATMOSPHERE) {
-    let P = (*input).P;
-    let atmosphere = view_bindings::atmosphere;
-    let P_as = (
-        view_bindings::atmosphere.world_to_atmosphere * vec4(P, 1.0)
-    ).xyz;
-    let P_clamped = clamp_to_surface(atmosphere, P_as);
-    let r = length(P_clamped);
-    let local_up = normalize(P_clamped);
-    let mu_light = dot(L, local_up);
-
-    // Sample atmosphere
-    let transmittance = sample_transmittance_lut(r, mu_light);
-    let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
-
-    // Apply atmospheric effects
-    color *= transmittance * sun_visibility;
-}
+@if(ATMOSPHERE)
+    color *= directional_light_transmittance(
+        view_bindings::atmosphere,
+        view_bindings::atmosphere_transmittance_texture,
+        view_bindings::linear_sampler,
+        (*input).P,
+        L,
+        (*light).sun_disk_angular_size,
+    );
 
     return color;
 }
@@ -1074,8 +1064,8 @@ fn rect_light(
     let LUT_SCALE = 63.0 / 64.0;
     let LUT_BIAS  =  0.5 / 64.0;
     let uv = vec2<f32>(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
-    let t1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, uv, 0, 0.0);
-    let t2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, uv, 1, 0.0);
+    let t1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, uv, 0, 0.0);
+    let t2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, uv, 1, 0.0);
 
     // Reconstruct the GGX inverse-LTC matrix
     let Minv = mat3x3<f32>(
@@ -1105,8 +1095,8 @@ fn rect_light(
 
     // Sample LUTs for clearcoat layer
     let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
-    let tc1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, cc_uv, 0, 0.0);
-    let tc2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::area_light_luts_sampler, cc_uv, 1, 0.0);
+    let tc1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, cc_uv, 0, 0.0);
+    let tc2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, cc_uv, 1, 0.0);
     let Minv_cc = mat3x3<f32>(
         vec3<f32>(tc1.x, 0.0, tc1.y),
         vec3<f32>(0.0,   1.0, 0.0),
@@ -1124,13 +1114,4 @@ fn rect_light(
 } @else {
     return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
 }
-}
-
-
-@if(ATMOSPHERE)
-fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere, r, mu);
-    return textureSampleLevel(
-        view_bindings::atmosphere_transmittance_texture,
-        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
 }

@@ -6,13 +6,15 @@
 //! cargo run --example server --features="bevy_remote"
 //! ```
 //!
+//! Add the `bevy_debug_stepping` feature to the server to enable stepping through systems using controls on the inspector.
+//!
 //! Then run this example in another terminal:
 //! ```bash
 //! cargo run --example remote_inspector --features="bevy_inspector,bevy_remote_client"
 //! ```
 //!
 //! The address defaults to `127.0.0.1:15702` and can be overridden with the `BRP_HOST` and
-//! `BRP_PORT` environment variables.
+//! `BRP_PORT` environment variables, or changed in the connection bar at the top.
 
 use bevy::{
     feathers::{
@@ -22,9 +24,10 @@ use bevy::{
         FeathersPlugins,
     },
     inspector::{
+        connection_panel::connection_panel,
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
-        remote::RemoteSource,
+        remote::{stepping::stepping_controls, RemoteSource},
         InspectorPlugin, InspectorSource,
     },
     prelude::*,
@@ -68,8 +71,22 @@ fn inspector_ui() -> impl Scene {
             padding: px(12),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::FlexStart,
+            row_gap: px(8),
         }
         Children [
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                flex_wrap: FlexWrap::Wrap,
+                column_gap: px(16),
+                row_gap: px(8),
+            }
+            Children [
+                @connection_panel()
+                --
+                @stepping_controls()
+            ]
+            --
             @FeathersSplitPane
             Node {
                 width: px(720),
