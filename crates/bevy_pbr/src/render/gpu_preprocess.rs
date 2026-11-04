@@ -100,6 +100,12 @@ pub struct GpuMeshPreprocessPlugin {
 /// parameter building passes.
 #[derive(Resource)]
 pub struct PreprocessPipelines {
+    /// Passes the late-preprocessing indirect-parameter offset to the mesh
+    /// preprocessing shader.
+    ///
+    /// Uses a four-byte immediate when supported by the render device.
+    /// Otherwise, selects a preinitialized uniform record containing the offset
+    /// through a dynamic buffer offset.
     u32_immediates: TinyU32Immediates,
     /// The pipeline used for CPU culling. This pipeline doesn't populate
     /// indirect parameter metadata.
