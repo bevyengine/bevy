@@ -631,7 +631,7 @@ unsafe fn copy_uncovered_bytes(
     }
 }
 
-/// Cleans up a partially cloned value (see [`Reflect::clone_fields`]): drops the first
+/// Cleans up a partially cloned value (see `<dyn Reflect>::clone_fields`): drops the first
 /// `initialized` `fields`, which were cloned into `dst`, and frees `dst`.
 struct PartialClone<'a, I: Iterator<Item = (usize, &'a dyn Reflect)>> {
     ty: &'static Type,

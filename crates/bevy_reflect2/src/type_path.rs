@@ -330,7 +330,7 @@ impl Default for GenericTypePathCell {
     }
 }
 
-/// Implements [`GenericTypePath`](crate::GenericTypePath) for a type whose path is
+/// Implements [`GenericTypePath`] for a type whose path is
 /// `$module::$ident<$($param),*>`.
 macro_rules! impl_generic_type_path {
     (impl<$($param:ident),*> for $ty:ty, $module:literal, $ident:literal $(, where $($bounds:tt)*)?) => {

@@ -19,7 +19,7 @@ pub(crate) struct ContainerAttributes {
     // custom_attributes: CustomAttributes,
     pub(crate) type_data: Vec<TypeDataRegistration>,
     pub(crate) no_auto_register: bool,
-    /// Reflects the type as an [`Primitive::Opaque`], without reflecting its fields.
+    /// Reflects the type as a `Primitive::Opaque`, without reflecting its fields.
     pub(crate) opaque: bool,
     /// Additional where clause predicates for the generated impls (`#[reflect(where T: Bound)]`).
     pub(crate) where_predicates: Vec<WherePredicate>,

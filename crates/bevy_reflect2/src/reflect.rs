@@ -20,7 +20,7 @@ use core::{
 ///
 /// # Core traits
 ///
-/// `dyn Reflect` provides reflected versions of [`Clone`], [`Debug`](core::fmt::Debug),
+/// `dyn Reflect` provides reflected versions of [`Clone`], [`Debug`],
 /// [`Hash`](core::hash::Hash), [`PartialEq`], and [`PartialOrd`] (ex: `reflect_clone` and
 /// `reflect_partial_eq`). Each operation first uses the function in the type's
 /// [`TypeVTable`](crate::TypeVTable), which is registered using attributes like

@@ -23,7 +23,7 @@ pub struct Field {
     pub name: &'static str,
     /// The offset (in bytes) of the field, relative to the pointer of the struct it belongs to.
     pub offset: usize,
-    /// A reference to the [`Type`] of the field.
+    /// A reference to the [`Type`](crate::Type) of the field.
     pub ty: TypeRef,
 }
 
@@ -35,7 +35,7 @@ pub struct IgnoredField {
     pub name: &'static str,
     /// The offset (in bytes) of the field, relative to the pointer of the struct it belongs to.
     pub offset: usize,
-    /// A reference to the [`Type`] of the field.
+    /// Describes how to initialize the field (see [`IgnoredFieldVTable`]).
     pub vtable: IgnoredFieldVTable,
 }
 
@@ -65,7 +65,7 @@ pub enum FieldKind {
 }
 
 /// How the bytes of a struct that are not covered by a field are initialized when the struct is
-/// constructed field-by-field (see [`Type::initialize_struct`]).
+/// constructed field-by-field (see [`Type::initialize_struct`](crate::Type::initialize_struct)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum UncoveredBytes {
     /// The bytes are padding, which doesn't need to be initialized. This is the case for every
@@ -300,7 +300,7 @@ impl<'a> StructMut<'a> {
 }
 
 /// Describes how to initialize a field that is not reflected. This allows values with ignored
-/// fields to be constructed field-by-field (ex: [`Type::initialize_struct`] and structural clones).
+/// fields to be constructed field-by-field (ex: [`Type::initialize_struct`](crate::Type::initialize_struct) and structural clones).
 ///
 /// The functions must be valid for pointers to the field's type, and `layout` must be the layout of
 /// the field's type.

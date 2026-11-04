@@ -16,7 +16,7 @@ use crate::reflect::{
 
 const PRIMITIVE_ATTRIBUTE_NAME: &str = "primitive";
 
-/// Implements reflection for a type as a [`Kind::Primitive`], whose internals are not reflected.
+/// Implements reflection for a type as a `Kind::Primitive`, whose internals are not reflected.
 ///
 /// Supports two forms:
 /// - `::path::to::Type<T: Bound>(Trait, Trait(custom_fn), TypeData)`: the path determines the type

@@ -133,9 +133,9 @@ impl dyn ListAccess {
 }
 
 /// Implements [`Typed`](crate::Typed) and [`GetTypeRegistration`](crate::GetTypeRegistration) for a
-/// list type that implements [`ListAccess`](crate::ListAccess).
+/// list type that implements [`ListAccess`].
 ///
-/// The list must implement [`Default`]. The [`ListAccess`](crate::ListAccess) implementation should
+/// The list must implement [`Default`]. The [`ListAccess`] implementation should
 /// call the list's inherent methods using `<$ty>::method` syntax, so the list must have inherent
 /// versions of them, otherwise the call resolves to the access trait method itself.
 macro_rules! impl_reflect_list {

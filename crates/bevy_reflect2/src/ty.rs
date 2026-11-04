@@ -160,7 +160,7 @@ impl Type {
     ///
     /// Bytes that are not covered by a field are left uninitialized if they are padding, or zeroed
     /// before `func` is called if the struct requires it (see
-    /// [`UncoveredBytes`](crate::UncoveredBytes)).
+    /// [`UncoveredBytes`]).
     ///
     /// [Ignored fields](crate::Struct::ignored_fields) are initialized with their
     /// [`default`](crate::IgnoredFieldVTable::default) function (registered with
