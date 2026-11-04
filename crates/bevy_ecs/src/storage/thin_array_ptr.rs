@@ -122,7 +122,7 @@ impl<T> ThinArrayPtr<T> {
         assert_eq!(self.capacity, current_capacity.get());
 
         if size_of::<T>() != 0 {
-            // We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
+            // SAFETY: We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
             let layout = unsafe { Layout::array::<T>(current_capacity.get()).unwrap_unchecked() };
             // SAFETY:
             // - `data` was allocated by this allocator, with `layout`: `current_capacity` is the
