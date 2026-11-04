@@ -1,4 +1,4 @@
-use crate::{ty::Type, Reflect};
+use crate::{Reflect, TypeRef};
 use bevy_ptr::{Ptr, PtrMut};
 use core::{alloc::Layout, fmt::Debug};
 
@@ -183,27 +183,6 @@ impl Field {
                 .get()
                 .as_reflect_mut(struct_ptr.byte_add(self.offset))
         }
-    }
-}
-
-/// A lazy reference to a [`Type`] via a function pointer. This makes evaluation lazy, which moves
-/// const-eval to runtime, boosting compile times.
-#[derive(Clone, Copy)]
-pub struct TypeRef(pub fn() -> &'static Type);
-
-impl TypeRef {
-    /// Get the referenced type by calling the function.
-    #[inline]
-    pub fn get(&self) -> &'static Type {
-        (self.0)()
-    }
-}
-
-impl Debug for TypeRef {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("TypeRef")
-            .field(&self.get().type_path().short())
-            .finish()
     }
 }
 

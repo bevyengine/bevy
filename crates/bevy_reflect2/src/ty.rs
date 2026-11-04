@@ -396,6 +396,28 @@ impl Type {
     }
 }
 
+/// A lazy reference to a [`Type`] via a function pointer. This makes evaluation lazy, which moves
+/// const-eval to runtime, preventing exponential const-evaluation costs / boosting compile times. This
+/// also allows reflecting recursive types.
+#[derive(Clone, Copy)]
+pub struct TypeRef(pub fn() -> &'static Type);
+
+impl TypeRef {
+    /// Get the referenced type by calling the function.
+    #[inline]
+    pub fn get(&self) -> &'static Type {
+        (self.0)()
+    }
+}
+
+impl Debug for TypeRef {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("TypeRef")
+            .field(&self.get().type_path().short())
+            .finish()
+    }
+}
+
 /// Cleans up a partially constructed value (see [`Type::move_values_into`]): drops the first
 /// `initialized` `parts`, which were moved into `dst`, and frees `dst`.
 struct PartialConstruct<'a, I: Iterator<Item = (usize, &'static Type)>> {
