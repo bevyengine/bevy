@@ -50,12 +50,32 @@ use crate::{real::Real, time::Time};
 /// Because this cap is applied before scaling, it behaves consistently at any
 /// virtual clock speed.
 ///
+/// If the game temporarily freezes due to any reason, such as disk access, a
+/// blocking system call, or operating system level suspend, reporting the full
+/// elapsed delta time is likely to cause bugs in game logic. Usually if a
+/// laptop is suspended for an hour, it doesn't make sense to try to simulate
+/// the game logic for the elapsed hour when resuming. Instead it is better to
+/// lose the extra time and pretend a shorter duration of time passed. Setting
+/// [`max_wall_delta()`](Time::max_wall_delta) to a relatively short time means
+/// that the impact on game logic will be minimal.
+///
 /// [`max_delta()`](Time::max_delta) limits the amount of virtual time added in
 /// a single update, after relative speed is applied. This protects against a
 /// "death spiral" where a large virtual-time step requires excessive
 /// catch-up work, making subsequent frames take even longer. When this cap is
 /// reached, the virtual clock advances more slowly for that update, allowing
 /// the game to recover once frame processing becomes faster.
+///
+/// If the game lags for some reason, meaning that it will take a longer time to
+/// compute a frame than the real time that passes during the computation, then
+/// we would fall behind in processing virtual time. If this situation persists,
+/// and computing a frame takes longer depending on how much virtual time has
+/// passed, the game would enter a "death spiral" where computing each frame
+/// takes longer and longer and the game will appear to freeze. By limiting the
+/// maximum time that can be added at once, we also limit the amount of virtual
+/// time the game needs to compute for each frame. This means that the game will
+/// run slow, and it will run slower than real time, but it will not freeze and
+/// it will recover as soon as computation becomes fast again.
 ///
 /// Use `max_wall_delta` as a real-time hitch and suspension guard, and
 /// `max_delta` to limit how much virtual time can be processed in one update.
@@ -73,7 +93,7 @@ use crate::{real::Real, time::Time};
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct Virtual {
     max_delta: Duration,
-    max_wall_delta: Option<Duration>,
+    max_wall_delta: Duration,
     paused: bool,
     relative_speed: f64,
     effective_speed: f64,
@@ -142,12 +162,12 @@ impl Time<Virtual> {
         self.context_mut().max_delta = max_delta;
     }
 
-    /// Returns the optional maximum amount of real frame time that can be
-    /// considered by a single update, before relative-speed scaling is applied.
+    /// Returns the maximum amount of real frame time that can be considered
+    /// in a single update, before relative-speed scaling is applied.
     ///
-    /// `None` means no real-time cap is configured.
+    /// Defaults to 250 ms, matching `max_delta`.
     #[inline]
-    pub fn max_wall_delta(&self) -> Option<Duration> {
+    pub fn max_wall_delta(&self) -> Duration {
         self.context().max_wall_delta
     }
 
@@ -162,16 +182,16 @@ impl Time<Virtual> {
     /// The wall-time cap is applied first, followed by relative-speed scaling,
     /// and finally by [`max_delta()`](Self::max_delta).
     ///
-    /// Pass `None` to disable the wall-time cap.
+    /// Set this to `Duration::MAX` to disable the wall-time cap.
     ///
     /// # Panics
     ///
-    /// Panics if `max_wall_delta` is `Some(Duration::ZERO)`.
+    /// Panics if `max_wall_delta` is zero.
     #[inline]
-    pub fn set_max_wall_delta(&mut self, max_wall_delta: Option<Duration>) {
+    pub fn set_max_wall_delta(&mut self, max_wall_delta: Duration) {
         assert_ne!(
             max_wall_delta,
-            Some(Duration::ZERO),
+            Duration::ZERO,
             "tried to set max wall delta to zero"
         );
         self.context_mut().max_wall_delta = max_wall_delta;
@@ -283,10 +303,7 @@ impl Time<Virtual> {
         } else {
             self.context().relative_speed
         };
-        let wall_delta = match self.context().max_wall_delta {
-            Some(max_wall_delta) if raw_delta > max_wall_delta => max_wall_delta,
-            _ => raw_delta,
-        };
+        let wall_delta = raw_delta.min(self.context().max_wall_delta);
         let scaled = if speed != 1.0 {
             wall_delta.mul_f64(speed)
         } else {
@@ -314,7 +331,7 @@ impl Default for Virtual {
     fn default() -> Self {
         Self {
             max_delta: Time::<Virtual>::DEFAULT_MAX_DELTA,
-            max_wall_delta: None,
+            max_wall_delta: Time::<Virtual>::DEFAULT_MAX_DELTA,
             paused: false,
             relative_speed: 1.0,
             effective_speed: 1.0,
@@ -343,7 +360,7 @@ mod test {
         assert!(!time.is_paused()); // false
         assert_eq!(time.relative_speed(), 1.0);
         assert_eq!(time.max_delta(), Time::<Virtual>::DEFAULT_MAX_DELTA);
-        assert_eq!(time.max_wall_delta(), None);
+        assert_eq!(time.max_wall_delta(), Time::<Virtual>::DEFAULT_MAX_DELTA);
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.elapsed(), Duration::ZERO);
     }
@@ -459,6 +476,7 @@ mod test {
     #[test]
     fn test_max_delta() {
         let mut time = Time::<Virtual>::default();
+        time.set_max_wall_delta(Duration::MAX);
         time.set_max_delta(Duration::from_millis(500));
 
         time.advance_with_raw_delta(Duration::from_millis(250));
@@ -530,7 +548,7 @@ mod test {
     fn test_max_wall_delta_clamps_before_relative_speed() {
         let mut time = Time::<Virtual>::default();
         time.set_max_delta(Duration::MAX);
-        time.set_max_wall_delta(Some(Duration::from_millis(150)));
+        time.set_max_wall_delta(Duration::from_millis(150));
 
         let mut elapsed = Duration::ZERO;
         for speed in [10.0, 240.0, 0.1, 1.0] {
@@ -549,7 +567,7 @@ mod test {
     fn test_max_wall_delta_and_max_delta_both_apply() {
         let mut time = Time::<Virtual>::default();
         time.set_max_delta(Duration::from_secs(1));
-        time.set_max_wall_delta(Some(Duration::from_millis(150)));
+        time.set_max_wall_delta(Duration::from_millis(150));
         time.set_relative_speed_f64(10.0);
 
         time.advance_with_raw_delta(Duration::from_millis(100));
@@ -566,7 +584,7 @@ mod test {
         assert!((time.effective_speed_f64() - 0.3).abs() < 1e-9);
 
         time.set_relative_speed_f64(10.0);
-        time.set_max_wall_delta(None);
+        time.set_max_wall_delta(Duration::MAX);
         time.set_max_delta(Duration::MAX);
         time.advance_with_raw_delta(Duration::from_secs(1));
         assert_eq!(time.delta(), Duration::from_secs(10));
@@ -576,7 +594,7 @@ mod test {
     #[test]
     fn test_max_wall_delta_while_paused() {
         let mut time = Time::<Virtual>::default();
-        time.set_max_wall_delta(Some(Duration::from_millis(150)));
+        time.set_max_wall_delta(Duration::from_millis(150));
         time.pause();
 
         time.advance_with_raw_delta(Duration::from_secs(1));
@@ -588,6 +606,6 @@ mod test {
     #[test]
     #[should_panic(expected = "tried to set max wall delta to zero")]
     fn test_max_wall_delta_zero_panics() {
-        Time::<Virtual>::default().set_max_wall_delta(Some(Duration::ZERO));
+        Time::<Virtual>::default().set_max_wall_delta(Duration::ZERO);
     }
 }
