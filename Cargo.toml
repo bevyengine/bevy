@@ -4849,6 +4849,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "diagnostics_overlay"
+path = "examples/dev_tools/diagnostics_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.diagnostics_overlay]
+name = "Diagnostics overlay"
+description = "Demonstrates diagnostics overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
 name = "schedule_data"
 path = "examples/dev_tools/schedule_data.rs"
 doc-scrape-examples = true
