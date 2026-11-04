@@ -341,7 +341,8 @@ impl BlobArray {
             }
         }
 
-        let align = NonZeroUsize::new(self.item_layout.align()).expect("alignment must be > 0");
+        // SAFETY: `align()` is guaranteed to be a power of two, and therefore nonzero
+        let align = unsafe { NonZeroUsize::new_unchecked(self.item_layout.align()) };
         // A dangling pointer with the item's alignment, as for an array created with no capacity.
         self.data = NonNull::without_provenance(align);
 
