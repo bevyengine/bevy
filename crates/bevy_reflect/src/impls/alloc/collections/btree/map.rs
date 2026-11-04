@@ -15,8 +15,8 @@ use bevy_reflect_derive::impl_type_path;
 
 impl<K, V> Map for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         key.try_downcast_ref::<K>()
@@ -94,8 +94,8 @@ where
 
 impl<K, V> PartialReflect for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -171,14 +171,14 @@ where
 impl_full_reflect!(
     <K, V> for ::alloc::collections::BTreeMap<K, V>
     where
-        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 );
 
 impl<K, V> Typed for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -195,8 +195,8 @@ where
 
 impl<K, V> GetTypeRegistration for ::alloc::collections::BTreeMap<K, V>
 where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+    K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
@@ -235,7 +235,7 @@ impl_type_path!(::alloc::collections::BTreeMap<K, V>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::alloc::collections::BTreeMap<K, V>;
     <
-        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration
+        K: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: Reflect + FromReflect + MaybeTyped + TypePath + GetTypeRegistration
     >
 );

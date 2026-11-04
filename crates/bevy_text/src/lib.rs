@@ -136,7 +136,6 @@ impl Plugin for TextPlugin {
                     .chain()
                     .after(PropagateSet::<TextFont>::default()),
             )
-            .add_systems(Last, trim_source_cache)
             .add_systems(
                 PostUpdate,
                 apply_text_edits

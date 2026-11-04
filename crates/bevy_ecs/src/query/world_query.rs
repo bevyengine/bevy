@@ -1,9 +1,9 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeId},
     change_detection::Tick,
     component::{ComponentId, Components},
     query::{FilteredAccess, FilteredAccessSet},
-    storage::Table,
+    storage::{Table, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
@@ -98,7 +98,9 @@ pub unsafe trait WorldQuery {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     );
 
@@ -112,6 +114,7 @@ pub unsafe trait WorldQuery {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        table_id: TableId,
         table: &'w Table,
     );
 
@@ -205,21 +208,23 @@ macro_rules! impl_tuple_world_query {
             unsafe fn set_archetype<'w, 's>(
                 fetch: &mut Self::Fetch<'w>,
                 state: &'s Self::State,
+                archetype_id: ArchetypeId,
                 archetype: &'w Archetype,
+                table_id: TableId,
                 table: &'w Table
             ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
+                $(unsafe { $name::set_archetype($name, $state, archetype_id, archetype, table_id, table); })*
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table_id: TableId, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
                 // SAFETY: The invariants are upheld by the caller.
-                $(unsafe { $name::set_table($name, $state, table); })*
+                $(unsafe { $name::set_table($name, $state, table_id, table); })*
             }
 
 

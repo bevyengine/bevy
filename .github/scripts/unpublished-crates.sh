@@ -6,9 +6,25 @@ set -euo pipefail
 index=$(mktemp)
 trap 'rm -f "$index"' EXIT
 
-cargo metadata --no-deps --format-version 1 \
+packages=$(cargo metadata --no-deps --format-version 1 \
   | jq -r '.packages[] | select(.publish != []) | "\(.name) \(.version)"' \
-  | sort \
+  | sort)
+
+if [ $# -gt 0 ]; then
+  for requested in "$@"; do
+    if ! [[ "$requested" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      echo "::error::not a crate name: $requested" >&2
+      exit 1
+    fi
+    if ! echo "$packages" | grep -q "^$requested "; then
+      echo "::error::$requested is not a publishable crate of this workspace" >&2
+      exit 1
+    fi
+  done
+  packages=$(echo "$packages" | grep -E "^($(IFS='|'; echo "$*")) ")
+fi
+
+echo "$packages" \
   | while read -r name version; do
       lower=$(echo "$name" | tr "[:upper:]" "[:lower:]")
       path="${lower:0:2}/${lower:2:2}/$lower"

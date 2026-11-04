@@ -20,11 +20,12 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::Has,
+    query::{Has, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
+use bevy_light::AtmosphereEnvironmentMapLight;
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -49,6 +50,7 @@ impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "gbuffer_utils.wesl");
         load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "atmosphere.wesl");
         load_shader_library!(app, "presample_light_tiles.wesl");
         load_shader_library!(app, "initial_path.wesl");
         embedded_asset!(app, "restir.wesl");
@@ -76,7 +78,13 @@ impl Plugin for SolariLightingPlugin {
             return;
         }
 
-        app.add_systems(PostUpdate, manage_prepass_double_buffers);
+        app.add_systems(
+            PostUpdate,
+            (
+                manage_prepass_double_buffers,
+                disable_atmosphere_env_map_filtering,
+            ),
+        );
 
         app.sub_app_mut(RenderApp)
             .add_systems(
@@ -207,6 +215,18 @@ pub struct SolariLighting {
     /// camera.
     pub world_cache_position_lod_scale: f32,
 
+    /// Treat all geometry as opaque when tracing rays to update the world cache.
+    ///
+    /// When enabled, world cache rays skip alpha testing, which makes them cheaper to trace,
+    /// at the cost of alpha-masked geometry (such as foliage) being treated as fully opaque
+    /// by the world cache.
+    ///
+    /// This can cause a slight loss of energy in indirect lighting for alpha-masked geometry,
+    /// in exchange for increasing performance a bit.
+    ///
+    /// Defaults to `true`.
+    pub world_cache_force_opaque: bool,
+
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
@@ -231,6 +251,7 @@ impl Default for SolariLighting {
             world_cache_cell_updates_soft_target: 40000,
             world_cache_position_base_cell_size: 0.15,
             world_cache_position_lod_scale: 15.0,
+            world_cache_force_opaque: true,
             reset: true, // No temporal history on the first frame
         }
     }
@@ -263,5 +284,25 @@ fn manage_prepass_double_buffers(
                 entity.remove::<DepthPrepassDoubleBuffer>();
             }
         }
+    }
+}
+
+/// Turn off atmosphere cubemap filtering for Solari cameras to save performance, since Solari does not require it.
+fn disable_atmosphere_env_map_filtering(
+    mut commands: Commands,
+    lights: Query<(Entity, &AtmosphereEnvironmentMapLight), With<SolariLighting>>,
+) {
+    for (entity, light) in &lights {
+        if !light.filtered {
+            continue;
+        }
+
+        // Re-insert so the insert observer rebuilds the env map without filtering.
+        commands
+            .entity(entity)
+            .insert(AtmosphereEnvironmentMapLight {
+                filtered: false,
+                ..light.clone()
+            });
     }
 }

@@ -1,0 +1,34 @@
+error[E0277]: the trait bound `SpawnOneRelated<bevy_ecs::hierarchy::ChildOf, ()>: NoBundleEffect` is not satisfied
+  --> tests/ui/bundle_no_effect_impl.rs:12:29
+   |
+12 |     bundle_has_no_effects::<A>();
+   |                             ^ the trait `NoBundleEffect` is not implemented for `SpawnOneRelated<bevy_ecs::hierarchy::ChildOf, ()>`
+   |
+   = help: the following other types implement trait `NoBundleEffect`:
+             ()
+             (B,)
+             (B0, B1)
+             (B0, B1, B2)
+             (B0, B1, B2, B3)
+             (B0, B1, B2, B3, B4)
+             (B0, B1, B2, B3, B4, B5)
+             (B0, B1, B2, B3, B4, B5, B6)
+           and 10 others
+note: required for `A` to implement `NoBundleEffect`
+  --> tests/ui/bundle_no_effect_impl.rs:5:8
+   |
+ 3 | #[derive(Bundle)]
+   |          ------ type parameter would need to implement `NoBundleEffect`
+ 4 | #[bundle(ignore_from_components)]
+ 5 | struct A(SpawnOneRelated<ChildOf, ()>);
+   |        ^
+   = help: consider manually implementing `NoBundleEffect` to avoid undesired bounds
+note: required by a bound in `bundle_has_no_effects`
+  --> tests/ui/bundle_no_effect_impl.rs:19:44
+   |
+19 | fn bundle_has_no_effects<T: Bundle<Effect: NoBundleEffect>>() {}
+   |                                            ^^^^^^^^^^^^^^ required by this bound in `bundle_has_no_effects`
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0277`.
