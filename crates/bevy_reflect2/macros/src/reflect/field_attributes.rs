@@ -1,9 +1,15 @@
-use bevy_macro_utils::fq_std::FQOption;
+use bevy_macro_utils::{fq_std::FQOption, terminated_parser};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{parenthesized, spanned::Spanned, token::Paren, Expr, Field, Path, Result};
+use syn::{
+    ext::IdentExt, parenthesized, parse::ParseStream, spanned::Spanned, token::Paren, Expr, Field,
+    Ident, Path, Result, Token,
+};
 
-use crate::reflect::{attributes::TraitImpl, REFLECT_ATTRIBUTE_NAME};
+use crate::reflect::{
+    attributes::{CustomAttributes, TraitImpl},
+    REFLECT_ATTRIBUTE_NAME,
+};
 
 const IGNORE: &str = "ignore";
 const DEFAULT: &str = "default";
@@ -15,6 +21,7 @@ const CLONE: &str = "clone";
 /// - `#[reflect(ignore)]`
 /// - `#[reflect(ignore, default, clone)]`
 /// - `#[reflect(ignore, default(custom_default_fn), clone(|value| value.clone()))]`
+/// - `#[reflect(@Tooltip("hello"), @0.0..=1.0)]`
 #[derive(Default)]
 pub(crate) struct FieldAttributes {
     /// Excludes the field from reflection.
@@ -23,6 +30,8 @@ pub(crate) struct FieldAttributes {
     pub(crate) default: TraitImpl,
     /// Clones an ignored field when the value is cloned structurally.
     pub(crate) clone: TraitImpl,
+    /// Custom attributes (`#[reflect(@expr)]`).
+    pub(crate) custom_attributes: CustomAttributes,
 }
 
 impl FieldAttributes {
@@ -33,36 +42,20 @@ impl FieldAttributes {
             if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
                 continue;
             }
-            attr.parse_nested_meta(|meta| {
-                let span = meta.path.span();
-                // Parses the optional custom function in `trait(custom_fn)`
-                let trait_impl = || -> Result<TraitImpl> {
-                    if meta.input.peek(Paren) {
-                        let content;
-                        parenthesized!(content in meta.input);
-                        Ok(TraitImpl::Custom(Box::new(content.parse::<Expr>()?), span))
-                    } else {
-                        Ok(TraitImpl::Implemented(span))
-                    }
-                };
-                if meta.path.is_ident(IGNORE) {
-                    if attributes.ignore {
-                        return Err(meta.error(format_args!("`{IGNORE}` is specified more than once")));
-                    }
-                    attributes.ignore = true;
-                    Ok(())
-                } else if meta.path.is_ident(DEFAULT) {
-                    attributes.default.merge(trait_impl()?)
-                } else if meta.path.is_ident(CLONE) {
-                    attributes.clone.merge(trait_impl()?)
-                } else {
-                    Err(meta.error(format_args!(
-                        "unsupported field attribute, expected `{IGNORE}`, `{DEFAULT}`, or `{CLONE}`"
-                    )))
-                }
+            attr.parse_args_with(|input: ParseStream| {
+                terminated_parser(Token![,], |input| attributes.parse_field_attribute(input))(input)
+                    .map(drop)
             })?;
         }
 
+        if attributes.ignore
+            && let Some(attribute) = attributes.custom_attributes.first()
+        {
+            return Err(syn::Error::new(
+                attribute.span(),
+                "custom attributes (`@expr`) are not supported on ignored fields",
+            ));
+        }
         if !attributes.ignore {
             for (name, trait_impl) in [(DEFAULT, &attributes.default), (CLONE, &attributes.clone)] {
                 if let TraitImpl::Implemented(span) | TraitImpl::Custom(_, span) = trait_impl {
@@ -76,6 +69,46 @@ impl FieldAttributes {
             }
         }
         Ok(attributes)
+    }
+
+    /// Parses a single field attribute.
+    fn parse_field_attribute(&mut self, input: ParseStream) -> Result<()> {
+        if input.peek(Token![@]) {
+            return self.custom_attributes.parse_custom_attribute(input);
+        }
+        let ident = input.call(Ident::parse_any)?;
+        let span = ident.span();
+        // Parses the optional custom function in `trait(custom_fn)`
+        let trait_impl = || -> Result<TraitImpl> {
+            if input.peek(Paren) {
+                let content;
+                parenthesized!(content in input);
+                Ok(TraitImpl::Custom(Box::new(content.parse::<Expr>()?), span))
+            } else {
+                Ok(TraitImpl::Implemented(span))
+            }
+        };
+        if ident == IGNORE {
+            if self.ignore {
+                return Err(syn::Error::new(
+                    span,
+                    format_args!("`{IGNORE}` is specified more than once"),
+                ));
+            }
+            self.ignore = true;
+            Ok(())
+        } else if ident == DEFAULT {
+            self.default.merge(trait_impl()?)
+        } else if ident == CLONE {
+            self.clone.merge(trait_impl()?)
+        } else {
+            Err(syn::Error::new(
+                span,
+                format_args!(
+                    "unsupported field attribute, expected `{IGNORE}`, `{DEFAULT}`, `{CLONE}`, or `@expr`"
+                ),
+            ))
+        }
     }
 
     /// Returns an expression that creates the default value of an ignored field, or `None` if it
