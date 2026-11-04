@@ -13,7 +13,10 @@ pub type CustomAttribute = &'static (dyn Reflect + Send + Sync);
 /// A collection of custom attributes for a type, field, or variant.
 ///
 /// Custom attributes are arbitrary [`Reflect`] values, which are registered using
-/// `#[reflect(@expr)]` with the [`Reflect` derive macro]. They are stored in the (`const`) type
+/// `#[reflect(@expr)]` with the [`Reflect` derive macro]. They can also be registered using
+/// `#[info(expr)]`, which is equivalent to `#[reflect(@expr)]`, but only accepts custom attributes
+/// (so the `@` prefix is not needed). Multiple attributes can be registered at once (ex:
+/// `#[info(Tooltip("hello"), Step(0.5))]`). They are stored in the (`const`) type
 /// information, so `expr` must be a constant expression whose value can be borrowed for `'static`
 /// in a constant (ex: `Tooltip("hello")`, but not `String::from("hello")`).
 ///
@@ -34,7 +37,8 @@ pub type CustomAttribute = &'static (dyn Reflect + Send + Sync);
 /// #[derive(Reflect)]
 /// #[reflect(@Tooltip("A slider"))]
 /// struct Slider {
-///     #[reflect(@Range(0.0, 1.0))]
+///     // Equivalent to `#[reflect(@Range(0.0, 1.0))]`
+///     #[info(Range(0.0, 1.0))]
 ///     value: f32,
 /// }
 ///

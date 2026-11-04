@@ -65,6 +65,9 @@ impl<'a> ReflectVariant<'a> {
     fn parse(variant: &'a Variant) -> Result<Self> {
         let mut custom_attributes = CustomAttributes::default();
         for attr in &variant.attrs {
+            if custom_attributes.parse_info_attribute(attr)? {
+                continue;
+            }
             if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
                 continue;
             }

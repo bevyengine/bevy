@@ -1778,6 +1778,7 @@ mod tests {
         assert_eq!(enum_ref.field(0).unwrap().downcast_ref::<u32>(), Some(&1));
         assert_eq!(enum_ref.field(1).unwrap().downcast_ref::<u64>(), Some(&2));
     }
+
     #[test]
     fn custom_attributes() {
         use core::marker::PhantomData;
@@ -1860,5 +1861,76 @@ mod tests {
 
         let ty = Opaque::TYPE;
         assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("opaque")));
+    }
+
+    #[test]
+    fn custom_attributes_primitive() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Tooltip(&'static str);
+
+        mod other {
+            pub struct Foo;
+        }
+
+        crate::impl_reflect!(
+            #[reflect(@Tooltip("reflect"))]
+            #[info(3u8)]
+            other::Foo
+        );
+
+        let ty = other::Foo::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("reflect")));
+        assert_eq!(ty.get_attribute::<u8>(), Some(&3));
+    }
+
+    #[test]
+    fn custom_attributes_info() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Tooltip(&'static str);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Step(f32);
+
+        #[derive(Reflect)]
+        #[info(Tooltip("type"))]
+        #[reflect(@Step(1.0))]
+        #[info(3u8, 4u16)]
+        struct Foo {
+            #[info(Tooltip("field"), Step(0.5))]
+            value: f32,
+        }
+
+        #[derive(Reflect)]
+        enum Bar {
+            #[info(Tooltip("variant"))]
+            A(#[info(Tooltip("enum field"))] u32),
+        }
+
+        // `#[info(...)]` and `#[reflect(@...)]` attributes are combined in declaration order
+        let ty = Foo::TYPE;
+        assert_eq!(
+            format!("{:?}", ty.custom_attributes()),
+            "[Tooltip(\"type\"), Step(1.0), 3, 4]"
+        );
+        assert_eq!(ty.get_attribute::<u16>(), Some(&4));
+        let Kind::Struct(struct_type) = ty.kind() else {
+            panic!("expected struct");
+        };
+        let field = &struct_type.fields()[0];
+        assert_eq!(field.get_attribute::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_attribute::<Step>(), Some(&Step(0.5)));
+
+        let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
+            panic!("expected enum");
+        };
+        let variant = &enum_type.variants()[0];
+        assert_eq!(
+            variant.get_attribute::<Tooltip>(),
+            Some(&Tooltip("variant"))
+        );
+        assert_eq!(
+            variant.fields[0].get_attribute::<Tooltip>(),
+            Some(&Tooltip("enum field"))
+        );
     }
 }
