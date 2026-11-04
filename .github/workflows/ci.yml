@@ -26,7 +26,6 @@ concurrency:
 jobs:
   # Fail fast when Cargo.toml / features are broken so later jobs (and the
   # missing-examples bot comment) are not blamed for a dependency resolution error.
-  # See https://github.com/bevyengine/bevy/issues/15400
   check-cargo-metadata:
     runs-on: ubuntu-latest
     timeout-minutes: 10
