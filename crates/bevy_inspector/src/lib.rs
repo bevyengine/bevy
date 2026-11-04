@@ -134,11 +134,14 @@ impl Plugin for InspectorPlugin {
         app.init_resource::<remote::RemoteConnection>()
             .init_resource::<remote::RemoteSnapshot>()
             .init_resource::<remote::RemoteWorld>()
+            .init_resource::<remote::stepping::RemoteStepping>()
+            .init_resource::<remote::stepping::SteppingStatus>()
             .add_systems(
                 PostUpdate,
                 (
                     remote::sync_remote_source,
                     remote::poll_remote_connection,
+                    remote::stepping::poll_remote_stepping,
                     remote::sync_remote_world,
                 )
                     .chain()
@@ -150,6 +153,8 @@ impl Plugin for InspectorPlugin {
                 (
                     connection_panel::init_address_input,
                     connection_panel::sync_connection_status,
+                    remote::stepping::sync_stepping_controls
+                        .after(remote::stepping::poll_remote_stepping),
                 )
                     .after(remote::poll_remote_connection)
                     .before(UiSystems::Prepare),
