@@ -27,7 +27,7 @@ use bevy_shader::Shader;
 use bytemuck::{Pod, Zeroable};
 use encase::ShaderType;
 use weak_table::WeakKeyHashMap;
-use wgpu::{BufferDescriptor, BufferUsages, ComputePassDescriptor, ShaderStages};
+use wgpu::{BindingResource, BufferDescriptor, BufferUsages, ComputePassDescriptor, ShaderStages};
 
 use crate::{
     diagnostic::RecordDiagnostics as _,
@@ -523,6 +523,16 @@ where
         self.data_buffer.as_ref()
     }
 
+    /// Returns a binding for the entire buffer, if it has been allocated.
+    ///
+    /// The binding covers the buffer's whole capacity, not just the uploaded elements,
+    /// so note that using `arrayLength` in a shader will not give the number of elements.
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
+    }
+
     /// Removes all elements from the buffer.
     pub fn clear(&mut self) {
         self.values.clear();
@@ -626,6 +636,18 @@ where
         } else {
             self.prepare_sparse_upload(render_device, render_queue);
         }
+    }
+
+    /// Like [`Self::write_buffers`], but first grows the vector to at least one
+    /// element, so that there is always a GPU buffer available to bind even when the
+    /// vector has no data.
+    pub fn write_buffers_non_empty(
+        &mut self,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+    ) {
+        self.grow(1);
+        self.write_buffers(render_device, render_queue);
     }
 
     /// Returns true if the sparse buffer should perform a full reupload, either

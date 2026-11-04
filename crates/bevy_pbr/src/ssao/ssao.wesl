@@ -49,7 +49,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
 /// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
-    let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
+    let uv = vec2<f32>(pixel_coordinates) / view.main_pass_viewport.zw;
     let depths_upper_left = textureGather(0, preprocessed_depth, point_clamp_sampler, uv);
     let depths_bottom_right = textureGather(0, preprocessed_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
     let depth_center = depths_upper_left.y;
@@ -138,14 +138,14 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let samples_per_slice_side = f32(constants::SAMPLES_PER_SLICE_SIDE);
 
     let pixel_coordinates = vec2<i32>(global_id.xy);
-    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
+    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.main_pass_viewport.zw;
 
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
     pixel_depth += 0.00001; // Avoid depth precision issues
 
     let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
     let normals_size = vec2<f32>(textureDimensions(normals));
-    let uv_normals = (vec2<f32>(pixel_coordinates) + 0.5 + view.viewport.xy) / normals_size;
+    let uv_normals = (vec2<f32>(pixel_coordinates) + 0.5 + view.main_pass_viewport.xy) / normals_size;
     let pixel_normal = load_normal_view_space(uv_normals);
     let view_vec = normalize(-pixel_position);
 
@@ -181,8 +181,8 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
             s *= s; // https://github.com/GameTechDev/XeGTAO#sample-distribution
             let sample = s * sample_mul;
 
-            // * view.viewport.zw gets us from [0, 1] to [0, viewport_size], which is needed for this to get the correct mip levels
-            let sample_mip_level = clamp(log2(length(sample * view.viewport.zw)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
+            // * view.main_pass_viewport.zw gets us from [0, 1] to [0, viewport_size], which is needed for this to get the correct mip levels
+            let sample_mip_level = clamp(log2(length(sample * view.main_pass_viewport.zw)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
             let sample_position_1 = load_and_reconstruct_view_space_position(uv + sample, sample_mip_level);
             let sample_position_2 = load_and_reconstruct_view_space_position(uv - sample, sample_mip_level);
 
