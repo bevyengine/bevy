@@ -267,7 +267,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
     // Camera
     let mut cam = commands.spawn((
         Msaa::Off,
-        Camera3d::default(),
+        Camera3d,
         ScreenSpaceTransmission {
             steps: 0,
             quality: ScreenSpaceTransmissionQuality::Low,

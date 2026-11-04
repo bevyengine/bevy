@@ -233,7 +233,7 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
         Skybox {
             image: Some(assets.skybox.clone()),

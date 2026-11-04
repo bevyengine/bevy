@@ -24,10 +24,10 @@ use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr, ManualTextureViewHandle,
-    MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo,
-    TonemappingPass, Viewport,
+    Camera, Camera2d, Camera3d, CameraDepthTexture, CameraMainTextureUsages, CameraOutputMode,
+    CameraUpdateSystems, ClearColor, ClearColorConfig, CompositingSpace, Exposure, Hdr,
+    ManualTextureViewHandle, MsaaWriteback, NormalizedRenderTarget, Projection, RenderTarget,
+    RenderTargetInfo, TonemappingPass, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -72,6 +72,7 @@ impl Plugin for CameraPlugin {
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                ExtractComponentPlugin::<CameraDepthTexture>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -146,6 +147,20 @@ impl ExtractComponent<RenderApp> for CameraMainTextureUsages {
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(*item)
+    }
+}
+
+impl SyncComponent<RenderApp> for CameraDepthTexture {
+    type Target = Self;
+}
+
+impl ExtractComponent<RenderApp> for CameraDepthTexture {
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }
 

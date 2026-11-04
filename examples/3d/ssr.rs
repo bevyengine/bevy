@@ -434,7 +434,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer, app_setting
     // rendering by adding depth and deferred prepasses. Turn on FXAA to make
     // the scene look a little nicer. Finally, add screen space reflections.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
         Hdr,
         Msaa::Off,

@@ -32,7 +32,7 @@ pub const DEPTH_PREPASS_TEXTURE_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
+use bevy_camera::{Camera, Camera3d, CameraDepthLoadOp, CameraDepthTexture};
 use bevy_diagnostic::FrameCount;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -668,18 +668,21 @@ pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views_3d: Query<(
-        Entity,
-        &ExtractedCamera,
-        Option<&DepthPrepass>,
-        &Camera3d,
-        &Msaa,
-    )>,
+    views_3d: Query<
+        (
+            Entity,
+            &ExtractedCamera,
+            Option<&DepthPrepass>,
+            &Msaa,
+            &CameraDepthTexture,
+        ),
+        With<Camera3d>,
+    >,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, depth_prepass, _msaa, depth_texture) in &views_3d {
         // Default usage required to write to the depth texture
-        let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
+        let mut usage: TextureUsages = depth_texture.texture_usages.into();
         if depth_prepass.is_some() {
             // Required to read the output of the prepass
             usage |= TextureUsages::COPY_SRC;
@@ -691,7 +694,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, camera_3d, msaa) in &views_3d {
+    for (entity, camera, _, msaa, depth_texture) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -721,9 +724,9 @@ pub fn prepare_core_3d_depth_textures(
 
         commands.entity(entity).insert(ViewDepthStencilTexture::new(
             cached_texture,
-            match camera_3d.depth_load_op {
-                Camera3dDepthLoadOp::Clear(v) => Some(v),
-                Camera3dDepthLoadOp::Load => None,
+            match depth_texture.load_op {
+                CameraDepthLoadOp::Clear(v) => Some(v),
+                CameraDepthLoadOp::Load => None,
             },
             None,
         ));
@@ -736,18 +739,19 @@ pub fn prepare_core_3d_depth_textures(
 /// We need that flag to be set in order to read from the texture.
 fn configure_occlusion_culling_view_targets(
     mut view_targets: Query<
-        &mut Camera3d,
+        &mut CameraDepthTexture,
         (
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
+            With<Camera3d>,
         ),
     >,
 ) {
-    for mut camera_3d in &mut view_targets {
-        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
+    for mut depth_texture in &mut view_targets {
+        let mut depth_texture_usages = TextureUsages::from(depth_texture.texture_usages);
         depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = depth_texture_usages.into();
+        depth_texture.texture_usages = depth_texture_usages.into();
     }
 }
 

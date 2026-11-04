@@ -49,7 +49,7 @@ fn setup(
         Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn((Camera3d::default(), camera_and_light_transform));
+    commands.spawn((Camera3d, camera_and_light_transform));
 
     // Light up the scene.
     commands.spawn((PointLight::default(), camera_and_light_transform));

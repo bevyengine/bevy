@@ -285,7 +285,7 @@ fn setup(
     // Make sure you change the TextureFormat of the ColorTargetState
     // if you enable Hdr directly or through features like Bloom.
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
         Camera {
             clear_color: Color::WHITE.into(),

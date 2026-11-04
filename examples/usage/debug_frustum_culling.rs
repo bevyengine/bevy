@@ -110,7 +110,7 @@ fn setup(
     // The camera that the user controls to observe the scene.
     let free_camera = commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             FREE_CAMERA_START_TRANSFORM.looking_at(FREE_CAMERA_START_TARGET, Vec3::Y),
             FreeCamera::default(),
         ))
@@ -120,7 +120,7 @@ fn setup(
     // as a picture-in-picture in the lower right ninth of the screen.
     let my_camera = commands
         .spawn((
-            Camera3d::default(),
+            Camera3d,
             Transform::from_xyz(0., 1.5, 0.).looking_at(Vec3::new(1.0, 1.5, 0.), Vec3::Y),
             Camera {
                 order: 1,

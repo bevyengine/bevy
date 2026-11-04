@@ -12,6 +12,7 @@ use wgpu_types::{LoadOp, TextureUsages};
     Camera,
     Projection::Orthographic(OrthographicProjection::default_2d()),
     Frustum = OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default())),
+    CameraDepthTexture
 )]
 pub struct Camera2d;
 
@@ -19,45 +20,49 @@ pub struct Camera2d;
 ///
 /// The camera coordinate space is right-handed X-right, Y-up, Z-back.
 /// This means "forward" is -Z.
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, Default)]
 #[reflect(Component, Default, Clone)]
-#[require(Camera, Projection)]
-pub struct Camera3d {
-    /// The depth clear operation to perform for the main 3d pass.
-    pub depth_load_op: Camera3dDepthLoadOp,
-    /// The texture usages for the depth texture created for the main 3d pass.
-    pub depth_texture_usages: Camera3dDepthTextureUsage,
+#[require(Camera, Projection, CameraDepthTexture)]
+pub struct Camera3d;
+
+#[derive(Component, Reflect, Clone, Serialize, Deserialize, Debug)]
+#[reflect(Component, Default, Serialize, Deserialize, Clone, Debug)]
+pub struct CameraDepthTexture {
+    /// The depth clear operation to perform for the main pass.
+    pub load_op: CameraDepthLoadOp,
+    /// The texture usages for the depth texture created for the main pass.
+    pub texture_usages: CameraDepthTextureUsage,
 }
 
-impl Default for Camera3d {
+impl Default for CameraDepthTexture {
     fn default() -> Self {
         Self {
-            depth_load_op: Default::default(),
-            depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
+            load_op: Default::default(),
+            texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
         }
     }
 }
 
-#[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize, Clone)]
-pub struct Camera3dDepthTextureUsage(pub u32);
+#[derive(Clone, Copy, Reflect, Serialize, Deserialize, Debug)]
+#[reflect(Serialize, Deserialize, Clone, Debug)]
+pub struct CameraDepthTextureUsage(pub u32);
 
-impl From<TextureUsages> for Camera3dDepthTextureUsage {
+impl From<TextureUsages> for CameraDepthTextureUsage {
     fn from(value: TextureUsages) -> Self {
         Self(value.bits())
     }
 }
 
-impl From<Camera3dDepthTextureUsage> for TextureUsages {
-    fn from(value: Camera3dDepthTextureUsage) -> Self {
+impl From<CameraDepthTextureUsage> for TextureUsages {
+    fn from(value: CameraDepthTextureUsage) -> Self {
         Self::from_bits_truncate(value.0)
     }
 }
 
-/// The depth clear operation to perform for the main 3d pass.
+/// The depth clear operation to perform for the main pass.
 #[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect(Serialize, Deserialize, Clone, Default)]
-pub enum Camera3dDepthLoadOp {
+#[reflect(Serialize, Deserialize, Clone, Default, Debug)]
+pub enum CameraDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.
     Clear(f32),
@@ -65,17 +70,17 @@ pub enum Camera3dDepthLoadOp {
     Load,
 }
 
-impl Default for Camera3dDepthLoadOp {
+impl Default for CameraDepthLoadOp {
     fn default() -> Self {
-        Camera3dDepthLoadOp::Clear(0.0)
+        CameraDepthLoadOp::Clear(0.0)
     }
 }
 
-impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
-    fn from(config: Camera3dDepthLoadOp) -> Self {
+impl From<CameraDepthLoadOp> for LoadOp<f32> {
+    fn from(config: CameraDepthLoadOp) -> Self {
         match config {
-            Camera3dDepthLoadOp::Clear(x) => LoadOp::Clear(x),
-            Camera3dDepthLoadOp::Load => LoadOp::Load,
+            CameraDepthLoadOp::Clear(x) => LoadOp::Clear(x),
+            CameraDepthLoadOp::Load => LoadOp::Load,
         }
     }
 }

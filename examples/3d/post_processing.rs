@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Spawns the camera, including the [`ChromaticAberration`] component.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Hdr,
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         DistanceFog {

@@ -29,7 +29,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         PanOrbitCamera::default(), // Step 2: add camera controller component to any cameras
         EnvironmentMapLight {
             // EnvironmentMapLight is optional and can be replaced with usual light.

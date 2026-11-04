@@ -241,7 +241,7 @@ fn spawn_light(commands: &mut Commands) {
 /// Spawns the depth-only camera.
 fn spawn_depth_only_camera(commands: &mut Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(-4.0, -5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
             // Make sure that we render from this depth-only camera *before*
@@ -270,7 +270,7 @@ fn spawn_depth_only_camera(commands: &mut Commands) {
 /// Spawns the main camera that renders to the window.
 fn spawn_main_camera(commands: &mut Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d,
         Transform::from_xyz(5.0, 2.0, 30.0).looking_at(vec3(5.0, 2.0, 0.0), Vec3::Y),
         // Disable antialiasing just for simplicity's sake.
         Msaa::Off,
