@@ -196,7 +196,7 @@ pub fn mark_dirty_trees(
 
             // Traversal: each task loops until the producer channel is exhausted, walking each
             // entity's ancestor chain and forwarding newly marked entities to the consumer task.
-            for _ in 0..ComputeTaskPool::get().thread_num().saturating_sub(1).max(1) {
+            for _ in 0..traversal_task_count(ComputeTaskPool::get().thread_num()) {
                 let traversal_rx = traversal_rx.clone();
                 let mut consumer_tx = consumer_tx.clone();
                 scope.spawn({
@@ -476,6 +476,14 @@ mod serial {
             }
         }
     }
+}
+
+/// The number of traversal tasks [`mark_dirty_trees`] spawns on a pool with `thread_num` worker
+/// threads: one thread is left for the producer and the consumer, and at least one task runs
+/// even when the pool has no worker threads.
+#[cfg(feature = "multi_threaded")]
+fn traversal_task_count(thread_num: usize) -> usize {
+    thread_num.saturating_sub(1).max(1)
 }
 
 // TODO: Relies on `std` until a `no_std` `mpsc` channel is available.
@@ -822,6 +830,18 @@ mod test {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::systems::*;
+
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn traversal_task_count_leaves_one_thread_and_keeps_one_task() {
+        // 8 threads - 1 = 7 traversal tasks.
+        assert_eq!(traversal_task_count(8), 7);
+        // 2 - 1 = 1, and 1 - 1 = 0 rises to 1.
+        assert_eq!(traversal_task_count(2), 1);
+        assert_eq!(traversal_task_count(1), 1);
+        // No worker threads: 0 - 1 must not underflow.
+        assert_eq!(traversal_task_count(0), 1);
+    }
 
     #[test]
     fn correct_parent_removed() {

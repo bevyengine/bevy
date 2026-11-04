@@ -87,13 +87,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
         R: Send + 'static,
     {
         let slice = self.as_ref();
-        let chunk_size = core::cmp::max(
-            1,
-            core::cmp::max(
-                slice.len() / task_pool.thread_num().max(1),
-                slice.len() / max_tasks.unwrap_or(usize::MAX),
-            ),
-        );
+        let chunk_size = splat_chunk_size(slice.len(), task_pool.thread_num(), max_tasks);
 
         slice.par_chunk_map(task_pool, chunk_size, f)
     }
@@ -198,13 +192,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         R: Send + 'static,
     {
         let mut slice = self.as_mut();
-        let chunk_size = core::cmp::max(
-            1,
-            core::cmp::max(
-                slice.len() / task_pool.thread_num().max(1),
-                slice.len() / max_tasks.unwrap_or(usize::MAX),
-            ),
-        );
+        let chunk_size = splat_chunk_size(slice.len(), task_pool.thread_num(), max_tasks);
 
         slice.par_chunk_map_mut(task_pool, chunk_size, f)
     }
@@ -212,10 +200,49 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
 
 impl<S, T: Send> ParallelSliceMut<T> for S where S: AsMut<[T]> {}
 
+/// The chunk size that splits `len` items evenly across `thread_num` threads, or into at most
+/// `max_tasks` chunks when that gives larger chunks.
+///
+/// A pool with no worker threads still runs tasks on the thread that owns the scope, so it is
+/// split as if it had one thread.
+fn splat_chunk_size(len: usize, thread_num: usize, max_tasks: Option<usize>) -> usize {
+    let by_threads = len / thread_num.max(1);
+    let by_max_tasks = len / max_tasks.unwrap_or(usize::MAX).max(1);
+    by_threads.max(by_max_tasks).max(1)
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::slice::splat_chunk_size;
     use crate::*;
     use alloc::vec;
+
+    #[test]
+    fn splat_chunk_size_splits_across_threads() {
+        // 1000 / 4 threads = 250, and 1000 / usize::MAX = 0 does not raise it.
+        assert_eq!(splat_chunk_size(1000, 4, None), 250);
+        // A pool with no worker threads splits as if it had one: 1000 / 1.
+        assert_eq!(splat_chunk_size(1000, 0, None), 1000);
+        assert_eq!(splat_chunk_size(1000, 1, None), 1000);
+    }
+
+    #[test]
+    fn splat_chunk_size_respects_max_tasks() {
+        // 1000 / 3 tasks = 333 is larger than 1000 / 4 threads = 250.
+        assert_eq!(splat_chunk_size(1000, 4, Some(3)), 333);
+        // 1000 / 8 tasks = 125 is smaller than 250, so the thread split wins.
+        assert_eq!(splat_chunk_size(1000, 4, Some(8)), 250);
+        // At most zero tasks is read as at most one: 1000 / 1.
+        assert_eq!(splat_chunk_size(1000, 4, Some(0)), 1000);
+    }
+
+    #[test]
+    fn splat_chunk_size_is_never_zero() {
+        // 0 / 4 = 0 and 3 / 4 = 0 both clamp to one item per chunk.
+        assert_eq!(splat_chunk_size(0, 4, None), 1);
+        assert_eq!(splat_chunk_size(3, 4, None), 1);
+        assert_eq!(splat_chunk_size(0, 0, Some(0)), 1);
+    }
 
     #[test]
     fn test_par_chunks_map() {
