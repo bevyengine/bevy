@@ -427,10 +427,6 @@ impl Table {
     /// and the supplied value.
     ///
     /// If the current capacity is less than the lower limit, this is a no-op.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a reallocation causes an out-of-memory error.
     pub(crate) fn shrink_to(&mut self, min_capacity: usize) {
         let cur_capacity = self.capacity();
 
@@ -760,11 +756,6 @@ impl Tables {
     /// Iterates through all of the tables stored within in [`TableId`] order.
     pub fn iter(&self) -> core::slice::Iter<'_, Table> {
         self.tables.iter()
-    }
-
-    /// Iterates through all of the tables mutably stored within in [`TableId`] order.
-    pub(crate) fn iter_mut(&mut self) -> core::slice::IterMut<'_, Table> {
-        self.tables.iter_mut()
     }
 
     /// Clears all data from all [`Table`]s stored within.
