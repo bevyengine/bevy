@@ -424,7 +424,7 @@ impl Val {
     /// Creates an expression that returns `self` clamped between `min` and `max` when resolved.
     /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     pub fn clamp(self, min: Val, max: Val) -> Val {
-        let [min, value, max] = [min, self, max].map(Val::zero_if_auto);
+        let [min, value, max] = [min, self, max].map(Val::map_auto_to_zero);
         let term = |val: &Val| Some((val.unit()?, val.inner()?));
         if let (Some(lo), Some(hi)) = (term(&min), term(&max))
             && lo.0 == hi.0
@@ -443,7 +443,7 @@ impl Val {
     }
 
     /// `Auto` is zero in expressions.
-    fn zero_if_auto(self) -> Val {
+    fn map_auto_to_zero(self) -> Val {
         match self {
             Val::Auto => Val::ZERO,
             val => val,
@@ -925,7 +925,7 @@ impl Val {
         leaves: &mut [Option<f32>; ValUnit::ALL.len()],
         rest: &mut SmallVec<[Val; 3]>,
     ) {
-        match self.zero_if_auto() {
+        match self.map_auto_to_zero() {
             Val::Calc(calc) if calc.0.op() == Some(op) => {
                 if let CalcOp::Sum(terms) | CalcOp::Min(terms) | CalcOp::Max(terms) = *calc.0 {
                     for term in terms {
