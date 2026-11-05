@@ -235,7 +235,7 @@ impl Val {
     }
 
     /// Returns a `Val`'s units if it isn't auto or an expression, otherwise `None`.
-    pub const fn unit(&self) -> Option<ValUnit> {
+    pub(crate) const fn unit(&self) -> Option<ValUnit> {
         Some(match self {
             Self::Px(_) => ValUnit::Px,
             Self::Percent(_) => ValUnit::Percent,
@@ -250,7 +250,7 @@ impl Val {
     }
 
     /// Construct a plain unit value.
-    pub const fn leaf(unit: ValUnit, value: f32) -> Self {
+    pub(crate) const fn leaf(unit: ValUnit, value: f32) -> Self {
         match unit {
             ValUnit::Px => Self::Px(value),
             ValUnit::Percent => Self::Percent(value),
@@ -807,11 +807,11 @@ impl From<CalcOp> for Val {
     }
 }
 
-/// Discriminator enum, used for packing. Should match `Val`'s unit types.
+/// The unit of a numeric [`Val`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
-pub enum ValUnit {
+pub(crate) enum ValUnit {
     /// Use `Val::Px` units.
     Px,
     /// Use `Val::Percent` units.
@@ -846,7 +846,7 @@ impl ValUnit {
     /// Resolve a `ValUnit` and `f32` length to physical coords except for percentage values.
     /// `Percentage` values depend on the size of the parent, and can't be resolved except during layout.
     #[inline]
-    pub fn resolve_physical_except_percent(self, value: f32, context: &ValContext) -> Val {
+    pub(crate) fn resolve_physical_except_percent(self, value: f32, context: &ValContext) -> Val {
         match self {
             ValUnit::Percent => Val::Percent(value),
             ValUnit::Px => Val::Px(value * context.scale_factor),
