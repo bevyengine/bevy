@@ -44,7 +44,14 @@ pub struct MeasureArgs<'a> {
     /// Text layout buffer used to compute intrinsic text size when required.
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
     /// Resolved style for this node in physical pixels.
-    pub style: &'a taffy::Style,
+    pub(crate) style: &'a taffy::Style,
+}
+
+impl MeasureArgs<'_> {
+    /// Resolved style for node in physical pixels
+    pub fn style(&self) -> &taffy::Style {
+        &self.style
+    }
 }
 
 #[derive(Copy, Clone)]
