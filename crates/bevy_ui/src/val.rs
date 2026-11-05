@@ -715,6 +715,16 @@ pub(crate) enum CalcOp {
 pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
 
 impl CalcOp {
+    /// The operation applied to the terms of a `Sum`, `Min` or `Max`.
+    fn op(&self) -> Option<ReduceOp> {
+        match self {
+            Self::Sum(_) => Some(ReduceOp::Sum),
+            Self::Min(_) => Some(ReduceOp::Min),
+            Self::Max(_) => Some(ReduceOp::Max),
+            Self::Clamp(..) => None,
+        }
+    }
+
     /// Returns true if any of the operations in the expression tree uses percentage values.
     pub(crate) fn uses_percent(&self) -> bool {
         match self {
@@ -903,16 +913,13 @@ impl Val {
         rest: &mut Vec<Val>,
     ) {
         match self.zero_if_auto() {
-            Val::Calc(calc) => match (*calc.0, op) {
-                (CalcOp::Sum(terms), ReduceOp::Sum)
-                | (CalcOp::Min(terms), ReduceOp::Min)
-                | (CalcOp::Max(terms), ReduceOp::Max) => {
+            Val::Calc(calc) if calc.0.op() == Some(op) => {
+                if let CalcOp::Sum(terms) | CalcOp::Min(terms) | CalcOp::Max(terms) = *calc.0 {
                     for term in terms {
                         term.push_terms(op, leaves, rest);
                     }
                 }
-                (other, _) => rest.push(other.into()),
-            },
+            }
             val => match (val.unit(), val.inner()) {
                 (Some(unit), Some(value)) => {
                     let leaf = &mut leaves[unit as usize];
