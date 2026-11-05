@@ -1,4 +1,3 @@
-use bevy_derive::Deref;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -42,21 +41,25 @@ unsafe impl Send for TaffyStyle {}
 unsafe impl Sync for TaffyStyle {}
 
 /// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
-/// Lengths using percentages that can't be resolved until layout are stored in `Box<PercentageCalc>`es
-/// and `Style` references them using raw pointers. The `Vec` is used to keep the boxes alive.
-///
-/// Not `Clone`: a copy of the `Style` would keep pointing into the original's boxes.
-#[derive(Default, Component, Deref)]
-pub struct TaffyStyle(#[deref] pub(crate) Style, pub(crate) PercentageCalcs);
+/// `Style` references `Val`s using percentages that can't be resolved until layout using raw pointers.
+/// The `Vec` is used to keep the percentages alive because the `Style`'s pointers are non-owning.
 
-/// Each calc is boxed so that it has a stable address for the pointer `Style` holds.
-pub(crate) type PercentageCalcs = Vec<Box<PercentageCalc>>;
+#[derive(Default, Component)]
+pub struct TaffyStyle {
+    /// Taffy `Style` converted from a `Node`.
+    pub(crate) style: Style,
+    /// Owns the calcs referenced by raw pointers in `style`.
+    /// Boxing keeps their addresses stable when the vector reallocates.    
+    pub(crate) calcs: Vec<Box<PercentageCalc>>,
+}
 
-/// An expression with every unit other than percent already resolved to physical pixels,
-/// so only the percentage basis taffy supplies is needed to resolve it.
+/// A calc expression with all non-percentage units resolved to physical pixels.
+/// The percentage basis is supplied during layout.
 #[repr(align(8))]
 pub(crate) enum PercentageCalc {
+    /// A linear expression resolved as `px + percent * basis`.
     Linear { px: f32, percent: f32 },
+    /// An expression tree that can't be evaluated until the percentage basis is known.
     Tree(Val),
 }
 
@@ -110,8 +113,8 @@ pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
     calc.resolve(basis)
 }
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(
-    Style {
+pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle {
+    style: Style {
         dummy: core::marker::PhantomData,
         display: Display::Grid,
         item_is_table: false,
@@ -167,8 +170,8 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(
             end: taffy::GridPlacement::Auto,
         },
     },
-    Vec::new(),
-);
+    calcs: vec![],
+};
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
@@ -693,10 +696,12 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
-            self.style_query
+        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE.style, |entity| {
+            &self
+                .style_query
                 .get(entity)
                 .expect("Missing TaffyStyle on UI node.")
+                .style
         })
     }
 
