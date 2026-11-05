@@ -24,6 +24,19 @@ concurrency:
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 jobs:
+  # Fail fast when Cargo.toml / features are broken so later jobs (and the
+  # missing-examples bot comment) are not blamed for a dependency resolution error.
+  check-cargo-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/install-rust
+      - name: Verify Cargo.toml resolves
+        run: cargo metadata --format-version 1 --all-features > /dev/null
+
   build:
     strategy:
       matrix:
@@ -414,6 +427,7 @@ jobs:
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: check-cargo-metadata
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
