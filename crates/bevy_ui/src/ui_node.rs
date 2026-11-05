@@ -4,7 +4,7 @@ use crate::{
         UiTreeDirty,
     },
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val, ValContext,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -3198,43 +3198,12 @@ impl BorderRadius {
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
-        &self,
-        scale_factor: f32,
-        node_size: Vec2,
-        viewport_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> ResolvedBorderRadius {
+    pub fn resolve(&self, context: &ValContext, node_size: Vec2) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self.top_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            top_right: self.top_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_left: self.bottom_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_right: self.bottom_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
+            top_left: self.top_left.resolve(context, node_size),
+            top_right: self.top_right.resolve(context, node_size),
+            bottom_left: self.bottom_left.resolve(context, node_size),
+            bottom_right: self.bottom_right.resolve(context, node_size),
         }
     }
 }

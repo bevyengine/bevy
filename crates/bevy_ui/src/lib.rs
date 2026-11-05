@@ -35,6 +35,7 @@ mod layout;
 mod scroll_into_view;
 mod stack;
 mod ui_node;
+mod val;
 
 use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use focus::*;
@@ -48,6 +49,7 @@ pub use measurement::*;
 pub use scroll_into_view::{ScrollIntoView, ScrollIntoViewContainer};
 pub use ui_node::*;
 pub use ui_transform::*;
+pub use val::*;
 pub use widget::TextNodeFlags;
 
 /// The UI prelude.
@@ -73,6 +75,7 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
+            val::*,
             widget::{ImageNode, InlineImage, Label, NodeImageMode, ViewportNode},
             UiScale,
         },
