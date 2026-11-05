@@ -3,6 +3,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use smallvec::{smallvec, SmallVec};
+use swash::zeno::ArcSize::Small;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -895,7 +896,7 @@ impl Val {
     /// when it can be, and otherwise a [`Calc`] with the unit terms first.
     pub(crate) fn combine(self, rhs: Val, op: ReduceOp) -> Val {
         let mut leaves = [None; ValUnit::ALL.len()];
-        let mut rest = Vec::new();
+        let mut rest: SmallVec<[Val; 3]> = SmallVec::new();
         self.push_terms(op, &mut leaves, &mut rest);
         rhs.push_terms(op, &mut leaves, &mut rest);
         let mut terms: CalcTerms = ValUnit::ALL
@@ -907,8 +908,11 @@ impl Val {
             .collect();
         terms.extend(rest);
         match terms.len() {
+            // All terms eliminated, return 0
             0 => Val::ZERO,
+            // There is only one `Val` term in the list, so remove it from the list and return it
             1 => terms.remove(0),
+            // Return a `Val` wrapping the remaining terms in a `CalcOp`
             _ => op.calc(terms),
         }
     }
@@ -919,7 +923,7 @@ impl Val {
         self,
         op: ReduceOp,
         leaves: &mut [Option<f32>; ValUnit::ALL.len()],
-        rest: &mut Vec<Val>,
+        rest: &mut SmallVec<[Val; 3]>,
     ) {
         match self.zero_if_auto() {
             Val::Calc(calc) if calc.0.op() == Some(op) => {
