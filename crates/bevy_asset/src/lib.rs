@@ -574,7 +574,7 @@ pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
-    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
+    fn register_asset_processor(&mut self, name: &str, processor: impl Process) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
     ///
     /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
@@ -585,7 +585,7 @@ pub trait AssetApp {
         source: AssetSourceBuilder,
     ) -> &mut Self;
     /// Sets the default asset processor for the given `extension`.
-    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self;
+    fn set_default_asset_processor(&mut self, extension: &str, processor_name: &str) -> &mut Self;
     /// Initializes the given loader in the [`App`]'s [`AssetServer`].
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self;
     /// Initializes the given [`Asset`] in the [`App`] by:
@@ -616,9 +616,9 @@ impl AssetApp for App {
         self
     }
 
-    fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
+    fn register_asset_processor(&mut self, name: &str, processor: impl Process) -> &mut Self {
         if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
-            asset_processor.register_processor(processor);
+            asset_processor.register_processor(name, processor);
         }
         self
     }
@@ -643,9 +643,9 @@ impl AssetApp for App {
         self
     }
 
-    fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
+    fn set_default_asset_processor(&mut self, extension: &str, processor_name: &str) -> &mut Self {
         if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
-            asset_processor.set_default_processor::<P>(extension);
+            asset_processor.set_default_processor(extension, processor_name);
         }
         self
     }
