@@ -1,4 +1,4 @@
-use bevy_math::{MismatchedUnitsError, StableInterpolate, TryStableInterpolate, Vec2};
+use bevy_math::{StableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -1904,7 +1904,7 @@ mod tests {
     fn extrapolated_inline_clamp_negates_its_resolved_value() {
         let a = Val::Percent(50.0).clamp(Val::Px(0.0), Val::Px(100.0));
         let b = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Px(100.0));
-        let value = TryStableInterpolate::try_interpolate_stable(&a, &b, 2.0).unwrap();
+        let value = StableInterpolate::interpolate_stable(&a, &b, 2.0);
         let resolve = |value: Val| {
             value
                 .resolve(
