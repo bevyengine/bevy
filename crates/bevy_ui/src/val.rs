@@ -1,4 +1,4 @@
-use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use bevy_math::{MismatchedUnitsError, StableInterpolate, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
@@ -665,46 +665,9 @@ impl TryFrom<Val> for FontSize {
     }
 }
 
-impl TryStableInterpolate for Val {
-    type Error = MismatchedUnitsError;
-
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::Val;
-    /// # use bevy_math::TryStableInterpolate;
-    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
-    /// ```
-    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
-        match (self, other) {
-            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
-            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
-            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
-            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
-            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
-            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
-            (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
-            (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
-            (Val::Sum(a, x), Val::Sum(b, y))
-            | (Val::Min(a, x), Val::Min(b, y))
-            | (Val::Max(a, x), Val::Max(b, y)) => {
-                let (units, values) = ValOperands::new(*a, *x)
-                    .interpolate_stable(&ValOperands::new(*b, *y), t)
-                    .ok_or(MismatchedUnitsError)?
-                    .into_parts();
-                Ok(match self {
-                    Val::Min(..) => Val::Min(units, values),
-                    Val::Max(..) => Val::Max(units, values),
-                    _ => Val::Sum(units, values),
-                })
-            }
-            (Val::Clamp(a, x), Val::Clamp(b, y)) if a == b => Ok(Val::Clamp(
-                *a,
-                core::array::from_fn(|i| x[i].interpolate_stable(&y[i], t)),
-            )),
-            (Val::Auto, Val::Auto) => Ok(Val::Auto),
-            _ => Err(MismatchedUnitsError),
-        }
+impl StableInterpolate for Val {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+        self.clone() * (1. - t) + other.clone() * t
     }
 }
 
@@ -1081,26 +1044,6 @@ impl ValOperands {
             })
             .reduce(op)
             .unwrap_or(0.0)
-    }
-
-    /// Interpolates between two sets of operands, when their units are compatible.
-    ///
-    /// Called by `Val::try_interpolate_stable`, for example:
-    /// ```
-    /// # use bevy_ui::val::{px, percent};
-    /// # use bevy_math::TryStableInterpolate;
-    /// let a = px(0) + percent(0);
-    /// let b = px(10) + percent(100);
-    /// assert_eq!(a.try_interpolate_stable(&b, 0.5).unwrap(), px(5) + percent(50));
-    /// ```
-    pub(crate) fn interpolate_stable(&self, other: &Self, t: f32) -> Option<Self> {
-        (self.units == other.units).then(|| {
-            let mut result = *self;
-            for (value, other) in result.values.iter_mut().zip(other.values) {
-                *value = value.interpolate_stable(&other, t);
-            }
-            result
-        })
     }
 }
 
