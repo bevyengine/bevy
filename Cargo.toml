@@ -4048,17 +4048,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "relative_cursor_position"
-path = "examples/ui/relative_cursor_position.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.relative_cursor_position]
-name = "Relative Cursor Position"
-description = "Showcases the RelativeCursorPosition component"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "render_ui_to_texture"
 path = "examples/ui/render_ui_to_texture.rs"
 doc-scrape-examples = true
@@ -4845,6 +4834,18 @@ required-features = ["bevy_dev_tools", "render_dev_tools"]
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "diagnostics_overlay"
+path = "examples/dev_tools/diagnostics_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.diagnostics_overlay]
+name = "Diagnostics overlay"
+description = "Demonstrates diagnostics overlay"
 category = "Dev tools"
 wasm = true
 

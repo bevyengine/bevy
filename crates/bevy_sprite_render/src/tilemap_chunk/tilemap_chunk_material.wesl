@@ -1,3 +1,10 @@
+@if(TONEMAP_IN_SHADER)
+import bevy_core_pipeline::tonemapping;
+@if(SRGB_OUTPUT)
+import bevy_render::color_operations::linear_to_srgb;
+@if(OKLAB_OUTPUT)
+import bevy_render::color_operations::linear_rgb_to_oklab;
+
 import package::mesh2d::{
     functions as mesh_functions,
     view_bindings::view,
@@ -65,11 +72,20 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
-    let final_color = tex_color * tile.color;
+    var color = tex_color * tile.color;
 
-    if (final_color.a < 0.001) {
+    if (color.a < 0.001) {
         discard;
     }
 
-    return final_color;
+@if(TONEMAP_IN_SHADER)
+    color = tonemapping::tone_mapping(color, view.color_grading);
+
+@if(SRGB_OUTPUT)
+    color = vec4(linear_to_srgb(color.rgb), color.a);
+
+@if(OKLAB_OUTPUT)
+    color = vec4(linear_rgb_to_oklab(color.rgb), color.a);
+
+    return color;
 }

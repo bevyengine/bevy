@@ -1,8 +1,3 @@
-#[expect(
-    deprecated,
-    reason = "Should be removed after 0.20 is released when Button is removed."
-)]
-use crate::prelude::Button;
 use crate::{
     prelude::Label,
     ui_transform::UiGlobalTransform,
@@ -17,7 +12,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::HookContext,
     prelude::Entity,
-    query::{Changed, With, Without},
+    query::{Changed, With},
     reflect::ReflectComponent,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query},
@@ -90,50 +85,9 @@ fn sync_bounds_and_transforms(
     }
 }
 
-#[expect(
-    deprecated,
-    reason = "Should be removed after 0.20 is released when Button is removed."
-)]
-fn button_changed(
-    mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
-    ui_children: Query<&Children, With<crate::Node>>,
-    mut text_reader: TextUiReader,
-) {
-    for (entity, accessible) in &mut query {
-        let label = calc_label(
-            &mut text_reader,
-            ui_children.get(entity).into_iter().flatten().copied(),
-        );
-        if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::Button);
-            if let Some(name) = label {
-                accessible.set_label(name);
-            } else {
-                accessible.clear_label();
-            }
-        } else {
-            let mut node = Node::new(Role::Button);
-            if let Some(label) = label {
-                node.set_label(label);
-            }
-            commands
-                .entity(entity)
-                .try_insert(AccessibilityNode::from(node));
-        }
-    }
-}
-
-#[expect(
-    deprecated,
-    reason = "Should remove the `Without<Button>` after 0.20 is released when Button is removed."
-)]
 fn image_changed(
     mut commands: Commands,
-    mut query: Query<
-        (Entity, Option<&mut AccessibilityNode>),
-        (Changed<ImageNode>, Without<Button>),
-    >,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<ImageNode>>,
     ui_children: Query<&Children, With<crate::Node>>,
     mut text_reader: TextUiReader,
 ) {
@@ -247,11 +201,9 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                button_changed,
                 image_changed,
                 label_changed,
                 sync_bounds_and_transforms
-                    .after(button_changed)
                     .after(image_changed)
                     .after(label_changed),
             )
