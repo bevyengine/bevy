@@ -86,6 +86,8 @@ impl Default for ValContext {
 )]
 pub enum Val {
     /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
+    ///
+    /// Treated as zero in expressions: `Val::Auto + Val::Px(10.0)` is `Val::Px(10.0)`.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -449,7 +451,17 @@ impl Val {
     /// Creates an expression that returns `self` clamped between `min` and `max` when resolved.
     /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     pub fn clamp(self, min: Val, max: Val) -> Val {
-        Val::clamp_inline(&min, &self, &max).unwrap_or_else(|| CalcOp::Clamp(min, self, max).into())
+        let [min, value, max] = [min, self, max].map(Val::zero_if_auto);
+        Val::clamp_inline(&min, &value, &max)
+            .unwrap_or_else(|| CalcOp::Clamp(min, value, max).into())
+    }
+
+    /// `Auto` is zero in expressions.
+    fn zero_if_auto(self) -> Val {
+        match self {
+            Val::Auto => Val::ZERO,
+            val => val,
+        }
     }
 }
 
@@ -1105,7 +1117,7 @@ impl Val {
 
     /// Folds the terms of `self` under `op` into `operands`, or appends them to `rest` when they don't fit.
     fn push_terms(self, op: ReduceOp, operands: &mut ValOperands, rest: &mut Vec<Val>) {
-        match self {
+        match self.zero_if_auto() {
             Val::Calc(calc) => match (*calc.0, op) {
                 (CalcOp::Sum(terms), ReduceOp::Sum)
                 | (CalcOp::Min(terms), ReduceOp::Min)
@@ -1673,10 +1685,8 @@ mod tests {
         scaled *= 2.0;
         scaled /= 4.0;
         assert_eq!(resolve(&scaled), Ok(139.0));
-        assert_eq!(
-            resolve(&(Val::Auto + Val::Px(1.0))),
-            Err(ValArithmeticError::NonEvaluable)
-        );
+        assert_eq!(resolve(&(Val::Auto + Val::Px(1.0))), Ok(2.0));
+        assert_eq!(resolve(&Val::Auto), Err(ValArithmeticError::NonEvaluable));
     }
 
     #[test]
@@ -1749,6 +1759,24 @@ mod tests {
             let ron = ron::to_string(&value).unwrap();
             assert_eq!(ron::from_str::<Val>(&ron).unwrap(), value, "{ron}");
         }
+    }
+
+    #[test]
+    fn auto_is_zero_in_expressions() {
+        assert_eq!(Val::Auto + Val::Auto, Val::ZERO);
+        assert_eq!(Val::Auto - Val::Auto, Val::ZERO);
+        assert_eq!(Val::Px(20.0) + Val::Auto, Val::Px(20.0));
+        assert_eq!(Val::Percent(10.0) + Val::Auto, Val::Percent(10.0));
+        assert_eq!(Val::Auto.min(Val::Px(10.0)), Val::ZERO);
+        assert_eq!(Val::Auto.max(Val::Px(10.0)), Val::Px(10.0));
+        assert_eq!(Val::Px(5.0).clamp(Val::Auto, Val::Px(10.0)), Val::Px(5.0));
+        assert_eq!(Val::Auto.clamp(Val::Px(5.0), Val::Px(10.0)), Val::Px(5.0));
+        assert_eq!(
+            (Val::Percent(10.0) + Val::Auto)
+                .resolve(100.0, &ValContext::default())
+                .unwrap(),
+            10.0
+        );
     }
 
     #[test]
