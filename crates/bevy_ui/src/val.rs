@@ -781,10 +781,19 @@ impl CalcOp {
                 Self::Min(terms) => *self = Self::Max(take(terms)),
                 Self::Max(terms) => *self = Self::Min(take(terms)),
                 Self::Clamp(min, value, max) => {
-                    *self = Self::Min(smallvec![
-                        take(min),
-                        Self::Max(smallvec![take(value), take(max)]).into(),
-                    ]);
+                    match (min.unit(), min.inner(), max.unit(), max.inner()) {
+                        // The bounds of an ordered clamp come out reversed, so swapping them back
+                        // is exact. Inverted or mixed-unit bounds need the general form.
+                        (Some(a), Some(lo), Some(b), Some(hi)) if a == b && lo >= hi => {
+                            core::mem::swap(min, max);
+                        }
+                        _ => {
+                            *self = Self::Min(smallvec![
+                                take(min),
+                                Self::Max(smallvec![take(value), take(max)]).into(),
+                            ]);
+                        }
+                    }
                 }
                 Self::Sum(_) => {}
             }
@@ -1316,6 +1325,11 @@ mod tests {
         assert_eq!(resolve(&clamp, 250.0), Ok(200.0));
         assert_eq!(resolve(&clamp, 1000.0), Ok(300.0));
         assert_eq!(resolve(&-clamp.clone(), 250.0), Ok(-200.0));
+        // Same-unit bounds are swapped in place rather than rebuilt as `min`/`max`.
+        assert_eq!(
+            -clamp.clone(),
+            Val::Percent(-80.0).clamp(Val::Px(-300.0), Val::Px(-100.0))
+        );
         assert_eq!(resolve(&(clamp.clone() * -2.0), 250.0), Ok(-400.0));
         assert_eq!(
             clamp.clone() * 2.0,
