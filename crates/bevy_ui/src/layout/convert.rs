@@ -616,8 +616,11 @@ mod tests {
                 .to_physical_except_percent(&context),
             Val::Percent(80.0).clamp(Val::Px(200.0), Val::Px(600.0))
         );
-        let nested: Val =
-            CalcOp::Min(vec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)]).into();
+        let nested: Val = CalcOp::Min(smallvec::smallvec![
+            Val::Em(1.0) + Val::Percent(10.0),
+            Val::Rem(1.0)
+        ])
+        .into();
         let physical = nested.to_physical_except_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
         assert_eq!(PercentageCalc(physical).resolve(100.0), 34.0);

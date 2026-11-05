@@ -2,6 +2,7 @@ use bevy_math::{StableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
+use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -701,14 +702,17 @@ pub struct Calc(pub(crate) Box<CalcOp>);
 )]
 pub(crate) enum CalcOp {
     /// The sum of the terms.
-    Sum(Vec<Val>),
+    Sum(CalcTerms),
     /// The smallest of the terms.
-    Min(Vec<Val>),
+    Min(CalcTerms),
     /// The largest of the terms.
-    Max(Vec<Val>),
+    Max(CalcTerms),
     /// Clamp the second `Val` between the first and third.
     Clamp(Val, Val, Val),
 }
+
+/// The terms of a [`CalcOp`], stored inline up to the size `Clamp` already needs.
+pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
 
 impl CalcOp {
     /// Returns true if any of the operations in the expression tree uses percentage values.
@@ -767,9 +771,9 @@ impl CalcOp {
                 Self::Min(terms) => *self = Self::Max(take(terms)),
                 Self::Max(terms) => *self = Self::Min(take(terms)),
                 Self::Clamp(min, value, max) => {
-                    *self = Self::Min(vec![
+                    *self = Self::Min(smallvec![
                         take(min),
-                        Self::Max(vec![take(value), take(max)]).into(),
+                        Self::Max(smallvec![take(value), take(max)]).into(),
                     ]);
                 }
                 Self::Sum(_) => {}
@@ -856,7 +860,7 @@ impl ReduceOp {
     }
 
     /// The [`Val`] applying this operation to `terms`.
-    fn calc(self, terms: Vec<Val>) -> Val {
+    fn calc(self, terms: CalcTerms) -> Val {
         match self {
             Self::Sum => CalcOp::Sum(terms),
             Self::Min => CalcOp::Min(terms),
@@ -875,7 +879,7 @@ impl Val {
         let mut rest = Vec::new();
         self.push_terms(op, &mut leaves, &mut rest);
         rhs.push_terms(op, &mut leaves, &mut rest);
-        let mut terms: Vec<Val> = ValUnit::ALL
+        let mut terms: CalcTerms = ValUnit::ALL
             .into_iter()
             .zip(leaves)
             .filter_map(|(unit, value)| Some(Val::leaf(unit, value?)))
@@ -1351,11 +1355,11 @@ mod tests {
         assert_eq!(resolve(&(value.clone() / 2.0)), Ok(139.0));
         assert_eq!(resolve(&-value.clone()), Ok(-278.0));
         assert_eq!(
-            resolve(&CalcOp::Min(vec![value.clone(), Val::Px(100.0)]).into()),
+            resolve(&CalcOp::Min(smallvec![value.clone(), Val::Px(100.0)]).into()),
             Ok(200.0)
         );
         assert_eq!(
-            resolve(&CalcOp::Max(vec![value.clone(), Val::Px(200.0)]).into()),
+            resolve(&CalcOp::Max(smallvec![value.clone(), Val::Px(200.0)]).into()),
             Ok(400.0)
         );
         assert_eq!(
@@ -1384,11 +1388,11 @@ mod tests {
         };
         let (a, b) = (Val::Px(10.0), Val::Px(20.0));
         assert_eq!(
-            resolve(-Val::from(CalcOp::Min(vec![a.clone(), b.clone()]))),
+            resolve(-Val::from(CalcOp::Min(smallvec![a.clone(), b.clone()]))),
             Ok(-10.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOp::Max(vec![a.clone(), b.clone()]))),
+            resolve(-Val::from(CalcOp::Max(smallvec![a.clone(), b.clone()]))),
             Ok(-20.0)
         );
         assert_eq!(
@@ -1438,7 +1442,7 @@ mod tests {
             Val::Percent(50.0) - Val::Px(10.0),
             Val::Px(10.0).min(Val::Percent(50.0)),
             Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0)),
-            CalcOp::Min(vec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)]).into(),
+            CalcOp::Min(smallvec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)]).into(),
         ];
         for value in values {
             let ron = ron::to_string(&value).unwrap();
@@ -1475,10 +1479,10 @@ mod tests {
         );
         // Nested sums are flattened and same-unit terms are folded away.
         let sum = (Val::Vw(10.0) + max.clone()) + (max.clone() - Val::Vw(10.0));
-        assert_eq!(sum, CalcOp::Sum(vec![max.clone(), max.clone()]).into());
+        assert_eq!(sum, CalcOp::Sum(smallvec![max.clone(), max.clone()]).into());
         // Minimums behave the same way.
         let min = Val::Px(1.0).min(max.clone()).min(Val::Px(2.0));
-        assert_eq!(min, CalcOp::Min(vec![Val::Px(1.0), max]).into());
+        assert_eq!(min, CalcOp::Min(smallvec![Val::Px(1.0), max]).into());
     }
 
     #[test]
