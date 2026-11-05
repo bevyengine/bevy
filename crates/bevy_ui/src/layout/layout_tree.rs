@@ -22,9 +22,9 @@ use taffy::{
 };
 
 use crate::{
-    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
-    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform, Val, ValContext,
+    layout::UiTreeDirty, val::CalcOp, ContentSize, FixedNode, GhostNode, IgnoreScroll,
+    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
+    ScrollPosition, UiTransform, Val, ValContext,
 };
 
 #[expect(
@@ -61,6 +61,30 @@ pub(crate) enum PercentageCalc {
 }
 
 impl PercentageCalc {
+    /// `Linear` when `physical` is a sum of pixel and percent terms, which is every expression
+    /// without a `min`, `max` or `clamp` once its other units are resolved.
+    pub(crate) fn new(physical: Val) -> Self {
+        let linear = |terms: &[Val]| {
+            let (mut px, mut percent) = (0.0, 0.0);
+            for term in terms {
+                match term {
+                    Val::Px(value) => px += value,
+                    Val::Percent(value) => percent += value / 100.0,
+                    _ => return None,
+                }
+            }
+            Some(Self::Linear { px, percent })
+        };
+        let linear = match &physical {
+            Val::Calc(calc) => match &*calc.0 {
+                CalcOp::Sum(terms) => linear(terms),
+                _ => None,
+            },
+            leaf => linear(core::slice::from_ref(leaf)),
+        };
+        linear.unwrap_or(Self::Tree(physical))
+    }
+
     pub(crate) fn resolve(&self, basis: f32) -> f32 {
         match self {
             Self::Linear { px, percent } => px + percent * basis,

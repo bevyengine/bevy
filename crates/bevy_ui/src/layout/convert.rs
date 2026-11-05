@@ -52,10 +52,10 @@ impl Val {
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
             physical if !physical.uses_percent() => {
-                style_helpers::length(PercentageCalc::Tree(physical).resolve(0.0))
+                style_helpers::length(PercentageCalc::new(physical).resolve(0.0))
             }
             physical => {
-                let calc = Box::new(PercentageCalc::Tree(physical));
+                let calc = Box::new(PercentageCalc::new(physical));
                 let value =
                     taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
@@ -78,10 +78,10 @@ impl Val {
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
             physical if !physical.uses_percent() => {
-                style_helpers::length(PercentageCalc::Tree(physical).resolve(0.0))
+                style_helpers::length(PercentageCalc::new(physical).resolve(0.0))
             }
             physical => {
-                let calc = Box::new(PercentageCalc::Tree(physical));
+                let calc = Box::new(PercentageCalc::new(physical));
                 let value =
                     taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
@@ -623,9 +623,19 @@ mod tests {
         .into();
         let physical = nested.to_physical_except_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
-        assert_eq!(PercentageCalc::Tree(physical).resolve(100.0), 34.0);
+        assert!(matches!(
+            PercentageCalc::new(physical.clone()),
+            PercentageCalc::Tree(_)
+        ));
+        assert_eq!(PercentageCalc::new(physical).resolve(100.0), 34.0);
+        let PercentageCalc::Linear { px, percent } = PercentageCalc::new(
+            (Val::Percent(50.0) - Val::Px(10.0)).to_physical_except_percent(&context),
+        ) else {
+            panic!("pixel and percent sums are linear");
+        };
+        assert_eq!((px, percent), (-20.0, 0.5));
         assert_eq!(
-            PercentageCalc::Tree(
+            PercentageCalc::new(
                 (Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context)
             )
             .resolve(0.0),
