@@ -711,7 +711,8 @@ pub(crate) enum CalcOp {
     Clamp(Val, Val, Val),
 }
 
-/// The terms of a [`CalcOp`], stored inline up to the size `Clamp` already needs.
+/// Stores a max of 3 `Val`s inline so that the sizes of `CalcOp`s variants holding `CalcTerms`
+/// matches `Clamp`.
 pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
 
 impl CalcOp {
@@ -762,6 +763,7 @@ impl CalcOp {
 
     /// Multiply an operation by a scalar.
     /// If the scale is negative, the direction of the operation is changed.
+    /// If min is greater than max, clamp always returns min and therefore negation always returns -min.
     pub(crate) fn scale(&mut self, k: f32) {
         use core::mem::take;
         match self {
@@ -782,8 +784,6 @@ impl CalcOp {
                 Self::Max(terms) => *self = Self::Min(take(terms)),
                 Self::Clamp(min, value, max) => {
                     match (min.unit(), min.inner(), max.unit(), max.inner()) {
-                        // The bounds of an ordered clamp come out reversed, so swapping them back
-                        // is exact. Inverted or mixed-unit bounds need the general form.
                         (Some(a), Some(lo), Some(b), Some(hi)) if a == b && lo >= hi => {
                             core::mem::swap(min, max);
                         }
