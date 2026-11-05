@@ -4,7 +4,7 @@ authors: ["@viridia", "@yzn-h"]
 pull_requests: [26333, 26342, 26366]
 ---
 
-The Bevy Remote Protocol has new methods for sending input to a running app: `input.click` clicks on a UI node, `input.move` moves the cursor over one, `input.scroll` turns the mouse wheel, `input.key` presses keys, and `input.type` types text.
+The Bevy Remote Protocol has new methods for sending input to a running app: `input.click` clicks on a UI node, `input.move` moves the cursor over a specific object, `input.scroll` turns the mouse wheel, `input.key` presses keys, and `input.type` types text.
 These are meant for tools that drive an app from outside, such as end-to-end tests:
 
 ```json
