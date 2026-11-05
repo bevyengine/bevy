@@ -52,10 +52,10 @@ impl Val {
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
             physical if !physical.uses_percent() => {
-                style_helpers::length(PercentageCalc(physical).resolve(0.0))
+                style_helpers::length(PercentageCalc::Tree(physical).resolve(0.0))
             }
             physical => {
-                let calc = Box::new(PercentageCalc(physical));
+                let calc = Box::new(PercentageCalc::Tree(physical));
                 let value =
                     taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
@@ -78,10 +78,10 @@ impl Val {
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
             physical if !physical.uses_percent() => {
-                style_helpers::length(PercentageCalc(physical).resolve(0.0))
+                style_helpers::length(PercentageCalc::Tree(physical).resolve(0.0))
             }
             physical => {
-                let calc = Box::new(PercentageCalc(physical));
+                let calc = Box::new(PercentageCalc::Tree(physical));
                 let value =
                     taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
@@ -623,10 +623,12 @@ mod tests {
         .into();
         let physical = nested.to_physical_except_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
-        assert_eq!(PercentageCalc(physical).resolve(100.0), 34.0);
+        assert_eq!(PercentageCalc::Tree(physical).resolve(100.0), 34.0);
         assert_eq!(
-            PercentageCalc((Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context))
-                .resolve(0.0),
+            PercentageCalc::Tree(
+                (Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context)
+            )
+            .resolve(0.0),
             52.0
         );
     }

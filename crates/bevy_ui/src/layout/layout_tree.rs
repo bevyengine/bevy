@@ -55,16 +55,22 @@ pub(crate) type PercentageCalcs = Vec<Box<PercentageCalc>>;
 /// An expression with every unit other than percent already resolved to physical pixels,
 /// so only the percentage basis taffy supplies is needed to resolve it.
 #[repr(align(8))]
-pub(crate) struct PercentageCalc(pub Val);
+pub(crate) enum PercentageCalc {
+    Linear { px: f32, percent: f32 },
+    Tree(Val),
+}
 
 impl PercentageCalc {
-    pub fn resolve(&self, basis: f32) -> f32 {
-        self.0
-            .resolve(
-                basis,
-                &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
-            )
-            .unwrap_or(0.0)
+    pub(crate) fn resolve(&self, basis: f32) -> f32 {
+        match self {
+            Self::Linear { px, percent } => px + percent * basis,
+            Self::Tree(val) => val
+                .resolve(
+                    basis,
+                    &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
+                )
+                .unwrap_or(0.0),
+        }
     }
 }
 
