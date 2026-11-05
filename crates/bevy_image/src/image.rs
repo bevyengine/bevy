@@ -240,25 +240,27 @@ impl Plugin for ImagePlugin {
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
-            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
-                ImageLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>(crate::CompressedImageSaver::default().into());
-
-            #[cfg(all(feature = "hdr", feature = "compressed_image_saver"))]
-            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
-                crate::HdrTextureLoader,
-                bevy_asset::transformer::IdentityAssetTransformer<Image>,
-                crate::CompressedImageSaver,
-            >>(crate::CompressedImageSaver::default().into());
-
-            for file_extension in &self.default_compressed_image_processor_extensions {
-                processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+            processor.register_processor(
+                crate::CompressedImageSaver::DEFAULT_PROCESSOR_NAME,
+                bevy_asset::processor::LoadTransformAndSave::<
                     ImageLoader,
                     bevy_asset::transformer::IdentityAssetTransformer<Image>,
                     crate::CompressedImageSaver,
-                >>(file_extension);
+                >::from(crate::CompressedImageSaver::default().into()),
+            );
+
+            #[cfg(all(feature = "hdr", feature = "compressed_image_saver"))]
+            processor.register_processor(
+                crate::CompressedImageSaver::DEFAULT_HDR_PROCESSOR_NAME,
+                bevy_asset::processor::LoadTransformAndSave::<
+                    crate::HdrTextureLoader,
+                    bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                    crate::CompressedImageSaver,
+                >::from(crate::CompressedImageSaver::default().into()),
+            );
+
+            for file_extension in &self.default_compressed_image_processor_extensions {
+                processor.set_default_processor(file_extension, "CompressImage");
             }
         }
 
