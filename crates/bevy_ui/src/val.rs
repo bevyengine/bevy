@@ -434,48 +434,6 @@ impl Val {
         UiRect::vertical(self)
     }
 
-    /// Try to add two `Val`s.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, ValArithmeticError};
-    /// assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
-    /// assert_eq!(
-    ///     Val::Px(1.).try_add(Val::Percent(2.)),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self.unit(), self.inner(), val.unit(), val.inner()) {
-            (Some(unit), Some(u), Some(other), Some(v)) if unit == other => {
-                Ok(Val::leaf(unit, u + v))
-            }
-            _ => Err(ValArithmeticError::IncompatibleUnits),
-        }
-    }
-
-    /// Try to subtract one `Val` from another.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, ValArithmeticError};
-    /// assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
-    /// assert_eq!(
-    ///     Val::Px(1.).try_sub(Val::Percent(2.)),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self.unit(), self.inner(), val.unit(), val.inner()) {
-            (Some(unit), Some(u), Some(other), Some(v)) if unit == other => {
-                Ok(Val::leaf(unit, u - v))
-            }
-            _ => Err(ValArithmeticError::IncompatibleUnits),
-        }
-    }
-
     /// Creates an expression that returns the minimum of two `Val`s when resolved.
     /// If both `Val`s have the same units, their minimum is returned immediately.
     pub fn min(self, other: Val) -> Val {
@@ -1458,64 +1416,6 @@ mod tests {
         );
 
         assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
-    }
-
-    #[test]
-    fn val_try_add_compatible_variants() {
-        assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
-        assert_eq!(
-            Val::Percent(1.).try_add(Val::Percent(2.)),
-            Ok(Val::Percent(3.))
-        );
-        assert_eq!(Val::Vw(1.).try_add(Val::Vw(2.)), Ok(Val::Vw(3.)));
-        assert_eq!(Val::Vh(1.).try_add(Val::Vh(2.)), Ok(Val::Vh(3.)));
-        assert_eq!(Val::VMin(1.).try_add(Val::VMin(2.)), Ok(Val::VMin(3.)));
-        assert_eq!(Val::VMax(1.).try_add(Val::VMax(2.)), Ok(Val::VMax(3.)));
-    }
-
-    #[test]
-    fn val_try_add_incompatible_variants() {
-        assert_eq!(
-            Val::Auto.try_add(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
-            Val::Px(1.).try_add(Val::Percent(2.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
-            Val::Auto.try_add(Val::Px(1.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-    }
-
-    #[test]
-    fn val_try_sub_compatible_variants() {
-        assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
-        assert_eq!(
-            Val::Percent(3.).try_sub(Val::Percent(2.)),
-            Ok(Val::Percent(1.))
-        );
-        assert_eq!(Val::Vw(3.).try_sub(Val::Vw(2.)), Ok(Val::Vw(1.)));
-        assert_eq!(Val::Vh(3.).try_sub(Val::Vh(2.)), Ok(Val::Vh(1.)));
-        assert_eq!(Val::VMin(3.).try_sub(Val::VMin(2.)), Ok(Val::VMin(1.)));
-        assert_eq!(Val::VMax(3.).try_sub(Val::VMax(2.)), Ok(Val::VMax(1.)));
-    }
-
-    #[test]
-    fn val_try_sub_incompatible_variants() {
-        assert_eq!(
-            Val::Auto.try_sub(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
-            Val::Px(1.).try_sub(Val::Percent(2.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
-            Val::Auto.try_sub(Val::Px(1.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
     }
 
     #[test]
