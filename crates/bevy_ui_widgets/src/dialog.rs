@@ -22,7 +22,7 @@ use bevy_picking::{
     pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
-use bevy_ui::{GlobalZIndex, UiScale, UiTransform, Val2};
+use bevy_ui::{GlobalZIndex, UiScale, UiTransform, Val, Val2};
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::ModalDialog;
@@ -207,13 +207,12 @@ fn dialog_drag(
         Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
         primary_window.size() - Vec2::splat(SCREEN_EDGE_MARGIN) - state.start_pointer_location,
     );
-    if let Ok(mut transform) = q_transform.get_mut(dialog)
-        && let Ok(translation) = state
-            .start_dialog_translation
-            .clone()
-            .try_add(Val2::px(clamped_offset.x, clamped_offset.y))
-    {
-        transform.translation = translation;
+    if let Ok(mut transform) = q_transform.get_mut(dialog) {
+        let start = state.start_dialog_translation.clone();
+        transform.translation = Val2::new(
+            start.x + Val::Px(clamped_offset.x),
+            start.y + Val::Px(clamped_offset.y),
+        );
     }
 }
 
