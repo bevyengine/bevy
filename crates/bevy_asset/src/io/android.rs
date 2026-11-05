@@ -40,7 +40,7 @@ impl AssetReader for AndroidAssetReader {
         &'a self,
         path: CowArc<'a, Path>,
     ) -> Result<impl Reader + 'a, AssetReaderError> {
-        let meta_path = get_meta_path(path);
+        let meta_path = get_meta_path(&path);
         let asset_manager = bevy_android::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
