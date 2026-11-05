@@ -43,12 +43,16 @@ pub struct MeasureArgs<'a> {
     pub font_system: &'a mut FontCx,
     /// Text layout buffer used to compute intrinsic text size when required.
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
-    /// Resolved style for this node in physical pixels.
+    /// The `Taffy` style for this node, converted from `Node` with lengths in either physical
+    /// pixels or percentages. Calc expressions that can't be reduced to a single physical
+    /// or percentage length are left unresolved.
     pub(crate) style: &'a taffy::Style,
 }
 
 impl MeasureArgs<'_> {
-    /// Resolved style for node in physical pixels
+    /// The `Taffy` style for this node, converted from `Node` with lengths in either physical
+    /// pixels or percentages. Calc expressions that can't be reduced to a single physical
+    /// or percentage length are left unresolved.
     pub fn style(&self) -> &taffy::Style {
         &self.style
     }
