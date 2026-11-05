@@ -122,15 +122,7 @@ pub enum Val {
     /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
-    /// The sum of up to three terms with distinct units, such as `Val::Percent(50.0) - Val::Px(10.0)`.
-    Sum(ValUnitSet, [f32; 3]),
-    /// The smallest of up to three terms with distinct units.
-    Min(ValUnitSet, [f32; 3]),
-    /// The largest of up to three terms with distinct units.
-    Max(ValUnitSet, [f32; 3]),
-    /// A value clamped between a minimum and a maximum. Stored in order `[min, value, max]`.
-    Clamp([ValUnit; 3], [f32; 3]),
-    /// A wrapped operation between `Val`s.
+    /// An expression combining `Val`s with different units, such as `Val::Percent(50.0) - Val::Px(10.0)`.
     Calc(Calc),
 }
 
@@ -207,11 +199,6 @@ impl PartialEq for Val {
         match (self, other) {
             (Self::Auto, Self::Auto) => true,
             (Self::Calc(a), Self::Calc(b)) => a == b,
-            (Self::Min(a, x), Self::Min(b, y)) | (Self::Max(a, x), Self::Max(b, y)) => {
-                ValOperands::new(*a, *x) == ValOperands::new(*b, *y)
-            }
-            (Self::Clamp(a, x), Self::Clamp(b, y)) => a == b && x == y,
-            (Self::Sum(..), _) | (_, Self::Sum(..)) => self.sum_operands() == other.sum_operands(),
             _ => match (self.unit(), self.inner(), other.unit(), other.inner()) {
                 (Some(unit), Some(a), Some(other_unit), Some(b)) if unit == other_unit => a == b,
                 // All zero-value variants are considered equal.
@@ -234,12 +221,7 @@ impl Val {
     /// Returns the `Val`'s raw inner value without its units, or `None` if it's `Auto` or an expression.    
     pub(crate) const fn inner(&self) -> Option<f32> {
         match self {
-            Self::Auto
-            | Self::Sum(..)
-            | Self::Min(..)
-            | Self::Max(..)
-            | Self::Clamp(..)
-            | Self::Calc(_) => None,
+            Self::Auto | Self::Calc(_) => None,
             Self::Px(v)
             | Self::Percent(v)
             | Self::Vw(v)
@@ -262,14 +244,7 @@ impl Val {
             Self::VMax(_) => ValUnit::VMax,
             Self::Em(_) => ValUnit::Em,
             Self::Rem(_) => ValUnit::Rem,
-            Self::Auto
-            | Self::Sum(..)
-            | Self::Min(..)
-            | Self::Max(..)
-            | Self::Clamp(..)
-            | Self::Calc(_) => {
-                return None;
-            }
+            Self::Auto | Self::Calc(_) => return None,
         })
     }
 
@@ -291,10 +266,6 @@ impl Val {
     pub(crate) fn uses_percent(&self) -> bool {
         match self {
             Self::Percent(_) => true,
-            Self::Sum(units, _) | Self::Min(units, _) | Self::Max(units, _) => {
-                units.contains(ValUnit::Percent)
-            }
-            Self::Clamp(units, _) => units.contains(&ValUnit::Percent),
             Self::Calc(calc) => calc.0.uses_percent(),
             _ => false,
         }
@@ -452,8 +423,21 @@ impl Val {
     /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     pub fn clamp(self, min: Val, max: Val) -> Val {
         let [min, value, max] = [min, self, max].map(Val::zero_if_auto);
-        Val::clamp_inline(&min, &value, &max)
-            .unwrap_or_else(|| CalcOp::Clamp(min, value, max).into())
+        let term = |val: &Val| Some((val.unit()?, val.inner()?));
+        if let (Some(lo), Some(hi)) = (term(&min), term(&max))
+            && lo.0 == hi.0
+        {
+            // Inverted bounds resolve to the minimum, whatever the value.
+            if lo.1 > hi.1 {
+                return min;
+            }
+            if let Some(v) = term(&value)
+                && v.0 == lo.0
+            {
+                return Val::leaf(v.0, lo.1.max(v.1.min(hi.1)));
+            }
+        }
+        CalcOp::Clamp(min, value, max).into()
     }
 
     /// `Auto` is zero in expressions.
@@ -508,9 +492,6 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
-                *self = core::mem::take(self).map_operands(|value| value * rhs, rhs < 0.0);
-            }
             Val::Calc(calc) => calc.0.scale(rhs),
         }
     }
@@ -537,9 +518,6 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) => {
-                *self = core::mem::take(self).map_operands(|value| value / rhs, rhs < 0.0);
-            }
             Val::Calc(calc) => calc.0.scale(rhs.recip()),
         }
     }
@@ -584,24 +562,6 @@ impl Val {
             Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
             Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
             Val::Auto => Err(ValArithmeticError::NonEvaluable),
-            Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
-                let op = match self {
-                    Val::Min(..) => ReduceOp::Min,
-                    Val::Max(..) => ReduceOp::Max,
-                    _ => ReduceOp::Sum,
-                };
-                Ok(ValOperands::new(*units, *values).resolve_to_physical(
-                    op.apply(),
-                    physical_base_value,
-                    context,
-                ))
-            }
-            Val::Clamp(units, values) => Ok(Val::resolve_clamp(
-                *units,
-                *values,
-                physical_base_value,
-                context,
-            )),
             Val::Calc(op) => op.0.resolve(physical_base_value, context),
         }
     }
@@ -628,9 +588,7 @@ impl TryFrom<Val> for FontSize {
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
             Val::Em(em) => FontSize::Rem(em), // see comment above
-            Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => {
-                return Err(ValArithmeticError::NonEvaluable);
-            }
+            Val::Calc(_) => return Err(ValArithmeticError::NonEvaluable),
         })
     }
 }
@@ -862,11 +820,6 @@ impl ValUnit {
         Self::Rem,
     ];
 
-    /// A bit mask with only the bit for this unit set.
-    const fn bit(self) -> u8 {
-        1 << self as u8
-    }
-
     /// Resolve a `ValUnit` and `f32` length to physical coords except for percentage values.
     /// `Percentage` values depend on the size of the parent, and can't be resolved except during layout.
     #[inline]
@@ -884,142 +837,7 @@ impl ValUnit {
     }
 }
 
-/// If more unit types are added to `Val`, a `u8` discriminator won't be sufficient.
-const _: () = assert!(ValUnit::ALL.len() <= u8::BITS as usize);
-
-/// A set of distinct [`ValUnit`]s.
-///
-/// We can immediately reduce sum, min and max expressions to a single `Val` if it has compatible units,
-/// so [`Val::Sum`], [`Val::Min`] and [`Val::Max`] always store distinct units.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
-#[reflect(PartialEq, Debug, Clone)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct ValUnitSet(u8);
-
-impl ValUnitSet {
-    /// The empty set.
-    pub const EMPTY: Self = Self(0);
-
-    /// The number of units in the set.
-    pub const fn len(&self) -> usize {
-        self.0.count_ones() as usize
-    }
-
-    /// Whether the set has no units.
-    pub const fn is_empty(&self) -> bool {
-        self.0 == 0
-    }
-
-    /// Whether `unit` is in the set.
-    pub const fn contains(&self, unit: ValUnit) -> bool {
-        self.0 & unit.bit() != 0
-    }
-
-    /// The index where the value is stored in an expression's values array.
-    pub const fn index(&self, unit: ValUnit) -> usize {
-        (self.0 & (unit.bit() - 1)).count_ones() as usize
-    }
-
-    /// The units in ascending order.
-    pub fn iter(self) -> impl Iterator<Item = ValUnit> {
-        ValUnit::ALL
-            .into_iter()
-            .filter(move |unit| self.contains(*unit))
-    }
-
-    const fn insert(&mut self, unit: ValUnit) {
-        self.0 |= unit.bit();
-    }
-}
-
-impl core::fmt::Debug for ValUnitSet {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_set().entries(self.iter()).finish()
-    }
-}
-
-/// Working copy of the operands of a `Sum`, `Min` or `Max` operation.
-/// Operations are automatically reduced, so each unit type can only occur once.
-#[derive(Clone, Copy)]
-pub(crate) struct ValOperands {
-    units: ValUnitSet,
-    values: [f32; 3],
-}
-
-impl ValOperands {
-    /// The maximum number of operands.
-    pub(crate) const CAPACITY: usize = 3;
-
-    pub(crate) const fn new(units: ValUnitSet, values: [f32; 3]) -> Self {
-        Self { units, values }
-    }
-
-    /// Creates a `ValOperands` containing a single value.
-    const fn single(unit: ValUnit, value: f32) -> Self {
-        Self::new(ValUnitSet(unit.bit()), [value, 0.0, 0.0])
-    }
-
-    /// The operands in ascending unit order.
-    pub(crate) fn iter(self) -> impl Iterator<Item = (ValUnit, f32)> {
-        self.units.iter().zip(self.values)
-    }
-
-    /// Folds `value` into the existing term for `unit` with `op`, or inserts it as a new term.
-    ///
-    /// Returns `false` and leaves `self` unchanged when a new term would exceed [`Self::CAPACITY`].
-    fn fold(&mut self, unit: ValUnit, value: f32, op: fn(f32, f32) -> f32) -> bool {
-        let slot = self.units.index(unit);
-        if self.units.contains(unit) {
-            self.values[slot] = op(self.values[slot], value);
-        } else if self.units.len() < Self::CAPACITY {
-            self.values[slot..].rotate_right(1);
-            self.values[slot] = value;
-            self.units.insert(unit);
-        } else {
-            return false;
-        }
-        true
-    }
-
-    /// Removes the terms whose value is zero.
-    fn retain_nonzero(&mut self) {
-        let mut kept = Self::new(ValUnitSet::EMPTY, [0.0; 3]);
-        for (unit, value) in self.iter().filter(|(_, value)| *value != 0.0) {
-            kept.values[kept.units.len()] = value;
-            kept.units.insert(unit);
-        }
-        *self = kept;
-    }
-
-    /// Resolve the operands to physical values and apply the operation.
-    pub(crate) fn resolve_to_physical(
-        &self,
-        op: fn(f32, f32) -> f32,
-        physical_base_value: f32,
-        context: &ValContext,
-    ) -> f32 {
-        self.iter()
-            .map(|(unit, value)| {
-                Val::leaf(unit, value)
-                    .resolve(physical_base_value, context)
-                    .unwrap_or(0.0)
-            })
-            .reduce(op)
-            .unwrap_or(0.0)
-    }
-}
-
-impl PartialEq for ValOperands {
-    fn eq(&self, other: &Self) -> bool {
-        self.units == other.units && self.iter().eq(other.iter())
-    }
-}
-
-/// The operation a [`Val::Sum`], [`Val::Min`] or [`Val::Max`] applies to its operands.
+/// The operation a [`CalcOp::Sum`], [`CalcOp::Min`] or [`CalcOp::Max`] applies to its terms.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ReduceOp {
     Sum,
@@ -1037,45 +855,8 @@ impl ReduceOp {
         }
     }
 
-    /// The operation that gives the same result after every operand is negated.
-    const fn reversed(self) -> Self {
-        match self {
-            Self::Sum => Self::Sum,
-            Self::Min => Self::Max,
-            Self::Max => Self::Min,
-        }
-    }
-
-    /// The [`Val`] for `operands` under this operation, as a single unit value when there is one operand.
-    fn wrap(self, operands: ValOperands) -> Val {
-        if operands.units.len() == 1
-            && let Some((unit, value)) = operands.iter().next()
-        {
-            return Val::leaf(unit, value);
-        }
-        match self {
-            Self::Sum => Val::Sum(operands.units, operands.values),
-            Self::Min => Val::Min(operands.units, operands.values),
-            Self::Max => Val::Max(operands.units, operands.values),
-        }
-    }
-
-    /// The [`Val`] applying this operation to the inline `operands` followed by the `rest` of the terms.
-    fn build(self, mut operands: ValOperands, rest: Vec<Val>) -> Val {
-        if rest.is_empty() {
-            return self.wrap(operands);
-        }
-        if self == Self::Sum {
-            operands.retain_nonzero();
-        }
-        let mut terms = Vec::with_capacity(rest.len() + 1);
-        if !operands.units.is_empty() {
-            terms.push(self.wrap(operands));
-        }
-        terms.extend(rest);
-        if terms.len() == 1 {
-            return terms.remove(0);
-        }
+    /// The [`Val`] applying this operation to `terms`.
+    fn calc(self, terms: Vec<Val>) -> Val {
         match self {
             Self::Sum => CalcOp::Sum(terms),
             Self::Min => CalcOp::Min(terms),
@@ -1086,139 +867,56 @@ impl ReduceOp {
 }
 
 impl Val {
-    /// The operands of a [`Val::Sum`], [`Val::Min`] or [`Val::Max`], or the single operand of a
-    /// unit value. Empty for [`Val::Auto`], [`Val::Clamp`] and [`Val::Calc`].
-    pub fn operands(&self) -> impl Iterator<Item = (ValUnit, f32)> {
-        let operands = match self {
-            Val::Sum(units, values) | Val::Min(units, values) | Val::Max(units, values) => {
-                ValOperands::new(*units, *values)
-            }
-            _ => match (self.unit(), self.inner()) {
-                (Some(unit), Some(value)) => ValOperands::single(unit, value),
-                _ => ValOperands::new(ValUnitSet::EMPTY, [0.0; 3]),
-            },
-        };
-        operands.iter()
-    }
-
-    /// Combines two `Val`s with an operation. Unit values and expressions with the same operation are merged into
-    /// one inline operand set, as far as they fit. Any other terms follow it in a [`Calc`].
+    /// Combines two `Val`s with an operation. Terms with the same unit are folded together and
+    /// nested expressions with the same operation are flattened, so the result is a unit value
+    /// when it can be, and otherwise a [`Calc`] with the unit terms first.
     pub(crate) fn combine(self, rhs: Val, op: ReduceOp) -> Val {
-        let mut operands = ValOperands::new(ValUnitSet::EMPTY, [0.0; 3]);
+        let mut leaves = [None; ValUnit::ALL.len()];
         let mut rest = Vec::new();
-        self.push_terms(op, &mut operands, &mut rest);
-        rhs.push_terms(op, &mut operands, &mut rest);
-        op.build(operands, rest)
+        self.push_terms(op, &mut leaves, &mut rest);
+        rhs.push_terms(op, &mut leaves, &mut rest);
+        let mut terms: Vec<Val> = ValUnit::ALL
+            .into_iter()
+            .zip(leaves)
+            .filter_map(|(unit, value)| Some(Val::leaf(unit, value?)))
+            // Zero terms don't change a sum.
+            .filter(|leaf| op != ReduceOp::Sum || leaf.inner() != Some(0.0))
+            .collect();
+        terms.extend(rest);
+        match terms.len() {
+            0 => Val::ZERO,
+            1 => terms.remove(0),
+            _ => op.calc(terms),
+        }
     }
 
-    /// Folds the terms of `self` under `op` into `operands`, or appends them to `rest` when they don't fit.
-    fn push_terms(self, op: ReduceOp, operands: &mut ValOperands, rest: &mut Vec<Val>) {
+    /// Folds the unit terms of `self` under `op` into `leaves`, indexed by unit, and appends any
+    /// other terms to `rest`.
+    fn push_terms(
+        self,
+        op: ReduceOp,
+        leaves: &mut [Option<f32>; ValUnit::ALL.len()],
+        rest: &mut Vec<Val>,
+    ) {
         match self.zero_if_auto() {
             Val::Calc(calc) => match (*calc.0, op) {
                 (CalcOp::Sum(terms), ReduceOp::Sum)
                 | (CalcOp::Min(terms), ReduceOp::Min)
                 | (CalcOp::Max(terms), ReduceOp::Max) => {
                     for term in terms {
-                        term.push_terms(op, operands, rest);
+                        term.push_terms(op, leaves, rest);
                     }
                 }
                 (other, _) => rest.push(other.into()),
             },
-            val => {
-                if let Some(terms) = val.operands_for(op) {
-                    for (unit, value) in terms.iter() {
-                        if !operands.fold(unit, value, op.apply()) {
-                            rest.push(Val::leaf(unit, value));
-                        }
-                    }
-                } else {
-                    rest.push(val);
+            val => match (val.unit(), val.inner()) {
+                (Some(unit), Some(value)) => {
+                    let leaf = &mut leaves[unit as usize];
+                    *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
                 }
-            }
+                _ => rest.push(val),
+            },
         }
-    }
-
-    fn operands_for(&self, op: ReduceOp) -> Option<ValOperands> {
-        match (self, op) {
-            (Val::Sum(units, values), ReduceOp::Sum)
-            | (Val::Min(units, values), ReduceOp::Min)
-            | (Val::Max(units, values), ReduceOp::Max) => Some(ValOperands::new(*units, *values)),
-            _ => Some(ValOperands::single(self.unit()?, self.inner()?)),
-        }
-    }
-
-    /// The terms of a [`Val::Sum`] or unit value with zero terms removed, so that sums
-    /// compare equal whatever zero terms they carry. `None` for other values.
-    pub(crate) fn sum_operands(&self) -> Option<ValOperands> {
-        let mut terms = match self {
-            Val::Sum(units, values) => ValOperands::new(*units, *values),
-            _ => ValOperands::single(self.unit()?, self.inner()?),
-        };
-        terms.retain_nonzero();
-        Some(terms)
-    }
-
-    /// The inline clamp of `value` between `min` and `max`, when all three are unit values.
-    pub(crate) fn clamp_inline(min: &Val, value: &Val, max: &Val) -> Option<Val> {
-        let term = |val: &Val| Some((val.unit()?, val.inner()?));
-        let [lo, v, hi] = [term(min)?, term(value)?, term(max)?];
-        if lo.0 == v.0 && v.0 == hi.0 {
-            return Some(Val::leaf(v.0, lo.1.max(v.1.min(hi.1))));
-        }
-        // Inverted bounds always resolve to the minimum, so an inline clamp with same-unit
-        // bounds is guaranteed to have `min <= max`.
-        if lo.0 == hi.0 && lo.1 > hi.1 {
-            return Some(Val::leaf(lo.0, lo.1));
-        }
-        Some(Val::Clamp([lo.0, v.0, hi.0], [lo.1, v.1, hi.1]))
-    }
-
-    pub(crate) fn resolve_clamp(
-        units: [ValUnit; 3],
-        values: [f32; 3],
-        physical_base_value: f32,
-        context: &ValContext,
-    ) -> f32 {
-        let [lo, v, hi] = core::array::from_fn(|i| {
-            Val::leaf(units[i], values[i])
-                .resolve(physical_base_value, context)
-                .unwrap_or(0.0)
-        });
-        lo.max(v.min(hi))
-    }
-
-    /// Applies the function to every term of a [`Val::Sum`], [`Val::Min`], [`Val::Max`] or [`Val::Clamp`].
-    /// If `reverses` is true, min and max are swapped.
-    pub(crate) fn map_operands(self, f: impl Fn(f32) -> f32, reverses: bool) -> Self {
-        let (op, units, mut values) = match self {
-            Val::Sum(units, values) => (ReduceOp::Sum, units, values),
-            Val::Min(units, values) => (ReduceOp::Min, units, values),
-            Val::Max(units, values) => (ReduceOp::Max, units, values),
-            Val::Clamp(units, values) => {
-                // If min is greater than max, we reduce to min by CSS rules.
-                if units[0] == units[2] && values[2] < values[0] {
-                    return Val::leaf(units[0], f(values[0]));
-                }
-                let values = values.map(&f);
-                if !reverses {
-                    return Val::Clamp(units, values);
-                }
-                if units[0] == units[2] {
-                    return Val::Clamp(
-                        [units[2], units[1], units[0]],
-                        [values[2], values[1], values[0]],
-                    );
-                }
-                let [lo, v, hi] = core::array::from_fn(|i| Val::leaf(units[i], values[i]));
-                return lo.min(v.max(hi));
-            }
-            other => return other,
-        };
-        for value in &mut values[..units.len()] {
-            *value = f(*value);
-        }
-        let op = if reverses { op.reversed() } else { op };
-        op.wrap(ValOperands::new(units, values))
     }
 }
 
@@ -1500,13 +1198,9 @@ mod tests {
     }
 
     #[test]
-    fn sums_fold_inline() {
+    fn sums_fold() {
         let sum = Val::Px(10.0) + Val::Percent(50.0);
-        assert!(matches!(sum, Val::Sum(..)), "got {sum:?}");
-        assert_eq!(
-            sum.operands().collect::<Vec<_>>(),
-            [(ValUnit::Px, 10.0), (ValUnit::Percent, 50.0)]
-        );
+        assert!(matches!(sum, Val::Calc(_)), "got {sum:?}");
         assert_eq!(Val::Percent(50.0) + Val::Px(10.0), sum);
         assert_eq!(Val::Px(1.0) + Val::Px(2.0), Val::Px(3.0));
         assert_eq!(sum.clone() - Val::Px(10.0), Val::Percent(50.0));
@@ -1516,15 +1210,14 @@ mod tests {
             (Val::Px(1.0) + Val::Percent(2.0)) + (Val::Px(3.0) + Val::Em(4.0)),
             Val::Em(4.0) + Val::Px(4.0) + Val::Percent(2.0)
         );
-        assert!(matches!(sum + Val::Em(1.0) + Val::Rem(1.0), Val::Calc(_)));
     }
 
     #[test]
-    fn min_and_max_fold_inline() {
+    fn min_and_max_fold() {
         assert_eq!(Val::Px(10.0).min(Val::Px(20.0)), Val::Px(10.0));
         assert_eq!(Val::Px(10.0).max(Val::Px(20.0)), Val::Px(20.0));
         let min = Val::Px(10.0).min(Val::Percent(50.0));
-        assert!(matches!(min, Val::Min(..)));
+        assert!(matches!(min, Val::Calc(_)));
         assert_eq!(Val::Percent(50.0).min(Val::Px(10.0)), min);
         assert_eq!(-min.clone(), Val::Px(-10.0).max(Val::Percent(-50.0)));
         assert!(matches!(min.clone().max(Val::Px(5.0)), Val::Calc(_)));
@@ -1595,9 +1288,9 @@ mod tests {
     }
 
     #[test]
-    fn clamp_folds_inline() {
+    fn clamp_folds() {
         let clamp = Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0));
-        assert!(matches!(clamp, Val::Clamp(..)), "got {clamp:?}");
+        assert!(matches!(clamp, Val::Calc(_)), "got {clamp:?}");
         assert_eq!(
             Val::Percent(80.0).clamp(Val::Px(300.0), Val::Px(100.0)),
             Val::Px(300.0)
@@ -1611,10 +1304,7 @@ mod tests {
         assert_eq!(resolve(&clamp, 100.0), Ok(100.0));
         assert_eq!(resolve(&clamp, 250.0), Ok(200.0));
         assert_eq!(resolve(&clamp, 1000.0), Ok(300.0));
-        assert_eq!(
-            -clamp.clone(),
-            Val::Percent(-80.0).clamp(Val::Px(-300.0), Val::Px(-100.0))
-        );
+        assert_eq!(resolve(&-clamp.clone(), 250.0), Ok(-200.0));
         assert_eq!(resolve(&(clamp.clone() * -2.0), 250.0), Ok(-400.0));
         assert_eq!(
             clamp.clone() * 2.0,
@@ -1801,11 +1491,12 @@ mod tests {
     }
 
     #[test]
-    fn direct_inline_clamp_negates_its_resolved_value() {
-        let value = Val::Clamp(
-            [ValUnit::Px, ValUnit::Percent, ValUnit::Px],
-            [100.0, 50.0, 20.0],
-        );
+    fn inverted_clamp_negates_its_resolved_value() {
+        let value = Val::from(CalcOp::Clamp(
+            Val::Px(100.0),
+            Val::Percent(50.0),
+            Val::Px(20.0),
+        ));
         let resolve = |value: Val| {
             value
                 .resolve(
@@ -1824,7 +1515,7 @@ mod tests {
     }
 
     #[test]
-    fn extrapolated_inline_clamp_negates_its_resolved_value() {
+    fn extrapolated_clamp_negates_its_resolved_value() {
         let a = Val::Percent(50.0).clamp(Val::Px(0.0), Val::Px(100.0));
         let b = Val::Percent(50.0).clamp(Val::Px(100.0), Val::Px(100.0));
         let value = StableInterpolate::interpolate_stable(&a, &b, 2.0);

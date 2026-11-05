@@ -315,7 +315,7 @@ pub fn extract_shadows(
 
             let resolve_val = |val: &Val, base, scale_factor| match val {
                 Val::Auto => 0.,
-                Val::Sum(..) | Val::Min(..) | Val::Max(..) | Val::Clamp(..) | Val::Calc(_) => val
+                Val::Calc(_) => val
                     .resolve(
                         base,
                         &ValContext {

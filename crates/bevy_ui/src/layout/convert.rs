@@ -1,7 +1,7 @@
 use taffy::style_helpers;
 
 use crate::{
-    val::{CalcOp, ValContext, ValUnit},
+    val::{CalcOp, ValContext},
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
     JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
@@ -18,24 +18,8 @@ impl Val {
     /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
     /// collapse to a single `Px` or a `Px` and `Percent` sum.
     fn to_physical_except_percent(&self, context: &ValContext) -> Val {
-        let resolve_leaf_val =
-            |(unit, value): (ValUnit, f32)| unit.resolve_physical_except_percent(value, context);
         match self {
             Val::Auto => Val::Auto,
-            Val::Min(..) => self
-                .operands()
-                .map(resolve_leaf_val)
-                .reduce(Val::min)
-                .unwrap_or(Val::ZERO),
-            Val::Max(..) => self
-                .operands()
-                .map(resolve_leaf_val)
-                .reduce(Val::max)
-                .unwrap_or(Val::ZERO),
-            Val::Clamp(units, values) => resolve_leaf_val((units[1], values[1])).clamp(
-                resolve_leaf_val((units[0], values[0])),
-                resolve_leaf_val((units[2], values[2])),
-            ),
             Val::Calc(calc) => {
                 let physical = |val: &Val| val.to_physical_except_percent(context);
                 match &*calc.0 {
@@ -48,11 +32,10 @@ impl Val {
                 }
                 .unwrap_or(Val::ZERO)
             }
-            _ => self
-                .operands()
-                .map(resolve_leaf_val)
-                .reduce(|a, b| a + b)
-                .unwrap_or(Val::ZERO),
+            leaf => match (leaf.unit(), leaf.inner()) {
+                (Some(unit), Some(value)) => unit.resolve_physical_except_percent(value, context),
+                _ => Val::Auto,
+            },
         }
     }
 
