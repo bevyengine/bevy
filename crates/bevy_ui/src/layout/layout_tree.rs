@@ -61,8 +61,8 @@ pub(crate) enum PercentageCalc {
 }
 
 impl PercentageCalc {
-    /// `Linear` when `physical` is a sum of pixel and percent terms, which is every expression
-    /// without a `min`, `max` or `clamp` once its other units are resolved.
+    /// Construct a new `PercentageCalc`. Every expression that doesn't include a `min`, `max` or `clamp` operation
+    /// reduces a sum of pixel and percent terms once its other units are resolved.
     pub(crate) fn new(physical: Val) -> Self {
         let linear = |terms: &[Val]| {
             let (mut px, mut percent) = (0.0, 0.0);
