@@ -958,10 +958,6 @@ impl ValOperands {
         Self { units, values }
     }
 
-    pub(crate) const fn into_parts(self) -> (ValUnitSet, [f32; 3]) {
-        (self.units, self.values)
-    }
-
     /// Creates a `ValOperands` containing a single value.
     const fn single(unit: ValUnit, value: f32) -> Self {
         Self::new(ValUnitSet(unit.bit()), [value, 0.0, 0.0])
@@ -1600,7 +1596,6 @@ mod tests {
 
     #[test]
     fn clamp_folds_inline() {
-        use bevy_math::TryStableInterpolate;
         let clamp = Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0));
         assert!(matches!(clamp, Val::Clamp(..)), "got {clamp:?}");
         assert_eq!(
@@ -1625,11 +1620,11 @@ mod tests {
             clamp.clone() * 2.0,
             Val::Percent(160.0).clamp(Val::Px(200.0), Val::Px(600.0))
         );
+        // Interpolation is arithmetic, so the halfway value resolves to the mean of the two.
+        let other = Val::Percent(0.0).clamp(Val::Px(0.0), Val::Px(100.0));
         assert_eq!(
-            clamp
-                .try_interpolate_stable(&Val::Percent(0.0).clamp(Val::Px(0.0), Val::Px(100.0)), 0.5)
-                .ok(),
-            Some(Val::Percent(40.0).clamp(Val::Px(50.0), Val::Px(200.0)))
+            resolve(&clamp.interpolate_stable(&other, 0.5), 250.0),
+            Ok(100.0)
         );
         assert!(matches!(
             (Val::Percent(80.0) + Val::Px(1.0)).clamp(Val::Px(100.0), Val::Px(300.0)),
@@ -1639,16 +1634,16 @@ mod tests {
 
     #[test]
     fn terms_interpolate_term_wise() {
-        use bevy_math::TryStableInterpolate;
         let a = Val::Px(0.0) + Val::Percent(0.0);
         let b = Val::Px(10.0) + Val::Percent(100.0);
         assert_eq!(
-            a.try_interpolate_stable(&b, 0.5).ok(),
-            Some(Val::Px(5.0) + Val::Percent(50.0))
+            a.interpolate_stable(&b, 0.5),
+            Val::Px(5.0) + Val::Percent(50.0)
         );
-        assert!(a
-            .try_interpolate_stable(&(Val::Px(1.0) + Val::Em(1.0)), 0.5)
-            .is_err());
+        assert_eq!(
+            a.interpolate_stable(&(Val::Px(1.0) + Val::Em(1.0)), 0.5),
+            Val::Px(0.5) + Val::Em(0.5)
+        );
     }
 
     #[test]
@@ -1846,7 +1841,8 @@ mod tests {
                 )
                 .unwrap()
         };
-        assert_eq!(resolve(value.clone()), 200.0);
-        assert_eq!(resolve(-value), -200.0);
+        // `-a + 2b`: `a` resolves to 50 and `b` to 100.
+        assert_eq!(resolve(value.clone()), 150.0);
+        assert_eq!(resolve(-value), -150.0);
     }
 }
