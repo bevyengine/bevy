@@ -3,7 +3,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use smallvec::{smallvec, SmallVec};
-use swash::zeno::ArcSize::Small;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
