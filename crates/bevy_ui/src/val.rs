@@ -203,7 +203,7 @@ impl PartialEq for Val {
             _ => match (self.unit(), self.inner(), other.unit(), other.inner()) {
                 (Some(unit), Some(a), Some(other_unit), Some(b)) if unit == other_unit => a == b,
                 // All zero-value variants are considered equal.
-                (Some(_), Some(a), Some(_), Some(b)) => a == 0. && b == 0.,
+                (Some(_), Some(0.), Some(_), Some(0.)) => true,
                 _ => false,
             },
         }
