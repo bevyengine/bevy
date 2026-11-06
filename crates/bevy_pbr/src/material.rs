@@ -188,6 +188,18 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         false
     }
 
+    /// Returns which faces of the mesh this material culls. `None` draws both
+    /// sides. Defaults to `Some(Face::Back)`, matching `StandardMaterial`'s
+    /// default; materials can override it (as `StandardMaterial` does with its
+    /// own `cull_mode`).
+    ///
+    /// Surfaced on `MaterialProperties` so render phases that build their own
+    /// pipelines can honor the material's culling.
+    #[inline]
+    fn cull_mode(&self) -> Option<Face> {
+        Some(Face::Back)
+    }
+
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     #[inline]
@@ -539,10 +551,21 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .layout
             .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
-        if key
-            .mesh_key
-            .downcast::<MeshPipelineKey>()
-            .contains(MeshPipelineKey::OIT_ENABLED)
+        // Generally we cull the faces requested by the material's `cull_mode`.
+        // However, if the view has `INVERT_CULLING` on (usually used for mirrors
+        // and the like), we cull the opposite faces instead.
+        descriptor.primitive.cull_mode =
+            if concrete_mesh_key.contains(MeshPipelineKey::INVERT_CULLING) {
+                match self.properties.cull_mode {
+                    Some(Face::Front) => Some(Face::Back),
+                    Some(Face::Back) => Some(Face::Front),
+                    None => None,
+                }
+            } else {
+                self.properties.cull_mode
+            };
+
+        if concrete_mesh_key.contains(MeshPipelineKey::OIT_ENABLED)
             && self.properties.oit_enabled
             && matches!(
                 self.properties.alpha_mode,
@@ -1746,6 +1769,7 @@ where
         };
         let alpha_mode = material.alpha_mode();
         let reads_view_transmission_texture = material.reads_view_transmission_texture();
+        let cull_mode = material.cull_mode();
 
         let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
@@ -1772,6 +1796,7 @@ where
                 depth_bias: material.depth_bias(),
                 reads_view_transmission_texture,
                 render_phase_type,
+                cull_mode,
                 render_method,
                 mesh_pipeline_key_bits,
                 material_layout: Some(material_layout),

@@ -1309,6 +1309,7 @@ where
                 material_key,
                 render_phase_type,
                 reads_view_transmission_texture: false,
+                cull_mode: None,
                 draw_functions,
                 shaders,
                 prepass_specialize: None,

@@ -1462,6 +1462,11 @@ impl Material for StandardMaterial {
         self.uses_screen_space_specular_transmission()
     }
 
+    #[inline]
+    fn cull_mode(&self) -> Option<Face> {
+        self.cull_mode
+    }
+
     fn prepass_fragment_shader() -> ShaderRef {
         shader_ref(bevy_asset::embedded_path!("render/pbr_prepass.wesl"))
     }
@@ -1610,21 +1615,6 @@ impl Material for StandardMaterial {
                 shader_defs.retain(|def| def != &ShaderDefVal::from("LOAD_PREPASS_NORMALS"));
             }
         }
-
-        // Generally, we want to cull front faces if `CULL_FRONT` is present and
-        // backfaces if `CULL_BACK` is present. However, if the view has
-        // `INVERT_CULLING` on (usually used for mirrors and the like), we do
-        // the opposite.
-        descriptor.primitive.cull_mode = match (
-            key.bind_group_data
-                .contains(StandardMaterialKey::CULL_FRONT),
-            key.bind_group_data.contains(StandardMaterialKey::CULL_BACK),
-            key.mesh_key.contains(MeshPipelineKey::INVERT_CULLING),
-        ) {
-            (true, false, false) | (false, true, true) => Some(Face::Front),
-            (false, true, false) | (true, false, true) => Some(Face::Back),
-            _ => None,
-        };
 
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
