@@ -56,9 +56,17 @@ impl Default for Name {
 }
 
 /// A wrapper over Hashed. This exists to make Name("value".into()) possible, which plays nicely with contexts like the `bsn!` macro.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct HashedStr(Hashed<Cow<'static, str>>);
+
+impl Deref for HashedStr {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<&'static str> for HashedStr {
     fn from(value: &'static str) -> Self {
