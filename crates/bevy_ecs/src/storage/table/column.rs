@@ -158,6 +158,27 @@ impl Column {
             .map(|changed_by| changed_by.realloc(current_capacity, new_capacity));
     }
 
+    /// Frees the memory of this [`Column`], leaving it unallocated. [`Self::alloc`] may then
+    /// allocate it again.
+    ///
+    /// # Safety
+    /// - `current_capacity` must be the current capacity of this column (the capacity of
+    ///   `self.data`, `self.added_ticks`, `self.changed_tick`)
+    /// - The caller should make sure their saved `capacity` value is updated to 0 after this
+    ///   operation.
+    pub(crate) unsafe fn dealloc(&mut self, current_capacity: NonZeroUsize) {
+        // SAFETY: the caller guarantees `current_capacity` is the capacity of every array of the
+        // column, and that none of them holds values.
+        unsafe {
+            self.data.dealloc(current_capacity);
+            self.added_ticks.dealloc(current_capacity);
+            self.changed_ticks.dealloc(current_capacity);
+            self.changed_by
+                .as_mut()
+                .map(|changed_by| changed_by.dealloc(current_capacity));
+        }
+    }
+
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`Column`]
     /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
     ///
