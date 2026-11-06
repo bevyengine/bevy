@@ -30,14 +30,6 @@ enable wgpu_ray_query;
 @group(1) @binding(16) var<storage, read_write> reservoirs_b: array<Reservoir>;
 }
 
-@if(DLSS_RR_GUIDE_BUFFERS) {
-@group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
-@group(2) @binding(3) var dlss_rr_depth: texture_storage_2d<r32float, write>;
-@group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
-}
-
 fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
     @if(MOTION_VECTORS_READ_WRITE)
     return textureLoad(motion_vectors, pixel_id).xy;
