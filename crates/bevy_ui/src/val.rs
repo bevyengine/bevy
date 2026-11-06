@@ -700,6 +700,7 @@ pub struct Calc(pub(crate) Box<CalcOp>);
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[repr(align(8))]
 pub(crate) enum CalcOp {
     /// The sum of the terms.
     Sum(CalcTerms),
