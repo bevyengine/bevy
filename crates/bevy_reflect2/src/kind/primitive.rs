@@ -4,6 +4,8 @@
 pub enum Primitive {
     /// The "unit" type `()`.
     Unit,
+    /// A "never" type, which has no values (ex: [`Infallible`](core::convert::Infallible)).
+    Never,
     /// A "boolean" type (true or false),
     Bool,
     /// An "integer" type. This can be signed or unsigned and of any precision.
