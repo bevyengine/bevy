@@ -33,6 +33,26 @@ impl dyn TypeData {
     pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         (self as &mut dyn Any).downcast_mut()
     }
+
+    /// Returns this type data as a `T` if it is one. Otherwise, it is returned unchanged in an
+    /// `Err`.
+    #[inline]
+    pub fn downcast<T: Any>(self: Box<Self>) -> Result<Box<T>, Box<dyn TypeData>> {
+        if !(&*self as &dyn Any).is::<T>() {
+            return Err(self);
+        }
+        let any: Box<dyn Any> = self;
+        Ok(any
+            .downcast()
+            .unwrap_or_else(|_| unreachable!("the type data was checked to be a `T`")))
+    }
+
+    /// Downcasts this type data to `T`, moving it out of the box. If this is not a `T`, it is
+    /// returned unchanged in an `Err`.
+    #[inline]
+    pub fn take<T: Any>(self: Box<Self>) -> Result<T, Box<dyn TypeData>> {
+        self.downcast::<T>().map(|value| *value)
+    }
 }
 
 impl<T: Clone + Send + Sync + 'static> TypeData for T {

@@ -16,7 +16,6 @@ pub(crate) struct ContainerAttributes {
     pub(crate) hash: TraitImpl,
     pub(crate) partial_eq: TraitImpl,
     pub(crate) partial_ord: TraitImpl,
-    // custom_attributes: CustomAttributes,
     pub(crate) type_data: Vec<TypeDataRegistration>,
     pub(crate) no_auto_register: bool,
     /// Reflects the type as a `Primitive::Opaque`, without reflecting its fields.
