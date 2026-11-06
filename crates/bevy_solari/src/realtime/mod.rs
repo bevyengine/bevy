@@ -50,6 +50,7 @@ impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "gbuffer_utils.wesl");
         load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "atmosphere.wesl");
         load_shader_library!(app, "presample_light_tiles.wesl");
         load_shader_library!(app, "initial_path.wesl");
         embedded_asset!(app, "restir.wesl");
@@ -214,6 +215,18 @@ pub struct SolariLighting {
     /// camera.
     pub world_cache_position_lod_scale: f32,
 
+    /// Treat all geometry as opaque when tracing rays to update the world cache.
+    ///
+    /// When enabled, world cache rays skip alpha testing, which makes them cheaper to trace,
+    /// at the cost of alpha-masked geometry (such as foliage) being treated as fully opaque
+    /// by the world cache.
+    ///
+    /// This can cause a slight loss of energy in indirect lighting for alpha-masked geometry,
+    /// in exchange for increasing performance a bit.
+    ///
+    /// Defaults to `true`.
+    pub world_cache_force_opaque: bool,
+
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
@@ -238,6 +251,7 @@ impl Default for SolariLighting {
             world_cache_cell_updates_soft_target: 40000,
             world_cache_position_base_cell_size: 0.15,
             world_cache_position_lod_scale: 15.0,
+            world_cache_force_opaque: true,
             reset: true, // No temporal history on the first frame
         }
     }

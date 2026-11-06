@@ -235,6 +235,8 @@ pbr_input.material.uv_transform = uv_transform;
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 @if(BINDLESS) {
         pbr_input.material.ior = pbr_bindings::material_array[material_indices[slot].material].ior;
+        pbr_input.material.dispersion =
+                pbr_bindings::material_array[material_indices[slot].material].dispersion;
         pbr_input.material.attenuation_color =
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_color;
         pbr_input.material.attenuation_distance =
@@ -242,6 +244,7 @@ pbr_input.material.uv_transform = uv_transform;
 }
 @else {
         pbr_input.material.ior = pbr_bindings::material.ior;
+        pbr_input.material.dispersion = pbr_bindings::material.dispersion;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
 }

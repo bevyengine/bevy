@@ -22,8 +22,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
     prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ScrollPosition, UiGlobalTransform, UiRect,
+    UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -93,7 +93,6 @@ pub struct Scrollbar {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy::Block,
     Visibility,
     ZIndex
 )]

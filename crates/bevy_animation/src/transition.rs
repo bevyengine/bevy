@@ -14,7 +14,7 @@ use bevy_time::Time;
 use core::time::Duration;
 
 use crate::{
-    graph::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex, AnimationNodeType},
+    graph::{BlendGraph, BlendGraphHandle, BlendNodeIndex, BlendNodeType},
     ActiveAnimation, AnimationPlayer,
 };
 
@@ -22,7 +22,7 @@ use crate::{
 /// between animations.
 ///
 /// To use this component, place it on the same entity as the
-/// [`AnimationPlayer`] and [`AnimationGraphHandle`]. It'll take
+/// [`AnimationPlayer`] and [`BlendGraphHandle`]. It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
 ///
@@ -42,7 +42,7 @@ use crate::{
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct AnimationTransitions {
-    main_animation: Option<AnimationNodeIndex>,
+    main_animation: Option<BlendNodeIndex>,
     transitions: Vec<AnimationTransition>,
 }
 
@@ -70,7 +70,7 @@ pub struct AnimationTransition {
     /// How much to decrease `current_weight` per second
     weight_decline_per_sec: f32,
     /// The animation that is being faded out
-    animation: AnimationNodeIndex,
+    animation: BlendNodeIndex,
 }
 
 impl AnimationTransitions {
@@ -89,7 +89,7 @@ impl AnimationTransitions {
     pub fn play<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        new_animation: AnimationNodeIndex,
+        new_animation: BlendNodeIndex,
         transition_duration: Duration,
     ) -> &'p mut ActiveAnimation {
         if let Some(old_animation_index) = self.main_animation.replace(new_animation)
@@ -112,7 +112,7 @@ impl AnimationTransitions {
     }
 
     /// Obtain the currently playing main animation.
-    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
+    pub fn get_main_animation(&self) -> Option<BlendNodeIndex> {
         self.main_animation
     }
 }
@@ -160,11 +160,11 @@ pub fn advance_transitions(
 /// weight 0 instead, since a node the [`AnimationPlayer`] has no entry for
 /// weighs in at its full graph weight.
 pub fn expire_completed_transitions(
-    graphs: Res<Assets<AnimationGraph>>,
+    graphs: Res<Assets<BlendGraph>>,
     mut query: Query<(
         &mut AnimationTransitions,
         &mut AnimationPlayer,
-        Option<&AnimationGraphHandle>,
+        Option<&BlendGraphHandle>,
     )>,
 ) {
     for (mut animation_transitions, mut player, graph) in query.iter_mut() {
@@ -178,7 +178,7 @@ pub fn expire_completed_transitions(
                 .map(|node| &node.node_type);
             // A stopped blend or additive node would weigh in fully again, so it stays
             // silent instead.
-            if let Some(AnimationNodeType::Blend | AnimationNodeType::Add) = node_type {
+            if let Some(BlendNodeType::Blend | BlendNodeType::Add) = node_type {
                 if let Some(animation) = player.animation_mut(transition.animation) {
                     animation.set_weight(0.0);
                 }
@@ -198,10 +198,10 @@ mod tests {
 
     #[test]
     fn expiring_keeps_blend_nodes_silent_and_stops_clips() {
-        let mut graph = AnimationGraph::new();
+        let mut graph = BlendGraph::new();
         let blend = graph.add_blend(1.0, graph.root);
         let clip = graph.add_clip(Handle::default(), 1.0, graph.root);
-        let mut graphs = Assets::<AnimationGraph>::default();
+        let mut graphs = Assets::<BlendGraph>::default();
         let graph = graphs.add(graph);
 
         let mut player = AnimationPlayer::default();
@@ -220,7 +220,7 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(graphs);
         let entity = world
-            .spawn((player, transitions, AnimationGraphHandle(graph)))
+            .spawn((player, transitions, BlendGraphHandle(graph)))
             .id();
         world.run_system_once(expire_completed_transitions).unwrap();
 
