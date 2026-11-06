@@ -17,10 +17,7 @@ use core::{
 // bytes, so none of them need to be initialized), the layout is generated from `Self`,
 // `cast_reflect` is generated for `Self`, and the shared vtable functions are valid for every
 // `PhantomData<T>` (see above).
-unsafe impl<T: ?Sized + 'static> Typed for PhantomData<T>
-where
-    PhantomData<T>: Send + Sync,
-{
+unsafe impl<T: ?Sized + 'static> Typed for PhantomData<T> {
     const TYPE: &'static Type = &{
         // `clone` and `debug` use the structural implementations, which only rely on the
         // `cast_reflect` and type path of `Self`. They print the short type path, like the
@@ -51,10 +48,7 @@ where
     };
 }
 
-impl<T: ?Sized + 'static> GetTypeRegistration for PhantomData<T>
-where
-    PhantomData<T>: Send + Sync,
-{
+impl<T: ?Sized + 'static> GetTypeRegistration for PhantomData<T> {
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<Self>()
     }
@@ -108,6 +102,18 @@ mod tests {
     use core::{any::TypeId, marker::PhantomData};
 
     struct NotReflect;
+
+    #[test]
+    fn phantom_data_not_send_sync() {
+        // `*const u8` is neither `Send` nor `Sync`, so neither is `PhantomData<*const u8>`
+        let value = PhantomData::<*const u8>;
+        let reflect = &value as &dyn Reflect;
+        assert_eq!(reflect.ty().type_path().short(), "PhantomData<*const u8>");
+        assert!(reflect
+            .reflect_clone()
+            .unwrap()
+            .is::<PhantomData<*const u8>>());
+    }
 
     #[test]
     fn phantom_data() {
