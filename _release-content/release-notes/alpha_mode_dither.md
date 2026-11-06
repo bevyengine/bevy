@@ -1,7 +1,7 @@
 ---
 title: Dithered alpha mode
 authors: ["@barsoosayque"]
-pull_requests: []
+pull_requests: [26441]
 ---
 
 `AlphaMode::Dither` is a new alpha mode that approximates transparency by discarding a fraction of an object's pixels proportional to its alpha, following a 4x4 ordered dithering pattern (also known as "screen-door transparency").
