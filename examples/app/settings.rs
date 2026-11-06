@@ -41,7 +41,7 @@ struct Counter {
     count: i32,
 }
 
-/// A different settings group which has the name group name as the previous. The two groups will be
+/// A different settings group which has the same group name as the previous. The two groups will be
 /// merged into a single section in the config file.
 #[derive(Resource, SettingsGroup, Reflect)]
 #[reflect(Resource, SettingsGroup, Default)]

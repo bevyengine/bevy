@@ -4,45 +4,43 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res},
+    system::{Query, Res, ResMut},
     template::FromTemplate,
 };
 use bevy_math::{Affine2, Vec2};
 use bevy_picking::events::{
     PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress,
 };
+use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
-    prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
-    ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ScrollPosition, UiGlobalTransform, UiRect,
+    UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
 // TODO: Move this to a more central place.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 #[reflect(PartialEq, Clone, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum ControlOrientation {
     /// Horizontal orientation (stretching from left to right)
     Horizontal,
     /// Vertical orientation (stretching from top to bottom)
     #[default]
     Vertical,
-}
-
-/// An event which indicates that we want to scroll the specified item into view (adjusting
-/// the scroll position of it's parent).
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
-#[entity_event(propagate)]
-pub struct ScrollIntoView {
-    /// The activated entity.
-    pub entity: Entity,
 }
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.
@@ -95,14 +93,13 @@ pub struct Scrollbar {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy::Block,
     Visibility,
     ZIndex
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct ScrollbarThumb {
-    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`UiSystems::Layout`].
+    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] after [`UiSystems::Layout`].
     pub border_radius: BorderRadius,
     /// Thickness of the thumb node's border.
     ///
@@ -198,6 +195,7 @@ fn scrollbar_on_pointer_down(
 
 fn scrollbar_on_drag_start(
     mut ev: On<PointerDragStart>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_thumb: Query<(&ChildOf, &mut ScrollbarDragState), With<ScrollbarThumb>>,
     q_scrollbar: Query<&Scrollbar>,
     q_scroll_area: Query<&ScrollPosition>,
@@ -212,6 +210,7 @@ fn scrollbar_on_drag_start(
                 ControlOrientation::Horizontal => scroll_area.x,
                 ControlOrientation::Vertical => scroll_area.y,
             };
+            capture_map.capture(ev.pointer.id, ev.entity, ev.hit.clone());
         }
     }
 }
@@ -260,12 +259,14 @@ fn scrollbar_on_drag(
 
 fn scrollbar_on_drag_end(
     mut ev: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_thumb: Query<&mut ScrollbarDragState, With<ScrollbarThumb>>,
 ) {
     if let Ok(mut drag) = q_thumb.get_mut(ev.entity) {
         ev.propagate(false);
         if drag.dragging {
             drag.dragging = false;
+            capture_map.release(ev.pointer.id);
         }
     }
 }
@@ -479,8 +480,8 @@ impl Plugin for ScrollbarPlugin {
             .add_systems(
                 PostUpdate,
                 update_scrollbar_thumb
-                    .in_set(UiSystems::Layout)
-                    .after(ui_layout_system),
+                    .after(UiSystems::Layout)
+                    .before(UiSystems::Clipping),
             );
     }
 }

@@ -19,7 +19,7 @@
 //!   like menu buttons that should fire the instant they're pressed).
 //!
 //! - Reacting via observers instead of a polling system: rather than updating appearance every
-//!   frame, you can observe component changes (e.g. `On<Insert, Pressed>`). The
+//!   frame, you can observe component changes (e.g. `On<Insert<Pressed>>`). The
 //!   `standard_widgets_observers` example demonstrates this approach.
 
 use bevy::{

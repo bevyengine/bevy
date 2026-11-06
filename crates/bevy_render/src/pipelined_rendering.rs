@@ -1,3 +1,6 @@
+use core::panic::AssertUnwindSafe;
+use std::panic::{catch_unwind, resume_unwind};
+
 use async_channel::{Receiver, Sender};
 
 use bevy_app::{App, AppExit, Plugin, SubApp};
@@ -24,18 +27,25 @@ pub struct RenderAppChannels {
     app_to_render_sender: Sender<SubApp>,
     render_to_app_receiver: Receiver<SubApp>,
     render_app_in_render_thread: bool,
+    /// Pumped during shutdown so the render app's main-thread tasks can finish.
+    main_thread_executor: MainThreadExecutor,
 }
 
 impl RenderAppChannels {
-    /// Create a `RenderAppChannels` from a [`async_channel::Receiver`] and [`async_channel::Sender`]
+    /// Create a `RenderAppChannels` from a [`async_channel::Receiver`] and [`async_channel::Sender`].
+    ///
+    /// `main_thread_executor` must be the [`MainThreadExecutor`] shared with the render world.
+    /// It is pumped during shutdown so the final render update can complete.
     pub fn new(
         app_to_render_sender: Sender<SubApp>,
         render_to_app_receiver: Receiver<SubApp>,
+        main_thread_executor: MainThreadExecutor,
     ) -> Self {
         Self {
             app_to_render_sender,
             render_to_app_receiver,
             render_app_in_render_thread: false,
+            main_thread_executor,
         }
     }
 
@@ -57,11 +67,31 @@ impl RenderAppChannels {
 impl Drop for RenderAppChannels {
     fn drop(&mut self) {
         if self.render_app_in_render_thread {
-            // Any non-send data in the render world was initialized on the main thread.
-            // So on dropping the main world and ending the app, we block and wait for
-            // the render world to return to drop it. Which allows the non-send data
-            // drop methods to run on the correct thread.
-            self.render_to_app_receiver.recv_blocking().ok();
+            // The render world's non-send data was initialized on the main thread,
+            // so wait for the render app to return and drop it here.
+            //
+            // A blocking receive would deadlock if the final render update has queued
+            // main-thread tasks. Pump their executor while waiting, as renderer_extract does.
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                ComputeTaskPool::get().scope_with_executor(
+                    true,
+                    Some(&self.main_thread_executor.0),
+                    |scope| {
+                        scope.spawn(async { self.render_to_app_receiver.recv().await.ok() });
+                    },
+                );
+            }));
+
+            if let Err(payload) = result {
+                if std::thread::panicking() {
+                    // The scope and the recovered render app's destructors can panic.
+                    // Preserve an existing panic instead of aborting with a double panic.
+                    // Even dropping the new panic's payload could panic again.
+                    core::mem::forget(payload);
+                } else {
+                    resume_unwind(payload);
+                }
+            }
         }
     }
 }
@@ -137,7 +167,7 @@ impl Plugin for PipelinedRenderingPlugin {
             .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
-        let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();
+        let executor = app.world().resource::<MainThreadExecutor>().clone();
         render_app.world_mut().insert_resource(executor.clone());
 
         render_to_app_sender.send_blocking(render_app).unwrap();
@@ -145,6 +175,7 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(RenderAppChannels::new(
             app_to_render_sender,
             render_to_app_receiver,
+            executor,
         ));
 
         std::thread::Builder::new()
@@ -206,4 +237,133 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
             }
         });
     });
+}
+
+#[cfg(all(test, feature = "multi_threaded"))]
+mod tests {
+    use super::*;
+    use bevy_tasks::{block_on, TaskPool};
+    use core::time::Duration;
+    use std::{
+        sync::mpsc,
+        thread::{self, JoinHandle, ThreadId},
+    };
+
+    const TIMEOUT: Duration = Duration::from_secs(10);
+
+    // The executor must be created and ticked on the synthetic main thread.
+    // Keep the test thread free to time out even if shutdown deadlocks.
+    fn run_on_main_thread(test: impl FnOnce() + Send + 'static) {
+        ComputeTaskPool::get_or_init(TaskPool::new);
+        let (done_sender, done_receiver) = mpsc::channel();
+        let main_thread = thread::spawn(move || {
+            test();
+            done_sender.send(()).unwrap();
+        });
+
+        done_receiver
+            .recv_timeout(TIMEOUT)
+            .expect("render shutdown did not finish");
+        main_thread.join().unwrap();
+    }
+
+    fn start_render_thread(render_app: SubApp) -> (RenderAppChannels, JoinHandle<()>) {
+        let main_thread_id = thread::current().id();
+        let executor = MainThreadExecutor::new();
+        let render_executor = executor.clone();
+        let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
+        let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
+        let mut channels =
+            RenderAppChannels::new(app_to_render_sender, render_to_app_receiver, executor);
+        channels.send_blocking(render_app);
+
+        let (queued_sender, queued_receiver) = mpsc::channel();
+        let render_thread = thread::spawn(move || {
+            let render_app = app_to_render_receiver.recv_blocking().unwrap();
+            let task = render_executor.0.spawn(async move {
+                assert_eq!(thread::current().id(), main_thread_id);
+            });
+            queued_sender.send(()).unwrap();
+            block_on(task);
+            render_to_app_sender.send_blocking(render_app).unwrap();
+        });
+
+        // Ensure shutdown encounters pending main-thread work, regardless of scheduling.
+        queued_receiver.recv_timeout(TIMEOUT).unwrap();
+        (channels, render_thread)
+    }
+
+    struct NotifyOnDrop(mpsc::Sender<ThreadId>);
+
+    impl Drop for NotifyOnDrop {
+        fn drop(&mut self) {
+            self.0.send(thread::current().id()).unwrap();
+        }
+    }
+
+    struct PanicOnDrop;
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            panic!("render app drop panic");
+        }
+    }
+
+    #[test]
+    fn drop_pumps_main_thread_executor_to_avoid_shutdown_deadlock() {
+        run_on_main_thread(|| {
+            let main_thread_id = thread::current().id();
+            let (dropped_sender, dropped_receiver) = mpsc::channel();
+            let mut render_app = SubApp::new();
+            render_app
+                .world_mut()
+                .insert_non_send(NotifyOnDrop(dropped_sender));
+            let (channels, render_thread) = start_render_thread(render_app);
+
+            drop(channels);
+
+            render_thread.join().unwrap();
+            assert_eq!(
+                dropped_receiver.recv_timeout(TIMEOUT).unwrap(),
+                main_thread_id
+            );
+        });
+    }
+
+    #[test]
+    fn drop_suppresses_render_app_drop_panic_during_unwind() {
+        run_on_main_thread(|| {
+            let mut render_app = SubApp::new();
+            render_app.world_mut().insert_non_send(PanicOnDrop);
+            let (channels, render_thread) = start_render_thread(render_app);
+
+            let result = catch_unwind(AssertUnwindSafe(move || {
+                let _channels = channels;
+                panic!("main app panic");
+            }));
+
+            assert_eq!(
+                result.unwrap_err().downcast_ref::<&str>(),
+                Some(&"main app panic")
+            );
+            render_thread.join().unwrap();
+        });
+    }
+
+    #[test]
+    fn drop_propagates_render_app_drop_panic_without_existing_panic() {
+        run_on_main_thread(|| {
+            let mut render_app = SubApp::new();
+            render_app.world_mut().insert_non_send(PanicOnDrop);
+            let (channels, render_thread) = start_render_thread(render_app);
+
+            let result = catch_unwind(AssertUnwindSafe(|| drop(channels)));
+
+            assert_eq!(
+                result.unwrap_err().downcast_ref::<&str>(),
+                Some(&"render app drop panic")
+            );
+            render_thread.join().unwrap();
+        });
+    }
 }

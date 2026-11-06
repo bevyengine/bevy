@@ -3,7 +3,7 @@ struct Atmosphere {
     /// Radius of the planet
     /// Units: m
     inner_radius: f32,
-    /// Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    /// Radius at which we consider the atmosphere to 'end' for our calculations (from center of planet)
     /// Units: m
     outer_radius: f32,
     /// Transform from world space to atmosphere space, inverse of the atmosphere entity's transform

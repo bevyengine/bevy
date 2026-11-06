@@ -194,7 +194,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         render_target,
-        Tonemapping::None,
+        Tonemapping::Linear,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }

@@ -1,4 +1,5 @@
 import bevy_render::view::View;
+import bevy_pbr::atmosphere::types::Atmosphere;
 import bevy_pbr::prepass::bindings::PreviousViewUniforms;
 import package::scene::sampling::{LightSample, NULL_LIGHT_ID};
 
@@ -9,17 +10,24 @@ enable wgpu_ray_query;
 @group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
 @group(1) @binding(3) var gbuffer: texture_2d<u32>;
 @group(1) @binding(4) var depth_buffer: texture_depth_2d;
+@if(MOTION_VECTORS_READ_WRITE)
 @group(1) @binding(5) var motion_vectors: texture_storage_2d<rg16float, read_write>;
+@if(!MOTION_VECTORS_READ_WRITE)
+@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
 @group(1) @binding(6) var<uniform> view: View;
 @group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
 @group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
 @group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
+// Views without an atmosphere bind fallbacks with a zero `outer_radius`.
+@group(1) @binding(10) var atmosphere_transmittance_lut: texture_2d<f32>;
+@group(1) @binding(11) var atmosphere_transmittance_sampler: sampler;
+@group(1) @binding(12) var<uniform> atmosphere: Atmosphere;
 
 @if(RESTIR) {
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(13) var<storage, read_write> reservoirs_b: array<Reservoir>;
+@group(1) @binding(13) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(14) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(15) var<storage, read_write> reservoirs_a: array<Reservoir>;
+@group(1) @binding(16) var<storage, read_write> reservoirs_b: array<Reservoir>;
 }
 
 @if(DLSS_RR_GUIDE_BUFFERS) {
@@ -28,6 +36,13 @@ enable wgpu_ray_query;
 @group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
 @group(2) @binding(3) var dlss_rr_depth: texture_storage_2d<r32float, write>;
 @group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+}
+
+fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
+    @if(MOTION_VECTORS_READ_WRITE)
+    return textureLoad(motion_vectors, pixel_id).xy;
+    @if(!MOTION_VECTORS_READ_WRITE)
+    return textureLoad(motion_vectors, pixel_id, 0).xy;
 }
 
 /// User-configurable settings from the `SolariLighting` component, plus per-frame
@@ -49,12 +64,8 @@ struct SolariLightingSettings {
 
 /// Don't adjust the size of this struct without also adjusting `prepare::RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE`.
 struct ResolvedLightSamplePacked {
-    world_position_x: f32,
-    world_position_y: f32,
-    world_position_z: f32,
-    world_normal: u32,
-    radiance: u32,
-    inverse_pdf: f32,
+    a: vec4<u32>,
+    b: vec4<u32>,
 }
 
 /// Don't adjust the size of this struct without also adjusting `prepare::RESERVOIR_STRUCT_SIZE`.

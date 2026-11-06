@@ -2,7 +2,7 @@ use super::{
     allocator::{IndexAllocator, RetainedBindingArray},
     assets::AssetState,
     lights::{GpuLightSource, LightSourceId, LightState},
-    BlasManager, RaytracingMesh3d, RaytracingSceneBindings,
+    BlasKey, BlasManager, BlasOpacity, RaytracingMesh3d, RaytracingSceneBindings,
 };
 use bevy_asset::AssetId;
 use bevy_ecs::{
@@ -16,8 +16,11 @@ use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     impl_atomic_pod,
-    mesh::allocator::MeshAllocator,
-    render_resource::{AtomicPod, AtomicSparseBufferVec, Buffer, BufferId, BufferUsages},
+    mesh::{allocator::MeshAllocator, RenderMesh},
+    render_asset::RenderAssets,
+    render_resource::{
+        AtomicPod, AtomicSparseBufferVec, Buffer, BufferId, BufferUsages, IndexFormat,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::once;
@@ -36,6 +39,9 @@ pub struct GpuInstanceGeometryIds {
     index_buffer_offset: u32,
     triangle_count: u32,
 }
+
+/// Set in `index_buffer_offset` when the indices are 16-bit.
+const INDEX_BUFFER_FLAG_U16: u32 = 1 << 31;
 
 /// A world-from-local affine transform, stored transposed as three rows.
 #[derive(Clone, Copy, Default, PartialEq, Pod, Zeroable)]
@@ -74,7 +80,17 @@ struct Instance {
     slot: u32,
     mesh: AssetId<Mesh>,
     material: AssetId<StandardMaterial>,
+    opacity: BlasOpacity,
     buffers: Option<(BufferId, BufferId)>,
+}
+
+impl Instance {
+    fn blas_key(&self) -> BlasKey {
+        BlasKey {
+            mesh: self.mesh,
+            opacity: self.opacity,
+        }
+    }
 }
 
 /// Stable slots, reverse dependency indices and GPU data owned by raytracing instances.
@@ -87,6 +103,9 @@ pub struct InstanceState {
     pub material_ids: AtomicSparseBufferVec<u32>,
     pub blas_refs: AtomicSparseBufferVec<GpuBlasRef>,
     pub slots: IndexAllocator,
+    /// Slab buffer references dropped this frame, released next frame since the previous frame's
+    /// TLAS can still reach them through `geometry_ids`.
+    retired_buffers: Vec<(BufferId, BufferId)>,
     records: EntityHashMap<Instance>,
     pub live_count: u32,
     pub pending_refresh: EntityHashSet,
@@ -105,6 +124,7 @@ impl InstanceState {
             material_ids: storage_buffer("solari_material_ids"),
             blas_refs: storage_buffer("solari_blas_refs"),
             slots: IndexAllocator::new(),
+            retired_buffers: Vec::new(),
             records: EntityHashMap::default(),
             live_count: 0,
             pending_refresh: EntityHashSet::default(),
@@ -118,11 +138,11 @@ impl InstanceState {
     /// Only the `wgpu-core` TLAS build path needs this, to fill in the instance descriptors that
     /// the raw path sets up on the GPU. Slots with a null acceleration structure reference are not
     /// currently drawable, and are left out.
-    pub fn drawable(&self) -> impl Iterator<Item = (u32, AssetId<Mesh>, [f32; 12])> + '_ {
+    pub fn drawable(&self) -> impl Iterator<Item = (u32, BlasKey, [f32; 12])> + '_ {
         self.records.values().filter_map(|instance| {
             let slot = instance.slot;
             (self.blas_refs.get(slot) != GpuBlasRef::NONE)
-                .then(|| (slot, instance.mesh, self.transforms.get(slot).rows()))
+                .then(|| (slot, instance.blas_key(), self.transforms.get(slot).rows()))
         })
     }
 
@@ -154,6 +174,7 @@ pub struct InstanceInputs<'a> {
     pub assets: &'a AssetState,
     pub blas_manager: &'a BlasManager,
     pub mesh_allocator: &'a MeshAllocator,
+    pub render_meshes: &'a RenderAssets<RenderMesh>,
 }
 
 fn unlink<K: Eq + Hash>(map: &mut HashMap<K, EntityHashSet>, key: &K, entity: Entity) {
@@ -182,6 +203,16 @@ fn relink<K: Copy + Eq + Hash>(
 }
 
 impl InstanceState {
+    /// Frees slots and slab buffers dropped last frame, now that the previous frame's TLAS no longer
+    /// references them.
+    pub fn begin_frame(&mut self) {
+        self.slots.recycle_retired();
+        for (vertex_key, index_key) in core::mem::take(&mut self.retired_buffers) {
+            self.vertex_buffers.release(&vertex_key);
+            self.index_buffers.release(&index_key);
+        }
+    }
+
     pub fn remove_instances(
         &mut self,
         lights: &mut LightState,
@@ -272,6 +303,7 @@ impl InstanceState {
             slot,
             mesh: mesh_id,
             material: material_id,
+            opacity: BlasOpacity::Opaque,
             buffers: previous.and_then(|instance| instance.buffers),
         };
         let resolved = self.resolve_instance(inputs, lights, entity, &mut instance);
@@ -290,12 +322,50 @@ impl InstanceState {
         instance: &mut Instance,
     ) -> bool {
         let slot = instance.slot;
-        let (Some(vertex_slice), Some(index_slice), Some(material_slot), Some(blas_address)) = (
+        let material_slot = inputs.assets.material_slots.get(&instance.material);
+
+        instance.opacity = if inputs
+            .assets
+            .non_opaque_materials
+            .contains(&instance.material)
+        {
+            BlasOpacity::NonOpaque
+        } else {
+            BlasOpacity::Opaque
+        };
+
+        let blas_key = instance.blas_key();
+        let blas_address = inputs.blas_manager.device_address(&blas_key);
+        if blas_address.is_none()
+            && material_slot.is_some()
+            && inputs.blas_manager.is_undeclared(&blas_key)
+        {
+            once!(warn!(
+                "RaytracingMesh3d entity {entity} uses a material that needs `{flag:?}`, but \
+                 `Mesh::raytracing` of mesh {mesh} lacks it. Entities like it will not be \
+                 raytraced.",
+                flag = instance.opacity.flag(),
+                mesh = instance.mesh,
+            ));
+        }
+
+        let (
+            Some(vertex_slice),
+            Some(index_slice),
+            Some(index_format),
+            Some(material_slot),
+            Some(blas_address),
+        ) = (
             inputs.mesh_allocator.mesh_vertex_slice(&instance.mesh),
             inputs.mesh_allocator.mesh_index_slice(&instance.mesh),
-            inputs.assets.material_slots.get(&instance.material),
-            inputs.blas_manager.device_address(&instance.mesh),
-        ) else {
+            inputs
+                .render_meshes
+                .get(instance.mesh)
+                .and_then(RenderMesh::index_format),
+            material_slot,
+            blas_address,
+        )
+        else {
             self.deactivate_instance(lights, entity, instance);
             return false;
         };
@@ -328,13 +398,17 @@ impl InstanceState {
         self.release_buffers(previous_buffers);
 
         let triangle_count = (index_slice.range.len() / 3) as u32;
+        let index_format_flag = match index_format {
+            IndexFormat::Uint16 => INDEX_BUFFER_FLAG_U16,
+            IndexFormat::Uint32 => 0,
+        };
         self.geometry_ids.grow_and_set(
             slot,
             GpuInstanceGeometryIds {
                 vertex_buffer_id,
                 vertex_buffer_offset: vertex_slice.range.start,
                 index_buffer_id,
-                index_buffer_offset: index_slice.range.start,
+                index_buffer_offset: index_slice.range.start | index_format_flag,
                 triangle_count,
             },
         );
@@ -400,10 +474,7 @@ impl InstanceState {
     }
 
     fn release_buffers(&mut self, buffers: Option<(BufferId, BufferId)>) {
-        if let Some((vertex_key, index_key)) = buffers {
-            self.vertex_buffers.release(&vertex_key);
-            self.index_buffers.release(&index_key);
-        }
+        self.retired_buffers.extend(buffers);
     }
 
     fn remove_instance(&mut self, lights: &mut LightState, entity: Entity) {
@@ -412,7 +483,7 @@ impl InstanceState {
         };
 
         self.deactivate_instance(lights, entity, &mut instance);
-        self.slots.release(instance.slot);
+        self.slots.retire(instance.slot);
         self.pending_refresh.remove(&entity);
         unlink(&mut self.mesh_instances, &instance.mesh, entity);
         unlink(&mut self.material_instances, &instance.material, entity);

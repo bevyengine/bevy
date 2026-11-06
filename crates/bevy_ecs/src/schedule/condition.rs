@@ -1192,6 +1192,10 @@ pub mod common_conditions {
     /// schedule.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
+    ///
+    /// Alternatively, when using this with the [`not`] condition you may instead use
+    /// [`SkipIfAny<With<C: Component>>`](crate::prelude::SkipIfAny) to enforce the
+    /// absence of a component at the system level
     pub fn any_with_component<T: Component>(query: Query<(), With<T>>) -> bool {
         !query.is_empty()
     }
@@ -1215,6 +1219,9 @@ pub mod common_conditions {
     /// To skip a system with a [`Query`] parameter if the query is empty,
     /// you may instead use [`Populated`](crate::prelude::Populated), if the query may match multiple entities,
     /// or [`Single`](crate::prelude::Single), if it will only match one.
+    ///
+    /// Alternatively, when using this with the [`not`] condition you may instead use
+    /// [`SkipIfAny`](crate::prelude::SkipIfAny) to enforce the filter at the system level
     pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
         !query.is_empty()
     }

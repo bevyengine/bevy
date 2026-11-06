@@ -72,6 +72,18 @@ fn can_spawn_bundle_without_extract() {
     assert!(world.entity(id).get::<Children>().is_some());
 }
 
+#[derive(Bundle)]
+#[bundle(ignore_from_components)]
+struct BundleWithChildren(crate::spawn::SpawnOneRelated<ChildOf, A>);
+
+#[test]
+fn can_spawn_bundle_with_children() {
+    let mut world = World::new();
+    let parent = world.spawn(BundleWithChildren(Children::spawn_one(A)));
+    let children = parent.get::<Children>();
+    assert_eq!(children.map(Children::len), Some(1));
+}
+
 #[test]
 fn component_hook_order_spawn_despawn() {
     let mut world = World::new();
@@ -293,3 +305,7 @@ struct Ignore {
     #[bundle(ignore)]
     bar: i32,
 }
+
+#[derive(Bundle)]
+#[expect(unused, reason = "tests the derive macro does not leak private type")]
+pub struct Exported(A);

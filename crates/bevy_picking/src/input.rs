@@ -23,7 +23,7 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
-use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
+use bevy_window::{PrimaryWindow, Window, WindowEvent, WindowRef};
 use tracing::debug;
 
 use crate::pointer::{
@@ -122,6 +122,7 @@ pub fn mouse_pick_events(
     // Input
     mut window_events: MessageReader<WindowEvent>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
+    windows: Query<&Window>,
     // Locals
     mut cursor_last: Local<Vec2>,
     // Output
@@ -131,6 +132,10 @@ pub fn mouse_pick_events(
         match window_event {
             // Handle cursor movement events
             WindowEvent::CursorMoved(event) => {
+                let Ok(window) = windows.get(event.window) else {
+                    continue;
+                };
+                let position = (event.physical_position / window.scale_factor() as f64).as_vec2();
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(event.window))
                         .normalize(primary_window.single().ok())
@@ -138,16 +143,16 @@ pub fn mouse_pick_events(
                         Some(target) => target,
                         None => continue,
                     },
-                    position: event.position,
+                    position,
                 };
                 pointer_inputs.write(PointerInput::new(
                     PointerId::Mouse,
                     location,
                     PointerAction::Move {
-                        delta: event.position - *cursor_last,
+                        delta: position - *cursor_last,
                     },
                 ));
-                *cursor_last = event.position;
+                *cursor_last = position;
             }
             // Handle mouse button press events
             WindowEvent::MouseButtonInput(input) => {

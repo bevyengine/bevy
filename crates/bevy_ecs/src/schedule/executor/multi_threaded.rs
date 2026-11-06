@@ -767,6 +767,9 @@ fn apply_deferred(
     world: &mut World,
     error_handler: ErrorHandler,
 ) -> Result<(), Box<dyn Any + Send>> {
+    #[cfg(feature = "trace")]
+    let _span = info_span!("apply_deferred").entered();
+
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;
@@ -911,7 +914,8 @@ mod tests {
         prelude::Resource,
         schedule::{IntoScheduleConfigs, MultiThreadedExecutor, Schedule},
         system::{
-            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamValidationError,
+            Commands, NonSendMut, SystemAccess, SystemMeta, SystemParam, SystemParamAccessConflict,
+            SystemParamValidationError,
         },
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -930,11 +934,12 @@ mod tests {
 
         fn init_access(
             _state: &Self::State,
-            system_meta: &mut SystemMeta,
+            _system_meta: &mut SystemMeta,
             system_access: &mut SystemAccess,
-            _world: &mut World,
-        ) {
-            system_access.require_exclusive_access::<Self>(system_meta);
+        ) -> Result<(), SystemParamAccessConflict> {
+            system_access
+                .try_extend_exclusive()
+                .map_err(SystemParamAccessConflict::new::<Self>)
         }
 
         unsafe fn get_param<'world, 'state>(

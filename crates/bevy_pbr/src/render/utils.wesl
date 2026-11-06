@@ -33,10 +33,8 @@ fn rand_range_u(n: u32, state: ptr<function, u32>) -> u32 {
     return rand_u(state) % n;
 }
 
-/// returns the (0-1, 0-1) position within the given viewport for the current buffer coords .
-/// buffer coords can be obtained from `@builtin(position).xy`.
-/// the view uniform struct contains the current camera viewport in `view.viewport`.
-/// topleft = 0,0
+/// Converts `@builtin(position).xy` to viewport UVs, with (0, 0) at the top left.
+/// Use `view.main_pass_viewport` before upscaling and `view.viewport` after.
 fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> {
     return (position - viewport.xy) / viewport.zw;
 }
@@ -91,6 +89,19 @@ fn sample_uniform_hemisphere(normal: vec3<f32>, rng: ptr<function, u32>) -> vec3
 
 fn uniform_hemisphere_inverse_pdf() -> f32 {
     return PI_2;
+}
+
+/// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec26%3A301
+fn sample_uniform_sphere(rng: ptr<function, u32>) -> vec3<f32> {
+    let u = 2.0 * rand_vec2f(rng) - 1.0;
+    let d = 1.0 - (abs(u.x) + abs(u.y));
+    let r = 1.0 - abs(d);
+    let phi = select((PI / 4.0) * ((abs(u.y) - abs(u.x)) / r + 1.0), 0.0, r == 0.0);
+    let f = r * sqrt(2.0 - r * r);
+    let x = f * sign(u.x) * cos(phi);
+    let y = f * sign(u.y) * sin(phi);
+    let z = sign(d) * (1.0 - r * r);
+    return vec3(x, y, z);
 }
 
 /// https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec19%3A294

@@ -1,6 +1,10 @@
 use crate::{
+    layout::{
+        layout_tree::{ComputedLayout, TaffyStyle},
+        UiTreeDirty,
+    },
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -20,8 +24,7 @@ use tracing::warn;
 
 /// Provides the computed size and layout properties of a UI [`Node`].
 ///
-/// All of the fields are automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`)
-/// during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
+/// All of the fields are automatically calculated during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
 ///
 /// The fields are measured in physical pixels.
 /// You can multiply by the `inverse_scale_factor` field to convert back to logical pixels.
@@ -73,7 +76,7 @@ pub struct ComputedNode {
 impl ComputedNode {
     /// The calculated node size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
@@ -81,7 +84,7 @@ impl ComputedNode {
 
     /// The calculated node content size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn content_size(&self) -> Vec2 {
         self.content_size
@@ -96,7 +99,7 @@ impl ComputedNode {
 
     /// The calculated node size as width and height in physical pixels before rounding.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
@@ -105,7 +108,7 @@ impl ComputedNode {
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_width(&self) -> f32 {
         self.outline_width
@@ -113,7 +116,7 @@ impl ComputedNode {
 
     /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
@@ -121,7 +124,7 @@ impl ComputedNode {
 
     /// Returns the size of the node when including its outline.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
@@ -132,7 +135,7 @@ impl ComputedNode {
     /// An outline's border radius is derived from the node's border-radius
     /// so that the outline wraps the border equally at all points.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
@@ -153,7 +156,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn border(&self) -> BorderRect {
         self.border
@@ -161,7 +164,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_border_radius`](`super::layout::update_border_radius`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
@@ -184,7 +187,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn padding(&self) -> BorderRect {
         self.padding
@@ -454,26 +457,24 @@ impl From<BVec2> for IgnoreScroll {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
-///
-/// # See also
-///
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
+    TaffyStyle,
     ComputedNode,
     ComputedStackIndex,
+    ComputedLayout,
     ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy,
     ScrollPosition,
     Visibility,
     ZIndex,
-    EmSize
+    EmSize,
+    UiTreeDirty
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -822,12 +823,12 @@ impl Node {
         bottom: Val::Auto,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
-        align_items: AlignItems::DEFAULT,
-        justify_items: JustifyItems::DEFAULT,
+        align_items: AlignItems::Normal,
+        justify_items: JustifyItems::Normal,
         align_self: AlignSelf::DEFAULT,
         justify_self: JustifySelf::DEFAULT,
-        align_content: AlignContent::DEFAULT,
-        justify_content: JustifyContent::DEFAULT,
+        align_content: AlignContent::Normal,
+        justify_content: JustifyContent::Normal,
         direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
@@ -890,7 +891,7 @@ pub enum InlineDirection {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -899,7 +900,8 @@ pub enum InlineDirection {
 )]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -929,9 +931,10 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             AlignItems::StartSafe
@@ -940,7 +943,7 @@ impl AlignItems {
             | AlignItems::FlexStartSafe
             | AlignItems::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            AlignItems::Default
+            AlignItems::Normal
             | AlignItems::Start
             | AlignItems::Center
             | AlignItems::End
@@ -960,7 +963,7 @@ impl AlignItems {
             AlignItems::End => AlignItems::EndSafe,
             AlignItems::FlexStart => AlignItems::FlexStartSafe,
             AlignItems::FlexEnd => AlignItems::FlexEndSafe,
-            AlignItems::Default
+            AlignItems::Normal
             | AlignItems::StartSafe
             | AlignItems::EndSafe
             | AlignItems::CenterSafe
@@ -969,12 +972,6 @@ impl AlignItems {
             | AlignItems::Baseline
             | AlignItems::Stretch => self,
         }
-    }
-}
-
-impl Default for AlignItems {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -988,7 +985,7 @@ impl Default for AlignItems {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -997,7 +994,8 @@ impl Default for AlignItems {
 )]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1017,14 +1015,15 @@ pub enum JustifyItems {
 }
 
 impl JustifyItems {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            JustifyItems::Default
+            JustifyItems::Normal
             | JustifyItems::Start
             | JustifyItems::Center
             | JustifyItems::End
@@ -1040,19 +1039,13 @@ impl JustifyItems {
             JustifyItems::Start => JustifyItems::StartSafe,
             JustifyItems::Center => JustifyItems::CenterSafe,
             JustifyItems::End => JustifyItems::EndSafe,
-            JustifyItems::Default
+            JustifyItems::Normal
             | JustifyItems::StartSafe
             | JustifyItems::EndSafe
             | JustifyItems::CenterSafe
             | JustifyItems::Baseline
             | JustifyItems::Stretch => self,
         }
-    }
-}
-
-impl Default for JustifyItems {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -1107,7 +1100,7 @@ pub enum AlignSelf {
 impl AlignSelf {
     pub const DEFAULT: Self = Self::Auto;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             AlignSelf::StartSafe
@@ -1195,7 +1188,7 @@ pub enum JustifySelf {
 impl JustifySelf {
     pub const DEFAULT: Self = Self::Auto;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifySelf::StartSafe | JustifySelf::CenterSafe | JustifySelf::EndSafe => true,
@@ -1242,7 +1235,7 @@ impl Default for JustifySelf {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1251,7 +1244,8 @@ impl Default for JustifySelf {
 )]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1285,9 +1279,10 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             AlignContent::StartSafe
@@ -1296,7 +1291,7 @@ impl AlignContent {
             | AlignContent::FlexStartSafe
             | AlignContent::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            AlignContent::Default
+            AlignContent::Normal
             | AlignContent::Start
             | AlignContent::Center
             | AlignContent::End
@@ -1318,7 +1313,7 @@ impl AlignContent {
             AlignContent::End => AlignContent::EndSafe,
             AlignContent::FlexStart => AlignContent::FlexStartSafe,
             AlignContent::FlexEnd => AlignContent::FlexEndSafe,
-            AlignContent::Default
+            AlignContent::Normal
             | AlignContent::StartSafe
             | AlignContent::EndSafe
             | AlignContent::CenterSafe
@@ -1332,12 +1327,6 @@ impl AlignContent {
     }
 }
 
-impl Default for AlignContent {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
 /// Used to control how items are distributed.
 /// - For Flexbox containers, controls alignment of items in the main axis.
 /// - For CSS Grid containers, controls alignment of grid columns.
@@ -1348,7 +1337,7 @@ impl Default for AlignContent {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1357,7 +1346,8 @@ impl Default for AlignContent {
 )]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1391,9 +1381,10 @@ pub enum JustifyContent {
 }
 
 impl JustifyContent {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-    /// Returns `true` is this alignment is considered [`safe`](Self#safe-alignments).
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifyContent::StartSafe
@@ -1402,7 +1393,7 @@ impl JustifyContent {
             | JustifyContent::FlexStartSafe
             | JustifyContent::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            JustifyContent::Default
+            JustifyContent::Normal
             | JustifyContent::Start
             | JustifyContent::Center
             | JustifyContent::End
@@ -1424,7 +1415,7 @@ impl JustifyContent {
             JustifyContent::End => JustifyContent::EndSafe,
             JustifyContent::FlexStart => JustifyContent::FlexStartSafe,
             JustifyContent::FlexEnd => JustifyContent::FlexEndSafe,
-            JustifyContent::Default
+            JustifyContent::Normal
             | JustifyContent::StartSafe
             | JustifyContent::EndSafe
             | JustifyContent::CenterSafe
@@ -1435,12 +1426,6 @@ impl JustifyContent {
             | JustifyContent::SpaceEvenly
             | JustifyContent::SpaceAround => self,
         }
-    }
-}
-
-impl Default for JustifyContent {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -2180,7 +2165,7 @@ impl RepeatedGridTrack {
         .into()
     }
 
-    /// Create a repeating set of grid tracks with size as a multiple of the grid containers's font size.
+    /// Create a repeating set of grid tracks with size as a multiple of the grid container's font size.
     pub fn em<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
         Self {
             repetition: repetition.into(),
@@ -3119,8 +3104,8 @@ impl BorderRadius {
     }
 
     /// Sets the radii for the top left and top right corners.
-    #[inline]
     /// Remaining corners will be right-angled.
+    #[inline]
     pub fn top(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
@@ -3130,9 +3115,9 @@ impl BorderRadius {
         }
     }
 
-    #[inline]
     /// Sets the radii for the bottom left and bottom right corners.
     /// Remaining corners will be right-angled.
+    #[inline]
     pub fn bottom(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
@@ -3298,6 +3283,33 @@ impl From<ResolvedBorderRadius> for [[f32; 4]; 2] {
     }
 }
 
+/// The border style of the UI node.
+#[derive(Component, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum BorderStyle {
+    Solid,
+    Double,
+    Inset,
+    Outset,
+    Groove,
+    Ridge,
+}
+
+impl BorderStyle {
+    pub const DEFAULT: Self = Self::Solid;
+}
+
+impl Default for BorderStyle {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 #[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default, Clone)]
 #[cfg_attr(
@@ -3403,7 +3415,7 @@ impl Default for LayoutConfig {
 /// Root node's without an explicit [`UiTargetCamera`] will be rendered to the default UI camera,
 /// which is either a single camera with the [`IsDefaultUiCamera`] marker component or the highest
 /// order camera targeting the primary window.
-#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+#[derive(Component, FromTemplate, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq, Clone)]
 pub struct UiTargetCamera(pub Entity);
 
@@ -3533,10 +3545,32 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-#[derive(Component, Clone, Default, Reflect)]
+/// `FixedNode` is ignored on a `GhostNode`.
+/// `FixedNode` on a parentless node is redundant.
+/// All of a `FixedNode`'s ancestors must be `Node` entities.
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 #[require(Node)]
 pub struct FixedNode;
+
+/// Marker component for `Node` entities that should be replaced by their children during UI layout.
+///
+/// - A `GhostNode` is a UI node entity, it requires `Node` but all the field's on its `Node` component are ignored.
+/// - A `GhostNode` is given zero size during layout.
+/// - Its position is the same as its parent (before `UiTransform`, is present, is applied).
+/// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
+///   values are based on the size of the `GhostNode`'s parent.
+/// - Events pass through normally.
+/// - `FixedNode` is ignored on a `GhostNode`.
+/// - `OverrideClip` is not ignored on a `GhostNode`.
+/// - Clipping propagates through `GhostNode`'s but their `Node::overflow` setting is ignored.
+/// - A `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their nearest non-ghost ancestor,
+///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
+/// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
+#[derive(Component, Debug, Copy, Clone, Reflect, Default)]
+#[reflect(Component, Debug, Clone)]
+#[require(Node)]
+pub struct GhostNode;
 
 #[cfg(test)]
 mod tests {

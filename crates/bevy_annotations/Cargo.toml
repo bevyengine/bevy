@@ -1,0 +1,23 @@
+[package]
+name = "bevy_annotations"
+version = "0.20.0-dev"
+edition = "2024"
+description = "Well-known reflection annotations for Bevy tools such as inspectors and editors"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
+all-features = true

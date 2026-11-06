@@ -1,4 +1,5 @@
 pub mod composition;
+pub mod display_target;
 pub mod visibility;
 pub mod window;
 
@@ -8,12 +9,14 @@ use bevy_camera::{
 };
 use bevy_diagnostic::FrameCount;
 pub use composition::*;
+pub use display_target::*;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
     extract_component::ExtractComponentPlugin,
+    extract_resource::ExtractResourcePlugin,
     occlusion_culling::OcclusionCulling,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -176,10 +179,15 @@ impl Plugin for ViewPlugin {
             .add_plugins((
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
+                ExtractResourcePlugin::<ManualDisplayTargets>::default(),
                 RenderVisibilityRangePlugin,
-            ));
+            ))
+            .init_resource::<ManualDisplayTargets>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            // Without this, `extract_resource` inserts the resource through
+            // `Commands`, too late for `extract_cameras` in the same frame.
+            render_app.init_resource::<ManualDisplayTargets>();
             render_app.configure_sets(
                 Render,
                 ResolveCompositingSpaces
@@ -485,8 +493,8 @@ impl ExtractedView {
 /// Color grading is applied just before tonemapping for a given [`Camera`]
 /// entity, with the sole exception of the `post_saturation` value in
 /// [`ColorGradingGlobal`], which is applied after tonemapping.
-#[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Default, Clone, PartialEq)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -514,8 +522,8 @@ pub struct ColorGrading {
 
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
-#[derive(Clone, Debug, Reflect)]
-#[reflect(Default, Clone)]
+#[derive(Clone, Debug, Reflect, PartialEq)]
+#[reflect(Default, Clone, PartialEq)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -738,8 +746,9 @@ pub struct ViewUniform {
     pub view_from_clip: Mat4,
     pub world_position: Vec3,
     pub exposure: f32,
-    // viewport(x_origin, y_origin, width, height)
+    /// Output viewport (x origin, y origin, width, height), in physical pixels.
     pub viewport: Vec4,
+    /// Prepass and main pass viewport, before upscaling, in physical pixels.
     pub main_pass_viewport: Vec4,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
@@ -1115,11 +1124,7 @@ impl PostProcessBindGroupCache {
             return true;
         }
         let (texture_b, _) = &self.b;
-        if *texture_b != view_target.main_texture_other_view().id() {
-            return true;
-        }
-
-        false
+        *texture_b != view_target.main_texture_other_view().id()
     }
 
     /// Updates the bind group associated with each main textures
@@ -1360,7 +1365,9 @@ pub fn cleanup_view_targets_for_resize(
     for (entity, camera) in &cameras {
         if let Some(NormalizedRenderTarget::Window(window_ref)) = &camera.target
             && let Some((_, window)) = windows.iter().find(|(e, _)| *e == window_ref.entity())
-            && (window.size_changed || window.present_mode_changed)
+            && (window.size_changed
+                || window.present_mode_changed
+                || window.color_space_request_changed)
         {
             commands.entity(entity).remove::<ViewTarget>();
         }

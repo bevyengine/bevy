@@ -319,16 +319,16 @@ mod animation {
 
     #[derive(Resource)]
     struct Animation {
-        animation: AnimationNodeIndex,
-        graph: Handle<AnimationGraph>,
+        animation: BlendNodeIndex,
+        graph: Handle<BlendGraph>,
     }
 
     pub fn setup(
         mut commands: Commands,
         asset_server: Res<AssetServer>,
-        mut graphs: ResMut<Assets<AnimationGraph>>,
+        mut graphs: ResMut<Assets<BlendGraph>>,
     ) {
-        let (graph, node) = AnimationGraph::from_clip(
+        let (graph, node) = BlendGraph::from_clip(
             asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
         );
 
@@ -378,7 +378,7 @@ mod animation {
 
                 commands
                     .entity(entity)
-                    .insert(AnimationGraphHandle(animation.graph.clone()))
+                    .insert(BlendGraphHandle(animation.graph.clone()))
                     .insert(transitions);
             }
         }
@@ -523,7 +523,7 @@ mod white_furnace_solid_color_light {
     use bevy::{
         asset::RenderAssetUsages,
         camera::{Hdr, ScalingMode},
-        core_pipeline::tonemapping::Tonemapping,
+        core_pipeline::tonemapping::{DebandDither, Tonemapping},
         light::Skybox,
         prelude::*,
         render::render_resource::{
@@ -613,6 +613,7 @@ mod white_furnace_solid_color_light {
             Camera3d::default(),
             Hdr,
             Tonemapping::None,
+            DebandDither::Disabled,
             Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
             Projection::from(OrthographicProjection {
                 scale: 0.01,
@@ -635,7 +636,7 @@ mod white_furnace_environment_map_light {
     use bevy::{
         asset::RenderAssetUsages,
         camera::{Hdr, ScalingMode},
-        core_pipeline::tonemapping::Tonemapping,
+        core_pipeline::tonemapping::{DebandDither, Tonemapping},
         light::Skybox,
         prelude::*,
         render::render_resource::{
@@ -728,6 +729,7 @@ mod white_furnace_environment_map_light {
             Camera3d::default(),
             Hdr,
             Tonemapping::None,
+            DebandDither::Disabled,
             Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
             Projection::from(OrthographicProjection {
                 scale: 0.01,

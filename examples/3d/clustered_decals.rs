@@ -8,7 +8,7 @@ use bevy::ui_widgets::radio_self_update;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     feathers::{
-        controls::{FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, NumberInputPrecision},
         theme::UiTheme,
         FeathersPlugins,
     },
@@ -21,7 +21,7 @@ use bevy::{
         renderer::{RenderAdapter, RenderDevice},
     },
     shader::ShaderRef,
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericValue, ValueChange},
 };
 use ops::{acos, cos, sin};
 
@@ -238,17 +238,15 @@ fn spawn_buttons(commands: &mut Commands) {
                 (Selection::Camera, "Camera"),
                 (Selection::DecalA, "Decal A"),
                 (Selection::DecalB, "Decal B"),
-            ], 0),
-
+            ], 0)
+            --
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
             @number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.05..=10.)
-            ,
-
+            --
             Visibility::Hidden
             // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
             @number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
-            ,
         ]
     });
 }
@@ -284,7 +282,7 @@ fn handle_value_change_number_input(
         }
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
     }
 }
 
@@ -328,12 +326,12 @@ fn handle_selection_change(
                         let scale_multiplier = transform.scale.x / base_scale.0.x;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32(scale_multiplier));
+                            .insert(NumericValue::F32(scale_multiplier));
                     } else {
                         let roll = transform.rotation.to_euler(EulerRot::YXZ).2;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32(roll));
+                            .insert(NumericValue::F32(roll));
                     }
                 }
             }

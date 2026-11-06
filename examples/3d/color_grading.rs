@@ -9,7 +9,7 @@ use bevy::{
     camera::Hdr,
     feathers::{
         containers::{pane, pane_body, pane_header},
-        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, HardLimit, NumberInputPrecision},
         dark_theme::create_dark_theme,
         display::label,
         theme::{ThemeProps, UiTheme},
@@ -19,7 +19,7 @@ use bevy::{
     light::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericValue, ValueChange},
 };
 use std::fmt::Display;
 
@@ -114,11 +114,14 @@ fn add_buttons(commands: &mut Commands, color_grading: &ColorGrading) {
         }
         Children [
             // Create the first pane, which contains the global controls.
-            @pane_for_global_controls(color_grading),
+            @pane_for_global_controls(color_grading)
+            --
             // Create the following panes for individual controls.
-            @pane_for_section(SectionColorGradingName::Highlights, color_grading),
-            @pane_for_section(SectionColorGradingName::Midtones, color_grading),
-            @pane_for_section(SectionColorGradingName::Shadows, color_grading),
+            @pane_for_section(SectionColorGradingName::Highlights, color_grading)
+            --
+            @pane_for_section(SectionColorGradingName::Midtones, color_grading)
+            --
+            @pane_for_section(SectionColorGradingName::Shadows, color_grading)
         ]
     });
 }
@@ -142,15 +145,18 @@ fn pane_for_global_controls(color_grading: &ColorGrading) -> impl Scene {
                 Children [
                     @label("Global Settings")
                 ]
-            ],
-
+            ]
+            --
             // Spawn the buttons
             @pane_body()
             Children [
-                @make_button(GlobalColorGradingSetting::Exposure),
-                @make_button(GlobalColorGradingSetting::Temperature),
-                @make_button(GlobalColorGradingSetting::Tint),
-                @make_button(GlobalColorGradingSetting::Hue),
+                @make_button(GlobalColorGradingSetting::Exposure)
+                --
+                @make_button(GlobalColorGradingSetting::Temperature)
+                --
+                @make_button(GlobalColorGradingSetting::Tint)
+                --
+                @make_button(GlobalColorGradingSetting::Hue)
             ]
         ]
     }
@@ -170,25 +176,27 @@ fn pane_for_section(section: SectionColorGradingName, color_grading: &ColorGradi
         @pane()
         Children [
             // Spawn the label ("Highlights", etc.)
-            @pane_header()
-            Children [
+            @pane_header() Children [
                 Node {
                     width: px(120),
                     align_self: AlignSelf::Start,
                 }
                 Children [
                     @label(section.to_string())
-                ],
-            ],
-
+                ]
+            ]
+            --
             // Spawn the buttons.
-            @pane_body()
-            Children[
-                @make_button(SectionColorGradingSetting::Saturation),
-                @make_button(SectionColorGradingSetting::Contrast),
-                @make_button(SectionColorGradingSetting::Gamma),
-                @make_button(SectionColorGradingSetting::Gain),
-                @make_button(SectionColorGradingSetting::Lift),
+            @pane_body() Children[
+                @make_button(SectionColorGradingSetting::Saturation)
+                --
+                @make_button(SectionColorGradingSetting::Contrast)
+                --
+                @make_button(SectionColorGradingSetting::Gamma)
+                --
+                @make_button(SectionColorGradingSetting::Gain)
+                --
+                @make_button(SectionColorGradingSetting::Lift)
             ]
         ]
     }
@@ -215,14 +223,14 @@ fn number_input_for_value(
             }
             Children[
                 @label(setting_label)
-            ],
-
+            ]
+            --
             Node {
                 align_items: AlignItems::Center,
                 width: px(50),
             }
             @FeathersNumberInput
-            NumberInputValue::F32({setting.get(color_grading)})
+            NumericValue::F32({setting.get(color_grading)})
             setting
             NumberInputPrecision(2)
             HardLimit::f32(0. ..=10.)
@@ -297,7 +305,7 @@ fn handle_value_change_number_input(
 
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
     }
 }
 
