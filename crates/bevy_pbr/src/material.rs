@@ -5,7 +5,7 @@ use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId}
 use bevy_camera::visibility::ViewVisibility;
 use bevy_core_pipeline::core_3d::TransparentSortingInfo3d;
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
-use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
+use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transparent3d},
     prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
@@ -1209,12 +1209,13 @@ pub fn queue_material_meshes(
         &ExtractedView,
         &RenderVisibleEntities,
         Has<ScreenSpaceTransmission>,
+        Has<DeferredPrepass>,
     )>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
     mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
-    for (view, visible_entities, has_transmission) in &views {
+    for (view, visible_entities, has_transmission, has_deferred_prepass) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -1351,7 +1352,11 @@ pub fn queue_material_meshes(
                     });
                 }
                 RenderPhaseType::Opaque => {
-                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                    // Deferred materials are drawn by the deferred passes, which only views with a
+                    // `DeferredPrepass` have; other views draw them forward.
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred
+                        && has_deferred_prepass
+                    {
                         // Even though we aren't going to insert the entity into
                         // a bin, we still want to update its cache entry. That
                         // way, we know we don't need to re-examine it in future
@@ -1391,7 +1396,9 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
-                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred
+                        && has_deferred_prepass
+                    {
                         // Even though we aren't going to insert the entity into
                         // a bin, we still want to update its cache entry. That
                         // way, we know we don't need to re-examine it in future
