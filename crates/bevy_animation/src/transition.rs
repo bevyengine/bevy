@@ -4,7 +4,7 @@
 //! animation state machines.
 
 use crate::{
-    graph::{AnimationGraphHandle, AnimationNodeIndex},
+    graph::{BlendGraphHandle, BlendNodeIndex},
     ActiveAnimation, AnimationPlayer,
 };
 use bevy_ecs::{
@@ -29,7 +29,7 @@ use core::{f32, num::NonZeroUsize, time::Duration};
 ///   through an [animation mask].
 ///
 /// Flows don't know which bones they affect: masking and additive blending are
-/// configured on the [`AnimationGraph`] itself. Keeping track of which flow
+/// configured on the [`BlendGraph`] itself. Keeping track of which flow
 /// controls which nodes is up to the user.
 ///
 /// [`AnimationTransitions::new`] creates a single flow, which is enough when
@@ -42,15 +42,15 @@ use core::{f32, num::NonZeroUsize, time::Duration};
 /// confused if the animations are started directly via the [`AnimationPlayer`].
 ///
 /// [animation mask]: crate::graph::AnimationMask
-/// [`AnimationGraph`]: crate::graph::AnimationGraph
+/// [`BlendGraph`]: crate::graph::BlendGraph
 #[derive(Component, Reflect)]
 #[reflect(Component, Default, Clone)]
-#[require(AnimationGraphHandle, AnimationPlayer)]
+#[require(BlendGraphHandle, AnimationPlayer)]
 pub struct AnimationTransitions {
     transitions: Vec<AnimationTransition>,
     /// The current node of each flow, or `None` if nothing was played on that
     /// flow yet.
-    flows: Vec<Option<AnimationNodeIndex>>,
+    flows: Vec<Option<BlendNodeIndex>>,
 }
 
 impl Clone for AnimationTransitions {
@@ -78,7 +78,7 @@ pub struct AnimationTransition {
     /// How much to decrease `current_weight` per second.
     weight_decline: f32,
     /// The node being faded out.
-    node: AnimationNodeIndex,
+    node: BlendNodeIndex,
     /// The flow this transition belongs to.
     flow: usize,
 }
@@ -106,7 +106,7 @@ impl AnimationTransitions {
 
     /// Returns the current node of the given flow, or `None` if nothing was
     /// played on it yet or if `flow_position` is out of bounds.
-    pub fn current_node(&self, flow_position: usize) -> Option<AnimationNodeIndex> {
+    pub fn current_node(&self, flow_position: usize) -> Option<BlendNodeIndex> {
         self.flows.get(flow_position).cloned().flatten()
     }
 
@@ -116,7 +116,7 @@ impl AnimationTransitions {
     pub fn transition<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        new_node: AnimationNodeIndex,
+        new_node: BlendNodeIndex,
         duration: Duration,
     ) -> &'p mut ActiveAnimation {
         self.transition_flows_unchecked(player, new_node, 0, duration)
@@ -134,7 +134,7 @@ impl AnimationTransitions {
     pub fn transition_flows<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        new_node: AnimationNodeIndex,
+        new_node: BlendNodeIndex,
         flow_position: usize,
         duration: Duration,
     ) -> Option<&'p mut ActiveAnimation> {
@@ -179,7 +179,7 @@ impl AnimationTransitions {
     pub fn transition_flows_unchecked<'p>(
         &mut self,
         player: &'p mut AnimationPlayer,
-        new_node: AnimationNodeIndex,
+        new_node: BlendNodeIndex,
         flow_position: usize,
         duration: Duration,
     ) -> &'p mut ActiveAnimation {
@@ -263,7 +263,7 @@ mod tests {
         world
     }
 
-    fn transition(world: &mut World, node: AnimationNodeIndex, flow: usize, duration: Duration) {
+    fn transition(world: &mut World, node: BlendNodeIndex, flow: usize, duration: Duration) {
         let (mut transitions, mut player) = world
             .query::<(&mut AnimationTransitions, &mut AnimationPlayer)>()
             .single_mut(world)
@@ -278,7 +278,7 @@ mod tests {
     }
 
     #[track_caller]
-    fn assert_weight(world: &mut World, node: AnimationNodeIndex, expected: Option<f32>) {
+    fn assert_weight(world: &mut World, node: BlendNodeIndex, expected: Option<f32>) {
         let player = world.query::<&AnimationPlayer>().single(world).unwrap();
         let weight = player.animation(node).map(ActiveAnimation::weight);
         match (weight, expected) {
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn transitioning_one_flow_does_not_affect_another() {
-        let [a, b, c] = [1, 2, 3].map(AnimationNodeIndex::new);
+        let [a, b, c] = [1, 2, 3].map(BlendNodeIndex::new);
         let mut world = setup(2);
         transition(&mut world, a, 0, Duration::ZERO);
         transition(&mut world, b, 1, Duration::ZERO);
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn flows_transition_simultaneously_and_independently() {
-        let [a, b, c, d] = [1, 2, 3, 4].map(AnimationNodeIndex::new);
+        let [a, b, c, d] = [1, 2, 3, 4].map(BlendNodeIndex::new);
         let mut world = setup(2);
         transition(&mut world, a, 0, Duration::ZERO);
         transition(&mut world, b, 1, Duration::ZERO);
@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn transitioning_out_of_bounds_flow_does_nothing() {
-        let a = AnimationNodeIndex::new(1);
+        let a = BlendNodeIndex::new(1);
         let mut transitions = AnimationTransitions::new();
         let mut player = AnimationPlayer::default();
 
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Flow position 1 is out of bounds")]
     fn transitioning_out_of_bounds_flow_unchecked_panics() {
-        let a = AnimationNodeIndex::new(1);
+        let a = BlendNodeIndex::new(1);
         let mut transitions = AnimationTransitions::new();
         let mut player = AnimationPlayer::default();
 
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn transitioning_back_to_a_fading_node_keeps_it_playing() {
-        let [a, c] = [1, 3].map(AnimationNodeIndex::new);
+        let [a, c] = [1, 3].map(BlendNodeIndex::new);
         let mut world = setup(1);
         transition(&mut world, a, 0, Duration::ZERO);
         tick(&mut world, Duration::from_millis(100));

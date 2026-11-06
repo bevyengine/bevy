@@ -54,13 +54,13 @@ struct Fox(Handle<Gltf>);
 
 #[derive(Resource)]
 struct Animations {
-    body: [AnimationNodeIndex; CLIP_NAMES.len()],
-    head: [AnimationNodeIndex; CLIP_NAMES.len()],
-    graph_handle: Handle<AnimationGraph>,
+    body: [BlendNodeIndex; CLIP_NAMES.len()],
+    head: [BlendNodeIndex; CLIP_NAMES.len()],
+    graph_handle: Handle<BlendGraph>,
 }
 
 impl Animations {
-    fn clip_name(&self, node: AnimationNodeIndex) -> &'static str {
+    fn clip_name(&self, node: BlendNodeIndex) -> &'static str {
         self.body
             .iter()
             .chain(&self.head)
@@ -126,7 +126,7 @@ fn spawn_fox_asset_when_ready(
     asset_server: Res<AssetServer>,
     gltfs: Res<Assets<Gltf>>,
     clips: Res<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     if !asset_server.is_loaded_with_dependencies(&fox_handle.0) {
         return;
@@ -138,7 +138,7 @@ fn spawn_fox_asset_when_ready(
 
     // Build the animation graph. Every clip is added twice: once masked to
     // only animate the body, and once masked to only animate the head.
-    let mut graph = AnimationGraph::new();
+    let mut graph = BlendGraph::new();
     let [body, head] = [1 << MASK_GROUP_HEAD, 1 << MASK_GROUP_BODY].map(|mask| {
         CLIP_NAMES.map(|name| {
             graph.add_clip_with_mask(fox.named_animations[name].clone(), mask, 1.0, graph.root)
@@ -206,7 +206,7 @@ fn setup_scene(
         .repeat();
 
     commands.entity(entity).insert((
-        AnimationGraphHandle(animations.graph_handle.clone()),
+        BlendGraphHandle(animations.graph_handle.clone()),
         transitions,
     ));
 }
