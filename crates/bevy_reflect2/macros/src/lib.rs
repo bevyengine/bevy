@@ -15,11 +15,14 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Implements reflection for a type defined in another crate, using a re-statement of its
-/// definition. This generates the same impls as `#[derive(Reflect)]`, except automatic registration.
+/// Implements reflection for a type defined in another crate. The type is either described by a
+/// re-statement of its definition, or reflected as a primitive (`Kind::Primitive`).
 ///
-/// The re-statement must list every field (or variant) of the type with the correct types, which is
-/// verified at compile time. Fields must be visible to the calling crate.
+/// # Re-stated definitions
+///
+/// A struct or enum definition generates the same impls as `#[derive(Reflect)]`, except automatic
+/// registration. The re-statement must list every field (or variant) of the type with the correct
+/// types, which is verified at compile time. Fields must be visible to the calling crate.
 ///
 /// The `#[type_path = "path::to::module"]` attribute is required, and specifies the module that
 /// contains the type.
@@ -34,35 +37,38 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-#[proc_macro]
-pub fn impl_reflect(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-    match reflect::impl_reflect(ast) {
-        Ok(tokens) => tokens.into(),
-        Err(err) => err.into_compile_error().into(),
-    }
-}
-
-/// Implements reflection for a type as a primitive (`Kind::Primitive`), whose internals are not
-/// reflected. The `Primitive` variant is selected with an optional
-/// `#[reflect(primitive = Variant)]` attribute, and defaults to [`Primitive::Opaque`](https://docs.rs/bevy_reflect/latest/bevy_reflect/enum.Primitive.html).
 ///
-/// The type is specified using its full path (starting with the crate name), followed by
-/// the traits and type data to register in parentheses. Generic parameters can declare bounds.
-/// Types without a module (ex: `u32`) can be specified by name.
+/// # Primitives
 ///
-/// Types whose path can't be expressed this way (ex: references) can specify their type path
-/// using `#[type_path = "path::to::Type"]`.
+/// Any other type is reflected as a primitive, whose internals are not reflected. The type is
+/// specified using its full path (starting with the crate name), and generic parameters can declare
+/// bounds. Types without a module (ex: `u32`) can be specified by name. Types whose path can't be
+/// expressed this way (ex: references) specify their full type path using
+/// `#[full_type_path = "path::to::Type"]`.
+///
+/// Traits and type data are registered with `#[reflect(...)]`, like re-stated definitions. The
+/// `Primitive` variant is selected with `#[reflect(primitive = Variant)]`, and defaults to
+/// [`Primitive::Opaque`](https://docs.rs/bevy_reflect/latest/bevy_reflect/enum.Primitive.html).
 ///
 /// ```ignore
-/// impl_reflect_primitive!(::core::time::Duration(Clone, Debug, Hash, PartialEq, PartialOrd, Default));
-/// impl_reflect_primitive!(::core::ops::Range<T: Clone>(Clone));
-/// impl_reflect_primitive!(#[reflect(primitive = Int)] u32(Clone, Debug, Hash, PartialEq, PartialOrd, Default));
-/// impl_reflect_primitive!(#[type_path = "core::panic::Location"] &'static Location<'static>(Clone, Debug));
+/// impl_reflect!(
+///     #[reflect(Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+///     ::core::time::Duration
+/// );
+/// impl_reflect!(#[reflect(Clone)] ::core::ops::Range<T: Clone>);
+/// impl_reflect!(
+///     #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+///     u32
+/// );
+/// impl_reflect!(
+///     #[reflect(Clone, Debug)]
+///     #[full_type_path = "core::panic::Location"]
+///     &'static Location<'static>
+/// );
 /// ```
 #[proc_macro]
-pub fn impl_reflect_primitive(input: TokenStream) -> TokenStream {
-    match reflect::impl_reflect_primitive(input.into()) {
+pub fn impl_reflect(input: TokenStream) -> TokenStream {
+    match reflect::impl_reflect(input.into()) {
         Ok(tokens) => tokens.into(),
         Err(err) => err.into_compile_error().into(),
     }

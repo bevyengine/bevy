@@ -1,89 +1,83 @@
 use crate::{
-    self as bevy_reflect2, impl_reflect_primitive, GetTypeRegistration, Kind, Type, TypePath,
-    TypePathStr, TypeRegistration, TypeVTable, Typed,
+    self as bevy_reflect2, impl_reflect, GetTypeRegistration, Kind, Type, TypePath, TypePathStr,
+    TypeRegistration, TypeVTable, Typed,
 };
 use core::{alloc::Layout, any::TypeId};
 
-impl_reflect_primitive!(
-    #[reflect(primitive = Bool)]
-    bool(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Bool, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    bool
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Char)]
-    char(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Char, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    char
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    u8(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    u8
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    u16(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    u16
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    u32(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    u32
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    u64(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    u64
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    u128(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    u128
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    usize(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    usize
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    i8(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    i8
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    i16(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    i16
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    i32(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    i32
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    i64(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    i64
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    i128(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    i128
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Int)]
-    isize(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Int, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    isize
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Float)]
-    f32(Clone, Debug, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Float, Clone, Debug, PartialEq, PartialOrd, Default)]
+    f32
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Float)]
-    f64(Clone, Debug, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Float, Clone, Debug, PartialEq, PartialOrd, Default)]
+    f64
 );
-impl_reflect_primitive!(
-    #[reflect(primitive = Unit)]
-    #[type_path = "()"]
-    ()(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = Unit, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    #[full_type_path = "()"]
+    ()
 );
 
-impl_reflect_primitive!(
-    #[type_path = "&str"]
-    &'static str(
-        Clone,
-        Debug,
-        Hash,
-        PartialEq,
-        PartialOrd,
-        Default
-    )
+impl_reflect!(
+    #[reflect(Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    #[full_type_path = "&str"]
+    &'static str
 );
 
 // SAFETY: every item of `[T; N]` is a `T`, laid out contiguously with a stride of `size_of::<T>()`

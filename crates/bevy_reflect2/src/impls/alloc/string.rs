@@ -1,8 +1,8 @@
-use crate::{self as bevy_reflect2, impl_reflect_primitive};
+use crate::{self as bevy_reflect2, impl_reflect};
 
-impl_reflect_primitive!(
-    #[reflect(primitive = String)]
-    ::alloc::string::String(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
+impl_reflect!(
+    #[reflect(primitive = String, Clone, Debug, Hash, PartialEq, PartialOrd, Default)]
+    ::alloc::string::String
 );
 
 #[cfg(test)]

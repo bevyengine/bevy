@@ -61,7 +61,7 @@ pub use type_path::*;
 pub use type_registry::*;
 pub use type_vtable::*;
 
-pub use bevy_reflect2_macros::{impl_reflect, impl_reflect_primitive, load_type_registrations};
+pub use bevy_reflect2_macros::{impl_reflect, load_type_registrations};
 
 #[doc(hidden)]
 pub mod __macro_exports {

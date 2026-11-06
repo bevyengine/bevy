@@ -1,56 +1,33 @@
 use bevy_macro_utils::BevyManifest;
-use proc_macro2::{Delimiter, TokenStream, TokenTree};
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
     parse::{ParseStream, Parser},
     spanned::Spanned,
-    Attribute, Generics, Ident, LitStr, Path, Token, Type,
+    Attribute, Generics, Ident, LitStr, Path, Type,
 };
 
 use crate::reflect::{
-    attributes::ContainerAttributes,
-    extend_where_clause, take_type_path_attribute,
+    extend_where_clause, ignored_params, parse_container_attributes, take_string_attribute,
     type_path::{type_path, type_path_strings},
     type_registration::type_registration,
+    FULL_TYPE_PATH_ATTRIBUTE_NAME, REFLECT_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
 
-const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
-
-mod kw {
-    syn::custom_keyword!(primitive);
-}
-
-/// Implements reflection for a type as a `Kind::Primitive`, whose internals are not reflected.
+/// Implements reflection for a type as a `Kind::Primitive`, whose internals are not reflected. This
+/// is the form of `impl_reflect!` used for types that are not re-stated definitions.
 ///
 /// Supports two forms:
-/// - `::path::to::Type<T: Bound>(Trait, Trait(custom_fn), TypeData)`: the path determines the type
-///   path. Single-segment paths (ex: `u32`) have no crate or module.
-/// - `#[type_path = "path::to::Type"] SomeType(Trait)`: for non-generic types whose type path cannot be
-///   inferred from their syntax (ex: `&'static str`).
+/// - `::path::to::Type<T: Bound>`: the path determines the type path. Single-segment paths (ex:
+///   `u32`) have no crate or module.
+/// - `#[full_type_path = "path::to::Type"] SomeType`: for non-generic types whose type path cannot
+///   be inferred from their syntax (ex: `&'static str`).
 ///
-/// Both forms accept an optional `#[reflect(primitive = Variant)]` attribute, which selects the `Primitive`
-/// variant. It defaults to `Primitive::Opaque`.
+/// Both forms accept `#[reflect(...)]` container attributes, which register traits and type data.
+/// The `Primitive` variant is selected with `#[reflect(primitive = Variant)]`, and defaults to
+/// `Primitive::Opaque`.
 pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, syn::Error> {
     let bevy_reflect = BevyManifest::shared(|manifest| manifest.get_path("bevy_reflect2"));
-
-    // The trailing parenthesized group contains the reflected traits. Splitting it off first prevents
-    // it from being parsed as part of the type (ex: `str(Clone)` looks like `Fn(Clone)` sugar).
-    let mut tokens = input.into_iter().collect::<Vec<_>>();
-    let traits = match tokens.pop() {
-        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Parenthesis => {
-            group.stream()
-        }
-        Some(token) => {
-            tokens.push(token);
-            TokenStream::new()
-        }
-        None => TokenStream::new(),
-    };
-    let mut container_attributes = ContainerAttributes::default();
-    Parser::parse2(
-        |input: ParseStream| container_attributes.parse_terminated(input),
-        traits,
-    )?;
 
     let (mut attrs, rest) = Parser::parse2(
         |input: ParseStream| {
@@ -59,32 +36,64 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                 input.parse::<TokenStream>()?,
             ))
         },
-        tokens.into_iter().collect(),
+        input,
     )?;
-
-    let primitive = take_primitive_attribute(&mut attrs)?
+    let full_type_path = take_string_attribute(&mut attrs, FULL_TYPE_PATH_ATTRIBUTE_NAME)?;
+    if let Some(attr) = attrs
+        .iter()
+        .find(|attr| attr.path().is_ident(TYPE_PATH_ATTRIBUTE_NAME))
+    {
+        return Err(syn::Error::new_spanned(
+            attr,
+            format_args!(
+                "`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` is only supported on re-stated definitions. \
+                Types that are not re-stated infer their type path from their syntax, or specify it with \
+                `#[{FULL_TYPE_PATH_ATTRIBUTE_NAME} = \"path::to::Type\"]`"
+            ),
+        ));
+    }
+    if let Some(attr) = attrs
+        .iter()
+        .find(|attr| !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME))
+    {
+        return Err(syn::Error::new_spanned(attr, "unsupported attribute"));
+    }
+    let container_attributes = parse_container_attributes(&attrs)?;
+    let primitive = container_attributes
+        .primitive
+        .clone()
         .unwrap_or_else(|| Ident::new("Opaque", proc_macro2::Span::call_site()));
+    // Custom where clause predicates (`#[reflect(where ...)]`) apply to every generated impl
+    let with_where_predicates = |mut generics: Generics| {
+        if !container_attributes.where_predicates.is_empty() {
+            generics
+                .make_where_clause()
+                .predicates
+                .extend(container_attributes.where_predicates.iter().cloned());
+        }
+        generics
+    };
 
     let (target, generics, type_path_tokens, generic_type_path_impl, extended_where_clause) =
-        match take_type_path_attribute(&mut attrs)? {
+        match full_type_path {
             Some(full_path) => {
                 let ty = syn::parse2::<Type>(rest)?;
                 let type_path = explicit_type_path(&bevy_reflect, &full_path)?;
-                (
-                    quote! {#ty},
-                    Generics::default(),
-                    type_path,
-                    quote! {},
-                    quote! {},
-                )
+                let generics = with_where_predicates(Generics::default());
+                ignored_params(&generics, &container_attributes)?;
+                let where_clause = &generics.where_clause;
+                let where_clause = quote! {#where_clause};
+                (quote! {#ty}, generics, type_path, quote! {}, where_clause)
             }
             None => {
-                let (path, generics) = Parser::parse2(
+                let (path, mut generics) = Parser::parse2(
                     |input: ParseStream| {
                         Ok((Path::parse_mod_style(input)?, input.parse::<Generics>()?))
                     },
                     rest,
                 )?;
+                generics = with_where_predicates(generics);
+                let ignored_params = ignored_params(&generics, &container_attributes)?;
                 let mut segments = path
                     .segments
                     .iter()
@@ -103,15 +112,20 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                     }
                     let full_path = LitStr::new(&type_ident_str, path.span());
                     let type_path = explicit_type_path(&bevy_reflect, &full_path)?;
-                    (quote! {#path}, generics, type_path, quote! {}, quote! {})
+                    let where_clause = &generics.where_clause;
+                    let where_clause = quote! {#where_clause};
+                    (quote! {#path}, generics, type_path, quote! {}, where_clause)
                 } else {
                     let module_path = LitStr::new(&module_path, proc_macro2::Span::call_site());
                     let module_path = quote! {#module_path};
 
                     let (_, type_generics, _) = generics.split_for_impl();
                     let target = quote! {#path #type_generics};
-                    let extended_where_clause =
-                        extend_where_clause(&generics, quote! {#bevy_reflect::Typed}, &[]);
+                    let extended_where_clause = extend_where_clause(
+                        &generics,
+                        quote! {#bevy_reflect::Typed},
+                        &ignored_params,
+                    );
                     let (generic_type_path_impl, full_type_path, short_type_path) =
                         type_path_strings(
                             &target,
@@ -120,7 +134,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                             &extended_where_clause,
                             &type_ident_str,
                             &module_path,
-                            &[],
+                            &ignored_params,
                         );
                     let type_path = type_path(
                         &bevy_reflect,
@@ -139,10 +153,6 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                 }
             }
         };
-    if let Some(attr) = attrs.first() {
-        return Err(syn::Error::new_spanned(attr, "unsupported attribute"));
-    }
-
     let (impl_generics, _, _) = generics.split_for_impl();
     let vtable = container_attributes.vtable(&bevy_reflect);
     let type_registration = type_registration(
@@ -173,49 +183,6 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
         #generic_type_path_impl
         #type_registration
     })
-}
-
-/// Removes the `#[reflect(primitive = Variant)]` attributes from `attrs` and returns the variant (if
-/// one is specified). Traits and type data are registered in the trailing parentheses instead, so
-/// `primitive` is the only option supported by these attributes.
-fn take_primitive_attribute(attrs: &mut Vec<Attribute>) -> Result<Option<Ident>, syn::Error> {
-    let mut primitive = None;
-    let mut result = Ok(());
-    attrs.retain(|attr| {
-        if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
-            return true;
-        }
-        let parsed = attr.parse_args_with(|input: ParseStream| {
-            let keyword = input.parse::<kw::primitive>().map_err(|err| {
-                syn::Error::new(
-                    err.span(),
-                    "expected `primitive = Variant` (traits and type data are registered in the trailing parentheses)",
-                )
-            })?;
-            input.parse::<Token![=]>()?;
-            let variant = input.parse::<Ident>()?;
-            input.parse::<Option<Token![,]>>()?;
-            Ok((keyword, variant))
-        });
-        let parsed = parsed.and_then(|(keyword, variant)| {
-            if primitive.is_some() {
-                return Err(syn::Error::new(
-                    keyword.span,
-                    "the primitive variant is already specified",
-                ));
-            }
-            primitive = Some(variant);
-            Ok(())
-        });
-        if let Err(err) = parsed {
-            match &mut result {
-                Ok(()) => result = Err(err),
-                Err(existing) => existing.combine(err),
-            }
-        }
-        false
-    });
-    result.map(|()| primitive)
 }
 
 /// Returns a static `TypePath` for a full type path string, such as `alloc::borrow::Cow<str>`.

@@ -18,8 +18,10 @@ pub(crate) struct ContainerAttributes {
     pub(crate) partial_ord: TraitImpl,
     pub(crate) type_data: Vec<TypeDataRegistration>,
     pub(crate) no_auto_register: bool,
-    /// Reflects the type as a `Primitive::Opaque`, without reflecting its fields.
-    pub(crate) opaque: bool,
+    /// Reflects the type as a `Kind::Primitive` with this `Primitive` variant, without reflecting
+    /// its fields (`#[reflect(primitive = Variant)]`). `#[reflect(opaque)]` is shorthand for
+    /// `#[reflect(primitive = Opaque)]`.
+    pub(crate) primitive: Option<Ident>,
     /// Additional where clause predicates for the generated impls (`#[reflect(where T: Bound)]`).
     pub(crate) where_predicates: Vec<WherePredicate>,
     /// Type parameters that are not required to be `Typed` (`#[reflect(ignore_params(F))]`).
@@ -76,9 +78,13 @@ impl ContainerAttributes {
         } else if lookahead.peek(kw::no_auto_register) {
             self.parse_no_auto_register(input)
         } else if lookahead.peek(kw::opaque) {
-            input.parse::<kw::opaque>()?;
-            self.opaque = true;
-            Ok(())
+            let span = input.parse::<kw::opaque>()?.span;
+            self.set_primitive(Ident::new("Opaque", span))
+        } else if lookahead.peek(kw::primitive) {
+            input.parse::<kw::primitive>()?;
+            input.parse::<Token![=]>()?;
+            let variant = input.parse::<Ident>()?;
+            self.set_primitive(variant)
         } else if lookahead.peek(kw::ignore_params) {
             input.parse::<kw::ignore_params>()?;
             let content;
@@ -112,6 +118,7 @@ impl ContainerAttributes {
             || input.peek(kw::PartialOrd)
             || input.peek(kw::no_auto_register)
             || input.peek(kw::opaque)
+            || input.peek(kw::primitive)
             || input.peek(kw::ignore_params)
         {
             return Err(input.error("`#[cfg(...)]` is only supported on type data registrations"));
@@ -175,6 +182,18 @@ impl ContainerAttributes {
         input.parse::<Token![where]>()?;
         let predicates = Punctuated::<WherePredicate, Token![,]>::parse_terminated(input)?;
         self.where_predicates.extend(predicates);
+        Ok(())
+    }
+
+    /// Sets the `Primitive` variant, which can only be specified once.
+    fn set_primitive(&mut self, variant: Ident) -> Result<()> {
+        if self.primitive.is_some() {
+            return Err(syn::Error::new(
+                variant.span(),
+                "the primitive variant is already specified (`opaque` is shorthand for `primitive = Opaque`)",
+            ));
+        }
+        self.primitive = Some(variant);
         Ok(())
     }
 
@@ -379,5 +398,6 @@ mod kw {
     syn::custom_keyword!(Default);
     syn::custom_keyword!(no_auto_register);
     syn::custom_keyword!(opaque);
+    syn::custom_keyword!(primitive);
     syn::custom_keyword!(ignore_params);
 }

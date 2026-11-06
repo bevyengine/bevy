@@ -26,19 +26,36 @@ use crate::reflect::{
 
 #[cfg(feature = "auto_register_static")]
 pub(crate) use auto_register::load_type_registrations;
-pub(crate) use primitive::impl_reflect_primitive;
 
-const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
-const TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
+pub(crate) const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
+pub(crate) const TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
+pub(crate) const FULL_TYPE_PATH_ATTRIBUTE_NAME: &str = "full_type_path";
 
 /// Implements reflection for a type defined in the calling crate.
 pub(crate) fn derive_reflect(ast: DeriveInput) -> Result<TokenStream, syn::Error> {
     reflect_impl(ast, ReflectTarget::Local)
 }
 
-/// Implements reflection for a type defined in another crate.
-pub(crate) fn impl_reflect(mut ast: DeriveInput) -> Result<TokenStream, syn::Error> {
-    let module_path = take_type_path_attribute(&mut ast.attrs)?.ok_or_else(|| {
+/// Implements reflection for a type defined in another crate. The input is either a re-stated
+/// struct or enum definition, or a type that is reflected as a `Kind::Primitive` (see
+/// [`primitive::impl_reflect_primitive`]).
+pub(crate) fn impl_reflect(input: TokenStream) -> Result<TokenStream, syn::Error> {
+    if !is_definition(input.clone())? {
+        return primitive::impl_reflect_primitive(input);
+    }
+    let mut ast = syn::parse2::<DeriveInput>(input)?;
+    if let Some(full_type_path) =
+        take_string_attribute(&mut ast.attrs, FULL_TYPE_PATH_ATTRIBUTE_NAME)?
+    {
+        return Err(syn::Error::new(
+            full_type_path.span(),
+            format_args!(
+                "`#[{FULL_TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` is only supported when reflecting a type as a primitive. \
+                Re-stated definitions specify their module with `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"path::to::module\"]`"
+            ),
+        ));
+    }
+    let module_path = take_string_attribute(&mut ast.attrs, TYPE_PATH_ATTRIBUTE_NAME)?.ok_or_else(|| {
         syn::Error::new(
             ast.ident.span(),
             format_args!(
@@ -47,6 +64,23 @@ pub(crate) fn impl_reflect(mut ast: DeriveInput) -> Result<TokenStream, syn::Err
         )
     })?;
     reflect_impl(ast, ReflectTarget::Foreign { module_path })
+}
+
+/// Returns whether `input` is a struct, enum, or union definition (after its attributes and
+/// visibility), rather than a type.
+fn is_definition(input: TokenStream) -> Result<bool, syn::Error> {
+    syn::parse::Parser::parse2(
+        |input: syn::parse::ParseStream| {
+            input.call(Attribute::parse_outer)?;
+            input.parse::<syn::Visibility>()?;
+            let is_definition = input.peek(syn::Token![struct])
+                || input.peek(syn::Token![enum])
+                || input.peek(syn::Token![union]);
+            input.parse::<TokenStream>()?;
+            Ok(is_definition)
+        },
+        input,
+    )
 }
 
 /// What the reflection impls are generated for.
@@ -65,8 +99,8 @@ fn reflect_impl(
 ) -> Result<TokenStream, syn::Error> {
     let bevy_reflect = BevyManifest::shared(|manifest| manifest.get_path("bevy_reflect2"));
     let container_attributes = parse_container_attributes(&ast.attrs)?;
-    // Opaque types don't reflect their fields, so they can be packed
-    if !container_attributes.opaque {
+    // Primitive (including opaque) types don't reflect their fields, so they can be packed
+    if container_attributes.primitive.is_none() {
         reject_packed(&ast.attrs)?;
     }
     let ignored_params = ignored_params(&ast.generics, &container_attributes)?;
@@ -88,11 +122,11 @@ fn reflect_impl(
         quote! {#bevy_reflect::Typed},
         &ignored_params,
     );
-    let opaque = container_attributes.opaque;
+    let primitive = container_attributes.primitive.as_ref();
     let (kind, kind_declarations) = match &data {
-        // Opaque types don't reflect their fields
-        _ if opaque => (
-            quote! {#bevy_reflect::Kind::Primitive(#bevy_reflect::Primitive::Opaque)},
+        // Primitive types don't reflect their fields
+        _ if let Some(primitive) = primitive => (
+            quote! {#bevy_reflect::Kind::Primitive(#bevy_reflect::Primitive::#primitive)},
             quote! {},
         ),
         ReflectData::Struct(fields) => (struct_kind(fields, &bevy_reflect), quote! {}),
@@ -101,10 +135,10 @@ fn reflect_impl(
         }
     };
     // Derived types are checked by the compiler, but re-stated foreign types could have the wrong
-    // fields or field types, which would make the reflected type information unsound. Opaque types
-    // don't describe their fields, so there is nothing to check.
+    // fields or field types, which would make the reflected type information unsound. Primitive
+    // types don't describe their fields, so there is nothing to check.
     let definition_check = match reflect_target {
-        _ if opaque => quote! {},
+        _ if primitive.is_some() => quote! {},
         ReflectTarget::Local => quote! {},
         ReflectTarget::Foreign { .. } => definition_check(&data, &bevy_reflect),
     };
@@ -133,8 +167,8 @@ fn reflect_impl(
     let vtable = container_attributes.vtable(&bevy_reflect);
     // Registering a type registers the types of its reflected fields, so the registration requires
     // the field types that depend on type parameters to be registrable (the type parameters
-    // themselves only need to be `Typed`). Opaque types don't register their fields.
-    let dependencies = if opaque {
+    // themselves only need to be `Typed`). Primitive types don't register their fields.
+    let dependencies = if primitive.is_some() {
         Vec::new()
     } else {
         data.reflected_field_types()
@@ -427,7 +461,7 @@ fn extend_where_clause(
 /// Returns the type parameters ignored with `#[reflect(ignore_params(...))]`. Ignored parameters
 /// are not required to be `Typed` (ex: the type of a closure stored in an ignored field), and their
 /// type paths come from [`core::any::type_name`].
-fn ignored_params(
+pub(crate) fn ignored_params(
     generics: &Generics,
     container_attributes: &ContainerAttributes,
 ) -> Result<Vec<Ident>, syn::Error> {
@@ -442,12 +476,12 @@ fn ignored_params(
     Ok(container_attributes.ignore_params.clone())
 }
 
-/// Removes the `#[type_path = "..."]` attribute from `attrs` and returns its value (if it exists).
-fn take_type_path_attribute(attrs: &mut Vec<Attribute>) -> Result<Option<LitStr>, syn::Error> {
-    let Some(index) = attrs
-        .iter()
-        .position(|attr| attr.path().is_ident(TYPE_PATH_ATTRIBUTE_NAME))
-    else {
+/// Removes the `#[name = "..."]` attribute from `attrs` and returns its value (if it exists).
+pub(crate) fn take_string_attribute(
+    attrs: &mut Vec<Attribute>,
+    name: &str,
+) -> Result<Option<LitStr>, syn::Error> {
+    let Some(index) = attrs.iter().position(|attr| attr.path().is_ident(name)) else {
         return Ok(None);
     };
     let attr = attrs.remove(index);
@@ -460,7 +494,7 @@ fn take_type_path_attribute(attrs: &mut Vec<Attribute>) -> Result<Option<LitStr>
         },
         meta => Err(syn::Error::new(
             meta.span(),
-            format_args!("expected `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]`"),
+            format_args!("expected `#[{name} = \"...\"]`"),
         )),
     }
 }
@@ -475,7 +509,9 @@ fn mentions_any(tokens: TokenStream, idents: &[Ident]) -> bool {
     })
 }
 
-fn parse_container_attributes(attrs: &[Attribute]) -> Result<ContainerAttributes, syn::Error> {
+pub(crate) fn parse_container_attributes(
+    attrs: &[Attribute],
+) -> Result<ContainerAttributes, syn::Error> {
     let mut container_attributes = ContainerAttributes::default();
     for attr in attrs {
         match &attr.meta {
