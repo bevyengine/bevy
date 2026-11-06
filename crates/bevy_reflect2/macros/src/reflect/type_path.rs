@@ -44,7 +44,7 @@ pub(crate) fn type_path_strings(
         // Non-generic paths are known at compile time, so they are stored directly in `Typed::TYPE`.
         return (
             quote! {},
-            quote! {#bevy_reflect::type_path::TypePathStr::Static(#bevy_reflect::const_concat!(#module_path, "::", #type_ident_str))},
+            quote! {#bevy_reflect::type_path::TypePathStr::Static(#bevy_reflect::type_path::const_concat!(#module_path, "::", #type_ident_str))},
             quote! {#bevy_reflect::type_path::TypePathStr::Static(#type_ident_str)},
         );
     }

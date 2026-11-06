@@ -255,23 +255,29 @@ pub const fn concat_many<const N: usize>(values: &[&str]) -> [u8; N] {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! sum {
+macro_rules! __sum {
     ($first:expr $(, $rest:expr)* $(,)?) => { $first $(+ $rest)* };
 }
 
-/// Concatenates `const` string expressions into a `&'static str`.
+// `#[macro_export]` always exports at the crate root, so the macro is exported under a hidden name
+// and re-exported from this module as `const_concat`.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! const_concat {
+macro_rules! __const_concat {
     ($($value:expr),*) => {{
         // Stored in a `const` so that `&BYTES` is promoted to `'static`. A temporary would be
         // dropped too early when this macro is used in some positions (ex: as a function argument).
-        const BYTES: [u8; $crate::sum!($($value.len()),*)] = $crate::type_path::concat_many(&[$($value),*]);
+        const BYTES: [u8; $crate::__sum!($($value.len()),*)] = $crate::type_path::concat_many(&[$($value),*]);
         match ::core::str::from_utf8(&BYTES) {
             Ok(value) => value,
             Err(_) => panic!("Output bytes are not valid utf8"),
         }
     }};
 }
+
+/// Concatenates `const` string expressions into a `&'static str`.
+#[doc(inline)]
+pub use crate::__const_concat as const_concat;
 
 /// Finds the byte index of the first instance of the ascii character `delimiter` in the given `s` string.
 pub const fn find_ascii_char(s: &str, delimiter: u8) -> Option<usize> {

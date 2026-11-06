@@ -14,7 +14,7 @@
 //! - `auto_register_inventory` uses `inventory` to collect types on supported platforms (Linux, macOS, iOS, FreeBSD, Android, Windows, WebAssembly).
 //! - `auto_register_static` uses a platform-independent way to collect types, but requires additional setup and might
 //!   slow down compilation, so it should only be used on platforms not supported by `inventory`.
-//!   See the documentation for the [`load_type_registrations`] macro for more info.
+//!   See the documentation for the [`load_type_registrations`](type_registry::load_type_registrations) macro for more info.
 //!
 //! When enabled all types that derive [`Reflect`] on app startup are collected,
 //! and [`TypeRegistry::register_derived_types`](type_registry::TypeRegistry::register_derived_types) can be used to register them at any point in the program.
@@ -53,7 +53,7 @@ pub mod type_vtable;
 pub use reflect::*;
 pub use ty::*;
 
-pub use bevy_reflect2_macros::{impl_reflect, load_type_registrations};
+pub use bevy_reflect2_macros::impl_reflect;
 
 #[doc(hidden)]
 pub mod __macro_exports {

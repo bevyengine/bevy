@@ -5,6 +5,8 @@ mod type_data;
 
 pub use type_data::*;
 
+pub use bevy_reflect2_macros::load_type_registrations;
+
 use crate::{Type, Typed};
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
@@ -126,7 +128,7 @@ impl TypeRegistry {
     ///
     /// With the `auto_register_inventory` feature, this method is supported on Linux, macOS, Windows, iOS, Android,
     /// and Web via the `inventory` crate. On other platforms, use the `auto_register_static` feature along with
-    /// [`load_type_registrations`](crate::load_type_registrations).
+    /// [`load_type_registrations`].
     ///
     /// Types can opt out of automatic registration using `#[reflect(no_auto_register)]`.
     ///
