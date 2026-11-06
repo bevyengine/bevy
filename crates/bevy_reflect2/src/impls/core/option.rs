@@ -11,7 +11,7 @@ impl_reflect! {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect2, FieldKind, Kind, Reflect, Typed};
+    use crate::{self as bevy_reflect2, kind::FieldKind, kind::Kind, Reflect, Typed};
     use alloc::{format, string::String};
 
     #[test]

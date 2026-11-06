@@ -1,10 +1,19 @@
 pub use bevy_reflect2_macros::Reflect;
 
 use crate::{
+    kind::ArrayMut,
+    kind::ArrayRef,
+    kind::EnumMut,
+    kind::EnumRef,
     kind::Kind,
+    kind::KindMut,
+    kind::KindRef,
+    kind::ListAccess,
+    kind::MapAccess,
+    kind::SetAccess,
+    kind::StructMut,
+    kind::StructRef,
     ty::{Type, Typed},
-    ArrayMut, ArrayRef, EnumMut, EnumRef, KindMut, KindRef, ListAccess, MapAccess, SetAccess,
-    StructMut, StructRef,
 };
 use alloc::boxed::Box;
 use bevy_ptr::{Ptr, PtrMut};
@@ -23,12 +32,12 @@ use core::{
 /// `dyn Reflect` provides reflected versions of [`Clone`], [`Debug`],
 /// [`Hash`](core::hash::Hash), [`PartialEq`], and [`PartialOrd`] (ex: `reflect_clone` and
 /// `reflect_partial_eq`). Each operation first uses the function in the type's
-/// [`TypeVTable`](crate::TypeVTable), which is registered using attributes like
+/// [`TypeVTable`](crate::type_vtable::TypeVTable), which is registered using attributes like
 /// `#[reflect(Debug)]` or `#[reflect(Debug(custom_debug_fn))]`. If the type doesn't register one, a
 /// structural implementation based on its [`Kind`] is used.
 ///
 /// Structural implementations fail if any nested value does not support the operation. They return
-/// an error (ex: [`ReflectCloneError`](crate::ReflectCloneError)) describing the type of the nested
+/// an error (ex: [`ReflectCloneError`](crate::builtin::ReflectCloneError)) describing the type of the nested
 /// value that failed, and why.
 ///
 /// # Safety
@@ -311,7 +320,7 @@ impl dyn Reflect + Send + Sync {
     /// the clone is known to be [`Send`] and [`Sync`].
     pub fn reflect_clone(
         &self,
-    ) -> Result<Box<dyn Reflect + Send + Sync>, crate::ReflectCloneError> {
+    ) -> Result<Box<dyn Reflect + Send + Sync>, crate::builtin::ReflectCloneError> {
         let clone = (**self).reflect_clone()?;
         let raw = Box::into_raw(clone);
         // SAFETY: a clone has the type of the value it was cloned from. This value is `Send` and

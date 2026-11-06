@@ -1,4 +1,4 @@
-//! Reflection for tuples with 1 to 12 elements. The unit tuple `()` is a [`Primitive`](crate::Primitive).
+//! Reflection for tuples with 1 to 12 elements. The unit tuple `()` is a [`Primitive`](crate::kind::Primitive).
 //!
 //! Tuples are described as structs with [`StructKind::Tuple`] and unnamed fields, named by their
 //! index (ex: `0`). Their element types are not known to implement any traits, so [`Clone`],
@@ -7,9 +7,11 @@
 //! they cannot be defaulted through reflection.
 
 use crate::{
-    FieldKind, GenericTypePath, GenericTypePathCell, GetTypeRegistration, Kind, Struct,
-    StructField, StructKind, Type, TypePath, TypePathStr, TypeRef, TypeRegistration, TypeRegistry,
-    TypeVTable, Typed, UncoveredBytes,
+    kind::FieldKind, kind::Kind, kind::Struct, kind::StructField, kind::StructKind,
+    kind::UncoveredBytes, type_path::GenericTypePath, type_path::GenericTypePathCell,
+    type_path::TypePath, type_path::TypePathStr, type_registry::GetTypeRegistration,
+    type_registry::TypeRegistration, type_registry::TypeRegistry, type_vtable::TypeVTable, Type,
+    TypeRef, Typed,
 };
 use alloc::string::String;
 use core::{alloc::Layout, any::TypeId, mem::offset_of};
@@ -116,7 +118,9 @@ impl_reflect_tuple!(0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 
 #[cfg(test)]
 mod tests {
     use crate as bevy_reflect2;
-    use crate::{FieldKind, Kind, Reflect, StructKind, Type, TypeRegistry};
+    use crate::{
+        kind::FieldKind, kind::Kind, kind::StructKind, type_registry::TypeRegistry, Reflect, Type,
+    };
     use alloc::{format, string::String, vec, vec::Vec};
     use core::{any::TypeId, cmp::Ordering};
 

@@ -1,6 +1,8 @@
 use crate::{
-    FieldKind, GenericTypePath, GenericTypePathCell, GetTypeRegistration, Kind, Struct, StructKind,
-    Type, TypePath, TypeRegistration, TypeVTable, Typed, UncoveredBytes,
+    kind::FieldKind, kind::Kind, kind::Struct, kind::StructKind, kind::UncoveredBytes,
+    type_path::GenericTypePath, type_path::GenericTypePathCell, type_path::TypePath,
+    type_registry::GetTypeRegistration, type_registry::TypeRegistration, type_vtable::TypeVTable,
+    Type, Typed,
 };
 use alloc::format;
 use bevy_ptr::Ptr;
@@ -97,7 +99,7 @@ fn phantom_partial_cmp(_a: Ptr<'_>, _b: Ptr<'_>) -> Option<Ordering> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_reflect2;
-    use crate::{Reflect, TypeRegistry};
+    use crate::{type_registry::TypeRegistry, Reflect};
     use alloc::{boxed::Box, format};
     use core::{any::TypeId, marker::PhantomData};
 

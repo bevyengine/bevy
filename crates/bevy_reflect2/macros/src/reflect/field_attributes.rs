@@ -99,14 +99,14 @@ impl FieldAttributes {
         let exports = quote! {#bevy_reflect::__macro_exports};
         let default = match &self.default {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::set_default::<#field_ty>)
+                #FQOption::Some(#bevy_reflect::type_vtable::set_default::<#field_ty>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => quote_spanned! {span=>
                 #FQOption::Some(
                     (|ptr: *mut u8| {
                         // SAFETY: only called through `IgnoredFieldVTable::default`, whose caller
                         // guarantees that `ptr` is a valid, unique allocation of the field's type
-                        unsafe { #bevy_reflect::set_with::<#field_ty>(ptr, #impl_fn) }
+                        unsafe { #bevy_reflect::type_vtable::set_with::<#field_ty>(ptr, #impl_fn) }
                     }) as unsafe fn(*mut u8)
                 )
             },
@@ -114,7 +114,7 @@ impl FieldAttributes {
         };
         let clone = match &self.clone {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::clone_into::<#field_ty>)
+                #FQOption::Some(#bevy_reflect::type_vtable::clone_into::<#field_ty>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => quote_spanned! {span=>
                 #FQOption::Some(
@@ -122,14 +122,14 @@ impl FieldAttributes {
                         // SAFETY: only called through `IgnoredFieldVTable::clone`, whose caller
                         // guarantees that `src` is a valid value of the field's type, and that `dst`
                         // is a valid, unique allocation of it
-                        unsafe { #bevy_reflect::clone_into_with::<#field_ty>(src, dst, #impl_fn) }
+                        unsafe { #bevy_reflect::type_vtable::clone_into_with::<#field_ty>(src, dst, #impl_fn) }
                     }) as unsafe fn(#exports::Ptr<'_>, *mut u8)
                 )
             },
             TraitImpl::NotImplemented => quote! {#FQOption::None},
         };
         quote! {
-            #bevy_reflect::IgnoredFieldVTable {
+            #bevy_reflect::kind::IgnoredFieldVTable {
                 layout: ::core::alloc::Layout::new::<#field_ty>(),
                 default: #default,
                 clone: #clone,

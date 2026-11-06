@@ -1,3 +1,6 @@
+//! [`TypePath`], the stable path of a reflected type (ex: `core::option::Option<u32>`), and the
+//! utilities used to build it.
+
 use alloc::{boxed::Box, string::String};
 use bevy_platform::{
     collections::HashMap,
@@ -262,7 +265,7 @@ macro_rules! const_concat {
     ($($value:expr),*) => {{
         // Stored in a `const` so that `&BYTES` is promoted to `'static`. A temporary would be
         // dropped too early when this macro is used in some positions (ex: as a function argument).
-        const BYTES: [u8; $crate::sum!($($value.len()),*)] = $crate::concat_many(&[$($value),*]);
+        const BYTES: [u8; $crate::sum!($($value.len()),*)] = $crate::type_path::concat_many(&[$($value),*]);
         match ::core::str::from_utf8(&BYTES) {
             Ok(value) => value,
             Err(_) => panic!("Output bytes are not valid utf8"),
@@ -334,13 +337,13 @@ impl Default for GenericTypePathCell {
 /// `$module::$ident<$($param),*>`.
 macro_rules! impl_generic_type_path {
     (impl<$($param:ident),*> for $ty:ty, $module:literal, $ident:literal $(, where $($bounds:tt)*)?) => {
-        impl<$($param),*> $crate::GenericTypePath for $ty
+        impl<$($param),*> $crate::type_path::GenericTypePath for $ty
         where
             $($param: $crate::Typed,)*
             $($($bounds)*)?
         {
             fn type_path() -> &'static str {
-                static CELL: $crate::GenericTypePathCell = $crate::GenericTypePathCell::new();
+                static CELL: $crate::type_path::GenericTypePathCell = $crate::type_path::GenericTypePathCell::new();
                 CELL.get_or_insert(::core::any::TypeId::of::<Self>(), || {
                     let params: &[&str] = &[$(<$param as $crate::Typed>::TYPE.type_path().full()),*];
                     $crate::__macro_exports::format!("{}::{}<{}>", $module, $ident, params.join(", "))
@@ -348,7 +351,7 @@ macro_rules! impl_generic_type_path {
             }
 
             fn short_type_path() -> &'static str {
-                static CELL: $crate::GenericTypePathCell = $crate::GenericTypePathCell::new();
+                static CELL: $crate::type_path::GenericTypePathCell = $crate::type_path::GenericTypePathCell::new();
                 CELL.get_or_insert(::core::any::TypeId::of::<Self>(), || {
                     let params: &[&str] = &[$(<$param as $crate::Typed>::TYPE.type_path().short()),*];
                     $crate::__macro_exports::format!("{}<{}>", $ident, params.join(", "))

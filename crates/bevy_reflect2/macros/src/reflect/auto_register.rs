@@ -76,7 +76,7 @@ pub(crate) fn auto_registration(
                 /// # Safety
                 /// This function must only be used by the `load_type_registrations` macro.
                 #[unsafe(export_name = #export_name)]
-                pub unsafe extern "Rust" fn bevy_register_type(registry: &mut #bevy_reflect::TypeRegistry) {
+                pub unsafe extern "Rust" fn bevy_register_type(registry: &mut #bevy_reflect::type_registry::TypeRegistry) {
                     registry.register::<#type_ident>();
                 }
             };
@@ -91,7 +91,7 @@ pub(crate) fn auto_registration(
         quote! {
             #bevy_reflect::__macro_exports::auto_register::inventory::submit! {
                 #bevy_reflect::__macro_exports::auto_register::AutomaticReflectRegistrations(
-                    #bevy_reflect::TypeRegistry::register::<#type_ident>
+                    #bevy_reflect::type_registry::TypeRegistry::register::<#type_ident>
                 )
             }
         }
@@ -132,7 +132,7 @@ pub(crate) fn load_type_registrations(bevy_reflect: &Path) -> TokenStream {
         {
             fn _register_types() {
                 unsafe extern "Rust" {
-                    #( safe fn #registration_fns(registry_ptr: &mut #bevy_reflect::TypeRegistry); )*
+                    #( safe fn #registration_fns(registry_ptr: &mut #bevy_reflect::type_registry::TypeRegistry); )*
                 };
                 #( #bevy_reflect::__macro_exports::auto_register::push_registration_fn(#registration_fns); )*
             }

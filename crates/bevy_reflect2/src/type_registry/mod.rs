@@ -1,3 +1,6 @@
+//! The [`TypeRegistry`], which stores a [`TypeRegistration`] (including [`TypeData`]) for each
+//! registered type.
+
 mod type_data;
 
 pub use type_data::*;
@@ -131,7 +134,7 @@ impl TypeRegistry {
     ///
     /// ```
     /// # use core::any::TypeId;
-    /// # use bevy_reflect2::{Reflect, TypeRegistry};
+    /// # use bevy_reflect2::{Reflect, type_registry::TypeRegistry};
     /// #[derive(Reflect)]
     /// struct Foo {
     ///   value: i32
@@ -162,7 +165,7 @@ impl TypeRegistry {
     ///
     /// ```
     /// # use core::any::TypeId;
-    /// # use bevy_reflect2::{CreateTypeData, Reflect, TypeRegistry};
+    /// # use bevy_reflect2::{type_registry::CreateTypeData, Reflect, type_registry::TypeRegistry};
     /// #[derive(Clone)]
     /// struct ReflectMarker;
     ///
@@ -209,7 +212,7 @@ impl TypeRegistry {
     /// # Example
     ///
     /// ```
-    /// # use bevy_reflect2::{Reflect, TypeRegistry};
+    /// # use bevy_reflect2::{Reflect, type_registry::TypeRegistry};
     /// # use core::any::TypeId;
     /// #
     /// # let mut type_registry = TypeRegistry::default();
@@ -329,7 +332,7 @@ impl TypeRegistry {
     /// # Example
     /// ```
     /// # use core::any::TypeId;
-    /// use bevy_reflect2::{CreateTypeData, TypeRegistry};
+    /// use bevy_reflect2::{type_registry::CreateTypeData, type_registry::TypeRegistry};
     ///
     /// #[derive(Clone)]
     /// struct ReflectMarker;
@@ -405,7 +408,7 @@ impl TypeRegistry {
     ///
     /// If no type with the given path has been registered, returns `None`.
     ///
-    /// [type path]: crate::TypePath::full
+    /// [type path]: crate::type_path::TypePath::full
     pub fn get_with_type_path(&self, type_path: &str) -> Option<&TypeRegistration> {
         self.type_path_to_id
             .get(type_path)
@@ -417,7 +420,7 @@ impl TypeRegistry {
     ///
     /// If no type with the given type path has been registered, returns `None`.
     ///
-    /// [type path]: crate::TypePath::full
+    /// [type path]: crate::type_path::TypePath::full
     pub fn get_with_type_path_mut(&mut self, type_path: &str) -> Option<&mut TypeRegistration> {
         self.type_path_to_id
             .get(type_path)
@@ -431,7 +434,7 @@ impl TypeRegistry {
     /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
     ///
-    /// [short type path]: crate::TypePath::short
+    /// [short type path]: crate::type_path::TypePath::short
     pub fn get_with_short_type_path(&self, short_type_path: &str) -> Option<&TypeRegistration> {
         self.short_path_to_id
             .get(short_type_path)
@@ -444,7 +447,7 @@ impl TypeRegistry {
     /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
     ///
-    /// [short type path]: crate::TypePath::short
+    /// [short type path]: crate::type_path::TypePath::short
     pub fn get_with_short_type_path_mut(
         &mut self,
         short_type_path: &str,
@@ -458,7 +461,7 @@ impl TypeRegistry {
     ///
     /// # Example
     /// ```
-    /// # use bevy_reflect2::TypeRegistry;
+    /// # use bevy_reflect2::type_registry::TypeRegistry;
     /// # mod foo {
     /// #     use bevy_reflect2::Reflect;
     /// #     #[derive(Reflect)]
@@ -475,7 +478,7 @@ impl TypeRegistry {
     /// assert_eq!(type_registry.is_ambiguous("MyType"), true);
     /// ```
     ///
-    /// [short type path]: crate::TypePath::short
+    /// [short type path]: crate::type_path::TypePath::short
     pub fn is_ambiguous(&self, short_type_path: &str) -> bool {
         self.ambiguous_names.contains(short_type_path)
     }
@@ -555,7 +558,7 @@ impl TypeRegistryArc {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect2::{CreateTypeData, TypeRegistration};
+/// # use bevy_reflect2::{type_registry::CreateTypeData, type_registry::TypeRegistration};
 /// #[derive(Clone)]
 /// struct ReflectMarker;
 ///
@@ -779,7 +782,7 @@ impl Clone for TypeRegistration {
 
 #[cfg(test)]
 mod test {
-    use crate::{self as bevy_reflect2, Reflect, TypeRegistration};
+    use crate::{self as bevy_reflect2, type_registry::TypeRegistration, Reflect};
     use core::any::TypeId;
 
     #[test]

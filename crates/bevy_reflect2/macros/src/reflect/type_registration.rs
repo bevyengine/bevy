@@ -36,14 +36,14 @@ pub(crate) fn type_registration(
 
     let (impl_generics, _, _) = generics.split_for_impl();
     quote! {
-        impl #impl_generics #bevy_reflect::GetTypeRegistration for #target #extended_where_clause {
-            fn get_type_registration() -> #bevy_reflect::TypeRegistration {
-                let mut registration = #bevy_reflect::TypeRegistration::of::<Self>();
+        impl #impl_generics #bevy_reflect::type_registry::GetTypeRegistration for #target #extended_where_clause {
+            fn get_type_registration() -> #bevy_reflect::type_registry::TypeRegistration {
+                let mut registration = #bevy_reflect::type_registry::TypeRegistration::of::<Self>();
                 #(#type_data)*
                 registration
             }
 
-            fn register_type_dependencies(registry: &mut #bevy_reflect::TypeRegistry) {
+            fn register_type_dependencies(registry: &mut #bevy_reflect::type_registry::TypeRegistry) {
                 #(registry.register::<#dependencies>();)*
             }
         }

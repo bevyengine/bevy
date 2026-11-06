@@ -17,7 +17,7 @@
 //!   See the documentation for the [`load_type_registrations`] macro for more info.
 //!
 //! When enabled all types that derive [`Reflect`] on app startup are collected,
-//! and [`TypeRegistry::register_derived_types`] can be used to register them at any point in the program.
+//! and [`TypeRegistry::register_derived_types`](type_registry::TypeRegistry::register_derived_types) can be used to register them at any point in the program.
 //! However, this does not apply to types with generics: their desired monomorphized representations must be registered manually.
 
 #![expect(unsafe_code, reason = "This crate uses unsafe")]
@@ -40,26 +40,18 @@ pub mod prelude {
 
 #[cfg(feature = "auto_register")]
 mod auto_register;
-mod builtin;
+pub mod builtin;
 #[cfg(doctest)]
 mod compile_fail;
-mod kind;
+pub mod kind;
 mod reflect;
 mod ty;
-mod type_path;
-mod type_registry;
-mod type_vtable;
+pub mod type_path;
+pub mod type_registry;
+pub mod type_vtable;
 
-pub use builtin::{
-    ReflectCloneError, ReflectCloneErrorReason, ReflectHashError, ReflectHashErrorReason,
-    ReflectPartialCmpError, ReflectPartialEqError,
-};
-pub use kind::*;
 pub use reflect::*;
 pub use ty::*;
-pub use type_path::*;
-pub use type_registry::*;
-pub use type_vtable::*;
 
 pub use bevy_reflect2_macros::{impl_reflect, load_type_registrations};
 
@@ -70,7 +62,7 @@ pub mod __macro_exports {
     pub use bevy_utils::prelude::ShortName;
     use core::marker::PhantomData;
 
-    /// Adapts a custom `Clone` function to the signature used by [`clone_with`](crate::clone_with).
+    /// Adapts a custom `Clone` function to the signature used by [`clone_with`](crate::type_vtable::clone_with).
     /// Taking `func` as an argument lets closures infer their parameter types.
     pub fn custom_clone<T>(func: impl FnOnce(&T) -> T) -> impl FnOnce(&T) -> Option<T> {
         move |value| Some(func(value))
@@ -103,8 +95,9 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect2, CreateTypeData, FieldKind, Kind, KindRef, Reflect,
-        ReflectCloneErrorReason, ReflectHashErrorReason, StructKind, TypeRegistry, Typed,
+        self as bevy_reflect2, builtin::ReflectCloneErrorReason, builtin::ReflectHashErrorReason,
+        kind::FieldKind, kind::Kind, kind::KindRef, kind::StructKind,
+        type_registry::CreateTypeData, type_registry::TypeRegistry, Reflect, Typed,
     };
     use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
     use core::{
@@ -1643,7 +1636,7 @@ mod tests {
             panic!("expected list");
         };
         assert_eq!(list.len(), 1);
-        let crate::KindMut::Struct(mut struct_mut) = reflect.kind_mut() else {
+        let crate::kind::KindMut::Struct(mut struct_mut) = reflect.kind_mut() else {
             panic!("expected struct");
         };
         let list = struct_mut.field_mut(0).unwrap().list_mut().unwrap();
@@ -1675,7 +1668,7 @@ mod tests {
 
         assert!(matches!(
             Foo::TYPE.kind(),
-            Kind::Primitive(crate::Primitive::Opaque)
+            Kind::Primitive(crate::kind::Primitive::Opaque)
         ));
         assert_eq!(Foo::TYPE.type_path().full(), "bevy_reflect2::tests::Foo");
         let foo = Foo { value: NotReflect };
@@ -1707,7 +1700,7 @@ mod tests {
         }
 
         #[derive(Reflect)]
-        #[reflect(where T::Value: crate::GetTypeRegistration)]
+        #[reflect(where T::Value: crate::type_registry::GetTypeRegistration)]
         struct Foo<T: Assoc> {
             value: T::Value,
         }

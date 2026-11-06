@@ -100,9 +100,9 @@ impl<'a> ReflectFields<'a> {
 
     pub(crate) fn field_kind(&self, bevy_reflect: &Path) -> TokenStream {
         match self.definition {
-            Fields::Named(_) => quote! { #bevy_reflect::FieldKind::Named },
-            Fields::Unnamed(_) => quote! { #bevy_reflect::FieldKind::Unnamed },
-            Fields::Unit => quote! { #bevy_reflect::FieldKind::Unit },
+            Fields::Named(_) => quote! { #bevy_reflect::kind::FieldKind::Named },
+            Fields::Unnamed(_) => quote! { #bevy_reflect::kind::FieldKind::Unnamed },
+            Fields::Unit => quote! { #bevy_reflect::kind::FieldKind::Unit },
         }
     }
 }

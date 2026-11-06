@@ -1,6 +1,7 @@
 use crate::{
-    self as bevy_reflect2, impl_reflect, GetTypeRegistration, Kind, Type, TypePath, TypePathStr,
-    TypeRegistration, TypeVTable, Typed,
+    self as bevy_reflect2, impl_reflect, kind::Kind, type_path::TypePath, type_path::TypePathStr,
+    type_registry::GetTypeRegistration, type_registry::TypeRegistration, type_vtable::TypeVTable,
+    Type, Typed,
 };
 use core::{alloc::Layout, any::TypeId};
 
@@ -86,7 +87,7 @@ unsafe impl<T: Typed, const N: usize> Typed for [T; N] {
     const TYPE: &'static Type = &unsafe {
         Type::new(
             TypeId::of::<Self>(),
-            Kind::Array(crate::Array::new(
+            Kind::Array(crate::kind::Array::new(
                 crate::TypeRef(Type::of::<T>),
                 N,
                 size_of::<T>(),
@@ -95,8 +96,8 @@ unsafe impl<T: Typed, const N: usize> Typed for [T; N] {
             TypeVTable::new::<Self>(),
             // Arrays have no type identifier, crate, or module
             TypePath::new(
-                TypePathStr::Lazy(<Self as crate::GenericTypePath>::type_path),
-                TypePathStr::Lazy(<Self as crate::GenericTypePath>::short_type_path),
+                TypePathStr::Lazy(<Self as crate::type_path::GenericTypePath>::type_path),
+                TypePathStr::Lazy(<Self as crate::type_path::GenericTypePath>::short_type_path),
                 0..0,
                 None,
                 None,
@@ -105,16 +106,18 @@ unsafe impl<T: Typed, const N: usize> Typed for [T; N] {
     };
 }
 
-impl<T: Typed, const N: usize> crate::GenericTypePath for [T; N] {
+impl<T: Typed, const N: usize> crate::type_path::GenericTypePath for [T; N] {
     fn type_path() -> &'static str {
-        static CELL: crate::GenericTypePathCell = crate::GenericTypePathCell::new();
+        static CELL: crate::type_path::GenericTypePathCell =
+            crate::type_path::GenericTypePathCell::new();
         CELL.get_or_insert(TypeId::of::<Self>(), || {
             alloc::format!("[{}; {N}]", T::TYPE.type_path().full())
         })
     }
 
     fn short_type_path() -> &'static str {
-        static CELL: crate::GenericTypePathCell = crate::GenericTypePathCell::new();
+        static CELL: crate::type_path::GenericTypePathCell =
+            crate::type_path::GenericTypePathCell::new();
         CELL.get_or_insert(TypeId::of::<Self>(), || {
             alloc::format!("[{}; {N}]", T::TYPE.type_path().short())
         })
@@ -126,7 +129,7 @@ impl<T: Typed + GetTypeRegistration, const N: usize> GetTypeRegistration for [T;
         TypeRegistration::of::<Self>()
     }
 
-    fn register_type_dependencies(registry: &mut crate::TypeRegistry) {
+    fn register_type_dependencies(registry: &mut crate::type_registry::TypeRegistry) {
         registry.register::<T>();
     }
 }

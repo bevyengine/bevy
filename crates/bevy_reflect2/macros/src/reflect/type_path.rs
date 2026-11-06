@@ -44,8 +44,8 @@ pub(crate) fn type_path_strings(
         // Non-generic paths are known at compile time, so they are stored directly in `Typed::TYPE`.
         return (
             quote! {},
-            quote! {#bevy_reflect::TypePathStr::Static(#bevy_reflect::const_concat!(#module_path, "::", #type_ident_str))},
-            quote! {#bevy_reflect::TypePathStr::Static(#type_ident_str)},
+            quote! {#bevy_reflect::type_path::TypePathStr::Static(#bevy_reflect::const_concat!(#module_path, "::", #type_ident_str))},
+            quote! {#bevy_reflect::type_path::TypePathStr::Static(#type_ident_str)},
         );
     }
 
@@ -55,16 +55,16 @@ pub(crate) fn type_path_strings(
     let short_format_str = format!("{type_ident_str}<{generics_format_str}>");
     let (impl_generics, _, _) = generics.split_for_impl();
     let generic_type_path_impl = quote! {
-        impl #impl_generics #bevy_reflect::GenericTypePath for #target #extended_where_clause {
+        impl #impl_generics #bevy_reflect::type_path::GenericTypePath for #target #extended_where_clause {
             fn type_path() -> &'static str {
-                static CELL: #bevy_reflect::GenericTypePathCell = #bevy_reflect::GenericTypePathCell::new();
+                static CELL: #bevy_reflect::type_path::GenericTypePathCell = #bevy_reflect::type_path::GenericTypePathCell::new();
                 CELL.get_or_insert(::core::any::TypeId::of::<Self>(), || {
                     #bevy_reflect::__macro_exports::format!(#full_format_str, #module_path, #(#full_generics),*)
                 })
             }
 
             fn short_type_path() -> &'static str {
-                static CELL: #bevy_reflect::GenericTypePathCell = #bevy_reflect::GenericTypePathCell::new();
+                static CELL: #bevy_reflect::type_path::GenericTypePathCell = #bevy_reflect::type_path::GenericTypePathCell::new();
                 CELL.get_or_insert(::core::any::TypeId::of::<Self>(), || {
                     #bevy_reflect::__macro_exports::format!(#short_format_str, #(#short_generics),*)
                 })
@@ -73,8 +73,8 @@ pub(crate) fn type_path_strings(
     };
     (
         generic_type_path_impl,
-        quote! {#bevy_reflect::TypePathStr::Lazy(<Self as #bevy_reflect::GenericTypePath>::type_path)},
-        quote! {#bevy_reflect::TypePathStr::Lazy(<Self as #bevy_reflect::GenericTypePath>::short_type_path)},
+        quote! {#bevy_reflect::type_path::TypePathStr::Lazy(<Self as #bevy_reflect::type_path::GenericTypePath>::type_path)},
+        quote! {#bevy_reflect::type_path::TypePathStr::Lazy(<Self as #bevy_reflect::type_path::GenericTypePath>::short_type_path)},
     )
 }
 
@@ -90,11 +90,11 @@ pub(crate) fn type_path(
     quote! {{
         let module_path: &'static str = #module_path;
         let module_len = module_path.len();
-        let crate_len = match #bevy_reflect::find_ascii_char(module_path, b':') {
+        let crate_len = match #bevy_reflect::type_path::find_ascii_char(module_path, b':') {
             Some(value) => value,
             None => module_len,
         };
-        #bevy_reflect::TypePath::new(
+        #bevy_reflect::type_path::TypePath::new(
             #full_type_path,
             #short_type_path,
             0..#type_ident_len,

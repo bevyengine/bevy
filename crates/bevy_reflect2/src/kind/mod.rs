@@ -1,3 +1,6 @@
+//! The structure of reflected types ([`Kind`]), and access to the structure of reflected values
+//! ([`KindRef`] and [`KindMut`]).
+
 mod array;
 mod enum_;
 mod list;

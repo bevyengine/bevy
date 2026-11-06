@@ -1,3 +1,6 @@
+//! The [`TypeVTable`], which stores type-erased functions for a type, and the functions used to
+//! build it.
+
 use crate::Reflect;
 use alloc::boxed::Box;
 use bevy_ptr::Ptr;
@@ -14,7 +17,7 @@ use core::{
 ///
 /// Optional functions are `None` if the type does not support the operation. Operations like
 /// [`Clone`], [`Debug`], and [`PartialEq`] fall back to structural implementations driven by
-/// [`Kind`](crate::Kind) when they are `None` (see [`Reflect`]).
+/// [`Kind`](crate::kind::Kind) when they are `None` (see [`Reflect`]).
 pub struct TypeVTable {
     /// Casts the pointer to a dyn Reflect pointer using this type's Reflect vtable.
     pub cast_reflect: fn(*const u8) -> *const dyn Reflect,
@@ -100,7 +103,7 @@ pub unsafe fn clone_with<T: Reflect>(
     Some(Box::new(value))
 }
 
-/// Implements [`IgnoredFieldVTable::clone`](crate::IgnoredFieldVTable::clone) using `T`'s
+/// Implements [`IgnoredFieldVTable::clone`](crate::kind::IgnoredFieldVTable::clone) using `T`'s
 /// [`Clone`] implementation.
 ///
 /// # Safety
@@ -113,7 +116,7 @@ pub unsafe fn clone_into<T: Clone>(src: Ptr<'_>, dst: *mut u8) {
     unsafe { dst.cast::<T>().write(src.deref::<T>().clone()) }
 }
 
-/// Implements [`IgnoredFieldVTable::clone`](crate::IgnoredFieldVTable::clone) using `func`.
+/// Implements [`IgnoredFieldVTable::clone`](crate::kind::IgnoredFieldVTable::clone) using `func`.
 ///
 /// # Safety
 ///

@@ -2,7 +2,7 @@
 //!
 //! See the `auto_register_inventory`/`auto_register_static` section of the [crate-level documentation](crate).
 
-use crate::TypeRegistry;
+use crate::type_registry::TypeRegistry;
 
 #[cfg(all(
     not(feature = "auto_register_inventory"),
@@ -90,7 +90,7 @@ pub use __automatic_type_registration_impl::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect2, Reflect, TypeRegistry};
+    use crate::{self as bevy_reflect2, type_registry::TypeRegistry, Reflect};
     use core::any::TypeId;
 
     #[test]

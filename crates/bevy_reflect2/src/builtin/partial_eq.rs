@@ -1,4 +1,4 @@
-use crate::{KindRef, Reflect, Type};
+use crate::{kind::KindRef, Reflect, Type};
 use thiserror::Error;
 
 impl dyn Reflect {

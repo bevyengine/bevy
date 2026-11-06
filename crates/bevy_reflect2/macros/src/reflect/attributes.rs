@@ -206,14 +206,14 @@ impl ContainerAttributes {
     pub fn default_impl(&self, bevy_reflect: &Path) -> TokenStream {
         match &self.default {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::set_default::<Self>)
+                #FQOption::Some(#bevy_reflect::type_vtable::set_default::<Self>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => quote_spanned! {span=>
                 #FQOption::Some(
                     (|ptr: *mut u8| {
                         // SAFETY: only called through `TypeVTable::set_default`, whose caller
                         // guarantees that `ptr` is a valid, unique allocation of `Self`
-                        unsafe { #bevy_reflect::set_with::<Self>(ptr, #impl_fn) }
+                        unsafe { #bevy_reflect::type_vtable::set_with::<Self>(ptr, #impl_fn) }
                     }) as unsafe fn(*mut u8)
                 )
             },
@@ -230,14 +230,14 @@ impl ContainerAttributes {
         };
         match &self.clone {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::clone::<Self>)
+                #FQOption::Some(#bevy_reflect::type_vtable::clone::<Self>)
             },
             // SAFETY (all cases below): only called through `TypeVTable::clone`, whose caller
             // guarantees that `ptr` is a valid `Self`
             &TraitImpl::Custom(ref impl_fn, span) => quote_spanned! {span=>
                 #FQOption::Some(
                     (|ptr: #exports::Ptr<'_>| {
-                        unsafe { #bevy_reflect::clone_with::<Self>(ptr, #exports::custom_clone::<Self>(#impl_fn)) }
+                        unsafe { #bevy_reflect::type_vtable::clone_with::<Self>(ptr, #exports::custom_clone::<Self>(#impl_fn)) }
                     }) as #clone_fn
                 )
             },
@@ -249,7 +249,7 @@ impl ContainerAttributes {
         let exports = quote! {#bevy_reflect::__macro_exports};
         match &self.debug {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::debug::<Self>)
+                #FQOption::Some(#bevy_reflect::type_vtable::debug::<Self>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => {
                 // SAFETY: only called through `TypeVTable::debug`, whose caller guarantees
@@ -257,7 +257,7 @@ impl ContainerAttributes {
                 quote_spanned! {span=>
                     #FQOption::Some(
                         (|ptr: #exports::Ptr<'_>, f: &mut ::core::fmt::Formatter<'_>| {
-                            unsafe { #bevy_reflect::debug_with::<Self>(ptr, f, #impl_fn) }
+                            unsafe { #bevy_reflect::type_vtable::debug_with::<Self>(ptr, f, #impl_fn) }
                         }) as unsafe fn(#exports::Ptr<'_>, &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result
                     )
                 }
@@ -270,7 +270,7 @@ impl ContainerAttributes {
         let exports = quote! {#bevy_reflect::__macro_exports};
         match &self.hash {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::hash::<Self>)
+                #FQOption::Some(#bevy_reflect::type_vtable::hash::<Self>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => {
                 // SAFETY: only called through `TypeVTable::hash`, whose caller guarantees
@@ -278,7 +278,7 @@ impl ContainerAttributes {
                 quote_spanned! {span=>
                     #FQOption::Some(
                         (|ptr: #exports::Ptr<'_>, hasher: &mut dyn ::core::hash::Hasher| {
-                            unsafe { #bevy_reflect::hash_with::<Self>(ptr, hasher, #impl_fn) }
+                            unsafe { #bevy_reflect::type_vtable::hash_with::<Self>(ptr, hasher, #impl_fn) }
                         }) as unsafe fn(#exports::Ptr<'_>, &mut dyn ::core::hash::Hasher)
                     )
                 }
@@ -291,7 +291,7 @@ impl ContainerAttributes {
         let exports = quote! {#bevy_reflect::__macro_exports};
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::partial_eq::<Self>)
+                #FQOption::Some(#bevy_reflect::type_vtable::partial_eq::<Self>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => {
                 // SAFETY: only called through `TypeVTable::partial_eq`, whose caller
@@ -299,7 +299,7 @@ impl ContainerAttributes {
                 quote_spanned! {span=>
                     #FQOption::Some(
                         (|a: #exports::Ptr<'_>, b: #exports::Ptr<'_>| {
-                            unsafe { #bevy_reflect::partial_eq_with::<Self>(a, b, #impl_fn) }
+                            unsafe { #bevy_reflect::type_vtable::partial_eq_with::<Self>(a, b, #impl_fn) }
                         }) as unsafe fn(#exports::Ptr<'_>, #exports::Ptr<'_>) -> bool
                     )
                 }
@@ -312,7 +312,7 @@ impl ContainerAttributes {
         let exports = quote! {#bevy_reflect::__macro_exports};
         match &self.partial_ord {
             &TraitImpl::Implemented(span) => quote_spanned! {span=>
-                #FQOption::Some(#bevy_reflect::partial_cmp::<Self>)
+                #FQOption::Some(#bevy_reflect::type_vtable::partial_cmp::<Self>)
             },
             &TraitImpl::Custom(ref impl_fn, span) => {
                 // SAFETY: only called through `TypeVTable::partial_cmp`, whose caller
@@ -320,7 +320,7 @@ impl ContainerAttributes {
                 quote_spanned! {span=>
                     #FQOption::Some(
                         (|a: #exports::Ptr<'_>, b: #exports::Ptr<'_>| {
-                            unsafe { #bevy_reflect::partial_cmp_with::<Self>(a, b, #impl_fn) }
+                            unsafe { #bevy_reflect::type_vtable::partial_cmp_with::<Self>(a, b, #impl_fn) }
                         }) as unsafe fn(#exports::Ptr<'_>, #exports::Ptr<'_>) -> #FQOption<::core::cmp::Ordering>
                     )
                 }
@@ -338,8 +338,8 @@ impl ContainerAttributes {
         let partial_eq = self.partial_eq_impl(bevy_reflect);
         let partial_cmp = self.partial_ord_impl(bevy_reflect);
         quote! {
-            #bevy_reflect::TypeVTable {
-                cast_reflect: #bevy_reflect::cast_reflect::<Self>,
+            #bevy_reflect::type_vtable::TypeVTable {
+                cast_reflect: #bevy_reflect::type_vtable::cast_reflect::<Self>,
                 set_default: #default,
                 clone: #clone,
                 debug: #debug,

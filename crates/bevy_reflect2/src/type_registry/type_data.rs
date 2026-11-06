@@ -1,4 +1,4 @@
-use crate::TypeRegistration;
+use crate::type_registry::TypeRegistration;
 use ::alloc::boxed::Box;
 use core::any::Any;
 
@@ -13,8 +13,8 @@ use core::any::Any;
 ///
 /// See the [crate-level documentation] for more information on type data and type registration.
 ///
-/// [`TypeRegistry`]: crate::TypeRegistry
-/// [`TypeRegistration`]: crate::TypeRegistration
+/// [`TypeRegistry`]: crate::type_registry::TypeRegistry
+/// [`TypeRegistration`]: crate::type_registry::TypeRegistration
 /// [crate-level documentation]: crate
 pub trait TypeData: Any + Send + Sync {
     /// Creates a type-erased clone of `self`.
@@ -82,7 +82,7 @@ impl<T: Clone + Send + Sync + 'static> TypeData for T {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect2::{CreateTypeData, Reflect};
+/// # use bevy_reflect2::{type_registry::CreateTypeData, Reflect};
 /// trait Combine {
 ///   fn combine(a: f32, b: f32) -> f32;
 /// }
@@ -154,9 +154,9 @@ impl<T: Clone + Send + Sync + 'static> TypeData for T {
 /// assert_eq!(with_multiplier.combine(1.0, 2.0), 10.0);
 /// ```
 ///
-/// [`TypeRegistration`]: crate::TypeRegistration
-/// [`TypeRegistry::register_type_data`]: crate::TypeRegistry::register_type_data
-/// [`TypeRegistry::register_type_data_with`]: crate::TypeRegistry::register_type_data_with
+/// [`TypeRegistration`]: crate::type_registry::TypeRegistration
+/// [`TypeRegistry::register_type_data`]: crate::type_registry::TypeRegistry::register_type_data
+/// [`TypeRegistry::register_type_data_with`]: crate::type_registry::TypeRegistry::register_type_data_with
 /// [`Reflect` derive macro]: derive@crate::Reflect
 pub trait CreateTypeData<T, Input = ()>: TypeData {
     /// Create this type data using the given input.

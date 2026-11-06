@@ -47,7 +47,7 @@ pub enum StructKind {
     /// structs (ex: `struct Foo;`).
     Struct,
     /// A tuple (ex: `(u32, f32)`), which has no name. Tuples always have [`FieldKind::Unnamed`]
-    /// fields. The unit tuple `()` is a [`Primitive`](crate::Primitive) instead.
+    /// fields. The unit tuple `()` is a [`Primitive`](crate::kind::Primitive) instead.
     Tuple,
 }
 
@@ -313,11 +313,11 @@ pub struct IgnoredFieldVTable {
     /// The [`Layout`] of the field's type.
     pub layout: Layout,
     /// Writes a default value to the given (possibly uninitialized) pointer, without dropping the
-    /// previous value (see [`set_default`](crate::set_default)). Registered with
+    /// previous value (see [`set_default`](crate::type_vtable::set_default)). Registered with
     /// `#[reflect(default)]`.
     pub default: Option<unsafe fn(*mut u8)>,
     /// Writes a clone of the value at the first pointer to the second (possibly uninitialized)
-    /// pointer, without dropping the previous value (see [`clone_into`](crate::clone_into)).
+    /// pointer, without dropping the previous value (see [`clone_into`](crate::type_vtable::clone_into)).
     /// Registered with `#[reflect(clone)]`.
     pub clone: Option<unsafe fn(Ptr<'_>, *mut u8)>,
 }

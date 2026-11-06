@@ -126,13 +126,13 @@ impl dyn ListAccess {
     /// back to front, so no items need to be shifted for vec-like lists.
     ///
     /// If this clear is in a "hot" path and you are clearing a large number of items, consider
-    /// building a custom clear implementation and adding it to the [`TypeRegistry`](crate::TypeRegistry).
+    /// building a custom clear implementation and adding it to the [`TypeRegistry`](crate::type_registry::TypeRegistry).
     pub fn clear(&mut self) {
         while self.pop().is_some() {}
     }
 }
 
-/// Implements [`Typed`](crate::Typed) and [`GetTypeRegistration`](crate::GetTypeRegistration) for a
+/// Implements [`Typed`](crate::Typed) and [`GetTypeRegistration`](crate::type_registry::GetTypeRegistration) for a
 /// list type that implements [`ListAccess`].
 ///
 /// The list must implement [`Default`]. The [`ListAccess`] implementation should
@@ -160,30 +160,30 @@ macro_rules! impl_reflect_list {
             const TYPE: &'static $crate::Type = &unsafe {
                 $crate::Type::new(
                     ::core::any::TypeId::of::<Self>(),
-                    $crate::Kind::List($crate::List::new(
+                    $crate::kind::Kind::List($crate::kind::List::new(
                         $crate::TypeRef($crate::Type::of::<$item>),
-                        $crate::cast_list_access::<Self>,
+                        $crate::kind::cast_list_access::<Self>,
                     )),
                     Some(::core::alloc::Layout::new::<Self>()),
-                    $crate::TypeVTable {
-                        set_default: Some($crate::set_default::<Self>),
-                        ..$crate::TypeVTable::new::<Self>()
+                    $crate::type_vtable::TypeVTable {
+                        set_default: Some($crate::type_vtable::set_default::<Self>),
+                        ..$crate::type_vtable::TypeVTable::new::<Self>()
                     },
-                    $crate::TypePath::generic::<Self>($module, $ident),
+                    $crate::type_path::TypePath::generic::<Self>($module, $ident),
                 )
             };
         }
 
-        impl<$($param),*> $crate::GetTypeRegistration for $ty
+        impl<$($param),*> $crate::type_registry::GetTypeRegistration for $ty
         where
-            $($param: $crate::Typed + $crate::GetTypeRegistration,)*
+            $($param: $crate::Typed + $crate::type_registry::GetTypeRegistration,)*
             $($($bounds)*)?
         {
-            fn get_type_registration() -> $crate::TypeRegistration {
-                $crate::TypeRegistration::of::<Self>()
+            fn get_type_registration() -> $crate::type_registry::TypeRegistration {
+                $crate::type_registry::TypeRegistration::of::<Self>()
             }
 
-            fn register_type_dependencies(registry: &mut $crate::TypeRegistry) {
+            fn register_type_dependencies(registry: &mut $crate::type_registry::TypeRegistry) {
                 $(registry.register::<$param>();)*
             }
         }

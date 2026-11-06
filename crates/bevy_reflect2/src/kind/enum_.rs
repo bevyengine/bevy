@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use bevy_ptr::{Ptr, PtrMut};
 
-use crate::{FieldKind, IgnoredFieldVTable, Reflect, TypeRef};
+use crate::{kind::FieldKind, kind::IgnoredFieldVTable, Reflect, TypeRef};
 
 /// Describes the variants of an enum.
 ///

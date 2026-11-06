@@ -17,6 +17,6 @@ pub enum Primitive {
     /// A "string" type.
     String,
     /// A type whose internals are not reflected. It can only be interacted with through its
-    /// [`TypeVTable`](crate::TypeVTable) and [`TypeData`](crate::TypeData), or by downcasting it.
+    /// [`TypeVTable`](crate::type_vtable::TypeVTable) and [`TypeData`](crate::type_registry::TypeData), or by downcasting it.
     Opaque,
 }

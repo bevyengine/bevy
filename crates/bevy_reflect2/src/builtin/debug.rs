@@ -1,4 +1,4 @@
-use crate::{FieldKind, KindRef, Reflect, StructKind};
+use crate::{kind::FieldKind, kind::KindRef, kind::StructKind, Reflect};
 use core::fmt::{self, Debug, Formatter};
 
 impl dyn Reflect {

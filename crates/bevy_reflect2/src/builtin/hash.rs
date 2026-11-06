@@ -1,4 +1,4 @@
-use crate::{KindRef, Reflect, Type};
+use crate::{kind::KindRef, Reflect, Type};
 use bevy_platform::hash::FixedHasher;
 use core::hash::{BuildHasher, Hash, Hasher};
 use thiserror::Error;
@@ -92,7 +92,7 @@ pub struct ReflectHashError {
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReflectHashErrorReason {
     /// The type has no reflected [`Hash`] implementation, and is a map, set, or
-    /// [`Primitive`](crate::Primitive), which cannot be hashed structurally.
+    /// [`Primitive`](crate::kind::Primitive), which cannot be hashed structurally.
     #[error("it has no reflected `Hash` implementation and cannot be hashed structurally")]
     NotHashable,
     /// The type has a reflected [`PartialEq`] implementation but no reflected [`Hash`]

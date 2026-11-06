@@ -1,4 +1,4 @@
-use crate::{IgnoredFieldVTable, KindRef, Reflect, Type, UncoveredBytes};
+use crate::{kind::IgnoredFieldVTable, kind::KindRef, kind::UncoveredBytes, Reflect, Type};
 use alloc::{alloc::dealloc, boxed::Box, vec::Vec};
 use core::{
     alloc::Layout,
@@ -235,7 +235,7 @@ pub struct ReflectCloneError {
 /// Why a value could not be cloned. See [`ReflectCloneError`].
 #[derive(Error, Debug, Clone, Copy)]
 pub enum ReflectCloneErrorReason {
-    /// The type is a [`Primitive`](crate::Primitive) without a reflected [`Clone`]
+    /// The type is a [`Primitive`](crate::kind::Primitive) without a reflected [`Clone`]
     /// implementation, so it cannot be cloned structurally.
     #[error("it has no reflected `Clone` implementation and cannot be cloned structurally")]
     NotCloneable,

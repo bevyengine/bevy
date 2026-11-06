@@ -126,7 +126,7 @@ fn reflect_impl(
     let (kind, kind_declarations) = match &data {
         // Primitive types don't reflect their fields
         _ if let Some(primitive) = primitive => (
-            quote! {#bevy_reflect::Kind::Primitive(#bevy_reflect::Primitive::#primitive)},
+            quote! {#bevy_reflect::kind::Kind::Primitive(#bevy_reflect::kind::Primitive::#primitive)},
             quote! {},
         ),
         ReflectData::Struct(fields) => (struct_kind(fields, &bevy_reflect), quote! {}),
@@ -183,7 +183,7 @@ fn reflect_impl(
             .iter()
             .filter(|ty| mentions_any(ty.to_token_stream(), &params))
             .map(|ty| -> syn::WherePredicate {
-                syn::parse_quote!(#ty: #bevy_reflect::GetTypeRegistration)
+                syn::parse_quote!(#ty: #bevy_reflect::type_registry::GetTypeRegistration)
             })
             .collect::<Vec<_>>();
         if !predicates.is_empty() {
@@ -243,7 +243,7 @@ fn struct_kind(struct_fields: &ReflectFields, bevy_reflect: &Path) -> TokenStrea
                 .attributes
                 .ignored_field_vtable(field.field, bevy_reflect);
             ignored_fields.push(quote! {
-                #bevy_reflect::IgnoredField {
+                #bevy_reflect::kind::IgnoredField {
                     name: #name,
                     offset: ::core::mem::offset_of!(Self, #member),
                     vtable: #vtable,
@@ -252,7 +252,7 @@ fn struct_kind(struct_fields: &ReflectFields, bevy_reflect: &Path) -> TokenStrea
         } else {
             let field_ty = &field.field.ty;
             fields.push(quote! {
-                #bevy_reflect::StructField {
+                #bevy_reflect::kind::StructField {
                     name: #name,
                     offset: ::core::mem::offset_of!(Self, #member),
                     ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
@@ -268,13 +268,13 @@ fn struct_kind(struct_fields: &ReflectFields, bevy_reflect: &Path) -> TokenStrea
     quote! {{
         let fields = &[#(#fields),*];
         let ignored_fields = &[#(#ignored_fields),*];
-        #bevy_reflect::Kind::Struct(unsafe {
-            #bevy_reflect::Struct::new(
+        #bevy_reflect::kind::Kind::Struct(unsafe {
+            #bevy_reflect::kind::Struct::new(
                 fields,
                 #field_kind,
-                #bevy_reflect::StructKind::Struct,
+                #bevy_reflect::kind::StructKind::Struct,
                 ignored_fields,
-                #bevy_reflect::UncoveredBytes::Padding,
+                #bevy_reflect::kind::UncoveredBytes::Padding,
             )
         })
     }}
@@ -316,7 +316,7 @@ fn enum_kind(
                     .attributes
                     .ignored_field_vtable(field.field, bevy_reflect);
                 ignored_fields.push(quote! {
-                    #bevy_reflect::EnumIgnoredField {
+                    #bevy_reflect::kind::EnumIgnoredField {
                         name: #name,
                         vtable: #vtable,
                     }
@@ -329,7 +329,7 @@ fn enum_kind(
             } else {
                 let field_ty = &field.field.ty;
                 fields.push(quote! {
-                    #bevy_reflect::EnumField {
+                    #bevy_reflect::kind::EnumField {
                         name: #name,
                         ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
                     }
@@ -366,7 +366,7 @@ fn enum_kind(
         let field_kind = variant.fields.field_kind(bevy_reflect);
         let name = variant_ident.to_string();
         variants.push(quote! {
-            #bevy_reflect::Variant {
+            #bevy_reflect::kind::Variant {
                 name: #name,
                 field_kind: #field_kind,
                 fields: &[#(#fields),*],
@@ -383,7 +383,7 @@ fn enum_kind(
     // with the requested variant
     let kind = quote! {{
         let variants = &[#(#variants),*];
-        let construct: #bevy_reflect::ConstructEnumFn = |__variant, __fields| {
+        let construct: #bevy_reflect::kind::ConstructEnumFn = |__variant, __fields| {
             let value: #FQOption<Self> = match __variant {
                 #(#variant_constructors,)*
                 _ => #FQOption::None,
@@ -393,8 +393,8 @@ fn enum_kind(
                     as #bevy_reflect::__macro_exports::Box<dyn #bevy_reflect::Reflect>
             })
         };
-        #bevy_reflect::Kind::Enum(unsafe {
-            #bevy_reflect::Enum::new(variants, #bevy_reflect::cast_enum_access::<Self>, construct)
+        #bevy_reflect::kind::Kind::Enum(unsafe {
+            #bevy_reflect::kind::Enum::new(variants, #bevy_reflect::kind::cast_enum_access::<Self>, construct)
         })
     }};
     let self_access = if reflect_variants.is_empty() {
@@ -407,7 +407,7 @@ fn enum_kind(
     let kind_declarations = quote! {
         // SAFETY: `variant` and `field_offset` match the order of the generated `Enum::variants`. Field offsets are computed from fields bound by reference into
         // `self`, with reflected fields followed by ignored fields.
-        unsafe impl #impl_generics #bevy_reflect::EnumAccess for #type_ident #type_generics #extended_where_clause {
+        unsafe impl #impl_generics #bevy_reflect::kind::EnumAccess for #type_ident #type_generics #extended_where_clause {
             fn variant(&self) -> usize {
                 match #self_access {
                     #(#variant_indices,)*

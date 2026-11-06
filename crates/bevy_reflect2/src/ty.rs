@@ -4,7 +4,8 @@ use crate::{
     builtin::move_box_into,
     kind::{Kind, Struct, StructField, UncoveredBytes},
     reflect::Reflect,
-    TypePath, TypeVTable,
+    type_path::TypePath,
+    type_vtable::TypeVTable,
 };
 use alloc::{
     alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error},
@@ -162,8 +163,8 @@ impl Type {
     /// before `func` is called if the struct requires it (see
     /// [`UncoveredBytes`]).
     ///
-    /// [Ignored fields](crate::Struct::ignored_fields) are initialized with their
-    /// [`default`](crate::IgnoredFieldVTable::default) function (registered with
+    /// [Ignored fields](crate::kind::Struct::ignored_fields) are initialized with their
+    /// [`default`](crate::kind::IgnoredFieldVTable::default) function (registered with
     /// `#[reflect(default)]`) after `func` initializes the reflected fields.
     ///
     /// Returns `None` if this type is not a [`Kind::Struct`], is unsized, or has an ignored field
@@ -242,8 +243,8 @@ impl Type {
     }
 
     /// Constructs a new value of this struct type from the values of its reflected fields, in the
-    /// order of [`Struct::fields`](crate::Struct::fields). [Ignored
-    /// fields](crate::Struct::ignored_fields) are initialized with their default (see
+    /// order of [`Struct::fields`](crate::kind::Struct::fields). [Ignored
+    /// fields](crate::kind::Struct::ignored_fields) are initialized with their default (see
     /// [`Type::initialize_struct`]).
     ///
     /// Returns `None` if this type is not a [`Kind::Struct`], the number of values doesn't match

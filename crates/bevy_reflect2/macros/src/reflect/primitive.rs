@@ -171,7 +171,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                 unsafe {
                     #bevy_reflect::Type::new(
                         ::core::any::TypeId::of::<Self>(),
-                        #bevy_reflect::Kind::Primitive(#bevy_reflect::Primitive::#primitive),
+                        #bevy_reflect::kind::Kind::Primitive(#bevy_reflect::kind::Primitive::#primitive),
                         Some(::core::alloc::Layout::new::<Self>()),
                         vtable,
                         #type_path_tokens,
@@ -214,9 +214,9 @@ fn explicit_type_path(bevy_reflect: &Path, full_path: &LitStr) -> Result<TokenSt
             .find('<')
             .unwrap_or(short.len() - prefix_len);
     Ok(quote! {
-        #bevy_reflect::TypePath::new(
-            #bevy_reflect::TypePathStr::Static(#full),
-            #bevy_reflect::TypePathStr::Static(#short),
+        #bevy_reflect::type_path::TypePath::new(
+            #bevy_reflect::type_path::TypePathStr::Static(#full),
+            #bevy_reflect::type_path::TypePathStr::Static(#short),
             #prefix_len..#type_ident_end,
             #crate_name,
             #module_path,

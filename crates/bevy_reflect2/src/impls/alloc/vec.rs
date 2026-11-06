@@ -1,4 +1,4 @@
-use crate::{kind::impl_reflect_list, ListAccess, Reflect, Typed};
+use crate::{kind::impl_reflect_list, kind::ListAccess, Reflect, Typed};
 use alloc::{boxed::Box, vec::Vec};
 
 // SAFETY: every item is a `T`, and inserted values are type checked
@@ -42,7 +42,7 @@ impl_reflect_list!(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Kind, Reflect, TypeRegistry, Typed};
+    use crate::{kind::Kind, type_registry::TypeRegistry, Reflect, Typed};
     use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
     use core::any::TypeId;
 
