@@ -2,13 +2,14 @@ use crate::{Reflect, TypeRef};
 use bevy_ptr::{Ptr, PtrMut};
 use core::{alloc::Layout, fmt::Debug};
 
-/// Describes the fields of a struct.
+/// Describes the fields of a struct. This could be a user-defined struct type or a tuple (which
+/// behaves like an anonymous struct).
 ///
 /// Unsafe code relies on the field offsets and types being accurate, so this can only be constructed
 /// using [`Struct::new`].
 #[derive(Debug)]
 pub struct Struct {
-    fields: &'static [Field],
+    fields: &'static [StructField],
     field_kind: FieldKind,
     struct_kind: StructKind,
     ignored_fields: &'static [IgnoredField],
@@ -17,7 +18,7 @@ pub struct Struct {
 
 /// Describes the field of a [`Struct`].
 #[derive(Debug)]
-pub struct Field {
+pub struct StructField {
     /// The name of the field. For named fields, this will be "field". For "unnamed" fields, this will
     /// be the index in string form (ex: "0").
     pub name: &'static str,
@@ -94,7 +95,7 @@ impl Struct {
     /// Panics if `struct_kind` is [`StructKind::Tuple`] and `field_kind` is not
     /// [`FieldKind::Unnamed`].
     pub const unsafe fn new(
-        fields: &'static [Field],
+        fields: &'static [StructField],
         field_kind: FieldKind,
         struct_kind: StructKind,
         ignored_fields: &'static [IgnoredField],
@@ -121,7 +122,7 @@ impl Struct {
 
     /// The fields of the struct.
     #[inline]
-    pub const fn fields(&self) -> &'static [Field] {
+    pub const fn fields(&self) -> &'static [StructField] {
         self.fields
     }
 
@@ -158,7 +159,7 @@ impl Struct {
     }
 }
 
-impl Field {
+impl StructField {
     /// Access the field for the given struct ptr.
     ///
     /// # Safety
@@ -225,7 +226,8 @@ impl<'a> StructRef<'a> {
     /// Iterates over each field description and its value, in declaration order.
     pub fn iter(
         &self,
-    ) -> impl ExactSizeIterator<Item = (&'static Field, &'a dyn Reflect)> + Clone + use<'a> {
+    ) -> impl ExactSizeIterator<Item = (&'static StructField, &'a dyn Reflect)> + Clone + use<'a>
+    {
         let ptr = self.ptr;
         self.struct_type.fields.iter().map(move |field| {
             // SAFETY: ptr matches the type of the parent struct of this field
@@ -294,7 +296,9 @@ impl<'a> StructMut<'a> {
 
     /// Iterates over each field description and its value, in declaration order.
     #[inline]
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&'static Field, &dyn Reflect)> + Clone {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&'static StructField, &dyn Reflect)> + Clone {
         self.as_ref().iter()
     }
 }

@@ -2,7 +2,7 @@ use bevy_ptr::{Ptr, PtrMut};
 
 use crate::{
     builtin::move_box_into,
-    kind::{Field, Kind, Struct, UncoveredBytes},
+    kind::{Kind, Struct, StructField, UncoveredBytes},
     reflect::Reflect,
     TypePath, TypeVTable,
 };
@@ -179,7 +179,7 @@ impl Type {
     /// reference.
     pub unsafe fn initialize_struct(
         &self,
-        mut func: impl FnMut(&Field, PtrMut),
+        mut func: impl FnMut(&StructField, PtrMut),
     ) -> Option<Box<dyn Reflect>> {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;

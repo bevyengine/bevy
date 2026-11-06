@@ -7,9 +7,9 @@
 //! they cannot be defaulted through reflection.
 
 use crate::{
-    Field, FieldKind, GenericTypePath, GenericTypePathCell, GetTypeRegistration, Kind, Struct,
-    StructKind, Type, TypePath, TypePathStr, TypeRef, TypeRegistration, TypeRegistry, TypeVTable,
-    Typed, UncoveredBytes,
+    FieldKind, GenericTypePath, GenericTypePathCell, GetTypeRegistration, Kind, Struct,
+    StructField, StructKind, Type, TypePath, TypePathStr, TypeRef, TypeRegistration, TypeRegistry,
+    TypeVTable, Typed, UncoveredBytes,
 };
 use alloc::string::String;
 use core::{alloc::Layout, any::TypeId, mem::offset_of};
@@ -55,7 +55,7 @@ macro_rules! impl_reflect_tuple {
         unsafe impl<$($T: Typed),+> Typed for ($($T,)+) {
             const TYPE: &'static Type = &{
                 let fields = &[$(
-                    Field {
+                    StructField {
                         name: stringify!($index),
                         offset: offset_of!(Self, $index),
                         ty: TypeRef(Type::of::<$T>),

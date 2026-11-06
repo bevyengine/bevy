@@ -218,7 +218,7 @@ fn struct_kind(struct_fields: &ReflectFields, bevy_reflect: &Path) -> TokenStrea
         } else {
             let field_ty = &field.field.ty;
             fields.push(quote! {
-                #bevy_reflect::Field {
+                #bevy_reflect::StructField {
                     name: #name,
                     offset: ::core::mem::offset_of!(Self, #member),
                     ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
