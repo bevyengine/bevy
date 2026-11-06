@@ -3612,6 +3612,17 @@ category = "Stress Tests"
 wasm = false
 
 [[example]]
+name = "dynamic_mesh"
+path = "examples/stress_tests/dynamic_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_mesh]
+name = "Dynamic Mesh"
+description = "Edits a large mesh every frame, re-uploading it to the GPU each frame"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
