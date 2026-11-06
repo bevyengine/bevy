@@ -100,7 +100,7 @@ jobs:
               cargo install cargo-ndk
               cargo ndk -t arm64-v8a -P 26 -o android_example/app/src/main/jniLibs build --package bevy_mobile_example
           # validation-jobs.yml / build-and-install-on-iOS builds through Xcode, no shared build cache
-          - os: macos-15
+          - os: macos-26
             toolchain: stable
             target: aarch64-apple-ios-sim
 
