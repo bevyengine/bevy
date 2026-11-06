@@ -2584,6 +2584,7 @@ pub(crate) fn specialize_shadows(
 
                 mesh_key |= match material.properties.alpha_mode {
                     AlphaMode::Mask(_)
+                    | AlphaMode::Dither
                     | AlphaMode::Blend
                     | AlphaMode::Premultiplied
                     | AlphaMode::Add

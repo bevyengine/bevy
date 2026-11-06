@@ -693,7 +693,7 @@ pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> Mesh
         AlphaMode::Premultiplied | AlphaMode::Add => MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA,
         AlphaMode::Blend => MeshPipelineKey::BLEND_ALPHA,
         AlphaMode::Multiply => MeshPipelineKey::BLEND_MULTIPLY,
-        AlphaMode::Mask(_) => MeshPipelineKey::MAY_DISCARD,
+        AlphaMode::Mask(_) | AlphaMode::Dither => MeshPipelineKey::MAY_DISCARD,
         AlphaMode::AlphaToCoverage => match *msaa {
             Msaa::Off => MeshPipelineKey::MAY_DISCARD,
             _ => MeshPipelineKey::BLEND_ALPHA_TO_COVERAGE,
@@ -1310,7 +1310,7 @@ pub fn queue_material_meshes(
                     | AlphaMode::Add
                     | AlphaMode::Multiply => RenderPhaseType::Transparent,
                     AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
-                    AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
+                    AlphaMode::Mask(_) | AlphaMode::Dither => RenderPhaseType::AlphaMask,
                 }
             } else {
                 material.properties.render_phase_type
@@ -1756,7 +1756,7 @@ where
                 RenderPhaseType::Transparent
             }
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
-            AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
+            AlphaMode::Mask(_) | AlphaMode::Dither => RenderPhaseType::AlphaMask,
         };
 
         let shaders = material_shaders.shaders.clone();
