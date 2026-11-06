@@ -8,7 +8,7 @@ use crate::{
     RepeatedGridTrack, UiRect, Val,
 };
 
-use super::layout_tree::{PercentageCalc, TaffyStyle};
+use super::layout_tree::TaffyStyle;
 
 impl Val {
     /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels
@@ -45,22 +45,20 @@ impl Val {
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Box<PercentageCalc>>,
+        calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::LengthPercentageAuto {
         match self.to_physical_except_percent(context) {
             Val::Auto => style_helpers::auto(),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
-            physical if !physical.uses_percent() => {
-                style_helpers::length(PercentageCalc::new(physical).resolve(0.0))
-            }
-            physical => {
-                let calc = Box::new(PercentageCalc::new(physical));
+            Val::Calc(calc) => {
+                let calc = calc.0;
                 let value =
                     taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
                 value
             }
+            _ => panic!("Non-physical `Val`."),
         }
     }
 
@@ -71,22 +69,20 @@ impl Val {
     pub(super) fn to_length_percentage(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Box<PercentageCalc>>,
+        calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::LengthPercentage {
         match self.to_physical_except_percent(context) {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
-            physical if !physical.uses_percent() => {
-                style_helpers::length(PercentageCalc::new(physical).resolve(0.0))
-            }
-            physical => {
-                let calc = Box::new(PercentageCalc::new(physical));
+            Val::Calc(calc) => {
+                let calc = calc.0;
                 let value =
                     taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
                 calcs.push(calc);
                 value
             }
+            _ => panic!("Non-physical `Val`."),
         }
     }
 
@@ -100,7 +96,7 @@ impl Val {
     fn to_length_percentage_for_border(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Box<PercentageCalc>>,
+        calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::LengthPercentage {
         let length = self.to_length_percentage(context, calcs);
         let raw = length.into_raw();
@@ -118,7 +114,7 @@ impl Val {
     fn to_dimension(
         &self,
         context: &ValContext,
-        calcs: &mut Vec<Box<PercentageCalc>>,
+        calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::Dimension {
         self.to_length_percentage_auto(context, calcs).into()
     }
@@ -623,23 +619,14 @@ mod tests {
         .into();
         let physical = nested.to_physical_except_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
-        assert!(matches!(
-            PercentageCalc::new(physical.clone()),
-            PercentageCalc::Tree(_)
-        ));
-        assert_eq!(PercentageCalc::new(physical).resolve(100.0), 34.0);
-        let PercentageCalc::Linear { px, percent } = PercentageCalc::new(
-            (Val::Percent(50.0) - Val::Px(10.0)).to_physical_except_percent(&context),
-        ) else {
-            panic!("pixel and percent sums are linear");
-        };
-        assert_eq!((px, percent), (-20.0, 0.5));
+        assert_eq!(physical.resolve(100.0, &ValContext::DEFAULT), Ok(34.0));
         assert_eq!(
-            PercentageCalc::new(
-                (Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context)
-            )
-            .resolve(0.0),
-            52.0
+            (Val::Percent(50.0) - Val::Px(10.0)).to_physical_except_percent(&context),
+            Val::Percent(50.0) - Val::Px(20.0)
+        );
+        assert_eq!(
+            (Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context),
+            Val::Px(52.0)
         );
     }
 

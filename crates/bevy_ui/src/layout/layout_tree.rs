@@ -41,64 +41,17 @@ unsafe impl Send for TaffyStyle {}
 unsafe impl Sync for TaffyStyle {}
 
 /// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
-/// `Style` references `Val`s using percentages that can't be resolved until layout using raw pointers.
-/// The `Vec` is used to keep the percentages alive because the `Style`'s pointers are non-owning.
+/// `Style` references `CalcOp`s using percentages that can't be resolved until layout using raw pointers.
+/// The `Vec` is used to keep the percentages alive because Taffy's `CompactLength` pointers are non-owning.
 
 #[derive(Default, Component)]
 pub struct TaffyStyle {
     /// Taffy `Style` converted from a `Node`.
     pub(crate) style: Style,
-    /// Owns the calcs referenced by raw pointers in `style`.
-    /// Boxing keeps their addresses stable when the vector reallocates.    
-    pub(crate) calcs: Vec<Box<PercentageCalc>>,
-}
-
-/// A calc expression with all non-percentage units resolved to physical pixels.
-/// The percentage basis is supplied during layout.
-#[repr(align(8))]
-pub(crate) enum PercentageCalc {
-    /// A linear expression resolved as `px + percent * basis`.
-    Linear { px: f32, percent: f32 },
-    /// An expression tree that can't be evaluated until the percentage basis is known.
-    Tree(Val),
-}
-
-impl PercentageCalc {
-    /// Construct a new `PercentageCalc`. Every expression that doesn't include a `min`, `max` or `clamp` operation
-    /// reduces a sum of pixel and percent terms once its other units are resolved.
-    pub(crate) fn new(physical: Val) -> Self {
-        let linear = |terms: &[Val]| {
-            let (mut px, mut percent) = (0.0, 0.0);
-            for term in terms {
-                match term {
-                    Val::Px(value) => px += value,
-                    Val::Percent(value) => percent += value / 100.0,
-                    _ => return None,
-                }
-            }
-            Some(Self::Linear { px, percent })
-        };
-        let linear = match &physical {
-            Val::Calc(calc) => match &*calc.0 {
-                CalcOp::Sum(terms) => linear(terms),
-                _ => None,
-            },
-            leaf => linear(core::slice::from_ref(leaf)),
-        };
-        linear.unwrap_or(Self::Tree(physical))
-    }
-
-    pub(crate) fn resolve(&self, basis: f32) -> f32 {
-        match self {
-            Self::Linear { px, percent } => px + percent * basis,
-            Self::Tree(val) => val
-                .resolve(
-                    basis,
-                    &ValContext::new(1.0, Vec2::ZERO, EmSize(0.0), RemSize(0.0)),
-                )
-                .unwrap_or(0.0),
-        }
-    }
+    /// Owns the `CalcOp`s referenced by raw pointers in `style`.
+    /// Boxing keeps their addresses stable when the vector reallocates.
+    /// These `CalcOp`s are reduced to operations only using `Px` and `Percentage` before layout.
+    pub(crate) calcs: Vec<Box<CalcOp>>,
 }
 
 /// Resolves a calc pointer that taffy read back out of a [`TaffyStyle`] against the
@@ -109,8 +62,8 @@ impl PercentageCalc {
 )]
 pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
     // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`
-    let calc = unsafe { &*ptr.cast::<PercentageCalc>() };
-    calc.resolve(basis)
+    let calc = unsafe { &*ptr.cast::<CalcOp>() };
+    calc.resolve(basis, &ValContext::default()).unwrap()
 }
 
 pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle {

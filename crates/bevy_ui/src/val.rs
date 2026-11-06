@@ -263,15 +263,6 @@ impl Val {
         }
     }
 
-    /// Returns true if this `Val` is a percentage value or any of the operations in its calc expression tree uses percentage values.
-    pub(crate) fn uses_percent(&self) -> bool {
-        match self {
-            Self::Percent(_) => true,
-            Self::Calc(calc) => calc.0.uses_percent(),
-            _ => false,
-        }
-    }
-
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
     ///
@@ -692,7 +683,11 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 )]
 pub struct Calc(pub(crate) Box<CalcOp>);
 
-/// An operation performed on `Val`s.
+/// Stores a max of 3 `Val`s inline so that the sizes of `CalcOp`s variants holding `CalcTerms`
+/// matches `Clamp`.
+pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
+
+/// An operation performed on two or more `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -712,10 +707,6 @@ pub(crate) enum CalcOp {
     Clamp(Val, Val, Val),
 }
 
-/// Stores a max of 3 `Val`s inline so that the sizes of `CalcOp`s variants holding `CalcTerms`
-/// matches `Clamp`.
-pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
-
 impl CalcOp {
     /// The operation applied to the terms of a `Sum`, `Min` or `Max`.
     fn op(&self) -> Option<ReduceOp> {
@@ -724,18 +715,6 @@ impl CalcOp {
             Self::Min(_) => Some(ReduceOp::Min),
             Self::Max(_) => Some(ReduceOp::Max),
             Self::Clamp(..) => None,
-        }
-    }
-
-    /// Returns true if any of the operations in the expression tree uses percentage values.
-    pub(crate) fn uses_percent(&self) -> bool {
-        match self {
-            Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
-                terms.iter().any(Val::uses_percent)
-            }
-            Self::Clamp(min, value, max) => {
-                min.uses_percent() || value.uses_percent() || max.uses_percent()
-            }
         }
     }
 
