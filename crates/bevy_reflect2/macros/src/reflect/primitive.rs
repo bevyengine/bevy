@@ -4,7 +4,7 @@ use quote::quote;
 use syn::{
     parse::{ParseStream, Parser},
     spanned::Spanned,
-    Attribute, Generics, Ident, LitStr, Path, Type,
+    Attribute, Generics, Ident, LitStr, Path, Token, Type,
 };
 
 use crate::reflect::{
@@ -14,7 +14,11 @@ use crate::reflect::{
     type_registration::type_registration,
 };
 
-const PRIMITIVE_ATTRIBUTE_NAME: &str = "primitive";
+const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
+
+mod kw {
+    syn::custom_keyword!(primitive);
+}
 
 /// Implements reflection for a type as a `Kind::Primitive`, whose internals are not reflected.
 ///
@@ -24,7 +28,7 @@ const PRIMITIVE_ATTRIBUTE_NAME: &str = "primitive";
 /// - `#[type_path = "path::to::Type"] SomeType(Trait)`: for non-generic types whose type path cannot be
 ///   inferred from their syntax (ex: `&'static str`).
 ///
-/// Both forms accept an optional `#[primitive(Variant)]` attribute, which selects the `Primitive`
+/// Both forms accept an optional `#[reflect(primitive = Variant)]` attribute, which selects the `Primitive`
 /// variant. It defaults to `Primitive::Opaque`.
 pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, syn::Error> {
     let bevy_reflect = BevyManifest::shared(|manifest| manifest.get_path("bevy_reflect2"));
@@ -171,15 +175,47 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
     })
 }
 
-/// Removes the `#[primitive(Variant)]` attribute from `attrs` and returns its variant (if it exists).
+/// Removes the `#[reflect(primitive = Variant)]` attributes from `attrs` and returns the variant (if
+/// one is specified). Traits and type data are registered in the trailing parentheses instead, so
+/// `primitive` is the only option supported by these attributes.
 fn take_primitive_attribute(attrs: &mut Vec<Attribute>) -> Result<Option<Ident>, syn::Error> {
-    let Some(index) = attrs
-        .iter()
-        .position(|attr| attr.path().is_ident(PRIMITIVE_ATTRIBUTE_NAME))
-    else {
-        return Ok(None);
-    };
-    attrs.remove(index).parse_args::<Ident>().map(Some)
+    let mut primitive = None;
+    let mut result = Ok(());
+    attrs.retain(|attr| {
+        if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
+            return true;
+        }
+        let parsed = attr.parse_args_with(|input: ParseStream| {
+            let keyword = input.parse::<kw::primitive>().map_err(|err| {
+                syn::Error::new(
+                    err.span(),
+                    "expected `primitive = Variant` (traits and type data are registered in the trailing parentheses)",
+                )
+            })?;
+            input.parse::<Token![=]>()?;
+            let variant = input.parse::<Ident>()?;
+            input.parse::<Option<Token![,]>>()?;
+            Ok((keyword, variant))
+        });
+        let parsed = parsed.and_then(|(keyword, variant)| {
+            if primitive.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span,
+                    "the primitive variant is already specified",
+                ));
+            }
+            primitive = Some(variant);
+            Ok(())
+        });
+        if let Err(err) = parsed {
+            match &mut result {
+                Ok(()) => result = Err(err),
+                Err(existing) => existing.combine(err),
+            }
+        }
+        false
+    });
+    result.map(|()| primitive)
 }
 
 /// Returns a static `TypePath` for a full type path string, such as `alloc::borrow::Cow<str>`.

@@ -9,6 +9,6 @@ use crate::{self as bevy_reflect2, impl_reflect_primitive};
 // `Infallible` has no values, so its vtable functions can never be called. They are still
 // provided so that types containing it (ex: `Result<T, Infallible>`) can use them structurally.
 impl_reflect_primitive!(
-    #[primitive(Never)]
+    #[reflect(primitive = Never)]
     ::core::convert::Infallible(Clone, Debug, Hash, PartialEq, PartialOrd)
 );

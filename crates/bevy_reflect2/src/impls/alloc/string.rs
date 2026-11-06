@@ -1,7 +1,7 @@
 use crate::{self as bevy_reflect2, impl_reflect_primitive};
 
 impl_reflect_primitive!(
-    #[primitive(String)]
+    #[reflect(primitive = String)]
     ::alloc::string::String(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 

@@ -5,71 +5,71 @@ use crate::{
 use core::{alloc::Layout, any::TypeId};
 
 impl_reflect_primitive!(
-    #[primitive(Bool)]
+    #[reflect(primitive = Bool)]
     bool(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Char)]
+    #[reflect(primitive = Char)]
     char(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     u8(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     u16(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     u32(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     u64(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     u128(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     usize(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     i8(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     i16(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     i32(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     i64(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     i128(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Int)]
+    #[reflect(primitive = Int)]
     isize(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Float)]
+    #[reflect(primitive = Float)]
     f32(Clone, Debug, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Float)]
+    #[reflect(primitive = Float)]
     f64(Clone, Debug, PartialEq, PartialOrd, Default)
 );
 impl_reflect_primitive!(
-    #[primitive(Unit)]
+    #[reflect(primitive = Unit)]
     #[type_path = "()"]
     ()(Clone, Debug, Hash, PartialEq, PartialOrd, Default)
 );

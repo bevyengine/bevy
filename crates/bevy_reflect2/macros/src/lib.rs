@@ -44,8 +44,8 @@ pub fn impl_reflect(input: TokenStream) -> TokenStream {
 }
 
 /// Implements reflection for a type as a primitive (`Kind::Primitive`), whose internals are not
-/// reflected. The `Primitive` variant is selected with an optional `#[primitive(Variant)]`
-/// attribute, and defaults to [`Primitive::Opaque`](https://docs.rs/bevy_reflect/latest/bevy_reflect/enum.Primitive.html).
+/// reflected. The `Primitive` variant is selected with an optional
+/// `#[reflect(primitive = Variant)]` attribute, and defaults to [`Primitive::Opaque`](https://docs.rs/bevy_reflect/latest/bevy_reflect/enum.Primitive.html).
 ///
 /// The type is specified using its full path (starting with the crate name), followed by
 /// the traits and type data to register in parentheses. Generic parameters can declare bounds.
@@ -57,7 +57,7 @@ pub fn impl_reflect(input: TokenStream) -> TokenStream {
 /// ```ignore
 /// impl_reflect_primitive!(::core::time::Duration(Clone, Debug, Hash, PartialEq, PartialOrd, Default));
 /// impl_reflect_primitive!(::core::ops::Range<T: Clone>(Clone));
-/// impl_reflect_primitive!(#[primitive(Int)] u32(Clone, Debug, Hash, PartialEq, PartialOrd, Default));
+/// impl_reflect_primitive!(#[reflect(primitive = Int)] u32(Clone, Debug, Hash, PartialEq, PartialOrd, Default));
 /// impl_reflect_primitive!(#[type_path = "core::panic::Location"] &'static Location<'static>(Clone, Debug));
 /// ```
 #[proc_macro]
