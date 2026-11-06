@@ -19,15 +19,12 @@ mod linux;
 #[cfg(target_os = "linux")]
 use linux::preferences_dir as platform_preferences_dir;
 
-/// Returns the path to the directory used for application settings. This version
-/// always returns `None`.
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-pub fn preferences_dir() -> Option<PathBuf> {
+fn platform_preferences_dir() -> Option<PathBuf> {
     None
 }
 
 /// Returns the path to the directory used for application settings.
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 pub fn preferences_dir() -> Option<PathBuf> {
     std::env::var_os("BEVY_SETTINGS_DIR")
         .and_then(is_absolute_path)
@@ -39,7 +36,6 @@ pub fn preferences_dir() -> Option<PathBuf> {
 /// [XDG Base Directory Specification] requires that the path specified in environment variables must be absolute. If it's not, we should ignore it and fallback to the default path.
 ///
 /// [XDG Base Directory Specification]: https://specifications.freedesktop.org/basedir/latest/
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 fn is_absolute_path(path: impl Into<PathBuf>) -> Option<PathBuf> {
     let path = path.into();
     if path.is_absolute() {
@@ -88,7 +84,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(unix)]
     fn env_override_unix() {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: ENV_LOCK prevents concurrent environment access.
@@ -102,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[cfg(unix)]
     fn env_override_unix_relative() {
         let _guard = ENV_LOCK.lock().unwrap();
         // SAFETY: ENV_LOCK prevents concurrent environment access.
