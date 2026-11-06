@@ -8,7 +8,7 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize};
+use bevy_text::{ComputedTextBlock, FontCx};
 use bevy_utils::default;
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
@@ -23,7 +23,7 @@ use taffy::{
 use crate::{
     layout::UiTreeDirty, val::CalcOp, ContentSize, FixedNode, GhostNode, IgnoreScroll,
     LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
-    ScrollPosition, UiTransform, Val, ValContext,
+    ScrollPosition, UiTransform, ValContext,
 };
 
 #[expect(
