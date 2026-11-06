@@ -1412,7 +1412,7 @@ impl Mesh {
 
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
-        let mut block = vec![0; BLOCK_VERTICES * vertex_size];
+        let mut block = vec![0; BLOCK_VERTICES.min(vertex_count) * vertex_size];
         // bundle into interleaved buffers
         for block_start in (0..vertex_count).step_by(BLOCK_VERTICES) {
             let count = BLOCK_VERTICES.min(vertex_count - block_start);
