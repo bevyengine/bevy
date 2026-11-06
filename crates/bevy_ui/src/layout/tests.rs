@@ -131,7 +131,12 @@ fn calc_layout_resolves_percentages_and_updates_context() {
     );
 
     let style = app.world().get::<TaffyStyle>(child).unwrap();
-    assert_eq!(style.calcs[0].resolve(600.0), 230.0);
+    assert_eq!(
+        style.calcs[0]
+            .resolve(600.0, &ValContext::default())
+            .unwrap(),
+        230.0
+    );
     let mut font_system = bevy_text::FontCx::default();
     let measure_args = crate::MeasureArgs {
         known_width: None,
