@@ -151,6 +151,7 @@ extern crate std;
 extern crate self as bevy_asset;
 
 pub mod asset_changed;
+pub mod await_loads;
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -205,6 +206,7 @@ pub use uuid;
 pub mod common_loaders;
 
 use crate::{
+    await_loads::AwaitLoadsPlugin,
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
@@ -437,7 +439,8 @@ impl Plugin for AssetPlugin {
                 )
                     .chain(),
             )
-            .register_diagnostic(Diagnostic::new(AssetServer::STARTED_LOAD_COUNT));
+            .register_diagnostic(Diagnostic::new(AssetServer::STARTED_LOAD_COUNT))
+            .add_plugins(AwaitLoadsPlugin);
     }
 }
 
@@ -998,7 +1001,7 @@ mod tests {
         (app, dir)
     }
 
-    fn create_app_with_gate(dir: Dir) -> (App, GateOpener) {
+    pub(crate) fn create_app_with_gate(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
         app.register_asset_source(
@@ -1017,7 +1020,10 @@ mod tests {
         (app, gate_opener)
     }
 
-    pub fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
+    pub(crate) fn run_app_until(
+        app: &mut App,
+        mut predicate: impl FnMut(&mut World) -> Option<()>,
+    ) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
             if predicate(app.world_mut()).is_some() {
@@ -2092,13 +2098,13 @@ mod tests {
 
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
-    pub struct TestAsset;
+    pub(crate) struct TestAsset;
 
     // Test that `VisitAssetDependencies` can be derived without deriving
     // `Asset`, and that the type can be used as a `#[dependency]` within an
     // asset.
     #[derive(VisitAssetDependencies)]
-    pub struct TestNonAssetType(#[dependency] Handle<TestAsset>);
+    pub(crate) struct TestNonAssetType(#[dependency] Handle<TestAsset>);
 
     #[derive(Asset, TypePath)]
     #[expect(
@@ -2893,7 +2899,7 @@ mod tests {
 
     /// A loader that immediately returns a [`TestAsset`].
     #[derive(TypePath)]
-    struct TrivialLoader;
+    pub(crate) struct TrivialLoader;
 
     impl AssetLoader for TrivialLoader {
         type Asset = TestAsset;
