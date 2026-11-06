@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use core::{fmt::Debug, ops::Deref};
+use core::{any::Any, fmt::Debug, ops::Deref};
 
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use indexmap::IndexSet;
@@ -25,6 +25,8 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         &mut self,
         set: SystemSetKey,
         systems: &IndexSet<SystemKey, FixedHasher>,
+        world: &mut World,
+        graph: &mut ScheduleGraph,
         dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)>;
 
@@ -104,7 +106,7 @@ impl FlattenedDependencies<'_> {
 }
 
 /// Object safe version of [`ScheduleBuildPass`].
-pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
+pub(super) trait ScheduleBuildPassObj: Any + Send + Sync + Debug {
     fn build(
         &mut self,
         world: &mut World,
@@ -116,6 +118,8 @@ pub(super) trait ScheduleBuildPassObj: Send + Sync + Debug {
         &mut self,
         set: SystemSetKey,
         systems: &IndexSet<SystemKey, FixedHasher>,
+        world: &mut World,
+        graph: &mut ScheduleGraph,
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     );
@@ -135,10 +139,12 @@ impl<T: ScheduleBuildPass> ScheduleBuildPassObj for T {
         &mut self,
         set: SystemSetKey,
         systems: &IndexSet<SystemKey, FixedHasher>,
+        world: &mut World,
+        graph: &mut ScheduleGraph,
         dependency_flattening: &DiGraph<NodeId>,
         dependencies_to_add: &mut Vec<(NodeId, NodeId)>,
     ) {
-        let iter = self.collapse_set(set, systems, dependency_flattening);
+        let iter = self.collapse_set(set, systems, world, graph, dependency_flattening);
         dependencies_to_add.extend(iter);
     }
     fn add_dependency(&mut self, from: NodeId, to: NodeId, is_weak: bool, ignore_deferred: bool) {

@@ -754,9 +754,9 @@ impl SystemSets {
         self.ids.contains_key(&set.intern())
     }
 
-    /// Returns a reference to the system set with the given key, if it exists.
-    pub fn get(&self, key: SystemSetKey) -> Option<&dyn SystemSet> {
-        self.sets.get(key).map(|set| &**set)
+    /// Returns the system set with the given key, if it exists.
+    pub fn get(&self, key: SystemSetKey) -> Option<InternedSystemSet> {
+        self.sets.get(key).copied()
     }
 
     /// Returns the key for the given system set, returns None if it does not exist.
@@ -800,10 +800,10 @@ impl SystemSets {
     /// their conditions.
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = (SystemSetKey, &dyn SystemSet, &[ConditionWithAccess])> {
+    ) -> impl Iterator<Item = (SystemSetKey, InternedSystemSet, &[ConditionWithAccess])> {
         self.sets.iter().filter_map(|(key, set)| {
             let conditions = self.conditions.get(key)?.as_slice();
-            Some((key, &**set, conditions))
+            Some((key, *set, conditions))
         })
     }
 
@@ -891,11 +891,11 @@ impl SystemSets {
 }
 
 impl Index<SystemSetKey> for SystemSets {
-    type Output = dyn SystemSet;
+    type Output = InternedSystemSet;
 
     #[track_caller]
     fn index(&self, key: SystemSetKey) -> &Self::Output {
-        self.get(key).unwrap_or_else(|| {
+        self.sets.get(key).unwrap_or_else(|| {
             panic!(
                 "System set with key {:?} does not exist in the schedule",
                 key
