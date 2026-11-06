@@ -334,19 +334,11 @@ impl DeriveComponent {
                 struct_token,
                 ..
             }) = &ast.data
-            && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+            && let Ok(_) = relationship_field(fields, "Relationship", struct_token.span())
         {
-            let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
             if relationship.is_some() {
                 quote! {
-                    #FQOption::Some(
-                        // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
-                        unsafe {
-                            #bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship(
-                                ::core::mem::offset_of!(Self, #relationship_member)
-                            )
-                        }
-                    )
+                    #FQOption::Some(#bevy_ecs::relationship::ComponentRelationshipAccessor::<Self>::relationship())
                 }
             } else {
                 quote! {
@@ -414,6 +406,7 @@ impl DeriveComponent {
         };
         let field = relationship_field(fields, "Relationship", struct_token.span())?;
 
+        let collection = &field.ty;
         let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
         let members = fields
             .members()
@@ -428,26 +421,31 @@ impl DeriveComponent {
         let fqdefault = FQDefault.into_token_stream();
 
         Ok(Some(quote! {
+            impl #impl_generics #bevy_ecs::relationship::RelationshipBase for #struct_name #type_generics #where_clause {
+                type Side = #bevy_ecs::relationship::Source;
+            }
+
             impl #impl_generics #bevy_ecs::relationship::Relationship for #struct_name #type_generics #where_clause {
                 type RelationshipTarget = #relationship_target;
+                type Collection = #collection;
                 const ALLOW_SELF_REFERENTIAL: bool = #allow_self_referential;
 
                 #[inline(always)]
-                fn get(&self) -> #bevy_ecs::entity::Entity {
-                    self.#relationship_member
+                fn collection(&self) -> &Self::Collection {
+                    &self.#relationship_member
+                }
+
+                #[inline(always)]
+                fn collection_mut_risky(&mut self) -> &mut Self::Collection {
+                    &mut self.#relationship_member
                 }
 
                 #[inline]
                 fn from(entity: #bevy_ecs::entity::Entity) -> Self {
                     Self {
                         #(#members: #fqdefault::default(),)*
-                        #relationship_member: entity
+                        #relationship_member: <Self::Collection as #bevy_ecs::relationship::RelationshipCollection>::from(entity)
                     }
-                }
-
-                #[inline]
-                fn set_risky(&mut self, entity: #bevy_ecs::entity::Entity) {
-                    self.#relationship_member = entity;
                 }
             }
         }))
@@ -491,6 +489,10 @@ impl DeriveComponent {
         let linked_spawn = relationship_target.linked_spawn;
         let fqdefault = FQDefault.into_token_stream();
         Ok(Some(quote! {
+            impl #impl_generics #bevy_ecs::relationship::RelationshipBase for #struct_name #type_generics #where_clause {
+                type Side = #bevy_ecs::relationship::Target;
+            }
+
             impl #impl_generics #bevy_ecs::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
                 const LINKED_SPAWN: bool = #linked_spawn;
                 type Relationship = #relationship;

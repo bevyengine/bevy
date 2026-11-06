@@ -3,7 +3,7 @@ use crate::{
     entity::{Entity, EntityIndexSet},
     prelude::Children,
     relationship::{
-        Relationship, RelationshipHookMode, RelationshipSourceCollection, RelationshipTarget,
+        Relationship, RelationshipCollection, RelationshipHookMode, RelationshipTarget,
     },
     system::{Commands, EntityCommands},
     world::{DeferredWorld, EntityWorldMut, World},
@@ -11,7 +11,7 @@ use crate::{
 use bevy_platform::prelude::{Box, Vec};
 use core::{marker::PhantomData, mem};
 
-use super::OrderedRelationshipSourceCollection;
+use super::OrderedRelationshipCollection;
 
 impl<'w> EntityWorldMut<'w> {
     /// Spawns an entity related to this entity (with the `R` relationship) by taking a bundle
@@ -86,8 +86,7 @@ impl<'w> EntityWorldMut<'w> {
     /// ```
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where
-        <R::RelationshipTarget as RelationshipTarget>::Collection:
-            OrderedRelationshipSourceCollection,
+        <R::RelationshipTarget as RelationshipTarget>::Collection: OrderedRelationshipCollection,
     {
         let id = self.id();
         self.world_scope(|world| {
@@ -95,7 +94,7 @@ impl<'w> EntityWorldMut<'w> {
                 let index = index.saturating_add(offset);
                 if world
                     .get::<R>(*related)
-                    .is_some_and(|relationship| relationship.get() == id)
+                    .is_some_and(|relationship| relationship.collection().contains(id))
                 {
                     world
                         .get_mut::<R::RelationshipTarget>(id)
@@ -128,7 +127,7 @@ impl<'w> EntityWorldMut<'w> {
             for related in related {
                 if world
                     .get::<R>(*related)
-                    .is_some_and(|relationship| relationship.get() == id)
+                    .is_some_and(|relationship| relationship.collection().contains(id))
                 {
                     world.entity_mut(*related).remove::<R>();
                 }
@@ -392,7 +391,9 @@ impl<'w> EntityWorldMut<'w> {
                     .modify_component_with_relationship_hook_mode::<R, _>(
                         this,
                         relationship_hook_mode,
-                        |r| r.set_risky(entity),
+                        |r| {
+                            let _ = r.collection_mut_risky().add(entity);
+                        },
                     )
                     .expect("entity access must be valid")
                     .is_some();
@@ -454,8 +455,7 @@ impl<'a> EntityCommands<'a> {
     /// This will not re-order existing related entities unless they are in `related`.
     pub fn insert_related<R: Relationship>(&mut self, index: usize, related: &[Entity]) -> &mut Self
     where
-        <R::RelationshipTarget as RelationshipTarget>::Collection:
-            OrderedRelationshipSourceCollection,
+        <R::RelationshipTarget as RelationshipTarget>::Collection: OrderedRelationshipCollection,
     {
         let related: Box<[Entity]> = related.into();
 
