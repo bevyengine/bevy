@@ -1,4 +1,5 @@
 use bevy_ecs::{
+    change_detection::MutNoComp,
     component::Mutable,
     prelude::*,
     system::{Query, SystemParam},
@@ -251,7 +252,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     ) -> Option<(
         Entity,
         usize,
-        Mut<'_, String>,
+        MutNoComp<'_, String>,
         Mut<'_, TextFont>,
         Mut<'_, TextColor>,
         Mut<'_, LineHeight>,
@@ -336,7 +337,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<Mut<'_, String>> {
+    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<MutNoComp<'_, String>> {
         self.get(root_entity, index).map(|(_, _, text, ..)| text)
     }
 
@@ -374,7 +375,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn text(&mut self, root_entity: Entity, index: usize) -> Mut<'_, String> {
+    pub fn text(&mut self, root_entity: Entity, index: usize) -> MutNoComp<'_, String> {
         self.get_text(root_entity, index).unwrap()
     }
 
@@ -411,7 +412,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         mut callback: impl FnMut(
             Entity,
             usize,
-            Mut<String>,
+            MutNoComp<String>,
             Mut<TextFont>,
             Mut<TextColor>,
             Mut<LineHeight>,
@@ -425,7 +426,11 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
     }
 
     /// Invokes a callback on each span's string value in a text block, starting with the root entity.
-    pub fn for_each_text(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<String>)) {
+    pub fn for_each_text(
+        &mut self,
+        root_entity: Entity,
+        mut callback: impl FnMut(MutNoComp<String>),
+    ) {
         self.for_each(root_entity, |_, _, text, _, _, _, _| {
             (callback)(text);
         });
@@ -481,7 +486,7 @@ impl<'w, 's, R: TextSection> TextWriter<'w, 's, R> {
         mut callback: impl FnMut(
             Entity,
             usize,
-            Mut<String>,
+            MutNoComp<String>,
             Mut<TextFont>,
             Mut<TextColor>,
             Mut<LineHeight>,
