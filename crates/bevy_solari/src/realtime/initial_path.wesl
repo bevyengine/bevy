@@ -5,8 +5,7 @@ import bevy_render::utils::octahedral_encode;
 import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, EvaluateAndSampleBrdfResult, F_AB};
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
 import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
-import package::realtime::atmosphere::calculate_light_contribution;
-import package::scene::sampling::{isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
+import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
@@ -298,7 +297,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
     for (var i = 0u; i < di_samples; i++) {
         let tile_sample = light_tile_start + rand_range_u(1024u, rng);
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
-        let light_contribution = calculate_light_contribution(resolved_light_sample, ray_origin, normal);
+        let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, normal);
         let brdf_current = evaluate_brdf(wo, light_contribution.wi, normal, material, F_ab);
         let brdf_radiance = brdf_current * light_contribution.radiance;
 
