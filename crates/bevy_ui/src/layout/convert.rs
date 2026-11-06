@@ -58,7 +58,7 @@ impl Val {
                 calcs.push(calc);
                 value
             }
-            _ => panic!("Non-physical `Val`."),
+            val => panic!("Expected a physical `Val` after conversion, got {val:?}."),
         }
     }
 
@@ -82,7 +82,7 @@ impl Val {
                 calcs.push(calc);
                 value
             }
-            _ => panic!("Non-physical `Val`."),
+            val => panic!("Expected a physical `Val` after conversion, got {val:?}."),
         }
     }
 
