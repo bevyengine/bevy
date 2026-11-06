@@ -544,7 +544,7 @@ fn start_animation(
     scene_gltf: Res<SceneGltf>,
     gltfs: Res<Assets<Gltf>>,
     clips: Res<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
     mut film_length: ResMut<FilmLength>,
     children: Query<&Children>,
     mut players: Query<&mut AnimationPlayer>,
@@ -562,7 +562,7 @@ fn start_animation(
         .filter_map(|h| clips.get(h).map(AnimationClip::duration))
         .fold(0.0_f32, f32::max);
 
-    let (graph, nodes) = AnimationGraph::from_clips(gltf.animations.iter().cloned());
+    let (graph, nodes) = BlendGraph::from_clips(gltf.animations.iter().cloned());
     let graph = graphs.add(graph);
     for entity in children.iter_descendants(scene_ready.entity) {
         if let Ok(mut player) = players.get_mut(entity) {
@@ -571,7 +571,7 @@ fn start_animation(
             }
             commands
                 .entity(entity)
-                .insert(AnimationGraphHandle(graph.clone()));
+                .insert(BlendGraphHandle(graph.clone()));
         }
     }
     info!(
