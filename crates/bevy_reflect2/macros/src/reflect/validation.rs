@@ -1,4 +1,4 @@
-//! Checks that reject reflected definitions that would make the generated type information unsound.
+//! Ensures that reflected definitions that would make the generated type information unsound are rejected.
 
 use proc_macro2::TokenStream;
 use quote::quote;
