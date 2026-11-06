@@ -79,7 +79,6 @@ pub fn update_hits(
     ray_map: Res<RayMap>,
     picking_cameras: Query<(&Camera, Has<MeshPickingCamera>, Option<&RenderLayers>)>,
     pickables: Query<&Pickable>,
-    marked_targets: Query<&Pickable>,
     layers: Query<&RenderLayers>,
     mut ray_cast: MeshRayCast,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
@@ -97,14 +96,16 @@ pub fn update_hits(
         let settings = MeshRayCastSettings {
             visibility: backend_settings.ray_cast_visibility,
             filter: &|entity| {
+                let option_pickable = pickables.get(entity).ok();
+
                 let marker_requirement =
-                    !backend_settings.require_markers || marked_targets.get(entity).is_ok();
+                    !backend_settings.require_markers || option_pickable.is_some();
 
                 // Other entities missing render layers are on the default layer 0
                 let entity_layers = layers.get(entity).cloned().unwrap_or_default();
                 let render_layers_match = cam_layers.intersects(&entity_layers);
 
-                let is_pickable = pickables.get(entity).ok().is_none_or(|p| p.is_hoverable);
+                let is_pickable = option_pickable.is_none_or(|p| p.is_hoverable);
 
                 marker_requirement && render_layers_match && is_pickable
             },
