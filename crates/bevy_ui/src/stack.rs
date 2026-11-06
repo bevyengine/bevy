@@ -14,7 +14,9 @@ use core::ops::Range;
 /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
 ///
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
-#[derive(Component, Default, PartialEq, Eq, Deref, DerefMut, Reflect)]
+#[derive(
+    Component, Default, Clone, Copy, Ord, Debug, PartialEq, PartialOrd, Eq, Deref, DerefMut, Reflect,
+)]
 #[reflect(Component, Default)]
 pub struct ComputedStackIndex(pub u32);
 

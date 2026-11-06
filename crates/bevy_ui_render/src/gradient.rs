@@ -6,6 +6,7 @@ use core::{
 
 use super::shader_flags::BORDER_ALL;
 use crate::clipping::clip_polygon;
+use crate::paint_layers::{BORDER_GRADIENT_PAINT_LAYER, GRADIENT_PAINT_LAYER};
 use crate::*;
 use bevy_asset::*;
 use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Okhsla, Oklaba, Oklcha, Srgba};
@@ -231,7 +232,7 @@ pub enum ResolvedGradient {
 }
 
 pub struct ExtractedGradient {
-    pub stack_index: u32,
+    pub stack_index: ComputedStackIndex,
     pub transform: Affine2,
     pub rect: Rect,
     pub clip: Option<CalculatedClip>,
@@ -486,7 +487,7 @@ pub fn extract_gradients(
                         .insert(
                             commands.spawn_empty().id(),
                             ExtractedGradient {
-                                stack_index: stack_index.0,
+                                stack_index: *stack_index,
                                 transform: transform.into(),
                                 stops: extracted_stops,
                                 rect: Rect {
@@ -529,7 +530,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index: *stack_index,
                                     transform: transform.into(),
                                     stops: extracted_stops,
                                     rect: Rect {
@@ -588,7 +589,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index: *stack_index,
                                     transform: transform.into(),
                                     stops: computed_stops,
                                     rect: Rect {
@@ -649,7 +650,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index: *stack_index,
                                     transform: transform.into(),
                                     stops: extracted_color_stops,
                                     rect: Rect {
@@ -704,6 +705,7 @@ pub fn extract_gradients(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_gradient(
+    paint_order: Res<PaintOrder>,
     extracted_gradients: ResMut<ExtractedGradients>,
     gradients_pipeline: Res<GradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<GradientPipeline>>,
@@ -741,6 +743,13 @@ pub fn queue_gradient(
             continue;
         };
         for (render_entity, gradient) in sub_gradients.iter() {
+            let Ok(paint_layer) = paint_order.get_layer_index(match gradient.node_type {
+                NodeType::Rect | NodeType::Inverted => GRADIENT_PAINT_LAYER,
+                NodeType::Border(_) => BORDER_GRADIENT_PAINT_LAYER,
+            }) else {
+                continue;
+            };
+
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &gradients_pipeline,
@@ -755,13 +764,7 @@ pub fn queue_gradient(
                 draw_function,
                 pipeline,
                 entity: (*render_entity, *main_entity),
-                sort_key: FloatOrd(
-                    gradient.stack_index as f32
-                        + match gradient.node_type {
-                            NodeType::Rect | NodeType::Inverted => stack_z_offsets::GRADIENT,
-                            NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                        },
-                ),
+                sort_key: UiSortKey::new(gradient.stack_index, paint_layer),
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
