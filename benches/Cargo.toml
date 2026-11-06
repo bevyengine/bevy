@@ -42,6 +42,7 @@ bevy_platform = { path = "../crates/bevy_platform", optional = true, default-fea
   "std",
   "bytemuck",
 ] }
+wgpu-types = { version = "30", optional = true, default-features = false }
 
 # Other crates
 glam = { version = "0.33.2", default-features = false, features = [
@@ -106,6 +107,7 @@ bench_render = [
   "dep:bevy_extract",
   "dep:bevy_mesh",
   "dep:bevy_reflect",
+  "dep:wgpu-types",
 ]
 
 bench_scene = [
