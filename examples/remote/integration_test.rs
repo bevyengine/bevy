@@ -248,7 +248,8 @@ fn click(client: &BrpClient, node: Entity) -> AnyhowResult<u32> {
             window: None,
             position: None,
             button: MouseButton::Left,
-            hold: 1,
+            state: None,
+            hold: None,
         },
     )?;
     let response: BrpClickResponse = serde_json::from_value(response)?;
