@@ -173,7 +173,7 @@ impl Type {
     ///
     /// # Safety
     ///
-    /// `func` must initialize every pointer to a valid value that matches the type described in each [`Field`].
+    /// `func` must initialize every pointer to a valid value that matches the type described in each [`StructField`].
     /// The pointers may point to uninitialized memory, so values must be written without reading or
     /// dropping the previous value (ex: with [`ptr::write`]), rather than assigned through a
     /// reference.
