@@ -1,7 +1,7 @@
 ---
 title: Billboard Material
 authors: ["@barsoosayque"]
-pull_requests: []
+pull_requests: [26411]
 ---
 
 Billboards are meshes that always face the camera.
