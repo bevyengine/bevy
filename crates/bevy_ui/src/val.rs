@@ -476,6 +476,7 @@ impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
             Val::Auto => {}
+            _ if rhs == 0.0 => *self = Val::ZERO,
             Val::Px(value)
             | Val::Percent(value)
             | Val::Vw(value)
