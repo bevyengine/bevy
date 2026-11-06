@@ -429,7 +429,9 @@ pub struct ViewPhaseBinUnpackingBindGroups {
     indexed: Vec<ViewPhaseBinUnpackingBindGroup>,
     /// The bind groups for the non-indexed meshes, one for each batch set.
     non_indexed: Vec<ViewPhaseBinUnpackingBindGroup>,
+    /// The cached bind groups for the indexed meshes, keyed by bound buffers.
     indexed_cache: SceneUnpackingBindGroupCache<5>,
+    /// The cached bind groups for the non-indexed meshes, keyed by bound buffers.
     non_indexed_cache: SceneUnpackingBindGroupCache<5>,
 }
 
@@ -465,7 +467,9 @@ pub struct ViewPhaseUniformAllocationBindGroups {
     indexed: Vec<ViewPhaseUniformAllocationBindGroup>,
     /// The bind groups for the non-indexed meshes, one for each batch set.
     non_indexed: Vec<ViewPhaseUniformAllocationBindGroup>,
+    /// The cached bind groups for the indexed meshes, keyed by bound buffers.
     indexed_cache: SceneUnpackingBindGroupCache<4>,
+    /// The cached bind groups for the non-indexed meshes, keyed by bound buffers.
     non_indexed_cache: SceneUnpackingBindGroupCache<4>,
 }
 
