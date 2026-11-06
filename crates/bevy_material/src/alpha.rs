@@ -33,17 +33,30 @@ pub enum AlphaMode {
     /// Can be used to avoid “border” or “outline” artifacts that can occur
     /// when using plain alpha-blended textures.
     Premultiplied,
-    /// Spreads the fragment out over a hardware-dependent number of sample
+    /// Uses [alpha to coverage] to render anti-aliased cutouts: an
+    /// anti-aliased version of [`AlphaMode::Mask`] with a threshold of 0.5.
+    ///
+    /// The fragment is spread out over a hardware-dependent number of sample
     /// locations proportional to the alpha value. This requires multisample
     /// antialiasing; if MSAA isn't on, this is identical to
     /// [`AlphaMode::Mask`] with a value of 0.5.
     ///
+    /// This mode is designed for textures whose alpha channel describes a
+    /// shape, like leaves, grass or fences. When the material has a base color
+    /// texture, [`StandardMaterial`] "sharpens" the alpha value around 0.5 so
+    /// that the transition from fully transparent to fully opaque spans roughly
+    /// one pixel, producing crisp edges that are smoothed by MSAA. As a
+    /// consequence, partial transparency in the texture is *not* preserved: use
+    /// [`AlphaMode::Blend`] for that instead. See
+    /// ["Anti-aliased Alpha Test: The Esoteric Alpha To Coverage"] for details.
+    ///
     /// Alpha to coverage provides improved performance and better visual
     /// fidelity over [`AlphaMode::Blend`], as Bevy doesn't have to sort objects
-    /// when it's in use. It's especially useful for complex transparent objects
-    /// like foliage.
+    /// when it's in use.
     ///
     /// [alpha to coverage]: https://en.wikipedia.org/wiki/Alpha_to_coverage
+    /// [`StandardMaterial`]: https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html
+    /// ["Anti-aliased Alpha Test: The Esoteric Alpha To Coverage"]: https://bgolus.medium.com/anti-aliased-alpha-test-the-esoteric-alpha-to-coverage-8b177335ae4f
     AlphaToCoverage,
     /// Combines the color of the fragments with the colors behind them in an
     /// additive process, (i.e. like light) producing lighter results.
