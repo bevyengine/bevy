@@ -1,0 +1,2 @@
+crate::ui::Widget { a: 1 }
+::bevy::ui::Node

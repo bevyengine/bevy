@@ -1,0 +1,3 @@
+@MySceneComp { @prop: 3, normal_field: 5 }
+@Panel { @size: Size { height: 5, ..wide() } }
+@Widget { @entity: #Name }

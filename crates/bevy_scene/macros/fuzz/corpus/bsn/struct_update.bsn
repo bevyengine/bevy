@@ -1,0 +1,2 @@
+Shape::Rect(Size { height: 5, ..wide() })
+Layout { size: Size { height: 5, ..wide } }
