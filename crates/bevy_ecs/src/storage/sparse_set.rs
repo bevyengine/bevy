@@ -305,6 +305,61 @@ impl ComponentSparseSet {
         }
     }
 
+    /// Returns a reference to the value that `entity` has for the component this sparse set
+    /// stores. Since the type `T` is statically known, it is more efficient than the untyped version.
+    ///
+    /// Returns `None` if `entity` does not have that component.
+    ///
+    /// # Safety
+    /// `T` must be the type of the component that this sparse set stores.
+    #[inline]
+    pub unsafe fn get_typed<T>(&self, entity: Entity) -> Option<&UnsafeCell<T>> {
+        let dense_index = *self.sparse.get(entity.index())?;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index.index()]);
+        // SAFETY:
+        // - the caller ensures that `T` is the type of the values in `dense`
+        // - the length of `dense` is the length of `entities`
+        // - if the sparse index points to something in the dense vec, it exists
+        unsafe {
+            Some(
+                self.dense
+                    .get_data_slice::<T>(self.entities.len())
+                    .get_unchecked(dense_index.index()),
+            )
+        }
+    }
+
+    /// Returns references to the value that `entity` has for the component this sparse set
+    /// stores, and to the [`ComponentTickCells`] of that value. It computes the address of the
+    /// value with the size of `T`.
+    ///
+    /// Returns `None` if `entity` does not have that component.
+    ///
+    /// # Safety
+    /// `T` must be the type of the component that this sparse set stores.
+    #[inline]
+    pub unsafe fn get_with_ticks_typed<T>(
+        &self,
+        entity: Entity,
+    ) -> Option<(&UnsafeCell<T>, ComponentTickCells<'_>)> {
+        let dense_index = *self.sparse.get(entity.index())?;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index.index()]);
+        // SAFETY:
+        // - the caller ensures that `T` is the type of the values in `dense`
+        // - the length of `dense` is the length of `entities`
+        // - if the sparse index points to something in the dense vec, it exists
+        unsafe {
+            Some((
+                self.dense
+                    .get_data_slice::<T>(self.entities.len())
+                    .get_unchecked(dense_index.index()),
+                self.dense.get_tick_cells_unchecked(dense_index),
+            ))
+        }
+    }
+
     /// Returns a reference to the "added" tick of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
