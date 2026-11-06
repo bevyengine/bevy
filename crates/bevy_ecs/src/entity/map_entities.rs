@@ -2,7 +2,7 @@ pub use bevy_ecs_macros::MapEntities;
 use indexmap::{IndexMap, IndexSet};
 
 use crate::{
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::{hash_map::EntityHashMap, Entity, UniqueEntityVec},
     world::World,
 };
 
@@ -174,6 +174,15 @@ impl<T: MapEntities> MapEntities for Vec<T> {
         for entities in self.iter_mut() {
             entities.map_entities(entity_mapper);
         }
+    }
+}
+
+impl MapEntities for UniqueEntityVec {
+    fn map_entities<E: EntityMapper>(&mut self, entity_mapper: &mut E) {
+        *self = mem::take(self)
+            .into_iter()
+            .map(|entity| entity_mapper.get_mapped(entity))
+            .collect();
     }
 }
 
