@@ -5,7 +5,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use core::{any::TypeId, time::Duration};
+use core::{any::TypeId, cmp::*, time::Duration};
 
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionRegistry;
 use bevy_ecs::{
@@ -40,6 +40,7 @@ use super::world::{RemoteWorld, SpawnRemoteError, TreeComponents};
 use crate::{
     details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
     entity_tree::{clear_rows, EntityTreeSync},
+    rank_subapp,
     remote::world::RemoteWorlds,
     InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, WorldKind,
 };
@@ -81,6 +82,26 @@ pub struct RemoteSource {
 impl Default for RemoteSource {
     fn default() -> Self {
         Self::localhost(DEFAULT_PORT)
+    }
+}
+
+impl PartialOrd for RemoteSource {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RemoteSource {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.host.0.cmp(other.host.0) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+        match self.port.cmp(&other.port) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+        rank_subapp(&self.subapp).cmp(&rank_subapp(&other.subapp))
     }
 }
 

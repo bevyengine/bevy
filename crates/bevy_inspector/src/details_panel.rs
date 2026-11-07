@@ -884,6 +884,9 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     if !inspector_sources.sources.contains(&edit.source) {
         return;
     }
+    if edit.source != InspectorSource::Local {
+        return;
+    }
     let Some(registry) = world.get_resource::<AppTypeRegistry>().cloned() else {
         return;
     };
