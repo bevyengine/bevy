@@ -1,6 +1,6 @@
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
-use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
+use crate::render_resource::RenderPassDescriptor;
 use crate::renderer::{wgpu_wrapper, RenderDevice};
 use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
@@ -19,17 +19,18 @@ use bevy_log::info_span;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::ComputeTaskPool;
 use core::marker::PhantomData;
-use wgpu::CommandBuffer;
 
 #[derive(Default)]
 struct PendingCommandBuffersInner {
     commands: Vec<PendingCommandBuffer>,
 }
+wgpu_wrapper!(pub struct WgpuCommandBuffer(wgpu::CommandBuffer));
+wgpu_wrapper!(pub struct WgpuCommandEncoder(wgpu::CommandEncoder));
 
 enum PendingCommandBuffer {
-    Buffer(CommandBuffer),
+    Buffer(WgpuCommandBuffer),
     Encoder {
-        encoder: CommandEncoder,
+        encoder: WgpuCommandEncoder,
         #[cfg(feature = "trace")]
         name: Cow<'static, str>,
     },
@@ -50,7 +51,7 @@ impl Default for PendingCommandBuffers {
 }
 
 impl PendingCommandBuffers {
-    pub fn push(&mut self, buffers: impl IntoIterator<Item = CommandBuffer>) {
+    pub fn push(&mut self, buffers: impl IntoIterator<Item = WgpuCommandBuffer>) {
         self.0
             .commands
             .extend(buffers.into_iter().map(PendingCommandBuffer::Buffer));
@@ -60,7 +61,11 @@ impl PendingCommandBuffers {
         self.0.commands.append(commands);
     }
 
-    pub fn push_encoder(&mut self, encoder: CommandEncoder, name: impl Into<Cow<'static, str>>) {
+    pub fn push_encoder(
+        &mut self,
+        encoder: WgpuCommandEncoder,
+        name: impl Into<Cow<'static, str>>,
+    ) {
         #[cfg(not(feature = "trace"))]
         let _ = name;
 
@@ -71,7 +76,7 @@ impl PendingCommandBuffers {
         });
     }
 
-    pub fn finish(&mut self) -> impl Iterator<Item = CommandBuffer> {
+    pub fn finish(&mut self) -> impl Iterator<Item = WgpuCommandBuffer> {
         #[cfg(feature = "trace")]
         let _finish_command_buffers_span = info_span!("finish_command_buffers").entered();
 
@@ -104,7 +109,7 @@ impl PendingCommandBuffers {
 #[cfg(target_arch = "wasm32")]
 fn finish_sequential(
     commands: impl Iterator<Item = PendingCommandBuffer>,
-) -> impl Iterator<Item = CommandBuffer> {
+) -> impl Iterator<Item = WgpuCommandBuffer> {
     commands.into_iter().map(|command| match command {
         PendingCommandBuffer::Buffer(command_buffer) => command_buffer,
         PendingCommandBuffer::Encoder { encoder, .. } => encoder.finish(),
@@ -116,7 +121,7 @@ fn finish_sequential(
 #[cfg(not(target_arch = "wasm32"))]
 fn finish_parallel(
     commands: impl Iterator<Item = PendingCommandBuffer>,
-) -> impl Iterator<Item = CommandBuffer> {
+) -> impl Iterator<Item = WgpuCommandBuffer> {
     let mut command_buffers = Vec::with_capacity(commands.size_hint().0);
     let mut finished_encoders = ComputeTaskPool::get().scope(|scope| {
         for (index, command) in commands.into_iter().enumerate() {
@@ -133,7 +138,7 @@ fn finish_parallel(
                         #[cfg(feature = "trace")]
                         let _span =
                             info_span!("finish_command_buffer", system = name.as_ref()).entered();
-                        (index, encoder.finish())
+                        (index, WgpuCommandBuffer(encoder.0.finish()))
                     });
                 }
             }
@@ -149,7 +154,7 @@ fn finish_parallel(
 
 #[derive(Default)]
 struct RenderContextStateInner {
-    command_encoder: Option<CommandEncoder>,
+    command_encoder: Option<WgpuCommandEncoder>,
     commands: Vec<PendingCommandBuffer>,
     render_device: Option<RenderDevice>,
 }
@@ -187,7 +192,7 @@ impl RenderContextState {
         self.0.flush_encoder();
     }
 
-    fn command_encoder(&mut self, label: &str) -> &mut CommandEncoder {
+    fn command_encoder(&mut self, label: &str) -> &mut WgpuCommandEncoder {
         let render_device = self
             .0
             .render_device
@@ -256,7 +261,7 @@ impl<'w, 's> RenderContext<'w, 's> {
     }
 
     /// Returns the current command encoder, creating one if it does not already exist.
-    pub fn command_encoder(&mut self) -> &mut CommandEncoder {
+    pub fn command_encoder(&mut self) -> &mut WgpuCommandEncoder {
         self.ensure_device();
         self.state.command_encoder(self.system_name.as_str())
     }
@@ -280,7 +285,7 @@ impl<'w, 's> RenderContext<'w, 's> {
     }
 
     /// Adds a finished command buffer to be submitted later.
-    pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
+    pub fn add_command_buffer(&mut self, command_buffer: WgpuCommandBuffer) {
         self.state.flush_encoder();
         self.state
             .0
@@ -303,7 +308,7 @@ impl<'w> FlushCommands<'w> {
     pub fn flush(&mut self) {
         let mut buffers = self.pending.finish().peekable();
         if buffers.peek().is_some() {
-            self.queue.submit(buffers);
+            self.queue.submit(buffers.map(|buffer| buffer.0));
         }
     }
 }
