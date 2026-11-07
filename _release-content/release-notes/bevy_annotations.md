@@ -23,4 +23,4 @@ struct Movement {
 ```
 
 Tools read them back with `get_attribute::<T>()` on the type, field or variant info.
-`ValueRange::from_attributes` also accepts a plain `RangeInclusive` of any numeric type.
+`CustomAttributes::value_range` also accepts a plain `RangeInclusive` of any numeric type.
