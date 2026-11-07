@@ -622,6 +622,9 @@ impl ActiveAnimation {
     }
 
     /// Sets the weight of this animation.
+    ///
+    /// This scales the node's [`BlendGraph`] weight for this player only,
+    /// including blend and additive blend nodes.
     pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
         self
@@ -1171,6 +1174,9 @@ pub fn animate_targets(
                     .copied()
                     .unwrap_or(threaded_blend_subgraph.sorted_edges.len() as u32);
 
+                let active_animation = animation_player.animation(blend_graph_node_index);
+                let node_weight = blend_graph_node.active_weight(active_animation);
+
                 match blend_graph_node.node_type {
                     BlendNodeType::Blend => {
                         // This is a blend node.
@@ -1182,10 +1188,9 @@ pub fn animate_targets(
                             }
                         }
 
-                        if let Err(err) = evaluation_state.push_blend_register_all(
-                            blend_graph_node.weight,
-                            blend_graph_node_index,
-                        ) {
+                        if let Err(err) = evaluation_state
+                            .push_blend_register_all(node_weight, blend_graph_node_index)
+                        {
                             warn!("Animation blending failed: {:?}", err);
                         }
                     }
@@ -1200,20 +1205,16 @@ pub fn animate_targets(
                             }
                         }
 
-                        if let Err(err) = evaluation_state.push_blend_register_all(
-                            blend_graph_node.weight,
-                            blend_graph_node_index,
-                        ) {
+                        if let Err(err) = evaluation_state
+                            .push_blend_register_all(node_weight, blend_graph_node_index)
+                        {
                             warn!("Animation blending failed: {:?}", err);
                         }
                     }
 
                     BlendNodeType::Clip(ref animation_clip_handle) => {
                         // This is a clip node.
-                        let Some(active_animation) = animation_player
-                            .active_animations
-                            .get(&blend_graph_node_index)
-                        else {
+                        let Some(active_animation) = active_animation else {
                             continue;
                         };
 
@@ -1259,7 +1260,6 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        let weight = active_animation.weight * blend_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
@@ -1285,7 +1285,7 @@ pub fn animate_targets(
                                 &*curve.0,
                                 curve_evaluator,
                                 seek_time,
-                                weight,
+                                node_weight,
                                 blend_graph_node_index,
                             ) {
                                 warn!("Animation application failed: {:?}", err);
@@ -1810,6 +1810,20 @@ mod tests {
             assert_triggered_events_with(&active_animation, &clip, [0.0]);
             assert_eq!(0.0, active_animation.seek_time);
         }
+    }
+
+    #[test]
+    fn active_weight_scales_graph_weight() {
+        let node = graph::BlendGraphNode {
+            node_type: BlendNodeType::Blend,
+            mask: 0,
+            weight: 2.0,
+        };
+        let mut active_animation = ActiveAnimation::default();
+        active_animation.set_weight(0.25);
+
+        assert_eq!(node.active_weight(Some(&active_animation)), 0.5);
+        assert_eq!(node.active_weight(None), 2.0);
     }
 
     #[test]
