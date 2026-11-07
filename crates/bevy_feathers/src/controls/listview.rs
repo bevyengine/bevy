@@ -94,7 +94,7 @@ impl FeathersListView {
                 }
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(4),
+                    right: px(0),
                     top: px(0),
                     bottom: px(0),
                     width: px(6),
