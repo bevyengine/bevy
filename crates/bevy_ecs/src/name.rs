@@ -45,7 +45,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
-    reflect(Deserialize, Serialize)
+    reflect(Deserialize, Serialize, @bevy_reflect::annotations::SerializedAs::STRING)
 )]
 pub struct Name(pub HashedStr);
 
