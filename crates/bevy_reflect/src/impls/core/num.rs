@@ -1,4 +1,5 @@
 use crate::type_registry::{ReflectDeserialize, ReflectSerialize};
+use bevy_annotations::SerializedAs;
 use bevy_reflect_derive::impl_reflect_opaque;
 
 impl_reflect_opaque!(::core::num::NonZeroI128(
@@ -8,7 +9,8 @@ impl_reflect_opaque!(::core::num::NonZeroI128(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::NON_ZERO_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroU128(
     Clone,
@@ -17,7 +19,8 @@ impl_reflect_opaque!(::core::num::NonZeroU128(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::POSITIVE_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroIsize(
     Clone,
@@ -26,7 +29,8 @@ impl_reflect_opaque!(::core::num::NonZeroIsize(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::NON_ZERO_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroUsize(
     Clone,
@@ -35,7 +39,8 @@ impl_reflect_opaque!(::core::num::NonZeroUsize(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::POSITIVE_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroI64(
     Clone,
@@ -44,7 +49,8 @@ impl_reflect_opaque!(::core::num::NonZeroI64(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::NON_ZERO_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroU64(
     Clone,
@@ -53,7 +59,8 @@ impl_reflect_opaque!(::core::num::NonZeroU64(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::POSITIVE_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroU32(
     Clone,
@@ -62,7 +69,8 @@ impl_reflect_opaque!(::core::num::NonZeroU32(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::POSITIVE_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroI32(
     Clone,
@@ -71,7 +79,8 @@ impl_reflect_opaque!(::core::num::NonZeroI32(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::NON_ZERO_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroI16(
     Clone,
@@ -80,7 +89,8 @@ impl_reflect_opaque!(::core::num::NonZeroI16(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::NON_ZERO_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroU16(
     Clone,
@@ -89,7 +99,8 @@ impl_reflect_opaque!(::core::num::NonZeroU16(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::POSITIVE_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroU8(
     Clone,
@@ -98,7 +109,8 @@ impl_reflect_opaque!(::core::num::NonZeroU8(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::POSITIVE_INTEGER
 ));
 impl_reflect_opaque!(::core::num::NonZeroI8(
     Clone,
@@ -107,7 +119,8 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
     PartialEq,
     PartialOrd,
     Serialize,
-    Deserialize
+    Deserialize,
+    @SerializedAs::NON_ZERO_INTEGER
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>(Clone));
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));

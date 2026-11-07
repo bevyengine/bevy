@@ -24,7 +24,7 @@ const REF_PREFIX: &str = "#/";
 /// A set of [`JsonSchemaBevyType`] schemas indexed by type path, resolving `$ref`s between them.
 ///
 /// Types are read by their reflected structure, from `reflectSchema` when a type declares its
-/// serialized form with [`ReflectBrpJsonSchema`](crate::schemas::json_schema::ReflectBrpJsonSchema).
+/// serialized form with [`SerializedAs`](bevy_annotations::SerializedAs).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SchemaRegistry {
     schemas: HashMap<String, JsonSchemaBevyType>,
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn declared_wire_format_keeps_reflected_fields() {
-        use crate::schemas::json_schema::{register_brp_json_schemas, SchemaType};
+        use crate::schemas::json_schema::SchemaType;
         use bevy_ecs::name::Name;
         use bevy_math::Vec3;
         use bevy_reflect::ReflectSerialize;
@@ -654,7 +654,8 @@ mod tests {
         let registry = AppTypeRegistry::default();
         {
             let mut registry = registry.write();
-            register_brp_json_schemas(&mut registry);
+            registry.register::<Vec3>();
+            registry.register::<Name>();
             registry.register::<Blob>();
         }
         let local = SchemaRegistry::from_type_registry(

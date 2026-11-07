@@ -1,6 +1,6 @@
 use crate::{attributes::CustomAttributes, std_traits::ReflectDefault};
 use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange};
-use bevy_reflect_derive::impl_reflect;
+use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use core::ops::RangeInclusive;
 
 impl_reflect!(
@@ -33,6 +33,8 @@ impl_reflect!(
     #[type_path = "bevy_annotations"]
     struct DisplayName(&'static str);
 );
+
+impl_reflect_opaque!(::bevy_annotations::SerializedAs(Clone, Debug, PartialEq));
 
 impl CustomAttributes {
     /// Reads a numeric range from these attributes.

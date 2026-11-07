@@ -2,6 +2,7 @@ use crate::{
     std_traits::{ReflectAdd, ReflectAddAssign, ReflectDefault, ReflectSub, ReflectSubAssign},
     type_registry::{ReflectDeserialize, ReflectSerialize},
 };
+use bevy_annotations::SerializedAs;
 use bevy_reflect_derive::impl_reflect_opaque;
 
 impl_reflect_opaque!(::core::time::Duration(
@@ -17,6 +18,7 @@ impl_reflect_opaque!(::core::time::Duration(
     AddAssign,
     Sub,
     SubAssign,
+    @SerializedAs::Object { fields: &[("secs", "u64"), ("nanos", "u32")] }
 ));
 
 #[cfg(test)]

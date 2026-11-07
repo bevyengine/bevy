@@ -1,3 +1,4 @@
+use crate::attributes::CustomAttributesBuilder;
 use crate::{
     error::ReflectCloneError,
     info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
@@ -13,6 +14,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
+use bevy_annotations::SerializedAs;
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
@@ -117,7 +119,15 @@ impl_full_reflect!(for Cow<'static, str>);
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
+        CELL.get_or_set(|| {
+            TypeInfo::Opaque(
+                OpaqueInfo::new::<Self>().with_custom_attributes(
+                    CustomAttributesBuilder::new()
+                        .attribute(SerializedAs::STRING)
+                        .build(),
+                ),
+            )
+        })
     }
 }
 
