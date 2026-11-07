@@ -477,6 +477,10 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`MovingPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`MovingPtr`] is live.
+    /// - This call transfers the right to move out of or drop the pointee to the returned
+    ///   [`MovingPtr`]. Once it has been used (moved out of, dropped, or forgotten), whatever
+    ///   previously owned `inner` must treat it as uninitialized and must not access or drop it
+    ///   as `T` again unless that location is properly reinitialized first.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
@@ -919,7 +923,13 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
     ///
     /// # Safety
-    /// Must have right to drop or move out of [`PtrMut`].
+    /// - The caller must have the right to drop or move out of the value behind this
+    ///   [`PtrMut`], i.e. no other code may treat that value as still being owned by
+    ///   whatever `self` was borrowed from.
+    /// - This call transfers that right to the returned [`OwningPtr`]. Once it has been
+    ///   used (read, dropped, or forgotten), whatever `self` was borrowed from must treat
+    ///   the pointee as uninitialized and must not access or drop it again unless that
+    ///   location is properly reinitialized first.
     #[inline]
     pub unsafe fn promote(self) -> OwningPtr<'a, A> {
         OwningPtr(self.0, PhantomData)
@@ -1004,6 +1014,10 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`OwningPtr`] is live.
+    /// - This call transfers the right to move out of or drop the pointee to the returned
+    ///   [`OwningPtr`]. Once it has been used (read, dropped, or forgotten), whatever
+    ///   previously owned `inner` must treat it as uninitialized and must not access or drop
+    ///   it again unless that location is properly reinitialized first.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
