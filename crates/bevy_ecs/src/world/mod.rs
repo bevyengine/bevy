@@ -573,111 +573,6 @@ impl World {
         constructor: impl Fn() -> R + 'static,
     ) -> Result<(), RequiredComponentsError> {
         let requiree = self.register_component::<T>();
-        self.try_register_required_components_with_by_id::<R>(requiree, constructor)
-    }
-
-    /// Registers `R` as a [required component] for the component identified by `requiree`.
-    /// Uses [`Default`] to construct `R`. The ID must have been registered in this world.
-    /// The requiring component may be dynamically registered; `R` is registered automatically.
-    ///
-    /// Requirements must be registered before the requiring component is first inserted.
-    /// For a custom constructor, see [`World::register_required_components_with_by_id`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if `requiree` is unregistered, the requirement is already directly registered,
-    /// it would create a cycle, or an archetype containing `requiree` already exists.
-    /// For the fallible version, see [`World::try_register_required_components_by_id`].
-    ///
-    /// [required component]: Component#required-components
-    pub fn register_required_components_by_id<R: Component + Default>(
-        &mut self,
-        requiree: ComponentId,
-    ) {
-        self.try_register_required_components_by_id::<R>(requiree)
-            .unwrap();
-    }
-
-    /// Registers `R` as a [required component] for the component identified by `requiree`.
-    /// Uses `constructor` to create `R`. The ID must have been registered in this world.
-    /// The requiring component may be dynamically registered; `R` is registered automatically.
-    ///
-    /// `R` and its own required components are inserted when the requiring component is
-    /// inserted, unless already provided. Requirements must be registered before the
-    /// requiring component is first inserted.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `requiree` is unregistered, the requirement is already directly registered,
-    /// it would create a cycle, or an archetype containing `requiree` already exists.
-    /// For the fallible version, see [`World::try_register_required_components_with_by_id`].
-    ///
-    /// # Example
-    ///
-    /// A dynamically registered resource must require [`IsResource`]:
-    ///
-    /// ```
-    /// use bevy_ecs::{
-    ///     change_detection::MaybeLocation,
-    ///     component::{ComponentCloneBehavior, ComponentDescriptor, StorageType},
-    ///     resource::IsResource,
-    ///     world::World,
-    /// };
-    /// use bevy_ptr::OwningPtr;
-    /// use core::alloc::Layout;
-    ///
-    /// let mut world = World::new();
-    /// // SAFETY: u64 is Send + Sync and does not require a drop function.
-    /// let descriptor = unsafe {
-    ///     ComponentDescriptor::new_with_layout(
-    ///         "DynamicResource", StorageType::Table, Layout::new::<u64>(),
-    ///         None, true, false, ComponentCloneBehavior::Default, None,
-    ///     )
-    /// };
-    /// let id = world.register_component_with_descriptor(descriptor);
-    /// world.register_required_components_with_by_id::<IsResource>(id, move || IsResource::new(id));
-    /// OwningPtr::make(42_u64, |ptr| {
-    ///     // SAFETY: id was registered with the layout of u64 in this world.
-    ///     unsafe { world.insert_resource_by_id(id, ptr, MaybeLocation::caller()); }
-    /// });
-    /// assert!(world.get_resource_by_id(id).is_some());
-    /// ```
-    ///
-    /// [required component]: Component#required-components
-    pub fn register_required_components_with_by_id<R: Component>(
-        &mut self,
-        requiree: ComponentId,
-        constructor: impl Fn() -> R + 'static,
-    ) {
-        self.try_register_required_components_with_by_id::<R>(requiree, constructor)
-            .unwrap();
-    }
-
-    /// Tries to register `R` as a required component for `requiree`, using [`Default`].
-    /// The ID must have been registered in this world.
-    ///
-    /// Returns a [`RequiredComponentsError`] if registration fails. See
-    /// [`World::register_required_components_by_id`] for the registration restrictions.
-    pub fn try_register_required_components_by_id<R: Component + Default>(
-        &mut self,
-        requiree: ComponentId,
-    ) -> Result<(), RequiredComponentsError> {
-        self.try_register_required_components_with_by_id::<R>(requiree, R::default)
-    }
-
-    /// Tries to register `R` as a required component for `requiree`, using `constructor`.
-    /// The ID must have been registered in this world.
-    ///
-    /// Returns a [`RequiredComponentsError`] if registration fails. See
-    /// [`World::register_required_components_with_by_id`] for the registration restrictions.
-    pub fn try_register_required_components_with_by_id<R: Component>(
-        &mut self,
-        requiree: ComponentId,
-        constructor: impl Fn() -> R + 'static,
-    ) -> Result<(), RequiredComponentsError> {
-        if self.components.get_info(requiree).is_none() {
-            return Err(RequiredComponentsError::UnregisteredComponent(requiree));
-        }
 
         // TODO: Remove this panic and update archetype edges accordingly when required components are added
         if self.archetypes().component_index().contains_key(&requiree) {
@@ -686,7 +581,7 @@ impl World {
 
         let required = self.register_component::<R>();
 
-        // SAFETY: `requiree` is registered in this world and `required` was just registered for `R`.
+        // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
                 .register_required_components::<R>(requiree, required, constructor)
@@ -721,6 +616,33 @@ impl World {
     ) -> ComponentId {
         self.components_registrator()
             .register_component_with_descriptor(descriptor)
+    }
+
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// advanced use cases.
+    ///
+    /// # Note
+    ///
+    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_resource_by_id`].
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        let requiree = self.register_component_with_descriptor(descriptor);
+        let required = self.register_component::<IsResource>();
+
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe {
+            self.components
+                .register_required_components::<IsResource>(requiree, required, move || {
+                    IsResource::new(requiree)
+                })
+                .unwrap();
+        }
+        requiree
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -3176,10 +3098,6 @@ impl World {
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
-    /// The component must require [`IsResource`]. For dynamically registered resources,
-    /// register this requirement with [`World::register_required_components_with_by_id`]
-    /// before inserting the resource.
-    ///
     /// # Panics
     ///
     /// In debug builds, panics if the component does not require [`IsResource`].
@@ -3196,8 +3114,8 @@ impl World {
     ) {
         debug_assert!(
             self.get_required_components_by_id(component_id)
-                .is_some_and(|required| required.iter_ids().any(|id| id == IS_RESOURCE)),
-            "Resources must require IsResource. Use World::register_required_components_with_by_id::<IsResource> before inserting a dynamically registered resource."
+                .is_some_and(|required| required.all.contains_key(&IS_RESOURCE)),
+            "Resources must require IsResource. Use World::register_resource_with_descriptor before inserting a dynamically registered resource."
         );
         // if the resource already exists, we replace it on the same entity
         let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
@@ -4202,7 +4120,7 @@ impl<T: Default> FromWorld for T {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use super::{FromWorld, World};
+    use super::{FromWorld, World, IS_RESOURCE};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
         component::{
@@ -4409,10 +4327,14 @@ mod tests {
                     None,
                 )
             };
-            let component_id = world.register_component_with_descriptor(descriptor);
-            world.register_required_components_with_by_id::<IsResource>(component_id, move || {
-                IsResource::new(component_id)
-            });
+            let component_id = world.register_resource_with_descriptor(descriptor);
+            assert_eq!(world.entities().count_spawned(), initial_entity_count);
+            assert!(world.get_resource_by_id(component_id).is_none());
+            assert!(world
+                .get_required_components_by_id(component_id)
+                .unwrap()
+                .all
+                .contains_key(&IS_RESOURCE));
 
             // Required components must also work when inserted through the entity API.
             let resource_entity = OwningPtr::make(41_u64, |ptr| {
@@ -4429,6 +4351,13 @@ mod tests {
             assert_eq!(
                 world.resource_entities().get(component_id),
                 Some(resource_entity)
+            );
+            assert_eq!(
+                world
+                    .get::<IsResource>(resource_entity)
+                    .unwrap()
+                    .resource_component_id(),
+                component_id
             );
             let resource = world.get_resource_by_id(component_id).unwrap();
             // SAFETY: the resource was inserted as a u64.
@@ -4478,6 +4407,90 @@ mod tests {
                 Some(resource_entity)
             );
             assert_eq!(world.entities().count_spawned(), initial_entity_count + 1);
+        }
+    }
+
+    #[test]
+    fn dynamic_resources_with_same_type_and_drop() {
+        #[derive(Resource)]
+        struct Tracked(Arc<AtomicU32>);
+
+        impl Drop for Tracked {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        for storage_type in [StorageType::Table, StorageType::SparseSet] {
+            let descriptor = || match storage_type {
+                StorageType::Table => ComponentDescriptor::new::<Tracked>(),
+                StorageType::SparseSet => {
+                    // SAFETY: `Tracked` is Send + Sync and the drop function matches its layout.
+                    unsafe {
+                        ComponentDescriptor::new_with_layout(
+                            "Tracked",
+                            storage_type,
+                            core::alloc::Layout::new::<Tracked>(),
+                            Some(|ptr| {
+                                // SAFETY: `Tracked` is the correct resource type.
+                                ptr.drop_as::<Tracked>();
+                            }),
+                            true,
+                            false,
+                            ComponentCloneBehavior::Default,
+                            None,
+                        )
+                    }
+                }
+            };
+            let drops = Arc::new(AtomicU32::new(0));
+            let mut world = World::new();
+            let first = world.register_resource_with_descriptor(descriptor());
+            let second = world.register_resource_with_descriptor(descriptor());
+            assert_ne!(first, second);
+            assert!(world.component_id::<Tracked>().is_none());
+
+            for id in [first, second] {
+                OwningPtr::make(Tracked(Arc::clone(&drops)), |ptr| {
+                    // SAFETY: `Tracked` is the correct resource type.
+                    unsafe { world.insert_resource_by_id(id, ptr, MaybeLocation::caller()) };
+                });
+                let entity = world.resource_entities().get(id).unwrap();
+                assert_eq!(
+                    world
+                        .get::<IsResource>(entity)
+                        .unwrap()
+                        .resource_component_id(),
+                    id
+                );
+            }
+
+            world.insert_resource(Tracked(Arc::clone(&drops)));
+            let typed = world.component_id::<Tracked>().unwrap();
+            assert_ne!(first, typed);
+            assert_ne!(second, typed);
+            assert!(world.get_resource_by_id(first).is_some());
+            assert!(world.get_resource_by_id(second).is_some());
+            assert!(world.get_resource::<Tracked>().is_some());
+
+            OwningPtr::make(Tracked(Arc::clone(&drops)), |ptr| {
+                // SAFETY: `Tracked` is the correct resource type.
+                unsafe { world.insert_resource_by_id(first, ptr, MaybeLocation::caller()) };
+            });
+            assert_eq!(drops.load(Ordering::Relaxed), 1);
+            assert!(world.remove_resource_by_id(first));
+            assert_eq!(drops.load(Ordering::Relaxed), 2);
+
+            OwningPtr::make(Tracked(Arc::clone(&drops)), |ptr| {
+                // SAFETY: `Tracked` is the correct resource type.
+                unsafe { world.insert_resource_by_id(first, ptr, MaybeLocation::caller()) };
+            });
+            assert!(world.remove_resource_by_id(second));
+            assert!(world.get_resource_by_id(second).is_none());
+            assert_eq!(drops.load(Ordering::Relaxed), 3);
+
+            drop(world);
+            assert_eq!(drops.load(Ordering::Relaxed), 5);
         }
     }
 

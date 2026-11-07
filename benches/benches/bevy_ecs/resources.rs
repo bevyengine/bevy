@@ -6,7 +6,6 @@ use bevy_ecs::{
     component::{ComponentCloneBehavior, ComponentDescriptor, StorageType},
     prelude::*,
     ptr::OwningPtr,
-    resource::IsResource,
 };
 use criterion::{criterion_group, Criterion};
 
@@ -18,7 +17,7 @@ fn create_world() -> World {
         // SAFETY: Uses zero-sized value, never drops
         unsafe {
             let resource_id =
-                world.register_component_with_descriptor(ComponentDescriptor::new_with_layout(
+                world.register_resource_with_descriptor(ComponentDescriptor::new_with_layout(
                     "",
                     StorageType::SparseSet,
                     Layout::new::<()>(),
@@ -28,9 +27,6 @@ fn create_world() -> World {
                     ComponentCloneBehavior::Default,
                     None,
                 ));
-            world.register_required_components_with_by_id::<IsResource>(resource_id, move || {
-                IsResource::new(resource_id)
-            });
             world.insert_resource_by_id(
                 resource_id,
                 OwningPtr::new(NonNull::dangling()),
