@@ -4,7 +4,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
-    relationship::{RelationshipAccessor, RelationshipHookMode},
+    relationship::RelationshipHookMode,
     world::World,
 };
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
@@ -718,17 +718,11 @@ impl EntityCloner {
                     filter.clone_components(source_archetype, target_archetype, |component| {
                         // SAFETY: The filter only selects components from the source archetype.
                         let info = unsafe { world.components().get_info_unchecked(component) };
-                        if matches!(
-                            info.relationship_accessor(),
-                            Some(RelationshipAccessor::RelationshipTarget {
-                                linked_spawn: true,
-                                ..
-                            })
-                        ) {
-                            clone_component(component);
-                        } else {
+                        if info.has_entities() && info.relationship_accessor().is_none() {
                             // Wait until all linked descendants have entity mappings.
                             deferred.push((source, component));
+                        } else {
+                            clone_component(component);
                         }
                     });
                 }
@@ -2390,6 +2384,34 @@ mod tests {
         false,
         true
     );
+
+    #[test]
+    fn linked_clone_inserts_unmapped_components_with_relationships() {
+        #[derive(Component, Clone)]
+        struct Marker;
+
+        #[derive(crate::prelude::Resource, Default)]
+        struct Insertions(Vec<bool>);
+
+        let mut world = World::new();
+        world.init_resource::<Insertions>();
+        world
+            .register_component_hooks::<Children>()
+            .on_add(|mut world, context| {
+                let has_marker = world.get::<Marker>(context.entity).is_some();
+                world.resource_mut::<Insertions>().0.push(has_marker);
+            });
+        let root = world.spawn(Marker).id();
+        world.spawn(ChildOf(root));
+        world.resource_mut::<Insertions>().0.clear();
+
+        let target = world.spawn_empty().id();
+        EntityCloner::build_opt_out(&mut world)
+            .linked_cloning(true)
+            .clone_entity(root, target);
+
+        assert_eq!(world.resource::<Insertions>().0, [true]);
+    }
 
     #[test]
     fn linked_clone_skips_components_removed_by_clone_handlers() {

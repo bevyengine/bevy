@@ -583,6 +583,9 @@ pub trait Component: Send + Sync + 'static {
         ComponentCloneBehavior::Default
     }
 
+    /// Whether this component may need entity mapping. Deriving [`Component`] sets this automatically.
+    const MAP_ENTITIES: bool = true;
+
     /// Maps the entities on this component using the given [`EntityMapper`]. This is used to remap entities in contexts like scenes and entity cloning.
     /// When deriving [`Component`], this is populated by annotating fields containing entities with `#[entities]`
     ///

@@ -226,6 +226,8 @@ impl DeriveComponent {
             }
         });
 
+        let has_entities = map_entities.is_some();
+
         // If this component has a summary tick, define the appropriate method.
         let has_summary_tick = if self.summary_tick {
             quote! {
@@ -360,6 +362,7 @@ impl DeriveComponent {
             #required_component_docs
             impl #impl_generics #bevy_ecs::component::Component for #struct_name #type_generics #where_clause {
                 const STORAGE_TYPE: #bevy_ecs::component::StorageType = #storage;
+                const MAP_ENTITIES: bool = #has_entities;
                 type Mutability = #mutable_type;
                 fn register_required_components(
                     _requiree: #bevy_ecs::component::ComponentId,
