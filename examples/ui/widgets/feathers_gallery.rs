@@ -592,6 +592,12 @@ fn demo_column_1() -> impl Scene {
             SliderPrecision(2)
             on(slider_self_update)
             --
+            @FeathersTextInputContainer
+            Children [
+                @FeathersTextInput
+                TextInputPlaceholder("Search")
+            ]
+            --
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
