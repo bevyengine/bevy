@@ -14,6 +14,7 @@ use bevy_render::{
     view::{Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use bevy_window::SurfaceColorSpace;
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_camera::Camera::msaa_writeback`]. See the docs on that field for more information.
@@ -121,6 +122,7 @@ fn prepare_msaa_writeback_pipelines(
                 samples: msaa.samples(),
                 blend_state: None,
                 source_space: None,
+                display_color_space: SurfaceColorSpace::Srgb,
             };
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
