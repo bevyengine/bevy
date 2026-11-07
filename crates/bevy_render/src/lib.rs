@@ -59,6 +59,7 @@ pub mod extract_resource {
 
     pub use bevy_extract::extract_resource::{extract_resource, ExtractResource};
 }
+pub mod framepace;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
