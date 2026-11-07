@@ -29,10 +29,10 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
-    component::{ComponentId, ComponentInfo},
+    component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
     hierarchy::ChildOf,
-    query::{Or, With},
+    query::With,
     reflect::{AppTypeRegistry, ReflectResource},
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -104,10 +104,10 @@ pub(crate) fn component_short_name(world: &World, component_id: ComponentId) -> 
         .unwrap_or_else(|| ComponentInfo::name(info).shortname().to_string())
 }
 
-/// Returns `true` if an entity tree or details panel is showing, that is if one exists with no
-/// [`Visibility::Hidden`] on itself or its ancestors.
-pub fn inspector_visible(
-    panels: Query<Entity, Or<(With<InspectorTreeView>, With<InspectorDetailsBody>)>>,
+/// Returns `true` if an entity with the marker `M` exists with no [`Visibility::Hidden`] on itself
+/// or its ancestors.
+fn panel_visible<M: Component>(
+    panels: Query<Entity, With<M>>,
     visibilities: Query<&Visibility>,
     parents: Query<&ChildOf>,
 ) -> bool {
@@ -118,17 +118,44 @@ pub fn inspector_visible(
     })
 }
 
-fn sync_when_shown(
+/// Returns `true` if an entity tree panel is showing.
+pub fn entity_tree_visible(
+    panels: Query<Entity, With<InspectorTreeView>>,
+    visibilities: Query<&Visibility>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    panel_visible(panels, visibilities, parents)
+}
+
+/// Returns `true` if a details panel is showing.
+pub fn details_panel_visible(
+    panels: Query<Entity, With<InspectorDetailsBody>>,
+    visibilities: Query<&Visibility>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    panel_visible(panels, visibilities, parents)
+}
+
+fn sync_tree_when_shown(
     In(visible): In<bool>,
     mut was_visible: Local<bool>,
-    mut entity_tree: ResMut<EntityTreeSync>,
-    mut details_panel: ResMut<DetailsPanelSync>,
+    mut sync: ResMut<EntityTreeSync>,
 ) {
     if visible && !*was_visible {
-        let duration = entity_tree.timer.duration();
-        entity_tree.timer.set_elapsed(duration);
-        let duration = details_panel.timer.duration();
-        details_panel.timer.set_elapsed(duration);
+        let duration = sync.timer.duration();
+        sync.timer.set_elapsed(duration);
+    }
+    *was_visible = visible;
+}
+
+fn sync_details_when_shown(
+    In(visible): In<bool>,
+    mut was_visible: Local<bool>,
+    mut sync: ResMut<DetailsPanelSync>,
+) {
+    if visible && !*was_visible {
+        let duration = sync.timer.duration();
+        sync.timer.set_elapsed(duration);
     }
     *was_visible = visible;
 }
@@ -138,7 +165,8 @@ fn sync_when_shown(
 /// This plugin does not add the widget plugins the inspector renders with; the app is expected to
 /// add `bevy_feathers::FeathersPlugins` as well. Adding this plugin again has no effect.
 ///
-/// The local synchronization systems only run while [`inspector_visible`] is `true`.
+/// The local tree and details synchronization systems only run while [`entity_tree_visible`] and
+/// [`details_panel_visible`] are `true`.
 pub struct InspectorPlugin;
 
 impl Plugin for InspectorPlugin {
@@ -169,17 +197,18 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    inspector_visible.pipe(sync_when_shown),
                     (
-                        sync_entity_tree.run_if(inspector_visible),
-                        (
-                            store_column_splits,
-                            sync_details_panel.run_if(inspector_visible),
-                        )
-                            .chain(),
-                    ),
+                        entity_tree_visible.pipe(sync_tree_when_shown),
+                        sync_entity_tree.run_if(entity_tree_visible),
+                    )
+                        .chain(),
+                    (
+                        details_panel_visible.pipe(sync_details_when_shown),
+                        store_column_splits,
+                        sync_details_panel.run_if(details_panel_visible),
+                    )
+                        .chain(),
                 )
-                    .chain()
                     .before(UiSystems::Prepare),
             );
 

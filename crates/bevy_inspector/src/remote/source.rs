@@ -366,7 +366,7 @@ fn reset_inspected_world(world: &mut World) {
     world.resource_mut::<RemoteWorld>().reset(registry);
     world.resource_mut::<InspectorSelection>().0 = None;
     if let Some(mut collapsed) = world.get_resource_mut::<DetailsCollapsed>() {
-        collapsed.0.clear();
+        collapsed.toggled.clear();
     }
     if let Some(mut splits) = world.get_resource_mut::<DetailsColumnSplits>() {
         splits.0.clear();
@@ -1266,7 +1266,7 @@ pub(crate) mod tests {
         let key = ComponentKey::from("remote::Component");
         world
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(key.clone());
         world
             .resource_mut::<DetailsColumnSplits>()
@@ -1277,7 +1277,7 @@ pub(crate) mod tests {
         sync_remote_source(&mut world);
 
         assert!(world.resource_mut::<RemoteWorld>().entities().is_empty());
-        assert!(world.resource::<DetailsCollapsed>().0.is_empty());
+        assert!(world.resource::<DetailsCollapsed>().toggled.is_empty());
         assert!(world.resource::<DetailsColumnSplits>().0.is_empty());
         assert_eq!(world.resource::<InspectorSelection>().0, None);
         assert!(world.resource::<RemoteConnection>().client().is_none());

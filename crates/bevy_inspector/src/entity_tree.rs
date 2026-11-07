@@ -135,18 +135,25 @@ pub fn entity_tree_panel() -> impl Scene {
                 @caption("Entities")
             ]
             --
-            @subpane_body()
-            Node {
-                overflow: Overflow::scroll_y(),
-            }
-            Children [
-                InspectorTreeView
-                @FeathersTreeView
-                on(tree_view_self_update)
-                on(tree_view_expand_self_update)
-                on(inspector_tree_selected)
-                on(inspector_tree_expanded)
-            ]
+            @entity_tree_body()
+        ]
+    }
+}
+
+/// The scrolling contents of [`entity_tree_panel`], without its header.
+pub fn entity_tree_body() -> impl Scene {
+    bsn! {
+        @subpane_body()
+        Node {
+            overflow: Overflow::scroll_y(),
+        }
+        Children [
+            InspectorTreeView
+            @FeathersTreeView
+            on(tree_view_self_update)
+            on(tree_view_expand_self_update)
+            on(inspector_tree_selected)
+            on(inspector_tree_expanded)
         ]
     }
 }

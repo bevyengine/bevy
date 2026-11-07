@@ -77,6 +77,7 @@ impl Plugin for FeathersCorePlugin {
         // Embedded icons
         embedded_asset!(app, "assets/icons/chevron-down.png");
         embedded_asset!(app, "assets/icons/chevron-right.png");
+        embedded_asset!(app, "assets/icons/grip-vertical.png");
         embedded_asset!(app, "assets/icons/x.png");
 
         // Embedded shader
