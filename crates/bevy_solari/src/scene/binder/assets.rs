@@ -206,8 +206,9 @@ impl AssetState {
 
         let alpha_cutoff = match material.alpha_mode {
             AlphaMode::Mask(cutoff) => cutoff,
-            // Without MSAA alpha to coverage is treated as a mask with a cutoff of 0.5
-            AlphaMode::AlphaToCoverage => 0.5,
+            // Without MSAA alpha to coverage is treated as a mask with a cutoff of 0.5,
+            // and dithering is approximated the same way.
+            AlphaMode::AlphaToCoverage | AlphaMode::Dither => 0.5,
             AlphaMode::Opaque
             | AlphaMode::Blend
             | AlphaMode::Premultiplied
@@ -216,7 +217,7 @@ impl AssetState {
         };
         let is_opaque = match material.alpha_mode {
             AlphaMode::Opaque => true,
-            AlphaMode::Mask(_) | AlphaMode::AlphaToCoverage => false,
+            AlphaMode::Mask(_) | AlphaMode::AlphaToCoverage | AlphaMode::Dither => false,
             // TODO: Solari doesn't support transparency yet, so these are traced as opaque for now
             #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
