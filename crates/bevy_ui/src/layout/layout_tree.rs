@@ -1,4 +1,3 @@
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -22,84 +21,110 @@ use taffy::{
 };
 
 use crate::{
-    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
-    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform,
+    layout::UiTreeDirty, val::CalcOp, ContentSize, FixedNode, GhostNode, IgnoreScroll,
+    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
+    ScrollPosition, UiTransform, ValContext,
 };
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "`TaffyStyle`' uses raw pointers to its `PercentageCalc` values."
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `PercentageCalc` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "`TaffyStyle` owns the `PercentageCalc`s that its `Style` points to."
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `PercentageCalc` is `Send + Sync`.
 unsafe impl Sync for TaffyStyle {}
 
-#[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(pub Style);
+/// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
+/// `Style` references `CalcOp`s using percentages that can't be resolved until layout using raw pointers.
+/// The `Vec` is used to keep the percentages alive because Taffy's `CompactLength` pointers are non-owning.
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
-    dummy: core::marker::PhantomData,
-    display: Display::Grid,
-    item_is_table: false,
-    item_is_replaced: false,
-    item_is_compressible_replaced: false,
-    box_sizing: taffy::BoxSizing::BorderBox,
-    direction: taffy::Direction::Ltr,
-    overflow: taffy::Point {
-        x: taffy::Overflow::Visible,
-        y: taffy::Overflow::Visible,
+#[derive(Default, Component)]
+pub struct TaffyStyle {
+    /// Taffy `Style` converted from a `Node`.
+    pub(crate) style: Style,
+    /// Owns the `CalcOp`s referenced by raw pointers in `style`.
+    /// Boxing keeps their addresses stable when the vector reallocates.
+    /// These `CalcOp`s are reduced to operations only using `Px` and `Percentage` before layout.
+    pub(crate) calcs: Vec<Box<CalcOp>>,
+}
+
+/// Resolves a calc pointer that taffy read back out of a [`TaffyStyle`] against the
+/// percentage `basis`.
+#[expect(
+    unsafe_code,
+    reason = "Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`"
+)]
+pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
+    // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`
+    let calc = unsafe { &*ptr.cast::<CalcOp>() };
+    calc.resolve(basis, &ValContext::default()).unwrap()
+}
+
+pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle {
+    style: Style {
+        dummy: core::marker::PhantomData,
+        display: Display::Grid,
+        item_is_table: false,
+        item_is_replaced: false,
+        item_is_compressible_replaced: false,
+        box_sizing: taffy::BoxSizing::BorderBox,
+        direction: taffy::Direction::Ltr,
+        overflow: taffy::Point {
+            x: taffy::Overflow::Visible,
+            y: taffy::Overflow::Visible,
+        },
+        scrollbar_width: 0.0,
+        contain: taffy::Contain::NONE,
+        position: taffy::Position::Relative,
+        inset: taffy::Rect::auto(),
+        size: taffy::Size {
+            width: taffy::Dimension::percent(1.0),
+            height: taffy::Dimension::percent(1.0),
+        },
+        min_size: taffy::Size::auto(),
+        max_size: taffy::Size::auto(),
+        aspect_ratio: None,
+        margin: taffy::Rect::zero(),
+        padding: taffy::Rect::zero(),
+        border: taffy::Rect::zero(),
+        align_items: taffy::AlignItems::START,
+        align_self: None,
+        justify_items: taffy::JustifyItems::START,
+        justify_self: None,
+        align_content: taffy::AlignContent::NORMAL,
+        justify_content: taffy::AlignContent::NORMAL,
+        gap: taffy::Size::zero(),
+        text_align: taffy::TextAlign::Auto,
+        flex_direction: taffy::FlexDirection::Row,
+        flex_wrap: taffy::FlexWrap::NoWrap,
+        flex_basis: taffy::Dimension::auto(),
+        flex_grow: 0.0,
+        flex_shrink: 1.0,
+        grid_template_rows: Vec::new(),
+        grid_template_columns: Vec::new(),
+        grid_auto_rows: Vec::new(),
+        grid_auto_columns: Vec::new(),
+        grid_auto_flow: taffy::GridAutoFlow::Row,
+        grid_template_areas: None,
+        grid_template_column_names: Vec::new(),
+        grid_template_row_names: Vec::new(),
+        grid_row: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
+        grid_column: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
     },
-    scrollbar_width: 0.0,
-    contain: taffy::Contain::NONE,
-    position: taffy::Position::Relative,
-    inset: taffy::Rect::auto(),
-    size: taffy::Size {
-        width: taffy::Dimension::percent(1.0),
-        height: taffy::Dimension::percent(1.0),
-    },
-    min_size: taffy::Size::auto(),
-    max_size: taffy::Size::auto(),
-    aspect_ratio: None,
-    margin: taffy::Rect::zero(),
-    padding: taffy::Rect::zero(),
-    border: taffy::Rect::zero(),
-    align_items: taffy::AlignItems::START,
-    align_self: None,
-    justify_items: taffy::JustifyItems::START,
-    justify_self: None,
-    align_content: taffy::AlignContent::NORMAL,
-    justify_content: taffy::AlignContent::NORMAL,
-    gap: taffy::Size::zero(),
-    text_align: taffy::TextAlign::Auto,
-    flex_direction: taffy::FlexDirection::Row,
-    flex_wrap: taffy::FlexWrap::NoWrap,
-    flex_basis: taffy::Dimension::auto(),
-    flex_grow: 0.0,
-    flex_shrink: 1.0,
-    grid_template_rows: Vec::new(),
-    grid_template_columns: Vec::new(),
-    grid_auto_rows: Vec::new(),
-    grid_auto_columns: Vec::new(),
-    grid_auto_flow: taffy::GridAutoFlow::Row,
-    grid_template_areas: None,
-    grid_template_column_names: Vec::new(),
-    grid_template_row_names: Vec::new(),
-    grid_row: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-    grid_column: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-});
+    calcs: vec![],
+};
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
@@ -624,10 +649,12 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
-            self.style_query
+        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE.style, |entity| {
+            &self
+                .style_query
                 .get(entity)
                 .expect("Missing TaffyStyle on UI node.")
+                .style
         })
     }
 
@@ -660,7 +687,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                 (_, false) => compute_leaf_layout(
                     inputs,
                     style,
-                    |_, _| 0.0,
+                    resolve_calc,
                     |known_dimensions, available_space| {
                         (tree.measure_function)(
                             known_dimensions,
@@ -704,6 +731,10 @@ impl TraversePartialTree for UiLayoutTree<'_, '_, '_> {
 impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
 impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
+    fn resolve_calc_value(&self, val: *const (), basis: f32) -> f32 {
+        resolve_calc(val, basis)
+    }
+
     type CoreContainerStyle<'a>
         = &'a Style
     where

@@ -338,7 +338,7 @@ fn update_slider_pos(
             {
                 let track_width = track_node.size().x * track_node.inverse_scale_factor;
                 let thumb_offset = range.thumb_position(value.0) * track_width - THUMB_SIZE * 0.5;
-                let mut updated_transform = *thumb_transform;
+                let mut updated_transform = thumb_transform.clone();
                 updated_transform.translation.x = px(thumb_offset);
                 thumb_transform.set_if_neq(updated_transform);
             }

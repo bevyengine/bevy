@@ -7,6 +7,7 @@ pub use taffy::style::AvailableSpace;
 use taffy::MaybeMath;
 use taffy::MaybeResolve;
 
+use crate::layout::layout_tree::resolve_calc;
 use crate::widget::ImageMeasure;
 
 use crate::widget::TextMeasure;
@@ -18,6 +19,17 @@ impl core::fmt::Debug for ContentSize {
 }
 
 /// Inputs provided to [`Measure::measure`].
+///
+/// Only the layout system builds these, which keeps the calc pointers in `style` valid.
+/// Other crates cannot construct one, even from an existing value:
+///
+/// ```compile_fail,E0639
+/// # use bevy_ui::MeasureArgs;
+/// fn rebuild(args: MeasureArgs) -> MeasureArgs {
+///     MeasureArgs { ..args }
+/// }
+/// ```
+#[non_exhaustive]
 pub struct MeasureArgs<'a> {
     /// The known width from Taffy if this size is definite.
     pub known_width: Option<f32>,
@@ -31,8 +43,19 @@ pub struct MeasureArgs<'a> {
     pub font_system: &'a mut FontCx,
     /// Text layout buffer used to compute intrinsic text size when required.
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
-    /// Resolved style for this node in physical pixels.
-    pub style: &'a taffy::Style,
+    /// The `Taffy` style for this node, converted from `Node` with lengths in either physical
+    /// pixels or percentages. Calc expressions that can't be reduced to a single physical
+    /// or percentage length are left unresolved.
+    pub(crate) style: &'a taffy::Style,
+}
+
+impl MeasureArgs<'_> {
+    /// The `Taffy` style for this node, converted from `Node` with lengths in either physical
+    /// pixels or percentages. Calc expressions that can't be reduced to a single physical
+    /// or percentage length are left unresolved.
+    pub fn style(&self) -> &taffy::Style {
+        &self.style
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -55,11 +78,10 @@ fn resolve_axis(
     size_dim: taffy::style::Dimension,
     max_dim: taffy::style::LengthPercentageAuto,
 ) -> ResolvedAxis {
-    let calc = |_, _| 0.;
     let available = available_space.into_option();
-    let min = min_dim.maybe_resolve(available, calc);
-    let preferred = size_dim.maybe_resolve(available, calc);
-    let max = max_dim.maybe_resolve(available, calc);
+    let min = min_dim.maybe_resolve(available, resolve_calc);
+    let preferred = size_dim.maybe_resolve(available, resolve_calc);
+    let max = max_dim.maybe_resolve(available, resolve_calc);
     ResolvedAxis {
         min,
         preferred,

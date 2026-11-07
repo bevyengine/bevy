@@ -1,5 +1,5 @@
 use crate::Val;
-use crate::ValArithmeticError;
+use crate::ValContext;
 use crate::ValNum;
 use bevy_derive::Deref;
 use bevy_ecs::component::Component;
@@ -9,11 +9,10 @@ use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_text::{EmSize, RemSize};
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Debug, PartialEq, Clone, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -43,8 +42,8 @@ impl Val2 {
     }
 
     /// Creates a new [`Val2`] where both components are the same value
-    pub const fn all(val: Val) -> Self {
-        Self::new(val, val)
+    pub fn all(val: Val) -> Self {
+        Self::new(val.clone(), val)
     }
 
     /// Creates a new [`Val2`] where both components are in logical pixels
@@ -57,64 +56,14 @@ impl Val2 {
         Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
-    /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
-    /// and `viewport_size`.
+    /// Resolves this [`Val2`] from the given `base_size` and `context`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
-    pub fn resolve(
-        &self,
-        scale_factor: f32,
-        base_size: Vec2,
-        viewport_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Vec2 {
+    pub fn resolve(&self, base_size: Vec2, context: &ValContext) -> Vec2 {
         Vec2::new(
-            self.x
-                .resolve(scale_factor, base_size.x, viewport_size, em_size, rem_size)
-                .unwrap_or(0.),
-            self.y
-                .resolve(scale_factor, base_size.y, viewport_size, em_size, rem_size)
-                .unwrap_or(0.),
+            self.x.resolve(base_size.x, context).unwrap_or(0.),
+            self.y.resolve(base_size.y, context).unwrap_or(0.),
         )
-    }
-
-    /// Try to add two `Val2`s component-wise.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
-    /// assert_eq!(Val2::px(1., 2.).try_add(Val2::px(3., 4.)), Ok(Val2::px(4., 6.)));
-    /// assert_eq!(
-    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_add(Val2::new(Val::Percent(3.), Val::Px(4.))),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub fn try_add(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_add(other.x), self.y.try_add(other.y)) else {
-            return Err(ValArithmeticError::IncompatibleUnits);
-        };
-        Ok(Self { x, y })
-    }
-
-    /// Try to subtract two `Val2`s component-wise.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
-    /// assert_eq!(Val2::px(3., 4.).try_sub(Val2::px(1., 2.)), Ok(Val2::px(2., 2.)));
-    /// assert_eq!(
-    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_sub(Val2::new(Val::Percent(3.), Val::Px(4.))),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub fn try_sub(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_sub(other.x), self.y.try_sub(other.y)) else {
-            return Err(ValArithmeticError::IncompatibleUnits);
-        };
-        Ok(Self { x, y })
     }
 }
 
@@ -133,7 +82,7 @@ impl From<Val> for Val2 {
 /// Relative 2D transform for UI nodes
 ///
 /// [`UiGlobalTransform`] is automatically inserted whenever [`UiTransform`] is inserted.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -189,20 +138,12 @@ impl UiTransform {
         }
     }
 
-    /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
+    /// Resolves the translation from the given `base_size` and `context`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
-    pub fn compute_affine(
-        &self,
-        scale_factor: f32,
-        base_size: Vec2,
-        target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Affine2 {
+    pub fn compute_affine(&self, base_size: Vec2, context: &ValContext) -> Affine2 {
         Affine2::from_mat2_translation(
             Mat2::from(self.rotation) * Mat2::from_diagonal(self.scale),
-            self.translation
-                .resolve(scale_factor, base_size, target_size, em_size, rem_size),
+            self.translation.resolve(base_size, context),
         )
     }
 }

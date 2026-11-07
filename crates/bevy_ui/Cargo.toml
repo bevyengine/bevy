@@ -43,6 +43,7 @@ taffy = { version = "0.15", default-features = false, features = [
   "flexbox",
   "grid",
   "content_size",
+  "calc",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
 uuid = { version = "1.21.0", features = ["v4"], optional = true }
@@ -56,6 +57,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.20.0-dev" }
+ron = "0.12"
 
 [features]
 default = []

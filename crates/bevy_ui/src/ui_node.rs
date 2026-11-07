@@ -4,7 +4,7 @@ use crate::{
         UiTreeDirty,
     },
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val,
+    ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val, ValContext,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -2644,7 +2644,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Component, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2934,7 +2934,7 @@ impl<T: Into<Color>> From<T> for OuterColor {
 /// ```
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2990,9 +2990,9 @@ impl BorderRadius {
     pub fn all(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_left: radius,
-            top_right: radius,
-            bottom_left: radius,
+            top_left: radius.clone(),
+            top_right: radius.clone(),
+            bottom_left: radius.clone(),
             bottom_right: radius,
         }
     }
@@ -3085,7 +3085,7 @@ impl BorderRadius {
     pub fn left(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_left: radius,
+            top_left: radius.clone(),
             bottom_left: radius,
             ..Self::DEFAULT
         }
@@ -3097,7 +3097,7 @@ impl BorderRadius {
     pub fn right(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_right: radius,
+            top_right: radius.clone(),
             bottom_right: radius,
             ..Self::DEFAULT
         }
@@ -3109,7 +3109,7 @@ impl BorderRadius {
     pub fn top(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_left: radius,
+            top_left: radius.clone(),
             top_right: radius,
             ..Self::DEFAULT
         }
@@ -3121,7 +3121,7 @@ impl BorderRadius {
     pub fn bottom(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            bottom_left: radius,
+            bottom_left: radius.clone(),
             bottom_right: radius,
             ..Self::DEFAULT
         }
@@ -3159,7 +3159,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_left(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.top_left = radius;
+        self.top_left = radius.clone();
         self.bottom_left = radius;
         self
     }
@@ -3168,7 +3168,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_right(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.top_right = radius;
+        self.top_right = radius.clone();
         self.bottom_right = radius;
         self
     }
@@ -3177,7 +3177,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_top(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.top_left = radius;
+        self.top_left = radius.clone();
         self.top_right = radius;
         self
     }
@@ -3186,50 +3186,19 @@ impl BorderRadius {
     #[inline]
     pub fn with_bottom(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.bottom_left = radius;
+        self.bottom_left = radius.clone();
         self.bottom_right = radius;
         self
     }
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
-        &self,
-        scale_factor: f32,
-        node_size: Vec2,
-        viewport_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> ResolvedBorderRadius {
+    pub fn resolve(&self, node_size: Vec2, context: &ValContext) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self.top_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            top_right: self.top_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_left: self.bottom_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_right: self.bottom_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
+            top_left: self.top_left.resolve(node_size, context),
+            top_right: self.top_right.resolve(node_size, context),
+            bottom_left: self.bottom_left.resolve(node_size, context),
+            bottom_right: self.bottom_right.resolve(node_size, context),
         }
     }
 }
@@ -3347,7 +3316,7 @@ impl From<ShadowStyle> for BoxShadow {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default, Clone)]
 #[cfg_attr(
     feature = "serialize",

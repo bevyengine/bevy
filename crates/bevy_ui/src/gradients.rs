@@ -1,4 +1,4 @@
-use crate::{UiPosition, Val, ValNum};
+use crate::{UiPosition, Val, ValContext, ValNum};
 use bevy_color::{Color, Srgba};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
@@ -8,7 +8,7 @@ use bevy_utils::default;
 use core::{f32, f32::consts::TAU};
 
 /// A color stop for a gradient
-#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
@@ -444,7 +444,7 @@ impl ConicGradient {
     }
 
     /// Sets the position of the gradient
-    pub const fn with_position(mut self, position: UiPosition) -> Self {
+    pub fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
         self
     }
@@ -565,7 +565,7 @@ impl<T: Into<Gradient>> From<T> for BorderGradient {
     }
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Default, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -607,7 +607,7 @@ const fn far_side2(p: Vec2, h: Vec2) -> f32 {
 impl RadialGradientShape {
     /// Resolve the physical dimensions of the end shape of the radial gradient
     pub fn resolve(
-        self,
+        &self,
         position: Vec2,
         scale_factor: f32,
         physical_size: Vec2,
@@ -615,6 +615,7 @@ impl RadialGradientShape {
         em_size: EmSize,
         rem_size: RemSize,
     ) -> Vec2 {
+        let context = ValContext::new(scale_factor, physical_target_size, em_size, rem_size);
         let half_size = 0.5 * physical_size;
         match self {
             RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),
@@ -627,34 +628,12 @@ impl RadialGradientShape {
                 far_side(position.x, half_size.x),
                 far_side(position.y, half_size.y),
             ),
-            RadialGradientShape::Circle(radius) => Vec2::splat(
-                radius
-                    .resolve(
-                        scale_factor,
-                        physical_size.x,
-                        physical_target_size,
-                        em_size,
-                        rem_size,
-                    )
-                    .unwrap_or(0.),
-            ),
+            RadialGradientShape::Circle(radius) => {
+                Vec2::splat(radius.resolve(physical_size.x, &context).unwrap_or(0.))
+            }
             RadialGradientShape::Ellipse(x, y) => Vec2::new(
-                x.resolve(
-                    scale_factor,
-                    physical_size.x,
-                    physical_target_size,
-                    em_size,
-                    rem_size,
-                )
-                .unwrap_or(0.),
-                y.resolve(
-                    scale_factor,
-                    physical_size.y,
-                    physical_target_size,
-                    em_size,
-                    rem_size,
-                )
-                .unwrap_or(0.),
+                x.resolve(physical_size.x, &context).unwrap_or(0.),
+                y.resolve(physical_size.y, &context).unwrap_or(0.),
             ),
         }
     }

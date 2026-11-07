@@ -22,6 +22,7 @@ pub mod gradients;
 #[cfg(feature = "bevy_picking")]
 pub mod picking_backend;
 pub mod ui_transform;
+pub mod val;
 
 use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_picking")]
@@ -46,6 +47,7 @@ pub use measurement::*;
 pub use scroll_into_view::{ScrollIntoView, ScrollIntoViewContainer};
 pub use ui_node::*;
 pub use ui_transform::*;
+pub use val::*;
 pub use widget::TextNodeFlags;
 
 /// The UI prelude.
@@ -65,6 +67,7 @@ pub mod prelude {
             gradients::*,
             ui_node::*,
             ui_transform::*,
+            val::*,
             widget::{ImageNode, InlineImage, Label, NodeImageMode, ViewportNode},
             UiScale,
         },

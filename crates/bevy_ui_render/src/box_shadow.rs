@@ -29,7 +29,7 @@ use bevy_render::{GpuResourceAppExt, RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiRenderTargetInfo,
-    ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, Val,
+    ComputedUiTargetCamera, ResolvedBorderRadius, UiGlobalTransform, Val, ValContext,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -313,8 +313,19 @@ pub fn extract_shadows(
                 continue;
             }
 
-            let resolve_val = |val, base, scale_factor| match val {
+            let resolve_val = |val: &Val, base, scale_factor| match val {
                 Val::Auto => 0.,
+                Val::Calc(_) => val
+                    .resolve(
+                        base,
+                        &ValContext {
+                            scale_factor,
+                            physical_size: ui_physical_viewport_size,
+                            em_size: uinode.em_size.0,
+                            rem_size: uinode.rem_size.0,
+                        },
+                    )
+                    .unwrap_or(0.),
                 Val::Px(px) => px * scale_factor,
                 Val::Percent(percent) => percent / 100. * base,
                 Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
@@ -325,15 +336,15 @@ pub fn extract_shadows(
                 Val::Rem(rem) => rem * uinode.rem_size.0 * scale_factor,
             };
 
-            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_x = resolve_val(&drop_shadow.spread_radius, uinode.size().x, scale_factor);
             let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
             let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let blur_radius = resolve_val(&drop_shadow.blur_radius, uinode.size().x, scale_factor);
             let offset = vec2(
-                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
-                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
+                resolve_val(&drop_shadow.x_offset, uinode.size().x, scale_factor),
+                resolve_val(&drop_shadow.y_offset, uinode.size().y, scale_factor),
             );
 
             let shadow_size = uinode.size() + spread;

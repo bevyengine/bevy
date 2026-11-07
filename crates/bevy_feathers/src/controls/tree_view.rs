@@ -499,7 +499,7 @@ fn update_row_indent(
             if let Ok(mut node) = headers.get_mut(child)
                 && node.padding.left != left
             {
-                node.padding.left = left;
+                node.padding.left = left.clone();
             }
         }
     }

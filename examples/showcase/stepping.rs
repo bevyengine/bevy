@@ -53,8 +53,8 @@ impl Plugin for SteppingPlugin {
 
         // add our startup & stepping systems
         app.insert_resource(State {
-            ui_top: self.top,
-            ui_left: self.left,
+            ui_top: self.top.clone(),
+            ui_left: self.left.clone(),
             systems: Vec::new(),
         })
         .add_systems(
@@ -172,8 +172,8 @@ fn build_ui(
         SteppingUi,
         Node {
             position_type: PositionType::Absolute,
-            top: state.ui_top,
-            left: state.ui_left,
+            top: state.ui_top.clone(),
+            left: state.ui_left.clone(),
             padding: UiRect::all(px(10)),
             ..default()
         },
