@@ -753,6 +753,7 @@ mod tests {
         vec::Vec,
     };
     use async_channel::{Receiver, Sender};
+    use atomicow::CowArc;
     use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_diagnostic::{DiagnosticsPlugin, DiagnosticsStore};
     use bevy_ecs::{
@@ -927,18 +928,21 @@ mod tests {
         }
         async fn read_meta<'a>(
             &'a self,
-            path: &'a Path,
+            path: CowArc<'a, Path>,
         ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        async fn read<'a>(
+            &'a self,
+            path: CowArc<'a, Path>,
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
-                if let Some(existing) = attempt_counters.get_mut(path) {
+                if let Some(existing) = attempt_counters.get_mut(path.as_ref()) {
                     *existing += 1;
                     *existing
                 } else {
-                    attempt_counters.insert(path.into(), 1);
+                    attempt_counters.insert(path.as_ref().into(), 1);
                     1
                 }
             };
