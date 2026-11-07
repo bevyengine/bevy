@@ -1,4 +1,4 @@
-use bevy_asset::{io::Writer, saver::SavedAsset, AssetPath, AsyncWriteExt};
+use bevy_asset::{io::Writer, AssetPath, AsyncWriteExt};
 use ctt::{
     convert, ColorSpace, Container, ConvertSettings, FormatDesc, ImageRef, MipmapFilter,
     PipelineOutput, Quality, SurfaceRef, TextureKind,
@@ -17,7 +17,7 @@ impl CompressedImageSaverCtt {
     pub async fn save(
         &self,
         writer: &mut Writer,
-        image: SavedAsset<'_, '_, Image>,
+        image: &Image,
         settings: &CompressedImageSaverSettings,
         _asset_path: AssetPath<'_>,
     ) -> Result<ImageLoaderSettings, CompressedImageSaverError> {
