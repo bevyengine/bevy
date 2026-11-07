@@ -13,9 +13,9 @@ use bevy_ecs::{
     component::Component,
     hierarchy::Children,
     observer::On,
-    query::{With, Without},
+    query::{Added, With, Without},
     reflect::ReflectComponent,
-    system::{Res, ResMut, Single},
+    system::{ParamSet, Query, Res, ResMut, Single},
 };
 use bevy_feathers::{
     constants::{fonts, size},
@@ -27,7 +27,7 @@ use bevy_log::warn;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_remote::http::{DEFAULT_PORT, DEFAULT_RENDER_PORT};
 use bevy_scene::{bsn, on, Scene};
-use bevy_text::{EditableText, FontSourceTemplate, FontWeight};
+use bevy_text::{EditableText, FontSourceTemplate, FontWeight, TextEdit};
 use bevy_ui::{px, widget::Text, AlignItems, FlexDirection, Node};
 use bevy_ui_widgets::Activate;
 
@@ -88,15 +88,12 @@ pub fn connection_panel() -> impl Scene {
             Children [
                 ConnectionAddressHostInput
                 @FeathersTextInput
-                EditableText::new("127.0.0.1")
                 --
                 ConnectionAddressMainPort
                 @FeathersTextInput
-                EditableText::new(format!("{}", DEFAULT_PORT))
                 --
                 ConnectionAddressRenderPort
                 @FeathersTextInput
-                EditableText::new(format!("{}", DEFAULT_RENDER_PORT))
             ]
             --
             @FeathersButton {
@@ -120,6 +117,56 @@ pub fn connection_panel() -> impl Scene {
             ConnectionStatusRenderLabel
             @caption("")
         ]
+    }
+}
+
+/// Fills a new address input with the current remote address, or the default one.
+pub fn init_address_input(
+    maybe_sources: Option<Res<InspectorSources>>,
+    mut inputs: ParamSet<(
+        Query<&mut EditableText, Added<ConnectionAddressHostInput>>,
+        Query<&mut EditableText, Added<ConnectionAddressMainPort>>,
+        Query<&mut EditableText, Added<ConnectionAddressRenderPort>>,
+    )>,
+) {
+    let mut address_host = format_host(&RemoteSource::default());
+    let mut address_main = DEFAULT_PORT;
+    let mut address_render = DEFAULT_RENDER_PORT;
+
+    if let Some(sources) = maybe_sources {
+        for source in &sources.sources {
+            match source {
+                InspectorSource::Local => {}
+                #[cfg(feature = "remote")]
+                InspectorSource::Remote(remote) => {
+                    use crate::WorldKind;
+
+                    address_host = format_host(remote);
+                    if remote.subapp == WorldKind::Main {
+                        address_main = remote.port;
+                    } else {
+                        address_render = remote.port;
+                    }
+                }
+            }
+        }
+    };
+
+    for mut input_host in inputs.p0().iter_mut() {
+        input_host.queue_edit(TextEdit::SelectAll);
+        input_host.queue_edit(TextEdit::Insert(address_host.clone().into()));
+    }
+
+    let main_port = format!("{}", address_main);
+    for mut input_main in inputs.p1().iter_mut() {
+        input_main.queue_edit(TextEdit::SelectAll);
+        input_main.queue_edit(TextEdit::Insert(main_port.clone().into()));
+    }
+
+    let render_port = format!("{}", address_render);
+    for mut input_render in inputs.p2().iter_mut() {
+        input_render.queue_edit(TextEdit::SelectAll);
+        input_render.queue_edit(TextEdit::Insert(render_port.clone().into()));
     }
 }
 
@@ -149,7 +196,11 @@ pub fn connect_both_clicked(
         return;
     };
 
-    sources.set_if_neq(InspectorSources::remote(address, main_port, render_port));
+    sources.set_if_neq(InspectorSources::remote_local(
+        address,
+        main_port,
+        render_port,
+    ));
 }
 
 /// Observer switching the inspector to the remote app at the address in the address input.
@@ -171,7 +222,7 @@ pub fn connect_main_clicked(
         return;
     };
 
-    sources.set_if_neq(InspectorSources::remote_main(address, main_port));
+    sources.set_if_neq(InspectorSources::remote_main_local(address, main_port));
 }
 
 /// Observer switching the inspector back to the local world.
@@ -256,6 +307,14 @@ fn status_text(remote: &RemoteSource, connection: &RemoteConnection) -> String {
             }
             format!("Retrying {}: {shown}", format_address(remote))
         }
+    }
+}
+
+fn format_host(source: &RemoteSource) -> String {
+    if source.host.contains(':') {
+        format!("[{}]", source.host.0)
+    } else {
+        format!("{}", source.host.0)
     }
 }
 

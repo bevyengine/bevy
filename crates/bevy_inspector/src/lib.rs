@@ -21,6 +21,7 @@ pub mod entity_tree;
 pub mod remote;
 
 use alloc::string::{String, ToString};
+use core::fmt::Display;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
@@ -105,6 +106,22 @@ pub enum WorldKind {
     Main,
     /// Render subapp
     Render,
+}
+
+impl Display for WorldKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WorldKind::Main => write!(f, "Main"),
+            WorldKind::Render => write!(f, "Render"),
+        }
+    }
+}
+
+fn rank_subapp(item: &WorldKind) -> i32 {
+    match item {
+        WorldKind::Main => 1,
+        WorldKind::Render => 2,
+    }
 }
 
 /// A single source to read data from
@@ -239,6 +256,7 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    connection_panel::init_address_input,
                     connection_panel::sync_connection_status,
                     remote::stepping::sync_stepping_controls
                         .after(remote::stepping::poll_remote_stepping),
