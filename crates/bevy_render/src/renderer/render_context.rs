@@ -1,6 +1,8 @@
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+use crate::renderer::impl_wgpu_send_sync;
 use crate::renderer::{wgpu_wrapper, RenderDevice};
 use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
@@ -25,6 +27,11 @@ use wgpu::CommandBuffer;
 struct PendingCommandBuffersInner {
     commands: Vec<PendingCommandBuffer>,
 }
+
+// SAFETY: `PendingCommandBuffer` only contains `wgpu` command buffers and encoders,
+// which are `Send + Sync` on every target Bevy supports.
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+impl_wgpu_send_sync!(PendingCommandBuffersInner);
 
 enum PendingCommandBuffer {
     Buffer(CommandBuffer),
@@ -111,29 +118,40 @@ fn finish_sequential(
     })
 }
 
+// `wgpu::CommandBuffer` and `wgpu::CommandEncoder` are `Send` on native targets,
+// but proving that through wgpu's auto-trait chain exceeds the trait solver's
+// recursion limit. Wrapping them short-circuits the proof at the task pool boundary.
+#[cfg(not(target_arch = "wasm32"))]
+wgpu_wrapper! {
+    struct WgpuCommandBuffer(CommandBuffer);
+    struct WgpuCommandEncoder(CommandEncoder);
+}
+
 /// Finishes pending command encoders in parallel on the [`ComputeTaskPool`],
 /// then reassembles the command buffers in their original order.
 #[cfg(not(target_arch = "wasm32"))]
 fn finish_parallel(
     commands: impl Iterator<Item = PendingCommandBuffer>,
 ) -> impl Iterator<Item = CommandBuffer> {
-    let mut command_buffers = Vec::with_capacity(commands.size_hint().0);
+    let mut command_buffers: Vec<(usize, WgpuCommandBuffer)> =
+        Vec::with_capacity(commands.size_hint().0);
     let mut finished_encoders = ComputeTaskPool::get().scope(|scope| {
         for (index, command) in commands.into_iter().enumerate() {
             match command {
                 PendingCommandBuffer::Buffer(command_buffer) => {
-                    command_buffers.push((index, command_buffer));
+                    command_buffers.push((index, WgpuCommandBuffer::new(command_buffer)));
                 }
                 PendingCommandBuffer::Encoder {
                     encoder,
                     #[cfg(feature = "trace")]
                     name,
                 } => {
+                    let encoder = WgpuCommandEncoder::new(encoder);
                     scope.spawn(async move {
                         #[cfg(feature = "trace")]
                         let _span =
                             info_span!("finish_command_buffer", system = name.as_ref()).entered();
-                        (index, encoder.finish())
+                        (index, WgpuCommandBuffer::new(encoder.into_inner().finish()))
                     });
                 }
             }
@@ -144,7 +162,7 @@ fn finish_parallel(
     command_buffers.sort_unstable_by_key(|(index, _)| *index);
     command_buffers
         .into_iter()
-        .map(|(_, command_buffer)| command_buffer)
+        .map(|(_, command_buffer)| command_buffer.into_inner())
 }
 
 #[derive(Default)]
@@ -153,6 +171,11 @@ struct RenderContextStateInner {
     commands: Vec<PendingCommandBuffer>,
     render_device: Option<RenderDevice>,
 }
+
+// SAFETY: `PendingCommandBuffer` and `RenderDevice` are `Send + Sync` on every
+// target Bevy supports; `RenderDevice` already has explicit `Send + Sync` impls.
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+impl_wgpu_send_sync!(RenderContextStateInner);
 
 impl RenderContextStateInner {
     fn flush_encoder(&mut self) {
