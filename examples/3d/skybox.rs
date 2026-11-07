@@ -120,7 +120,7 @@ fn cycle_cubemap_asset(
     *next_swap += CUBEMAP_SWAP_DELAY;
 
     let supported_compressed_formats =
-        CompressedImageFormats::from_features(render_device.features());
+        CompressedImageFormats::from_features(*render_device.features());
 
     let mut new_index = cubemap.index;
     for _ in 0..CUBEMAPS.len() {
