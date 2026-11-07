@@ -35,7 +35,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 @if(VERTEX_TANGENTS)
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
         world_from_local,
-        uncompressed_vertex.tangent
+        uncompressed_vertex.tangent,
+        vertex.instance_index
     );
 
 @if(VERTEX_COLORS)
