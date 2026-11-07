@@ -132,7 +132,7 @@ impl From<Res<'_, AssetServer>> for AwaitLoadsBuilder {
 /// Once all handles have been loaded, the entity with this component will insert the
 /// [`LoadFinished`] component. You can use observers to react to the insertion of this component
 /// (and therefore, reacting to the load finishing).
-#[derive(Component)]
+#[derive(Component, Default, Clone, Debug)]
 #[component(immutable, on_insert=on_insert_await_loads, on_discard=on_discard_await_loads)]
 #[require(LoadableDependency)]
 pub struct AwaitLoads(
@@ -151,9 +151,10 @@ pub struct AwaitLoads(
 /// A component that tracks the loading progress of other [`LoadableDependency`] components.
 ///
 /// Once all dependencies have been loaded, the entity with this component will insert the
-/// [`LoadFinished`] component. You can use observers to react to the insertion of this component
-/// (and therefore, reacting to the load finishing).
-#[derive(Component)]
+/// [`LoadFinished`] component (unless [`InsertDependenciesFinished`] is on this entity). You can
+/// use observers to react to the insertion of this component (and therefore, reacting to the load
+/// finishing).
+#[derive(Component, Default, Clone, Debug)]
 #[component(immutable, on_insert=on_insert_await_dependencies, on_discard=on_discard_await_dependencies)]
 #[require(LoadableDependency)]
 pub struct AwaitDependencies(
@@ -166,6 +167,15 @@ pub struct AwaitDependencies(
     pub EntityHashSet,
 );
 
+/// A component to mark that the [`AwaitDependencies`] component should insert
+/// [`DependenciesFinished`] instead of [`LoadFinished`].
+///
+/// This allows you to manually control when the entity is marked loaded (by manually inserting the
+/// [`LoadFinished`] component), while still being able to detect that the entity's dependencies
+/// have loaded (by checking if the entity has the [`DependenciesFinished`] component).
+#[derive(Component, Default)]
+pub struct InsertDependenciesFinished;
+
 /// A marker to indicate that an entity is a dependency that may load eventually.
 ///
 /// This entity is considered "loaded" once the [`LoadFinished`] component is inserted onto it.
@@ -176,8 +186,20 @@ pub struct LoadableDependency;
 
 /// A marker component indicating that a [`LoadableDependency`] (usually added through the
 /// [`AwaitLoads`] component) has finished loading.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct LoadFinished;
+
+/// A marker component indicating that dependencies of an [`AwaitDependencies`] are all loaded.
+///
+/// This allows you to add behavior that happens after all dependencies have loaded, but before this
+/// [`LoadableDependency`] has finished loading. For example, you could wait on all dependencies to
+/// load, then start polling for some other condition, after which you manually insert the
+/// [`LoadFinished`] component.
+///
+/// After this component has been inserted, it's up to the user to insert the [`LoadFinished`]
+/// component themselves.
+#[derive(Component, Default)]
+pub struct DependenciesFinished;
 
 /// Hook to set up the [`AwaitLoads`] component to start waiting.
 fn on_insert_await_loads(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -237,7 +259,9 @@ fn poll_pending_loads(
     mut commands: Commands,
 ) {
     for (entity, mut pending) in pending.iter_mut() {
-        pending.0.retain(|handle| !asset_server.is_loaded(handle));
+        pending
+            .0
+            .retain(|handle| !asset_server.is_loaded_with_dependencies(handle));
         if pending.0.is_empty() {
             commands
                 .entity(entity)
@@ -249,16 +273,20 @@ fn poll_pending_loads(
 
 /// A system for polling whether an [`AwaitDependencies`] component is finished loading.
 fn poll_pending_dependencies(
-    mut pending: Populated<(Entity, &mut PendingDependencies)>,
+    mut pending: Populated<(
+        Entity,
+        &mut PendingDependencies,
+        Has<InsertDependenciesFinished>,
+    )>,
     is_finished: Query<Has<LoadFinished>, With<LoadableDependency>>,
     mut commands: Commands,
 ) {
-    for (entity, mut pending) in pending.iter_mut() {
+    for (entity, mut pending, insert_dependencies_finished) in pending.iter_mut() {
         pending.0.retain(|dependency| {
             let Ok(is_finished) = is_finished.get(*dependency) else {
                 warn!(
-                    "AwaitLoads component is waiting on entity {dependency:?}, but the entity \
-                      is not a `LoadableDependency`. Ignoring this dependency."
+                    "AwaitDependencies component is waiting on entity {dependency:?}, but the \
+                    entity is not a `LoadableDependency`. Ignoring this dependency."
                 );
                 return false;
             };
@@ -271,10 +299,13 @@ fn poll_pending_dependencies(
         // to listen for when the dependent loads, or just making our own sad version of
         // many-to-many relationships so the child can immediately notify the parent.
         if pending.0.is_empty() {
-            commands
-                .entity(entity)
-                .remove::<PendingDependencies>()
-                .insert(LoadFinished);
+            let mut entity = commands.entity(entity);
+            entity.remove::<PendingDependencies>();
+            if insert_dependencies_finished {
+                entity.insert(DependenciesFinished);
+            } else {
+                entity.insert(LoadFinished);
+            }
         }
     }
 }
@@ -290,7 +321,10 @@ mod tests {
     };
 
     use crate::{
-        await_loads::{AwaitDependencies, AwaitLoadsBuilder, LoadFinished},
+        await_loads::{
+            AwaitDependencies, AwaitLoadsBuilder, DependenciesFinished, InsertDependenciesFinished,
+            LoadFinished,
+        },
         io::memory::Dir,
         tests::{create_app_with_gate, run_app_until, TestAsset, TrivialLoader},
         AssetApp, AssetServer,
@@ -398,5 +432,65 @@ mod tests {
         assert!(is_load_finished(&app, child_1));
         assert!(is_load_finished(&app, child_2));
         assert!(is_load_finished(&app, parent));
+    }
+
+    #[test]
+    fn waits_for_dependencies_then_manual() {
+        let dir = Dir::default();
+
+        let (mut app, gate_opener) = create_app_with_gate(dir.clone());
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(Path::new("a.txt"), "");
+
+        let mut bottom = AwaitLoadsBuilder::new(asset_server.clone());
+        let a = bottom.load::<TestAsset>("a.txt");
+        let bottom = app.world_mut().spawn(bottom.build()).id();
+
+        let middle = app
+            .world_mut()
+            .spawn((
+                AwaitDependencies(EntityHashSet::from_iter([bottom])),
+                InsertDependenciesFinished,
+            ))
+            .id();
+
+        let top = app
+            .world_mut()
+            .spawn(AwaitDependencies(EntityHashSet::from_iter([middle])))
+            .id();
+
+        app.update();
+
+        assert!(!is_load_finished(&app, bottom));
+        assert!(!is_load_finished(&app, middle));
+        assert!(!is_load_finished(&app, top));
+
+        gate_opener.open("a.txt");
+        run_app_until(&mut app, |_| asset_server.is_loaded(&a).then_some(()));
+
+        // Additional load to prove this isn't succeeding because of some execution ordering.
+        app.update();
+
+        // The bottom has loaded, but the bottom and top still haven't been marked loaded.
+        assert!(is_load_finished(&app, bottom));
+        assert!(!is_load_finished(&app, middle));
+        assert!(!is_load_finished(&app, top));
+        // Middle has been notified that its dependencies have finished loading.
+        assert!(app
+            .world()
+            .entity(middle)
+            .contains::<DependenciesFinished>());
+
+        app.world_mut().entity_mut(middle).insert(LoadFinished);
+
+        app.update();
+
+        assert!(is_load_finished(&app, bottom));
+        assert!(is_load_finished(&app, middle));
+        assert!(is_load_finished(&app, top));
     }
 }
