@@ -29,16 +29,17 @@ commands.spawn((
 ```
 
 `BillboardExtension` has two settings:
+
 - `lock_y`: keeps the billboard upright, rotating it only around the world Y axis.
-- `depth_test` can be turned off to draw the billboard over the geometry in front of it.
+- `depth_test`: can be turned off to draw the billboard over the geometry in front of it.
 
 The rotation happens in the vertex shader, so billboards need no per-frame `Transform` updates, and the ones that share a mesh and settings are drawn together.
 
-Frustum culling bounds are automatically calculated using meshes `Aabb`, scaled into a cube.
+Frustum culling bounds are automatically calculated using the mesh's `Aabb`, scaled into a cube.
 You can disable this and use your own frustum culling or `Aabb` by using `NoFrustumCulling`/`NoAutoAabb`.
 
-This is initial implementation of the feature, and it has few limitations for the time being:
+This is an initial implementation of the feature, and it has a few limitations for the time being:
+
 - Billboards don't cast shadows (but receive shadows fine);
 - Skinned or morphed meshes aren't supported;
 - Picking and raycasts don't work well yet either, because they test against the unrotated mesh.
-
