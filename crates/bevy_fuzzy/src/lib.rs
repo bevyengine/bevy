@@ -15,19 +15,16 @@
 //! ```
 //! use bevy_fuzzy::{segments, FuzzyPattern};
 //!
-//! let names = ["Spline", "PointLight", "Transform"];
+//! let names = ["Sampler", "PointLight", "Transform"];
 //! let pattern = FuzzyPattern::new("pl");
 //! let ranked = pattern.rank(&names, |name| *name);
 //!
 //! assert_eq!(ranked.len(), 2);
 //! assert_eq!(names[ranked[0].index], "PointLight");
-//! assert_eq!(names[ranked[1].index], "Spline");
+//! assert_eq!(names[ranked[1].index], "Sampler");
 //!
-//! let highlighted: Vec<_> = segments(names[ranked[0].index], &ranked[0].matched.indices).collect();
-//! assert_eq!(
-//!     highlighted,
-//!     [("P", true), ("oint", false), ("L", true), ("ight", false)]
-//! );
+//! let highlighted: Vec<_> = segments(names[ranked[1].index], &ranked[1].matched.indices).collect();
+//! assert_eq!(highlighted, [("Sam", false), ("pl", true), ("er", false)]);
 //! ```
 
 extern crate alloc;
@@ -55,8 +52,13 @@ const NO_PREDECESSOR: u32 = u32::MAX;
 /// A parsed fuzzy search pattern.
 ///
 /// Whitespace splits the pattern into atoms, and every atom must match. Matching ignores case
-/// by comparing the first char of each char's [`char::to_lowercase`] mapping. An empty or
-/// whitespace-only pattern matches everything with a score of 0.
+/// by comparing the first char of each char's [`char::to_lowercase`] mapping, with Greek final
+/// sigma treated as sigma. An empty or whitespace-only pattern matches everything with a score
+/// of 0.
+///
+/// Each char folds to exactly one char, so that matched indices stay valid for the haystack.
+/// Case foldings that change the length do not apply: the German sharp s does not match `ss`,
+/// and a ligature does not match its separate letters.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FuzzyPattern {
     atoms: Vec<Vec<char>>,
@@ -112,8 +114,17 @@ impl FuzzyPattern {
 
     /// Matches every item's key and returns the matching items.
     ///
-    /// Results are sorted by score descending, then by shorter key, then by original order.
+    /// Results are sorted by score descending, then by shorter key, then by original order. An
+    /// empty pattern matches every item and keeps the original order.
     pub fn rank<T>(&self, items: &[T], key: impl Fn(&T) -> &str) -> Vec<RankedMatch> {
+        if self.is_empty() {
+            return (0..items.len())
+                .map(|index| RankedMatch {
+                    index,
+                    matched: FuzzyMatch::default(),
+                })
+                .collect();
+        }
         let mut ranked: Vec<(usize, RankedMatch)> = items
             .iter()
             .enumerate()
@@ -204,9 +215,10 @@ impl Haystack {
         let mut chars = Vec::new();
         let mut bonus = Vec::new();
         let mut prev = None;
-        for c in haystack.chars().take(MAX_HAYSTACK_CHARS) {
+        let mut rest = haystack.chars().take(MAX_HAYSTACK_CHARS).peekable();
+        while let Some(c) = rest.next() {
             chars.push(fold(c));
-            bonus.push(char_bonus(prev, c));
+            bonus.push(char_bonus(prev, c, rest.peek().copied()));
             prev = Some(c);
         }
         Self { chars, bonus }
@@ -320,7 +332,10 @@ fn fold(c: char) -> char {
     if c.is_ascii() {
         c.to_ascii_lowercase()
     } else {
-        c.to_lowercase().next().unwrap_or(c)
+        match c.to_lowercase().next().unwrap_or(c) {
+            'ς' => 'σ',
+            lower => lower,
+        }
     }
 }
 
@@ -328,7 +343,7 @@ fn is_separator(c: char) -> bool {
     c.is_whitespace() || matches!(c, '_' | '-' | '.' | '/' | ':')
 }
 
-fn char_bonus(prev: Option<char>, c: char) -> i32 {
+fn char_bonus(prev: Option<char>, c: char, next: Option<char>) -> i32 {
     let Some(prev) = prev else {
         return BONUS_BOUNDARY;
     };
@@ -337,6 +352,7 @@ fn char_bonus(prev: Option<char>, c: char) -> i32 {
     } else if is_separator(prev) {
         BONUS_BOUNDARY
     } else if (prev.is_lowercase() && c.is_uppercase())
+        || (prev.is_uppercase() && c.is_uppercase() && next.is_some_and(char::is_lowercase))
         || (prev.is_alphabetic() && c.is_numeric())
         || (prev.is_numeric() && c.is_alphabetic())
     {
@@ -380,6 +396,21 @@ mod tests {
     }
 
     #[test]
+    fn final_sigma_matches_sigma() {
+        assert_eq!(indices("ΟΣ", "ος"), [0, 1]);
+        assert_eq!(indices("ς", "σ"), [0]);
+        assert_eq!(indices("σ", "ς"), [0]);
+    }
+
+    #[test]
+    fn folding_keeps_length() {
+        assert_eq!(indices("ß", "ẞ"), [0]);
+        assert_eq!(FuzzyPattern::new("ss").score("Straße"), None);
+        assert_eq!(FuzzyPattern::new("ß").score("STRASSE"), None);
+        assert_eq!(FuzzyPattern::new("fi").score("ﬁ"), None);
+    }
+
+    #[test]
     fn all_atoms_must_match() {
         let pattern = FuzzyPattern::new("point  light");
         assert!(pattern.score("PointLight").is_some());
@@ -407,6 +438,17 @@ mod tests {
         assert_eq!(indices("gt", "global_transform"), [0, 7]);
         assert_eq!(indices("v3", "vec_v3"), [4, 5]);
         assert!(score("3d", "Camera3d") > score("3d", "Camera3xd"));
+    }
+
+    #[test]
+    fn uppercase_run_ends_at_next_word() {
+        assert_eq!(score("cm", "ClusterFarZMode"), score("cm", "ClusterFarZeeMode"));
+        let items = ["ClusterFarZeeMode", "ClusterFarZMode"];
+        let ranked = FuzzyPattern::new("cm").rank(&items, |item| *item);
+        assert_eq!(ranked[0].index, 1);
+        assert_eq!(indices("zm", "ClusterFarZMode"), [10, 11]);
+        assert!(score("p", "XMLParser") > score("p", "Xp"));
+        assert_eq!(score("m", "XM"), score("m", "Xm"));
     }
 
     #[test]
@@ -472,13 +514,23 @@ mod tests {
 
     #[test]
     fn rank_is_stable() {
-        let items = ["foo", "bar", "foo", "fob", "foo"];
-        let ranked = FuzzyPattern::new("fo").rank(&items, |item| *item);
+        let items = ["abc", "xyz", "abc", "abx", "abc"];
+        let ranked = FuzzyPattern::new("ab").rank(&items, |item| *item);
         let order: Vec<_> = ranked.iter().map(|r| r.index).collect();
         assert_eq!(order, [0, 2, 3, 4]);
         let all = FuzzyPattern::new("").rank(&items, |item| *item);
         let order: Vec<_> = all.iter().map(|r| r.index).collect();
         assert_eq!(order, [0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn empty_pattern_keeps_order() {
+        let items = ["Transform", "Name", "PointLight"];
+        for pattern in ["", "  "] {
+            let ranked = FuzzyPattern::new(pattern).rank(&items, |item| *item);
+            let order: Vec<_> = ranked.iter().map(|r| r.index).collect();
+            assert_eq!(order, [0, 1, 2]);
+        }
     }
 
     #[test]
