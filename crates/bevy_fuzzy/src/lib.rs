@@ -442,7 +442,10 @@ mod tests {
 
     #[test]
     fn uppercase_run_ends_at_next_word() {
-        assert_eq!(score("cm", "ClusterFarZMode"), score("cm", "ClusterFarZeeMode"));
+        assert_eq!(
+            score("cm", "ClusterFarZMode"),
+            score("cm", "ClusterFarZeeMode")
+        );
         let items = ["ClusterFarZeeMode", "ClusterFarZMode"];
         let ranked = FuzzyPattern::new("cm").rank(&items, |item| *item);
         assert_eq!(ranked[0].index, 1);
