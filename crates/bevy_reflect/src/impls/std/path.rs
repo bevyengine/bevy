@@ -11,6 +11,7 @@ use crate::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
 use alloc::borrow::Cow;
+use bevy_annotations::SerializedAs;
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::{impl_reflect_opaque, impl_type_path};
 use core::any::Any;
@@ -26,7 +27,8 @@ impl_reflect_opaque!(::std::path::PathBuf(
     PartialOrd,
     Serialize,
     Deserialize,
-    Default
+    Default,
+    @SerializedAs::STRING
 ));
 
 impl PartialReflect for &'static Path {

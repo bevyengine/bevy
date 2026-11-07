@@ -56,6 +56,7 @@ pub use atomicow::CowArc;
 #[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
 #[reflect(opaque)]
 #[reflect(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
+#[reflect(@bevy_reflect::annotations::SerializedAs::STRING)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,

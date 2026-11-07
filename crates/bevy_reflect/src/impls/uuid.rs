@@ -1,4 +1,5 @@
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
+use bevy_annotations::SerializedAs;
 use bevy_reflect_derive::impl_reflect_opaque;
 
 impl_reflect_opaque!(::uuid::Uuid(
@@ -9,7 +10,8 @@ impl_reflect_opaque!(::uuid::Uuid(
     Debug,
     PartialEq,
     PartialOrd,
-    Hash
+    Hash,
+    @SerializedAs::String { format: Some("uuid"), pattern: None }
 ));
 
 impl_reflect_opaque!(::uuid::NonNilUuid(
@@ -18,5 +20,6 @@ impl_reflect_opaque!(::uuid::NonNilUuid(
     Clone,
     Debug,
     PartialEq,
-    Hash
+    Hash,
+    @SerializedAs::String { format: Some("uuid"), pattern: None }
 ));

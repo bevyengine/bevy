@@ -6,14 +6,14 @@ pull_requests: [26337]
 BRP serializes types that register `ReflectSerialize` with their `Serialize` implementation, which does not always follow their reflected structure.
 `registry.schema` now describes the serialized form for such types.
 
-- Types that register the new `ReflectBrpJsonSchema` type data use the keywords it declares at the top level.
+- Types with the new `SerializedAs` annotation use the keywords it describes at the top level.
   The reflected `type`, `$ref`, `properties`, `required`, `additionalProperties`, `prefixItems`, `items`, `minItems`, `maxItems`, `oneOf` and `uniqueItems` move into a new `reflectSchema` object.
   `kind` still describes the reflected structure.
-- `RemotePlugin` registers it for `glam` vectors, quaternions, matrices and affines (fixed-length arrays whose items are titled `x`, `x_axis.y`, `translation.z`, ...), `Entity`, `Name`, `Cow<'static, str>`, `PathBuf`, `SocketAddr`, `Duration`, the `NonZero*` integers, and, with the `bevy_asset` feature, `AssetPath`, `Uuid` and `NonNilUuid`.
+- `glam` vectors, quaternions, matrices and affines (fixed-length arrays whose items are titled `x`, `x_axis.y`, `translation.z`, ...), `Entity`, `Name`, `Cow<'static, str>`, `PathBuf`, `SocketAddr`, `Duration`, the `NonZero*` integers, `AssetPath`, `Uuid` and `NonNilUuid` all have it.
   For example, `glam::Vec3` now has `type: "array"` with three `prefixItems`, and its `x`, `y` and `z` properties are under `reflectSchema`.
 - Other opaque types that serialize to JSON of unknown shape now have `rawJson: true`.
 
-To describe your own type, implement `BrpJsonSchema` and add `#[reflect(BrpJsonSchema)]`.
+To describe your own type, add an annotation such as `#[reflect(@SerializedAs::Seq)]`.
 
 Rust API changes:
 
