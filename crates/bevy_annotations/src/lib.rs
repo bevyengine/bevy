@@ -18,7 +18,7 @@
 //!
 //! Several annotations can be attached to the same item.
 //!
-//! ```
+//! ```ignore
 //! use bevy_annotations::{DisplayName, ValueRange, ReadOnly, Step, Tooltip, Unit};
 //! use bevy_reflect::{Reflect, TypeInfo, Typed};
 //!
@@ -99,7 +99,7 @@ pub struct DisplayName(pub &'static str);
 /// without this annotation serialize as their reflected structure, unless they are opaque, in
 /// which case the shape is unknown.
 ///
-/// ```
+/// ```ignore
 /// use bevy_annotations::SerializedAs;
 /// use bevy_reflect::Reflect;
 ///

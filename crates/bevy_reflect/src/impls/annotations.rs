@@ -65,6 +65,7 @@ impl CustomAttributes {
 mod tests {
     use super::*;
     use crate::{Reflect, TypeInfo, Typed};
+    use bevy_annotations::SerializedAs;
 
     #[derive(Reflect)]
     struct Named {
@@ -77,6 +78,67 @@ mod tests {
         #[reflect(@-5_i32..=5_i32)]
         range_i32: i32,
         plain: f32,
+    }
+
+    #[derive(Reflect)]
+    #[reflect(@Tooltip("Movement settings for a character"))]
+    struct Movement {
+        #[reflect(@ValueRange(0.0..=20.0), @Step(0.5), @Unit("m/s"))]
+        speed: f32,
+        #[reflect(@DisplayName("Jump Height"), @Tooltip("Peak height of a jump"))]
+        jump: f32,
+        #[reflect(@ReadOnly)]
+        grounded: bool,
+    }
+
+    #[derive(Reflect)]
+    #[reflect(@SerializedAs::Seq)]
+    struct Span {
+        min: f32,
+        max: f32,
+    }
+
+    #[derive(Reflect, Clone)]
+    #[reflect(opaque, @SerializedAs::STRING)]
+    struct Tag;
+
+    #[test]
+    fn annotations_on_types_and_fields() {
+        let TypeInfo::Struct(info) = Movement::type_info() else {
+            panic!("expected struct info");
+        };
+        let speed = info.field("speed").unwrap();
+        assert_eq!(
+            speed.get_attribute::<ValueRange>(),
+            Some(&ValueRange(0.0..=20.0))
+        );
+        assert_eq!(speed.get_attribute::<Step>(), Some(&Step(0.5)));
+        assert_eq!(speed.get_attribute::<Unit>(), Some(&Unit("m/s")));
+        let jump = info.field("jump").unwrap();
+        assert_eq!(
+            jump.get_attribute::<DisplayName>(),
+            Some(&DisplayName("Jump Height"))
+        );
+        assert!(info.field("grounded").unwrap().has_attribute::<ReadOnly>());
+        assert!(info.has_attribute::<Tooltip>());
+    }
+
+    #[test]
+    fn serialized_as_on_struct_and_opaque() {
+        let TypeInfo::Struct(span) = Span::type_info() else {
+            panic!("expected struct info");
+        };
+        assert_eq!(
+            span.get_attribute::<SerializedAs>(),
+            Some(&SerializedAs::Seq)
+        );
+        let TypeInfo::Opaque(tag) = Tag::type_info() else {
+            panic!("expected opaque info");
+        };
+        assert_eq!(
+            tag.get_attribute::<SerializedAs>(),
+            Some(&SerializedAs::STRING)
+        );
     }
 
     #[test]

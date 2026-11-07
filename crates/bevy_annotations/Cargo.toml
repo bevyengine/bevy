@@ -8,9 +8,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
-[dev-dependencies]
-bevy_reflect = { path = "../bevy_reflect" }
-
 [lints]
 workspace = true
 
