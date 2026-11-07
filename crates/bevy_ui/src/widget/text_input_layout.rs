@@ -379,6 +379,7 @@ pub fn update_editable_text_layout(
             info.run_geometry.clear();
 
             for (line_index, line) in layout.lines().enumerate() {
+                let mut underlined_run = None;
                 for item in line.items() {
                     match item {
                         PositionedLayoutItem::GlyphRun(glyph_run) => {
@@ -452,7 +453,11 @@ pub fn update_editable_text_layout(
                             if let Some(cr) = &compose_range
                                 && run_text_range.start < cr.end
                                 && run_text_range.end > cr.start
+                                && underlined_run != Some(run.index())
                             {
+                                // Styled glyph runs can share a shaping run. Visit its clusters
+                                // once, starting at the first glyph run's offset.
+                                underlined_run = Some(run.index());
                                 let mut x = glyph_run.offset();
                                 let mut underline_start_x = None;
                                 let mut underline_end_x = x;
@@ -587,5 +592,248 @@ fn bounding_box_to_rect(geom: BoundingBox) -> Rect {
             x: geom.x1 as f32,
             y: geom.y1 as f32,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::{App, Update};
+    use bevy_ecs::{change_detection::Mut, world::World};
+    use parley::{FontFamilyName, PlainEditorDriver};
+
+    struct Fixture {
+        app: App,
+        entity: Entity,
+    }
+
+    impl Fixture {
+        fn new(prefix: &str, preedit: &str, suffix: &str, font_size: f32) -> Self {
+            let mut font_cx = FontCx::default();
+            let font = Font::from_bytes(
+                include_bytes!("../../../bevy_text/src/FiraMono-subset.ttf").to_vec(),
+            );
+            font_cx.collection.register_fonts(font.data, None);
+            let mut layout_cx = LayoutCx::default();
+            let mut text = EditableText::new(format!("{prefix}{suffix}"));
+            text.editor.set_width(Some(1000.));
+            text.editor
+                .edit_styles()
+                .insert(FontFamilyName::Named("Fira Mono".into()).into());
+            text.editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(font_size));
+            let mut driver = text.editor.driver(&mut font_cx, &mut layout_cx);
+            driver.move_to_byte(prefix.len());
+            driver.set_compose(preedit, Some((preedit.len(), preedit.len())));
+
+            let mut app = App::new();
+            app.insert_resource(font_cx)
+                .insert_resource(layout_cx)
+                .init_resource::<ScaleCx>()
+                .init_resource::<FontAtlasSet>()
+                .init_resource::<Assets<Image>>()
+                .init_resource::<RemSize>()
+                .init_resource::<Time<Real>>()
+                .add_systems(Update, update_editable_text_layout);
+            let entity = app
+                .world_mut()
+                .spawn((
+                    text,
+                    TextLayoutInfo::default(),
+                    ComputedUiRenderTargetInfo::default(),
+                ))
+                .id();
+            Self { app, entity }
+        }
+
+        fn edit(&mut self, edit: impl FnOnce(&mut PlainEditorDriver<'_, TextBrush>)) {
+            self.app
+                .world_mut()
+                .resource_scope(|world: &mut World, mut fonts: Mut<FontCx>| {
+                    world.resource_scope(|world: &mut World, mut layout: Mut<LayoutCx>| {
+                        let mut text = world.get_mut::<EditableText>(self.entity).unwrap();
+                        edit(&mut text.editor.driver(&mut fonts, &mut layout));
+                    });
+                });
+        }
+
+        fn rects(&self) -> &[Rect] {
+            &self
+                .app
+                .world()
+                .get::<TextLayoutInfo>(self.entity)
+                .unwrap()
+                .preedit_underline_rects
+        }
+
+        fn check(&mut self) {
+            let mut expected = Vec::new();
+            self.edit(|driver| {
+                for line in driver.layout().lines() {
+                    for item in line.items() {
+                        if let PositionedLayoutItem::GlyphRun(glyph_run) = item
+                            && glyph_run.style().underline.is_some()
+                        {
+                            let metrics = glyph_run.run().metrics();
+                            let y = glyph_run.baseline() - metrics.underline_offset;
+                            expected.push(Rect {
+                                min: Vec2::new(glyph_run.offset(), y),
+                                max: Vec2::new(
+                                    glyph_run.offset() + glyph_run.advance(),
+                                    y + metrics.underline_size,
+                                ),
+                            });
+                        }
+                    }
+                }
+            });
+            assert!(!expected.is_empty());
+            self.app.update();
+            assert!(!self
+                .app
+                .world()
+                .get::<TextLayoutInfo>(self.entity)
+                .unwrap()
+                .glyphs
+                .is_empty());
+            assert_eq!(
+                self.rects().len(),
+                expected.len(),
+                "actual: {:?}, expected: {expected:?}",
+                self.rects()
+            );
+            for (actual, expected) in self.rects().iter().zip(expected) {
+                assert!(
+                    (actual.min - expected.min).abs().max_element() < 0.001,
+                    "{actual:?} != {expected:?}"
+                );
+                assert!(
+                    (actual.max - expected.max).abs().max_element() < 0.001,
+                    "{actual:?} != {expected:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn preedit_underline_matches_positioned_glyphs() {
+        for prefix_len in [1, 4, 8, 16, 0] {
+            for suffix in ["", " tail"] {
+                for font_size in [13., 16., 19.3] {
+                    let mut fixture = Fixture::new(&"a".repeat(prefix_len), "e", suffix, font_size);
+                    fixture.check();
+                    assert_eq!(fixture.rects().len(), 1);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn preedit_underline_reflows_with_layout() {
+        let mut fixture =
+            Fixture::new("prefix ", "preedit text wraps across lines", " suffix", 16.);
+        for width in [90., 140., 1000.] {
+            fixture
+                .app
+                .world_mut()
+                .get_mut::<EditableText>(fixture.entity)
+                .unwrap()
+                .editor
+                .set_width(Some(width));
+            fixture.check();
+            if width < 1000. {
+                assert!(fixture.rects().len() > 1);
+            } else {
+                assert_eq!(fixture.rects().len(), 1);
+            }
+        }
+        for scale in [1., 1.25, 2.] {
+            let mut text = fixture
+                .app
+                .world_mut()
+                .get_mut::<EditableText>(fixture.entity)
+                .unwrap();
+            text.editor.set_scale(scale);
+            text.editor
+                .edit_styles()
+                .insert(StyleProperty::FontSize(19.3));
+            fixture.check();
+        }
+        for alignment in [parley::Alignment::Center, parley::Alignment::End] {
+            fixture
+                .app
+                .world_mut()
+                .get_mut::<EditableText>(fixture.entity)
+                .unwrap()
+                .editor
+                .set_alignment(alignment);
+            fixture.check();
+        }
+        let mut fixture = Fixture::new("before\n", "first\nsecond", "\nafter", 16.);
+        fixture.check();
+        assert_eq!(fixture.rects().len(), 2);
+    }
+
+    #[test]
+    fn preedit_underline_tracks_composition_lifetime() {
+        let mut fixture = Fixture::new("before ", "e", " after", 16.);
+        fixture.check();
+        fixture.edit(|driver| driver.set_compose("replacement", None));
+        fixture.check();
+        assert!(fixture
+            .app
+            .world()
+            .get::<TextLayoutInfo>(fixture.entity)
+            .unwrap()
+            .cursor
+            .is_none());
+        fixture.edit(|driver| driver.set_compose("selected", Some((0, 3))));
+        fixture.check();
+        assert!(!fixture
+            .app
+            .world()
+            .get::<TextLayoutInfo>(fixture.entity)
+            .unwrap()
+            .selection_rects
+            .is_empty());
+        let before = fixture.rects().to_vec();
+        fixture.app.update();
+        assert_eq!(fixture.rects(), before);
+        fixture.edit(|driver| {
+            driver.finish_compose();
+            assert!(driver.editor.raw_compose().is_none());
+        });
+        fixture.app.update();
+        assert!(fixture.rects().is_empty());
+        assert_eq!(
+            fixture
+                .app
+                .world()
+                .get::<EditableText>(fixture.entity)
+                .unwrap()
+                .value(),
+            "before selected after"
+        );
+        fixture.edit(|driver| {
+            driver.move_to_text_end();
+            driver.set_compose("cancel", None);
+        });
+        fixture.check();
+        fixture.edit(|driver| {
+            driver.clear_compose();
+            assert!(driver.editor.raw_compose().is_none());
+        });
+        fixture.app.update();
+        assert!(fixture.rects().is_empty());
+        assert_eq!(
+            fixture
+                .app
+                .world()
+                .get::<EditableText>(fixture.entity)
+                .unwrap()
+                .value(),
+            "before selected after"
+        );
     }
 }
