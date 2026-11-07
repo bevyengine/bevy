@@ -9,6 +9,7 @@ use crate::io::{
     ReaderNotSeekableError, SeekableReader,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
+use atomicow::CowArc;
 use bevy_platform::{
     collections::HashMap,
     sync::{PoisonError, RwLock},
@@ -399,9 +400,12 @@ impl Reader for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
-            .get_asset(path)
+            .get_asset(&path)
             .map(|data| DataReader {
                 data,
                 bytes_read: 0,
@@ -409,9 +413,12 @@ impl AssetReader for MemoryAssetReader {
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
-            .get_metadata(path)
+            .get_metadata(&path)
             .map(|data| DataReader {
                 data,
                 bytes_read: 0,
