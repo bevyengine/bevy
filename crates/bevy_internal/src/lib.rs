@@ -50,6 +50,7 @@ pub use bevy_ecs as ecs;
 pub use bevy_extract as extract;
 #[cfg(feature = "bevy_feathers")]
 pub use bevy_feathers as feathers;
+pub use bevy_fuzzy as fuzzy;
 #[cfg(feature = "bevy_gilrs")]
 pub use bevy_gilrs as gilrs;
 #[cfg(feature = "bevy_gizmos")]
