@@ -172,34 +172,12 @@ impl DynamicEnum {
 
     /// Create a [`DynamicEnum`] from an existing one.
     ///
-    /// This is functionally the same as [`DynamicEnum::from_ref`] except it takes an owned value.
-    #[deprecated(
-        since = "0.20.0",
-        note = "Use `DynamicEnum::try_from` instead, which returns a Result."
-    )]
-    pub fn from<TEnum: Enum>(value: TEnum) -> Self {
-        Self::try_from(value).unwrap()
-    }
-
-    /// Create a [`DynamicEnum`] from an existing one.
-    ///
     /// This is functionally the same as [`DynamicEnum::try_from_ref`] except it takes an owned value.
     ///
     /// Returns an error if any field of the active variant cannot be converted via
     /// [`PartialReflect::to_dynamic`].
     pub fn try_from<TEnum: Enum>(value: TEnum) -> Result<Self, ReflectCloneError> {
         Self::try_from_ref(&value)
-    }
-
-    /// Create a [`DynamicEnum`] from an existing one.
-    ///
-    /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
-    #[deprecated(
-        since = "0.20.0",
-        note = "Use `DynamicEnum::try_from_ref` instead, which returns a Result."
-    )]
-    pub fn from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Self {
-        Self::try_from_ref(value).unwrap()
     }
 
     /// Create a [`DynamicEnum`] from an existing one.
