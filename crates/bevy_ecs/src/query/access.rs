@@ -463,35 +463,12 @@ impl Access {
         &self.archetypal
     }
 
-    /// Returns the set of components with read access,
-    /// or an error if the access is unbounded.
-    ///
-    /// This includes components with write access, since write access also allows you to read the
-    /// component.
-    #[deprecated(since = "0.20.0", note = "use `reads_and_writes().as_finite_set()")]
-    pub fn try_reads_and_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
-        self.reads.as_finite_set().ok_or(UnboundedAccessError {
-            writes_inverted: self.writes.is_unbounded(),
-            reads_inverted: self.reads.is_unbounded(),
-        })
-    }
-
     /// Returns the set of components with read or write access.
     ///
     /// This includes components with write access, since write access also allows you to read the
     /// component.
     pub fn reads(&self) -> &InvertibleComponentIdSet {
         &self.reads
-    }
-
-    /// Returns the set of components with write access,
-    /// or an error if the access is unbounded.
-    #[deprecated(since = "0.20.0", note = "use `writes().as_finite_set()")]
-    pub fn try_writes(&self) -> Result<&ComponentIdSet, UnboundedAccessError> {
-        self.writes.as_finite_set().ok_or(UnboundedAccessError {
-            writes_inverted: self.writes.is_unbounded(),
-            reads_inverted: self.reads.is_unbounded(),
-        })
     }
 
     /// Returns the set of components with write access.
