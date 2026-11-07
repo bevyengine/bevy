@@ -40,6 +40,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 ] }
 
 bitflags = "2.3"
+bytemuck = { version = "1", features = ["derive"] }
 nonmax = "0.5"
 indexmap = "2"
 
