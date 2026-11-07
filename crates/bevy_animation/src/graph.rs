@@ -1,4 +1,4 @@
-//! The animation graph, which allows animations to be blended together.
+//! The blend graph, which allows animations to be blended together.
 
 use core::{
     fmt::Write,
@@ -39,7 +39,7 @@ use crate::{AnimationClip, AnimationTargetId};
 ///
 /// Applications frequently want to be able to play multiple animations at once
 /// and to fine-tune the influence that animations have on a skinned mesh. Bevy
-/// uses an *animation graph* to store this information. Animation graphs are a
+/// uses a *blend graph* to store this information. Blend graphs are a
 /// directed acyclic graph (DAG) that describes how animations are to be
 /// weighted and combined together. Every frame, Bevy evaluates the graph from
 /// the root and blends the animations together in a bottom-up fashion to
@@ -55,23 +55,23 @@ use crate::{AnimationClip, AnimationTargetId};
 /// For example, consider the following graph:
 ///
 /// ```text
-/// ┌────────────┐                                      
-/// │            │                                      
-/// │    Idle    ├─────────────────────┐                
-/// │            │                     │                
-/// └────────────┘                     │                
-///                                    │                
+/// ┌────────────┐
+/// │            │
+/// │    Idle    ├─────────────────────┐
+/// │            │                     │
+/// └────────────┘                     │
+///                                    │
 /// ┌────────────┐                     │  ┌────────────┐
 /// │            │                     │  │            │
 /// │    Run     ├──┐                  ├──┤    Root    │
 /// │            │  │  ┌────────────┐  │  │            │
 /// └────────────┘  │  │   Blend    │  │  └────────────┘
-///                 ├──┤            ├──┘                
-/// ┌────────────┐  │  │    0.5     │                   
-/// │            │  │  └────────────┘                   
-/// │    Walk    ├──┘                                   
-/// │            │                                      
-/// └────────────┘                                      
+///                 ├──┤            ├──┘
+/// ┌────────────┐  │  │    0.5     │
+/// │            │  │  └────────────┘
+/// │    Walk    ├──┘
+/// │            │
+/// └────────────┘
 /// ```
 ///
 /// In this case, assuming that Idle, Run, and Walk are all playing with weight
@@ -83,7 +83,7 @@ use crate::{AnimationClip, AnimationTargetId};
 /// animation targets that the node and its descendants affect. Each bit in the
 /// mask corresponds to a *mask group*, which is a set of animation targets
 /// (bones). An animation target can belong to any number of mask groups within
-/// the context of an animation graph.
+/// the context of a blend graph.
 ///
 /// When the appropriate bit is set in a node's mask, neither the node nor its
 /// descendants will animate any animation targets belonging to that mask group.
@@ -101,10 +101,10 @@ use crate::{AnimationClip, AnimationTargetId};
 /// animations will continue to play but will not affect the hand, which will
 /// continue to be depicted as holding the object.
 ///
-/// Animation graphs are assets and can be serialized to and loaded from [RON]
-/// files. Canonically, such files have an `.animgraph.ron` extension.
+/// Blend graphs are assets and can be serialized to and loaded from [RON]
+/// files. Canonically, such files have a `.blendgraph.ron` extension.
 ///
-/// The animation graph implements [RFC 51]. See that document for more
+/// The blend graph implements [RFC 51]. See that document for more
 /// information.
 ///
 /// [RON]: https://github.com/ron-rs/ron
@@ -112,11 +112,11 @@ use crate::{AnimationClip, AnimationTargetId};
 /// [RFC 51]: https://github.com/bevyengine/rfcs/blob/main/rfcs/51-animation-composition.md
 #[derive(Asset, Reflect, Clone, Debug)]
 #[reflect(Debug, Clone)]
-pub struct AnimationGraph {
-    /// The `petgraph` data structure that defines the animation graph.
-    pub graph: AnimationDiGraph,
+pub struct BlendGraph {
+    /// The `petgraph` data structure that defines the blend graph.
+    pub graph: BlendDiGraph,
 
-    /// The index of the root node in the animation graph.
+    /// The index of the root node in the blend graph.
     pub root: NodeIndex,
 
     /// The mask groups that each animation target (bone) belongs to.
@@ -131,50 +131,50 @@ pub struct AnimationGraph {
     pub mask_groups: HashMap<AnimationTargetId, AnimationMask>,
 }
 
-/// A [`Handle`] to the [`AnimationGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
+/// A [`Handle`] to the [`BlendGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
 #[derive(
     Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From, FromTemplate,
 )]
 #[reflect(Component, Default, Clone)]
-pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);
+pub struct BlendGraphHandle(pub Handle<BlendGraph>);
 
-impl From<AnimationGraphHandle> for AssetId<AnimationGraph> {
-    fn from(handle: AnimationGraphHandle) -> Self {
+impl From<BlendGraphHandle> for AssetId<BlendGraph> {
+    fn from(handle: BlendGraphHandle) -> Self {
         handle.id()
     }
 }
 
-impl From<&AnimationGraphHandle> for AssetId<AnimationGraph> {
-    fn from(handle: &AnimationGraphHandle) -> Self {
+impl From<&BlendGraphHandle> for AssetId<BlendGraph> {
+    fn from(handle: &BlendGraphHandle) -> Self {
         handle.id()
     }
 }
 
-/// A type alias for the `petgraph` data structure that defines the animation
+/// A type alias for the `petgraph` data structure that defines the blend
 /// graph.
-pub type AnimationDiGraph = DiGraph<AnimationGraphNode, (), u32>;
+pub type BlendDiGraph = DiGraph<BlendGraphNode, (), u32>;
 
-/// The index of either an animation or blend node in the animation graph.
+/// The index of either an animation or blend node in the blend graph.
 ///
 /// These indices are the way that [animation players] identify each animation.
 ///
 /// [animation players]: crate::AnimationPlayer
-pub type AnimationNodeIndex = NodeIndex<u32>;
+pub type BlendNodeIndex = NodeIndex<u32>;
 
-/// An individual node within an animation graph.
+/// An individual node within a blend graph.
 ///
-/// The [`AnimationGraphNode::node_type`] field specifies the type of node: one
+/// The [`BlendGraphNode::node_type`] field specifies the type of node: one
 /// of a *clip node*, a *blend node*, or an *add node*. Clip nodes, the leaves
 /// of the graph, contain animation clips to play. Blend and add nodes describe
 /// how to combine their children to produce a final animation.
 #[derive(Clone, Reflect, Debug)]
 #[reflect(Clone)]
-pub struct AnimationGraphNode {
-    /// Animation node data specific to the type of node (clip, blend, or add).
+pub struct BlendGraphNode {
+    /// Blend node data specific to the type of node (clip, blend, or add).
     ///
     /// In the case of clip nodes, this contains the actual animation clip
     /// associated with the node.
-    pub node_type: AnimationNodeType,
+    pub node_type: BlendNodeType,
 
     /// A bitfield specifying the mask groups that this node and its descendants
     /// will not affect.
@@ -199,19 +199,19 @@ pub struct AnimationGraphNode {
     /// For animation clips, this weight is also multiplied by the [active animation weight]
     /// before being applied.
     ///
-    /// [Blend]: AnimationNodeType::Blend
-    /// [Add]: AnimationNodeType::Add
+    /// [Blend]: BlendNodeType::Blend
+    /// [Add]: BlendNodeType::Add
     /// [active animation weight]: crate::ActiveAnimation::weight
     pub weight: f32,
 }
 
-/// Animation node data specific to the type of node (clip, blend, or add).
+/// Blend node data specific to the type of node (clip, blend, or add).
 ///
 /// In the case of clip nodes, this contains the actual animation clip
 /// associated with the node.
 #[derive(Clone, Default, Reflect, Debug)]
 #[reflect(Clone)]
-pub enum AnimationNodeType {
+pub enum BlendNodeType {
     /// A *clip node*, which plays an animation clip.
     ///
     /// These are always the leaves of the graph.
@@ -238,16 +238,16 @@ pub enum AnimationNodeType {
     Add,
 }
 
-/// An [`AssetLoader`] that can load [`AnimationGraph`]s as assets.
+/// An [`AssetLoader`] that can load [`BlendGraph`]s as assets.
 ///
-/// The canonical extension for [`AnimationGraph`]s is `.animgraph.ron`. Plain
-/// `.animgraph` is supported as well.
+/// The canonical extension for [`BlendGraph`]s is `.blendgraph.ron`. Plain
+/// `.blendgraph` is supported as well.
 #[derive(Default, TypePath)]
-pub struct AnimationGraphAssetLoader;
+pub struct BlendGraphAssetLoader;
 
-/// Errors that can occur when serializing animation graphs to RON.
+/// Errors that can occur when serializing blend graphs to RON.
 #[derive(Error, Debug)]
-pub enum AnimationGraphSaveError {
+pub enum BlendGraphSaveError {
     /// An I/O error occurred.
     #[error(transparent)]
     Io(#[from] io::Error),
@@ -259,9 +259,9 @@ pub enum AnimationGraphSaveError {
     ConvertToSerialized(#[from] NonPathHandleError),
 }
 
-/// Errors that can occur when deserializing animation graphs from RON.
+/// Errors that can occur when deserializing blend graphs from RON.
 #[derive(Error, Debug)]
-pub enum AnimationGraphLoadError {
+pub enum BlendGraphLoadError {
     /// An I/O error occurred.
     #[error(transparent)]
     Io(#[from] io::Error),
@@ -274,39 +274,39 @@ pub enum AnimationGraphLoadError {
     SpannedRon(#[from] SpannedError),
     /// The deserialized graph contained legacy data that we no longer support.
     #[error(
-        "The deserialized AnimationGraph contained an AnimationClip referenced by an AssetId, \
-    which is no longer supported. Consider manually deserializing the SerializedAnimationGraph \
+        "The deserialized BlendGraph contained an AnimationClip referenced by an AssetId, \
+    which is no longer supported. Consider manually deserializing the SerializedBlendGraph \
     type and determine how to migrate any SerializedAnimationClip::AssetId animation clips"
     )]
     GraphContainsLegacyAssetId,
 }
 
-/// Acceleration structures for animation graphs that allows Bevy to evaluate
+/// Acceleration structures for blend graphs that allows Bevy to evaluate
 /// them quickly.
 ///
-/// These are kept up to date as [`AnimationGraph`] instances are added,
+/// These are kept up to date as [`BlendGraph`] instances are added,
 /// modified, and removed.
 #[derive(Default, Reflect, Resource)]
-pub struct ThreadedAnimationGraphs {
-    /// The mapping from each animation graph to its threaded animation graph
+pub struct ThreadedBlendGraphs {
+    /// The mapping from each blend graph to its threaded blend graph
     /// acceleration structure.
     ///
     /// Note that, because graphs can load before their clips do, when a clip
     /// loads, we have to invalidate portions of this table.
-    pub(crate) threaded_graphs: HashMap<AssetId<AnimationGraph>, ThreadedAnimationGraph>,
+    pub(crate) threaded_graphs: HashMap<AssetId<BlendGraph>, ThreadedBlendGraph>,
 
     /// A mapping from the ID of each animation clip to the IDs of the graphs
     /// that reference that clip.
-    clip_to_graphs: HashMap<AssetId<AnimationClip>, HashSet<AssetId<AnimationGraph>>>,
+    clip_to_graphs: HashMap<AssetId<AnimationClip>, HashSet<AssetId<BlendGraph>>>,
 }
 
-/// An acceleration structure for an animation graph that allows Bevy to
+/// An acceleration structure for a blend graph that allows Bevy to
 /// evaluate it quickly.
 ///
-/// This is kept up to date as the associated [`AnimationGraph`] instance is
+/// This is kept up to date as the associated [`BlendGraph`] instance is
 /// added, modified, or removed.
 #[derive(Default, Reflect)]
-pub struct ThreadedAnimationGraph {
+pub struct ThreadedBlendGraph {
     /// A cached postorder traversal of the graph.
     ///
     /// The node indices here are stored in postorder. Siblings are stored in
@@ -362,7 +362,7 @@ pub struct ThreadedAnimationGraph {
     /// | 10   | 1    | Blend 4    |                         | 2 ⊕ 3 ⊕ 4      |
     /// | 11   | 1    | Push Blend | 1                       |                |
     /// | 12   |      | Commit     |                         |                |
-    pub threaded_graph: Vec<AnimationNodeIndex>,
+    pub threaded_graph: Vec<BlendNodeIndex>,
 
     /// A mapping from each parent node index to the range of its children
     /// within [`Self::sorted_edges`].
@@ -373,7 +373,7 @@ pub struct ThreadedAnimationGraph {
     pub sorted_edge_list_ranges: Vec<Range<u32>>,
 
     /// A list of the children of each node, sorted in ascending order.
-    pub sorted_edges: Vec<AnimationNodeIndex>,
+    pub sorted_edges: Vec<BlendNodeIndex>,
 
     /// A mapping from node index to a bitfield specifying the mask groups that
     /// this node masks *out* (i.e. doesn't animate).
@@ -388,16 +388,15 @@ pub struct ThreadedAnimationGraph {
     /// A mapping from each animation target to the *threaded subgraph* for that
     /// target.
     ///
-    /// See [`ThreadedAnimationSubgraph`] for more information.
-    pub animation_target_to_threaded_subgraph:
-        HashMap<AnimationTargetId, ThreadedAnimationSubgraph>,
+    /// See [`ThreadedBlendSubgraph`] for more information.
+    pub animation_target_to_threaded_subgraph: HashMap<AnimationTargetId, ThreadedBlendSubgraph>,
 }
 
-/// A subgraph of a [`ThreadedAnimationGraph`] that contains only the nodes
+/// A subgraph of a [`ThreadedBlendGraph`] that contains only the nodes
 /// necessary to animate a single target.
 ///
 /// It's common for a single graph to contain animations for many unrelated
-/// targets: for example, a character might have a single animation graph that
+/// targets: for example, a character might have a single blend graph that
 /// blends both facial animations and locomotion animations. Now, internally,
 /// Bevy evaluates animations for all targets individually and in parallel. If
 /// Bevy evaluated the entire graph separately for each target, this would be
@@ -414,14 +413,14 @@ pub struct ThreadedAnimationGraph {
 /// produce that result.
 ///
 /// The fields in this structure have identical meanings to the corresponding
-/// fields in the [`ThreadedAnimationGraph`] structure.
+/// fields in the [`ThreadedBlendGraph`] structure.
 #[derive(Default, Reflect)]
-pub struct ThreadedAnimationSubgraph {
+pub struct ThreadedBlendSubgraph {
     /// A cached postorder traversal of the graph, containing only the nodes
     /// that are needed to animate this target.
     ///
-    /// See [`ThreadedAnimationGraph::threaded_graph`] for more information.
-    pub threaded_graph: Vec<AnimationNodeIndex>,
+    /// See [`ThreadedBlendGraph::threaded_graph`] for more information.
+    pub threaded_graph: Vec<BlendNodeIndex>,
 
     /// A mapping from the index of each element of [`Self::threaded_graph`] to
     /// the index of the first such edge within [`Self::sorted_edges`].
@@ -429,55 +428,55 @@ pub struct ThreadedAnimationSubgraph {
     /// In other words, this array is parallel to the [`Self::threaded_graph`]
     /// array.
     ///
-    /// See [`ThreadedAnimationGraph::sorted_edge_list_ranges`] for more
+    /// See [`ThreadedBlendGraph::sorted_edge_list_ranges`] for more
     /// information.
     pub sorted_edge_list_offsets: Vec<u32>,
 
     /// A list of the children of each node, sorted in ascending order.
-    pub sorted_edges: Vec<AnimationNodeIndex>,
+    pub sorted_edges: Vec<BlendNodeIndex>,
 }
 
-/// A version of [`AnimationGraph`] suitable for serializing as an asset.
+/// A version of [`BlendGraph`] suitable for serializing as an asset.
 ///
-/// Animation nodes can refer to external animation clips, and the [`AssetId`]
+/// Blend nodes can refer to external animation clips, and the [`AssetId`]
 /// is typically not sufficient to identify the clips, since the
 /// [`bevy_asset::AssetServer`] assigns IDs in unpredictable ways. That fact
 /// motivates this type, which replaces the `Handle<AnimationClip>` with an
-/// asset path.  Loading an animation graph via the [`bevy_asset::AssetServer`]
+/// asset path.  Loading a blend graph via the [`bevy_asset::AssetServer`]
 /// actually loads a serialized instance of this type, as does serializing an
-/// [`AnimationGraph`] through `serde`.
+/// [`BlendGraph`] through `serde`.
 #[derive(Serialize, Deserialize)]
-pub struct SerializedAnimationGraph {
-    /// Corresponds to the `graph` field on [`AnimationGraph`].
-    pub graph: DiGraph<SerializedAnimationGraphNode, (), u32>,
-    /// Corresponds to the `root` field on [`AnimationGraph`].
+pub struct SerializedBlendGraph {
+    /// Corresponds to the `graph` field on [`BlendGraph`].
+    pub graph: DiGraph<SerializedBlendGraphNode, (), u32>,
+    /// Corresponds to the `root` field on [`BlendGraph`].
     pub root: NodeIndex,
-    /// Corresponds to the `mask_groups` field on [`AnimationGraph`].
+    /// Corresponds to the `mask_groups` field on [`BlendGraph`].
     pub mask_groups: HashMap<AnimationTargetId, AnimationMask>,
 }
 
-/// A version of [`AnimationGraphNode`] suitable for serializing as an asset.
+/// A version of [`BlendGraphNode`] suitable for serializing as an asset.
 ///
-/// See the comments in [`SerializedAnimationGraph`] for more information.
+/// See the comments in [`SerializedBlendGraph`] for more information.
 #[derive(Serialize, Deserialize)]
-pub struct SerializedAnimationGraphNode {
-    /// Corresponds to the `node_type` field on [`AnimationGraphNode`].
-    pub node_type: SerializedAnimationNodeType,
-    /// Corresponds to the `mask` field on [`AnimationGraphNode`].
+pub struct SerializedBlendGraphNode {
+    /// Corresponds to the `node_type` field on [`BlendGraphNode`].
+    pub node_type: SerializedBlendNodeType,
+    /// Corresponds to the `mask` field on [`BlendGraphNode`].
     pub mask: AnimationMask,
-    /// Corresponds to the `weight` field on [`AnimationGraphNode`].
+    /// Corresponds to the `weight` field on [`BlendGraphNode`].
     pub weight: f32,
 }
 
-/// A version of [`AnimationNodeType`] suitable for serializing as part of a
-/// [`SerializedAnimationGraphNode`] asset.
+/// A version of [`BlendNodeType`] suitable for serializing as part of a
+/// [`SerializedBlendGraphNode`] asset.
 #[derive(Serialize, Deserialize)]
-pub enum SerializedAnimationNodeType {
-    /// Corresponds to [`AnimationNodeType::Clip`].
+pub enum SerializedBlendNodeType {
+    /// Corresponds to [`BlendNodeType::Clip`].
     Clip(AssetPath<'static>),
-    /// Corresponds to [`AnimationNodeType::Blend`].
+    /// Corresponds to [`BlendNodeType::Blend`].
     Blend,
-    /// Corresponds to [`AnimationNodeType::Add`].
+    /// Corresponds to [`BlendNodeType::Add`].
     Add,
 }
 
@@ -486,14 +485,14 @@ pub enum SerializedAnimationNodeType {
 /// Bit N corresponds to mask group N.
 ///
 /// Because this is a 64-bit value, there is currently a limitation of 64 mask
-/// groups per animation graph.
+/// groups per blend graph.
 pub type AnimationMask = u64;
 
-impl AnimationGraph {
-    /// Creates a new animation graph with a root node and no other nodes.
+impl BlendGraph {
+    /// Creates a new blend graph with a root node and no other nodes.
     pub fn new() -> Self {
         let mut graph = DiGraph::default();
-        let root = graph.add_node(AnimationGraphNode::default());
+        let root = graph.add_node(BlendGraphNode::default());
         Self {
             graph,
             root,
@@ -501,25 +500,25 @@ impl AnimationGraph {
         }
     }
 
-    /// A convenience function for creating an [`AnimationGraph`] from a single
+    /// A convenience function for creating a [`BlendGraph`] from a single
     /// [`AnimationClip`].
     ///
     /// The clip will be a direct child of the root with weight 1.0. Both the
     /// graph and the index of the added node are returned as a tuple.
-    pub fn from_clip(clip: Handle<AnimationClip>) -> (Self, AnimationNodeIndex) {
+    pub fn from_clip(clip: Handle<AnimationClip>) -> (Self, BlendNodeIndex) {
         let mut graph = Self::new();
         let node_index = graph.add_clip(clip, 1.0, graph.root);
         (graph, node_index)
     }
 
-    /// A convenience method to create an [`AnimationGraph`]s with an iterator
+    /// A convenience method to create a [`BlendGraph`] with an iterator
     /// of clips.
     ///
     /// All of the animation clips will be direct children of the root with
     /// weight 1.0.
     ///
     /// Returns the graph and indices of the new nodes.
-    pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
+    pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<BlendNodeIndex>)
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
         <I as IntoIterator>::IntoIter: 'a,
@@ -529,7 +528,7 @@ impl AnimationGraph {
         (graph, indices)
     }
 
-    /// Adds an [`AnimationClip`] to the animation graph with the given weight
+    /// Adds an [`AnimationClip`] to the blend graph with the given weight
     /// and returns its index.
     ///
     /// The animation clip will be the child of the given parent. The resulting
@@ -538,10 +537,10 @@ impl AnimationGraph {
         &mut self,
         clip: Handle<AnimationClip>,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
-        let node_index = self.graph.add_node(AnimationGraphNode {
-            node_type: AnimationNodeType::Clip(clip),
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
+        let node_index = self.graph.add_node(BlendGraphNode {
+            node_type: BlendNodeType::Clip(clip),
             mask: 0,
             weight,
         });
@@ -549,7 +548,7 @@ impl AnimationGraph {
         node_index
     }
 
-    /// Adds an [`AnimationClip`] to the animation graph with the given weight
+    /// Adds an [`AnimationClip`] to the blend graph with the given weight
     /// and mask, and returns its index.
     ///
     /// The animation clip will be the child of the given parent.
@@ -558,10 +557,10 @@ impl AnimationGraph {
         clip: Handle<AnimationClip>,
         mask: AnimationMask,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
-        let node_index = self.graph.add_node(AnimationGraphNode {
-            node_type: AnimationNodeType::Clip(clip),
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
+        let node_index = self.graph.add_node(BlendGraphNode {
+            node_type: BlendNodeType::Clip(clip),
             mask,
             weight,
         });
@@ -569,7 +568,7 @@ impl AnimationGraph {
         node_index
     }
 
-    /// A convenience method to add multiple [`AnimationClip`]s to the animation
+    /// A convenience method to add multiple [`AnimationClip`]s to the blend
     /// graph.
     ///
     /// All of the animation clips will have the same weight and will be
@@ -580,8 +579,8 @@ impl AnimationGraph {
         &'a mut self,
         clips: I,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
+        parent: BlendNodeIndex,
+    ) -> impl Iterator<Item = BlendNodeIndex> + 'a
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
         <I as IntoIterator>::IntoIter: 'a,
@@ -591,16 +590,16 @@ impl AnimationGraph {
             .map(move |clip| self.add_clip(clip, weight, parent))
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
     /// animation evaluation, the descendants of this blend node will have their
     /// weights multiplied by the weight of the blend. The blend node will have
     /// no mask.
-    pub fn add_blend(&mut self, weight: f32, parent: AnimationNodeIndex) -> AnimationNodeIndex {
-        let node_index = self.graph.add_node(AnimationGraphNode {
-            node_type: AnimationNodeType::Blend,
+    pub fn add_blend(&mut self, weight: f32, parent: BlendNodeIndex) -> BlendNodeIndex {
+        let node_index = self.graph.add_node(BlendGraphNode {
+            node_type: BlendNodeType::Blend,
             mask: 0,
             weight,
         });
@@ -608,7 +607,7 @@ impl AnimationGraph {
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
@@ -620,10 +619,10 @@ impl AnimationGraph {
         &mut self,
         mask: AnimationMask,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
-        let node_index = self.graph.add_node(AnimationGraphNode {
-            node_type: AnimationNodeType::Blend,
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
+        let node_index = self.graph.add_node(BlendGraphNode {
+            node_type: BlendNodeType::Blend,
             mask,
             weight,
         });
@@ -631,20 +630,16 @@ impl AnimationGraph {
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
     /// animation evaluation, the descendants of this blend node will have their
     /// weights multiplied by the weight of the blend. The blend node will have
     /// no mask.
-    pub fn add_additive_blend(
-        &mut self,
-        weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
-        let node_index = self.graph.add_node(AnimationGraphNode {
-            node_type: AnimationNodeType::Add,
+    pub fn add_additive_blend(&mut self, weight: f32, parent: BlendNodeIndex) -> BlendNodeIndex {
+        let node_index = self.graph.add_node(BlendGraphNode {
+            node_type: BlendNodeType::Add,
             mask: 0,
             weight,
         });
@@ -652,7 +647,7 @@ impl AnimationGraph {
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
+    /// Adds a blend node to the blend graph with the given weight and
     /// returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
@@ -664,10 +659,10 @@ impl AnimationGraph {
         &mut self,
         mask: AnimationMask,
         weight: f32,
-        parent: AnimationNodeIndex,
-    ) -> AnimationNodeIndex {
-        let node_index = self.graph.add_node(AnimationGraphNode {
-            node_type: AnimationNodeType::Add,
+        parent: BlendNodeIndex,
+    ) -> BlendNodeIndex {
+        let node_index = self.graph.add_node(BlendGraphNode {
+            node_type: BlendNodeType::Add,
             mask,
             weight,
         });
@@ -695,36 +690,36 @@ impl AnimationGraph {
             .is_some()
     }
 
-    /// Returns the [`AnimationGraphNode`] associated with the given index.
+    /// Returns the [`BlendGraphNode`] associated with the given index.
     ///
     /// If no node with the given index exists, returns `None`.
-    pub fn get(&self, animation: AnimationNodeIndex) -> Option<&AnimationGraphNode> {
+    pub fn get(&self, animation: BlendNodeIndex) -> Option<&BlendGraphNode> {
         self.graph.node_weight(animation)
     }
 
-    /// Returns a mutable reference to the [`AnimationGraphNode`] associated
+    /// Returns a mutable reference to the [`BlendGraphNode`] associated
     /// with the given index.
     ///
     /// If no node with the given index exists, returns `None`.
-    pub fn get_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut AnimationGraphNode> {
+    pub fn get_mut(&mut self, animation: BlendNodeIndex) -> Option<&mut BlendGraphNode> {
         self.graph.node_weight_mut(animation)
     }
 
-    /// Returns an iterator over the [`AnimationGraphNode`]s in this graph.
-    pub fn nodes(&self) -> impl Iterator<Item = AnimationNodeIndex> {
+    /// Returns an iterator over the [`BlendGraphNode`]s in this graph.
+    pub fn nodes(&self) -> impl Iterator<Item = BlendNodeIndex> {
         self.graph.node_indices()
     }
 
-    /// Serializes the animation graph to the given [`Write`]r in RON format.
+    /// Serializes the blend graph to the given [`Write`]r in RON format.
     ///
     /// If writing to a file, it can later be loaded with the
-    /// [`AnimationGraphAssetLoader`] to reconstruct the graph.
-    pub fn save<W>(&self, writer: &mut W) -> Result<(), AnimationGraphSaveError>
+    /// [`BlendGraphAssetLoader`] to reconstruct the graph.
+    pub fn save<W>(&self, writer: &mut W) -> Result<(), BlendGraphSaveError>
     where
         W: Write,
     {
         let mut ron_serializer = ron::ser::Serializer::new(writer, None)?;
-        let serialized_graph: SerializedAnimationGraph = self.clone().try_into()?;
+        let serialized_graph: SerializedBlendGraph = self.clone().try_into()?;
         Ok(serialized_graph.serialize(&mut ron_serializer)?)
     }
 
@@ -738,7 +733,7 @@ impl AnimationGraph {
     }
 }
 
-impl AnimationGraphNode {
+impl BlendGraphNode {
     /// Masks out the mask groups specified by the given `mask` bitfield.
     ///
     /// A 1 in bit position N causes this function to mask out mask group N, and
@@ -778,21 +773,21 @@ impl AnimationGraphNode {
     }
 }
 
-impl Index<AnimationNodeIndex> for AnimationGraph {
-    type Output = AnimationGraphNode;
+impl Index<BlendNodeIndex> for BlendGraph {
+    type Output = BlendGraphNode;
 
-    fn index(&self, index: AnimationNodeIndex) -> &Self::Output {
+    fn index(&self, index: BlendNodeIndex) -> &Self::Output {
         &self.graph[index]
     }
 }
 
-impl IndexMut<AnimationNodeIndex> for AnimationGraph {
-    fn index_mut(&mut self, index: AnimationNodeIndex) -> &mut Self::Output {
+impl IndexMut<BlendNodeIndex> for BlendGraph {
+    fn index_mut(&mut self, index: BlendNodeIndex) -> &mut Self::Output {
         &mut self.graph[index]
     }
 }
 
-impl Default for AnimationGraphNode {
+impl Default for BlendGraphNode {
     fn default() -> Self {
         Self {
             node_type: Default::default(),
@@ -802,18 +797,18 @@ impl Default for AnimationGraphNode {
     }
 }
 
-impl Default for AnimationGraph {
+impl Default for BlendGraph {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl AssetLoader for AnimationGraphAssetLoader {
-    type Asset = AnimationGraph;
+impl AssetLoader for BlendGraphAssetLoader {
+    type Asset = BlendGraph;
 
     type Settings = ();
 
-    type Error = AnimationGraphLoadError;
+    type Error = BlendGraphLoadError;
 
     async fn load(
         &self,
@@ -824,167 +819,162 @@ impl AssetLoader for AnimationGraphAssetLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
 
-        // Deserialize a `SerializedAnimationGraph` directly, so that we can
+        // Deserialize a `SerializedBlendGraph` directly, so that we can
         // get the list of the animation clips it refers to and load them.
         let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
-        let serialized_animation_graph = SerializedAnimationGraph::deserialize(&mut deserializer)
+        let serialized_blend_graph = SerializedBlendGraph::deserialize(&mut deserializer)
             .map_err(|err| deserializer.span_error(err))?;
 
-        // Load all `AssetPath`s to convert from a `SerializedAnimationGraph` to a real
-        // `AnimationGraph`. This is effectively a `DiGraph::map`, but this allows us to return
+        // Load all `AssetPath`s to convert from a `SerializedBlendGraph` to a real
+        // `BlendGraph`. This is effectively a `DiGraph::map`, but this allows us to return
         // errors.
-        let mut animation_graph = DiGraph::with_capacity(
-            serialized_animation_graph.graph.node_count(),
-            serialized_animation_graph.graph.edge_count(),
+        let mut blend_graph = DiGraph::with_capacity(
+            serialized_blend_graph.graph.node_count(),
+            serialized_blend_graph.graph.edge_count(),
         );
 
-        for serialized_node in serialized_animation_graph.graph.node_weights() {
-            animation_graph.add_node(AnimationGraphNode {
+        for serialized_node in serialized_blend_graph.graph.node_weights() {
+            blend_graph.add_node(BlendGraphNode {
                 node_type: match serialized_node.node_type {
-                    SerializedAnimationNodeType::Clip(ref path) => {
-                        AnimationNodeType::Clip(load_context.load(path.clone()))
+                    SerializedBlendNodeType::Clip(ref path) => {
+                        BlendNodeType::Clip(load_context.load(path.clone()))
                     }
-                    SerializedAnimationNodeType::Blend => AnimationNodeType::Blend,
-                    SerializedAnimationNodeType::Add => AnimationNodeType::Add,
+                    SerializedBlendNodeType::Blend => BlendNodeType::Blend,
+                    SerializedBlendNodeType::Add => BlendNodeType::Add,
                 },
                 mask: serialized_node.mask,
                 weight: serialized_node.weight,
             });
         }
-        for edge in serialized_animation_graph.graph.raw_edges() {
-            animation_graph.add_edge(edge.source(), edge.target(), ());
+        for edge in serialized_blend_graph.graph.raw_edges() {
+            blend_graph.add_edge(edge.source(), edge.target(), ());
         }
-        Ok(AnimationGraph {
-            graph: animation_graph,
-            root: serialized_animation_graph.root,
-            mask_groups: serialized_animation_graph.mask_groups,
+        Ok(BlendGraph {
+            graph: blend_graph,
+            root: serialized_blend_graph.root,
+            mask_groups: serialized_blend_graph.mask_groups,
         })
     }
 
     fn extensions(&self) -> &[&str] {
-        &["animgraph", "animgraph.ron"]
+        &["blendgraph", "blendgraph.ron"]
     }
 }
 
-impl TryFrom<AnimationGraph> for SerializedAnimationGraph {
+impl TryFrom<BlendGraph> for SerializedBlendGraph {
     type Error = NonPathHandleError;
 
-    fn try_from(animation_graph: AnimationGraph) -> Result<Self, NonPathHandleError> {
+    fn try_from(blend_graph: BlendGraph) -> Result<Self, NonPathHandleError> {
         // Convert all the `Handle<AnimationClip>` to AssetPath, so that
-        // `AnimationGraphAssetLoader` can load them. This is effectively just doing a
+        // `BlendGraphAssetLoader` can load them. This is effectively just doing a
         // `DiGraph::map`, except we need to return an error if any handles aren't associated to a
         // path.
         let mut serialized_graph = DiGraph::with_capacity(
-            animation_graph.graph.node_count(),
-            animation_graph.graph.edge_count(),
+            blend_graph.graph.node_count(),
+            blend_graph.graph.edge_count(),
         );
-        for node in animation_graph.graph.node_weights() {
-            serialized_graph.add_node(SerializedAnimationGraphNode {
+        for node in blend_graph.graph.node_weights() {
+            serialized_graph.add_node(SerializedBlendGraphNode {
                 weight: node.weight,
                 mask: node.mask,
                 node_type: match node.node_type {
-                    AnimationNodeType::Clip(ref clip) => match clip.path() {
-                        Some(path) => SerializedAnimationNodeType::Clip(path.clone()),
+                    BlendNodeType::Clip(ref clip) => match clip.path() {
+                        Some(path) => SerializedBlendNodeType::Clip(path.clone()),
                         None => return Err(NonPathHandleError),
                     },
-                    AnimationNodeType::Blend => SerializedAnimationNodeType::Blend,
-                    AnimationNodeType::Add => SerializedAnimationNodeType::Add,
+                    BlendNodeType::Blend => SerializedBlendNodeType::Blend,
+                    BlendNodeType::Add => SerializedBlendNodeType::Add,
                 },
             });
         }
-        for edge in animation_graph.graph.raw_edges() {
+        for edge in blend_graph.graph.raw_edges() {
             serialized_graph.add_edge(edge.source(), edge.target(), ());
         }
         Ok(Self {
             graph: serialized_graph,
-            root: animation_graph.root,
-            mask_groups: animation_graph.mask_groups,
+            root: blend_graph.root,
+            mask_groups: blend_graph.mask_groups,
         })
     }
 }
 
 /// Error for when only path [`Handle`]s are supported.
 #[derive(Error, Debug)]
-#[error("AnimationGraph contains a handle to an AnimationClip that does not correspond to an asset path")]
+#[error(
+    "BlendGraph contains a handle to an AnimationClip that does not correspond to an asset path"
+)]
 pub struct NonPathHandleError;
 
-/// A system that creates, updates, and removes [`ThreadedAnimationGraph`]
-/// structures for every changed [`AnimationGraph`].
+/// A system that creates, updates, and removes [`ThreadedBlendGraph`]
+/// structures for every changed [`BlendGraph`].
 ///
-/// The [`ThreadedAnimationGraph`] contains acceleration structures that allow
+/// The [`ThreadedBlendGraph`] contains acceleration structures that allow
 /// for quick evaluation of that graph's animations.
-pub(crate) fn thread_animation_graphs(
-    threaded_animation_graphs: ResMut<ThreadedAnimationGraphs>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
+pub(crate) fn thread_blend_graphs(
+    threaded_blend_graphs: ResMut<ThreadedBlendGraphs>,
+    blend_graphs: Res<Assets<BlendGraph>>,
     animation_clips: Res<Assets<AnimationClip>>,
-    mut animation_graph_asset_events: MessageReader<AssetEvent<AnimationGraph>>,
+    mut blend_graph_asset_events: MessageReader<AssetEvent<BlendGraph>>,
     mut animation_clip_asset_events: MessageReader<AssetEvent<AnimationClip>>,
-    mut animation_target_graphs_rebuilt_this_frame: Local<HashSet<AssetId<AnimationGraph>>>,
+    mut animation_target_graphs_rebuilt_this_frame: Local<HashSet<AssetId<BlendGraph>>>,
 ) {
-    // Early out here to avoid running `threaded_animation_graphs.into_inner()`
-    // and marking `ThreadedAnimationGraphs` as changed if there are obviously
+    // Early out here to avoid running `threaded_blend_graphs.into_inner()`
+    // and marking `ThreadedBlendGraphs` as changed if there are obviously
     // no changes.
-    if animation_graph_asset_events.is_empty() && animation_clip_asset_events.is_empty() {
+    if blend_graph_asset_events.is_empty() && animation_clip_asset_events.is_empty() {
         return;
     }
 
-    let threaded_animation_graphs = threaded_animation_graphs.into_inner();
+    let threaded_blend_graphs = threaded_blend_graphs.into_inner();
 
     animation_target_graphs_rebuilt_this_frame.clear();
 
-    for animation_graph_asset_event in animation_graph_asset_events.read() {
-        match *animation_graph_asset_event {
+    for blend_graph_asset_event in blend_graph_asset_events.read() {
+        match *blend_graph_asset_event {
             AssetEvent::Added { id }
             | AssetEvent::Modified { id }
             | AssetEvent::LoadedWithDependencies { id } => {
-                // Fetch the animation graph.
-                let Some(animation_graph) = animation_graphs.get(id) else {
+                // Fetch the blend graph.
+                let Some(blend_graph) = blend_graphs.get(id) else {
                     continue;
                 };
 
                 // Reuse the allocation if possible.
-                let mut threaded_animation_graph =
-                    match threaded_animation_graphs.threaded_graphs.remove(&id) {
-                        None => ThreadedAnimationGraph::default(),
-                        Some(mut existing_threaded_animation_graph) => {
-                            existing_threaded_animation_graph.remove_from_clip_to_graphs_table(
+                let mut threaded_blend_graph =
+                    match threaded_blend_graphs.threaded_graphs.remove(&id) {
+                        None => ThreadedBlendGraph::default(),
+                        Some(mut existing_threaded_blend_graph) => {
+                            existing_threaded_blend_graph.remove_from_clip_to_graphs_table(
                                 id,
-                                &mut threaded_animation_graphs.clip_to_graphs,
+                                &mut threaded_blend_graphs.clip_to_graphs,
                             );
-                            existing_threaded_animation_graph.clear();
-                            existing_threaded_animation_graph
+                            existing_threaded_blend_graph.clear();
+                            existing_threaded_blend_graph
                         }
                     };
 
                 // Recursively thread the graph in postorder.
-                threaded_animation_graph.init(animation_graph);
-                threaded_animation_graph.populate_clip_to_graphs_table(
-                    id,
-                    &mut threaded_animation_graphs.clip_to_graphs,
-                );
-                threaded_animation_graph.build_from(
-                    &animation_graph.graph,
-                    animation_graph.root,
-                    0,
-                );
+                threaded_blend_graph.init(blend_graph);
+                threaded_blend_graph
+                    .populate_clip_to_graphs_table(id, &mut threaded_blend_graphs.clip_to_graphs);
+                threaded_blend_graph.build_from(&blend_graph.graph, blend_graph.root, 0);
 
-                threaded_animation_graph
-                    .rebuild_target_subgraphs(&animation_graph.graph, &animation_clips);
+                threaded_blend_graph.rebuild_target_subgraphs(&blend_graph.graph, &animation_clips);
                 animation_target_graphs_rebuilt_this_frame.insert(id);
 
                 // Write in the threaded graph.
-                threaded_animation_graphs
+                threaded_blend_graphs
                     .threaded_graphs
-                    .insert(id, threaded_animation_graph);
+                    .insert(id, threaded_blend_graph);
             }
 
             AssetEvent::Removed { id } => {
-                if let Some(threaded_animation_graph) =
-                    threaded_animation_graphs.threaded_graphs.remove(&id)
+                if let Some(threaded_blend_graph) =
+                    threaded_blend_graphs.threaded_graphs.remove(&id)
                 {
-                    threaded_animation_graph.remove_from_clip_to_graphs_table(
+                    threaded_blend_graph.remove_from_clip_to_graphs_table(
                         id,
-                        &mut threaded_animation_graphs.clip_to_graphs,
+                        &mut threaded_blend_graphs.clip_to_graphs,
                     );
                 }
             }
@@ -997,17 +987,17 @@ pub(crate) fn thread_animation_graphs(
             AssetEvent::Added { id }
             | AssetEvent::Modified { id }
             | AssetEvent::LoadedWithDependencies { id } => {
-                let Some(graph_ids) = threaded_animation_graphs.clip_to_graphs.get(&id) else {
+                let Some(graph_ids) = threaded_blend_graphs.clip_to_graphs.get(&id) else {
                     continue;
                 };
                 for graph_id in graph_ids {
                     if animation_target_graphs_rebuilt_this_frame.insert(*graph_id)
-                        && let Some(threaded_animation_graph) =
-                            threaded_animation_graphs.threaded_graphs.get_mut(graph_id)
-                        && let Some(animation_graph) = animation_graphs.get(*graph_id)
+                        && let Some(threaded_blend_graph) =
+                            threaded_blend_graphs.threaded_graphs.get_mut(graph_id)
+                        && let Some(blend_graph) = blend_graphs.get(*graph_id)
                     {
-                        threaded_animation_graph
-                            .rebuild_target_subgraphs(&animation_graph.graph, &animation_clips);
+                        threaded_blend_graph
+                            .rebuild_target_subgraphs(&blend_graph.graph, &animation_clips);
                     }
                 }
             }
@@ -1016,8 +1006,8 @@ pub(crate) fn thread_animation_graphs(
     }
 }
 
-impl ThreadedAnimationGraph {
-    /// Removes all the data in this [`ThreadedAnimationGraph`], keeping the
+impl ThreadedBlendGraph {
+    /// Removes all the data in this [`ThreadedBlendGraph`], keeping the
     /// memory around for later reuse.
     fn clear(&mut self) {
         self.threaded_graph.clear();
@@ -1027,10 +1017,10 @@ impl ThreadedAnimationGraph {
         self.animation_target_to_threaded_subgraph.clear();
     }
 
-    /// Prepares the [`ThreadedAnimationGraph`] for recursion.
-    fn init(&mut self, animation_graph: &AnimationGraph) {
-        let node_count = animation_graph.graph.node_count();
-        let edge_count = animation_graph.graph.edge_count();
+    /// Prepares the [`ThreadedBlendGraph`] for recursion.
+    fn init(&mut self, blend_graph: &BlendGraph) {
+        let node_count = blend_graph.graph.node_count();
+        let edge_count = blend_graph.graph.edge_count();
 
         self.threaded_graph.reserve(node_count);
         self.sorted_edges.reserve(edge_count);
@@ -1043,34 +1033,29 @@ impl ThreadedAnimationGraph {
         self.computed_masks.extend(iter::repeat_n(0, node_count));
 
         self.animation_clips.clear();
-        for node in animation_graph.graph.node_weights() {
+        for node in blend_graph.graph.node_weights() {
             match &node.node_type {
-                AnimationNodeType::Clip(clip_handle) => {
+                BlendNodeType::Clip(clip_handle) => {
                     self.animation_clips.insert(clip_handle.id());
                 }
-                AnimationNodeType::Blend | AnimationNodeType::Add => {}
+                BlendNodeType::Blend | BlendNodeType::Add => {}
             }
         }
     }
 
-    /// Recursively constructs the [`ThreadedAnimationGraph`] for the subtree
+    /// Recursively constructs the [`ThreadedBlendGraph`] for the subtree
     /// rooted at the given node.
     ///
     /// `mask` specifies the computed mask of the parent node. (It could be
     /// fetched from the [`Self::computed_masks`] field, but we pass it
     /// explicitly as a micro-optimization.)
-    fn build_from(
-        &mut self,
-        graph: &AnimationDiGraph,
-        node_index: AnimationNodeIndex,
-        mut mask: u64,
-    ) {
+    fn build_from(&mut self, graph: &BlendDiGraph, node_index: BlendNodeIndex, mut mask: u64) {
         // Accumulate the mask.
         mask |= graph.node_weight(node_index).unwrap().mask;
         self.computed_masks[node_index.index()] = mask;
 
         // Gather up the indices of our children, and sort them.
-        let mut kids: SmallVec<[AnimationNodeIndex; 8]> = graph
+        let mut kids: SmallVec<[BlendNodeIndex; 8]> = graph
             .neighbors_directed(node_index, Direction::Outgoing)
             .collect();
         kids.sort_unstable();
@@ -1091,11 +1076,7 @@ impl ThreadedAnimationGraph {
 
     /// Creates subgraphs for each animation target consisting of only the nodes
     /// that affect that target.
-    fn rebuild_target_subgraphs(
-        &mut self,
-        graph: &AnimationDiGraph,
-        clips: &Assets<AnimationClip>,
-    ) {
+    fn rebuild_target_subgraphs(&mut self, graph: &BlendDiGraph, clips: &Assets<AnimationClip>) {
         self.animation_target_to_threaded_subgraph.clear();
 
         // We traverse the graph looking for animation clips. Each animation
@@ -1110,7 +1091,7 @@ impl ThreadedAnimationGraph {
         // create a target subgraph for it.
         for node in graph.node_weights() {
             let animation_clip = match &node.node_type {
-                AnimationNodeType::Clip(animation_clip_id) => {
+                BlendNodeType::Clip(animation_clip_id) => {
                     if !seen_animation_clips.insert(animation_clip_id) {
                         continue;
                     }
@@ -1119,7 +1100,7 @@ impl ThreadedAnimationGraph {
                     };
                     animation_clip
                 }
-                AnimationNodeType::Blend | AnimationNodeType::Add => continue,
+                BlendNodeType::Blend | BlendNodeType::Add => continue,
             };
 
             for animation_target_id in animation_clip.curves().keys() {
@@ -1143,18 +1124,18 @@ impl ThreadedAnimationGraph {
         }
     }
 
-    /// Creates a subgraph of the given animation graph that contains only nodes
+    /// Creates a subgraph of the given blend graph that contains only nodes
     /// that affect the given `animation_target_id`.
     fn create_target_subgraph(
         &self,
         animation_target_id: AnimationTargetId,
-        graph: &AnimationDiGraph,
+        graph: &BlendDiGraph,
         clips: &Assets<AnimationClip>,
         node_is_relevant: &mut BitVec,
-    ) -> ThreadedAnimationSubgraph {
+    ) -> ThreadedBlendSubgraph {
         node_is_relevant.fill(false);
 
-        let mut threaded_subgraph = ThreadedAnimationSubgraph::default();
+        let mut threaded_subgraph = ThreadedBlendSubgraph::default();
 
         // We only need to do a single pass over the postorder traversal,
         // because a subset of a postorder traversal is also a postorder
@@ -1165,7 +1146,7 @@ impl ThreadedAnimationGraph {
             };
 
             match &node.node_type {
-                AnimationNodeType::Clip(clip_handle) => {
+                BlendNodeType::Clip(clip_handle) => {
                     // Only add this node if the clip has curves and/or events
                     // that affect this target.
                     if clips
@@ -1181,7 +1162,7 @@ impl ThreadedAnimationGraph {
                     }
                 }
 
-                AnimationNodeType::Add | AnimationNodeType::Blend => {
+                BlendNodeType::Add | BlendNodeType::Blend => {
                     // Add this node if any of its children are relevant.
                     let sorted_edge_range =
                         self.sorted_edge_list_ranges[node_index.index()].clone();
@@ -1202,27 +1183,27 @@ impl ThreadedAnimationGraph {
         threaded_subgraph
     }
 
-    /// Creates the table that maps each animation clip to the animation graphs
+    /// Creates the table that maps each animation clip to the blend graphs
     /// that contain that clip.
     ///
     /// Bevy uses this table to determine which subgraphs to invalidate when a
     /// clip is newly loaded or changed.
     fn populate_clip_to_graphs_table(
         &self,
-        graph_id: AssetId<AnimationGraph>,
-        clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<AnimationGraph>>>,
+        graph_id: AssetId<BlendGraph>,
+        clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<BlendGraph>>>,
     ) {
         for clip_id in &self.animation_clips {
             clip_to_graphs.entry(*clip_id).or_default().insert(graph_id);
         }
     }
 
-    /// Removes the given animation graph from the table mapping clips to
-    /// animation graphs.
+    /// Removes the given blend graph from the table mapping clips to
+    /// blend graphs.
     fn remove_from_clip_to_graphs_table(
         &self,
-        graph_id: AssetId<AnimationGraph>,
-        clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<AnimationGraph>>>,
+        graph_id: AssetId<BlendGraph>,
+        clip_to_graphs: &mut HashMap<AssetId<AnimationClip>, HashSet<AssetId<BlendGraph>>>,
     ) {
         for clip_id in &self.animation_clips {
             let Entry::Occupied(mut graphs) = clip_to_graphs.entry(*clip_id) else {
@@ -1236,13 +1217,13 @@ impl ThreadedAnimationGraph {
     }
 }
 
-impl ThreadedAnimationSubgraph {
-    /// Copies a node from a threaded animation graph to its subgraph and adds
+impl ThreadedBlendSubgraph {
+    /// Copies a node from a threaded blend graph to its subgraph and adds
     /// the index of the node to the `node_is_relevant` table.
     ///
     /// `original_sorted_edge_list_ranges` and `original_sorted_edges` are
-    /// expected to be the [`ThreadedAnimationGraph::sorted_edge_list_ranges`]
-    /// and [`ThreadedAnimationGraph::sorted_edges`] fields from the containing
+    /// expected to be the [`ThreadedBlendGraph::sorted_edge_list_ranges`]
+    /// and [`ThreadedBlendGraph::sorted_edges`] fields from the containing
     /// threaded graph respectively.
     fn add_node(
         &mut self,
@@ -1289,8 +1270,8 @@ mod tests {
 
     use crate::{
         animated_field,
-        animation_curves::AnimatableCurve,
-        graph::{AnimationGraph, ThreadedAnimationGraph},
+        animation_curves::BlendableCurve,
+        graph::{BlendGraph, ThreadedBlendGraph},
         AnimationClip, AnimationTargetId,
     };
 
@@ -1299,7 +1280,7 @@ mod tests {
     #[test]
     fn subgraph_prunes_irrelevant_clips() {
         // Create a graph consisting of a root node connected to two clip nodes.
-        let (mut graph, mut clips) = (AnimationGraph::new(), Assets::<AnimationClip>::default());
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
         let target_ids_and_nodes = ["A", "B"].map(|target_name| {
             let target_id = AnimationTargetId::from_name(&Name::new(target_name));
             let clip = clips.add(create_animation_clip_for_target(target_id));
@@ -1308,7 +1289,7 @@ mod tests {
         });
 
         // Create subgraphs.
-        let threaded_graph = create_threaded_graph_from_animation_graph(&graph, &clips);
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
 
         // Check that there is one subgraph for each target, that there are no
         // other subgraphs, and that the subgraphs contain only the graph root
@@ -1332,7 +1313,7 @@ mod tests {
     fn subgraph_prunes_irrelevant_blend_nodes() {
         // Create a graph consisting of a root node connected to two blend
         // nodes, each of which is in turn connected to a clip node.
-        let (mut graph, mut clips) = (AnimationGraph::new(), Assets::<AnimationClip>::default());
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
         let target_ids_and_nodes = ["A", "B"].map(|target_name| {
             let target_id = AnimationTargetId::from_name(&Name::new(target_name));
             let blend_node = graph.add_blend(1.0, graph.root);
@@ -1342,7 +1323,7 @@ mod tests {
         });
 
         // Create subgraphs.
-        let threaded_graph = create_threaded_graph_from_animation_graph(&graph, &clips);
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
 
         // Check that there is one subgraph for each target, that there are no
         // other subgraphs, and that the subgraphs contain only the graph root,
@@ -1369,7 +1350,7 @@ mod tests {
     fn subgraph_includes_all_clips_for_a_target() {
         // Create a graph consisting of one blend node that blends two clip
         // nodes.
-        let (mut graph, mut clips) = (AnimationGraph::new(), Assets::<AnimationClip>::default());
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
         let blend_node = graph.add_blend(1.0, graph.root);
         let target_id = AnimationTargetId::from_name(&Name::new("MyTarget"));
         let clip_nodes: [_; 2] = array::from_fn(|_| {
@@ -1378,7 +1359,7 @@ mod tests {
         });
 
         // Create subgraphs.
-        let threaded_graph = create_threaded_graph_from_animation_graph(&graph, &clips);
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
 
         // Check that there is only one target and that that target's subgraph contains all the graph nodes.
         assert_eq!(
@@ -1401,7 +1382,7 @@ mod tests {
         // Create a graph consisting of a root node connected to two blend
         // nodes, each of which is in turn connected to a clip node.
         // But create the blends before the clips.
-        let (mut graph, mut clips) = (AnimationGraph::new(), Assets::<AnimationClip>::default());
+        let (mut graph, mut clips) = (BlendGraph::new(), Assets::<AnimationClip>::default());
         let blend_nodes: [NodeIndex; 2] = array::from_fn(|_| graph.add_blend(1.0, graph.root));
         let target_ids_and_clip_nodes: [(AnimationTargetId, NodeIndex); 2] =
             array::from_fn(|index| {
@@ -1412,7 +1393,7 @@ mod tests {
             });
 
         // Create subgraphs.
-        let threaded_graph = create_threaded_graph_from_animation_graph(&graph, &clips);
+        let threaded_graph = create_threaded_graph_from_blend_graph(&graph, &clips);
 
         // Check that there is one subgraph for each target, that there are no
         // other subgraphs, and that the subgraphs contain only the graph root,
@@ -1436,26 +1417,26 @@ mod tests {
     }
 
     /// Creates a threaded graph and all the target subgraphs from the given
-    /// animation graph, just as `thread_animation_graphs` does.
-    fn create_threaded_graph_from_animation_graph(
-        animation_graph: &AnimationGraph,
+    /// blend graph, just as `thread_blend_graphs` does.
+    fn create_threaded_graph_from_blend_graph(
+        blend_graph: &BlendGraph,
         animation_clips: &Assets<AnimationClip>,
-    ) -> ThreadedAnimationGraph {
-        let mut threaded_animation_graph = ThreadedAnimationGraph::default();
-        threaded_animation_graph.init(animation_graph);
-        threaded_animation_graph.build_from(&animation_graph.graph, animation_graph.root, 0);
-        threaded_animation_graph.rebuild_target_subgraphs(&animation_graph.graph, animation_clips);
-        threaded_animation_graph
+    ) -> ThreadedBlendGraph {
+        let mut threaded_blend_graph = ThreadedBlendGraph::default();
+        threaded_blend_graph.init(blend_graph);
+        threaded_blend_graph.build_from(&blend_graph.graph, blend_graph.root, 0);
+        threaded_blend_graph.rebuild_target_subgraphs(&blend_graph.graph, animation_clips);
+        threaded_blend_graph
     }
 
     /// Creates a simple animation clip animating the given target.
     fn create_animation_clip_for_target(animation_target_id: AnimationTargetId) -> AnimationClip {
         let mut animation_clip = AnimationClip::default();
-        let animatable_curve = AnimatableCurve::new(
+        let blendable_curve = BlendableCurve::new(
             animated_field!(Transform::translation),
             ConstantCurve::new(Interval::EVERYWHERE, Vec3::ONE),
         );
-        animation_clip.add_curve_to_target(animation_target_id, animatable_curve);
+        animation_clip.add_curve_to_target(animation_target_id, blendable_curve);
         animation_clip
     }
 }

@@ -11,8 +11,9 @@ use crate::{
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
 };
-use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
+use atomicow::CowArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
 use std::path::Path;
@@ -46,7 +47,10 @@ impl ProcessorGatedReader {
 }
 
 impl AssetReader for ProcessorGatedReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
@@ -56,7 +60,7 @@ impl AssetReader for ProcessorGatedReader {
         match process_result {
             ProcessStatus::Processed => {}
             ProcessStatus::Failed | ProcessStatus::NonExistent => {
-                return Err(AssetReaderError::NotFound(path.to_owned()));
+                return Err(AssetReaderError::NotFound(path.to_path_buf()));
             }
         }
         trace!("Processing finished with {asset_path}, reading {process_result:?}",);
@@ -69,7 +73,10 @@ impl AssetReader for ProcessorGatedReader {
         Ok(reader)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading meta for {asset_path}",);
         let process_result = self
@@ -79,7 +86,7 @@ impl AssetReader for ProcessorGatedReader {
         match process_result {
             ProcessStatus::Processed => {}
             ProcessStatus::Failed | ProcessStatus::NonExistent => {
-                return Err(AssetReaderError::NotFound(path.to_owned()));
+                return Err(AssetReaderError::NotFound(path.to_path_buf()));
             }
         }
         trace!("Processing finished with {process_result:?}, reading meta for {asset_path}",);
