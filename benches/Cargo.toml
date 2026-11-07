@@ -10,7 +10,9 @@ autobenches = false
 [dependencies]
 # The primary crate that runs and analyzes our benchmarks. This is a regular dependency because the
 # `bench!` macro refers to it in its documentation.
-criterion = { version = "0.8.0", features = ["html_reports"] }
+criterion = { version = "0.8.0", default-features = false, features = [
+  "cargo_bench_support",
+] }
 seq-macro = "0.3.6"
 
 # Bevy crates
@@ -57,6 +59,11 @@ bytemuck = { version = "1", default-features = false, features = [
   "derive",
   "must_cast",
 ] }
+
+# Criterion's default features include rayon, which doesn't build for WASI. Only enabling them on
+# other targets lets the benchmarks run on `wasm32-wasip1`.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+criterion = { version = "0.8.0", features = ["html_reports"] }
 
 [features]
 default = [
