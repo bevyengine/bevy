@@ -286,6 +286,11 @@ pub unsafe trait SystemParam: Sized {
         system_access: &mut SystemAccess,
     ) -> Result<(), SystemParamAccessConflict>;
 
+    /// Configure the system param.
+    /// This method will be called by [`System::configure`](super::System::configure) in order for all [`SystemParam`]s of a system.
+    /// Implementations should respond to configs that they recognize by calling `downcast_mut`
+    fn configure(_state: &mut Self::State, _meta: &mut SystemMeta, _config: &mut dyn Any) {}
+
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     ///
@@ -805,6 +810,18 @@ macro_rules! impl_param_set {
                     system_access.extend(param_access);
                 )*
                 Ok(())
+            }
+
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Certain variable names are provided by the caller, not by us."
+            )]
+            fn configure(($($param,)*): &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+                ($($param::configure($param, meta, config),)*);
             }
 
             fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1881,6 +1898,10 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
     }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(state, meta, config);
+    }
 }
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
@@ -1921,6 +1942,9 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
+    }
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(state, meta, config);
     }
 }
 
@@ -2021,6 +2045,9 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(state, system_meta, world);
     }
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(state, meta, config);
+    }
 }
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
@@ -2073,6 +2100,12 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
+        }
+    }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        for state in state {
+            T::configure(state, meta, config);
         }
     }
 }
@@ -2143,6 +2176,12 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
+        }
+    }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        for state in state {
+            T::configure(state, meta, config);
         }
     }
 }
@@ -2230,6 +2269,12 @@ unsafe impl<T: SystemParam, const N: usize> SystemParam for SmallVec<[T; N]> {
             T::queue(state, system_meta, world.reborrow());
         }
     }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        for state in state {
+            T::configure(state, meta, config);
+        }
+    }
 }
 
 macro_rules! impl_system_param_tuple {
@@ -2269,6 +2314,11 @@ macro_rules! impl_system_param_tuple {
                 Ok(())
             }
 
+
+            #[inline]
+            fn configure(($($param,)*): &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+                (($($param::configure($param, meta, config),)*));
+            }
 
             #[inline]
             fn apply(($($param,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2441,6 +2491,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         system_access: &mut SystemAccess,
     ) -> Result<(), SystemParamAccessConflict> {
         P::init_access(state, system_meta, system_access)
+    }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        P::configure(state, meta, config);
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -2753,6 +2807,9 @@ trait DynParamState: Sync + Send + Any {
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
+    /// Configures the inner [`SystemParam`] with the given config token.
+    fn configure(&mut self, system_meta: &mut SystemMeta, config: &mut dyn Any);
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     #[expect(
         clippy::result_large_err,
@@ -2786,6 +2843,10 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
 
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(&mut self.0, system_meta, world);
+    }
+
+    fn configure(&mut self, system_meta: &mut SystemMeta, config: &mut dyn Any) {
+        T::configure(&mut self.0, system_meta, config);
     }
 
     fn init_access(
@@ -2852,6 +2913,10 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.0.queue(system_meta, world);
+    }
+
+    fn configure(state: &mut Self::State, meta: &mut SystemMeta, config: &mut dyn Any) {
+        state.0.configure(meta, config);
     }
 }
 
@@ -2950,8 +3015,9 @@ mod tests {
     use crate::query::Without;
     use crate::resource::IsResource;
     use crate::schedule::Schedule;
-    use crate::system::{assert_is_system, Commands, IntoSystem, System};
+    use crate::system::{assert_is_system, Commands, In, IntoSystem, System};
     use crate::world::EntityMut;
+    use alloc::vec;
     use core::cell::RefCell;
 
     #[test]
@@ -3549,5 +3615,160 @@ mod tests {
         system.initialize(&mut world);
 
         assert!(!system.is_send());
+    }
+
+    /// Config token recognized by [`Configured`].
+    struct SetValue(usize);
+
+    /// Config token that no system param recognizes.
+    struct UnknownToken;
+
+    /// A system param whose value can only be changed through [`SystemParam::configure`].
+    struct Configured(usize);
+
+    // SAFETY: `Configured` does not access the world.
+    unsafe impl SystemParam for Configured {
+        type State = usize;
+        type Item<'w, 's> = Configured;
+
+        fn init_state(_world: &mut World) -> Self::State {
+            0
+        }
+
+        fn init_access(
+            _state: &Self::State,
+            _system_meta: &mut SystemMeta,
+            _system_access: &mut SystemAccess,
+        ) -> Result<(), SystemParamAccessConflict> {
+            Ok(())
+        }
+
+        fn configure(state: &mut Self::State, _meta: &mut SystemMeta, config: &mut dyn Any) {
+            if let Some(SetValue(value)) = config.downcast_mut::<SetValue>() {
+                *state = *value;
+            }
+        }
+
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            _system_meta: &SystemMeta,
+            _world: UnsafeWorldCell<'w>,
+            _change_tick: Tick,
+        ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
+            Ok(Configured(*state))
+        }
+    }
+
+    // SAFETY: `Configured` does not access the world.
+    unsafe impl ReadOnlySystemParam for Configured {}
+
+    #[test]
+    fn configure_reaches_nested_params() {
+        #[derive(SystemParam)]
+        struct Derived {
+            inner: Configured,
+        }
+
+        fn system(
+            a: Configured,
+            (b, c): (Configured, Configured),
+            d: Option<Configured>,
+            mut e: ParamSet<(Configured, Configured)>,
+            f: Derived,
+            g: StaticSystemParam<Configured>,
+        ) -> Vec<usize> {
+            vec![
+                a.0,
+                b.0,
+                c.0,
+                d.unwrap().0,
+                e.p0().0,
+                e.p1().0,
+                f.inner.0,
+                g.into_inner().0,
+            ]
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(system);
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), vec![0; 8]);
+
+        system.configure(&mut UnknownToken);
+        assert_eq!(system.run((), &mut world).unwrap(), vec![0; 8]);
+
+        system.configure(&mut SetValue(7));
+        assert_eq!(system.run((), &mut world).unwrap(), vec![7; 8]);
+    }
+
+    #[test]
+    fn configure_reaches_built_params() {
+        use crate::system::{DynParamBuilder, ParamBuilder, SystemParamBuilder};
+
+        fn collection_system(
+            vec: Vec<Configured>,
+            small_vec: SmallVec<[Configured; 2]>,
+        ) -> Vec<usize> {
+            vec.iter()
+                .chain(small_vec.iter())
+                .map(|param| param.0)
+                .collect()
+        }
+
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(
+            (
+                vec![ParamBuilder, ParamBuilder],
+                SmallVec::<[_; 2]>::from_iter([ParamBuilder, ParamBuilder]),
+            )
+                .build_system(collection_system),
+        );
+
+        // The `BuilderSystem` has no state to configure until it is initialized.
+        system.configure(&mut SetValue(1));
+        system.initialize(&mut world);
+        assert_eq!(system.run((), &mut world).unwrap(), vec![0; 4]);
+
+        system.configure(&mut SetValue(7));
+        assert_eq!(system.run((), &mut world).unwrap(), vec![7; 4]);
+
+        let mut system = IntoSystem::into_system(
+            (DynParamBuilder::new::<Configured>(ParamBuilder),)
+                .build_state(&mut world)
+                .build_system(|mut param: DynSystemParam| {
+                    param.downcast_mut::<Configured>().unwrap().0
+                }),
+        );
+        system.initialize(&mut world);
+        system.configure(&mut SetValue(7));
+        assert_eq!(system.run((), &mut world).unwrap(), 7);
+    }
+
+    #[test]
+    fn configure_reaches_combined_systems() {
+        use crate::schedule::SystemCondition;
+
+        let mut world = World::new();
+
+        let mut piped = IntoSystem::into_system(
+            (|a: Configured| a.0).pipe(|In(a): In<usize>, b: Configured| a + b.0),
+        );
+        piped.initialize(&mut world);
+        piped.configure(&mut SetValue(3));
+        assert_eq!(piped.run((), &mut world).unwrap(), 6);
+
+        let mut mapped = IntoSystem::into_system((|a: Configured| a.0).map(|a| a * 10));
+        mapped.initialize(&mut world);
+        mapped.configure(&mut SetValue(3));
+        assert_eq!(mapped.run((), &mut world).unwrap(), 30);
+
+        fn is_three(param: Configured) -> bool {
+            param.0 == 3
+        }
+        let mut combined = IntoSystem::into_system(is_three.and_then(is_three));
+        combined.initialize(&mut world);
+        assert!(!combined.run((), &mut world).unwrap());
+        combined.configure(&mut SetValue(3));
+        assert!(combined.run((), &mut world).unwrap());
     }
 }
