@@ -40,7 +40,6 @@ use super::world::{RemoteWorld, SpawnRemoteError, TreeComponents};
 use crate::{
     details_panel::{DetailsCollapsed, DetailsColumnSplits, DetailsPanelSync},
     entity_tree::{clear_rows, EntityTreeSync},
-    rank_subapp,
     remote::world::RemoteWorlds,
     InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, WorldKind,
 };
@@ -88,6 +87,13 @@ impl Default for RemoteSource {
 impl PartialOrd for RemoteSource {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+fn rank_subapp(item: &WorldKind) -> i32 {
+    match item {
+        WorldKind::Main => 1,
+        WorldKind::Render => 2,
     }
 }
 

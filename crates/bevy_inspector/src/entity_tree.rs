@@ -262,11 +262,10 @@ fn rank(item: &InspectorSource) -> i32 {
 }
 
 fn determine_sources_order(sources: &HashSet<InspectorSource>) -> Vec<InspectorSource> {
-    let mut sources: Vec<InspectorSource> = sources.into_iter().map(|f| f.clone()).collect();
+    let mut sources: Vec<InspectorSource> = sources.into_iter().copied().collect();
 
     sources.sort_by(|a, b| {
         rank(a).cmp(&rank(b)).then_with(|| match (a, b) {
-            (InspectorSource::Local, InspectorSource::Local) => Ordering::Equal,
             #[cfg(feature = "remote")]
             (InspectorSource::Remote(val_a), InspectorSource::Remote(val_b)) => val_a.cmp(val_b),
             _ => Ordering::Equal,
@@ -316,7 +315,7 @@ fn plan_sync(world: &World) -> SyncPlan {
             InspectorSource::Local => (inspector_source, world),
             #[cfg(feature = "remote")]
             InspectorSource::Remote(_rem) => {
-                let inspected = crate::world_to_inspect(world, &inspector_source);
+                let inspected = crate::world_to_inspect(world, inspector_source);
                 (inspector_source, inspected)
             }
         })
@@ -675,6 +674,7 @@ fn visible_children(world: &World, entity: Entity) -> Vec<Entity> {
 pub(crate) fn header_label(source: InspectorSource) -> String {
     match source {
         InspectorSource::Local => "Local".to_string(),
+        #[cfg(feature = "remote")]
         InspectorSource::Remote(rem) => format!("{}:{} ({})", rem.host.0, rem.port, rem.subapp),
     }
 }
@@ -769,6 +769,32 @@ mod tests {
         app
     }
 
+    fn header_rows(world: &World, container: Entity) -> Vec<(Entity, InspectorSource)> {
+        world
+            .get::<Children>(container)
+            .map(|children| {
+                children
+                    .iter()
+                    .copied()
+                    .filter_map(|child| {
+                        world
+                            .get::<InspectorHeaderRow>(child)
+                            .map(|f| (child, f.source))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn local_header(headers: &Vec<(Entity, InspectorSource)>) -> Option<Entity> {
+        for (e, is) in headers {
+            if *is == InspectorSource::Local {
+                return Some(*e);
+            }
+        }
+        None
+    }
+
     fn row_sources(world: &World, container: Entity) -> Vec<Entity> {
         world
             .get::<Children>(container)
@@ -861,7 +887,9 @@ mod tests {
         app.update();
         app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
         app.update();
-        let sources = row_sources(app.world(), tree);
+        let headers = header_rows(app.world(), tree);
+        let local_header = local_header(&headers);
+        let sources = row_sources(app.world(), local_header.unwrap());
         assert!(sources.contains(&local));
         assert!(!sources.contains(&parent));
     }
@@ -878,7 +906,11 @@ mod tests {
             .map(|index| app.world_mut().spawn(Name::new(format!("{index}"))).id())
             .collect();
         app.update();
-        assert_eq!(row_sources(app.world(), tree).len(), 501);
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
+        let headers = header_rows(app.world(), tree);
+        let local_header = local_header(&headers).unwrap();
+        assert_eq!(row_sources(app.world(), local_header).len(), 501);
 
         for root in roots.iter().step_by(2) {
             app.world_mut().entity_mut(*root).despawn();
@@ -886,7 +918,7 @@ mod tests {
         app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
         app.update();
 
-        let sources = row_sources(app.world(), tree);
+        let sources = row_sources(app.world(), local_header);
         assert_eq!(sources.len(), 251);
         assert!(roots
             .iter()
@@ -908,8 +940,12 @@ mod tests {
         let sibling = app.world_mut().spawn(Name::new("Sibling")).id();
 
         app.update();
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
 
-        let sources = row_sources(app.world(), tree);
+        let headers = header_rows(app.world(), tree);
+        let local_header = local_header(&headers).unwrap();
+        let sources = row_sources(app.world(), local_header);
         assert_eq!(sources.len(), 3);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));
@@ -938,7 +974,7 @@ mod tests {
         app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
         app.update();
 
-        let sources = row_sources(app.world(), tree);
+        let sources = row_sources(app.world(), local_header);
         assert_eq!(sources.len(), 2);
         assert!(sources.contains(&panel));
         assert!(sources.contains(&parent));

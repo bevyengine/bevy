@@ -117,13 +117,6 @@ impl Display for WorldKind {
     }
 }
 
-fn rank_subapp(item: &WorldKind) -> i32 {
-    match item {
-        WorldKind::Main => 1,
-        WorldKind::Render => 2,
-    }
-}
-
 /// A single source to read data from
 #[derive(Debug, Default, Clone, PartialEq, Copy, Eq, Reflect, Hash)]
 #[reflect(Debug, Default, Clone, PartialEq)]

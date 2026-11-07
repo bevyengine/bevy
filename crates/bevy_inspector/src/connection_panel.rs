@@ -196,11 +196,7 @@ pub fn connect_both_clicked(
         return;
     };
 
-    sources.set_if_neq(InspectorSources::remote_local(
-        address,
-        main_port,
-        render_port,
-    ));
+    sources.set_if_neq(InspectorSources::remote(address, main_port, render_port));
 }
 
 /// Observer switching the inspector to the remote app at the address in the address input.
@@ -222,7 +218,7 @@ pub fn connect_main_clicked(
         return;
     };
 
-    sources.set_if_neq(InspectorSources::remote_main_local(address, main_port));
+    sources.set_if_neq(InspectorSources::remote_main(address, main_port));
 }
 
 /// Observer switching the inspector back to the local world.
@@ -314,7 +310,7 @@ fn format_host(source: &RemoteSource) -> String {
     if source.host.contains(':') {
         format!("[{}]", source.host.0)
     } else {
-        format!("{}", source.host.0)
+        source.host.0.to_string()
     }
 }
 
