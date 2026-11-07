@@ -4,7 +4,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entity, EntityAllocator, EntityMapper},
-    relationship::RelationshipHookMode,
+    relationship::{RelationshipAccessor, RelationshipHookMode},
     world::World,
 };
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
@@ -527,6 +527,8 @@ impl EntityCloner {
         source: Entity,
         mapper: &mut dyn EntityMapper,
     ) -> Entity {
+        let linked_cloning = state.linked_cloning;
+        let mut deferred_components = Vec::new();
         // All relationships on the root should have their hooks run
         let target = Self::clone_entity_internal(
             state,
@@ -535,6 +537,11 @@ impl EntityCloner {
             source,
             mapper,
             RelationshipHookMode::Run,
+            if linked_cloning {
+                ComponentClonePhase::Linked(&mut deferred_components)
+            } else {
+                ComponentClonePhase::All
+            },
         );
         let child_hook_insert_mode = if state.linked_cloning {
             // When spawning "linked relationships", we want to ignore hooks for relationships we are spawning, while
@@ -545,6 +552,7 @@ impl EntityCloner {
             // register themselves with their original relationship target.
             RelationshipHookMode::Run
         };
+        let mut next_deferred = 0;
         loop {
             let queued = state.clone_queue.pop_front();
             if let Some(queued) = queued {
@@ -555,7 +563,32 @@ impl EntityCloner {
                     queued,
                     mapper,
                     child_hook_insert_mode,
+                    if linked_cloning {
+                        ComponentClonePhase::Linked(&mut deferred_components)
+                    } else {
+                        ComponentClonePhase::All
+                    },
                 );
+            } else if let Some(&(entity, _)) = deferred_components.get(next_deferred) {
+                let end = next_deferred
+                    + deferred_components[next_deferred..]
+                        .iter()
+                        .take_while(|(source, _)| *source == entity)
+                        .count();
+                Self::clone_entity_internal(
+                    state,
+                    filter,
+                    world,
+                    entity,
+                    mapper,
+                    if entity == source {
+                        RelationshipHookMode::Run
+                    } else {
+                        child_hook_insert_mode
+                    },
+                    ComponentClonePhase::Deferred(&deferred_components[next_deferred..end]),
+                );
+                next_deferred = end;
             } else {
                 break;
             }
@@ -572,6 +605,7 @@ impl EntityCloner {
         source: Entity,
         mapper: &mut dyn EntityMapper,
         relationship_hook_insert_mode: RelationshipHookMode,
+        phase: ComponentClonePhase<'_>,
     ) -> Entity {
         let target = mapper.get_mapped(source);
         // The target may need to be constructed if it hasn't been already.
@@ -617,23 +651,18 @@ impl EntityCloner {
                 state.default_clone_fn = |_, ctx| ctx.move_component();
             }
 
-            filter.clone_components(source_archetype, target_archetype, |component| {
-                let handler = match state.clone_behavior_overrides.get(&component).or_else(|| {
-                    world
-                        .components()
-                        .get_info(component)
-                        .map(ComponentInfo::clone_behavior)
-                }) {
-                    Some(behavior) => match behavior {
-                        ComponentCloneBehavior::Default => state.default_clone_fn,
-                        ComponentCloneBehavior::Ignore => return,
-                        ComponentCloneBehavior::Custom(custom) => *custom,
-                    },
-                    None => state.default_clone_fn,
-                };
-
+            let mut clone_component = |component: ComponentId| {
                 // SAFETY: This component exists because it is present on the archetype.
                 let info = unsafe { world.components().get_info_unchecked(component) };
+                let behavior = state
+                    .clone_behavior_overrides
+                    .get(&component)
+                    .unwrap_or_else(|| info.clone_behavior());
+                let handler = match behavior {
+                    ComponentCloneBehavior::Default => state.default_clone_fn,
+                    ComponentCloneBehavior::Ignore => return,
+                    ComponentCloneBehavior::Custom(custom) => *custom,
+                };
 
                 // SAFETY:
                 // - There are no other mutable references to source entity.
@@ -679,7 +708,38 @@ impl EntityCloner {
                         deferred_cloned_component_ids.push(component);
                     }
                 }
-            });
+            };
+
+            match phase {
+                ComponentClonePhase::All => {
+                    filter.clone_components(source_archetype, target_archetype, clone_component);
+                }
+                ComponentClonePhase::Linked(deferred) => {
+                    filter.clone_components(source_archetype, target_archetype, |component| {
+                        // SAFETY: The filter only selects components from the source archetype.
+                        let info = unsafe { world.components().get_info_unchecked(component) };
+                        if matches!(
+                            info.relationship_accessor(),
+                            Some(RelationshipAccessor::RelationshipTarget {
+                                linked_spawn: true,
+                                ..
+                            })
+                        ) {
+                            clone_component(component);
+                        } else {
+                            // Wait until all linked descendants have entity mappings.
+                            deferred.push((source, component));
+                        }
+                    });
+                }
+                ComponentClonePhase::Deferred(components) => {
+                    for &(_, component) in components {
+                        if source_archetype.contains(component) {
+                            clone_component(component);
+                        }
+                    }
+                }
+            }
         }
 
         world.flush();
@@ -762,6 +822,12 @@ impl EntityCloner {
         unsafe { bundle_scratch.write(world, target, relationship_hook_insert_mode) };
         target
     }
+}
+
+enum ComponentClonePhase<'a> {
+    All,
+    Linked(&'a mut Vec<(Entity, ComponentId)>),
+    Deferred(&'a [(Entity, ComponentId)]),
 }
 
 /// Part of the [`EntityCloner`], see there for more information.
@@ -2188,6 +2254,175 @@ mod tests {
         assert_eq!(
             world.entity(root).get::<Children>().unwrap().deref(),
             &[child1, child2]
+        );
+    }
+
+    fn check_linked_clone_remapping(
+        hierarchy_first: bool,
+        linked: bool,
+        deny_children: bool,
+        opt_in: bool,
+    ) {
+        #[derive(Component, Clone)]
+        struct RootLink {
+            #[entities]
+            child: Entity,
+            #[entities]
+            grandchild: Entity,
+            #[entities]
+            external: Entity,
+        }
+
+        let mut world = World::new();
+        let external = world.spawn_empty().id();
+        if hierarchy_first {
+            world.register_component::<ChildOf>();
+        } else {
+            world.register_component::<RootLink>();
+        }
+        let root = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(root)).id();
+        let grandchild = world.spawn(ChildOf(child)).id();
+        let sibling = world.spawn(ChildOf(root)).id();
+        let cousin = world.spawn(ChildOf(sibling)).id();
+        world.entity_mut(root).insert(RootLink {
+            child,
+            grandchild,
+            external,
+        });
+        world.entity_mut(child).insert(RootLink {
+            child: grandchild,
+            grandchild: cousin,
+            external,
+        });
+        let cloned_root = world.spawn_empty().id();
+        if opt_in {
+            EntityCloner::build_opt_in(&mut world)
+                .allow::<(RootLink, Children, ChildOf)>()
+                .linked_cloning(linked)
+                .clone_entity(root, cloned_root);
+        } else {
+            let mut cloner = EntityCloner::build_opt_out(&mut world);
+            cloner.linked_cloning(linked);
+            if deny_children {
+                cloner.deny::<Children>();
+            }
+            cloner.clone_entity(root, cloned_root);
+        }
+
+        let cloned_link = world.get::<RootLink>(cloned_root).unwrap();
+        assert_eq!(cloned_link.external, external);
+        if linked && !deny_children {
+            let cloned_children = world.get::<Children>(cloned_root).unwrap();
+            let cloned_child = cloned_children[0];
+            let cloned_sibling = cloned_children[1];
+            let cloned_grandchild = world.get::<Children>(cloned_child).unwrap()[0];
+            let cloned_cousin = world.get::<Children>(cloned_sibling).unwrap()[0];
+            assert_ne!(cloned_child, child);
+            assert_ne!(cloned_grandchild, grandchild);
+            assert_ne!(cloned_cousin, cousin);
+            assert_eq!(cloned_link.child, cloned_child);
+            assert_eq!(cloned_link.grandchild, cloned_grandchild);
+            assert_eq!(
+                world.get::<ChildOf>(cloned_child),
+                Some(&ChildOf(cloned_root))
+            );
+            assert_eq!(
+                world.get::<ChildOf>(cloned_grandchild),
+                Some(&ChildOf(cloned_child)),
+            );
+            let child_link = world.get::<RootLink>(cloned_child).unwrap();
+            assert_eq!(child_link.child, cloned_grandchild);
+            assert_eq!(child_link.grandchild, cloned_cousin);
+            assert_eq!(child_link.external, external);
+        } else {
+            assert_eq!(cloned_link.child, child);
+            assert_eq!(cloned_link.grandchild, grandchild);
+        }
+        assert_eq!(world.get::<ChildOf>(child), Some(&ChildOf(root)));
+        assert_eq!(world.get::<ChildOf>(grandchild), Some(&ChildOf(child)));
+        assert_eq!(world.get::<ChildOf>(cousin), Some(&ChildOf(sibling)));
+        assert_eq!(&**world.get::<Children>(root).unwrap(), &[child, sibling]);
+        assert_eq!(world.get::<RootLink>(root).unwrap().grandchild, grandchild);
+        assert_eq!(world.get::<RootLink>(child).unwrap().grandchild, cousin);
+    }
+
+    macro_rules! linked_clone_remapping_test {
+        ($name:ident, $hierarchy_first:expr, $linked:expr, $deny_children:expr, $opt_in:expr) => {
+            #[test]
+            fn $name() {
+                check_linked_clone_remapping($hierarchy_first, $linked, $deny_children, $opt_in);
+            }
+        };
+    }
+
+    linked_clone_remapping_test!(linked_clone_hierarchy_first, true, true, false, false);
+    linked_clone_remapping_test!(linked_clone_reference_first, false, true, false, false);
+    linked_clone_remapping_test!(linked_clone_hierarchy_first_denied, true, true, true, false);
+    linked_clone_remapping_test!(
+        linked_clone_reference_first_denied,
+        false,
+        true,
+        true,
+        false
+    );
+    linked_clone_remapping_test!(unlinked_clone_hierarchy_first, true, false, false, false);
+    linked_clone_remapping_test!(unlinked_clone_reference_first, false, false, false, false);
+    linked_clone_remapping_test!(
+        unlinked_clone_hierarchy_first_denied,
+        true,
+        false,
+        true,
+        false
+    );
+    linked_clone_remapping_test!(
+        unlinked_clone_reference_first_denied,
+        false,
+        false,
+        true,
+        false
+    );
+    linked_clone_remapping_test!(linked_clone_opt_in_hierarchy_first, true, true, false, true);
+    linked_clone_remapping_test!(
+        linked_clone_opt_in_reference_first,
+        false,
+        true,
+        false,
+        true
+    );
+
+    #[test]
+    fn linked_clone_skips_components_removed_by_clone_handlers() {
+        #[derive(Component, Clone)]
+        struct Link(#[entities] Entity);
+
+        fn clone_children(source: &SourceComponent, context: &mut ComponentCloneCtx) {
+            let handler =
+                Children::clone_behavior().resolve(ComponentCloneBehavior::global_default_fn());
+            handler(source, context);
+            let entity = context.source();
+            context.queue_deferred(move |world, _| {
+                world.entity_mut(entity).remove::<Link>();
+            });
+        }
+
+        let mut world = World::new();
+        let root = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(root)).id();
+        world.entity_mut(root).insert(Link(child));
+        let cloned_root = world.spawn_empty().id();
+        EntityCloner::build_opt_out(&mut world)
+            .linked_cloning(true)
+            .override_clone_behavior::<Children>(ComponentCloneBehavior::Custom(clone_children))
+            .clone_entity(root, cloned_root);
+
+        assert!(world.get::<Link>(root).is_none());
+        assert!(world.get::<Link>(cloned_root).is_none());
+        let cloned_child = world.get::<Children>(cloned_root).unwrap()[0];
+        assert_ne!(cloned_child, child);
+        assert_eq!(
+            world.get::<ChildOf>(cloned_child),
+            Some(&ChildOf(cloned_root))
         );
     }
 
