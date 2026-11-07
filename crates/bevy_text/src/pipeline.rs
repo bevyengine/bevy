@@ -19,8 +19,8 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
-    TextFont, TextLayout,
+    GlyphCacheKey, Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 use crate::{RemSize, TextBrush};
 
@@ -398,12 +398,15 @@ impl TextPipeline {
                                 continue;
                             };
 
+                            let (cache_key, glyph_pos) = GlyphCacheKey::new(
+                                glyph_id,
+                                Vec2::new(glyph.x, glyph.y),
+                                font_smoothing,
+                            );
+
                             let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
-                            let atlas_info = match get_glyph_atlas_info(
-                                font_atlases,
-                                crate::GlyphCacheKey { glyph_id },
-                            ) {
+                            let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
                                 Some(info) => info,
                                 None => {
                                     if maybe_scaler.is_none() {
@@ -425,22 +428,15 @@ impl TextPipeline {
                                         textures,
                                         maybe_scaler.as_mut().unwrap(),
                                         font_smoothing,
-                                        glyph_id,
+                                        cache_key,
                                     )?
                                 }
                             };
 
-                            let glyph_pos = Vec2::new(glyph.x, glyph.y);
                             let size = atlas_info.rect.size();
 
                             layout_info.glyphs.push(PositionedGlyph {
-                                position: size / 2.
-                                    + if font_smoothing == FontSmoothing::None {
-                                        glyph_pos.floor()
-                                    } else {
-                                        glyph_pos
-                                    }
-                                    + atlas_info.offset,
+                                position: size / 2. + glyph_pos + atlas_info.offset,
                                 atlas_info,
                                 section_index,
                                 line_index: line_index as u32,
