@@ -22,12 +22,14 @@ enable wgpu_ray_query;
 @group(1) @binding(10) var atmosphere_transmittance_lut: texture_2d<f32>;
 @group(1) @binding(11) var atmosphere_transmittance_sampler: sampler;
 @group(1) @binding(12) var<uniform> atmosphere: Atmosphere;
+@group(1) @binding(13) var gbuffer_specular_tint: texture_2d<u32>;
 
 @if(RESTIR) {
-@group(1) @binding(13) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(14) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(15) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(16) var<storage, read_write> reservoirs_b: array<Reservoir>;
+@group(1) @binding(14) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(15) var previous_gbuffer_specular_tint: texture_2d<u32>;
+@group(1) @binding(16) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(17) var<storage, read_write> reservoirs_a: array<Reservoir>;
+@group(1) @binding(18) var<storage, read_write> reservoirs_b: array<Reservoir>;
 }
 
 @if(DLSS_RR_GUIDE_BUFFERS) {

@@ -175,7 +175,7 @@ impl SpecializedRenderPipeline for BackgroundMotionVectorsPipeline {
     type Key = BackgroundMotionVectorsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut targets = prepass_target_descriptors(key.normal_prepass, true, false);
+        let mut targets = prepass_target_descriptors(key.normal_prepass, true, false, false);
         // The shader only outputs to attachment at location 1, set write mask of the other attachments to empty
         // to avoid WebGPU validation error "Color target has no corresponding fragment stage output but writeMask is not zero".
         for target in
