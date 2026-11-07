@@ -38,8 +38,8 @@ use bevy_feathers::{
     controls::{
         list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputStep, OptionIndex,
-        ScrollbarGutter,
+        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputSnapToStep,
+        NumberInputStep, OptionIndex, ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
@@ -1770,7 +1770,9 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                 world.entity_mut(entity).insert(HardLimit(limit.clone()));
             }
             if let Some(step) = entry.annotations.step {
-                world.entity_mut(entity).insert(NumberInputStep(step));
+                world
+                    .entity_mut(entity)
+                    .insert((NumberInputStep(step), NumberInputSnapToStep));
             }
             FieldWidget {
                 entity,
@@ -5234,10 +5236,12 @@ mod tests {
             world.get::<NumberInputStep>(speed).map(|step| step.0),
             Some(0.5)
         );
+        assert!(world.get::<NumberInputSnapToStep>(speed).is_some());
         assert!(has_text(world, speed, "m/s"));
 
         let jump = widget_at(&app, "jump").unwrap();
         assert!(world.get::<NumberInputStep>(jump).is_none());
+        assert!(world.get::<NumberInputSnapToStep>(jump).is_none());
         assert!(!has_text(world, jump, "m/s"));
         assert!(row_labels(&app).contains(&"Jump Height".to_string()));
         assert!(matches!(
