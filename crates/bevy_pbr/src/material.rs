@@ -63,6 +63,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_shader::{Shader, ShaderDefVal};
+use bevy_transform::prelude::{GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
 use core::{
     any::{Any, TypeId},
@@ -452,7 +453,9 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
+                    check_entities_needing_specialization::<M>
+                        .after(AssetEventSystems)
+                        .after(TransformSystems::Propagate), //needs to wait for transforms to  render
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -909,6 +912,9 @@ pub struct SpecializedMaterialViewPipelineCache {
 
 /// Finds 3D entities that have changed in such a way as to potentially require
 /// specialization and adds them to the [`EntitiesNeedingSpecialization`] list.
+///
+/// A [`GlobalTransform`] change does not alter the specialized pipeline. It is
+/// included in order to trigger updates to the retained cache
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
@@ -918,6 +924,7 @@ pub fn check_entities_needing_specialization<M>(
                 AssetChanged<Mesh3d>,
                 Changed<MeshMaterial3d<M>>,
                 AssetChanged<MeshMaterial3d<M>>,
+                Changed<GlobalTransform>,
             )>,
             With<MeshMaterial3d<M>>,
         ),
@@ -1846,5 +1853,99 @@ impl MaterialPropertiesExt for MaterialProperties {
         // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
         self.get_shader(PrepassVertexShader).is_some()
             || self.get_shader(PrepassFragmentShader).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, PostUpdate, TaskPoolPlugin};
+    use bevy_asset::{AssetApp, AssetEventSystems, AssetPlugin};
+    use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_ecs::{entity::Entity, hierarchy::ChildOf};
+    use bevy_math::Vec3;
+    use bevy_mesh::{Mesh, Mesh3d};
+    use bevy_transform::{
+        components::{GlobalTransform, Transform},
+        TransformPlugin, TransformSystems,
+    };
+
+    use super::check_entities_needing_specialization;
+    use crate::{EntitiesNeedingSpecialization, MeshMaterial3d, StandardMaterial};
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            TransformPlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<StandardMaterial>()
+        .init_resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+        .add_systems(
+            PostUpdate,
+            check_entities_needing_specialization::<StandardMaterial>
+                .after(AssetEventSystems)
+                .after(TransformSystems::Propagate),
+        );
+        app
+    }
+
+    fn listed(app: &App) -> &[Entity] {
+        &app.world()
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .changed
+    }
+
+    fn settle(app: &mut App) {
+        app.update();
+        app.update();
+        assert!(
+            listed(app).is_empty(),
+            "spawn changes should be consumed before the transform change"
+        );
+    }
+
+    fn spawn_mesh(app: &mut App, parent: Option<Entity>) -> Entity {
+        let mut entity = app.world_mut().spawn((
+            Mesh3d::default(),
+            MeshMaterial3d::<StandardMaterial>::default(),
+        ));
+        if let Some(parent) = parent {
+            entity.insert(ChildOf(parent));
+        }
+        entity.id()
+    }
+
+    #[test]
+    fn transform_change_requeues_affected_meshes() {
+        let mut app = app();
+        let direct = spawn_mesh(&mut app, None);
+        let parent = app.world_mut().spawn(Transform::default()).id();
+        let moved = spawn_mesh(&mut app, Some(parent));
+        let stationary_parent = app.world_mut().spawn(Transform::default()).id();
+        let stationary = spawn_mesh(&mut app, Some(stationary_parent));
+        settle(&mut app);
+
+        *app.world_mut().get_mut::<GlobalTransform>(direct).unwrap() =
+            GlobalTransform::from_translation(Vec3::new(4.0, 5.0, 6.0));
+        app.world_mut()
+            .get_mut::<Transform>(parent)
+            .unwrap()
+            .translation = Vec3::new(1.0, 2.0, 3.0);
+        app.update();
+
+        let queued = listed(&app);
+        assert!(queued.contains(&direct));
+        assert!(queued.contains(&moved));
+        assert!(!queued.contains(&stationary));
+        assert!(app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .removed
+            .is_empty());
+
+        app.update();
+        assert!(listed(&app).is_empty());
     }
 }
