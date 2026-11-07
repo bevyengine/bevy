@@ -61,7 +61,7 @@ fn write_value(
     indent: u32,
 ) -> core::fmt::Result {
     // Dynamic types without type info cannot be cycle-checked.
-    let Some(type_info) = value.get_represented_type_info() else {
+    let Some(type_info) = value.runtime_type_info() else {
         return write_reflect_ref(f, &value.reflect_ref(), ancestry, indent);
     };
 
@@ -107,7 +107,7 @@ fn write_struct(
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = display_type_name(value.get_represented_type_info(), "<Unknown Struct>");
+    let type_name = display_type_name(value.runtime_type_info(), "<Unknown Struct>");
 
     if value.field_len() == 0 {
         return write!(f, "{type_name} {{}}");
@@ -136,7 +136,7 @@ fn write_tuple_struct(
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = display_type_name(value.get_represented_type_info(), "<Unknown TupleStruct>");
+    let type_name = display_type_name(value.runtime_type_info(), "<Unknown TupleStruct>");
 
     if value.field_len() == 0 {
         return write!(f, "{type_name}()");
@@ -278,7 +278,7 @@ fn write_enum(
     ancestry: &mut Vec<TypeId>,
     indent: u32,
 ) -> core::fmt::Result {
-    let type_name = display_type_name(value.get_represented_type_info(), "<Unknown Enum>");
+    let type_name = display_type_name(value.runtime_type_info(), "<Unknown Enum>");
     let variant = value.variant_name();
     let variant = if variant.is_empty() {
         "<unnamed>"

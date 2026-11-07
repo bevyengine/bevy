@@ -508,7 +508,7 @@ mod tests {
                     return Ok(Err(serializer));
                 };
 
-                let type_id = value.reflect_type_info().type_id();
+                let type_id = value.comptime_type_info().type_id();
                 if type_id == TypeId::of::<i64>() {
                     Ok(Ok(serializer.serialize_str("custom!")?))
                 } else {
@@ -567,7 +567,7 @@ mod tests {
                     return Ok(Err(serializer));
                 };
 
-                let type_id = value.reflect_type_info().type_id();
+                let type_id = value.comptime_type_info().type_id();
                 if type_id == TypeId::of::<i32>() {
                     Ok(Ok(serializer.serialize_str("an i32")?))
                 } else if type_id == TypeId::of::<SubFoo>() {
@@ -621,7 +621,7 @@ mod tests {
                     return Ok(Err(serializer));
                 };
 
-                let type_id = value.reflect_type_info().type_id();
+                let type_id = value.comptime_type_info().type_id();
                 if type_id == TypeId::of::<i32>() {
                     Err(serde::ser::Error::custom("my custom serialize error"))
                 } else {

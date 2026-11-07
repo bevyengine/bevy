@@ -95,7 +95,7 @@ use crate::{PartialReflect, TypeRegistry};
 ///             // we don't have any info on this type; do the default serialization logic
 ///             return Ok(Err(serializer));
 ///         };
-///         let type_id = value.reflect_type_info().type_id();
+///         let type_id = value.comptime_type_info().type_id();
 ///         let Some(reflect_handle) = registry.get_type_data::<ReflectHandle>(type_id) else {
 ///             // this isn't a `Handle<T>`
 ///             return Ok(Err(serializer));
