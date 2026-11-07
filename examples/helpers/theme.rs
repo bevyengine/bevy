@@ -114,15 +114,15 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
     // Feathers Button / Select
     color.insert(
         bevy::feathers::tokens::BUTTON_BG,
-        bevy::feathers::palette::TRANSPARENT,
+        bevy::feathers::palette::BLACK,
     );
     color.insert(
         bevy::feathers::tokens::BUTTON_BG_HOVER,
-        bevy::feathers::palette::TRANSPARENT,
+        bevy::feathers::palette::GRAY_0,
     );
     color.insert(
         bevy::feathers::tokens::BUTTON_BG_PRESSED,
-        bevy::feathers::palette::TRANSPARENT,
+        bevy::feathers::palette::GRAY_1,
     );
     color.insert(
         bevy::feathers::tokens::MENU_BG,
