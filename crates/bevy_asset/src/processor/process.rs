@@ -266,7 +266,7 @@ pub trait ErasedProcessor: Send + Sync {
     /// Returns the short type path of this processor.
     fn short_type_path(&self) -> &'static str;
     /// Returns the default type-erased [`AssetMeta`] for the underlying [`Process`] impl.
-    fn default_meta(&self, processor_path_kind: MetaTypePathKind) -> Box<dyn AssetMetaDyn>;
+    fn default_meta(&self, name: &str) -> Box<dyn AssetMetaDyn>;
 }
 
 /// Specifies which kind of path to use to specify a type.
@@ -309,13 +309,9 @@ impl<P: Process> ErasedProcessor for P {
         P::short_type_path()
     }
 
-    fn default_meta(&self, processor_path_kind: MetaTypePathKind) -> Box<dyn AssetMetaDyn> {
-        let type_path = match processor_path_kind {
-            MetaTypePathKind::Short => P::short_type_path(),
-            MetaTypePathKind::Long => P::type_path(),
-        };
+    fn default_meta(&self, processor_name: &str) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
-            processor: type_path.to_string(),
+            processor: processor_name.to_string(),
             settings: P::Settings::default(),
         }))
     }
