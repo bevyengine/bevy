@@ -55,7 +55,14 @@ pub mod tokens;
 pub struct FeathersCorePlugin;
 
 impl Plugin for FeathersCorePlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut bevy_app::App) {
+        if app.is_plugin_added::<Self>() {
+            return;
+        }
         app.init_resource::<UiTheme>();
 
         // Embedded font

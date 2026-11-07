@@ -8,6 +8,7 @@ pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 2
 
 This note will be completed once the rest of the series lands.
 
+- Added the `inspector` cargo feature, part of `dev`: `DefaultPlugins` then includes an inspector overlay, hidden until F12 is pressed, and it does no work while hidden
 - Added `app.info` to the Bevy Remote Protocol (#25822)
 - Added `diagnostics.list` and `diagnostics.get` to the Bevy Remote Protocol (#25824)
 - Added `WorldSummary` to `bevy_dev_tools` inspection (#25818)
