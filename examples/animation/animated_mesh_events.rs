@@ -181,7 +181,7 @@ fn setup_scene_once_loaded(
         // the animations and will get confused if the animations are started
         // directly via the `AnimationPlayer`.
         transitions
-            .play(&mut player, animations.index, Duration::ZERO)
+            .transition(&mut player, animations.index, Duration::ZERO)
             .repeat();
 
         commands
