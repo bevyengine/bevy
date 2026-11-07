@@ -54,6 +54,7 @@ mod checkbox;
 mod dialog;
 mod dock;
 mod drag_proxy;
+mod input_mapping;
 mod list;
 mod menu;
 mod modal;
@@ -75,6 +76,7 @@ pub use checkbox::*;
 pub use dialog::*;
 pub use dock::*;
 pub use drag_proxy::*;
+pub use input_mapping::*;
 pub use list::*;
 pub use menu::*;
 pub use modal::*;
@@ -106,6 +108,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ButtonPlugin)
             .add(CheckboxPlugin)
             .add(TextInputPlugin)
+            .add(ActivateInputMapPlugin)
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)
