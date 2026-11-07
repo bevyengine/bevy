@@ -1,7 +1,7 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use alloc::{borrow::Cow, collections::BTreeMap};
-use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange};
+use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
 use bevy_log::warn;
@@ -832,7 +832,7 @@ impl JsonSchemaBevyType {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SchemaAnnotations {
-    /// Inclusive `[min, max]` bounds, from [`ValueRange`] or a bare numeric range.
+    /// Inclusive `[min, max]` bounds, from [`ValueRange`](bevy_annotations::ValueRange) or a bare numeric range.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub range: Option<[f64; 2]>,
     /// Increment per step, from [`Step`].
@@ -856,7 +856,9 @@ impl SchemaAnnotations {
     /// Reads the annotations from `attributes`, returning `None` when no annotation is present.
     pub fn from_attributes(attributes: &CustomAttributes) -> Option<Self> {
         let annotations = Self {
-            range: ValueRange::from_attributes(attributes).map(|range| [range.min(), range.max()]),
+            range: attributes
+                .value_range()
+                .map(|range| [range.min(), range.max()]),
             step: attributes.get::<Step>().map(|step| step.0),
             unit: attributes.get::<Unit>().map(|unit| unit.0.to_owned()),
             read_only: attributes.contains::<ReadOnly>(),

@@ -620,6 +620,7 @@ mod type_registry;
 
 mod impls {
     mod alloc;
+    mod annotations;
     mod bevy_platform;
     mod core;
     mod foldhash;
