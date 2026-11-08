@@ -22,6 +22,9 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// Work around wgpu 30's deep auto-trait proofs; see #26199.
+// Recheck after updating wgpu. This limit does not apply to downstream crates.
+#![recursion_limit = "256"]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"

@@ -1,6 +1,9 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
+// Work around wgpu 30's deep auto-trait proofs; see #26199.
+// Recheck after updating wgpu. This limit does not apply to downstream crates.
+#![recursion_limit = "256"]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"

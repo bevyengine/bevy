@@ -320,18 +320,3 @@ impl<'b> core::ops::Deref for DynamicBindGroupEntries<'b> {
         &self.entries
     }
 }
-
-/// Reusable allocation for [`BindGroupEntry`] lists stored in a system-local cache.
-///
-/// `wgpu::BindGroupEntry` is `Send` on native targets, but proving that through
-/// wgpu's auto-trait chain exceeds the trait solver's recursion limit.
-#[doc(hidden)]
-#[derive(Default)]
-pub struct BindGroupEntryCache(pub Vec<BindGroupEntry<'static>>);
-
-// SAFETY: `BindGroupEntry` holds a binding index and a `BindingResource`, which is
-// a reference to one or more `wgpu` handles. Those handles are `Send + Sync` on
-// every target where this cache is `Send`; on wasm with atomics they are not, so
-// the impl is omitted.
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-unsafe impl Send for BindGroupEntryCache {}
