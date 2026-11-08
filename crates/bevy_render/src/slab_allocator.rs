@@ -13,7 +13,10 @@ use core::{
 };
 use nonmax::NonMaxU32;
 use offset_allocator::{Allocation, Allocator};
-use wgpu::{BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, WriteOnly};
+use wgpu::{
+    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, WriteOnly,
+    COPY_BUFFER_ALIGNMENT,
+};
 
 use crate::{
     render_resource::Buffer,
@@ -349,6 +352,11 @@ where
 
     /// The layout of a single element (vertex or index).
     element_layout: I::Layout,
+
+    /// The number of elements stored in the buffer.
+    ///
+    /// This is tracked separately because the buffer size may be padded.
+    element_count: u32,
 }
 
 /// The location of an allocation and the slab it's contained in.
@@ -793,6 +801,7 @@ where
             Slab::LargeObject(LargeObjectSlab {
                 buffer: None,
                 element_layout: layout,
+                element_count: 0,
             }),
         );
     }
@@ -948,7 +957,7 @@ where
                 let buffer = large_object_slab.buffer.as_ref()?;
                 Some(SlabAllocationBufferSlice {
                     buffer,
-                    range: 0..((buffer.size() / large_object_slab.element_layout.size()) as u32),
+                    range: 0..large_object_slab.element_count,
                     phantom: PhantomData,
                 })
             }
@@ -1053,7 +1062,9 @@ where
                         slab_id,
                         buffer_usages_to_str(buffer_usages)
                     )),
-                    size: len as u64,
+                    // Buffers mapped at creation must be a multiple of
+                    // `COPY_BUFFER_ALIGNMENT`, so round up.
+                    size: (len as u64).next_multiple_of(COPY_BUFFER_ALIGNMENT),
                     usage: buffer_usages,
                     mapped_at_creation: true,
                 });
@@ -1063,6 +1074,8 @@ where
                     fill_data(slice.slice(..len));
                 }
                 buffer.unmap();
+                large_object_slab.element_count =
+                    len.div_ceil(large_object_slab.element_layout.size() as usize) as u32;
                 large_object_slab.buffer = Some(buffer);
             }
         }
@@ -1362,5 +1375,54 @@ mod tests {
             allocator.slabs.get(&slab_id),
             Some(Slab::LargeObject(_))
         ));
+    }
+
+    /// A [`SlabItem`] with two-byte elements, like a `u16` index buffer.
+    struct IndexItem;
+
+    impl SlabItem for IndexItem {
+        type Key = u32;
+        type Layout = IndexLayout;
+
+        fn label() -> Cow<'static, str> {
+            "index".into()
+        }
+    }
+
+    #[derive(Clone, PartialEq, Eq, Hash)]
+    struct IndexLayout;
+
+    impl SlabItemLayout for IndexLayout {
+        fn size(&self) -> u64 {
+            2
+        }
+
+        fn elements_per_slot(&self) -> u32 {
+            1
+        }
+
+        fn buffer_usages(&self) -> BufferUsages {
+            BufferUsages::INDEX
+        }
+    }
+
+    /// Large-object slabs are mapped at creation, so their buffers must be
+    /// padded to `COPY_BUFFER_ALIGNMENT` even when the data length isn't, and
+    /// the padding must not show up in the element range.
+    #[test]
+    fn large_object_slab_with_unaligned_length_is_created() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<IndexItem>::new();
+
+        let mut stage = allocator.stage_allocation();
+        stage.allocate_large(&0, IndexLayout);
+        stage.commit(&device, &queue);
+        // Three `u16` indices: six bytes.
+        allocator.copy_element_data(&0, 6, |_| {}, &device, &queue);
+
+        let slab_id = allocator.key_to_slab[&0];
+        let slice = allocator.slab_allocation_slice(&0, slab_id).unwrap();
+        assert_eq!(slice.buffer.size() % COPY_BUFFER_ALIGNMENT, 0);
+        assert_eq!(slice.range, 0..3);
     }
 }
