@@ -60,7 +60,9 @@ impl Plugin for OitResolvePlugin {
                 (
                     queue_oit_resolve_pipeline.in_set(RenderSystems::Queue),
                     prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
-                ),
+                )
+                    // Skip unless a view actually uses OIT.
+                    .run_if(any_with_component::<OrderIndependentTransparencySettings>),
             )
             .insert_resource(OitResolvePipeline::new());
     }
