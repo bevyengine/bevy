@@ -1172,7 +1172,6 @@ mod tests {
         );
     }
 
-    // https://github.com/bevyengine/bevy/issues/26455
     #[test]
     fn reload_instance_with_despawned_parent() {
         let mut asset_world = World::new();
