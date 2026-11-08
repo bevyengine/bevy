@@ -172,13 +172,9 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let texture_format_info = texture_format;
-                    let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions().0,
-                        texture_format_info.block_dimensions().1,
-                    );
-                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
-                    let block_bytes = texture_format_info.block_copy_size(None).unwrap();
+                    // The source is UASTC whatever the target format: 4x4 blocks of 16 bytes.
+                    let (block_width_pixels, block_height_pixels) = (4, 4);
+                    let block_bytes = 16;
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
@@ -1559,6 +1555,8 @@ mod tests {
     use crate::CompressedImageFormats;
 
     use super::ktx2_buffer_to_image;
+    #[cfg(feature = "basis-universal")]
+    use wgpu_types::TextureFormat;
 
     #[test]
     fn test_ktx_levels() {
@@ -1584,5 +1582,50 @@ mod tests {
         let supported_compressed_formats = CompressedImageFormats::empty();
         let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats, true);
         assert!(result.is_ok());
+    }
+
+    /// A single-channel UASTC texture must be transcoded to a BC4/EAC block format whose blocks
+    /// are 8 bytes, while the UASTC source blocks are always 16 bytes.
+    #[cfg(feature = "basis-universal")]
+    #[test]
+    fn test_uastc_rrr_transcodes_to_8_byte_block_formats() {
+        let mut buffer = Vec::new();
+        buffer.extend_from_slice(&[
+            0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+        // vkFormat (undefined), typeSize, width, height, depth, layers, faces, levels, supercompression
+        for v in [0u32, 1, 4, 4, 0, 0, 1, 1, 0] {
+            buffer.extend_from_slice(&v.to_le_bytes());
+        }
+        // The data format descriptor is 44 bytes and follows the 24 byte level index.
+        let (dfd_offset, dfd_length) = (80u32 + 24, 44u32);
+        let data_offset = (dfd_offset + dfd_length) as u64;
+        buffer.extend_from_slice(&dfd_offset.to_le_bytes());
+        buffer.extend_from_slice(&dfd_length.to_le_bytes());
+        // No key/value data and no supercompression global data
+        buffer.extend_from_slice(&[0; 8 + 16]);
+        // Level index: a single level holding one 16 byte UASTC block
+        for v in [data_offset, 16, 16] {
+            buffer.extend_from_slice(&v.to_le_bytes());
+        }
+        // Data format descriptor with a single UASTC RRR sample
+        buffer.extend_from_slice(&dfd_length.to_le_bytes());
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // vendor id and descriptor type
+        buffer.extend_from_slice(&[2, 0, 40, 0]); // version 2, block size 40
+        buffer.extend_from_slice(&[166, 1, 1, 0]); // UASTC, BT709 primaries, linear transfer
+        buffer.extend_from_slice(&[3, 3, 0, 0]); // 4x4 texel block
+        buffer.extend_from_slice(&[16, 0, 0, 0, 0, 0, 0, 0]); // 16 bytes in plane 0
+        buffer.extend_from_slice(&[0, 0, 127, 4]); // bit offset, bit length - 1, channel type RRR
+        buffer.extend_from_slice(&[0; 4]); // sample position
+        buffer.extend_from_slice(&0u32.to_le_bytes()); // lower
+        buffer.extend_from_slice(&u32::MAX.to_le_bytes()); // upper
+
+        // One zeroed UASTC block
+        buffer.extend_from_slice(&[0; 16]);
+
+        let image = ktx2_buffer_to_image(&buffer, CompressedImageFormats::BC, false).unwrap();
+        assert_eq!(image.texture_descriptor.format, TextureFormat::Bc4RUnorm);
+        // A 4x4 BC4 image is a single 8 byte block
+        assert_eq!(image.data.unwrap().len(), 8);
     }
 }
