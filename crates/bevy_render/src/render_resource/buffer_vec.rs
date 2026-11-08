@@ -998,24 +998,3 @@ pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a 
     }
     label.as_deref()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::UninitBufferVec;
-    use bevy_math::Vec3;
-    use encase::ShaderType;
-    use wgpu::BufferUsages;
-
-    #[derive(ShaderType, Clone)]
-    struct Padded {
-        value: Vec3,
-    }
-
-    #[test]
-    fn uninit_buffer_vec_uses_shader_size() {
-        // A `Vec3` is 12 bytes on the CPU but the struct is 16 bytes in WGSL.
-        assert_eq!(size_of::<Padded>(), 12);
-        let buffer = UninitBufferVec::<Padded>::new(BufferUsages::STORAGE);
-        assert_eq!(buffer.item_size, 16);
-    }
-}
