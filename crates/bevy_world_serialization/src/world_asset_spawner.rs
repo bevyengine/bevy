@@ -361,13 +361,18 @@ impl WorldInstanceSpawner {
         world_asset_ids: &[AssetId<WorldAsset>],
     ) -> Result<(), WorldInstanceSpawnError> {
         for id in world_asset_ids {
-            if let Some(spawned_instances) = self.spawned_worlds.get(id) {
-                for instance_id in spawned_instances {
+            if let Some(spawned_instances) = self.spawned_worlds.get_mut(id) {
+                let mut orphaned_instances = Vec::new();
+                for instance_id in spawned_instances.iter() {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
                         // Despawn the world asset before respawning it. This is a very heavy operation,
                         // but otherwise, entities may be left behind, or be left in an otherwise
                         // invalid state (e.g., invalid relationships).
                         Self::despawn_instance_internal(world, instance_info);
+                        if Self::instance_parent_despawned(world, instance_info) {
+                            orphaned_instances.push(*instance_id);
+                            continue;
+                        }
                         Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
                         Self::set_instance_parent_sync(world, instance_info);
                         // We trigger `WorldInstanceReady` events after processing all world assets
@@ -375,6 +380,10 @@ impl WorldInstanceSpawner {
                         self.instances_ready
                             .push((*instance_id, instance_info.parent));
                     }
+                }
+                for instance_id in orphaned_instances {
+                    spawned_instances.remove(&instance_id);
+                    self.spawned_instances.remove(&instance_id);
                 }
             }
         }
@@ -391,13 +400,18 @@ impl WorldInstanceSpawner {
         dynamic_world_ids: &[AssetId<DynamicWorld>],
     ) -> Result<(), WorldInstanceSpawnError> {
         for id in dynamic_world_ids {
-            if let Some(spawned_instances) = self.spawned_dynamic_worlds.get(id) {
-                for instance_id in spawned_instances {
+            if let Some(spawned_instances) = self.spawned_dynamic_worlds.get_mut(id) {
+                let mut orphaned_instances = Vec::new();
+                for instance_id in spawned_instances.iter() {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
                         // Despawn the world asset before respawning it. This is a very heavy operation,
                         // but otherwise, entities may be left behind, or be left in an otherwise
                         // invalid state (e.g., invalid relationships).
                         Self::despawn_instance_internal(world, instance_info);
+                        if Self::instance_parent_despawned(world, instance_info) {
+                            orphaned_instances.push(*instance_id);
+                            continue;
+                        }
                         Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
                         Self::set_instance_parent_sync(world, instance_info);
                         // We trigger `WorldInstanceReady` events after processing all dynamic worlds
@@ -406,9 +420,25 @@ impl WorldInstanceSpawner {
                             .push((*instance_id, instance_info.parent));
                     }
                 }
+                for instance_id in orphaned_instances {
+                    spawned_instances.remove(&instance_id);
+                    self.spawned_instances.remove(&instance_id);
+                }
             }
         }
         Ok(())
+    }
+
+    /// Returns `true` if the instance was spawned as a child of an entity that no longer exists.
+    ///
+    /// This can happen when the parent belonged to another instance that has since been despawned
+    /// or reloaded. The parent's `WorldAssetRoot` / `DynamicWorldRoot` removal hooks can't unregister
+    /// the instance in that case, since the [`WorldInstanceSpawner`] is taken out of the world while
+    /// [`world_instance_spawner_system`] runs.
+    fn instance_parent_despawned(world: &World, instance: &InstanceInfo) -> bool {
+        instance
+            .parent
+            .is_some_and(|parent| world.get_entity(parent).is_err())
     }
 
     /// Immediately despawns all instances scheduled for despawn by despawning their instances.
@@ -1146,5 +1176,89 @@ mod tests {
             world.entity(children[2]).get::<ComponentA>().unwrap().x,
             2.0
         );
+    }
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct Bone;
+
+    /// Regression test for <https://github.com/bevyengine/bevy/issues/26455>.
+    ///
+    /// Reloading a world asset despawns its instances, including any entity that is the parent of
+    /// another instance. Reloading that other instance afterwards must not panic.
+    #[test]
+    fn reload_instance_whose_parent_was_despawned_by_another_reload() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), WorldSerializationPlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
+            .register_type::<Bone>()
+            .register_type::<ComponentF>();
+
+        // A "character" with a bone, and a "weapon" to attach to that bone.
+        let mut character_world = World::new();
+        character_world.spawn_empty().with_child(Bone);
+        let mut weapon_world = World::new();
+        weapon_world.spawn(ComponentF);
+
+        let mut world_assets = app.world_mut().resource_mut::<Assets<WorldAsset>>();
+        let character = world_assets.add(WorldAsset::new(character_world));
+        let weapon = world_assets.add(WorldAsset::new(weapon_world));
+
+        app.world_mut().spawn(WorldAssetRoot(character.clone()));
+        app.update();
+
+        // Attach the weapon to the character's bone.
+        let bone = app
+            .world_mut()
+            .query_filtered::<Entity, With<Bone>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut()
+            .spawn((WorldAssetRoot(weapon.clone()), ChildOf(bone)));
+
+        // Let the weapon spawn and the asset event debouncing settle.
+        for _ in 0..5 {
+            app.update();
+        }
+        assert_eq!(
+            app.world_mut()
+                .query::<&ComponentF>()
+                .iter(app.world())
+                .count(),
+            1
+        );
+
+        // Hot reload the character. This despawns the bone, and with it the weapon's parent.
+        app.world_mut()
+            .resource_mut::<Assets<WorldAsset>>()
+            .get_mut(&character)
+            .unwrap()
+            .into_inner();
+        app.update();
+        app.update();
+
+        // Hot reload the weapon. Its parent no longer exists.
+        app.world_mut()
+            .resource_mut::<Assets<WorldAsset>>()
+            .get_mut(&weapon)
+            .unwrap()
+            .into_inner();
+        app.update();
+        app.update();
+
+        // The weapon's parent is gone, so the weapon instance must not be respawned.
+        assert_eq!(
+            app.world_mut()
+                .query::<&ComponentF>()
+                .iter(app.world())
+                .count(),
+            0
+        );
+        let spawner = app.world().resource::<WorldInstanceSpawner>();
+        assert!(spawner
+            .spawned_worlds
+            .get(&weapon.id())
+            .is_none_or(HashSet::is_empty));
     }
 }
