@@ -601,9 +601,7 @@
 //! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
 //! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
 //!
-//! `result`: An object with a `frame` field: the frame on which the app receives the button's
-//! release, numbered as [`FrameCount`] numbers frames. The answer comes once the app has run that
-//! frame.
+//! `result`: null, once the app has run the frame that receives the button's release.
 //!
 //! ### `input.key`
 //!
@@ -624,8 +622,7 @@
 //!   with `state`.
 //! - `window` (optional): The ID of the window to send the key to. Defaults to the primary window.
 //!
-//! `result`: An object with a `frame` field: the frame on which the app receives the last key
-//! event. The answer comes once the app has run that frame.
+//! `result`: null, once the app has run the frame that receives the last key event.
 //!
 //! To test with another keyboard layout, give `logical_key` and `text` as that layout produces
 //! them. On a Russian keyboard, for example, the WASD keys type `ц`, `ф`, `ы` and `в`. A game that
@@ -650,8 +647,7 @@
 //! - `text`: The text to type.
 //! - `window` (optional): The ID of the window to type in. Defaults to the primary window.
 //!
-//! `result`: An object with a `frame` field: the frame on which the app receives the last key
-//! event. The answer comes once the app has run that frame.
+//! `result`: null, once the app has run the frame that receives the last key event.
 //!
 //! ### `rpc.discover`
 //!
@@ -714,7 +710,6 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_dev_tools::synthetic_input::{write_due_input, InputQueue};
-use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     entity::Entity,
     message::Messages,
@@ -1207,9 +1202,9 @@ impl Plugin for RemotePlugin {
                 .init_resource::<input_methods::PendingInputResponses>()
                 .add_systems(
                     RemoteLast,
-                    (write_due_input, input_methods::answer_received_input)
+                    (input_methods::answer_received_input, write_due_input)
+                        .chain()
                         .after(RemoteSystems::ProcessRequests)
-                        .run_if(resource_exists::<FrameCount>)
                         .run_if(resource_exists::<Messages<WindowEvent>>),
                 );
         }

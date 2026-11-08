@@ -28,6 +28,6 @@ You can also click at a point in a window, choose the mouse button, and hold it 
 `input.type` types each character as a US keyboard would, holding Shift where a character needs it.
 `input.key` presses a single key, by its `KeyCode`; its logical key and text come from a US layout unless you give them, and a key can be pressed and released in separate calls to hold a modifier.
 
-Each request is answered once the app has run the frame that receives its last event, and the answer names that frame, so a client can check what the input did as soon as it gets the answer.
+Each request is answered once the app has run the frame that receives its last event, so a client can check what the input did as soon as it gets the answer.
 
 The same machinery is available in Rust as `click`, `key` and `type_text` in `bevy::dev_tools::synthetic_input`, for tools that run inside the app.
