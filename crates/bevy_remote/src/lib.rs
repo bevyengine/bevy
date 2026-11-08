@@ -851,6 +851,53 @@ impl RemotePlugin {
         self
     }
 
+    /// Add a remote method with a deferred handler to the plugin using the given `name` to main app.
+    ///
+    /// The handler answers through the [`BrpResponder`] it's given, on the frame it receives the
+    /// request or a later one.
+    #[inline]
+    pub fn with_deferred_method_main<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<(Option<Value>, BrpResponder)>, (), M>,
+    ) -> Self {
+        self.with_deferred_method(name, handler, true)
+    }
+
+    /// Add a remote method with a deferred handler to the plugin using the given `name` to render app.
+    ///
+    /// The handler answers through the [`BrpResponder`] it's given, on the frame it receives the
+    /// request or a later one.
+    #[inline]
+    pub fn with_deferred_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<(Option<Value>, BrpResponder)>, (), M>,
+    ) -> Self {
+        self.with_deferred_method(name, handler, false)
+    }
+
+    /// Add a remote method with a deferred handler to the plugin using the given `name` to given app.
+    #[must_use]
+    fn with_deferred_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<(Option<Value>, BrpResponder)>, (), M>,
+        to_main: bool,
+    ) -> Self {
+        (if to_main {
+            self.methods.get_mut()
+        } else {
+            self.render_methods.get_mut()
+        })
+        .unwrap()
+        .push((
+            name.into(),
+            RemoteMethodHandler::Deferred(Box::new(IntoSystem::into_system(handler))),
+        ));
+        self
+    }
+
     /// Create the default list of BRP methods
     fn add_default_methods(self, to_main: bool) -> Self {
         self.with_method(
@@ -1121,6 +1168,9 @@ impl Plugin for RemotePlugin {
                     RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
                         app.main_mut().world_mut().register_boxed_system(system),
                     ),
+                    RemoteMethodHandler::Deferred(system) => RemoteMethodSystemId::Deferred(
+                        app.main_mut().world_mut().register_boxed_system(system),
+                    ),
                 },
             );
         }
@@ -1197,6 +1247,9 @@ impl Plugin for RemotePlugin {
                         RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
                             render_app.world_mut().register_boxed_system(system),
                         ),
+                        RemoteMethodHandler::Deferred(system) => RemoteMethodSystemId::Deferred(
+                            render_app.world_mut().register_boxed_system(system),
+                        ),
                     },
                 );
             }
@@ -1251,6 +1304,8 @@ pub enum RemoteMethodHandler {
     Instant(Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>),
     /// A handler that watches for changes and response when a change is detected.
     Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
+    /// A handler that runs once and responds through a [`BrpResponder`], possibly on a later frame.
+    Deferred(Box<dyn System<In = In<(Option<Value>, BrpResponder)>, Out = ()>>),
 }
 
 /// The [`SystemId`] of a function that implements a remote instant method (`world.get_components`, `world.query`, etc.)
@@ -1272,6 +1327,14 @@ pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
 /// handler is done in the [`RemotePlugin`].
 pub type RemoteWatchingMethodSystemId = SystemId<In<Option<Value>>, BrpResult<Option<Value>>>;
 
+/// The [`SystemId`] of a function that implements a remote deferred method, which may respond on a
+/// later frame than the one that received the request.
+///
+/// The first parameter is the JSON value of the `params`, and the second the [`BrpResponder`] that
+/// answers the request. The handler can answer straight away, or keep the responder, for example in
+/// a resource, and answer on a later frame.
+pub type RemoteDeferredMethodSystemId = SystemId<In<(Option<Value>, BrpResponder)>>;
+
 /// The [`SystemId`] of a function that can be used as a remote method.
 #[derive(Debug, Clone, Copy)]
 pub enum RemoteMethodSystemId {
@@ -1279,6 +1342,8 @@ pub enum RemoteMethodSystemId {
     Instant(RemoteInstantMethodSystemId),
     /// A handler that watches for changes and response when a change is detected.
     Watching(RemoteWatchingMethodSystemId),
+    /// A handler that runs once and responds through a [`BrpResponder`], possibly on a later frame.
+    Deferred(RemoteDeferredMethodSystemId),
 }
 
 /// Holds all implementations of methods known to the server.
@@ -1782,6 +1847,51 @@ pub struct BrpMessage {
     pub sender: Sender<BrpResult>,
 }
 
+/// Answers a request to a deferred method, on the frame that received it or a later one.
+///
+/// A deferred method's handler gets one with the request's parameters. It can answer straight
+/// away, or keep the responder, for example in a resource, until it has its answer. Dropping a
+/// responder without answering answers with an error, so the client isn't left waiting.
+///
+/// The client waits for as long as the responder is kept, so a method that waits for something
+/// that may never happen, or for frames while the app is paused, should answer with an error after
+/// a limit of its own.
+#[derive(Debug)]
+pub struct BrpResponder(Option<Sender<BrpResult>>);
+
+impl BrpResponder {
+    /// Makes a responder that answers on `sender`, such as a [`BrpMessage`]'s.
+    pub fn new(sender: Sender<BrpResult>) -> Self {
+        Self(Some(sender))
+    }
+
+    /// Answers the request.
+    pub fn respond(mut self, result: BrpResult) {
+        if let Some(sender) = self.0.take() {
+            let _ = sender.force_send(result);
+        }
+    }
+
+    /// Whether the client has stopped waiting for the answer, for example because it disconnected.
+    ///
+    /// A responder kept across frames can be dropped once this is true.
+    pub fn is_closed(&self) -> bool {
+        self.0.as_ref().is_none_or(Sender::is_closed)
+    }
+}
+
+impl Drop for BrpResponder {
+    fn drop(&mut self) {
+        if let Some(sender) = self.0.take() {
+            let _ = sender.force_send(Err(BrpError {
+                code: error_codes::INTERNAL_ERROR,
+                message: "The request was dropped without a response".into(),
+                data: None,
+            }));
+        }
+    }
+}
+
 /// A resource holding the matching sender for the [`BrpReceiver`]'s receiver.
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpSender(Sender<BrpMessage>);
@@ -1843,6 +1953,19 @@ fn process_remote_requests(world: &mut World) {
                     .resource_mut::<RemoteWatchingRequests>()
                     .0
                     .push((message, id));
+            }
+            RemoteMethodSystemId::Deferred(id) => {
+                let sender = message.sender.clone();
+                let responder = BrpResponder::new(message.sender);
+                if let Err(error) = world.run_system_with(id, (message.params, responder)) {
+                    // Replaces the error the dropped responder sent, unless the client already
+                    // read it.
+                    let _ = sender.force_send(Err(BrpError {
+                        code: error_codes::INTERNAL_ERROR,
+                        message: format!("Failed to run method handler: {error}"),
+                        data: None,
+                    }));
+                }
             }
         }
     }
