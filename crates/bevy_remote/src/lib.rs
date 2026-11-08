@@ -602,7 +602,8 @@
 //! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
 //!
 //! `result`: An object with a `frame` field: the frame on which the app receives the button's
-//! release, numbered as [`FrameCount`] numbers frames.
+//! release, numbered as [`FrameCount`] numbers frames. The answer comes once the app has run that
+//! frame.
 //!
 //! ### `input.key`
 //!
@@ -624,7 +625,7 @@
 //! - `window` (optional): The ID of the window to send the key to. Defaults to the primary window.
 //!
 //! `result`: An object with a `frame` field: the frame on which the app receives the last key
-//! event.
+//! event. The answer comes once the app has run that frame.
 //!
 //! To test with another keyboard layout, give `logical_key` and `text` as that layout produces
 //! them. On a Russian keyboard, for example, the WASD keys type `ц`, `ф`, `ы` and `в`. A game that
@@ -650,7 +651,7 @@
 //! - `window` (optional): The ID of the window to type in. Defaults to the primary window.
 //!
 //! `result`: An object with a `frame` field: the frame on which the app receives the last key
-//! event.
+//! event. The answer comes once the app has run that frame.
 //!
 //! ### `rpc.discover`
 //!
@@ -1047,17 +1048,17 @@ impl RemotePlugin {
         if !to_main {
             return self;
         }
-        self.with_method(
+        self.with_deferred_method(
             input_methods::BRP_CLICK_METHOD,
             input_methods::process_remote_click_request,
             to_main,
         )
-        .with_method(
+        .with_deferred_method(
             input_methods::BRP_KEY_METHOD,
             input_methods::process_remote_key_request,
             to_main,
         )
-        .with_method(
+        .with_deferred_method(
             input_methods::BRP_TYPE_METHOD,
             input_methods::process_remote_type_request,
             to_main,
@@ -1202,13 +1203,15 @@ impl Plugin for RemotePlugin {
         .any(|method| methods.contains(method))
         {
             // After requests, so what a request queues for this frame is written in time.
-            app.init_resource::<InputQueue>().add_systems(
-                RemoteLast,
-                write_due_input
-                    .after(RemoteSystems::ProcessRequests)
-                    .run_if(resource_exists::<FrameCount>)
-                    .run_if(resource_exists::<Messages<WindowEvent>>),
-            );
+            app.init_resource::<InputQueue>()
+                .init_resource::<input_methods::PendingInputResponses>()
+                .add_systems(
+                    RemoteLast,
+                    (write_due_input, input_methods::answer_received_input)
+                        .after(RemoteSystems::ProcessRequests)
+                        .run_if(resource_exists::<FrameCount>)
+                        .run_if(resource_exists::<Messages<WindowEvent>>),
+                );
         }
 
         #[cfg(feature = "bevy_render")]

@@ -1,17 +1,25 @@
 //! `input.*` verbs for the Bevy Remote Protocol.
 
 use bevy_dev_tools::synthetic_input::{self, ClickTarget, KeyAction};
-use bevy_ecs::{entity::Entity, system::In, world::World};
+use bevy_diagnostic::FrameCount;
+use bevy_ecs::{
+    entity::Entity,
+    message::Messages,
+    resource::Resource,
+    system::{In, Res, ResMut},
+    world::World,
+};
 use bevy_input::{
     keyboard::{Key, KeyCode},
     mouse::MouseButton,
     ButtonState,
 };
 use bevy_math::Vec2;
+use bevy_window::WindowEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{builtin_methods::parse_some, error_codes, BrpError, BrpResult};
+use crate::{builtin_methods::parse_some, error_codes, BrpError, BrpResponder, BrpResult};
 
 /// The method path for an `input.click` request.
 pub const BRP_CLICK_METHOD: &str = "input.click";
@@ -62,8 +70,18 @@ pub struct BrpClickResponse {
     pub frame: u32,
 }
 
-/// Handles an `input.click` request coming from a client.
-pub fn process_remote_click_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+/// Handles an `input.click` request coming from a client, answering once the app has run the frame
+/// that receives the button's release.
+pub fn process_remote_click_request(
+    In((params, responder)): In<(Option<Value>, BrpResponder)>,
+    world: &mut World,
+) {
+    let response = queue_click(params, world).map(|response| (response.frame, response));
+    respond_once_received(world, responder, response);
+}
+
+fn queue_click(params: Option<Value>, world: &mut World) -> BrpResult<BrpClickResponse> {
+    can_receive_input(world)?;
     let BrpClickParams {
         entity,
         window,
@@ -82,7 +100,7 @@ pub fn process_remote_click_request(In(params): In<Option<Value>>, world: &mut W
     };
     let frame = synthetic_input::click(world, target, button, hold)
         .map_err(|err| invalid_params(err.to_string()))?;
-    serde_json::to_value(BrpClickResponse { frame }).map_err(BrpError::internal)
+    Ok(BrpClickResponse { frame })
 }
 
 /// The method path for an `input.key` request.
@@ -153,8 +171,18 @@ pub struct BrpTypeResponse {
     pub frame: u32,
 }
 
-/// Handles an `input.key` request coming from a client.
-pub fn process_remote_key_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+/// Handles an `input.key` request coming from a client, answering once the app has run the frame
+/// that receives the last key event.
+pub fn process_remote_key_request(
+    In((params, responder)): In<(Option<Value>, BrpResponder)>,
+    world: &mut World,
+) {
+    let response = queue_key(params, world).map(|response| (response.frame, response));
+    respond_once_received(world, responder, response);
+}
+
+fn queue_key(params: Option<Value>, world: &mut World) -> BrpResult<BrpKeyResponse> {
+    can_receive_input(world)?;
     let BrpKeyParams {
         key_code,
         logical_key,
@@ -184,15 +212,94 @@ pub fn process_remote_key_request(In(params): In<Option<Value>>, world: &mut Wor
         action,
     )
     .map_err(|err| invalid_params(err.to_string()))?;
-    serde_json::to_value(BrpKeyResponse { frame }).map_err(BrpError::internal)
+    Ok(BrpKeyResponse { frame })
 }
 
-/// Handles an `input.type` request coming from a client.
-pub fn process_remote_type_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+/// Handles an `input.type` request coming from a client, answering once the app has run the frame
+/// that receives the last key event.
+pub fn process_remote_type_request(
+    In((params, responder)): In<(Option<Value>, BrpResponder)>,
+    world: &mut World,
+) {
+    let response = queue_type(params, world).map(|response| (response.frame, response));
+    respond_once_received(world, responder, response);
+}
+
+fn queue_type(params: Option<Value>, world: &mut World) -> BrpResult<BrpTypeResponse> {
+    can_receive_input(world)?;
     let BrpTypeParams { text, window } = parse_some(params)?;
     let frame = synthetic_input::type_text(world, window, &text)
         .map_err(|err| invalid_params(err.to_string()))?;
-    serde_json::to_value(BrpTypeResponse { frame }).map_err(BrpError::internal)
+    Ok(BrpTypeResponse { frame })
+}
+
+#[derive(Resource, Default)]
+pub(crate) struct PendingInputResponses(Vec<PendingInputResponse>);
+
+struct PendingInputResponse {
+    /// The frame that receives the input's last event.
+    frame: u32,
+    responder: BrpResponder,
+    response: Value,
+}
+
+fn can_receive_input(world: &World) -> BrpResult<()> {
+    if world.contains_resource::<FrameCount>() && world.contains_resource::<Messages<WindowEvent>>()
+    {
+        Ok(())
+    } else {
+        Err(BrpError {
+            code: error_codes::INTERNAL_ERROR,
+            message:
+                "the app can't receive input: it needs `FrameCount` and `WindowEvent` messages"
+                    .into(),
+            data: None,
+        })
+    }
+}
+
+/// Answers with `response` once the app has run the frame it names, or with its error straight
+/// away.
+fn respond_once_received<R: Serialize>(
+    world: &mut World,
+    responder: BrpResponder,
+    response: BrpResult<(u32, R)>,
+) {
+    let response = response.and_then(|(frame, response)| {
+        Ok((
+            frame,
+            serde_json::to_value(response).map_err(BrpError::internal)?,
+        ))
+    });
+    match response {
+        Ok((frame, response)) => world
+            .get_resource_or_init::<PendingInputResponses>()
+            .0
+            .push(PendingInputResponse {
+                frame,
+                responder,
+                response,
+            }),
+        Err(err) => responder.respond(Err(err)),
+    }
+}
+
+/// Answers the input requests whose last event was received on a frame the app has finished.
+///
+/// Run it after [`Last`](bevy_app::Last), where [`FrameCount`] advances past the frame that just
+/// ran.
+pub(crate) fn answer_received_input(
+    frame: Res<FrameCount>,
+    mut pending: ResMut<PendingInputResponses>,
+) {
+    let (received, waiting): (Vec<_>, Vec<_>) = core::mem::take(&mut pending.0)
+        .into_iter()
+        .filter(|pending| !pending.responder.is_closed())
+        .partition(|pending| pending.frame < frame.0);
+    pending.0 = waiting;
+    for pending in received {
+        pending.responder.respond(Ok(pending.response));
+    }
 }
 
 fn invalid_params(message: String) -> BrpError {
@@ -214,12 +321,13 @@ mod tests {
     fn world() -> (World, Entity) {
         let mut world = World::new();
         world.insert_resource(FrameCount(10));
+        world.init_resource::<Messages<WindowEvent>>();
         let window = world.spawn((Window::default(), PrimaryWindow)).id();
         (world, window)
     }
 
     fn click(world: &mut World, params: Value) -> BrpResult {
-        process_remote_click_request(In(Some(params)), world)
+        queue_click(Some(params), world).map(|response| serde_json::to_value(response).unwrap())
     }
 
     #[test]
@@ -270,7 +378,9 @@ mod tests {
     #[test]
     fn keys_and_text_answer_with_the_frame_of_their_last_event() {
         let (mut world, _) = world();
-        let key = |world: &mut World, params| process_remote_key_request(In(Some(params)), world);
+        let key = |world: &mut World, params| {
+            queue_key(Some(params), world).map(|response| serde_json::to_value(response).unwrap())
+        };
 
         let tapped = key(&mut world, json!({ "key_code": "KeyA" }));
         assert_eq!(tapped.unwrap(), json!({ "frame": 11 }));
@@ -279,7 +389,8 @@ mod tests {
             json!({ "key_code": "ShiftLeft", "state": "Pressed" }),
         );
         assert_eq!(pressed.unwrap(), json!({ "frame": 12 }));
-        let typed = process_remote_type_request(In(Some(json!({ "text": "a" }))), &mut world);
+        let typed = queue_type(Some(json!({ "text": "a" })), &mut world)
+            .map(|response| serde_json::to_value(response).unwrap());
         assert_eq!(typed.unwrap(), json!({ "frame": 14 }));
         let plus = json!({
             "key_code": "NumpadAdd",
@@ -301,11 +412,10 @@ mod tests {
             json!({ "key_code": "KeyA", "state": "Pressed", "hold": 2 }),
             json!({ "key_code": "KeyA", "hold": 0 }),
         ] {
-            let err = process_remote_key_request(In(Some(params.clone())), &mut world).unwrap_err();
+            let err = queue_key(Some(params.clone()), &mut world).unwrap_err();
             assert_eq!(err.code, error_codes::INVALID_PARAMS, "{params}");
         }
-        let err =
-            process_remote_type_request(In(Some(json!({ "text": "" }))), &mut world).unwrap_err();
+        let err = queue_type(Some(json!({ "text": "" })), &mut world).unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
     }
 }
