@@ -2007,6 +2007,12 @@ pub fn prepare_lights(
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
+                        target_viewport: UVec4::new(
+                            0,
+                            0,
+                            directional_light_shadow_map.size as u32,
+                            directional_light_shadow_map.size as u32,
+                        ),
                         world_from_view: GlobalTransform::from(cascade.world_from_cascade),
                         clip_from_view: cascade.clip_from_cascade,
                         clip_from_world: Some(cascade.clip_from_world),
@@ -2219,6 +2225,12 @@ fn create_point_shadow_maps(
                     point_light_shadow_map_size,
                     point_light_shadow_map_size,
                 ),
+                target_viewport: UVec4::new(
+                    0,
+                    0,
+                    point_light_shadow_map_size,
+                    point_light_shadow_map_size,
+                ),
                 world_from_view: view_translation * *view_rotation,
                 clip_from_world: None,
                 clip_from_view: cube_face_projection,
@@ -2308,6 +2320,12 @@ fn create_spot_shadow_map(
         ExtractedView {
             retained_view_entity,
             viewport: UVec4::new(
+                0,
+                0,
+                directional_light_shadow_map_size,
+                directional_light_shadow_map_size,
+            ),
+            target_viewport: UVec4::new(
                 0,
                 0,
                 directional_light_shadow_map_size,

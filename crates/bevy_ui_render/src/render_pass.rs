@@ -63,8 +63,8 @@ pub fn ui_pass(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
 
-    if let Some(viewport) = camera.viewport.as_ref() {
-        render_pass.set_camera_viewport(viewport);
+    if let Some(viewport) = camera.main_texture_viewport() {
+        render_pass.set_camera_viewport(&viewport);
     }
 
     if let Err(err) = transparent_phase.render(&mut render_pass, world, ui_view_entity) {

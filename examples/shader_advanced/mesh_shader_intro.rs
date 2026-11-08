@@ -244,9 +244,10 @@ fn draw_mesh_shader_cubes(
 
             pass.set_render_pipeline(mesh_pipeline);
             pass.set_bind_group(0, &bind_group, &[view_uniform_offset.offset]);
-            if let Some(viewport) =
-                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-            {
+            if let Some(viewport) = Viewport::from_viewport_and_override(
+                camera.main_texture_viewport().as_ref(),
+                resolution_override,
+            ) {
                 pass.set_camera_viewport(&viewport);
             }
 

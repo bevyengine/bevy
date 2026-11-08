@@ -707,9 +707,10 @@ fn custom_draw_system(
         multiview_mask: None,
     });
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_viewport_and_override(
+        camera.main_texture_viewport().as_ref(),
+        resolution_override,
+    ) {
         render_pass.set_camera_viewport(&viewport);
     }
 

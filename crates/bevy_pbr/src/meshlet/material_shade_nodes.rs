@@ -81,9 +81,10 @@ pub fn meshlet_main_opaque_pass(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_viewport_and_override(
+        camera.main_texture_viewport().as_ref(),
+        resolution_override,
+    ) {
         render_pass.set_camera_viewport(&viewport);
     }
 
@@ -186,9 +187,10 @@ pub fn meshlet_prepass(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_viewport_and_override(
+        camera.main_texture_viewport().as_ref(),
+        resolution_override,
+    ) {
         render_pass.set_camera_viewport(&viewport);
     }
 
@@ -308,9 +310,10 @@ pub fn meshlet_deferred_gbuffer_prepass(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_viewport_and_override(
+        camera.main_texture_viewport().as_ref(),
+        resolution_override,
+    ) {
         render_pass.set_camera_viewport(&viewport);
     }
 

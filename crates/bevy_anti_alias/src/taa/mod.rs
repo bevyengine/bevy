@@ -209,8 +209,8 @@ pub fn temporal_anti_alias(
 
     taa_pass.set_render_pipeline(taa_pipeline);
     taa_pass.set_bind_group(0, &taa_bind_group, &[]);
-    if let Some(viewport) = camera.viewport.as_ref() {
-        taa_pass.set_camera_viewport(viewport);
+    if let Some(viewport) = camera.main_texture_viewport() {
+        taa_pass.set_camera_viewport(&viewport);
     }
     taa_pass.draw(0..3, 0..1);
 
@@ -397,38 +397,36 @@ fn prepare_taa_history_textures(
     cameras: Query<(Entity, &ExtractedView, &ExtractedCamera), With<TemporalAntiAliasing>>,
 ) {
     for (entity, view, camera) in &cameras {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let mut texture_descriptor = TextureDescriptor {
-                label: None,
-                size: physical_target_size.to_extents(),
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: view.target_format,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            };
+        let mut texture_descriptor = TextureDescriptor {
+            label: None,
+            size: camera.main_texture_size.to_extents(),
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: view.target_format,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        };
 
-            texture_descriptor.label = Some("taa_history_1_texture");
-            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+        texture_descriptor.label = Some("taa_history_1_texture");
+        let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
 
-            texture_descriptor.label = Some("taa_history_2_texture");
-            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+        texture_descriptor.label = Some("taa_history_2_texture");
+        let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
-            let textures = if frame_count.0.is_multiple_of(2) {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_1_texture,
-                    read: history_2_texture,
-                }
-            } else {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_2_texture,
-                    read: history_1_texture,
-                }
-            };
+        let textures = if frame_count.0.is_multiple_of(2) {
+            TemporalAntiAliasHistoryTextures {
+                write: history_1_texture,
+                read: history_2_texture,
+            }
+        } else {
+            TemporalAntiAliasHistoryTextures {
+                write: history_2_texture,
+                read: history_1_texture,
+            }
+        };
 
-            commands.entity(entity).insert(textures);
-        }
+        commands.entity(entity).insert(textures);
     }
 }
 

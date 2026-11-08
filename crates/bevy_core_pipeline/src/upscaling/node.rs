@@ -89,11 +89,11 @@ pub fn upscaling(
         let mut render_pass = ctx.command_encoder().begin_render_pass(&pass_descriptor);
 
         if let Some(camera) = camera
-            && let Some(viewport) = &camera.viewport
+            && let Some(viewport) = &camera.target_viewport
         {
-            let size = viewport.physical_size;
-            let position = viewport.physical_position;
-            render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
+            let size = viewport.physical_size.as_vec2();
+            let position = viewport.physical_position.as_vec2();
+            render_pass.set_viewport(position.x, position.y, size.x, size.y, 0.0, 1.0);
         }
 
         render_pass.set_pipeline(pipeline);
