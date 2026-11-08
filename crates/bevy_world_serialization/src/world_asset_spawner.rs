@@ -1175,54 +1175,25 @@ mod tests {
     // https://github.com/bevyengine/bevy/issues/26455
     #[test]
     fn reload_instance_with_despawned_parent() {
-        let mut app = App::new();
-        app.add_plugins((AssetPlugin::default(), WorldSerializationPlugin))
-            .register_type::<ChildOf>()
-            .register_type::<Children>()
-            .register_type::<ComponentA>()
-            .register_type::<ComponentF>();
+        let mut asset_world = World::new();
+        asset_world.spawn_empty();
+        let mut assets = Assets::<WorldAsset>::default();
+        let handle = assets.add(WorldAsset::new(asset_world));
 
-        let mut character_world = World::new();
-        character_world
-            .spawn_empty()
-            .with_child(ComponentA::default());
-        let mut weapon_world = World::new();
-        weapon_world.spawn(ComponentF);
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+        world.insert_resource(assets);
+        let parent = world.spawn_empty().id();
 
-        let mut world_assets = app.world_mut().resource_mut::<Assets<WorldAsset>>();
-        let character = world_assets.add(WorldAsset::new(character_world));
-        let weapon = world_assets.add(WorldAsset::new(weapon_world));
+        let mut spawner = WorldInstanceSpawner::default();
+        let instance = spawner.spawn_as_child(handle.clone(), parent);
+        spawner.spawn_queued_instances(&mut world).unwrap();
 
-        app.world_mut().spawn(WorldAssetRoot(character.clone()));
-        app.update();
-
-        let bone = app
-            .world_mut()
-            .query_filtered::<Entity, With<ComponentA>>()
-            .single(app.world())
+        world.despawn(parent);
+        spawner
+            .update_spawned_instances(&mut world, &[handle.id()])
             .unwrap();
-        app.world_mut()
-            .spawn((WorldAssetRoot(weapon.clone()), ChildOf(bone)));
-        for _ in 0..5 {
-            app.update();
-        }
 
-        for handle in [&character, &weapon] {
-            app.world_mut()
-                .resource_mut::<Assets<WorldAsset>>()
-                .get_mut(handle)
-                .unwrap()
-                .into_inner();
-            app.update();
-            app.update();
-        }
-
-        assert_eq!(
-            app.world_mut()
-                .query::<&ComponentF>()
-                .iter(app.world())
-                .count(),
-            0
-        );
+        assert!(!spawner.instance_is_ready(instance));
     }
 }
