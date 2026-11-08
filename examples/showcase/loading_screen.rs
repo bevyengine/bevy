@@ -239,6 +239,7 @@ fn load_loading_screen(mut commands: Commands) {
         Camera2d,
         Camera {
             order: 1,
+            clear_color: ClearColorConfig::None,
             ..default()
         },
         LoadingScreen,

@@ -3147,7 +3147,7 @@ fn adding_fixednode_clears_inherited_clipping() {
 
     let world = app.world();
     assert!(world.get::<CalculatedClip>(descendant).is_some());
-    assert!(world.get::<CalculatedClip>(descendant).is_some());
+    assert!(world.get::<CalculatedClip>(mid).is_some());
 }
 
 #[test]
@@ -3748,4 +3748,80 @@ fn rounding_test() {
         app.world().get::<ComputedNode>(root).unwrap().size(),
         Vec2::new(200., 100.)
     );
+}
+
+#[test]
+fn nodes_with_display_none_are_fully_clipped() {
+    let mut app = setup_ui_test_app();
+
+    let r = app.world_mut().spawn(Node::default()).id();
+    let a = app.world_mut().spawn((Node::default(), ChildOf(r))).id();
+    let aa = app.world_mut().spawn((Node::default(), ChildOf(a))).id();
+    let b = app.world_mut().spawn((Node::default(), ChildOf(r))).id();
+    let bb = app.world_mut().spawn((Node::default(), ChildOf(b))).id();
+
+    let mut clips_qstate = app
+        .world_mut()
+        .query_filtered::<Option<&CalculatedClip>, With<Node>>();
+
+    app.update();
+
+    assert!(clips_qstate.iter(app.world()).all(|clip| clip.is_none()));
+
+    app.world_mut().get_mut::<Node>(r).unwrap().display = Display::None;
+    app.update();
+
+    assert!(clips_qstate
+        .iter(app.world())
+        .all(|clip| clip.unwrap().is_fully_clipped()));
+
+    app.world_mut().get_mut::<Node>(r).unwrap().display = Display::Flex;
+    app.update();
+
+    assert!(clips_qstate.iter(app.world()).all(|clip| clip.is_none()));
+
+    app.world_mut().get_mut::<Node>(a).unwrap().display = Display::None;
+    app.update();
+
+    for entity in [a, aa] {
+        assert!(app
+            .world()
+            .get::<CalculatedClip>(entity)
+            .unwrap()
+            .is_fully_clipped());
+    }
+    for entity in [r, b, bb] {
+        assert!(app.world().get::<CalculatedClip>(entity).is_none());
+    }
+
+    app.world_mut().get_mut::<Node>(b).unwrap().display = Display::None;
+    app.update();
+
+    for entity in [a, aa, b, bb] {
+        assert!(app
+            .world()
+            .get::<CalculatedClip>(entity)
+            .unwrap()
+            .is_fully_clipped());
+    }
+    assert!(app.world().get::<CalculatedClip>(r).is_none());
+
+    app.world_mut().get_mut::<Node>(a).unwrap().display = Display::Flex;
+    app.update();
+
+    for entity in [b, bb] {
+        assert!(app
+            .world()
+            .get::<CalculatedClip>(entity)
+            .unwrap()
+            .is_fully_clipped());
+    }
+    for entity in [r, a, aa] {
+        assert!(app.world().get::<CalculatedClip>(entity).is_none());
+    }
+
+    app.world_mut().get_mut::<Node>(b).unwrap().display = Display::Flex;
+    app.update();
+
+    assert!(clips_qstate.iter(app.world()).all(|clip| clip.is_none()));
 }
