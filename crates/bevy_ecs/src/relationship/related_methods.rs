@@ -392,7 +392,7 @@ impl<'w> EntityWorldMut<'w> {
                         this,
                         relationship_hook_mode,
                         |r| {
-                            let _ = r.collection_mut_risky().add(entity);
+                            r.collection_mut_risky().add(entity);
                         },
                     )
                     .expect("entity access must be valid")

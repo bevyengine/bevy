@@ -25,7 +25,7 @@ use crate::{
 };
 use log::warn;
 
-/// Trait voodoo that ensures a struct can't both implement [`Relationship`] and [`RelationshipTarget`].
+/// Supertrait that ensures a struct can't both implement [`Relationship`] and [`RelationshipTarget`].
 /// This makes the following into a compile time error:
 ///
 /// ```ignore
@@ -506,7 +506,7 @@ fn remove_target_entity<R: Relationship>(target_entity: Entity) -> impl EntityCo
         let Some(relationship) = source_entity_mut.get::<R>() else {
             return;
         };
-        if relationship.collection().contains(target_entity) && relationship.len() == 1 {
+        if relationship.len() == 1 && relationship.collection().contains(target_entity) {
             source_entity_mut.remove::<R>();
         } else {
             source_entity_mut.modify_component(|relationship: &mut R| {
@@ -549,7 +549,7 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
                         source_entity,
                         RelationshipHookMode::Skip,
                         |r| {
-                            let _ = r.collection_mut_risky().add(entity_target);
+                            r.collection_mut_risky().add(entity_target);
                         },
                     );
             });

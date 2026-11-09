@@ -132,7 +132,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// For relationship graphs that contain loops, this could loop infinitely.
     /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
-    pub fn iter_ancestors<R: Relationship<Collection = Entity>>(
+    pub fn iter_ancestors<R: SingleTargetRelationship>(
         &'w self,
         entity: Entity,
     ) -> AncestorIter<'w, 's, D, F, R>
@@ -237,7 +237,7 @@ where
 }
 
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
-pub struct AncestorIter<'w, 's, D: QueryData, F: QueryFilter, R: Relationship<Collection = Entity>>
+pub struct AncestorIter<'w, 's, D: QueryData, F: QueryFilter, R: SingleTargetRelationship>
 where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w R>,
 {
@@ -245,7 +245,7 @@ where
     next: Option<Entity>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship<Collection = Entity>>
+impl<'w, 's, D: QueryData, F: QueryFilter, R: SingleTargetRelationship>
     AncestorIter<'w, 's, D, F, R>
 where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w R>,
