@@ -60,7 +60,7 @@
 //! entity with a [`DockTree`] and a [`Node`] gets UI built as its children: each split becomes a
 //! [`SplitPane`] with [`SplitPaneHandle`]s between its panes, and each leaf becomes a column
 //! holding a [`TabList`] and a content area. The dock spawns a [`DockPanelContent`] entity per tab,
-//! and the app fills it from a system in [`DockSystems::Panels`](crate::DockSystems::Panels), choosing
+//! and the app fills it from a system in [`DockSystems::Panels`], choosing
 //! what to build from the tab's [`DockPanelKey`]. The tab shows its [`DockPanelTitle`], or the
 //! panel key if it has none. The UI is headless: it has the layout it needs and no colors.
 //!
@@ -74,7 +74,7 @@
 //! [`World`](bevy_ecs::world::World), because a tab holds a [`DockPanelKey`] and not an entity.
 //! That also rules out spawning content when a tab is added, since the tree has nowhere to keep
 //! the entity. The dock spawns it, and the app fills it in the frame it appears, from a system in
-//! [`DockSystems::Panels`](crate::DockSystems::Panels) that matches
+//! [`DockSystems::Panels`] that matches
 //! [`Added<DockPanelContent>`](bevy_ecs::query::Added).
 //!
 //! Tab lists use [`TabDragMode::External`], so tabs can be dragged within a group and between
