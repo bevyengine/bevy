@@ -3,7 +3,7 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     lifecycle::RemovedComponents,
-    query::{Added, Has, Spawned, With},
+    query::{Added, Has, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
