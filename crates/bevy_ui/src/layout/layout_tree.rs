@@ -1,3 +1,4 @@
+use std::sync::LazyLock;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -20,7 +21,7 @@ use taffy::{
     LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
     TraversePartialTree, TraverseTree,
 };
-
+use taffy::style_helpers::{fr, length, minmax};
 use crate::{
     layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
     LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
@@ -44,7 +45,7 @@ unsafe impl Sync for TaffyStyle {}
 #[derive(Default, Component, Clone, Deref, DerefMut)]
 pub struct TaffyStyle(pub Style);
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
+pub static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyStyle(Style {
     dummy: core::marker::PhantomData,
     display: Display::Grid,
     item_is_table: false,
@@ -83,8 +84,8 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
     flex_basis: taffy::Dimension::auto(),
     flex_grow: 0.0,
     flex_shrink: 1.0,
-    grid_template_rows: Vec::new(),
-    grid_template_columns: Vec::new(),
+    grid_template_rows: vec![minmax(length(0.0), fr(1.0))],
+    grid_template_columns: vec![minmax(length(0.0), fr(1.0))],
     grid_auto_rows: Vec::new(),
     grid_auto_columns: Vec::new(),
     grid_auto_flow: taffy::GridAutoFlow::Row,
@@ -99,7 +100,7 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
         start: taffy::GridPlacement::Span(1),
         end: taffy::GridPlacement::Auto,
     },
-});
+}));
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
