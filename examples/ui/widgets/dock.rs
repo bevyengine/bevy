@@ -3,6 +3,9 @@
 //! Drag the splitters to resize groups, click tabs to switch between them and drag tabs to
 //! reorder them or move them to another group. The keyboard shortcuts listed at the top of the
 //! window edit the tree, and the UI follows.
+//!
+//! `build_panels` fills the content entity the dock spawns for each tab.
+//! Clicking a panel's counter updates its `DockPanelTitle`.
 
 use bevy::{
     picking::{
@@ -13,8 +16,8 @@ use bevy::{
     ui::Selected,
     ui_widgets::{
         dock_self_update, ControlOrientation, DockChange, DockEdge, DockEdit, DockNodeId,
-        DockPanels, DockTabBinding, DockTree, SplitPane, SplitPaneHandle, TabDragging,
-        TabInsertionPreview, TabList,
+        DockPanelContent, DockPanelTitle, DockSystems, DockTabBinding, DockTree, SplitPane,
+        SplitPaneHandle, TabDragging, TabInsertionPreview, TabList,
     },
     window::SystemCursorIcon,
 };
@@ -34,7 +37,14 @@ W: close the active tab of the first group    R: reset";
 struct Dock;
 
 #[derive(Component)]
-struct Counter(u32);
+struct Counter {
+    /// The number of times the panel has been clicked.
+    clicks: u32,
+    /// The content entity
+    content: Entity,
+    /// The title to show in the tab, with the count appended.
+    title: String,
+}
 
 #[derive(Resource, Default)]
 struct LastGroup(Option<DockNodeId>);
@@ -44,6 +54,9 @@ fn main() {
         .add_plugins((DefaultPlugins, CursorIconPlugin))
         .init_resource::<LastGroup>()
         .add_systems(Startup, setup)
+        // Systems that build paneles belong in this set;
+        // it runs before layout, so you can avoid a frame of empty panels.
+        .add_systems(PostUpdate, build_panels.in_set(DockSystems::Panels))
         .add_systems(
             Update,
             (edit_tree, style_tabs, style_tab_lists, style_handles),
@@ -64,30 +77,7 @@ fn initial_tree() -> DockTree {
     tree
 }
 
-fn setup(mut commands: Commands, mut panels: ResMut<DockPanels>) {
-    panels
-        .register("outliner", "Outliner", |content| {
-            panel(content, Color::srgb(0.18, 0.22, 0.30), "Outliner", true);
-        })
-        .register("layers", "Layers", |content| {
-            panel(content, Color::srgb(0.24, 0.18, 0.28), "Layers", true);
-        })
-        .register("assets", "Assets", |content| {
-            panel(content, Color::srgb(0.16, 0.24, 0.20), "Assets", false);
-        })
-        .register("viewport", "Viewport", |content| {
-            panel(content, Color::srgb(0.08, 0.09, 0.11), "Viewport", true);
-        })
-        .register("inspector", "Inspector", |content| {
-            panel(content, Color::srgb(0.28, 0.22, 0.16), "Inspector", false);
-        })
-        .register("preview", "Preview", |content| {
-            panel(content, Color::srgb(0.14, 0.20, 0.26), "Preview", true);
-        })
-        .register("note", "Note", |content| {
-            panel(content, Color::srgb(0.26, 0.26, 0.18), "Note", true);
-        });
-
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands
         .spawn(Node {
@@ -122,9 +112,43 @@ fn setup(mut commands: Commands, mut panels: ResMut<DockPanels>) {
         });
 }
 
-fn panel(content: &mut EntityCommands, color: Color, title: &str, counter: bool) {
-    content
-        .insert(BackgroundColor(color))
+fn build_panels(
+    panels: Query<(Entity, &DockPanelContent), Added<DockPanelContent>>,
+    mut notes: Local<u32>,
+    mut commands: Commands,
+) {
+    for (content, panel) in &panels {
+        let (title, color, counter) = match panel.panel.as_str() {
+            "outliner" => ("Outliner".into(), Color::srgb(0.18, 0.22, 0.30), true),
+            "layers" => ("Layers".into(), Color::srgb(0.24, 0.18, 0.28), true),
+            "assets" => ("Assets".into(), Color::srgb(0.16, 0.24, 0.20), false),
+            "viewport" => ("Viewport".into(), Color::srgb(0.08, 0.09, 0.11), true),
+            "inspector" => ("Inspector".into(), Color::srgb(0.28, 0.22, 0.16), false),
+            "preview" => ("Preview".into(), Color::srgb(0.14, 0.20, 0.26), true),
+            "note" => {
+                *notes += 1;
+                (
+                    format!("Note {}", *notes),
+                    Color::srgb(0.26, 0.26, 0.18),
+                    true,
+                )
+            }
+            _ => continue,
+        };
+        build_content(&mut commands, content, title, color, counter);
+    }
+}
+
+fn build_content(
+    commands: &mut Commands,
+    content: Entity,
+    title: String,
+    color: Color,
+    counter: bool,
+) {
+    commands
+        .entity(content)
+        .insert((DockPanelTitle::new(title.clone()), BackgroundColor(color)))
         .with_children(|parent| {
             parent
                 .spawn(Node {
@@ -134,11 +158,15 @@ fn panel(content: &mut EntityCommands, color: Color, title: &str, counter: bool)
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn((Text::new(title), TextFont::from_font_size(24.0)));
+                    parent.spawn((Text::new(title.clone()), TextFont::from_font_size(24.0)));
                     if counter {
                         parent
                             .spawn((
-                                Counter(0),
+                                Counter {
+                                    clicks: 0,
+                                    content,
+                                    title: title.clone(),
+                                },
                                 Text::new("Clicked 0 times"),
                                 Node {
                                     padding: UiRect::axes(px(12), px(6)),
@@ -152,11 +180,19 @@ fn panel(content: &mut EntityCommands, color: Color, title: &str, counter: bool)
         });
 }
 
-fn count_click(mut click: On<PointerClick>, mut counters: Query<(&mut Counter, &mut Text)>) {
+fn count_click(
+    mut click: On<PointerClick>,
+    mut counters: Query<(&mut Counter, &mut Text)>,
+    mut commands: Commands,
+) {
     click.propagate(false);
     if let Ok((mut counter, mut text)) = counters.get_mut(click.entity) {
-        counter.0 += 1;
-        text.0 = format!("Clicked {} times", counter.0);
+        counter.clicks += 1;
+        text.0 = format!("Clicked {} times", counter.clicks);
+        let title = format!("{} ({})", counter.title, counter.clicks);
+        commands
+            .entity(counter.content)
+            .insert(DockPanelTitle::new(title));
     }
 }
 
