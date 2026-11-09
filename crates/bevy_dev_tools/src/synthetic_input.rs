@@ -403,6 +403,9 @@ fn scroll_into_view(world: &mut World, entity: Entity) -> bool {
 /// the next frame: picking reads the cursor in `First`, and `bevy_window` splits the rest into
 /// typed messages in `PreUpdate`. A cursor move to a node goes to the node's center as it is drawn
 /// when the event is written.
+///
+/// This system is scheduled by `RemotePlugin`. If ran more than once a frame, input events won't
+/// wait their expected delays
 pub fn write_due_input(
     mut queue: ResMut<InputQueue>,
     nodes: Query<(&UiGlobalTransform, &ComputedUiTargetCamera)>,
