@@ -1,4 +1,8 @@
-use std::sync::LazyLock;
+use crate::{
+    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
+    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
+    UiTransform,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -12,6 +16,8 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_text::{ComputedTextBlock, FontCx};
 use bevy_utils::default;
+use std::sync::LazyLock;
+use taffy::style_helpers::{fr, length, minmax};
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_oof_layout, compute_root_layout,
@@ -20,12 +26,6 @@ use taffy::{
     Cache, CacheTree, Layout, LayoutBlockContainer, LayoutContainingBlock, LayoutFlexboxContainer,
     LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
     TraversePartialTree, TraverseTree,
-};
-use taffy::style_helpers::{fr, length, minmax};
-use crate::{
-    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
-    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform,
 };
 
 #[expect(
@@ -45,62 +45,64 @@ unsafe impl Sync for TaffyStyle {}
 #[derive(Default, Component, Clone, Deref, DerefMut)]
 pub struct TaffyStyle(pub Style);
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyStyle(Style {
-    dummy: core::marker::PhantomData,
-    display: Display::Grid,
-    item_is_table: false,
-    item_is_replaced: false,
-    item_is_compressible_replaced: false,
-    box_sizing: taffy::BoxSizing::BorderBox,
-    direction: taffy::Direction::Ltr,
-    overflow: taffy::Point {
-        x: taffy::Overflow::Visible,
-        y: taffy::Overflow::Visible,
-    },
-    scrollbar_width: 0.0,
-    contain: taffy::Contain::NONE,
-    position: taffy::Position::Relative,
-    inset: taffy::Rect::auto(),
-    size: taffy::Size {
-        width: taffy::Dimension::percent(1.0),
-        height: taffy::Dimension::percent(1.0),
-    },
-    min_size: taffy::Size::auto(),
-    max_size: taffy::Size::auto(),
-    aspect_ratio: None,
-    margin: taffy::Rect::zero(),
-    padding: taffy::Rect::zero(),
-    border: taffy::Rect::zero(),
-    align_items: taffy::AlignItems::START,
-    align_self: None,
-    justify_items: taffy::JustifyItems::START,
-    justify_self: None,
-    align_content: taffy::AlignContent::NORMAL,
-    justify_content: taffy::AlignContent::NORMAL,
-    gap: taffy::Size::zero(),
-    text_align: taffy::TextAlign::Auto,
-    flex_direction: taffy::FlexDirection::Row,
-    flex_wrap: taffy::FlexWrap::NoWrap,
-    flex_basis: taffy::Dimension::auto(),
-    flex_grow: 0.0,
-    flex_shrink: 1.0,
-    grid_template_rows: vec![minmax(length(0.0), fr(1.0))],
-    grid_template_columns: vec![minmax(length(0.0), fr(1.0))],
-    grid_auto_rows: Vec::new(),
-    grid_auto_columns: Vec::new(),
-    grid_auto_flow: taffy::GridAutoFlow::Row,
-    grid_template_areas: None,
-    grid_template_column_names: Vec::new(),
-    grid_template_row_names: Vec::new(),
-    grid_row: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-    grid_column: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-}));
+pub static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
+    TaffyStyle(Style {
+        dummy: core::marker::PhantomData,
+        display: Display::Grid,
+        item_is_table: false,
+        item_is_replaced: false,
+        item_is_compressible_replaced: false,
+        box_sizing: taffy::BoxSizing::BorderBox,
+        direction: taffy::Direction::Ltr,
+        overflow: taffy::Point {
+            x: taffy::Overflow::Visible,
+            y: taffy::Overflow::Visible,
+        },
+        scrollbar_width: 0.0,
+        contain: taffy::Contain::NONE,
+        position: taffy::Position::Relative,
+        inset: taffy::Rect::auto(),
+        size: taffy::Size {
+            width: taffy::Dimension::percent(1.0),
+            height: taffy::Dimension::percent(1.0),
+        },
+        min_size: taffy::Size::auto(),
+        max_size: taffy::Size::auto(),
+        aspect_ratio: None,
+        margin: taffy::Rect::zero(),
+        padding: taffy::Rect::zero(),
+        border: taffy::Rect::zero(),
+        align_items: taffy::AlignItems::START,
+        align_self: None,
+        justify_items: taffy::JustifyItems::START,
+        justify_self: None,
+        align_content: taffy::AlignContent::NORMAL,
+        justify_content: taffy::AlignContent::NORMAL,
+        gap: taffy::Size::zero(),
+        text_align: taffy::TextAlign::Auto,
+        flex_direction: taffy::FlexDirection::Row,
+        flex_wrap: taffy::FlexWrap::NoWrap,
+        flex_basis: taffy::Dimension::auto(),
+        flex_grow: 0.0,
+        flex_shrink: 1.0,
+        grid_template_rows: vec![minmax(length(0.0), fr(1.0))],
+        grid_template_columns: vec![minmax(length(0.0), fr(1.0))],
+        grid_auto_rows: Vec::new(),
+        grid_auto_columns: Vec::new(),
+        grid_auto_flow: taffy::GridAutoFlow::Row,
+        grid_template_areas: None,
+        grid_template_column_names: Vec::new(),
+        grid_template_row_names: Vec::new(),
+        grid_row: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
+        grid_column: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
+    })
+});
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
