@@ -8,7 +8,7 @@ Making complex creations commonly means juggling multiple distinct tasks at once
 In a GUI, the standard paradigm these days is to assign each of these tasks their own tab,
 and then allow you to drag and drop them between different regions at will: "docking" them in place.
 
-`bevy_ui_widgets` now ships dockable panels, modelled as a group of nested entities:
+`bevy_ui_widgets` now ships dockable panels, modeled as a group of nested entities:
 - at the root we have the dock itself: an entity with a `DockTree` component and a `Node`, where every node in the tree becomes one of its descendants
 - the space owned by the `DockTree` is partitioned by `SplitPane` entities, whose `Pane` children are separated by draggable `SplitPaneHandle` entities
 - each `Pane` can hold either a tab group or another `SplitPane`, allowing for recursive splitting
