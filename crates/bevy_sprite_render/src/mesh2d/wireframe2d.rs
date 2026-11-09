@@ -385,8 +385,8 @@ pub(crate) fn wireframe_2d(
         multiview_mask: None,
     });
 
-    if let Some(viewport) = camera.viewport.as_ref() {
-        render_pass.set_camera_viewport(viewport);
+    if let Some(viewport) = camera.main_texture_viewport() {
+        render_pass.set_camera_viewport(&viewport);
     }
 
     if let Err(err) = wireframe_phase.render(&mut render_pass, world, view_entity) {

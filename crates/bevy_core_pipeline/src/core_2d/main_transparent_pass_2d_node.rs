@@ -61,8 +61,8 @@ pub fn main_transparent_pass_2d(
         });
         let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+        if let Some(viewport) = camera.main_texture_viewport() {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         #[cfg(feature = "trace")]
@@ -77,7 +77,7 @@ pub fn main_transparent_pass_2d(
     // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
     // reset for the next render pass so add an empty render pass without a custom viewport
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-    if camera.viewport.is_some() {
+    if camera.target_viewport.is_some() {
         #[cfg(feature = "trace")]
         let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
 

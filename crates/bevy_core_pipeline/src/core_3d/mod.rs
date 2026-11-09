@@ -692,12 +692,8 @@ pub fn prepare_core_3d_depth_textures(
 
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
         let cached_texture = textures
-            .entry((camera.target.clone(), msaa))
+            .entry((camera.target.clone(), camera.target_viewport_rect(), msaa))
             .or_insert_with(|| {
                 let usage = *render_target_usage
                     .get(&camera.target.clone())
@@ -706,7 +702,7 @@ pub fn prepare_core_3d_depth_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: camera.main_texture_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
@@ -822,15 +818,12 @@ pub fn prepare_prepass_textures(
             continue;
         };
 
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
-        let size = physical_target_size.to_extents();
+        let size = camera.main_texture_size.to_extents();
+        let texture_key = (camera.target.clone(), camera.target_viewport_rect());
 
         let cached_depth_texture1 = depth_prepass.then(|| {
             depth_textures1
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_1"),
@@ -851,7 +844,7 @@ pub fn prepare_prepass_textures(
 
         let cached_depth_texture2 = depth_prepass_double_buffer.then(|| {
             depth_textures2
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
                         label: Some("prepass_depth_texture_2"),
@@ -872,7 +865,7 @@ pub fn prepare_prepass_textures(
 
         let cached_normals_texture = normal_prepass.then(|| {
             normal_textures
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -894,7 +887,7 @@ pub fn prepare_prepass_textures(
 
         let cached_motion_vectors_texture = motion_vector_prepass.then(|| {
             motion_vectors_textures
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -921,7 +914,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture1 = deferred_prepass.then(|| {
             deferred_textures1
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -943,7 +936,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_texture2 = deferred_prepass_double_buffer.then(|| {
             deferred_textures2
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
@@ -965,7 +958,7 @@ pub fn prepare_prepass_textures(
 
         let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
-                .entry(camera.target.clone())
+                .entry(texture_key.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,

@@ -50,7 +50,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec4, Vec2};
+use bevy_math::{proj, Affine2, FloatOrd, Rect, UVec2, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -1464,7 +1464,12 @@ pub fn extract_ui_camera_view(
                 ),
                 clip_from_world: None,
                 target_format,
-                viewport: UVec4::from((physical_viewport_rect.min, physical_viewport_rect.size())),
+                viewport: UVec4::from((UVec2::ZERO, physical_viewport_rect.size())),
+                target_viewport: UVec4::from((
+                    physical_viewport_rect.min,
+                    physical_viewport_rect.size(),
+                )),
+                target_size,
                 color_grading: Default::default(),
                 invert_culling: false,
             };

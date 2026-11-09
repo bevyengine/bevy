@@ -5,7 +5,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
 };
-use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
+use bevy_math::{AspectRatio, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, sync_component::SyncComponent, RenderApp};
 
@@ -230,15 +230,8 @@ impl ExtractComponent<RenderApp> for Bloom {
     type Out = (Self, BloomUniforms);
 
     fn extract_component((bloom, camera): QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        match (
-            camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
-            camera.physical_target_size(),
-            camera.is_active,
-        ) {
-            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true)
-                if size.x != 0 && size.y != 0 =>
-            {
+        match (camera.physical_viewport_size(), camera.is_active) {
+            (Some(size), true) if size.x != 0 && size.y != 0 => {
                 let threshold = bloom.prefilter.threshold;
                 let threshold_softness = bloom.prefilter.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);
@@ -250,9 +243,6 @@ impl ExtractComponent<RenderApp> for Bloom {
                         2.0 * knee,
                         0.25 / (knee + 0.00001),
                     ),
-                    viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
-                        / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
-                            .as_vec4(),
                     aspect: AspectRatio::try_from_pixels(size.x, size.y)
                         .expect("Valid screen size values for Bloom settings")
                         .ratio(),

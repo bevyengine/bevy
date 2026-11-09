@@ -78,11 +78,18 @@ struct View {
     view_from_clip: mat4x4<f32>,
     world_position: vec3<f32>,
     exposure: f32,
-    /// Output viewport (x_origin, y_origin, width, height), in physical pixels.
+    /// Output viewport (x_origin, y_origin, width, height), in physical pixels. It covers the whole
+    /// main texture, so the origin is zero. The view's position on the render target is
+    /// `target_viewport`.
     viewport: vec4<f32>,
     /// Prepass and main pass viewport, before upscaling, in physical pixels.
     /// Textures may be larger; use textureDimensions when converting to texture UVs.
     main_pass_viewport: vec4<f32>,
+    /// The part of the render target the view is written to, as `(x, y, width, height)`. Add its
+    /// origin to a position in the view's main texture to get a position on the render target.
+    target_viewport: vec4<f32>,
+    /// The size of the render target the view is written to, in physical pixels.
+    target_size: vec2<f32>,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`

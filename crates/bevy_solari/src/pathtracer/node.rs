@@ -79,14 +79,14 @@ pub fn pathtracer(
         return;
     };
 
-    let (Some(pipeline), Some(scene_bind_group), Some(viewport), Some(view_uniforms_binding)) = (
+    let (Some(pipeline), Some(scene_bind_group), Some(view_uniforms_binding)) = (
         pipeline_cache.get_compute_pipeline(pathtracer_pipelines.pipeline),
         &scene_bindings.bind_group,
-        camera.physical_viewport_size,
         view_uniforms.uniforms.binding(),
     ) else {
         return;
     };
+    let viewport = camera.main_texture_size;
 
     let bind_group = render_device.create_bind_group(
         "pathtracer_bind_group",

@@ -75,9 +75,10 @@ pub fn oit_resolve(
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "oit_resolve");
 
-    if let Some(viewport) =
-        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-    {
+    if let Some(viewport) = Viewport::from_viewport_and_override(
+        camera.main_texture_viewport().as_ref(),
+        resolution_override,
+    ) {
         render_pass.set_camera_viewport(&viewport);
     }
 

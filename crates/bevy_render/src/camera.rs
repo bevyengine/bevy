@@ -460,9 +460,13 @@ pub fn camera_system(
 #[require(RenderVisibleEntities, ViewDisplayTarget)]
 pub struct ExtractedCamera {
     pub target: Option<NormalizedRenderTarget>,
-    pub physical_viewport_size: Option<UVec2>,
-    pub physical_target_size: Option<UVec2>,
-    pub viewport: Option<Viewport>,
+    /// The size of the camera's main texture, which is the size of its viewport.
+    pub main_texture_size: UVec2,
+    /// The camera's viewport within its render target. The camera renders into the whole main
+    /// texture, which is written to this part of the render target.
+    pub target_viewport: Option<Viewport>,
+    /// The size of the camera's render target.
+    pub target_size: UVec2,
     pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
@@ -481,6 +485,29 @@ pub struct ExtractedCamera {
     /// target. Those exceptions don't apply when the render target is shared by
     /// multiple cameras.
     pub tonemap_in_shader: bool,
+}
+
+impl ExtractedCamera {
+    /// The camera's viewport within its main texture. It covers the whole texture and keeps the
+    /// depth range of [`ExtractedCamera::target_viewport`]. `None` when the camera has no viewport.
+    pub fn main_texture_viewport(&self) -> Option<Viewport> {
+        self.target_viewport.as_ref().map(|viewport| Viewport {
+            physical_position: UVec2::ZERO,
+            physical_size: self.main_texture_size,
+            depth: viewport.depth.clone(),
+        })
+    }
+
+    /// The part of the render target the camera's main texture is written to.
+    pub fn target_viewport_rect(&self) -> URect {
+        match &self.target_viewport {
+            Some(viewport) => URect::from_corners(
+                viewport.physical_position,
+                viewport.physical_position + viewport.physical_size,
+            ),
+            None => URect::from_corners(UVec2::ZERO, self.main_texture_size),
+        }
+    }
 }
 
 pub fn extract_cameras(
@@ -585,19 +612,12 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let (
-            Some(URect {
-                min: viewport_origin,
-                ..
-            }),
-            Some(viewport_size),
-            Some(target_size),
-        ) = (
+        if let (Some(viewport_rect), Some(target_size)) = (
             camera.physical_viewport_rect(),
-            camera.physical_viewport_size(),
             camera.physical_target_size(),
         ) {
-            if target_size.x == 0 || target_size.y == 0 {
+            let viewport_size = viewport_rect.size();
+            if viewport_size.x == 0 || viewport_size.y == 0 {
                 commands
                     .entity(render_entity)
                     .remove::<ExtractedCameraComponents>();
@@ -682,9 +702,9 @@ pub fn extract_cameras(
             commands.insert((
                 ExtractedCamera {
                     target,
-                    viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
+                    main_texture_size: viewport_size,
+                    target_viewport: camera.viewport.clone(),
+                    target_size,
                     schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
@@ -706,12 +726,9 @@ pub fn extract_cameras(
                     world_from_view: *transform,
                     clip_from_world: None,
                     target_format,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
+                    viewport: UVec4::new(0, 0, viewport_size.x, viewport_size.y),
+                    target_viewport: UVec4::from((viewport_rect.min, viewport_size)),
+                    target_size,
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
@@ -1518,9 +1535,9 @@ mod tests {
     ) -> ExtractedCamera {
         ExtractedCamera {
             target: Some(target),
-            physical_viewport_size: None,
-            physical_target_size: None,
-            viewport: None,
+            main_texture_size: UVec2::ONE,
+            target_viewport: None,
+            target_size: UVec2::ONE,
             schedule: Main.intern(),
             order,
             output_mode: CameraOutputMode::default(),
@@ -1557,6 +1574,40 @@ mod tests {
         assert_eq!(index(lower), 0);
         assert_eq!(index(upper), 1);
         assert_eq!(index(solo), 0);
+    }
+
+    #[test]
+    fn viewports_of_the_same_size_have_their_own_main_texture() {
+        let target = NormalizedRenderTarget::TextureView(ManualTextureViewHandle(0));
+        let with_viewport = |x: u32| ExtractedCamera {
+            main_texture_size: uvec2(400, 300),
+            target_viewport: Some(Viewport {
+                physical_position: uvec2(x, 0),
+                physical_size: uvec2(400, 300),
+                depth: 0.25..0.75,
+            }),
+            ..extracted_camera(0, false, target.clone())
+        };
+        let left = with_viewport(0);
+        let right = with_viewport(400);
+
+        assert_ne!(left.target_viewport_rect(), right.target_viewport_rect());
+        for camera in [&left, &right] {
+            let viewport = camera.main_texture_viewport().unwrap();
+            assert_eq!(viewport.physical_position, UVec2::ZERO);
+            assert_eq!(viewport.physical_size, uvec2(400, 300));
+            assert_eq!(viewport.depth, 0.25..0.75);
+        }
+
+        let fullscreen = ExtractedCamera {
+            main_texture_size: uvec2(800, 300),
+            ..extracted_camera(0, false, target)
+        };
+        assert_eq!(
+            fullscreen.target_viewport_rect(),
+            URect::new(0, 0, 800, 300)
+        );
+        assert!(fullscreen.main_texture_viewport().is_none());
     }
 
     /// How far the jitter moves a point at view depth `z`, in pixels.

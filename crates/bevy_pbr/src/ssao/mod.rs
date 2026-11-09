@@ -204,7 +204,7 @@ fn ssao(
     ) = (
         resolution_override
             .map(|size| **size)
-            .or(camera.physical_viewport_size),
+            .or(Some(camera.main_texture_size)),
         pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         pipeline_cache.get_compute_pipeline(pipeline_id.0),
@@ -547,11 +547,8 @@ fn prepare_ssao_textures(
     )>,
 ) {
     for (entity, camera, ssao_settings, resolution_override) in &views {
-        let Some(physical_viewport_size) = camera.physical_viewport_size else {
-            continue;
-        };
         let size = resolution_override
-            .map_or(physical_viewport_size, |size| **size)
+            .map_or(camera.main_texture_size, |size| **size)
             .to_extents();
 
         let preprocessed_depth_texture = texture_cache.get(

@@ -325,6 +325,7 @@ fn resolve_members(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_math::URect;
     use wgpu::TextureUsages;
 
     const SRGB: Option<CompositingSpace> = Some(CompositingSpace::Srgb);
@@ -349,6 +350,7 @@ mod tests {
         (
             (
                 None,
+                URect::default(),
                 TextureUsages::RENDER_ATTACHMENT,
                 TextureFormat::Rgba16Float,
                 msaa,

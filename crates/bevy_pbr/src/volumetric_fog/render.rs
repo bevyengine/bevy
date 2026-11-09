@@ -428,9 +428,10 @@ pub fn volumetric_fog(
         let command_encoder = ctx.command_encoder();
         let mut render_pass = command_encoder.begin_render_pass(&render_pass_descriptor);
 
-        if let Some(viewport) =
-            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
-        {
+        if let Some(viewport) = Viewport::from_viewport_and_override(
+            camera.main_texture_viewport().as_ref(),
+            resolution_override,
+        ) {
             render_pass.set_viewport(
                 viewport.physical_position.x as f32,
                 viewport.physical_position.y as f32,
