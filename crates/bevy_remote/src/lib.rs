@@ -1280,6 +1280,7 @@ pub enum RemoteMethodHandler {
 
 impl RemoteMethodHandler {
     /// Registers the handler in `world`, as a [`RemoteMethod`] to add to [`RemoteMethods`].
+    #[must_use]
     pub fn register(self, world: &mut World) -> RemoteMethod {
         match self {
             Self::Instant(system) => {
@@ -1372,9 +1373,6 @@ pub struct RemoteMethod {
 /// Holds all implementations of methods known to the server.
 ///
 /// Custom methods can be added to this list using [`RemoteMethods::insert`].
-///
-/// Clones share the same methods, so a transport outside the world can keep one to look up a
-/// method's [`RemoteMethodKind`], and see methods added later.
 #[derive(Debug, Resource, Default, Clone)]
 pub struct RemoteMethods(Arc<RwLock<HashMap<String, RemoteMethod>>>);
 
@@ -1887,9 +1885,7 @@ pub struct BrpMessage {
 
 /// Answers a request to a remote method, on the frame that received it or a later one.
 ///
-/// A deferred method's handler gets one with the request's parameters. It can answer straight
-/// away, or keep the responder, for example in a resource, until it has its answer. Dropping a
-/// responder without answering answers with an error, so the client isn't left waiting.
+/// If dropped, the request gets an error response.
 ///
 /// The client waits for as long as the responder is kept, so a method that waits for something
 /// that may never happen, or for frames while the app is paused, should answer with an error after
