@@ -1,6 +1,6 @@
 ---
 title: "Main textures are the size of the camera's viewport"
-pull_requests: []
+pull_requests: [26466]
 ---
 
 A camera's main texture used to be the size of its render target, and the camera drew into the part
