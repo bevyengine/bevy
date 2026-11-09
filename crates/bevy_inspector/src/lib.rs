@@ -209,6 +209,8 @@ impl Plugin for InspectorPlugin {
                     )
                         .chain(),
                 )
+                    .chain()
+                    .ambiguous_with_all()
                     .before(UiSystems::Prepare),
             );
 

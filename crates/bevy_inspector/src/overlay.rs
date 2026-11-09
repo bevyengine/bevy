@@ -6,7 +6,7 @@
 //! them to that viewport. A draggable toolbar shows and hides each panel, and the panels are
 //! floating dialogs, so they can also be dragged and closed.
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, PreUpdate, Update};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -17,6 +17,7 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, With},
     resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_feathers::{
@@ -28,9 +29,9 @@ use bevy_feathers::{
     theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, UiTheme},
     tokens, FeathersPlugins,
 };
-use bevy_input::{keyboard::KeyCode, ButtonInput};
+use bevy_input::{keyboard::KeyCode, ButtonInput, InputSystems};
 use bevy_log::warn;
-use bevy_picking::{cursor::EntityCursor, Pickable};
+use bevy_picking::{cursor::EntityCursor, Pickable, PickingSystems};
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BorderRadius, DefaultUiCamera, FlexDirection, Node, PositionType,
@@ -66,7 +67,13 @@ impl Plugin for InspectorOverlayPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((FeathersPlugins, InspectorPlugin))
             .insert_resource(InspectorOverlayKey(self.toggle_key))
-            .add_systems(Update, (toggle_inspector_overlay, sync_panel_toggles));
+            .add_systems(
+                PreUpdate,
+                toggle_inspector_overlay
+                    .after(InputSystems)
+                    .before(PickingSystems::Last),
+            )
+            .add_systems(Update, sync_panel_toggles);
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .by_default = true;
