@@ -59,10 +59,23 @@
 //! [`DockPlugin`] is part of [`UiWidgetsPlugins`](crate::UiWidgetsPlugins). With it, an
 //! entity with a [`DockTree`] and a [`Node`] gets UI built as its children: each split becomes a
 //! [`SplitPane`] with [`SplitPaneHandle`]s between its panes, and each leaf becomes a column
-//! holding a [`TabList`] and a content area. The app gives each [`DockPanelKey`] a title and a
-//! content builder in [`DockPanels`]. Content is built once per tab and kept until the tab is
-//! removed, so its state survives switching and moving tabs. The UI is headless: it has the
-//! layout it needs and no colors.
+//! holding a [`TabList`] and a content area. The dock spawns a [`DockPanelContent`] entity per tab,
+//! and the app fills it from a system in [`DockSystems::Panels`](crate::DockSystems::Panels), choosing
+//! what to build from the tab's [`DockPanelKey`]. The tab shows its [`DockPanelTitle`], or the
+//! panel key if it has none. The UI is headless: it has the layout it needs and no colors.
+//!
+//! # Panels
+//!
+//! The dock spawns each tab's content entity, reparents it when groups close or tabs move, and
+//! takes it out of the layout while the tab is inactive. The app builds what goes inside it, and
+//! rebuilding a panel means clearing it and building it again.
+//!
+//! A tree can be saved, loaded, cloned into a second dock, or edited without a
+//! [`World`](bevy_ecs::world::World), because a tab holds a [`DockPanelKey`] and not an entity.
+//! That also rules out spawning content when a tab is added, since the tree has nowhere to keep
+//! the entity. The dock spawns it, and the app fills it in the frame it appears, from a system in
+//! [`DockSystems::Panels`](crate::DockSystems::Panels) that matches
+//! [`Added<DockPanelContent>`](bevy_ecs::query::Added).
 //!
 //! Tab lists use [`TabDragMode::External`], so tabs can be dragged within a group and between
 //! groups of the same dock. Drops on lists outside the dock are ignored.

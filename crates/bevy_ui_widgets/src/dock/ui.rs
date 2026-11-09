@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{string::String, vec, vec::Vec};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
@@ -6,16 +6,18 @@ use bevy_ecs::{
     entity::Entity,
     event::EntityEvent,
     hierarchy::{ChildOf, Children},
+    lifecycle::RemovedComponents,
     observer::On,
     query::{Changed, With},
     reflect::ReflectComponent,
-    resource::Resource,
     schedule::{IntoScheduleConfigs, SystemSet},
-    system::{Commands, EntityCommands, Query, Res, SystemParam},
+    system::{Commands, Query, SystemParam},
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_reflect::Reflect;
-use bevy_ui::{px, widget::Text, Display, FlexDirection, Node, Overflow, UiRect, UiSystems, Val};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_ui::{
+    px, widget::Text, Display, FlexDirection, GridTrack, Node, Overflow, UiRect, UiSystems, Val,
+};
 
 use crate::{
     ControlOrientation, DockError, DockLeaf, DockNode, DockNodeId, DockPanelKey, DockSplit,
@@ -33,66 +35,66 @@ pub struct DockPlugin;
 
 impl Plugin for DockPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DockPanels>()
-            .add_observer(forward_split_change)
+        app.add_observer(forward_split_change)
             .add_observer(forward_tab_change)
             .add_observer(forward_tab_move)
+            .configure_sets(
+                PostUpdate,
+                (DockSystems::Structure, DockSystems::Panels)
+                    .chain()
+                    .before(crate::split_pane::update_split_pane_layout)
+                    .before(UiSystems::Prepare),
+            )
+            .add_systems(PostUpdate, build_dock_ui.in_set(DockSystems::Structure))
             .add_systems(
                 PostUpdate,
-                build_dock_ui
-                    .in_set(DockSystems)
+                sync_dock_titles
+                    .after(DockSystems::Panels)
                     .before(crate::split_pane::update_split_pane_layout)
                     .before(UiSystems::Prepare),
             );
     }
 }
 
-/// The system set that builds dock UI from changed [`DockTree`]s, in [`PostUpdate`].
-#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct DockSystems;
-
-type PanelBuilder = Box<dyn Fn(&mut EntityCommands) + Send + Sync>;
-
-struct PanelEntry {
-    title: String,
-    build: PanelBuilder,
-}
-
-/// The content and tab title for each [`DockPanelKey`].
+/// The stages the dock runs in, in [`PostUpdate`].
 ///
-/// Content is built once per tab, when the tab first appears, by calling the builder with the
-/// tab's [`DockPanelContent`] entity. The builder can add children and components to it but
-/// should leave its [`Node::display`] alone, since the dock uses it to hide inactive tabs.
-/// Tabs whose key has no entry get an empty content entity and the key as their title.
-#[derive(Resource, Default)]
-pub struct DockPanels {
-    panels: HashMap<String, PanelEntry>,
-}
-
-impl DockPanels {
-    /// Registers the title and content builder for a panel key, replacing any previous entry.
-    pub fn register(
-        &mut self,
-        key: impl Into<DockPanelKey>,
-        title: impl Into<String>,
-        build: impl Fn(&mut EntityCommands) + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.panels.insert(
-            key.into().0,
-            PanelEntry {
-                title: title.into(),
-                build: Box::new(build),
-            },
-        );
-        self
-    }
-
-    /// The title shown on tabs for a panel key, or the key itself if none is registered.
-    pub fn title<'a>(&'a self, key: &'a DockPanelKey) -> &'a str {
-        self.panels
-            .get(key.as_str())
-            .map_or(key.as_str(), |entry| entry.title.as_str())
-    }
+/// The dock builds its structure first and then runs the app's panel builders, so builders see
+/// content that is already spawned and parented. Both stages run before the UI is laid out.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DockSystems {
+    /// Builds the UI for changed [`DockTree`]s.
+    Structure,
+    /// The stage apps fill [`DockPanelContent`] entities in.
+    ///
+    /// The dock spawns a tab's content entity when the tab appears, and again if its panel key
+    /// changes. Systems here match [`Added<DockPanelContent>`](bevy_ecs::query::Added) and run
+    /// before the UI layout, so a panel is on screen in the frame it appears.
+    ///
+    /// A builder in plain [`PostUpdate`], or in `Update`, still gets every panel, but runs after
+    /// layout, so the panel is empty for a frame.
+    ///
+    /// ```
+    /// # use bevy_app::{App, PostUpdate};
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ui_widgets::{DockPanelContent, DockPanelTitle, DockSystems};
+    /// fn build_panels(
+    ///     panels: Query<(Entity, &DockPanelContent), Added<DockPanelContent>>,
+    ///     mut commands: Commands,
+    /// ) {
+    ///     for (content, panel) in &panels {
+    ///         if panel.panel.as_str() == "outliner" {
+    ///             commands
+    ///                 .entity(content)
+    ///                 .insert(DockPanelTitle::new("Outliner"));
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     App::new().add_systems(PostUpdate, build_panels.in_set(DockSystems::Panels));
+    /// }
+    /// ```
+    Panels,
 }
 
 /// Links a split or leaf entity built by the dock to its node in the tree.
@@ -115,17 +117,44 @@ pub struct DockTabBinding {
     pub tab: DockTabId,
 }
 
-/// The content entity of a tab, built by [`DockPanels`].
+/// The content entity of a tab.
 ///
-/// It is kept while the tab exists, moved with the tab between leaves, hidden while the tab
-/// is inactive and despawned when the tab is removed.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Reflect)]
+/// The dock spawns it when the tab appears and despawns it when the tab is removed, so the panel
+/// keeps its state while the tab exists. Observe [`Remove`](bevy_ecs::lifecycle::Remove) to clean
+/// up after it.
+///
+/// Fill it from a system in [`DockSystems::Panels`] that matches
+/// [`Added<DockPanelContent>`](bevy_ecs::query::Added). The dock does not touch it afterwards, so
+/// you can replace its [`Node`] or attach a scene.
+///
+/// The `Node` it spawns with fills the area below the tabs and can shrink below its own content,
+/// so a panel wraps instead of spilling out of a narrow tab. A replacement `Node` should keep
+/// `min_width` and `min_height` at `px(0)` for the same reason.
+#[derive(Component, Clone, Debug, PartialEq, Reflect)]
+#[component(immutable)]
 #[reflect(Component, Clone, Debug, PartialEq)]
 pub struct DockPanelContent {
     /// The entity holding the [`DockTree`].
     pub dock: Entity,
     /// The tab this content belongs to.
     pub tab: DockTabId,
+    /// The panel the tab shows.
+    pub panel: DockPanelKey,
+}
+
+/// The title shown on the tab of a [`DockPanelContent`] entity.
+///
+/// Tabs with no title show their [`DockPanelKey`]. The tab updates when the title changes, so a
+/// title can mark a document as unsaved.
+#[derive(Component, Clone, Debug, Default, PartialEq, Reflect)]
+#[reflect(Component, Clone, Debug, Default, PartialEq)]
+pub struct DockPanelTitle(pub String);
+
+impl DockPanelTitle {
+    /// Creates a title from a string.
+    pub fn new(title: impl Into<String>) -> Self {
+        Self(title.into())
+    }
 }
 
 /// A change the user asked for through the dock UI, sent to the entity holding the
@@ -284,7 +313,10 @@ enum NodeUi {
     Leaf {
         entity: Entity,
         tab_list: Entity,
+        /// Holds the content of the active tab, if any.
         area: Entity,
+        /// Holds the content of the inactive tabs, out of the layout.
+        hidden: Entity,
     },
 }
 
@@ -315,7 +347,6 @@ struct TabUi {
 #[derive(SystemParam)]
 struct DockBuilder<'w, 's> {
     commands: Commands<'w, 's>,
-    panels: Res<'w, DockPanels>,
     children: Query<'w, 's, &'static Children>,
     parents: Query<'w, 's, &'static ChildOf>,
     panes: Query<'w, 's, &'static Pane>,
@@ -463,13 +494,29 @@ impl DockBuilder<'_, '_> {
                         ChildOf(entity),
                     ))
                     .id();
+                // A single grid cell stretches the content to fill the area, so the dock never
+                // has to grow it. Sizes the app sets on its own `Node` still win.
                 let area = self
                     .commands
                     .spawn((
                         Node {
-                            flex_direction: FlexDirection::Column,
+                            display: Display::Grid,
+                            grid_template_columns: vec![GridTrack::flex(1.0)],
+                            grid_template_rows: vec![GridTrack::flex(1.0)],
                             overflow: Overflow::clip(),
                             ..base_node()
+                        },
+                        ChildOf(entity),
+                    ))
+                    .id();
+                // Inactive tabs keep their content here. `Display::None` takes it out of layout,
+                // and moving it to a node of our own means we never touch the content's `Node`.
+                let hidden = self
+                    .commands
+                    .spawn((
+                        Node {
+                            display: Display::None,
+                            ..Default::default()
                         },
                         ChildOf(entity),
                     ))
@@ -478,6 +525,7 @@ impl DockBuilder<'_, '_> {
                     entity,
                     tab_list,
                     area,
+                    hidden,
                 }
             }
         };
@@ -547,11 +595,17 @@ impl DockBuilder<'_, '_> {
         live_tabs: &mut HashSet<DockTabId>,
         stale: &mut Vec<Entity>,
     ) {
-        let Some(&NodeUi::Leaf { tab_list, area, .. }) = ui.nodes.get(&id) else {
+        let Some(&NodeUi::Leaf {
+            tab_list,
+            area,
+            hidden,
+            ..
+        }) = ui.nodes.get(&id)
+        else {
             return;
         };
         let mut headers = Vec::with_capacity(leaf.tabs().len());
-        let mut contents = Vec::with_capacity(leaf.tabs().len());
+        let mut inactive = Vec::with_capacity(leaf.tabs().len());
         let mut selected = None;
         for tab in leaf.tabs() {
             let active = leaf.active() == Some(tab.id);
@@ -562,32 +616,28 @@ impl DockBuilder<'_, '_> {
                     if let Some(old) = existing {
                         stale.extend([old.header, old.content]);
                     }
-                    let tab_ui = self.spawn_tab(dock, tab, active);
+                    let tab_ui = self.spawn_tab(dock, tab);
                     ui.tabs.entry(tab.id).insert(tab_ui).into_mut()
                 }
             };
-            let (header, content) = (tab_ui.header, tab_ui.content);
-            let display = if active { Display::Flex } else { Display::None };
-            if let Ok(mut node) = self.nodes.get_mut(content)
-                && node.display != display
-            {
-                node.display = display;
-            }
+            headers.push(tab_ui.header);
             if active {
-                selected = Some(header);
+                selected = Some((tab_ui.header, tab_ui.content));
+            } else {
+                inactive.push(tab_ui.content);
             }
-            headers.push(header);
-            contents.push(content);
         }
-        let selected = SelectedTab(selected);
-        if self.selected.get(tab_list) != Ok(&selected) {
-            self.commands.entity(tab_list).insert(selected);
+        let selected_tab = SelectedTab(selected.map(|(header, _)| header));
+        if self.selected.get(tab_list) != Ok(&selected_tab) {
+            self.commands.entity(tab_list).insert(selected_tab);
         }
         self.set_children(tab_list, &headers);
-        self.set_children(area, &contents);
+        let active: Vec<Entity> = selected.map(|(_, content)| content).into_iter().collect();
+        self.set_children(area, &active);
+        self.set_children(hidden, &inactive);
     }
 
-    fn spawn_tab(&mut self, dock: Entity, tab: &DockTab, active: bool) -> TabUi {
+    fn spawn_tab(&mut self, dock: Entity, tab: &DockTab) -> TabUi {
         let header = self
             .commands
             .spawn((
@@ -598,23 +648,30 @@ impl DockBuilder<'_, '_> {
                     flex_shrink: 0.0,
                     ..Default::default()
                 },
-                Text::new(self.panels.title(&tab.panel)),
+                Text::new(tab.panel.as_str()),
             ))
             .id();
-        let mut content = self.commands.spawn((
-            DockPanelContent { dock, tab: tab.id },
-            Node {
-                display: if active { Display::Flex } else { Display::None },
-                ..base_node()
-            },
-        ));
-        if let Some(entry) = self.panels.panels.get(tab.panel.as_str()) {
-            (entry.build)(&mut content);
-        }
+        let content = self
+            .commands
+            .spawn((
+                DockPanelContent {
+                    dock,
+                    tab: tab.id,
+                    panel: tab.panel.clone(),
+                },
+                // An auto minimum would size the content to its own content, so a wide panel
+                // would spill out of a narrow tab instead of wrapping.
+                Node {
+                    min_width: px(0),
+                    min_height: px(0),
+                    ..Default::default()
+                },
+            ))
+            .id();
         TabUi {
             panel: tab.panel.clone(),
             header,
-            content: content.id(),
+            content,
         }
     }
 
@@ -652,12 +709,42 @@ impl DockBuilder<'_, '_> {
     }
 }
 
+/// Shows the [`DockPanelTitle`] of each content entity on its tab, or the panel key when there is
+/// none.
+fn sync_dock_titles(
+    changed: Query<Entity, Changed<DockPanelTitle>>,
+    mut removed: RemovedComponents<DockPanelTitle>,
+    contents: Query<(&DockPanelContent, Option<&DockPanelTitle>)>,
+    docks: Query<&DockUi>,
+    mut texts: Query<&mut Text>,
+) {
+    for entity in changed.iter().chain(removed.read()) {
+        let Ok((content, title)) = contents.get(entity) else {
+            continue;
+        };
+        let Some(tab) = docks
+            .get(content.dock)
+            .ok()
+            .and_then(|ui| ui.tabs.get(&content.tab))
+            .filter(|tab| tab.content == entity)
+        else {
+            continue;
+        };
+        let title = title.map_or(content.panel.as_str(), |title| title.0.as_str());
+        if let Ok(mut text) = texts.get_mut(tab.header)
+            && text.0 != title
+        {
+            text.0 = title.into();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::DockEdge;
     use alloc::vec;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{query::Added, resource::Resource, system::ResMut, world::World};
 
     fn app() -> App {
         let mut app = App::new();
@@ -714,12 +801,22 @@ mod tests {
             .unwrap()
     }
 
-    fn display(world: &World, entity: Entity) -> Display {
-        world.get::<Node>(entity).unwrap().display
+    /// Whether a content entity is in its leaf's visible area rather than the hidden node.
+    fn shown(world: &World, content: Entity) -> bool {
+        world.get::<Node>(parent(world, content)).unwrap().display != Display::None
     }
 
     fn parent(world: &World, entity: Entity) -> Entity {
         world.get::<ChildOf>(entity).unwrap().parent()
+    }
+
+    /// One group with two tabs, the second one active.
+    fn two_tabs() -> (DockTree, DockTabId, DockTabId) {
+        let mut tree = DockTree::new();
+        let root = tree.root();
+        let a = tree.add_tab(root, "a").unwrap();
+        let b = tree.add_tab(root, "b").unwrap();
+        (tree, a, b)
     }
 
     fn three_way() -> (DockTree, DockNodeId, DockNodeId, DockNodeId) {
@@ -756,7 +853,7 @@ mod tests {
         assert_eq!(world.get::<Node>(panes[2]).unwrap().width, px(0));
 
         let leaf_parts = children(world, panes[2]);
-        assert_eq!(leaf_parts.len(), 2);
+        assert_eq!(leaf_parts.len(), 3);
         let tabs = children(world, leaf_parts[0]);
         assert_eq!(tabs.len(), 2);
         assert!(world.get::<TabList>(leaf_parts[0]).is_some());
@@ -766,36 +863,289 @@ mod tests {
             world.get::<SelectedTab>(leaf_parts[0]).unwrap().0,
             Some(tabs[1])
         );
-        let contents = children(world, leaf_parts[1]);
-        assert_eq!(contents.len(), 2);
-        assert_eq!(display(world, contents[0]), Display::None);
-        assert_eq!(display(world, contents[1]), Display::Flex);
+        assert_eq!(
+            world.get::<Node>(leaf_parts[1]).unwrap().display,
+            Display::Grid
+        );
+        assert_eq!(
+            world.get::<Node>(leaf_parts[2]).unwrap().display,
+            Display::None
+        );
+        let panel = |entity| world.get::<DockPanelContent>(entity).unwrap().panel.clone();
+        let shown_content = children(world, leaf_parts[1])[0];
+        let shown: Vec<DockPanelKey> = children(world, leaf_parts[1])
+            .into_iter()
+            .map(panel)
+            .collect();
+        let hidden: Vec<DockPanelKey> = children(world, leaf_parts[2])
+            .into_iter()
+            .map(panel)
+            .collect();
+        assert_eq!(shown, vec!["b".into()]);
+        assert_eq!(hidden, vec!["a".into()]);
+
+        // See `spawn_tab`: without these the content sizes to its own content.
+        let node = world.get::<Node>(shown_content).unwrap();
+        assert_eq!(node.min_width, px(0));
+        assert_eq!(node.min_height, px(0));
+    }
+
+    #[derive(Component)]
+    struct Built;
+
+    /// Builds only the "a" panel.
+    fn build_alpha(
+        panels: Query<(Entity, &DockPanelContent), Added<DockPanelContent>>,
+        mut commands: Commands,
+    ) {
+        for (content, panel) in &panels {
+            if panel.panel.as_str() == "a" {
+                commands
+                    .entity(content)
+                    .insert((Built, DockPanelTitle::new("Alpha")));
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct BuiltRecord {
+        content: Entity,
+        parent: Option<Entity>,
+    }
+
+    #[derive(Resource, Default)]
+    struct BuiltLog(Vec<BuiltRecord>);
+
+    fn log_built(
+        panels: Query<Entity, Added<DockPanelContent>>,
+        parents: Query<&ChildOf>,
+        mut log: ResMut<BuiltLog>,
+    ) {
+        for content in &panels {
+            log.0.push(BuiltRecord {
+                content,
+                parent: parents.get(content).ok().map(ChildOf::parent),
+            });
+        }
     }
 
     #[test]
-    fn panels_build_content_and_titles() {
-        #[derive(Component)]
-        struct Built;
-
+    fn builds_content_once_per_tab() {
         let mut app = app();
-        app.world_mut()
-            .resource_mut::<DockPanels>()
-            .register("a", "Alpha", |content| {
-                content.insert(Built);
-            });
-        let mut tree = DockTree::new();
-        let root = tree.root();
-        let a = tree.add_tab(root, "a").unwrap();
-        tree.add_tab(root, "b").unwrap();
+        app.init_resource::<BuiltLog>();
+        app.add_systems(PostUpdate, log_built.in_set(DockSystems::Panels));
+        let (tree, a, b) = two_tabs();
         let dock = spawn_dock(&mut app, tree);
         let world = app.world_mut();
+
+        // Builders see each content entity once, in no particular order, and already in place.
+        let built = world.resource::<BuiltLog>().0.clone();
+        assert_eq!(built.len(), 2);
+        for tab in [a, b] {
+            let content = content_entity(world, tab);
+            let record = built
+                .iter()
+                .find(|record| record.content == content)
+                .unwrap();
+            let holder = record.parent.unwrap();
+            assert_eq!(holder, parent(world, content));
+            assert_ne!(holder, dock);
+            assert!(world.get::<Node>(holder).is_some());
+        }
+
+        // Switching tabs keeps the content, so nothing is built again.
+        edit(&mut app, dock, |tree| {
+            tree.set_active(tree.root(), a).unwrap();
+        });
+        assert_eq!(app.world().resource::<BuiltLog>().0.len(), 2);
+    }
+
+    #[test]
+    fn builders_fill_content_and_titles() {
+        let mut app = app();
+        app.add_systems(PostUpdate, build_alpha.in_set(DockSystems::Panels));
+        let (tree, a, b) = two_tabs();
+        spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+
         let content = content_entity(world, a);
         assert!(world.get::<Built>(content).is_some());
         let header = header_entity(world, a);
         assert_eq!(world.get::<Text>(header).unwrap().0, "Alpha");
-        let headers = children(world, parent(world, header));
-        assert_eq!(world.get::<Text>(headers[1]).unwrap().0, "b");
-        assert_eq!(world.get::<DockPanelContent>(content).unwrap().dock, dock);
+
+        let b_content = content_entity(world, b);
+        assert!(world.get::<Built>(b_content).is_none());
+        let header = header_entity(world, b);
+        assert_eq!(world.get::<Text>(header).unwrap().0, "b");
+    }
+
+    #[test]
+    fn cloned_trees_build_their_own_content() {
+        // Tabs hold keys, not entities, so one tree can drive two docks with separate content.
+        let mut app = app();
+        app.add_systems(PostUpdate, build_alpha.in_set(DockSystems::Panels));
+        let (tree, a, _) = two_tabs();
+        let first = app.world_mut().spawn((tree.clone(), Node::default())).id();
+        let second = app.world_mut().spawn((tree, Node::default())).id();
+        app.update();
+
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &DockPanelContent)>();
+        let contents: Vec<(Entity, Entity)> = query
+            .iter(world)
+            .filter(|(_, content)| content.tab == a)
+            .map(|(entity, content)| (content.dock, entity))
+            .collect();
+        assert_eq!(contents.len(), 2);
+        assert!(contents.iter().any(|(dock, _)| *dock == first));
+        assert!(contents.iter().any(|(dock, _)| *dock == second));
+        for (_, content) in contents {
+            assert!(world.get::<Built>(content).is_some());
+        }
+    }
+
+    fn custom_node() -> Node {
+        Node {
+            flex_direction: FlexDirection::Column,
+            ..Default::default()
+        }
+    }
+
+    fn replace_content_nodes(
+        panels: Query<Entity, Added<DockPanelContent>>,
+        mut commands: Commands,
+    ) {
+        for content in &panels {
+            commands.entity(content).insert(custom_node());
+        }
+    }
+
+    #[test]
+    fn content_node_belongs_to_the_app() {
+        let mut app = app();
+        app.add_systems(
+            PostUpdate,
+            replace_content_nodes.in_set(DockSystems::Panels),
+        );
+        let (tree, a, b) = two_tabs();
+        let dock = spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let (a_content, b_content) = (content_entity(world, a), content_entity(world, b));
+
+        // Replacing the `Node` on the first frame does not show the inactive tab.
+        assert!(!shown(world, a_content));
+        assert!(shown(world, b_content));
+
+        edit(&mut app, dock, |tree| {
+            tree.set_active(tree.root(), a).unwrap();
+        });
+        let world = app.world();
+        assert!(shown(world, a_content));
+        assert!(!shown(world, b_content));
+        for content in [a_content, b_content] {
+            assert_eq!(world.get::<Node>(content), Some(&custom_node()));
+        }
+    }
+
+    #[test]
+    fn tabs_follow_title_changes() {
+        let mut app = app();
+        app.add_systems(PostUpdate, build_alpha.in_set(DockSystems::Panels));
+        let mut tree = DockTree::new();
+        let root = tree.root();
+        let a = tree.add_tab(root, "a").unwrap();
+        spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let content = content_entity(world, a);
+        let header = header_entity(world, a);
+
+        world.get_mut::<DockPanelTitle>(content).unwrap().0 = "Alpha *".into();
+        app.update();
+        assert_eq!(app.world().get::<Text>(header).unwrap().0, "Alpha *");
+
+        app.world_mut()
+            .entity_mut(content)
+            .remove::<DockPanelTitle>();
+        app.update();
+        assert_eq!(app.world().get::<Text>(header).unwrap().0, "a");
+
+        // Removing and re-adding a title in one frame leaves the new title.
+        app.world_mut()
+            .entity_mut(content)
+            .insert(DockPanelTitle::new("First"))
+            .remove::<DockPanelTitle>()
+            .insert(DockPanelTitle::new("Second"));
+        app.update();
+        assert_eq!(app.world().get::<Text>(header).unwrap().0, "Second");
+    }
+
+    #[test]
+    fn title_follows_a_tab_moved_in_the_same_frame() {
+        let mut app = app();
+        app.add_systems(PostUpdate, build_alpha.in_set(DockSystems::Panels));
+        let (tree, left, _, _) = three_way();
+        let (_, a) = tree.find_panel("a").unwrap();
+        let dock = spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let content = content_entity(world, a);
+
+        world.get_mut::<DockPanelTitle>(content).unwrap().0 = "Moved".into();
+        edit(&mut app, dock, |tree| tree.move_tab(a, left, None).unwrap());
+        let world = app.world_mut();
+        let header = header_entity(world, a);
+        assert_eq!(
+            parent(world, parent(world, header)),
+            node_entity(world, left)
+        );
+        assert_eq!(world.get::<Text>(header).unwrap().0, "Moved");
+    }
+
+    #[test]
+    fn titles_on_entities_the_dock_did_not_spawn_are_ignored() {
+        let mut app = app();
+        let mut tree = DockTree::new();
+        let root = tree.root();
+        let a = tree.add_tab(root, "a").unwrap();
+        let dock = spawn_dock(&mut app, tree);
+
+        app.world_mut().spawn((
+            DockPanelContent {
+                dock,
+                tab: a,
+                panel: "a".into(),
+            },
+            DockPanelTitle::new("Impostor"),
+        ));
+        app.update();
+        let world = app.world_mut();
+        let header = header_entity(world, a);
+        assert_eq!(world.get::<Text>(header).unwrap().0, "a");
+    }
+
+    #[test]
+    fn content_is_rebuilt_when_a_tab_changes_panel() {
+        let mut app = app();
+        app.add_systems(PostUpdate, build_alpha.in_set(DockSystems::Panels));
+        let mut tree = DockTree::new();
+        let root = tree.root();
+        let b = tree.add_tab(root, "b").unwrap();
+        let dock = spawn_dock(&mut app, tree);
+        let world = app.world_mut();
+        let old_content = content_entity(world, b);
+
+        // Ids are only unique within a tree, so replacing the whole tree can give an existing
+        // tab id to a different panel.
+        let mut replacement = DockTree::new();
+        let root = replacement.root();
+        assert_eq!(replacement.add_tab(root, "a").unwrap(), b);
+        edit(&mut app, dock, |tree| *tree = replacement);
+
+        let world = app.world_mut();
+        assert!(world.get_entity(old_content).is_err());
+        let content = content_entity(world, b);
+        assert!(world.get::<Built>(content).is_some());
+        let header = header_entity(world, b);
+        assert_eq!(world.get::<Text>(header).unwrap().0, "Alpha");
     }
 
     #[test]
@@ -836,25 +1186,25 @@ mod tests {
         let dock = spawn_dock(&mut app, tree);
         let world = app.world_mut();
         let content = content_entity(world, a);
-        assert_eq!(display(world, content), Display::None);
+        assert!(!shown(world, content));
 
         edit(&mut app, dock, |tree| tree.move_tab(a, left, None).unwrap());
         let world = app.world_mut();
         let left_entity = node_entity(world, left);
         assert_eq!(content_entity(world, a), content);
         assert_eq!(parent(world, parent(world, content)), left_entity);
-        assert_eq!(display(world, content), Display::Flex);
+        assert!(shown(world, content));
         let header = header_entity(world, a);
         assert_eq!(parent(world, parent(world, header)), left_entity);
 
         let b_content = content_entity(world, b);
-        assert_eq!(display(world, b_content), Display::Flex);
+        assert!(shown(world, b_content));
         edit(&mut app, dock, |tree| {
             let c = tree.find_panel("c").unwrap().1;
             tree.set_active(left, c).unwrap();
         });
         let world = app.world_mut();
-        assert_eq!(display(world, content), Display::None);
+        assert!(!shown(world, content));
         assert_eq!(
             parent(world, parent(world, b_content)),
             node_entity(world, center)
@@ -1054,7 +1404,7 @@ mod tests {
         for (index, leaf) in expected.into_iter().enumerate() {
             assert_eq!(panes[index * 2], leaf);
             let parts = children(world, leaf);
-            assert_eq!(parts.len(), 2);
+            assert_eq!(parts.len(), 3);
             assert!(!children(world, parts[0]).is_empty());
             assert!(!children(world, parts[1]).is_empty());
         }
@@ -1065,7 +1415,7 @@ mod tests {
         assert_eq!(parent(world, parent(world, d_header)), expected[3]);
         let d_content = content_entity(world, d);
         assert_eq!(parent(world, parent(world, d_content)), expected[3]);
-        assert_eq!(display(world, d_content), Display::Flex);
+        assert!(shown(world, d_content));
     }
 
     #[test]
@@ -1108,7 +1458,7 @@ mod tests {
             parent(world, parent(world, content)),
             node_entity(world, left)
         );
-        assert_eq!(display(world, content), Display::Flex);
+        assert!(shown(world, content));
     }
 
     #[test]
