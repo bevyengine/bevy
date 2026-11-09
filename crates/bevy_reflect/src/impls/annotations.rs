@@ -65,6 +65,7 @@ impl CustomAttributes {
 mod tests {
     use super::*;
     use crate::{Reflect, TypeInfo, Typed};
+    use bevy_annotations::SerializedAs;
 
     #[derive(Reflect)]
     struct Named {
@@ -90,6 +91,17 @@ mod tests {
         grounded: bool,
     }
 
+    #[derive(Reflect)]
+    #[reflect(@SerializedAs::Seq)]
+    struct Span {
+        min: f32,
+        max: f32,
+    }
+
+    #[derive(Reflect, Clone)]
+    #[reflect(opaque, @SerializedAs::STRING)]
+    struct Tag;
+
     #[test]
     fn annotations_on_types_and_fields() {
         let TypeInfo::Struct(info) = Movement::type_info() else {
@@ -109,6 +121,24 @@ mod tests {
         );
         assert!(info.field("grounded").unwrap().has_attribute::<ReadOnly>());
         assert!(info.has_attribute::<Tooltip>());
+    }
+
+    #[test]
+    fn serialized_as_on_struct_and_opaque() {
+        let TypeInfo::Struct(span) = Span::type_info() else {
+            panic!("expected struct info");
+        };
+        assert_eq!(
+            span.get_attribute::<SerializedAs>(),
+            Some(&SerializedAs::Seq)
+        );
+        let TypeInfo::Opaque(tag) = Tag::type_info() else {
+            panic!("expected opaque info");
+        };
+        assert_eq!(
+            tag.get_attribute::<SerializedAs>(),
+            Some(&SerializedAs::STRING)
+        );
     }
 
     #[test]

@@ -99,7 +99,7 @@ pub struct DisplayName(pub &'static str);
 /// without this annotation serialize as their reflected structure, unless they are opaque, in
 /// which case the shape is unknown.
 ///
-/// ```
+/// ```ignore
 /// use bevy_annotations::SerializedAs;
 /// use bevy_reflect::Reflect;
 ///
