@@ -38,7 +38,7 @@ pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 3;
 pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        embedded_asset!(app, "oit_resolve.wgsl");
+        embedded_asset!(app, "oit_resolve.wesl");
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -60,7 +60,9 @@ impl Plugin for OitResolvePlugin {
                 (
                     queue_oit_resolve_pipeline.in_set(RenderSystems::Queue),
                     prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
-                ),
+                )
+                    // Skip unless a view actually uses OIT.
+                    .run_if(any_with_component::<OrderIndependentTransparencySettings>),
             )
             .insert_resource(OitResolvePipeline::new());
     }
@@ -226,7 +228,7 @@ fn specialize_oit_resolve_pipeline(
         label: Some("oit_resolve_pipeline".into()),
         layout,
         fragment: Some(FragmentState {
-            shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
+            shader: load_embedded_asset!(asset_server, "oit_resolve.wesl"),
             shader_defs,
             targets: vec![Some(ColorTargetState {
                 format: key.target_format,

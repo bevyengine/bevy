@@ -1,7 +1,8 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{boxed::Box, sync::Arc};
 use async_channel::{Receiver, Sender};
-use bevy_platform::{collections::HashMap, sync::RwLock};
+use atomicow::CowArc;
+use bevy_platform::{collections::hash_map::EntryRef, collections::HashMap, sync::RwLock};
 use std::{path::Path, sync::PoisonError};
 
 /// A "gated" reader that will prevent asset reads from returning until
@@ -32,9 +33,12 @@ impl GateOpener {
     /// If multiple operations are expected, call `open` the expected number of calls.
     pub fn open<P: AsRef<Path>>(&self, path: P) {
         let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
-        let gates = gates
-            .entry_ref(path.as_ref())
-            .or_insert_with(async_channel::unbounded);
+        let gates = match gates.entry_ref(path.as_ref()) {
+            EntryRef::Vacant(e) => {
+                e.insert_with_key(path.as_ref().into(), async_channel::unbounded())
+            }
+            EntryRef::Occupied(e) => e.into_mut(),
+        };
         gates.0.send_blocking(()).unwrap();
     }
 }
@@ -55,12 +59,18 @@ impl<R: AssetReader> GatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let receiver = {
             let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
-            let gates = gates
-                .entry_ref(path.as_ref())
-                .or_insert_with(async_channel::unbounded);
+            let gates = match gates.entry_ref(path.as_ref()) {
+                EntryRef::Vacant(e) => {
+                    e.insert_with_key(path.as_ref().into(), async_channel::unbounded())
+                }
+                EntryRef::Occupied(e) => e.into_mut(),
+            };
             gates.1.clone()
         };
         receiver.recv().await.unwrap();
@@ -68,7 +78,10 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         Ok(result)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         self.reader.read_meta(path).await
     }
 

@@ -19,7 +19,7 @@ use derive_more::derive::From;
 /// # use bevy_mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
-/// # use bevy_math::primitives::Capsule3d;
+/// # use bevy_shape::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(

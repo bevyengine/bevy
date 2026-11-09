@@ -1,16 +1,16 @@
-use super::WgpuWrapper;
 use crate::diagnostic::internal::DiagnosticsRecorder;
 use crate::render_phase::TrackedRenderPass;
 use crate::render_resource::{CommandEncoder, RenderPassDescriptor};
-use crate::renderer::RenderDevice;
+use crate::renderer::{wgpu_wrapper, RenderDevice};
 use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::{FilteredAccessSet, QueryData, QueryFilter, QueryState};
+use bevy_ecs::query::{QueryData, QueryFilter, QueryState};
 use bevy_ecs::system::{
-    Deferred, SystemBuffer, SystemMeta, SystemName, SystemParam, SystemParamValidationError,
+    Deferred, SystemAccess, SystemBuffer, SystemMeta, SystemName, SystemParam,
+    SystemParamAccessConflict, SystemParamValidationError,
 };
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_ecs::world::DeferredWorld;
@@ -35,13 +35,17 @@ enum PendingCommandBuffer {
     },
 }
 
+wgpu_wrapper!(struct WgpuPendingCommandBuffersInner(PendingCommandBuffersInner));
+
 /// A resource that holds command buffers and encoders that are pending submission to the render queue.
 #[derive(Resource)]
-pub struct PendingCommandBuffers(WgpuWrapper<PendingCommandBuffersInner>);
+pub struct PendingCommandBuffers(WgpuPendingCommandBuffersInner);
 
 impl Default for PendingCommandBuffers {
     fn default() -> Self {
-        Self(WgpuWrapper::new(PendingCommandBuffersInner::default()))
+        Self(WgpuPendingCommandBuffersInner::new(
+            PendingCommandBuffersInner::default(),
+        ))
     }
 }
 
@@ -162,15 +166,19 @@ impl RenderContextStateInner {
     }
 }
 
+wgpu_wrapper!(struct WgpuRenderContextStateInner(RenderContextStateInner));
+
 /// A resource that holds the current render context state, including command encoder and command buffers.
 /// This is used internally by the [`RenderContext`] system parameter. Implements [`SystemBuffer`] to
 /// append command buffers and unfinished encoders in topological system order. Pending encoders are
 /// finished in parallel immediately before submission.
-pub struct RenderContextState(WgpuWrapper<RenderContextStateInner>);
+pub struct RenderContextState(WgpuRenderContextStateInner);
 
 impl Default for RenderContextState {
     fn default() -> Self {
-        Self(WgpuWrapper::new(RenderContextStateInner::default()))
+        Self(WgpuRenderContextStateInner::new(
+            RenderContextStateInner::default(),
+        ))
     }
 }
 
@@ -339,50 +347,43 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
     fn init_state(world: &mut World) -> Self::State {
         ViewQueryState {
-            resource_id: world
-                .components_registrator()
-                .register_component::<CurrentView>(),
-            query_state: QueryState::new(world),
+            resource_id: Res::<CurrentView>::init_state(world),
+            query_state: Query::init_state(world),
         }
     }
 
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet,
-        world: &mut World,
-    ) {
-        component_access_set.add_resource_read(state.resource_id);
-
-        <Query<'_, '_, D, F> as SystemParam>::init_access(
-            &state.query_state,
-            system_meta,
-            component_access_set,
-            world,
-        );
+        system_access: &mut SystemAccess,
+    ) -> Result<(), SystemParamAccessConflict> {
+        Res::<CurrentView>::init_access(&state.resource_id, system_meta, system_access)?;
+        Query::init_access(&state.query_state, system_meta, system_access)?;
+        Ok(())
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
-        _change_tick: Tick,
+        change_tick: Tick,
     ) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
         // SAFETY: We have registered resource read access in init_access
-        let current_view = unsafe { world.get_resource::<CurrentView>() };
-
-        let Some(current_view) = current_view else {
-            return Err(SystemParamValidationError::skipped::<Self>(
-                "CurrentView resource not present",
-            ));
-        };
+        let current_view = unsafe {
+            Res::<CurrentView>::get_param(&mut state.resource_id, system_meta, world, change_tick)
+        }
+        .map_err(|_| {
+            SystemParamValidationError::skipped::<Self>("CurrentView resource not present")
+        })?;
 
         let entity = current_view.entity();
 
         // SAFETY: Query state access is properly registered in init_access.
         // The caller ensures the world matches the one used in init_state.
-        let item = unsafe { state.query_state.get_unchecked(world, entity) }.map_err(|_| {
+        let query =
+            unsafe { Query::get_param(&mut state.query_state, system_meta, world, change_tick) }?;
+        let item = query.get_inner(entity).map_err(|_| {
             SystemParamValidationError::skipped::<Self>("Current view entity does not match query")
         })?;
 

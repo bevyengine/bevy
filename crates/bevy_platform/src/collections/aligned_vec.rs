@@ -1,4 +1,4 @@
-//! Provides [`AlignedVec`] based on [bevy_platform::collections::AlignedVec](https://github.com/rkyv/rkyv/blob/main/rkyv/src/util/alloc/aligned_vec.rs)'s implementation but the alignment can be set at runtime.
+//! Provides [`AlignedVec`] based on [rkyv::util::AlignedVec](https://github.com/rkyv/rkyv/blob/main/rkyv/src/util/alloc/aligned_vec.rs)'s implementation but the alignment can be set at runtime.
 //!
 //! The original source code, adapted here, is copyright 2021 David Koloski, used here under the MIT License.
 #![expect(unsafe_code, reason = "This struct needs to interact with raw memory")]
@@ -185,7 +185,7 @@ impl AlignedVec {
     ///
     /// Usually the safe methods `reserve` or `reserve_exact` are a better
     /// choice. This method only exists as a micro-optimization for very
-    /// performance-sensitive code where where the calculation of capacity
+    /// performance-sensitive code where the calculation of capacity
     /// required has already been performed, and you want to avoid doing it
     /// again, or if you want to implement a different growth strategy.
     ///
@@ -449,7 +449,7 @@ impl AlignedVec {
     ///
     /// Usually the safe methods `reserve` or `reserve_exact` are a better
     /// choice. This method only exists as a micro-optimization for very
-    /// performance-sensitive code where where the calculation of capacity
+    /// performance-sensitive code where the calculation of capacity
     /// required has already been performed, and you want to avoid doing it
     /// again.
     ///
@@ -875,19 +875,19 @@ impl AlignedVec {
     /// This is highly unsafe, due to the number of invariants that aren't
     /// checked:
     ///
-    /// * If the capacity is nonzero, `ptr` must have
-    ///   been allocated using the global allocator, such as via the [`alloc::alloc`]
-    ///   function. If the capacity is zero, `ptr` need only be aligned.
-    /// * `align` needs to be equal to the alignment as what `ptr` was allocated with,
-    ///   if the pointer is required to be allocated.
-    /// * The `capacity` (i.e. the allocated size in bytes), if
-    ///   nonzero, needs to be the same size as the pointer was allocated with.
-    ///   (Because similar to alignment, [`dealloc`] must be called with the same
-    ///   layout `size`.)
+    /// * `align` must be a non-zero power of two, and must be less than
+    ///   `isize::MAX`.
+    /// * `capacity`, when rounded up to the nearest multiple of `align`, must
+    ///   not overflow `isize`.
+    /// * If the capacity is nonzero, `ptr` must have been allocated using
+    ///   the global allocator, such as via the [`alloc::alloc`] function,
+    ///   with a [`Layout`] using this exact `align` and a `size` of `capacity`.
+    ///   (Because similar to alignment, [`dealloc`] must be called with the
+    ///   same layout `size`.)
+    /// * If the capacity is zero, `ptr` need not point to allocated memory,
+    ///   but it must still be aligned to `align` bytes (i.e.
+    ///   `ptr.as_ptr() as usize % align == 0`).
     /// * `length` needs to be less than or equal to `capacity`.
-    /// * `capacity` needs to be the capacity that the pointer was allocated with,
-    ///   if the pointer is required to be allocated.
-    /// * The allocated size in bytes must be no larger than `isize::MAX`.
     ///
     /// # Example
     ///

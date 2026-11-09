@@ -57,6 +57,7 @@ pub mod traversal;
 pub mod world;
 
 pub use bevy_ptr as ptr;
+pub use bevy_utils as utils;
 
 #[cfg(feature = "hotpatching")]
 use message::Message;
@@ -75,7 +76,7 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, ContextExt, Result, ResultSeverityExt, Severity},
-        event::{EntityEvent, Event},
+        event::{EntityEvent, Event, EventPattern},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{Add, Despawn, Discard, Insert, Remove, RemovedComponents},
         message::{
@@ -95,14 +96,11 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            Res, ResMut, Single, SkipIfAny, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
         template::{template, FromTemplate, Template},
-        world::{
-            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, World,
-        },
+        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
     };
 
     #[doc(hidden)]
@@ -121,8 +119,6 @@ pub mod prelude {
     pub use crate::reflect::AppFunctionRegistry;
 }
 
-pub use bevy_ecs_macros::VariantDefaults;
-
 /// Exports used by macros.
 ///
 /// These are not meant to be used directly and are subject to breaking changes.
@@ -131,7 +127,6 @@ pub mod __macro_exports {
     // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
-    pub use crate::query::DebugCheckedUnwrap;
     pub use alloc::format;
     pub use alloc::vec::Vec;
 }

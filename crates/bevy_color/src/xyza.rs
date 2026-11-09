@@ -7,6 +7,8 @@ use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
+///
+/// The SDR channel bounds below are the D65 white point, `(0.9505, 1.0, 1.0889)`.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -23,11 +25,11 @@ use bevy_reflect::prelude::*;
     reflect(Serialize, Deserialize)
 )]
 pub struct Xyza {
-    /// The x-axis. [0.0, 1.0]
+    /// The x-axis. [0.0, 0.9505] for SDR colors.
     pub x: f32,
-    /// The y-axis, intended to represent luminance. [0.0, 1.0]
+    /// The y-axis, intended to represent luminance. [0.0, 1.0] for SDR colors.
     pub y: f32,
-    /// The z-axis. [0.0, 1.0]
+    /// The z-axis. [0.0, 1.0889] for SDR colors.
     pub z: f32,
     /// The alpha channel. [0.0, 1.0]
     pub alpha: f32,

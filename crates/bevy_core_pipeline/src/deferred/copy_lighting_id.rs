@@ -24,7 +24,7 @@ pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "copy_deferred_lighting_id.wgsl");
+        embedded_asset!(app, "copy_deferred_lighting_id.wesl");
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -112,7 +112,7 @@ pub fn init_copy_deferred_lighting_id_pipeline(
     );
 
     let vertex_state = fullscreen_shader.to_vertex_state();
-    let shader = load_embedded_asset!(asset_server.as_ref(), "copy_deferred_lighting_id.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "copy_deferred_lighting_id.wesl");
 
     let pipeline_id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
         label: Some("copy_deferred_lighting_id_pipeline".into()),

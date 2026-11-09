@@ -76,7 +76,7 @@ fn test(
         .observe(on_drag_viewport);
 }
 
-fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
+fn on_drag_viewport(drag: On<PointerDrag>, mut node_query: Query<&mut Node>) {
     if matches!(drag.button, PointerButton::Secondary) {
         let mut node = node_query.get_mut(drag.entity).unwrap();
 
@@ -87,7 +87,7 @@ fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
     }
 }
 
-fn on_drag_cuboid(drag: On<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
+fn on_drag_cuboid(drag: On<PointerDrag>, mut transform_query: Query<&mut Transform>) {
     if matches!(drag.button, PointerButton::Primary) {
         let mut transform = transform_query.get_mut(drag.entity).unwrap();
         transform.rotate_y(drag.delta.x * 0.02);

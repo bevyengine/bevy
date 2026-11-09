@@ -57,6 +57,7 @@ fn main() {
         file.write_fmt(format_args!("(events: [({frames}, AppExit)])"))
             .unwrap();
         features.push("bevy_ci_testing");
+        features.push("bevy_feathers");
     }
 
     match cli.api {

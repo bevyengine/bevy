@@ -39,7 +39,7 @@ fn setup(mut commands: Commands) {
             ScrollStart(Vec2::ZERO),
         ))
         .observe(
-            |drag: On<Pointer<Drag>>,
+            |drag: On<PointerDrag>,
              ui_scale: Res<UiScale>,
              mut scroll_position_query: Query<
                 (&mut ScrollPosition, &ScrollStart),
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands) {
             },
         )
         .observe(
-            |_: On<Pointer<DragStart>>,
+            |_: On<PointerDragStart>,
              mut scroll_position_query: Query<
                 (&ComputedNode, &mut ScrollStart),
                 With<ScrollableNode>,
@@ -98,12 +98,12 @@ fn setup(mut commands: Commands) {
                                 TileColor(tile_color),
                                 BackgroundColor(tile_color),
                             ))
-                            .observe(|over: On<Pointer<Over>>, mut query: Query<&mut BackgroundColor>,| {
+                            .observe(|over: On<PointerOver>, mut query: Query<&mut BackgroundColor>,| {
                                 if let Ok(mut background_color) = query.get_mut(over.entity) {
                                     background_color.0 = RED.into();
                                 }
                             })
-                            .observe(|out: On<Pointer<Out>>, mut query: Query<(&mut BackgroundColor, &TileColor)>| {
+                            .observe(|out: On<PointerOut>, mut query: Query<(&mut BackgroundColor, &TileColor)>| {
                                 if let Ok((mut background_color, tile_color)) = query.get_mut(out.entity) {
                                     background_color.0 = tile_color.0;
                                 }

@@ -1,10 +1,4 @@
-#[expect(
-    deprecated,
-    reason = "Should be removed after 0.20 is released when Button is removed."
-)]
-use crate::prelude::Button;
 use crate::{
-    experimental::UiChildren,
     prelude::Label,
     ui_transform::UiGlobalTransform,
     widget::{ImageNode, TextUiReader},
@@ -15,10 +9,10 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
-    hierarchy::ChildOf,
+    hierarchy::{ChildOf, Children},
     lifecycle::HookContext,
     prelude::Entity,
-    query::{Changed, With, Without},
+    query::{Changed, With},
     reflect::ReflectComponent,
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Query},
@@ -38,7 +32,10 @@ fn calc_label(
     for child in children {
         let values = text_reader
             .iter(child)
-            .map(|(_, _, text, _, _, _, _)| text.into())
+            .filter_map(|(_, _, item)| match item {
+                bevy_text::TextElement::Text { text, .. } => Some(text.into()),
+                bevy_text::TextElement::Box(_) => None,
+            })
             .collect::<Vec<String>>();
         if !values.is_empty() {
             name = Some(values.join(" "));
@@ -88,52 +85,17 @@ fn sync_bounds_and_transforms(
     }
 }
 
-#[expect(
-    deprecated,
-    reason = "Should be removed after 0.20 is released when Button is removed."
-)]
-fn button_changed(
-    mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
-    ui_children: UiChildren,
-    mut text_reader: TextUiReader,
-) {
-    for (entity, accessible) in &mut query {
-        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
-        if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::Button);
-            if let Some(name) = label {
-                accessible.set_label(name);
-            } else {
-                accessible.clear_label();
-            }
-        } else {
-            let mut node = Node::new(Role::Button);
-            if let Some(label) = label {
-                node.set_label(label);
-            }
-            commands
-                .entity(entity)
-                .try_insert(AccessibilityNode::from(node));
-        }
-    }
-}
-
-#[expect(
-    deprecated,
-    reason = "Should remove the `Without<Button>` after 0.20 is released when Button is removed."
-)]
 fn image_changed(
     mut commands: Commands,
-    mut query: Query<
-        (Entity, Option<&mut AccessibilityNode>),
-        (Changed<ImageNode>, Without<Button>),
-    >,
-    ui_children: UiChildren,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<ImageNode>>,
+    ui_children: Query<&Children, With<crate::Node>>,
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
+        let label = calc_label(
+            &mut text_reader,
+            ui_children.get(entity).into_iter().flatten().copied(),
+        );
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(label) = label {
@@ -161,7 +123,10 @@ fn label_changed(
     for (entity, accessible) in &mut query {
         let values = text_reader
             .iter(entity)
-            .map(|(_, _, text, _, _, _, _)| text.into())
+            .filter_map(|(_, _, item)| match item {
+                bevy_text::TextElement::Text { text, .. } => Some(text.into()),
+                bevy_text::TextElement::Box(_) => None,
+            })
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
@@ -236,11 +201,9 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                button_changed,
                 image_changed,
                 label_changed,
                 sync_bounds_and_transforms
-                    .after(button_changed)
                     .after(image_changed)
                     .after(label_changed),
             )

@@ -41,7 +41,7 @@ pub fn init_ui_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) 
     commands.insert_resource(UiPipeline {
         view_layout,
         image_layout,
-        shader: load_embedded_asset!(asset_server.as_ref(), "ui.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "ui.wesl"),
     });
 }
 

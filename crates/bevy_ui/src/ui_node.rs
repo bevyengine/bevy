@@ -1,17 +1,22 @@
 use crate::{
+    layout::{
+        layout_tree::{ComputedLayout, TaffyStyle},
+        UiTreeDirty,
+    },
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, FocusPolicy, UiRect, Val, Val2,
+    ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
+use bevy_math::{Affine2, BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
+use bevy_text::{EmSize, RemSize, DEFAULT_REM_SIZE_PX};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::{f32, num::NonZero};
+use core::num::NonZero;
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -19,8 +24,7 @@ use tracing::warn;
 
 /// Provides the computed size and layout properties of a UI [`Node`].
 ///
-/// All of the fields are automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`)
-/// during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
+/// All of the fields are automatically calculated during `PostUpdate` in the [`UiSystems::Layout`](super::UiSystems) set.
 ///
 /// The fields are measured in physical pixels.
 /// You can multiply by the `inverse_scale_factor` field to convert back to logical pixels.
@@ -43,41 +47,36 @@ pub struct ComputedNode {
     pub scroll_position: Vec2,
     /// The width of this node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
-    ///
-    /// [`ui_layout_system`](`super::layout::ui_layout_system`) bypasses change detection
-    /// when updating this field.
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     pub inverse_scale_factor: f32,
+    /// The font size used to resolve this node's `Val::Em` lengths, in logical pixels.
+    ///
+    /// Copied from the node's [`EmSize`] component during layout.
+    pub em_size: EmSize,
+    /// The root font size used to resolve this node's `Val::Rem` lengths, in logical pixels.
+    ///
+    /// Copied from the [`RemSize`] resource during layout.
+    // Stored per node rather than read from the resource because `ComputedNode` is extracted
+    // to the render world and `RemSize` is not.
+    pub rem_size: RemSize,
 }
 
 impl ComputedNode {
     /// The calculated node size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
@@ -85,7 +84,7 @@ impl ComputedNode {
 
     /// The calculated node content size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn content_size(&self) -> Vec2 {
         self.content_size
@@ -100,7 +99,7 @@ impl ComputedNode {
 
     /// The calculated node size as width and height in physical pixels before rounding.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
@@ -109,7 +108,7 @@ impl ComputedNode {
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or zero then no outline will be rendered.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_width(&self) -> f32 {
         self.outline_width
@@ -117,7 +116,7 @@ impl ComputedNode {
 
     /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
@@ -125,7 +124,7 @@ impl ComputedNode {
 
     /// Returns the size of the node when including its outline.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
@@ -136,7 +135,7 @@ impl ComputedNode {
     /// An outline's border radius is derived from the node's border-radius
     /// so that the outline wraps the border equally at all points.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
@@ -157,7 +156,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn border(&self) -> BorderRect {
         self.border
@@ -165,7 +164,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_border_radius`](`super::layout::update_border_radius`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
@@ -188,7 +187,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
+    /// Automatically calculated by [`update_computed_nodes`](`super::layout::update_computed_nodes`).
     #[inline]
     pub const fn padding(&self) -> BorderRect {
         self.padding
@@ -389,6 +388,8 @@ impl ComputedNode {
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,
         inverse_scale_factor: 1.,
+        em_size: EmSize(DEFAULT_REM_SIZE_PX),
+        rem_size: RemSize(DEFAULT_REM_SIZE_PX),
     };
 }
 
@@ -456,25 +457,24 @@ impl From<BVec2> for IgnoreScroll {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
-///
-/// # See also
-///
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
+    TaffyStyle,
     ComputedNode,
     ComputedStackIndex,
+    ComputedLayout,
     ContentSize,
     ComputedUiTargetCamera,
     ComputedUiRenderTargetInfo,
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy,
     ScrollPosition,
     Visibility,
-    ZIndex
+    ZIndex,
+    EmSize,
+    UiTreeDirty
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
@@ -823,12 +823,12 @@ impl Node {
         bottom: Val::Auto,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
-        align_items: AlignItems::DEFAULT,
-        justify_items: JustifyItems::DEFAULT,
+        align_items: AlignItems::Normal,
+        justify_items: JustifyItems::Normal,
         align_self: AlignSelf::DEFAULT,
         justify_self: JustifySelf::DEFAULT,
-        align_content: AlignContent::DEFAULT,
-        justify_content: JustifyContent::DEFAULT,
+        align_content: AlignContent::Normal,
+        justify_content: JustifyContent::Normal,
         direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
@@ -885,8 +885,13 @@ pub enum InlineDirection {
 /// - For Flexbox containers, sets default cross axis alignment of the child items.
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -895,19 +900,30 @@ pub enum InlineDirection {
 )]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then they are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then they are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are packed such that their baselines align.
     Baseline,
     /// The items are stretched to fill the space they're given.
@@ -915,12 +931,47 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Default;
-}
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-impl Default for AlignItems {
-    fn default() -> Self {
-        Self::DEFAULT
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignItems::StartSafe
+            | AlignItems::CenterSafe
+            | AlignItems::EndSafe
+            | AlignItems::FlexStartSafe
+            | AlignItems::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignItems::Normal
+            | AlignItems::Start
+            | AlignItems::Center
+            | AlignItems::End
+            | AlignItems::FlexStart
+            | AlignItems::FlexEnd
+            | AlignItems::Baseline
+            | AlignItems::Stretch => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignItems::Start => AlignItems::StartSafe,
+            AlignItems::Center => AlignItems::CenterSafe,
+            AlignItems::End => AlignItems::EndSafe,
+            AlignItems::FlexStart => AlignItems::FlexStartSafe,
+            AlignItems::FlexEnd => AlignItems::FlexEndSafe,
+            AlignItems::Normal
+            | AlignItems::StartSafe
+            | AlignItems::EndSafe
+            | AlignItems::CenterSafe
+            | AlignItems::FlexStartSafe
+            | AlignItems::FlexEndSafe
+            | AlignItems::Baseline
+            | AlignItems::Stretch => self,
+        }
     }
 }
 
@@ -928,8 +979,13 @@ impl Default for AlignItems {
 /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
 /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -938,13 +994,20 @@ impl Default for AlignItems {
 )]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed along the center of the axis
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are packed such that their baselines align.
     Baseline,
     /// The items are stretched to fill the space they're given.
@@ -952,18 +1015,48 @@ pub enum JustifyItems {
 }
 
 impl JustifyItems {
-    pub const DEFAULT: Self = Self::Default;
-}
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-impl Default for JustifyItems {
-    fn default() -> Self {
-        Self::DEFAULT
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifyItems::Normal
+            | JustifyItems::Start
+            | JustifyItems::Center
+            | JustifyItems::End
+            | JustifyItems::Baseline
+            | JustifyItems::Stretch => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifyItems::Start => JustifyItems::StartSafe,
+            JustifyItems::Center => JustifyItems::CenterSafe,
+            JustifyItems::End => JustifyItems::EndSafe,
+            JustifyItems::Normal
+            | JustifyItems::StartSafe
+            | JustifyItems::EndSafe
+            | JustifyItems::CenterSafe
+            | JustifyItems::Baseline
+            | JustifyItems::Stretch => self,
+        }
     }
 }
 
 /// Used to control how the specified item is aligned within the space it's given.
 /// - For Flexbox items, controls cross axis alignment of the item.
 /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -978,16 +1071,26 @@ pub enum AlignSelf {
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// This item will be aligned with the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// This item will be aligned with the start of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// This item will be aligned with the end of the axis, unless the flex direction is reversed;
     /// then it will be aligned with the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// This item will be aligned along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// This item will be aligned at the baseline.
     Baseline,
     /// This item will be stretched to fill the container.
@@ -996,6 +1099,46 @@ pub enum AlignSelf {
 
 impl AlignSelf {
     pub const DEFAULT: Self = Self::Auto;
+
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignSelf::StartSafe
+            | AlignSelf::CenterSafe
+            | AlignSelf::EndSafe
+            | AlignSelf::FlexStartSafe
+            | AlignSelf::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignSelf::Start
+            | AlignSelf::Center
+            | AlignSelf::End
+            | AlignSelf::FlexStart
+            | AlignSelf::FlexEnd
+            | AlignSelf::Stretch
+            | AlignSelf::Auto
+            | AlignSelf::Baseline => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignSelf::Start => AlignSelf::StartSafe,
+            AlignSelf::Center => AlignSelf::CenterSafe,
+            AlignSelf::End => AlignSelf::EndSafe,
+            AlignSelf::FlexStart => AlignSelf::FlexStartSafe,
+            AlignSelf::FlexEnd => AlignSelf::FlexEndSafe,
+            AlignSelf::StartSafe
+            | AlignSelf::EndSafe
+            | AlignSelf::CenterSafe
+            | AlignSelf::FlexStartSafe
+            | AlignSelf::FlexEndSafe
+            | AlignSelf::Stretch
+            | AlignSelf::Auto
+            | AlignSelf::Baseline => self,
+        }
+    }
 }
 
 impl Default for AlignSelf {
@@ -1007,6 +1150,11 @@ impl Default for AlignSelf {
 /// Used to control how the specified item is aligned within the space it's given.
 /// - For children of flex nodes, this property has no effect. See `justify_content` for main axis alignment of flex items.
 /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
+///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
@@ -1021,10 +1169,16 @@ pub enum JustifySelf {
     Auto,
     /// This item will be aligned with the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// This item will be aligned with the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// This item will be aligned along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// This item will be aligned at the baseline.
     Baseline,
     /// This item will be stretched to fill the space it's given.
@@ -1033,6 +1187,36 @@ pub enum JustifySelf {
 
 impl JustifySelf {
     pub const DEFAULT: Self = Self::Auto;
+
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifySelf::StartSafe | JustifySelf::CenterSafe | JustifySelf::EndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifySelf::Start
+            | JustifySelf::Center
+            | JustifySelf::End
+            | JustifySelf::Auto
+            | JustifySelf::Stretch
+            | JustifySelf::Baseline => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifySelf::Start => JustifySelf::StartSafe,
+            JustifySelf::Center => JustifySelf::CenterSafe,
+            JustifySelf::End => JustifySelf::EndSafe,
+            JustifySelf::StartSafe
+            | JustifySelf::EndSafe
+            | JustifySelf::CenterSafe
+            | JustifySelf::Auto
+            | JustifySelf::Stretch
+            | JustifySelf::Baseline => self,
+        }
+    }
 }
 
 impl Default for JustifySelf {
@@ -1045,8 +1229,13 @@ impl Default for JustifySelf {
 /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
 /// - For CSS Grid containers, controls alignment of grid rows.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1055,19 +1244,30 @@ impl Default for JustifySelf {
 )]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are stretched to fill the container along the axis.
     Stretch,
     /// The items are distributed such that the gap between any two items is equal.
@@ -1079,12 +1279,51 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Default;
-}
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-impl Default for AlignContent {
-    fn default() -> Self {
-        Self::DEFAULT
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            AlignContent::StartSafe
+            | AlignContent::CenterSafe
+            | AlignContent::EndSafe
+            | AlignContent::FlexStartSafe
+            | AlignContent::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            AlignContent::Normal
+            | AlignContent::Start
+            | AlignContent::Center
+            | AlignContent::End
+            | AlignContent::FlexStart
+            | AlignContent::FlexEnd
+            | AlignContent::Stretch
+            | AlignContent::SpaceBetween
+            | AlignContent::SpaceEvenly
+            | AlignContent::SpaceAround => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            AlignContent::Start => AlignContent::StartSafe,
+            AlignContent::Center => AlignContent::CenterSafe,
+            AlignContent::End => AlignContent::EndSafe,
+            AlignContent::FlexStart => AlignContent::FlexStartSafe,
+            AlignContent::FlexEnd => AlignContent::FlexEndSafe,
+            AlignContent::Normal
+            | AlignContent::StartSafe
+            | AlignContent::EndSafe
+            | AlignContent::CenterSafe
+            | AlignContent::FlexStartSafe
+            | AlignContent::FlexEndSafe
+            | AlignContent::Stretch
+            | AlignContent::SpaceBetween
+            | AlignContent::SpaceEvenly
+            | AlignContent::SpaceAround => self,
+        }
     }
 }
 
@@ -1092,8 +1331,13 @@ impl Default for AlignContent {
 /// - For Flexbox containers, controls alignment of items in the main axis.
 /// - For CSS Grid containers, controls alignment of grid columns.
 ///
+/// # Safe alignments
+///
+/// Safe alignments will fall back to [`Self::Start`] if aligning the items would overflow the container, so
+/// the start of the content stays visible.
+///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1102,19 +1346,30 @@ impl Default for AlignContent {
 )]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
+    /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
+    StartSafe,
     /// The items are packed towards the end of the axis.
     End,
+    /// Like [`End`](Self::End) but safe [`safe`](Self#safe-alignments)
+    EndSafe,
     /// The items are packed towards the start of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the end of the axis.
     FlexStart,
+    /// Like [`FlexStart`](Self::FlexStart) but safe [`safe`](Self#safe-alignments)
+    FlexStartSafe,
     /// The items are packed towards the end of the axis, unless the flex direction is reversed;
     /// then the items are packed towards the start of the axis.
     FlexEnd,
+    /// Like [`FlexEnd`](Self::FlexEnd) but safe [`safe`](Self#safe-alignments)
+    FlexEndSafe,
     /// The items are packed along the center of the axis.
     Center,
+    /// Like [`Center`](Self::Center) but safe [`safe`](Self#safe-alignments)
+    CenterSafe,
     /// The items are stretched to fill the container along the axis.
     Stretch,
     /// The items are distributed such that the gap between any two items is equal.
@@ -1126,12 +1381,51 @@ pub enum JustifyContent {
 }
 
 impl JustifyContent {
-    pub const DEFAULT: Self = Self::Default;
-}
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
-impl Default for JustifyContent {
-    fn default() -> Self {
-        Self::DEFAULT
+    /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
+    pub const fn is_safe(&self) -> bool {
+        match self {
+            JustifyContent::StartSafe
+            | JustifyContent::CenterSafe
+            | JustifyContent::EndSafe
+            | JustifyContent::FlexStartSafe
+            | JustifyContent::FlexEndSafe => true,
+            // Explicitly enumerate variants so we don't forget to extend this when changing them.
+            JustifyContent::Normal
+            | JustifyContent::Start
+            | JustifyContent::Center
+            | JustifyContent::End
+            | JustifyContent::FlexStart
+            | JustifyContent::FlexEnd
+            | JustifyContent::Stretch
+            | JustifyContent::SpaceBetween
+            | JustifyContent::SpaceEvenly
+            | JustifyContent::SpaceAround => false,
+        }
+    }
+
+    /// Converts `self` to a [`safe`](Self#safe-alignments) alignment if possible.
+    /// Returns `self` if there isn't a `safe` variant.
+    pub const fn to_safe(self) -> Self {
+        match self {
+            JustifyContent::Start => JustifyContent::StartSafe,
+            JustifyContent::Center => JustifyContent::CenterSafe,
+            JustifyContent::End => JustifyContent::EndSafe,
+            JustifyContent::FlexStart => JustifyContent::FlexStartSafe,
+            JustifyContent::FlexEnd => JustifyContent::FlexEndSafe,
+            JustifyContent::Normal
+            | JustifyContent::StartSafe
+            | JustifyContent::EndSafe
+            | JustifyContent::CenterSafe
+            | JustifyContent::FlexStartSafe
+            | JustifyContent::FlexEndSafe
+            | JustifyContent::Stretch
+            | JustifyContent::SpaceBetween
+            | JustifyContent::SpaceEvenly
+            | JustifyContent::SpaceAround => self,
+        }
     }
 }
 
@@ -1543,6 +1837,10 @@ pub enum MinTrackSizingFunction {
     Px(f32),
     /// Track minimum size should be a percentage value
     Percent(f32),
+    /// Track minimum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track minimum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track minimum size should be content sized under a min-content constraint
     MinContent,
     /// Track minimum size should be content sized under a max-content constraint
@@ -1572,6 +1870,10 @@ pub enum MaxTrackSizingFunction {
     Px(f32),
     /// Track maximum size should be a percentage value
     Percent(f32),
+    /// Track maximum size should be a multiple of the grid container's font size.
+    Em(f32),
+    /// Track maximum size should be a multiple of the root font size.
+    Rem(f32),
     /// Track maximum size should be content sized under a min-content constraint
     MinContent,
     /// Track maximum size should be content sized under a max-content constraint
@@ -1632,6 +1934,24 @@ impl GridTrack {
         Self {
             min_sizing_function: MinTrackSizingFunction::Percent(value),
             max_sizing_function: MaxTrackSizingFunction::Percent(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the grid container's font size.
+    pub fn em<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Em(value),
+            max_sizing_function: MaxTrackSizingFunction::Em(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Rem(value),
+            max_sizing_function: MaxTrackSizingFunction::Rem(value),
         }
         .into()
     }
@@ -1841,6 +2161,24 @@ impl RepeatedGridTrack {
         Self {
             repetition: repetition.into(),
             tracks: SmallVec::from_buf([GridTrack::percent(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the grid container's font size.
+    pub fn em<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::em(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with size as a multiple of the root font size.
+    pub fn rem<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::rem(value)]),
         }
         .into()
     }
@@ -2398,12 +2736,92 @@ impl Default for Outline {
     }
 }
 
-/// The calculated clip of the node
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct CalculatedClip {
-    /// The rect of the clip
-    pub clip: Rect,
+/// A single local-space clipping rect.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, Debug, PartialEq, Clone)]
+pub struct CalculatedClipRect {
+    /// The clip rect in the clipping node's local space.
+    pub rect: Rect,
+    /// Transform from world space into the clipping node's local space.
+    pub world_to_clip_local: Affine2,
+}
+
+impl Default for CalculatedClipRect {
+    fn default() -> Self {
+        Self {
+            rect: Rect::default(),
+            world_to_clip_local: Affine2::IDENTITY,
+        }
+    }
+}
+
+/// The calculated clipping inherited by the node.
+#[derive(Component, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub enum CalculatedClip {
+    /// Clip rects inherited from ancestors.
+    Rects(SmallVec<[CalculatedClipRect; 2]>),
+    /// The node and descendants are fully clipped.
+    FullyClipped,
+}
+
+impl Default for CalculatedClip {
+    fn default() -> Self {
+        Self::Rects(SmallVec::new())
+    }
+}
+
+impl CalculatedClip {
+    pub fn with_rect(&self, rect: Rect, transform: &UiGlobalTransform) -> Self {
+        if !self.is_fully_clipped()
+            && let Some(world_to_local_clip) = transform.try_inverse()
+        {
+            let mut clip = self.clone();
+            clip.push_rect(rect, world_to_local_clip);
+            clip
+        } else {
+            CalculatedClip::FullyClipped
+        }
+    }
+
+    /// Returns true if the node and descendants are fully clipped.
+    #[inline]
+    pub const fn is_fully_clipped(&self) -> bool {
+        matches!(self, Self::FullyClipped)
+    }
+
+    /// Returns the inherited clipping rects, if this node is not fully clipped.
+    #[inline]
+    pub fn rects(&self) -> Option<&[CalculatedClipRect]> {
+        match self {
+            Self::Rects(rects) => Some(rects),
+            Self::FullyClipped => None,
+        }
+    }
+
+    /// Returns true if the point is contained by all inherited clipping rects.
+    #[inline]
+    pub fn contains_point(&self, point: Vec2) -> bool {
+        match self {
+            Self::Rects(rects) => rects.iter().all(|clip_rect| {
+                clip_rect
+                    .rect
+                    .contains(clip_rect.world_to_clip_local.transform_point2(point))
+            }),
+            Self::FullyClipped => false,
+        }
+    }
+
+    /// Adds a clipping rect if this node is not fully clipped.
+    #[inline]
+    pub fn push_rect(&mut self, rect: Rect, world_to_clip_local: Affine2) {
+        if let Self::Rects(rects) = self {
+            rects.push(CalculatedClipRect {
+                rect,
+                world_to_clip_local,
+            });
+        }
+    }
 }
 
 /// UI node entities with this component will ignore any clipping rect they inherit,
@@ -2436,10 +2854,18 @@ pub struct ZIndex(pub i32);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above or below other UI nodes.
+/// Root UI nodes without a `GlobalZIndex` component receive an implicit global z-index of `0`.
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
+/// The order of nodes with the same `GlobalZIndex` is stable between frames.
 ///
-/// If two Nodes have the same `GlobalZIndex`, the node with the greater [`ZIndex`] will be drawn on top.
+/// If two Nodes have the same `GlobalZIndex`, ties are decided in order by:
+///
+/// * The node with the higher `ZIndex`.
+/// * The node that was newly added this frame.
+/// * The node with a changed `GlobalZIndex` or `ZIndex`.
+///
+/// Otherwise the order is preserved from the previous frame.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
@@ -2494,11 +2920,11 @@ impl<T: Into<Color>> From<T> for OuterColor {
 ///             border: UiRect::all(Val::Px(2.)),
 ///             border_radius: BorderRadius {
 ///                 // rounded corners, x and y radii equal
-///                 top_left: Val2::all(px(10.)),
-///                 top_right: Val2::all(percent(20.)),
-///                 bottom_right: Val2::all(px(30.)),
+///                 top_left: CornerRadius::circular(px(10.)),
+///                 top_right: percent(20.).into(),
 ///                 // elliptical corner
-///                 bottom_left: Val2::px(10., 40.),
+///                 bottom_right: CornerRadius::new(px(30.), px(20.)),
+///                 bottom_left: CornerRadius { x: px(10.), y: px(40.) },
 ///             },
 ///             ..Default::default()
 ///         },
@@ -2516,14 +2942,14 @@ impl<T: Into<Color>> From<T> for OuterColor {
     reflect(Serialize, Deserialize)
 )]
 pub struct BorderRadius {
-    /// Border radii for top left corner
-    pub top_left: Val2,
-    /// Border radii for top right corner
-    pub top_right: Val2,
-    /// Border radii for bottom right corner
-    pub bottom_right: Val2,
-    /// Border radii for bottom left corner
-    pub bottom_left: Val2,
+    /// Border radius of the top left corner
+    pub top_left: CornerRadius,
+    /// Border radius of the top right corner
+    pub top_right: CornerRadius,
+    /// Border radius of the bottom right corner
+    pub bottom_right: CornerRadius,
+    /// Border radius of the bottom left corner
+    pub bottom_left: CornerRadius,
 }
 
 impl Default for BorderRadius {
@@ -2536,51 +2962,47 @@ impl BorderRadius {
     pub const DEFAULT: Self = Self::ZERO;
 
     /// Zero curvature. All the corners will be right-angled.
-    pub const ZERO: Self = Self::all_circular(Val::Px(0.));
+    pub const ZERO: Self = Self {
+        top_left: CornerRadius::ZERO,
+        top_right: CornerRadius::ZERO,
+        bottom_right: CornerRadius::ZERO,
+        bottom_left: CornerRadius::ZERO,
+    };
 
     /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
-    pub const MAX: Self = Self::all_circular(Val::Px(f32::MAX));
+    pub const MAX: Self = Self {
+        top_left: CornerRadius::MAX,
+        top_right: CornerRadius::MAX,
+        bottom_right: CornerRadius::MAX,
+        bottom_left: CornerRadius::MAX,
+    };
 
-    #[inline]
+    //// The node will be drawn as an ellipse with a horizontal radius of half its width and a vertical radius of half its height.
+    pub const MAX_ELLIPTICAL: Self = Self {
+        top_left: CornerRadius::MAX_ELLIPTICAL,
+        top_right: CornerRadius::MAX_ELLIPTICAL,
+        bottom_right: CornerRadius::MAX_ELLIPTICAL,
+        bottom_left: CornerRadius::MAX_ELLIPTICAL,
+    };
+
     /// Set all four corners to the same curvature.
-    pub fn all(radii: impl Into<Val2>) -> Self {
-        let radii = radii.into();
-        Self {
-            top_left: radii,
-            top_right: radii,
-            bottom_left: radii,
-            bottom_right: radii,
-        }
-    }
-
     #[inline]
-    /// Set all four circular corners to the same round corner radius.
-    pub const fn all_circular(radius: Val) -> Self {
+    pub fn all(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
-            top_left: Val2::all(radius),
-            top_right: Val2::all(radius),
-            bottom_left: Val2::all(radius),
-            bottom_right: Val2::all(radius),
-        }
-    }
-
-    #[inline]
-    /// Set all four corners to the same elliptical radii.
-    pub const fn all_elliptical(radii: Val2) -> Self {
-        Self {
-            top_left: radii,
-            top_right: radii,
-            bottom_left: radii,
-            bottom_right: radii,
+            top_left: radius,
+            top_right: radius,
+            bottom_left: radius,
+            bottom_right: radius,
         }
     }
 
     #[inline]
     pub fn new(
-        top_left: impl Into<Val2>,
-        top_right: impl Into<Val2>,
-        bottom_right: impl Into<Val2>,
-        bottom_left: impl Into<Val2>,
+        top_left: impl Into<CornerRadius>,
+        top_right: impl Into<CornerRadius>,
+        bottom_right: impl Into<CornerRadius>,
+        bottom_left: impl Into<CornerRadius>,
     ) -> Self {
         Self {
             top_left: top_left.into(),
@@ -2590,34 +3012,19 @@ impl BorderRadius {
         }
     }
 
+    /// Sets each corner to a circular radius in logical pixels.
     #[inline]
-    pub const fn elliptical(
-        top_left: Val2,
-        top_right: Val2,
-        bottom_right: Val2,
-        bottom_left: Val2,
-    ) -> Self {
-        Self {
-            top_left,
-            top_right,
-            bottom_right,
-            bottom_left,
-        }
-    }
-
-    #[inline]
-    /// Sets the radii to logical pixel values.
     pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
         Self {
-            top_left: Val2::all(Val::Px(top_left)),
-            top_right: Val2::all(Val::Px(top_right)),
-            bottom_right: Val2::all(Val::Px(bottom_right)),
-            bottom_left: Val2::all(Val::Px(bottom_left)),
+            top_left: CornerRadius::circular(Val::Px(top_left)),
+            top_right: CornerRadius::circular(Val::Px(top_right)),
+            bottom_right: CornerRadius::circular(Val::Px(bottom_right)),
+            bottom_left: CornerRadius::circular(Val::Px(bottom_left)),
         }
     }
 
+    /// Sets each corners to a circular radius in percentage values.
     #[inline]
-    /// Sets the radii to percentage values.
     pub const fn percent(
         top_left: f32,
         top_right: f32,
@@ -2625,167 +3032,163 @@ impl BorderRadius {
         bottom_left: f32,
     ) -> Self {
         Self {
-            top_left: Val2::all(Val::Percent(top_left)),
-            top_right: Val2::all(Val::Percent(top_right)),
-            bottom_right: Val2::all(Val::Percent(bottom_right)),
-            bottom_left: Val2::all(Val::Percent(bottom_left)),
+            top_left: CornerRadius::circular(Val::Percent(top_left)),
+            top_right: CornerRadius::circular(Val::Percent(top_right)),
+            bottom_right: CornerRadius::circular(Val::Percent(bottom_right)),
+            bottom_left: CornerRadius::circular(Val::Percent(bottom_left)),
         }
     }
 
-    #[inline]
-    /// Sets the radii for the top left corner.
+    /// Sets the radius for the top left corner.
     /// Remaining corners will be right-angled.
-    pub fn top_left(radii: impl Into<Val2>) -> Self {
+    #[inline]
+    pub fn top_left(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            top_left: radii.into(),
+            top_left: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
-    /// Sets the radii for the top right corner.
+    /// Sets the radius for the top right corner.
     /// Remaining corners will be right-angled.
-    pub fn top_right(radii: impl Into<Val2>) -> Self {
+    #[inline]
+    pub fn top_right(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            top_right: radii.into(),
+            top_right: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
-    /// Sets the radii for the bottom right corner.
+    /// Sets the radius for the bottom right corner.
     /// Remaining corners will be right-angled.
-    pub fn bottom_right(radii: impl Into<Val2>) -> Self {
+    #[inline]
+    pub fn bottom_right(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            bottom_right: radii.into(),
+            bottom_right: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radii for the bottom left corner.
     /// Remaining corners will be right-angled.
-    pub fn bottom_left(radii: impl Into<Val2>) -> Self {
+    #[inline]
+    pub fn bottom_left(radius: impl Into<CornerRadius>) -> Self {
         Self {
-            bottom_left: radii.into(),
+            bottom_left: radius.into(),
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radii for the top left and bottom left corners.
     /// Remaining corners will be right-angled.
-    pub fn left<V: Copy + Into<Val2>>(radii: V) -> Self {
+    #[inline]
+    pub fn left(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
-            top_left: radii.into(),
-            bottom_left: radii.into(),
+            top_left: radius,
+            bottom_left: radius,
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radii for the top right and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub fn right<V: Copy + Into<Val2>>(radii: V) -> Self {
+    #[inline]
+    pub fn right(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
-            top_right: radii.into(),
-            bottom_right: radii.into(),
+            top_right: radius,
+            bottom_right: radius,
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radii for the top left and top right corners.
     /// Remaining corners will be right-angled.
-    pub fn top<V: Copy + Into<Val2>>(radii: V) -> Self {
+    #[inline]
+    pub fn top(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
-            top_left: radii.into(),
-            top_right: radii.into(),
+            top_left: radius,
+            top_right: radius,
             ..Self::DEFAULT
         }
     }
 
-    #[inline]
     /// Sets the radii for the bottom left and bottom right corners.
     /// Remaining corners will be right-angled.
-    pub fn bottom<V: Copy + Into<Val2>>(radii: V) -> Self {
+    #[inline]
+    pub fn bottom(radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
         Self {
-            bottom_left: radii.into(),
-            bottom_right: radii.into(),
+            bottom_left: radius,
+            bottom_right: radius,
             ..Self::DEFAULT
         }
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
     #[inline]
-    pub fn with_top_left(mut self, radii: impl Into<Val2>) -> Self {
-        self.top_left = radii.into();
+    pub fn with_top_left(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.top_left = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
     #[inline]
-    pub fn with_top_right(mut self, radii: impl Into<Val2>) -> Self {
-        self.top_right = radii.into();
+    pub fn with_top_right(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.top_right = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
     #[inline]
-    pub fn with_bottom_right(mut self, radii: impl Into<Val2>) -> Self {
-        self.bottom_right = radii.into();
+    pub fn with_bottom_right(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.bottom_right = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
     #[inline]
-    pub fn with_bottom_left(mut self, radii: impl Into<Val2>) -> Self {
-        self.bottom_left = radii.into();
+    pub fn with_bottom_left(mut self, radius: impl Into<CornerRadius>) -> Self {
+        self.bottom_left = radius.into();
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
     #[inline]
-    pub fn with_left<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
-        self.top_left = radii.into();
-        self.bottom_left = radii.into();
+    pub fn with_left(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
+        self.top_left = radius;
+        self.bottom_left = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
     #[inline]
-    pub fn with_right<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
-        self.top_right = radii.into();
-        self.bottom_right = radii.into();
+    pub fn with_right(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
+        self.top_right = radius;
+        self.bottom_right = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
     #[inline]
-    pub fn with_top<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
-        self.top_left = radii.into();
-        self.top_right = radii.into();
+    pub fn with_top(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
+        self.top_left = radius;
+        self.top_right = radius;
         self
     }
 
     /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
     #[inline]
-    pub fn with_bottom<V: Copy + Into<Val2>>(mut self, radii: V) -> Self {
-        self.bottom_left = radii.into();
-        self.bottom_right = radii.into();
+    pub fn with_bottom(mut self, radius: impl Into<CornerRadius>) -> Self {
+        let radius = radius.into();
+        self.bottom_left = radius;
+        self.bottom_right = radius;
         self
-    }
-
-    /// Resolve the border radius for a single corner from the given context values.
-    /// Returns the radius of the corner in physical pixels.
-    pub fn resolve_single_corner(
-        radius: Val2,
-        scale_factor: f32,
-        size: Vec2,
-        viewport_size: Vec2,
-    ) -> Vec2 {
-        let radius = radius.resolve(scale_factor, size, viewport_size);
-        radius.clamp(Vec2::ZERO, 0.5 * size)
     }
 
     /// Resolve the border radii for the corners from the given context values.
@@ -2795,31 +3198,37 @@ impl BorderRadius {
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
+        em_size: EmSize,
+        rem_size: RemSize,
     ) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: Self::resolve_single_corner(
-                self.top_left,
+            top_left: self.top_left.resolve(
                 scale_factor,
                 node_size,
                 viewport_size,
+                em_size,
+                rem_size,
             ),
-            top_right: Self::resolve_single_corner(
-                self.top_right,
+            top_right: self.top_right.resolve(
                 scale_factor,
                 node_size,
                 viewport_size,
+                em_size,
+                rem_size,
             ),
-            bottom_left: Self::resolve_single_corner(
-                self.bottom_left,
+            bottom_left: self.bottom_left.resolve(
                 scale_factor,
                 node_size,
                 viewport_size,
+                em_size,
+                rem_size,
             ),
-            bottom_right: Self::resolve_single_corner(
-                self.bottom_right,
+            bottom_right: self.bottom_right.resolve(
                 scale_factor,
                 node_size,
                 viewport_size,
+                em_size,
+                rem_size,
             ),
         }
     }
@@ -2827,7 +3236,7 @@ impl BorderRadius {
 
 impl<T> From<T> for BorderRadius
 where
-    T: Into<Val2>,
+    T: Into<CornerRadius>,
 {
     fn from(value: T) -> Self {
         Self::all(value)
@@ -2871,6 +3280,33 @@ impl From<ResolvedBorderRadius> for [[f32; 4]; 2] {
                 radius.bottom_left.y,
             ],
         ]
+    }
+}
+
+/// The border style of the UI node.
+#[derive(Component, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Component, Default, PartialEq, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum BorderStyle {
+    Solid,
+    Double,
+    Inset,
+    Outset,
+    Groove,
+    Ridge,
+}
+
+impl BorderStyle {
+    pub const DEFAULT: Self = Self::Solid;
+}
+
+impl Default for BorderStyle {
+    fn default() -> Self {
+        Self::DEFAULT
     }
 }
 
@@ -2979,7 +3415,7 @@ impl Default for LayoutConfig {
 /// Root node's without an explicit [`UiTargetCamera`] will be rendered to the default UI camera,
 /// which is either a single camera with the [`IsDefaultUiCamera`] marker component or the highest
 /// order camera targeting the primary window.
-#[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+#[derive(Component, FromTemplate, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq, Clone)]
 pub struct UiTargetCamera(pub Entity);
 
@@ -3109,10 +3545,32 @@ impl ComputedUiRenderTargetInfo {
 /// A `FixedNode` UI entity is positioned relative to the target camera's viewport rather that its parent element.
 ///
 /// `FixedNode`s don't inherit their parent's layout, clipping or transform context.
-#[derive(Component, Clone, Default, Reflect)]
+/// `FixedNode` is ignored on a `GhostNode`.
+/// `FixedNode` on a parentless node is redundant.
+/// All of a `FixedNode`'s ancestors must be `Node` entities.
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
-#[require(Node, OverrideClip)]
+#[require(Node)]
 pub struct FixedNode;
+
+/// Marker component for `Node` entities that should be replaced by their children during UI layout.
+///
+/// - A `GhostNode` is a UI node entity, it requires `Node` but all the field's on its `Node` component are ignored.
+/// - A `GhostNode` is given zero size during layout.
+/// - Its position is the same as its parent (before `UiTransform`, is present, is applied).
+/// - Its `UiTransform` will be resolved and applied normally, except that instead of its own size, percentage
+///   values are based on the size of the `GhostNode`'s parent.
+/// - Events pass through normally.
+/// - `FixedNode` is ignored on a `GhostNode`.
+/// - `OverrideClip` is not ignored on a `GhostNode`.
+/// - Clipping propagates through `GhostNode`'s but their `Node::overflow` setting is ignored.
+/// - A `GhostNode`'s children's `Val::Percent` coords are resolved based on the the size of their nearest non-ghost ancestor,
+///   skipping any intermediate ghosts, or the size of the viewport if they have no non-ghost ancestors.
+/// - A root `GhostNode`'s children are UI root nodes each with their own implicit viewport node.
+#[derive(Component, Debug, Copy, Clone, Reflect, Default)]
+#[reflect(Component, Debug, Clone)]
+#[require(Node)]
+pub struct GhostNode;
 
 #[cfg(test)]
 mod tests {

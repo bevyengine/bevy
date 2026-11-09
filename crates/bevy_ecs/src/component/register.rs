@@ -5,13 +5,10 @@ use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
 
 use crate::component::{enforce_no_required_components_recursion, RequiredComponentsRegistrator};
-use crate::lifecycle::ComponentHooks;
-use crate::{
-    component::{
-        Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
-    },
-    query::DebugCheckedUnwrap as _,
+use crate::component::{
+    Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
 };
+use crate::lifecycle::ComponentHooks;
 
 /// Generates [`ComponentId`]s.
 #[derive(Debug, Default)]
@@ -22,7 +19,7 @@ pub struct ComponentIds {
 impl ComponentIds {
     /// Peeks the next [`ComponentId`] to be generated without generating it.
     pub fn peek(&self) -> ComponentId {
-        ComponentId(
+        ComponentId::new(
             self.next
                 .load(bevy_platform::sync::atomic::Ordering::Relaxed),
         )
@@ -30,7 +27,7 @@ impl ComponentIds {
 
     /// Generates and returns the next [`ComponentId`].
     pub fn next(&self) -> ComponentId {
-        ComponentId(
+        ComponentId::new(
             self.next
                 .fetch_add(1, bevy_platform::sync::atomic::Ordering::Relaxed),
         )
@@ -38,20 +35,20 @@ impl ComponentIds {
 
     /// Peeks the next [`ComponentId`] to be generated without generating it.
     pub fn peek_mut(&mut self) -> ComponentId {
-        ComponentId(*self.next.get_mut())
+        ComponentId::new(*self.next.get_mut())
     }
 
     /// Generates and returns the next [`ComponentId`].
     pub fn next_mut(&mut self) -> ComponentId {
         let id = self.next.get_mut();
-        let result = ComponentId(*id);
+        let result = ComponentId::new(*id);
         *id += 1;
         result
     }
 
     /// Returns the number of [`ComponentId`]s generated.
     pub fn len(&self) -> usize {
-        self.peek().0
+        self.peek().index()
     }
 
     /// Returns true if and only if no ids have been generated.
@@ -132,7 +129,7 @@ impl<'w> ComponentsRegistrator<'w> {
                 .unwrap_or_else(PoisonError::into_inner);
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
-                unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
+                unsafe { queued.components.remove(&type_id).unwrap_unchecked() }
             })
         } {
             registrator.register(self);
@@ -249,10 +246,10 @@ impl<'w> ComponentsRegistrator<'w> {
             &mut self
                 .components
                 .components
-                .get_mut(id.0)
-                .debug_checked_unwrap()
+                .get_mut(id.index())
+                .unwrap_unchecked()
                 .as_mut()
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
 
         update_from_component(&mut info.hooks);

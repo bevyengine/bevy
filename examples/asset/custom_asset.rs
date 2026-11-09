@@ -1,159 +1,83 @@
-//! Implements loader for a custom asset type.
+//! Demonstrates creating a simple data asset that can be loaded from disk.
 
 use bevy::{
-    asset::{io::Reader, AssetLoader, LoadContext},
+    asset::{common_loaders::ron::RonLoader, ReflectAsset},
     prelude::*,
-    reflect::TypePath,
 };
-use serde::Deserialize;
-use thiserror::Error;
 
-#[derive(Asset, TypePath, Debug, Deserialize)]
-struct CustomAsset {
-    #[expect(
-        dead_code,
-        reason = "Used to show how the data inside an asset file will be loaded into the struct"
-    )]
-    value: i32,
-}
-
-#[derive(Default, TypePath)]
-struct CustomAssetLoader;
-
-/// Possible errors that can be produced by [`CustomAssetLoader`]
-#[non_exhaustive]
-#[derive(Debug, Error)]
-enum CustomAssetLoaderError {
-    /// An [IO](std::io) Error
-    #[error("Could not load asset: {0}")]
-    Io(#[from] std::io::Error),
-    /// A [RON](ron) Error
-    #[error("Could not parse RON: {0}")]
-    RonSpannedError(#[from] ron::error::SpannedError),
-}
-
-impl AssetLoader for CustomAssetLoader {
-    type Asset = CustomAsset;
-    type Settings = ();
-    type Error = CustomAssetLoaderError;
-    async fn load(
-        &self,
-        reader: &mut dyn Reader,
-        _settings: &(),
-        _load_context: &mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        let custom_asset = ron::de::from_bytes::<CustomAsset>(&bytes)?;
-        Ok(custom_asset)
-    }
-
-    fn extensions(&self) -> &[&str] {
-        &["custom"]
-    }
-}
-
-#[derive(Asset, TypePath, Debug)]
-struct Blob {
-    bytes: Vec<u8>,
-}
-
-#[derive(Default, TypePath)]
-struct BlobAssetLoader;
-
-/// Possible errors that can be produced by [`BlobAssetLoader`]
-#[non_exhaustive]
-#[derive(Debug, Error)]
-enum BlobAssetLoaderError {
-    /// An [IO](std::io) Error
-    #[error("Could not load file: {0}")]
-    Io(#[from] std::io::Error),
-}
-
-impl AssetLoader for BlobAssetLoader {
-    type Asset = Blob;
-    type Settings = ();
-    type Error = BlobAssetLoaderError;
-
-    async fn load(
-        &self,
-        reader: &mut dyn Reader,
-        _settings: &(),
-        _load_context: &mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        info!("Loading Blob...");
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-
-        Ok(Blob { bytes })
-    }
+// To create a custom asset, just derive the [`Asset`] trait. If you want to use this type with
+// something like the [`RonLoader`] (seen below), you also need to derive [`Reflect`] and reflect
+// [`Asset`].
+#[derive(Asset, Reflect, Debug)]
+#[reflect(Asset)]
+struct MyDataAsset {
+    text: String,
+    color: Color,
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<State>()
-        .init_asset::<CustomAsset>()
-        .init_asset::<Blob>()
-        .init_asset_loader::<CustomAssetLoader>()
-        .init_asset_loader::<BlobAssetLoader>()
+        // Adding this RonLoader allows us to load any reflected type in the RON format! This is
+        // **not** required (you can define your own asset loader as shown in the
+        // `custom_asset_loader` example, or avoid loading assets altogether and just use
+        // `Assets::add` instead), but this loader allows us to easily load our data from disk.
+        .init_asset_loader::<RonLoader>()
+        .init_asset::<MyDataAsset>()
         .add_systems(Startup, setup)
-        .add_systems(Update, print_on_load)
+        .add_systems(
+            Update,
+            // Run condition so that we only update when there's an asset event, and not every
+            // frame.
+            update_text.run_if(on_message::<AssetEvent<MyDataAsset>>),
+        )
         .run();
 }
 
-#[derive(Resource, Default)]
-struct State {
-    handle: Handle<CustomAsset>,
-    other_handle: Handle<CustomAsset>,
-    blob: Handle<Blob>,
-    printed: bool,
+/// Spawns some centered text that will be updated by the data asset.
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2d);
+    let parent = commands
+        .spawn(Node {
+            width: Val::Vw(100.0),
+            height: Val::Vh(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..Default::default()
+        })
+        .id();
+
+    commands.spawn((
+        // We load the asset from `assets/data/simple_data.ron`. Try updating the file and see the
+        // text change! Consider enabling the `file_watcher` feature to see this asset get
+        // hot-reloaded.
+        UpdateTextFromDataAsset(asset_server.load("data/simple_data.ron#Typed")),
+        Text(String::new()),
+        TextFont {
+            font_size: FontSize::Vh(10.0),
+            ..Default::default()
+        },
+        ChildOf(parent),
+    ));
 }
 
-fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
-    // Recommended way to load an asset
-    state.handle = asset_server.load("data/asset.custom");
+#[derive(Component)]
+struct UpdateTextFromDataAsset(Handle<MyDataAsset>);
 
-    // File extensions are optional, but are recommended for project management and last-resort inference
-    state.other_handle = asset_server.load("data/asset_no_extension");
-
-    // Will use BlobAssetLoader instead of CustomAssetLoader thanks to type inference
-    state.blob = asset_server.load("data/asset.custom");
-}
-
-fn print_on_load(
-    mut state: ResMut<State>,
-    custom_assets: Res<Assets<CustomAsset>>,
-    blob_assets: Res<Assets<Blob>>,
+fn update_text(
+    mut texts: Populated<(&UpdateTextFromDataAsset, &mut Text, &mut TextColor)>,
+    data_assets: Res<Assets<MyDataAsset>>,
 ) {
-    let custom_asset = custom_assets.get(&state.handle);
-    let other_custom_asset = custom_assets.get(&state.other_handle);
-    let blob = blob_assets.get(&state.blob);
-
-    // Can't print results if the assets aren't ready
-    if state.printed {
-        return;
+    // The way this is written, any time any `MyDataAsset` changes state (loads, gets removed, loads
+    // its dependencies, etc), every text will be updated. Normally, you'd want to read the
+    // AssetEvent messages and just update the entities using that one asset, but for this example
+    // this is sufficient.
+    for (data_asset, mut text, mut color) in texts.iter_mut() {
+        let Some(data_asset) = data_assets.get(&data_asset.0) else {
+            // Might not be loaded yet.
+            continue;
+        };
+        text.0 = data_asset.text.clone();
+        color.0 = data_asset.color;
     }
-
-    if custom_asset.is_none() {
-        info!("Custom Asset Not Ready");
-        return;
-    }
-
-    if other_custom_asset.is_none() {
-        info!("Other Custom Asset Not Ready");
-        return;
-    }
-
-    if blob.is_none() {
-        info!("Blob Not Ready");
-        return;
-    }
-
-    info!("Custom asset loaded: {:?}", custom_asset.unwrap());
-    info!("Custom asset loaded: {:?}", other_custom_asset.unwrap());
-    info!("Blob Size: {} Bytes", blob.unwrap().bytes.len());
-
-    // Once printed, we won't print again
-    state.printed = true;
 }

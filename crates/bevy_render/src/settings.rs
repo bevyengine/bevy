@@ -208,7 +208,6 @@ impl RenderResources {
         render_world.insert_resource(instance);
         render_world.insert_resource(PipelineCache::new(
             device.clone(),
-            render_adapter.clone(),
             synchronous_pipeline_compilation,
         ));
         render_world.insert_resource(DeviceErrorHandler::new(&device));

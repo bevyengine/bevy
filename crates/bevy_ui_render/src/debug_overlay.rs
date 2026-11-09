@@ -231,9 +231,7 @@ pub fn extract_debug_overlay(
                     ExtractedUiNode {
                         // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
                         z_order,
-                        clip: maybe_clip
-                            .filter(|_| !debug_options.show_clipped)
-                            .map(|clip| clip.clip),
+                        clip: maybe_clip.filter(|_| !debug_options.show_clipped).cloned(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(rect.center()),
                         item: ExtractedUiItem::Node {

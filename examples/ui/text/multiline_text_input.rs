@@ -135,11 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         };
 
                                         let mut output = String::new();
-                                        output
-                                            .reserve(input.value().into_iter().map(str::len).sum());
-                                        for sub_str in input.value() {
-                                            output.push_str(sub_str);
-                                        }
+                                        output.push_str(&input.value());
 
                                         info!("{output}");
                                     },
@@ -244,10 +240,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 };
 
                                 let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                output.push_str(&input.value());
 
                                 let Ok(lines) = output.parse::<f32>() else {
                                     return;
@@ -330,10 +323,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 };
 
                                 let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                output.push_str(&input.value());
 
                                 let Ok(font_size) = output.parse::<f32>() else {
                                     return;
@@ -412,10 +402,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 };
 
                                 let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                output.push_str(&input.value());
 
                                 let Ok(radius) = output.parse::<f32>() else {
                                     return;
@@ -584,7 +571,7 @@ fn update_input_scrollbar(
 }
 
 fn on_thumb_drag_start(
-    mut on: On<Pointer<DragStart>>,
+    mut on: On<PointerDragStart>,
     mut thumb_query: Query<&mut InputScrollDragState, With<InputScrollThumb>>,
     input: Single<&EditableText, With<MultilineInput>>,
 ) {
@@ -597,7 +584,7 @@ fn on_thumb_drag_start(
 }
 
 fn on_thumb_drag(
-    mut on: On<Pointer<Drag>>,
+    mut on: On<PointerDrag>,
     thumb_query: Query<(&InputScrollDragState, &ChildOf), With<InputScrollThumb>>,
     track_query: Query<&ComputedNode>,
     mut input: Single<(&mut EditableText, &TextLayoutInfo), With<MultilineInput>>,
@@ -624,7 +611,7 @@ fn on_thumb_drag(
 }
 
 fn on_thumb_drag_end(
-    mut on: On<Pointer<DragEnd>>,
+    mut on: On<PointerDragEnd>,
     mut thumb_query: Query<&mut InputScrollDragState, With<InputScrollThumb>>,
 ) {
     on.propagate(false);

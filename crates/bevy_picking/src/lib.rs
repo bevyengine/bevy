@@ -17,11 +17,11 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut event: On<Pointer<Click>>| {
+//!     .observe(|mut click: On<PointerClick>| {
 //!         // Read the underlying pointer event data
-//!         println!("Pointer {:?} was just clicked!", event.pointer_id);
+//!         println!("Pointer {:?} was just clicked!", click.pointer.id);
 //!         // Stop the event from bubbling up the entity hierarchy
-//!         event.propagate(false);
+//!         click.propagate(false);
 //!     });
 //! ```
 //!
@@ -53,15 +53,15 @@
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
+//!         .observe(|drag: On<PointerDrag>, mut transforms: Query<&mut Transform>| {
 //!             let mut transform = transforms.get_mut(drag.entity).unwrap();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|click: On<Pointer<Click>>, mut commands: Commands| {
+//!         .observe(|click: On<PointerClick>, mut commands: Commands| {
 //!             println!("Entity {} goes BOOM!", click.entity);
 //!             commands.entity(click.entity).despawn();
 //!         })
-//!         .observe(|over: On<Pointer<Over>>, mut greetings: MessageWriter<Greeting>| {
+//!         .observe(|over: On<PointerOver>, mut greetings: MessageWriter<Greeting>| {
 //!             greetings.write(Greeting);
 //!         });
 //! }
@@ -157,6 +157,7 @@ extern crate alloc;
 use core::time::Duration;
 
 pub mod backend;
+pub mod cursor;
 pub mod events;
 pub mod hover;
 pub mod input;
@@ -182,8 +183,8 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        events::*, hover::PointerCaptureMap, input::PointerInputPlugin, pointer::PointerButton,
+        DefaultPickingPlugins, InteractionPlugin, Pickable, PickingPlugin,
     };
 }
 
@@ -379,7 +380,6 @@ impl Plugin for PickingPlugin {
             .add_systems(
                 PreUpdate,
                 (
-                    pointer::update_pointer_map,
                     pointer::PointerInput::receive,
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
@@ -424,24 +424,25 @@ impl Plugin for InteractionPlugin {
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
             .init_resource::<PickingSettings>()
+            .init_resource::<hover::PointerCaptureMap>()
             .init_resource::<PointerState>()
-            .add_message::<Pointer<Cancel>>()
-            .add_message::<Pointer<Click>>()
-            .add_message::<Pointer<Press>>()
-            .add_message::<Pointer<DragDrop>>()
-            .add_message::<Pointer<DragEnd>>()
-            .add_message::<Pointer<DragEnter>>()
-            .add_message::<Pointer<Drag>>()
-            .add_message::<Pointer<DragLeave>>()
-            .add_message::<Pointer<DragOver>>()
-            .add_message::<Pointer<DragStart>>()
-            .add_message::<Pointer<Move>>()
-            .add_message::<Pointer<Out>>()
-            .add_message::<Pointer<Over>>()
-            .add_message::<Pointer<Leave>>()
-            .add_message::<Pointer<Enter>>()
-            .add_message::<Pointer<Release>>()
-            .add_message::<Pointer<Scroll>>()
+            .add_message::<PointerCancel>()
+            .add_message::<PointerClick>()
+            .add_message::<PointerPress>()
+            .add_message::<PointerDragDrop>()
+            .add_message::<PointerDragEnd>()
+            .add_message::<PointerDragEnter>()
+            .add_message::<PointerDrag>()
+            .add_message::<PointerDragLeave>()
+            .add_message::<PointerDragOver>()
+            .add_message::<PointerDragStart>()
+            .add_message::<PointerMove>()
+            .add_message::<PointerOut>()
+            .add_message::<PointerOver>()
+            .add_message::<PointerLeave>()
+            .add_message::<PointerEnter>()
+            .add_message::<PointerRelease>()
+            .add_message::<PointerScroll>()
             .add_systems(
                 PreUpdate,
                 (

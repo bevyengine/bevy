@@ -45,6 +45,8 @@ pub struct DeriveComponent {
     pub relationship_target: Option<RelationshipTarget>,
     /// Whether or not this component is immutable.
     pub immutable: bool,
+    /// Whether or not this component tracks a summary tick.
+    pub summary_tick: bool,
     /// The clone behavior for this component.
     pub clone_behavior: Option<Expr>,
     /// The `map_entities` attribute information.
@@ -67,6 +69,7 @@ impl DeriveComponent {
             relationship: None,
             relationship_target: None,
             immutable: false,
+            summary_tick: false,
             clone_behavior: None,
             map_entities: None,
             additional_requires: Vec::new(),
@@ -117,6 +120,9 @@ impl DeriveComponent {
                     } else if nested.path.is_ident(IMMUTABLE) {
                         attrs.immutable = true;
                         Ok(())
+                    } else if nested.path.is_ident(SUMMARY_TICK) {
+                        attrs.summary_tick = true;
+                        Ok(())
                     } else if nested.path.is_ident(CLONE_BEHAVIOR) {
                         attrs.clone_behavior = Some(nested.value()?.parse()?);
                         Ok(())
@@ -157,6 +163,13 @@ impl DeriveComponent {
             return Err(syn::Error::new(
                 attrs.clone_behavior.span(),
                 "A Relationship Target already has its own clone behavior, please remove `clone_behavior = ...`",
+            ));
+        }
+
+        if attrs.summary_tick && matches!(attrs.storage, Some(StorageTy::SparseSet)) {
+            return Err(syn::Error::new(
+                ast.span(),
+                "Summary ticks are only supported for components with table storage.",
             ));
         }
 
@@ -212,6 +225,15 @@ impl DeriveComponent {
                 }
             }
         });
+
+        // If this component has a summary tick, define the appropriate method.
+        let has_summary_tick = if self.summary_tick {
+            quote! {
+                const HAS_SUMMARY_TICK: bool = true;
+            }
+        } else {
+            quote! {}
+        };
 
         let storage = storage_path(bevy_ecs, self.storage.unwrap_or(default_storage));
 
@@ -362,6 +384,8 @@ impl DeriveComponent {
                 fn relationship_accessor() -> #FQOption<#bevy_ecs::relationship::ComponentRelationshipAccessor<Self>> {
                     #relationship_accessor
                 }
+
+                #has_summary_tick
             }
 
             #relationship
@@ -508,6 +532,7 @@ const ON_REMOVE: &str = "on_remove";
 const ON_DESPAWN: &str = "on_despawn";
 
 const IMMUTABLE: &str = "immutable";
+const SUMMARY_TICK: &str = "summary_tick";
 const CLONE_BEHAVIOR: &str = "clone_behavior";
 
 /// All allowed attribute value expression kinds for component hooks.

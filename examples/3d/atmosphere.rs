@@ -212,7 +212,7 @@ struct WaterSettings {
 
 impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
-        "shaders/water_material.wgsl".into()
+        "shaders/water_material.wesl".into()
     }
 }
 

@@ -18,7 +18,7 @@
 //!
 //! When using the default mesh view bindings you should be able to use `prepass_depth()`,
 //! `prepass_normal()`, and `prepass_motion_vector()` to load the related textures.
-//! These functions are defined in `bevy_pbr::prepass_utils`. See the `shader_prepass` example that shows how to use them.
+//! These functions are defined in `bevy_pbr::prepass::utils`. See the `shader_prepass` example that shows how to use them.
 //!
 //! The prepass runs for each `Material`. You can control if the prepass should run per-material by setting the `prepass_enabled`
 //! flag on the `MaterialPlugin`.
@@ -80,8 +80,8 @@ pub struct MotionVectorPrepass;
 
 /// If added to a [`bevy_camera::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
-#[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default, Clone)]
 pub struct DeferredPrepass;
 
 /// Allows querying the previous frame's [`DepthPrepass`].

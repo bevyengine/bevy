@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .observe(
-            |mut event: On<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
+            |mut event: On<PointerClick>, mut focus: ResMut<InputFocus>| {
                 focus.clear();
                 event.propagate(false);
             },
@@ -114,8 +114,7 @@ fn setup(mut commands: Commands) {
                                     )],
                                 ))
                                 .observe(
-                                    |mut click: On<Pointer<Click>>,
-                                    mut focus: ResMut<InputFocus>| {
+                                    |mut click: On<PointerClick>, mut focus: ResMut<InputFocus>| {
                                         focus.set(click.entity, FocusCause::Pressed);
                                         click.propagate(false);
                                     },

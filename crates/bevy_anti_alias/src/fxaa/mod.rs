@@ -86,7 +86,7 @@ impl Default for Fxaa {
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "fxaa.wgsl");
+        embedded_asset!(app, "fxaa.wesl");
 
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
@@ -147,7 +147,7 @@ pub fn init_fxaa_pipeline(
         texture_bind_group,
         sampler,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "fxaa.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "fxaa.wesl"),
     });
 }
 

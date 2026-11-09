@@ -25,7 +25,6 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::{Event, EventKey},
     observer::Observers,
-    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -43,8 +42,7 @@ use nonmax::NonMaxU32;
 )]
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
-pub(crate) const ARCHETYPE_CREATED: EventKey =
-    EventKey(ComponentId::new(crate::component::ARCHETYPE_CREATED));
+pub(crate) const ARCHETYPE_CREATED: EventKey = EventKey(crate::component::ARCHETYPE_CREATED);
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -155,12 +153,12 @@ impl ArchetypeAfterBundleInsert {
 
     pub(crate) fn added(&self) -> &[ComponentId] {
         // SAFETY: `added_len` is always in range `0..=inserted.len()`
-        unsafe { self.inserted.get(..self.added_len).debug_checked_unwrap() }
+        unsafe { self.inserted.get(..self.added_len).unwrap_unchecked() }
     }
 
     pub(crate) fn existing(&self) -> &[ComponentId] {
         // SAFETY: `added_len` is always in range `0..=inserted.len()`
-        unsafe { self.inserted.get(self.added_len..).debug_checked_unwrap() }
+        unsafe { self.inserted.get(self.added_len..).unwrap_unchecked() }
     }
 }
 

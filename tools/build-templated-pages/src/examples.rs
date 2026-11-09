@@ -1,7 +1,7 @@
 use core::cmp::Ordering;
 use std::fs::File;
 
-use hashbrown::HashMap;
+use hashbrown::hash_map::{EntryRef, HashMap};
 use serde::Serialize;
 use tera::{Context, Tera};
 use toml_edit::{DocumentMut, Item};
@@ -111,7 +111,13 @@ pub(crate) fn check(what_to_run: Command) {
         let examples_by_category: HashMap<Box<str>, Category> = examples
             .into_iter()
             .fold(HashMap::<Box<str>, Vec<Example>>::new(), |mut v, ex| {
-                v.entry_ref(ex.category.as_str()).or_default().push(ex);
+                match v.entry_ref(ex.category.as_str()) {
+                    EntryRef::Vacant(e) => {
+                        e.insert_with_key(ex.category.as_str().into(), Default::default())
+                    }
+                    EntryRef::Occupied(e) => e.into_mut(),
+                }
+                .push(ex);
                 v
             })
             .into_iter()

@@ -69,6 +69,9 @@ use wgpu_types::TextureFormat;
 /// | Integer, 32-bit float, ≥16-bit-per-channel normalized, and snorm RGBA formats | Uncompressed KTX2 (passthrough) |
 /// | Already compressed (`BCn`, `ASTC`, `ETC2`, `EAC`) | Re-encoded to the same format |
 ///
+/// 8-bit grayscale images load as RGBA by default and compress to BC7.
+/// Set `expand_grayscale: false` in the image's `.meta` file to get BC4 or BC5.
+///
 /// Depth, stencil, and video formats (`NV12`, `P010`) are not supported and will return
 /// [`CompressedImageSaverError::UnsupportedFormat`].
 ///

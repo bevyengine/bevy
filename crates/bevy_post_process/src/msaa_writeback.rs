@@ -106,19 +106,14 @@ fn prepare_msaa_writeback_pipelines(
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // Determine if we should do MSAA writeback based on the camera's setting
+        // writeback is needed when the main pass must load existing content
+        // from the main texture because of `LoadOp::Load`.
+        // otherwise we'd read from an ephemeral sampled texture that doesn't have
+        // the real content
         let should_writeback = match camera.msaa_writeback {
             MsaaWriteback::Off => false,
-            // writeback is needed when the main pass must load existing content
-            // from the main texture, either because another camera already
-            // rendered to this target or because this camera preserves content across
-            // frames via load op load. otherwise we'd read from an ephemeral sampled
-            // texture that doesn't have the real content
-            MsaaWriteback::Auto => {
-                camera.sorted_camera_index_for_target > 0
-                    || matches!(camera.clear_color, ClearColorConfig::None)
-            }
-            MsaaWriteback::Always => true,
-        };
+            MsaaWriteback::Auto | MsaaWriteback::Always => true,
+        } && matches!(camera.clear_color, ClearColorConfig::None);
 
         if msaa.samples() > 1 && should_writeback {
             let key = BlitPipelineKey {

@@ -16,7 +16,7 @@ use bevy::{
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
     gltf::{convert_coordinates::GltfConvertCoordinates, GltfPlugin},
-    mesh::MeshAttributeCompressionFlags,
+    mesh::MeshCompressionArgs,
     pbr::DefaultOpaqueRendererMethod,
     post_process::motion_blur::MotionBlur,
     prelude::*,
@@ -61,12 +61,9 @@ struct Args {
     /// disables the infinite grid
     #[argh(switch)]
     no_infinite_grid: bool,
-    /// enable mesh attribute compression
+    /// enable mesh compression
     #[argh(switch)]
-    mesh_attribute_compression: bool,
-    /// enable mesh index compression
-    #[argh(switch)]
-    mesh_index_compression: bool,
+    mesh_compression: bool,
     /// enable motion blur
     #[argh(switch)]
     motion_blur: bool,
@@ -113,13 +110,11 @@ fn main() {
                 ..default()
             })
             .set(GltfPlugin {
-                mesh_attribute_compression: if args.mesh_attribute_compression {
-                    MeshAttributeCompressionFlags::all()
-                        .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                mesh_compression: if args.mesh_compression {
+                    MeshCompressionArgs::regular()
                 } else {
-                    MeshAttributeCompressionFlags::empty()
+                    MeshCompressionArgs::none()
                 },
-                mesh_index_compression: args.mesh_index_compression,
                 convert_coordinates: GltfConvertCoordinates {
                     rotate_scene_entity: args.convert_scene_coordinates == Some(true),
                     rotate_meshes: args.convert_mesh_coordinates == Some(true),
@@ -181,7 +176,6 @@ fn setup_scene_after_load(
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
-        *setup = true;
         // Find an approximate bounding box of the scene from its meshes
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
@@ -290,5 +284,7 @@ fn setup_scene_after_load(
 
             scene_handle.has_light = true;
         }
+
+        *setup = true;
     }
 }

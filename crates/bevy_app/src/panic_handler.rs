@@ -46,7 +46,9 @@ impl Plugin for PanicHandlerPlugin {
                 cfg_select! {
                     all(target_arch = "wasm32", feature = "web") => {
                         // This provides better panic handling in JS engines (displays the panic message and improves the backtrace).
-                        std::panic::set_hook(alloc::boxed::Box::new(console_error_panic_hook::hook));
+                        std::panic::set_hook(alloc::boxed::Box::new(
+                            console_error_panic_hook::hook,
+                        ));
                     }
                     feature = "error_panic_hook" => {
                         let current_hook = std::panic::take_hook();
@@ -55,7 +57,7 @@ impl Plugin for PanicHandlerPlugin {
                         ));
                     }
                     // Otherwise use the default target panic hook - Do nothing.
-                    _ => ()
+                    _ => (),
                 }
             });
         }

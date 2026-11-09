@@ -168,6 +168,10 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         Box::new(self.to_mut().remove(index))
     }
 
+    fn swap(&mut self, a: usize, b: usize) {
+        self.to_mut().swap(a, b);
+    }
+
     fn push(&mut self, value: Box<dyn PartialReflect>) {
         let value = T::take_from_reflect(value).unwrap_or_else(|value| {
             panic!(
