@@ -3,7 +3,7 @@ title: "BRP method handlers share one system type"
 pull_requests: [26462]
 ---
 
-`RemoteMethodHandler` should now be used instead of `RemoteMethodSystemId`, and handles registring a handler in the world.
+`RemoteMethodHandler` should now be used instead of `RemoteMethodSystemId`, and handles registering a handler in the world.
 
 ```rust
 // 0.20
