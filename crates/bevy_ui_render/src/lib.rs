@@ -1469,6 +1469,7 @@ pub fn extract_ui_camera_view(
                     physical_viewport_rect.min,
                     physical_viewport_rect.size(),
                 )),
+                target_size,
                 color_grading: Default::default(),
                 invert_culling: false,
             };

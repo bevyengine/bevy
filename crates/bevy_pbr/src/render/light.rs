@@ -32,7 +32,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     MaterialProperties,
 };
-use bevy_math::{ops, proj, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{ops, proj, Mat4, UVec2, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -2013,6 +2013,7 @@ pub fn prepare_lights(
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
+                        target_size: UVec2::splat(directional_light_shadow_map.size as u32),
                         world_from_view: GlobalTransform::from(cascade.world_from_cascade),
                         clip_from_view: cascade.clip_from_cascade,
                         clip_from_world: Some(cascade.clip_from_world),
@@ -2231,6 +2232,7 @@ fn create_point_shadow_maps(
                     point_light_shadow_map_size,
                     point_light_shadow_map_size,
                 ),
+                target_size: UVec2::splat(point_light_shadow_map_size),
                 world_from_view: view_translation * *view_rotation,
                 clip_from_world: None,
                 clip_from_view: cube_face_projection,
@@ -2331,6 +2333,7 @@ fn create_spot_shadow_map(
                 directional_light_shadow_map_size,
                 directional_light_shadow_map_size,
             ),
+            target_size: UVec2::splat(directional_light_shadow_map_size),
             world_from_view: spot_world_from_view,
             clip_from_view: spot_projection,
             clip_from_world: None,

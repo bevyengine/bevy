@@ -465,6 +465,8 @@ pub struct ExtractedCamera {
     /// The camera's viewport within its render target. The camera renders into the whole main
     /// texture, which is written to this part of the render target.
     pub target_viewport: Option<Viewport>,
+    /// The size of the camera's render target.
+    pub target_size: UVec2,
     pub schedule: InternedScheduleLabel,
     pub order: isize,
     pub output_mode: CameraOutputMode,
@@ -610,7 +612,10 @@ pub fn extract_cameras(
 
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
-        if let Some(viewport_rect) = camera.physical_viewport_rect() {
+        if let (Some(viewport_rect), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_target_size(),
+        ) {
             let viewport_size = viewport_rect.size();
             if viewport_size.x == 0 || viewport_size.y == 0 {
                 commands
@@ -699,6 +704,7 @@ pub fn extract_cameras(
                     target,
                     main_texture_size: viewport_size,
                     target_viewport: camera.viewport.clone(),
+                    target_size,
                     schedule: camera_render_graph.0,
                     order: camera.order,
                     output_mode: camera.output_mode,
@@ -722,6 +728,7 @@ pub fn extract_cameras(
                     target_format,
                     viewport: UVec4::new(0, 0, viewport_size.x, viewport_size.y),
                     target_viewport: UVec4::from((viewport_rect.min, viewport_size)),
+                    target_size,
                     color_grading,
                     invert_culling: camera.invert_culling,
                 },
@@ -1530,6 +1537,7 @@ mod tests {
             target: Some(target),
             main_texture_size: UVec2::ONE,
             target_viewport: None,
+            target_size: UVec2::ONE,
             schedule: Main.intern(),
             order,
             output_mode: CameraOutputMode::default(),

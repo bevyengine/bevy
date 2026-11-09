@@ -38,7 +38,9 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_extract_macros::ExtractComponent;
 use bevy_image::ToExtents;
-use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, URect, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{
+    mat3, vec2, vec3, Mat3, Mat4, URect, UVec2, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles,
+};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::GlobalTransform;
@@ -466,11 +468,15 @@ pub struct ExtractedView {
     /// reasons, [`Hdr`](bevy_camera::Hdr) sets an the internal render target format
     /// override to ensure sufficient precision is present for lighting calculations.
     pub target_format: TextureFormat,
-    // uvec4(origin.x, origin.y, width, height)
+    // uvec4(origin.x, origin.y, width, height). It covers the whole main texture, so the origin
+    // is zero. The view's position on the render target is `target_viewport`.
     pub viewport: UVec4,
     /// The part of the render target this view is written to, as `(x, y, width, height)`. Views
     /// that aren't written to a render target, such as shadow map views, use their `viewport`.
     pub target_viewport: UVec4,
+    /// The size of the render target this view is written to. Views that aren't written to a
+    /// render target, such as shadow map views, use the size of their `viewport`.
+    pub target_size: UVec2,
     pub color_grading: ColorGrading,
 
     /// Whether to switch culling mode so that materials that request backface
@@ -749,7 +755,9 @@ pub struct ViewUniform {
     pub view_from_clip: Mat4,
     pub world_position: Vec3,
     pub exposure: f32,
-    /// Output viewport (x origin, y origin, width, height), in physical pixels.
+    /// Output viewport (x origin, y origin, width, height), in physical pixels. It covers the whole
+    /// main texture, so the origin is zero. The view's position on the render target is
+    /// `target_viewport`.
     pub viewport: Vec4,
     /// Prepass and main pass viewport, before upscaling, in physical pixels.
     pub main_pass_viewport: Vec4,
@@ -757,6 +765,8 @@ pub struct ViewUniform {
     /// can add its origin to a position in the view's main texture to get a position on the
     /// render target.
     pub target_viewport: Vec4,
+    /// The size of the render target the view is written to, in physical pixels.
+    pub target_size: Vec2,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`
@@ -1305,6 +1315,7 @@ pub fn prepare_view_uniforms(
                 viewport,
                 main_pass_viewport,
                 target_viewport: extracted_view.target_viewport.as_vec4(),
+                target_size: extracted_view.target_size.as_vec2(),
                 frustum,
                 lod_view_world_position,
                 color_grading: extracted_view.color_grading.clone().into(),
