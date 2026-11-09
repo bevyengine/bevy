@@ -1,5 +1,5 @@
 ---
-title: "Val reorganisation"
+title: "Val reorganization"
 pull_requests: [26415]
 ---
 
