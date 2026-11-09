@@ -1819,7 +1819,7 @@ fn process_remote_requests(world: &mut World) {
                 message: format!("Method `{}` not found", message.method),
                 data: None,
             }));
-            return;
+            continue;
         };
 
         match handler {
