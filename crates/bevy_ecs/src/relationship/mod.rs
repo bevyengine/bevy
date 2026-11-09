@@ -250,6 +250,9 @@ pub trait Relationship: Component + Sized + RelationshipBase<Side = Source> {
             commands
                 .entity(source_entity)
                 .queue(remove_target_entity::<Self>(source_entity));
+            // We are able to return early here as `remove_target_entity` removes and then re-adds the relationship
+            // without the offending entity. When the relationship is re-inserted this hook runs again, skipping
+            // this case and handling all other connections in the relationship collection correctly.
             return;
         }
 
@@ -501,18 +504,25 @@ pub trait RelationshipTarget:
     }
 }
 
+impl<'w> EntityWorldMut<'w> {
+    fn remove_target_entity<R: Relationship>(&mut self, target_entity: Entity) {
+        if let Some(relationship) = self.get::<R>().map(Relationship::collection)
+            && relationship.contains(target_entity)
+        {
+            if relationship.len() == 1 {
+                self.remove::<R>();
+            } else {
+                let _ = self.modify_component(|relationship: &mut R| {
+                    relationship.collection_mut_risky().remove(target_entity);
+                });
+            }
+        }
+    }
+}
+
 fn remove_target_entity<R: Relationship>(target_entity: Entity) -> impl EntityCommand {
     move |mut source_entity_mut: EntityWorldMut| {
-        let Some(relationship) = source_entity_mut.get::<R>() else {
-            return;
-        };
-        if relationship.len() == 1 && relationship.collection().contains(target_entity) {
-            source_entity_mut.remove::<R>();
-        } else {
-            source_entity_mut.modify_component(|relationship: &mut R| {
-                relationship.collection_mut_risky().remove(target_entity);
-            });
-        }
+        source_entity_mut.remove_target_entity::<R>(target_entity);
     }
 }
 
@@ -961,7 +971,7 @@ mod tests {
     use crate::entity::EntityCloner;
     use crate::lifecycle::HookContext;
     use crate::prelude::{ChildOf, Children};
-    use crate::relationship::{Relationship, RelationshipAccessor};
+    use crate::relationship::RelationshipAccessor;
     use crate::world::{DeferredWorld, World};
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -1002,6 +1012,8 @@ mod tests {
 
     #[test]
     fn self_relationship_succeeds_with_allow_self_referential() {
+        use crate::bevy_ecs::relationship::SingleTargetRelationship;
+
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget, allow_self_referential)]
         struct Rel(Entity);
@@ -1015,7 +1027,7 @@ mod tests {
         world.entity_mut(a).insert(Rel(a));
         assert!(world.entity(a).contains::<Rel>());
         assert!(world.entity(a).contains::<RelTarget>());
-        assert_eq!(*world.entity(a).get::<Rel>().unwrap().collection(), a);
+        assert_eq!(world.entity(a).get::<Rel>().unwrap().get(), a);
         assert_eq!(&*world.entity(a).get::<RelTarget>().unwrap().0, &[a]);
     }
 
@@ -1793,6 +1805,20 @@ mod tests {
                 &[a_clone, b_clone]
             );
             assert!(&world.entity(c_clone).get::<RelTarget>().is_none());
+        }
+
+        #[test]
+        fn self_referential_error() {
+            let mut world = World::new();
+
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+
+            // this throws an error, and removes `LikedBy` from a, however, it should still continue to add `LikedBy` to b.
+            world.entity_mut(a).insert(Likes(vec![b, a]));
+
+            assert!(&world.entity(a).get::<LikedBy>().is_none());
+            assert_eq!(&world.entity(b).get::<LikedBy>().unwrap().0, &[a]);
         }
     }
 }

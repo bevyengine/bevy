@@ -124,12 +124,9 @@ impl<'w> EntityWorldMut<'w> {
     pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         self.world_scope(|world| {
-            for related in related {
-                if world
-                    .get::<R>(*related)
-                    .is_some_and(|relationship| relationship.collection().contains(id))
-                {
-                    world.entity_mut(*related).remove::<R>();
+            for &related in related {
+                if let Ok(mut source_entity_mut) = world.get_entity_mut(related) {
+                    source_entity_mut.remove_target_entity::<R>(id);
                 }
             }
         });
@@ -172,7 +169,9 @@ impl<'w> EntityWorldMut<'w> {
         self.world_scope(|world| {
             // Remove the existing relations that we won't keep
             for &related in existing_relations.difference(&final_relations) {
-                world.entity_mut(related).remove::<R>();
+                if let Ok(mut source_entity_mut) = world.get_entity_mut(related) {
+                    source_entity_mut.remove_target_entity::<R>(id);
+                }
             }
 
             // Add the final relations that don't exist yet.
