@@ -54,7 +54,7 @@ fn main() {
         .add_plugins((DefaultPlugins, CursorIconPlugin))
         .init_resource::<LastGroup>()
         .add_systems(Startup, setup)
-        // Systems that build paneles belong in this set;
+        // Systems that build panels belong in this set;
         // it runs before layout, so you can avoid a frame of empty panels.
         .add_systems(PostUpdate, build_panels.in_set(DockSystems::Panels))
         .add_systems(

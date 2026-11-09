@@ -19,7 +19,7 @@ Only the active tab's content sits in the content area; every other tab's conten
 
 Setting the content for each tab requires a bit of indirection.
 The obvious way would be to spawn the panel straight into its tab as a child entity.
-Unfortunately, our requirements complicate that: we want to be able to close down our editor, and reopen it with the tabs, their layout and the values that they set completely intact.
+Unfortunately, our requirements complicate that: we want to be able to close down our editor, and reopen it with the same tabs in the same layout.
 
 As a result, we've opted for a key-based design for this particular widget, rather than relying solely on entity relations,
 regenerating the panel content from scratch based on their `DockPanelKey` whenever the app sees a new `DockPanelContent` component.

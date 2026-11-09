@@ -40,26 +40,25 @@ impl Plugin for DockPlugin {
             .add_observer(forward_tab_move)
             .configure_sets(
                 PostUpdate,
-                (DockSystems::Structure, DockSystems::Panels)
+                (
+                    DockSystems::Structure,
+                    DockSystems::Panels,
+                    DockSystems::Titles,
+                )
                     .chain()
                     .before(crate::split_pane::update_split_pane_layout)
                     .before(UiSystems::Prepare),
             )
             .add_systems(PostUpdate, build_dock_ui.in_set(DockSystems::Structure))
-            .add_systems(
-                PostUpdate,
-                sync_dock_titles
-                    .after(DockSystems::Panels)
-                    .before(crate::split_pane::update_split_pane_layout)
-                    .before(UiSystems::Prepare),
-            );
+            .add_systems(PostUpdate, sync_dock_titles.in_set(DockSystems::Titles));
     }
 }
 
 /// The stages the dock runs in, in [`PostUpdate`].
 ///
-/// The dock builds its structure first and then runs the app's panel builders, so builders see
-/// content that is already spawned and parented. Both stages run before the UI is laid out.
+/// The dock builds its structure first, then runs the app's panel builders, so builders see
+/// content that is already spawned and parented, then updates tab titles. All three stages run
+/// before the UI is laid out.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DockSystems {
     /// Builds the UI for changed [`DockTree`]s.
@@ -95,6 +94,10 @@ pub enum DockSystems {
     /// }
     /// ```
     Panels,
+    /// Copies each [`DockPanelTitle`] to its tab header.
+    ///
+    /// A title changed before this set shows in the same frame.
+    Titles,
 }
 
 /// Links a split or leaf entity built by the dock to its node in the tree.
