@@ -4,15 +4,13 @@ use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
     JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
-    RepeatedGridTrack, UiRect, Val,
+    RepeatedGridTrack, UiRect, Val, ValContext,
 };
-
-use super::LayoutContext;
 
 impl Val {
     pub(super) fn into_length_percentage_auto(
         self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
             Val::Auto
@@ -40,7 +38,7 @@ impl Val {
 
     pub(super) fn into_length_percentage(
         self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::LengthPercentage {
         match self {
             Val::Auto
@@ -75,7 +73,7 @@ impl Val {
     // * A border larger than one physical pixel is rounded down to a whole pixel.
     fn into_length_percentage_for_border(
         self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::LengthPercentage {
         let length = self.into_length_percentage(context);
         let raw = length.into_raw();
@@ -87,7 +85,7 @@ impl Val {
         }
     }
 
-    fn into_dimension(self, context: &LayoutContext) -> Dimension {
+    fn into_dimension(self, context: &ValContext) -> Dimension {
         match self {
             Val::Auto => style_helpers::auto(),
             Val::MinContent => Dimension::min_content(),
@@ -128,11 +126,7 @@ impl UiRect {
 }
 
 // Update taffy style in place from the given `Node` and context
-pub fn update_taffy_style_from_node(
-    node: &Node,
-    context: &LayoutContext,
-    style: &mut taffy::Style,
-) {
+pub fn update_taffy_style_from_node(node: &Node, context: &ValContext, style: &mut taffy::Style) {
     style.display = node.display.into();
     style.box_sizing = node.box_sizing.into();
     style.item_is_table = false;
@@ -436,7 +430,7 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement<S
 }
 
 impl MinTrackSizingFunction {
-    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
+    fn into_taffy(self, context: &ValContext) -> taffy::style::MinTrackSizingFunction {
         match self {
             MinTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
             MinTrackSizingFunction::Percent(val) => {
@@ -466,7 +460,7 @@ impl MinTrackSizingFunction {
 }
 
 impl MaxTrackSizingFunction {
-    fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
+    fn into_taffy(self, context: &ValContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
             MaxTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
             MaxTrackSizingFunction::Percent(val) => {
@@ -517,7 +511,7 @@ impl MaxTrackSizingFunction {
 impl GridTrack {
     pub(super) fn into_taffy_track(
         self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::TrackSizingFunction {
         let min = self.min_sizing_function.into_taffy(context);
         let max = self.max_sizing_function.into_taffy(context);
@@ -528,7 +522,7 @@ impl GridTrack {
 impl RepeatedGridTrack {
     pub(super) fn clone_into_repeated_taffy_track(
         &self,
-        context: &LayoutContext,
+        context: &ValContext,
     ) -> taffy::style::GridTemplateComponent<String> {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(context);
@@ -644,7 +638,7 @@ mod tests {
             grid_column: GridPlacement::start(4),
             grid_row: GridPlacement::span(3),
         };
-        let viewport_values = LayoutContext::new(
+        let viewport_values = ValContext::new(
             1.0,
             Vec2::new(800., 600.),
             EmSize(DEFAULT_REM_SIZE_PX),
@@ -818,7 +812,7 @@ mod tests {
     #[test]
     fn test_into_length_percentage() {
         use taffy::style::LengthPercentage;
-        let context = LayoutContext::new(2.0, Vec2::new(800., 600.), EmSize(10.), RemSize(20.));
+        let context = ValContext::new(2.0, Vec2::new(800., 600.), EmSize(10.), RemSize(20.));
         let cases = [
             (Val::Auto, LengthPercentage::length(0.)),
             (Val::Percent(1.), LengthPercentage::percent(0.01)),
