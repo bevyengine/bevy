@@ -8,7 +8,9 @@
 //! Remote Protocol, see the `remote` module.
 //!
 //! Apps are expected to add `bevy_feathers::FeathersPlugins` themselves, alongside
-//! [`InspectorPlugin`].
+//! [`InspectorPlugin`]. The `inspector` cargo feature of `bevy` instead adds the
+//! [`InspectorOverlayPlugin`](overlay::InspectorOverlayPlugin) to `DefaultPlugins`, so that any
+//! app can open the inspector with a key.
 
 extern crate alloc;
 
@@ -17,6 +19,7 @@ pub mod column_split;
 pub mod connection_panel;
 pub mod details_panel;
 pub mod entity_tree;
+pub mod overlay;
 #[cfg(feature = "remote")]
 pub mod remote;
 
@@ -24,13 +27,17 @@ use alloc::string::{String, ToString};
 use core::fmt::Display;
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_camera::visibility::Visibility;
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
-    component::{ComponentId, ComponentInfo},
+    component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
+    hierarchy::ChildOf,
+    query::With,
     reflect::{AppTypeRegistry, ReflectResource},
     resource::Resource,
     schedule::IntoScheduleConfigs,
+    system::{In, IntoSystem, Local, Query, ResMut},
     world::World,
 };
 use bevy_platform::collections::HashSet;
@@ -40,9 +47,9 @@ use bevy_ui::UiSystems;
 use crate::column_split::ColumnSplitPlugin;
 use crate::details_panel::{
     apply_field_edit, store_column_splits, sync_details_panel, DetailsCollapsed,
-    DetailsColumnSplits, DetailsIndex, DetailsPanelSync,
+    DetailsColumnSplits, DetailsIndex, DetailsPanelSync, InspectorDetailsBody,
 };
-use crate::entity_tree::{sync_entity_tree, EntityTreeSync, TreeRowIndex};
+use crate::entity_tree::{sync_entity_tree, EntityTreeSync, InspectorTreeView, TreeRowIndex};
 
 /// Where the inspector reads its data from.
 #[derive(Resource, Debug, Clone, PartialEq, Eq, Reflect)]
@@ -195,14 +202,80 @@ pub(crate) fn component_short_name(world: &World, component_id: ComponentId) -> 
         .unwrap_or_else(|| ComponentInfo::name(info).shortname().to_string())
 }
 
+/// Returns `true` if an entity with the marker `M` exists with no [`Visibility::Hidden`] on itself
+/// or its ancestors.
+fn panel_visible<M: Component>(
+    panels: Query<Entity, With<M>>,
+    visibilities: Query<&Visibility>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    panels.iter().any(|panel| {
+        core::iter::once(panel)
+            .chain(parents.iter_ancestors(panel))
+            .all(|entity| visibilities.get(entity) != Ok(&Visibility::Hidden))
+    })
+}
+
+/// Returns `true` if an entity tree panel is showing.
+pub fn entity_tree_visible(
+    panels: Query<Entity, With<InspectorTreeView>>,
+    visibilities: Query<&Visibility>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    panel_visible(panels, visibilities, parents)
+}
+
+/// Returns `true` if a details panel is showing.
+pub fn details_panel_visible(
+    panels: Query<Entity, With<InspectorDetailsBody>>,
+    visibilities: Query<&Visibility>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    panel_visible(panels, visibilities, parents)
+}
+
+fn sync_tree_when_shown(
+    In(visible): In<bool>,
+    mut was_visible: Local<bool>,
+    mut sync: ResMut<EntityTreeSync>,
+) {
+    if visible && !*was_visible {
+        let duration = sync.timer.duration();
+        sync.timer.set_elapsed(duration);
+    }
+    *was_visible = visible;
+}
+
+fn sync_details_when_shown(
+    In(visible): In<bool>,
+    mut was_visible: Local<bool>,
+    mut sync: ResMut<DetailsPanelSync>,
+) {
+    if visible && !*was_visible {
+        let duration = sync.timer.duration();
+        sync.timer.set_elapsed(duration);
+    }
+    *was_visible = visible;
+}
+
 /// Plugin which registers the inspector resources and the entity tree synchronization systems.
 ///
 /// This plugin does not add the widget plugins the inspector renders with; the app is expected to
-/// add `bevy_feathers::FeathersPlugins` as well.
+/// add `bevy_feathers::FeathersPlugins` as well. Adding this plugin again has no effect.
+///
+/// The local tree and details synchronization systems only run while [`entity_tree_visible`] and
+/// [`details_panel_visible`] are `true`.
 pub struct InspectorPlugin;
 
 impl Plugin for InspectorPlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut App) {
+        if app.is_plugin_added::<Self>() {
+            return;
+        }
         if !app.is_plugin_added::<LabelResolutionPlugin>() {
             app.add_plugins(LabelResolutionPlugin);
         }
@@ -222,9 +295,20 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    sync_entity_tree,
-                    (store_column_splits, sync_details_panel).chain(),
+                    (
+                        entity_tree_visible.pipe(sync_tree_when_shown),
+                        sync_entity_tree.run_if(entity_tree_visible),
+                    )
+                        .chain(),
+                    (
+                        details_panel_visible.pipe(sync_details_when_shown),
+                        store_column_splits,
+                        sync_details_panel.run_if(details_panel_visible),
+                    )
+                        .chain(),
                 )
+                    .chain()
+                    .ambiguous_with_all()
                     .before(UiSystems::Prepare),
             );
 

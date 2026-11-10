@@ -494,10 +494,22 @@ impl DetailsIndex {
     }
 }
 
-/// The components whose field lists are collapsed.
-#[derive(Resource, Debug, Default, Reflect)]
+/// Which components have their field lists collapsed.
+#[derive(Resource, Clone, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsCollapsed(pub HashSet<ComponentKey>);
+pub struct DetailsCollapsed {
+    /// Whether a component starts collapsed.
+    pub by_default: bool,
+    /// The components toggled away from [`by_default`](Self::by_default).
+    pub toggled: HashSet<ComponentKey>,
+}
+
+impl DetailsCollapsed {
+    /// Returns `true` if the field list of the component is collapsed.
+    pub fn is_collapsed(&self, key: &ComponentKey) -> bool {
+        self.by_default != self.toggled.contains(key)
+    }
+}
 
 /// The [`ColumnSplit::fraction`] of each component's field rows, kept while groups respawn.
 #[derive(Resource, Debug, Default, Reflect)]
@@ -550,42 +562,49 @@ pub fn details_panel() -> impl Scene {
                 @caption("Details")
             ]
             --
-            @subpane_body()
+            @details_body()
+        ]
+    }
+}
+
+/// The scrolling contents of [`details_panel`], without its header.
+pub fn details_body() -> impl Scene {
+    bsn! {
+        @subpane_body()
+        Node {
+            padding: UiRect {
+                top: px(6),
+                left: px(6),
+                right: px(14),
+                bottom: px(6),
+            },
+            min_height: px(0),
+        }
+        ScrollbarGutter(px(14))
+        Children [
+            #inner
+            InspectorDetailsBody
+            ThemedText
             Node {
-                padding: UiRect {
-                    top: px(6),
-                    left: px(6),
-                    right: px(14),
-                    bottom: px(6),
-                },
-                min_height: px(0),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                row_gap: px(6),
+                overflow: Overflow::scroll_y(),
             }
-            ScrollbarGutter(px(14))
-            Children [
-                #inner
-                InspectorDetailsBody
-                ThemedText
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Stretch,
-                    row_gap: px(6),
-                    overflow: Overflow::scroll_y(),
-                }
-                ScrollArea
-                --
-                @FeathersScrollbar {
-                    @target: #inner,
-                    @orientation: {ControlOrientation::Vertical}
-                }
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: px(4),
-                    top: px(0),
-                    bottom: px(0),
-                    width: px(6),
-                }
-            ]
+            ScrollArea
+            --
+            @FeathersScrollbar {
+                @target: #inner,
+                @orientation: {ControlOrientation::Vertical}
+            }
+            Node {
+                position_type: PositionType::Absolute,
+                right: px(4),
+                top: px(0),
+                bottom: px(0),
+                width: px(6),
+            }
         ]
     }
 }
@@ -600,10 +619,10 @@ pub fn inspector_details_toggled(
     let Ok(component) = toggles.get(change.source) else {
         return;
     };
-    if change.value {
-        collapsed.0.remove(&component.0);
+    if change.value == collapsed.by_default {
+        collapsed.toggled.insert(component.0.clone());
     } else {
-        collapsed.0.insert(component.0.clone());
+        collapsed.toggled.remove(&component.0);
     }
     sync.set_dirty();
 }
@@ -1494,14 +1513,16 @@ fn reset_body(
 /// Groups of removed components, and groups whose collapsed state or field layout changed, are
 /// respawned or despawned. The remaining groups have their widget values updated in place.
 fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
-    let collapsed = world.resource::<DetailsCollapsed>().0.clone();
+    let collapsed = world.resource::<DetailsCollapsed>().clone();
     let present: HashSet<&ComponentKey> =
         components.iter().map(|component| &component.key).collect();
     let stale: Vec<ComponentKey> = world
         .resource::<DetailsIndex>()
         .groups
         .iter()
-        .filter(|(key, group)| !present.contains(key) || group.expanded == collapsed.contains(*key))
+        .filter(|(key, group)| {
+            !present.contains(key) || group.expanded == collapsed.is_collapsed(key)
+        })
         .map(|(key, _)| key.clone())
         .collect();
 
@@ -1521,7 +1542,7 @@ fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails])
             }
             despawn_group(world, &component.key);
         }
-        let expanded = !collapsed.contains(&component.key);
+        let expanded = !collapsed.is_collapsed(&component.key);
         spawn_group(world, body, component, expanded);
         reordered = true;
     }
@@ -1630,13 +1651,16 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
         }
     }
 
-    if !expanded {
-        return;
-    }
-
     let Some(container) = descendant_with::<InspectorDetailsFields>(world, group) else {
         return;
     };
+    if !expanded {
+        if let Some(mut node) = world.get_mut::<Node>(container) {
+            node.display = Display::None;
+        }
+        return;
+    }
+
     if !component.fields.is_empty() {
         let mut split = ColumnSplit::default();
         if let Some(&fraction) = world
@@ -1670,9 +1694,28 @@ fn component_group(name: String, memory: String) -> impl Scene {
                 @FeathersDisclosureToggle
                 on(inspector_details_toggled)
                 --
-                @caption(name)
+                ThemedText
+                Node {
+                    min_width: px(0),
+                    overflow: Overflow::clip(),
+                }
+                Children [
+                    @caption(name)
+                    Node {
+                        flex_shrink: 0.0,
+                    }
+                    TextLayout {
+                        linebreak: LineBreak::NoWrap,
+                    }
+                ]
                 --
                 @caption(memory)
+                Node {
+                    flex_shrink: 0.0,
+                }
+                TextLayout {
+                    linebreak: LineBreak::NoWrap,
+                }
             ]
             --
             @group_body()
@@ -3323,6 +3366,55 @@ mod tests {
     }
 
     #[test]
+    fn groups_start_collapsed_when_configured_and_expand_when_toggled() {
+        let mut app = test_app();
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .by_default = true;
+        inspect(&mut app, Subject::default());
+        let subject = Subject::type_path();
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.group(subject).is_some());
+        assert!(index.widget(subject, "scale").is_none());
+        let fields = fields_container(&app, subject);
+        assert_eq!(
+            app.world().get::<Node>(fields).unwrap().display,
+            Display::None
+        );
+
+        let toggle = app
+            .world_mut()
+            .spawn(InspectorDetailsComponent(subject.into()))
+            .observe(inspector_details_toggled)
+            .id();
+        app.world_mut().trigger(ValueChange {
+            source: toggle,
+            value: true,
+            is_final: true,
+        });
+        app.world_mut().flush();
+        refresh(&mut app);
+        assert!(app
+            .world()
+            .resource::<DetailsIndex>()
+            .widget(subject, "scale")
+            .is_some());
+
+        app.world_mut().trigger(ValueChange {
+            source: toggle,
+            value: false,
+            is_final: true,
+        });
+        app.world_mut().flush();
+        refresh(&mut app);
+        assert!(app
+            .world()
+            .resource::<DetailsIndex>()
+            .widget(subject, "scale")
+            .is_none());
+    }
+
+    #[test]
     fn keeps_each_group_column_split_across_respawns() {
         let mut app = test_app();
         app.register_type::<Wrapper>();
@@ -3339,12 +3431,12 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(subject.into());
         refresh(&mut app);
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .remove(subject);
         refresh(&mut app);
 
@@ -3371,7 +3463,7 @@ mod tests {
         app.update();
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(subject.into());
         refresh(&mut app);
 
@@ -3855,7 +3947,7 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(first.into());
         refresh(&mut app);
 
