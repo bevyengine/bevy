@@ -501,9 +501,13 @@ gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
 touch = ["bevy_input/touch"]
 gestures = ["bevy_input/gestures"]
 
-# Select gamepad implementation backend for gilrs on Windows.
-gilrs_wgi = ["bevy_gilrs/wgi"]
-gilrs_xinput = ["bevy_gilrs/xinput"]
+bevy_gilrs = ["dep:bevy_gilrs"]
+# Select gamepad implementation backend for gilrs on Windows targets.
+# This version is newer but does not work on Wine.
+bevy_gilrs_wgi = ["bevy_gilrs/wgi"]
+# Select gamepad implementation backend for gilrs on Windows targets.
+# This version works on Wine.
+bevy_gilrs_xinput = ["bevy_gilrs/xinput"]
 
 # Clipboard support
 bevy_clipboard = ["dep:bevy_clipboard"]
