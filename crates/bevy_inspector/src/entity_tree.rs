@@ -884,14 +884,16 @@ mod tests {
         );
         app.update();
 
-        assert_eq!(row_sources(app.world(), tree), [parent]);
+        let remote = InspectorSource::Remote(RemoteSource::new("localhost", 1, WorldKind::Main));
+        let remote_header = header_rows(app.world(), tree)
+            .into_iter()
+            .find_map(|(header, source)| (source == remote).then_some(header))
+            .unwrap();
+        assert_eq!(row_sources(app.world(), remote_header), [parent]);
         let row = app
             .world()
             .resource::<TreeRowIndex>()
-            .row(
-                parent,
-                InspectorSource::Remote(RemoteSource::new("localhost", 1, WorldKind::Main)),
-            )
+            .row(parent, remote)
             .unwrap();
         let label = row_label_entity(app.world(), row).unwrap();
         assert_eq!(app.world().get::<Text>(label).unwrap().0, "Remote");
