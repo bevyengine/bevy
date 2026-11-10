@@ -982,6 +982,7 @@ mod tests {
             storage::{Table, TableBuilder, TableRow},
         };
         use alloc::string::{String, ToString};
+        use core::ops::Range;
         use nonmax::NonMaxU32;
 
         /// Needs dropping, so that freeing a column without dropping its values would leak.
@@ -992,10 +993,8 @@ mod tests {
         #[derive(Component)]
         struct Marker;
 
-        /// A table with a [`Name`] and a [`Marker`] column. Row `i` holds entity `i`, named `i`,
-        /// added and changed at tick `i`.
-        struct Fixture {
-            table: Table,
+        /// The ids of the [`Name`] and [`Marker`] columns of a table built by [`TableFixture::new`].
+        struct TableFixture {
             name: ComponentId,
             marker: ComponentId,
         }
@@ -1008,8 +1007,9 @@ mod tests {
             TableRow::new(NonMaxU32::new(i).unwrap())
         }
 
-        impl Fixture {
-            fn new() -> Self {
+        impl TableFixture {
+            /// Builds an empty table with a [`Name`] and a [`Marker`] column.
+            fn new() -> (Table, Self) {
                 let mut components = Components::default();
                 let mut component_ids = ComponentIds::default();
                 // SAFETY: They are both new.
@@ -1022,22 +1022,19 @@ mod tests {
                     .add_column(marker, components.get_info(marker).unwrap())
                     .build();
 
-                Self {
-                    table,
-                    name,
-                    marker,
-                }
+                (table, Self { name, marker })
             }
 
-            /// Adds rows `from..to`.
-            fn push(&mut self, from: u32, to: u32) {
-                for i in from..to {
+            /// Appends entities for the given range, initializing their components
+            /// and change ticks using each entity's index.
+            fn initialize_rows(&self, table: &mut Table, rows: Range<u32>) {
+                for i in rows {
                     // SAFETY: the new row is initialized right away, in every column.
                     unsafe {
-                        let row = self.table.allocate(entity(i));
+                        let row = table.allocate(entity(i));
                         let tick = Tick::new(i);
                         OwningPtr::make(Name(i.to_string()), |value| {
-                            self.table.get_column_mut(self.name).unwrap().initialize(
+                            table.get_column_mut(self.name).unwrap().initialize(
                                 row,
                                 value,
                                 tick,
@@ -1045,7 +1042,7 @@ mod tests {
                             );
                         });
                         OwningPtr::make(Marker, |value| {
-                            self.table.get_column_mut(self.marker).unwrap().initialize(
+                            table.get_column_mut(self.marker).unwrap().initialize(
                                 row,
                                 value,
                                 tick,
@@ -1056,127 +1053,126 @@ mod tests {
                 }
             }
 
-            /// Removes rows from the end, dropping their values, until `len` remain.
-            fn truncate(&mut self, len: u32) {
-                while self.table.entity_count() > len {
-                    let last = self.table.entity_count() - 1;
-                    // SAFETY: `last` is in bounds.
-                    unsafe { self.table.swap_remove_unchecked(row(last)) };
-                }
-            }
-
-            /// Asserts that the table holds rows `0..len`, as [`Self::push`] wrote them.
-            fn assert_rows(&self, len: u32) {
-                assert_eq!(self.table.entity_count(), len);
+            /// Asserts that `table` holds rows `0..len`, as [`Self::initialize_rows`] wrote them.
+            fn assert_rows(&self, table: &Table, len: u32) {
+                assert_eq!(table.entity_count(), len);
 
                 for i in 0..len {
-                    assert_eq!(self.table.entities()[i as usize], entity(i));
+                    assert_eq!(table.entities()[i as usize], entity(i));
                     // SAFETY: the row is in bounds, and the column stores `Name`.
                     let name = unsafe {
-                        self.table
+                        table
                             .get_component(self.name, row(i))
                             .unwrap()
                             .deref::<Name>()
                     };
                     assert_eq!(name, &Name(i.to_string()));
-                    // SAFETY: nothing else accesses the ticks.
-                    let (added, changed) = unsafe {
-                        (
-                            *self.table.get_added_tick(self.name, row(i)).unwrap().get(),
-                            *self
-                                .table
-                                .get_changed_tick(self.name, row(i))
-                                .unwrap()
-                                .get(),
-                        )
-                    };
-                    assert_eq!((added, changed), (Tick::new(i), Tick::new(i)));
+
+                    for column in [self.name, self.marker] {
+                        // SAFETY: nothing else accesses the ticks.
+                        let (added, changed) = unsafe {
+                            (
+                                *table.get_added_tick(column, row(i)).unwrap().get(),
+                                *table.get_changed_tick(column, row(i)).unwrap().get(),
+                            )
+                        };
+                        assert_eq!((added, changed), (Tick::new(i), Tick::new(i)));
+                    }
                 }
+            }
+        }
+
+        /// Truncates the table to `len` rows, preserving the order of remaining rows.
+        fn truncate(table: &mut Table, len: u32) {
+            while table.entity_count() > len {
+                let last = table.entity_count() - 1;
+                // SAFETY: `last` is in bounds.
+                unsafe { table.swap_remove_unchecked(row(last)) };
             }
         }
 
         #[test]
         fn shrinking_keeps_values_ticks_and_order() {
-            let mut fixture = Fixture::new();
+            let (mut table, fixture) = TableFixture::new();
 
-            fixture.push(0, 1000);
-            fixture.truncate(100);
+            fixture.initialize_rows(&mut table, 0..1000);
+            truncate(&mut table, 100);
 
-            assert!(fixture.table.capacity() >= 1000);
+            assert!(table.capacity() >= 1000);
 
-            fixture.table.shrink_to(0);
+            table.shrink_to(0);
 
-            assert_eq!(fixture.table.capacity(), 100);
+            assert_eq!(table.capacity(), 100);
 
-            fixture.assert_rows(100);
+            fixture.assert_rows(&table, 100);
         }
 
         #[test]
         fn shrinking_keeps_at_least_min_capacity() {
-            let mut fixture = Fixture::new();
+            let (mut table, fixture) = TableFixture::new();
 
-            fixture.push(0, 1000);
-            fixture.truncate(10);
-            fixture.table.shrink_to(256);
+            fixture.initialize_rows(&mut table, 0..1000);
+            truncate(&mut table, 10);
+            table.shrink_to(256);
 
-            assert_eq!(fixture.table.capacity(), 256);
+            assert_eq!(table.capacity(), 256);
 
             // A minimum above the current capacity leaves the table as it is
-            fixture.table.shrink_to(512);
+            table.shrink_to(512);
 
-            assert_eq!(fixture.table.capacity(), 256);
+            assert_eq!(table.capacity(), 256);
 
-            fixture.assert_rows(10);
+            fixture.assert_rows(&table, 10);
         }
 
         #[test]
         fn a_full_table_keeps_its_capacity() {
-            let mut fixture = Fixture::new();
+            let (mut table, fixture) = TableFixture::new();
 
-            fixture.push(0, 1024);
-            fixture.table.shrink_to(0);
+            fixture.initialize_rows(&mut table, 0..1024);
+            table.shrink_to(0);
 
-            assert_eq!(fixture.table.capacity(), 1024);
+            assert_eq!(table.capacity(), 1024);
 
-            fixture.assert_rows(1024);
+            fixture.assert_rows(&table, 1024);
         }
 
         #[test]
         fn a_shrunk_table_grows_again() {
-            let mut fixture = Fixture::new();
+            let (mut table, fixture) = TableFixture::new();
 
-            fixture.push(0, 1000);
-            fixture.truncate(100);
-            fixture.table.shrink_to(0);
+            fixture.initialize_rows(&mut table, 0..1000);
+            truncate(&mut table, 100);
+            table.shrink_to(0);
 
-            fixture.push(100, 300);
+            fixture.initialize_rows(&mut table, 100..300);
 
-            assert!(fixture.table.capacity() >= 400);
+            assert!(table.capacity() >= 400);
 
-            fixture.assert_rows(300);
+            fixture.assert_rows(&table, 300);
         }
 
         #[test]
         fn an_emptied_table_frees_its_storage_and_grows_again() {
-            let mut fixture = Fixture::new();
+            let (mut table, fixture) = TableFixture::new();
 
-            fixture.push(0, 300);
-            fixture.truncate(0);
-            fixture.table.shrink_to(0);
+            fixture.initialize_rows(&mut table, 0..300);
+            truncate(&mut table, 0);
+            table.shrink_to(0);
 
-            assert_eq!(fixture.table.capacity(), 0);
+            assert_eq!(table.capacity(), 0);
 
-            fixture.push(0, 50);
+            fixture.initialize_rows(&mut table, 0..50);
 
-            assert!(fixture.table.capacity() >= 50);
+            assert!(table.capacity() >= 50);
 
-            fixture.assert_rows(50);
+            fixture.assert_rows(&table, 50);
 
             // And empties and frees again
-            fixture.truncate(0);
-            fixture.table.shrink_to(0);
+            truncate(&mut table, 0);
+            table.shrink_to(0);
 
-            assert_eq!(fixture.table.capacity(), 0);
+            assert_eq!(table.capacity(), 0);
         }
     }
 }
