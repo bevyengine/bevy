@@ -222,8 +222,15 @@ pub fn sync_entity_tree(world: &mut World) {
     }
 
     let plan = plan_sync(world);
+    let headers_spawned = !plan.header_spawn.is_empty();
     apply_sync(world, plan);
     rebuild_index(world);
+
+    if headers_spawned {
+        let plan = plan_sync(world);
+        apply_sync(world, plan);
+        rebuild_index(world);
+    }
 }
 
 struct HeaderSpawn {
