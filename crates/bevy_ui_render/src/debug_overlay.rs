@@ -212,7 +212,7 @@ pub fn extract_debug_overlay(
         let color = debug_options
             .line_color_override
             .unwrap_or_else(|| Hsla::sequential_dispersed(entity.index_u32()).into());
-        let z_order = (ui_stack.uinodes.len() as u32 + stack_index.0) as f32;
+        let stack_index = ComputedStackIndex(ui_stack.uinodes.len() as u32 + stack_index.0);
         let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
         let transform = transform.affine();
 
@@ -229,8 +229,8 @@ pub fn extract_debug_overlay(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
-                        z_order,
+                        stack_index,
+                        paint_layer: 0,
                         clip: maybe_clip.filter(|_| !debug_options.show_clipped).cloned(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(rect.center()),
