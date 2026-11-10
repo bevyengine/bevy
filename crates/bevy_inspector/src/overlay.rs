@@ -282,7 +282,7 @@ mod tests {
     use super::*;
     use crate::{
         details_panel_visible,
-        entity_tree::{EntityTreeSync, InspectorRow, InspectorTreeView},
+        entity_tree::{EntityTreeSync, InspectorEntityRow, InspectorTreeView},
         entity_tree_visible,
     };
     use bevy_app::TaskPoolPlugin;
@@ -333,9 +333,9 @@ mod tests {
     fn row_count(app: &mut App, source: Entity) -> usize {
         let world = app.world_mut();
         world
-            .query::<&InspectorRow>()
+            .query::<&InspectorEntityRow>()
             .iter(world)
-            .filter(|row| row.source == source)
+            .filter(|row| row.inspected == source)
             .count()
     }
 
