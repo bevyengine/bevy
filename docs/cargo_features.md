@@ -83,7 +83,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_extract|Provides the ability to extract entities from an ECS main world to a sub world|
 |bevy_feathers|Feathers widget collection.|
-|bevy_gilrs|Adds gamepad support|
+|bevy_gilrs|Adds gamepad support, via gilrs using WGI on Windows targets.|
+|bevy_gilrs_xinput|Adds gamepad support, via gilrs using XInput on Windows targets (which is compatible with Wine). (You must spell out `default` and `default_platform`, replacing `bevy_gilrs` with this one to avoid build errors in gilrs.)|
 |bevy_gizmos|Adds support for gizmos|
 |bevy_gizmos_render|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
