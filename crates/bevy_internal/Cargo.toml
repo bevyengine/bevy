@@ -546,6 +546,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-fea
 ] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.20.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, features = [
+  "annotations",
   "smallvec",
 ] }
 bevy_time = { path = "../bevy_time", version = "0.20.0-dev", default-features = false, features = [
