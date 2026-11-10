@@ -58,7 +58,7 @@ fn setup_3d(
     ));
 }
 
-/// A simple 2d scene, taken from the `rect` example
+/// A simple 2d scene
 fn setup_2d(mut commands: Commands) {
     commands.spawn((
         Camera2d,
