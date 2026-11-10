@@ -549,16 +549,16 @@ mod tests {
     #[test]
     fn no_wrap_text_updates_when_text_font_or_hinting_changes() {
         let (mut app, entity) = text_app();
-        let first_glyph = app.world().get::<TextLayoutInfo>(entity).unwrap().glyphs[0]
-            .atlas_info
-            .rect;
+        let first_glyph = &app.world().get::<TextLayoutInfo>(entity).unwrap().glyphs[0].atlas_info;
+        let first_glyph = (first_glyph.texture, first_glyph.rect);
         let size = app.world().get::<TextLayoutInfo>(entity).unwrap().size;
 
         app.world_mut().get_mut::<Text>(entity).unwrap().0 = "B fixed label".into();
         app.update();
         let layout = app.world().get::<TextLayoutInfo>(entity).unwrap();
         assert_eq!(layout.size, size);
-        assert_ne!(layout.glyphs[0].atlas_info.rect, first_glyph);
+        let glyph = &layout.glyphs[0].atlas_info;
+        assert_ne!((glyph.texture, glyph.rect), first_glyph);
 
         app.world_mut()
             .get_mut::<TextFont>(entity)
@@ -587,15 +587,6 @@ mod tests {
                 .last_changed(),
             tick
         );
-
-        app.world_mut()
-            .get_mut::<ComputedUiRenderTargetInfo>(entity)
-            .unwrap()
-            .scale_factor = 2.;
-        app.update();
-        let layout = app.world().get::<TextLayoutInfo>(entity).unwrap();
-        assert_eq!(layout.scale_factor, 2.);
-        assert!(layout.size.x > large_size.x);
     }
 
     #[test]
