@@ -1,25 +1,29 @@
+use crate::impls::macros::annotated;
 use crate::{
     std_traits::{ReflectAdd, ReflectAddAssign, ReflectDefault, ReflectSub, ReflectSubAssign},
     type_registry::{ReflectDeserialize, ReflectSerialize},
 };
+#[cfg(feature = "annotations")]
 use bevy_annotations::SerializedAs;
 use bevy_reflect_derive::impl_reflect_opaque;
 
-impl_reflect_opaque!(::core::time::Duration(
-    Clone,
-    Debug,
-    Hash,
-    PartialEq,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-    Default,
-    Add,
-    AddAssign,
-    Sub,
-    SubAssign,
-    @SerializedAs::Object { fields: &[("secs", "u64"), ("nanos", "u32")] }
-));
+annotated!(
+    @SerializedAs::Object { fields: &[("secs", "u64"), ("nanos", "u32")] };
+    impl_reflect_opaque!(::core::time::Duration(
+        Clone,
+        Debug,
+        Hash,
+        PartialEq,
+        PartialOrd,
+        Serialize,
+        Deserialize,
+        Default,
+        Add,
+        AddAssign,
+        Sub,
+        SubAssign,
+    ))
+);
 
 #[cfg(test)]
 mod tests {

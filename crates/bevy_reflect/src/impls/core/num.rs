@@ -1,8 +1,10 @@
+use crate::impls::macros::annotated;
 use crate::type_registry::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "annotations")]
 use bevy_annotations::SerializedAs;
 use bevy_reflect_derive::impl_reflect_opaque;
 
-impl_reflect_opaque!(::core::num::NonZeroI128(
+annotated!(@SerializedAs::NON_ZERO_INTEGER; impl_reflect_opaque!(::core::num::NonZeroI128(
     Clone,
     Debug,
     Hash,
@@ -10,9 +12,8 @@ impl_reflect_opaque!(::core::num::NonZeroI128(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::NON_ZERO_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroU128(
+)));
+annotated!(@SerializedAs::POSITIVE_INTEGER; impl_reflect_opaque!(::core::num::NonZeroU128(
     Clone,
     Debug,
     Hash,
@@ -20,9 +21,8 @@ impl_reflect_opaque!(::core::num::NonZeroU128(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::POSITIVE_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroIsize(
+)));
+annotated!(@SerializedAs::NON_ZERO_INTEGER; impl_reflect_opaque!(::core::num::NonZeroIsize(
     Clone,
     Debug,
     Hash,
@@ -30,9 +30,8 @@ impl_reflect_opaque!(::core::num::NonZeroIsize(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::NON_ZERO_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroUsize(
+)));
+annotated!(@SerializedAs::POSITIVE_INTEGER; impl_reflect_opaque!(::core::num::NonZeroUsize(
     Clone,
     Debug,
     Hash,
@@ -40,9 +39,8 @@ impl_reflect_opaque!(::core::num::NonZeroUsize(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::POSITIVE_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroI64(
+)));
+annotated!(@SerializedAs::NON_ZERO_INTEGER; impl_reflect_opaque!(::core::num::NonZeroI64(
     Clone,
     Debug,
     Hash,
@@ -50,9 +48,8 @@ impl_reflect_opaque!(::core::num::NonZeroI64(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::NON_ZERO_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroU64(
+)));
+annotated!(@SerializedAs::POSITIVE_INTEGER; impl_reflect_opaque!(::core::num::NonZeroU64(
     Clone,
     Debug,
     Hash,
@@ -60,9 +57,8 @@ impl_reflect_opaque!(::core::num::NonZeroU64(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::POSITIVE_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroU32(
+)));
+annotated!(@SerializedAs::POSITIVE_INTEGER; impl_reflect_opaque!(::core::num::NonZeroU32(
     Clone,
     Debug,
     Hash,
@@ -70,9 +66,8 @@ impl_reflect_opaque!(::core::num::NonZeroU32(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::POSITIVE_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroI32(
+)));
+annotated!(@SerializedAs::NON_ZERO_INTEGER; impl_reflect_opaque!(::core::num::NonZeroI32(
     Clone,
     Debug,
     Hash,
@@ -80,9 +75,8 @@ impl_reflect_opaque!(::core::num::NonZeroI32(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::NON_ZERO_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroI16(
+)));
+annotated!(@SerializedAs::NON_ZERO_INTEGER; impl_reflect_opaque!(::core::num::NonZeroI16(
     Clone,
     Debug,
     Hash,
@@ -90,9 +84,8 @@ impl_reflect_opaque!(::core::num::NonZeroI16(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::NON_ZERO_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroU16(
+)));
+annotated!(@SerializedAs::POSITIVE_INTEGER; impl_reflect_opaque!(::core::num::NonZeroU16(
     Clone,
     Debug,
     Hash,
@@ -100,9 +93,8 @@ impl_reflect_opaque!(::core::num::NonZeroU16(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::POSITIVE_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroU8(
+)));
+annotated!(@SerializedAs::POSITIVE_INTEGER; impl_reflect_opaque!(::core::num::NonZeroU8(
     Clone,
     Debug,
     Hash,
@@ -110,9 +102,8 @@ impl_reflect_opaque!(::core::num::NonZeroU8(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::POSITIVE_INTEGER
-));
-impl_reflect_opaque!(::core::num::NonZeroI8(
+)));
+annotated!(@SerializedAs::NON_ZERO_INTEGER; impl_reflect_opaque!(::core::num::NonZeroI8(
     Clone,
     Debug,
     Hash,
@@ -120,8 +111,7 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
     PartialOrd,
     Serialize,
     Deserialize,
-    @SerializedAs::NON_ZERO_INTEGER
-));
+)));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>(Clone));
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));
 
