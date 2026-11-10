@@ -331,7 +331,7 @@ fn sectional_color_grading(
         levels.x = 1.0;
     } else if (level < midtone_range.x + LEVEL_MARGIN) {
         levels.y = ((level - midtone_range.x) * LEVEL_MARGIN_DIV) + 0.5;
-        levels.z = 1.0 - levels.y;
+        levels.x = 1.0 - levels.y;
     } else if (level < midtone_range.y - LEVEL_MARGIN) {
         levels.y = 1.0;
     } else if (level < midtone_range.y + LEVEL_MARGIN) {

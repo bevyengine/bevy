@@ -12,6 +12,7 @@ keywords = ["bevy"]
 # bevy
 bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
@@ -42,7 +43,6 @@ serde = { version = "1", optional = true }
 serde_json = { version = "1.0.140", optional = true }
 
 [dev-dependencies]
-bevy_camera = { path = "../bevy_camera", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_clipboard = { path = "../bevy_clipboard", version = "0.20.0-dev", default-features = false }
 bevy_image = { path = "../bevy_image", version = "0.20.0-dev" }

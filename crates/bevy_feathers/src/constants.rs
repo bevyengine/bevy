@@ -28,6 +28,8 @@ pub mod icons {
     pub const CHEVRON_DOWN: &str = "embedded://bevy_feathers/assets/icons/chevron-down.png";
     /// Right-pointing chevron
     pub const CHEVRON_RIGHT: &str = "embedded://bevy_feathers/assets/icons/chevron-right.png";
+    /// Two columns of three dots, used as a drag handle
+    pub const GRIP_VERTICAL: &str = "embedded://bevy_feathers/assets/icons/grip-vertical.png";
     /// Diagonal Cross
     pub const X: &str = "embedded://bevy_feathers/assets/icons/x.png";
 }
