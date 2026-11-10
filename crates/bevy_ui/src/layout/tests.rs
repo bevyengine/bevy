@@ -3825,3 +3825,30 @@ fn nodes_with_display_none_are_fully_clipped() {
 
     assert!(clips_qstate.iter(app.world()).all(|clip| clip.is_none()));
 }
+
+#[test]
+fn overflowing_root_aligns_right() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: px(2. * TARGET_WIDTH as f32),
+            justify_self: JustifySelf::End,
+            ..default()
+        })
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<ComputedLayout>(root)
+            .unwrap()
+            .get_layout(true)
+            .unwrap()
+            .0
+            .location
+            .x,
+        -(TARGET_WIDTH as f32),
+    );
+}

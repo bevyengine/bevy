@@ -45,7 +45,13 @@ unsafe impl Sync for TaffyStyle {}
 #[derive(Default, Component, Clone, Deref, DerefMut)]
 pub struct TaffyStyle(pub Style);
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
+impl TaffyStyle {
+    pub fn viewport_node() -> &'static TaffyStyle {
+        &VIEWPORT_NODE_TAFFY_STYLE
+    }
+}
+
+static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
     TaffyStyle(Style {
         dummy: core::marker::PhantomData,
         display: Display::Grid,
@@ -627,7 +633,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
+        entity_from_node_id(node_id).map_or(TaffyStyle::viewport_node(), |entity| {
             self.style_query
                 .get(entity)
                 .expect("Missing TaffyStyle on UI node.")
