@@ -1,5 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -11,6 +10,7 @@
 //! A [`FuzzyPattern`] is split on whitespace into atoms, and a haystack matches when every
 //! atom matches it as a case-insensitive subsequence. Matches are scored so that consecutive
 //! characters, word starts and camelCase humps rank higher than scattered characters.
+//! Scores range from 0.0 to 1.0, where 1.0 means every atom matched in full from a word start.
 //!
 //! ```
 //! use bevy_fuzzy::{segments, FuzzyPattern};
@@ -22,6 +22,8 @@
 //! assert_eq!(ranked.len(), 2);
 //! assert_eq!(names[ranked[0].index], "PointLight");
 //! assert_eq!(names[ranked[1].index], "Sampler");
+//! assert!(ranked[0].matched.score > ranked[1].matched.score);
+//! assert_eq!(FuzzyPattern::new("point").score("PointLight"), Some(1.0));
 //!
 //! let highlighted: Vec<_> = segments(names[ranked[1].index], &ranked[1].matched.indices).collect();
 //! assert_eq!(highlighted, [("Sam", false), ("pl", true), ("er", false)]);
@@ -54,7 +56,7 @@ const NO_PREDECESSOR: u32 = u32::MAX;
 /// Whitespace splits the pattern into atoms, and every atom must match. Matching ignores case
 /// by comparing the first char of each char's [`char::to_lowercase`] mapping, with Greek final
 /// sigma treated as sigma. An empty or whitespace-only pattern matches everything with a score
-/// of 0.
+/// of 1.0.
 ///
 /// Each char folds to exactly one char, so that matched indices stay valid for the haystack.
 /// Case foldings that change the length do not apply: the German sharp s does not match `ss`,
@@ -65,16 +67,17 @@ pub struct FuzzyPattern {
 }
 
 /// A successful match of a [`FuzzyPattern`] against a haystack.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FuzzyMatch {
-    /// The match quality. Higher is better.
-    pub score: u32,
+    /// The match quality from 0.0 to 1.0. Higher is better, and 1.0 means every atom matched
+    /// in full from a word start.
+    pub score: f32,
     /// The sorted, de-duplicated char indices of the matched haystack chars.
     pub indices: Vec<usize>,
 }
 
 /// An item that matched in [`FuzzyPattern::rank`].
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct RankedMatch {
     /// The index of the item in the ranked slice.
     pub index: usize,
@@ -98,18 +101,15 @@ impl FuzzyPattern {
         self.atoms.is_empty()
     }
 
-    /// Returns the score of the best match in `haystack`, or `None` if it does not match.
-    pub fn score(&self, haystack: &str) -> Option<u32> {
-        self.run(haystack, None)
+    /// Returns the score of the best match in `haystack`, from 0.0 to 1.0, or `None` if it does
+    /// not match.
+    pub fn score(&self, haystack: &str) -> Option<f32> {
+        self.run(haystack, None).map(|raw| self.normalize(raw))
     }
 
     /// Matches `haystack`, returning the score and the matched char indices.
     pub fn match_str(&self, haystack: &str) -> Option<FuzzyMatch> {
-        let mut indices = Vec::new();
-        let score = self.run(haystack, Some(&mut indices))?;
-        indices.sort_unstable();
-        indices.dedup();
-        Some(FuzzyMatch { score, indices })
+        self.match_raw(haystack).map(|(_, matched)| matched)
     }
 
     /// Matches every item's key and returns the matching items.
@@ -121,21 +121,59 @@ impl FuzzyPattern {
             return (0..items.len())
                 .map(|index| RankedMatch {
                     index,
-                    matched: FuzzyMatch::default(),
+                    matched: FuzzyMatch {
+                        score: 1.0,
+                        indices: Vec::new(),
+                    },
                 })
                 .collect();
         }
-        let mut ranked: Vec<(usize, RankedMatch)> = items
+        let mut ranked: Vec<(u32, usize, RankedMatch)> = items
             .iter()
             .enumerate()
             .filter_map(|(index, item)| {
                 let haystack = key(item);
-                let matched = self.match_str(haystack)?;
-                Some((haystack.chars().count(), RankedMatch { index, matched }))
+                let (raw, matched) = self.match_raw(haystack)?;
+                Some((
+                    raw,
+                    haystack.chars().count(),
+                    RankedMatch { index, matched },
+                ))
             })
             .collect();
-        ranked.sort_by_key(|(len, ranked)| (Reverse(ranked.matched.score), *len, ranked.index));
-        ranked.into_iter().map(|(_, ranked)| ranked).collect()
+        ranked.sort_by_key(|(raw, len, ranked)| (Reverse(*raw), *len, ranked.index));
+        ranked.into_iter().map(|(_, _, ranked)| ranked).collect()
+    }
+
+    fn match_raw(&self, haystack: &str) -> Option<(u32, FuzzyMatch)> {
+        let mut indices = Vec::new();
+        let raw = self.run(haystack, Some(&mut indices))?;
+        indices.sort_unstable();
+        indices.dedup();
+        let score = self.normalize(raw);
+        Some((raw, FuzzyMatch { score, indices }))
+    }
+
+    /// The raw score of a match where every atom starts at a word boundary and continues
+    /// consecutively. No alignment of the pattern scores higher.
+    fn max_raw(&self) -> u32 {
+        let first = (SCORE_MATCH + BONUS_BOUNDARY * FIRST_CHAR_MULTIPLIER) as u32;
+        let rest = (SCORE_MATCH + BONUS_BOUNDARY.max(BONUS_CONSECUTIVE)) as u32;
+        self.atoms
+            .iter()
+            .map(|atom| {
+                let tail = u32::try_from(atom.len() - 1).unwrap_or(u32::MAX);
+                first.saturating_add(tail.saturating_mul(rest))
+            })
+            .fold(0, u32::saturating_add)
+    }
+
+    fn normalize(&self, raw: u32) -> f32 {
+        if self.is_empty() {
+            1.0
+        } else {
+            raw as f32 / self.max_raw() as f32
+        }
     }
 
     fn run(&self, haystack: &str, mut indices: Option<&mut Vec<usize>>) -> Option<u32> {
@@ -374,18 +412,102 @@ mod tests {
             .indices
     }
 
-    fn score(pattern: &str, haystack: &str) -> u32 {
+    fn score(pattern: &str, haystack: &str) -> f32 {
         FuzzyPattern::new(pattern).score(haystack).unwrap()
     }
+
+    fn raw(pattern: &str, haystack: &str) -> Option<u32> {
+        FuzzyPattern::new(pattern).run(haystack, None)
+    }
+
+    const PATTERNS: [&str; 12] = [
+        "pl",
+        "point",
+        "point light",
+        "trans",
+        "tr",
+        "abc",
+        "gt",
+        "cm",
+        "3d",
+        "light",
+        "a b",
+        "zzz",
+    ];
+
+    const HAYSTACKS: [&str; 16] = [
+        "PointLight",
+        "point_light",
+        "Spline",
+        "Sampler",
+        "Transform",
+        "Transform2",
+        "Matrix",
+        "xabcx",
+        "xaxbxcx",
+        "global_transform",
+        "ClusterFarZMode",
+        "Camera3d",
+        "Highlight",
+        "LongItemGetHeightTotal",
+        "a_b",
+        "ab",
+    ];
 
     #[test]
     fn empty_pattern_matches_everything() {
         for pattern in ["", "   ", "\t\n"] {
             let pattern = FuzzyPattern::new(pattern);
             assert!(pattern.is_empty());
-            assert_eq!(pattern.score("anything"), Some(0));
-            assert_eq!(pattern.score(""), Some(0));
-            assert_eq!(pattern.match_str("abc"), Some(FuzzyMatch::default()));
+            assert_eq!(pattern.score("anything"), Some(1.0));
+            assert_eq!(pattern.score(""), Some(1.0));
+            let matched = pattern.match_str("abc").unwrap();
+            assert_eq!(matched.score, 1.0);
+            assert!(matched.indices.is_empty());
+            let ranked = pattern.rank(&["a", "b"], |item| *item);
+            assert!(ranked.iter().all(|r| r.matched.score == 1.0));
+        }
+    }
+
+    #[test]
+    fn perfect_match_scores_one() {
+        assert_eq!(score("point", "PointLight"), 1.0);
+        assert_eq!(score("pointlight", "PointLight"), 1.0);
+        assert_eq!(score("point light", "point_light"), 1.0);
+        assert_eq!(score("a b", "a_b"), 1.0);
+        assert_eq!(score("x", "x"), 1.0);
+        assert!(score("pl", "PointLight") < 1.0);
+        assert!(score("a b", "ab") < 1.0);
+    }
+
+    #[test]
+    fn scores_are_normalized() {
+        for pattern in PATTERNS {
+            for haystack in HAYSTACKS {
+                if let Some(score) = FuzzyPattern::new(pattern).score(haystack) {
+                    assert!((0.0..=1.0).contains(&score), "{pattern} {haystack} {score}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn normalized_scores_keep_raw_order() {
+        for pattern in PATTERNS {
+            let parsed = FuzzyPattern::new(pattern);
+            for a in HAYSTACKS {
+                for b in HAYSTACKS {
+                    let (Some(raw_a), Some(raw_b)) = (raw(pattern, a), raw(pattern, b)) else {
+                        continue;
+                    };
+                    let (score_a, score_b) = (parsed.score(a).unwrap(), parsed.score(b).unwrap());
+                    assert_eq!(raw_a.cmp(&raw_b), score_a.partial_cmp(&score_b).unwrap());
+                }
+            }
+            let ranked = parsed.rank(&HAYSTACKS, |item| *item);
+            assert!(ranked
+                .windows(2)
+                .all(|w| w[0].matched.score >= w[1].matched.score));
         }
     }
 
