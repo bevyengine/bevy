@@ -1,4 +1,4 @@
-use taffy::style_helpers;
+use taffy::{style_helpers, Dimension};
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
@@ -15,7 +15,12 @@ impl Val {
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
-            Val::Auto => style_helpers::auto(),
+            Val::Auto
+            | Val::MinContent
+            | Val::MaxContent
+            | Val::FitContent
+            | Val::Stretch
+            | Val::Content => style_helpers::auto(),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(context.scale_factor * value),
             Val::VMin(value) => {
@@ -38,7 +43,12 @@ impl Val {
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentage {
         match self {
-            Val::Auto => style_helpers::length(0.0_f32),
+            Val::Auto
+            | Val::MinContent
+            | Val::MaxContent
+            | Val::FitContent
+            | Val::Stretch
+            | Val::Content => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(context.scale_factor * value),
             Val::VMin(value) => {
@@ -77,8 +87,29 @@ impl Val {
         }
     }
 
-    fn into_dimension(self, context: &LayoutContext) -> taffy::style::Dimension {
-        self.into_length_percentage_auto(context).into()
+    fn into_dimension(self, context: &LayoutContext) -> Dimension {
+        match self {
+            Val::Auto => style_helpers::auto(),
+            Val::MinContent => Dimension::min_content(),
+            Val::MaxContent => Dimension::max_content(),
+            Val::FitContent => Dimension::fit_content(),
+            Val::Stretch => Dimension::stretch(),
+            Val::Content => Dimension::content(),
+            Val::Percent(value) => style_helpers::percent(value / 100.),
+            Val::Px(value) => style_helpers::length(context.scale_factor * value),
+            Val::VMin(value) => {
+                style_helpers::length(context.physical_size.min_element() * value / 100.)
+            }
+            Val::VMax(value) => {
+                style_helpers::length(context.physical_size.max_element() * value / 100.)
+            }
+            Val::Vw(value) => style_helpers::length(context.physical_size.x * value / 100.),
+            Val::Vh(value) => style_helpers::length(context.physical_size.y * value / 100.),
+            Val::Em(value) => style_helpers::length(context.scale_factor * value * context.em_size),
+            Val::Rem(value) => {
+                style_helpers::length(context.scale_factor * value * context.rem_size)
+            }
+        }
     }
 }
 
@@ -711,9 +742,9 @@ mod tests {
         );
         assert_eq!(taffy_style.flex_grow, 1.);
         assert_eq!(taffy_style.flex_shrink, 0.);
-        assert_eq!(taffy_style.flex_basis, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.size.width, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.size.height, taffy::style::Dimension::auto());
+        assert_eq!(taffy_style.flex_basis, Dimension::ZERO);
+        assert_eq!(taffy_style.size.width, Dimension::ZERO);
+        assert_eq!(taffy_style.size.height, Dimension::auto());
         assert_eq!(
             taffy_style.min_size.width,
             taffy::style::LengthPercentageAuto::ZERO
