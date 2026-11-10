@@ -316,8 +316,12 @@ bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 # Provides the ability to extract entities from an ECS main world to a sub world
 bevy_extract = ["bevy_internal/bevy_extract"]
 
-# Adds gamepad support
-bevy_gilrs = ["gamepad", "bevy_internal/bevy_gilrs"]
+# Adds gamepad support.
+bevy_gilrs = ["gamepad"]
+# Support gilrs using WGI on Windows targets.
+gilrs_wgi = ["bevy_gilrs", "bevy_internal/gilrs_wgi"]
+# Support gilrs using XInput on Windows targets (which is compatible with Wine).
+gilrs_xinput = ["bevy_gilrs", "bevy_internal/gilrs_xinput"]
 
 # [glTF](https://www.khronos.org/gltf/) support
 bevy_gltf = ["bevy_internal/bevy_gltf"]
@@ -770,12 +774,6 @@ hotpatching = ["bevy_internal/hotpatching"]
 
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
-
-# Use the Windows Game Input system for gamepad support in gilrs on Windows.
-gilrs_wgi = ["bevy_internal/gilrs_wgi"]
-
-# Use the XInput system for gamepad support in gilrs on Windows. (This will work in Wine cross-builds.)
-gilrs_xinput = ["bevy_internal/gilrs_xinput"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.20.0-dev", default-features = false }
