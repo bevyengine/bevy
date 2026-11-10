@@ -119,6 +119,37 @@ pub enum Val {
     /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
+    /// The smallest size that can fit the node's contents, taking all available
+    /// soft wrapping opportunities.
+    ///
+    /// Only supported on the `width`, `height` and `flex_basis` fields, behaves as `Auto` elsewhere.
+    MinContent,
+    /// The smallest size that can fit the node's contents, without taking any
+    /// soft wrapping opportunities.
+    ///
+    /// Only supported on the `width`, `height` and `flex_basis` fields, behaves as `Auto` elsewhere.
+    MaxContent,
+    /// Size the node to fit the available space, clamped between min-content and max-content.
+    ///
+    /// Only supported on the `width`, `height` and `flex_basis` fields, behaves as `Auto` elsewhere.
+    FitContent,
+    /// Sizes the box to fill the available space, subject to layout constraints.
+    /// (<https://www.w3.org/TR/css-sizing-4/#stretch-fit-sizing>)
+    ///
+    /// Compared to `Percent(100.)`, `Percent` sizes are relative to the parent's inner content size.
+    /// A `Node` with 100% width and 10px margins may overflow its parent, but
+    /// with `Stretch` the node's margins are accounted for when calculating its size.
+    /// For example, with 300px available space and 10px margins, `Stretch` requests a width of 280px.
+    ///
+    /// Only supported on the `width`, `height` and `flex_basis` fields, behaves as `Auto` elsewhere.
+    Stretch,
+    /// The size of the node's content determines its initial flex size, rather than its `width` when the
+    /// parent has `FlexDirection::Row`, or `height` when the parent has `FlexDirection::Column`.
+    ///
+    /// (<https://www.w3.org/TR/css-flexbox-1/#valdef-flex-basis-content>)
+    ///
+    /// Only supported on the `flex_basis` field, behaves as `Auto` elsewhere.
+    Content,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -194,6 +225,11 @@ impl PartialEq for Val {
         let same_unit = matches!(
             (self, other),
             (Self::Auto, Self::Auto)
+                | (Self::MinContent, Self::MinContent)
+                | (Self::MaxContent, Self::MaxContent)
+                | (Self::FitContent, Self::FitContent)
+                | (Self::Stretch, Self::Stretch)
+                | (Self::Content, Self::Content)
                 | (Self::Px(_), Self::Px(_))
                 | (Self::Percent(_), Self::Percent(_))
                 | (Self::Vw(_), Self::Vw(_))
@@ -227,13 +263,12 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for [`Val::Auto`].
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
     const fn inner(self) -> Option<f32> {
         match self {
-            Self::Auto => None,
             Self::Px(v)
             | Self::Percent(v)
             | Self::Vw(v)
@@ -242,6 +277,7 @@ impl Val {
             | Self::VMax(v)
             | Self::Em(v)
             | Self::Rem(v) => Some(v),
+            _ => None,
         }
     }
 
@@ -445,7 +481,6 @@ impl Mul<f32> for Val {
 
     fn mul(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value * rhs),
             Val::Percent(value) => Val::Percent(value * rhs),
             Val::Vw(value) => Val::Vw(value * rhs),
@@ -454,6 +489,7 @@ impl Mul<f32> for Val {
             Val::VMax(value) => Val::VMax(value * rhs),
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
+            non_numeric => non_numeric,
         }
     }
 }
@@ -461,7 +497,6 @@ impl Mul<f32> for Val {
 impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
-            Val::Auto => {}
             Val::Px(value)
             | Val::Percent(value)
             | Val::Vw(value)
@@ -470,6 +505,7 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
+            _non_numeric => {}
         }
     }
 }
@@ -488,6 +524,7 @@ impl Div<f32> for Val {
             Val::VMax(value) => Val::VMax(value / rhs),
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
+            non_numeric => non_numeric,
         }
     }
 }
@@ -495,7 +532,6 @@ impl Div<f32> for Val {
 impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
-            Val::Auto => {}
             Val::Px(value)
             | Val::Percent(value)
             | Val::Vw(value)
@@ -504,6 +540,7 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
+            _non_numeric => {}
         }
     }
 }
@@ -513,7 +550,6 @@ impl Neg for Val {
 
     fn neg(self) -> Self::Output {
         match self {
-            Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(-value),
             Val::Percent(value) => Val::Percent(-value),
             Val::Vw(value) => Val::Vw(-value),
@@ -522,6 +558,7 @@ impl Neg for Val {
             Val::VMax(value) => Val::VMax(-value),
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
+            non_numeric => non_numeric,
         }
     }
 }
@@ -556,7 +593,7 @@ impl Val {
             }
             Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
             Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
-            Val::Auto => Err(ValArithmeticError::NonEvaluable),
+            _ => Err(ValArithmeticError::NonEvaluable),
         }
     }
 }
@@ -569,7 +606,6 @@ impl From<Val> for FontSize {
     /// size instead to avoid the circularity.
     fn from(val: Val) -> Self {
         match val {
-            Val::Auto => FontSize::Rem(1.),
             Val::Px(px) => FontSize::Px(px),
             Val::Percent(percent) => FontSize::Rem(percent / 100.),
             Val::Vw(vw) => FontSize::Vw(vw),
@@ -578,6 +614,7 @@ impl From<Val> for FontSize {
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
             Val::Em(em) => FontSize::Rem(em), // see comment above
+            _ => FontSize::Rem(1.),
         }
     }
 }
@@ -602,7 +639,7 @@ impl TryStableInterpolate for Val {
             (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
             (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
             (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
-            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            (a, b) if a == b => Ok(*a),
             _ => Err(MismatchedUnitsError),
         }
     }

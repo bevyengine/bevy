@@ -7,7 +7,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
+//! Spawn UI elements with [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 extern crate alloc;
@@ -29,7 +29,6 @@ use bevy_picking::PickingSystems;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 pub use accessibility::AccessibilityUiSystems;
-mod focus;
 mod geometry;
 mod layout;
 mod scroll_into_view;
@@ -38,7 +37,6 @@ mod ui_node;
 mod val;
 
 use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
-pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
 pub use interaction_states::{
@@ -62,12 +60,6 @@ pub mod prelude {
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
-    #[expect(
-        deprecated,
-        reason = "Should be removed after 0.20 is released when Button & Interaction are removed."
-    )]
-    #[doc(hidden)]
-    pub use crate::{widget::Button, Interaction};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -88,7 +80,6 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystems;
 use layout::clipping::update_clipping_system;
 use stack::ui_stack_system;
 pub use stack::{ComputedStackIndex, UiStack};
@@ -186,11 +177,7 @@ impl Plugin for UiPlugin {
             )
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
                 PostUpdate,
-            ))
-            .add_systems(
-                PreUpdate,
-                ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
-            );
+            ));
 
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)
