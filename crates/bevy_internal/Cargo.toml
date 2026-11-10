@@ -588,7 +588,7 @@ bevy_ui_widgets = { path = "../bevy_ui_widgets", optional = true, version = "0.2
 bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.20.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.20.0-dev" }
 bevy_extract = { path = "../bevy_extract", optional = true, version = "0.20.0-dev" }
-bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.20.0-dev" }
+bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gizmos_render = { path = "../bevy_gizmos_render", optional = true, version = "0.20.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.20.0-dev" }
