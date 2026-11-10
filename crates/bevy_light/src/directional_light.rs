@@ -254,7 +254,8 @@ pub fn update_directional_light_frusta(
 
 /// Add to a [`DirectionalLight`] to control rendering of the visible solar disk in the sky.
 /// Affects only the disk’s appearance, not the light’s illuminance or shadows.
-/// Requires a `bevy::pbr::Atmosphere` component on a [`Camera3d`](bevy_camera::Camera3d) to have any effect.
+/// For this component to have an effect, an [`crate::Atmosphere`] entity must exist and the
+/// [`Camera3d`](bevy_camera::Camera3d) needs a `bevy::pbr::AtmosphereSettings` component.
 ///
 /// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
 /// apparent size and brightness of the Sun as seen from Earth. Use [`SunDisk::MARS`] for the
