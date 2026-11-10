@@ -34,7 +34,7 @@ use bevy_picking::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    ComputedNode, InteractionDisabled, Selectable, Selected, UiGlobalTransform, UiScale,
+    ComputedNode, InteractionDisabled, Selectable, Selected, UiGlobalTransform, UiScale, UiSystems,
 };
 
 use crate::ControlOrientation;
@@ -300,7 +300,8 @@ impl Plugin for TabPlugin {
                 )
                     .chain()
                     .after(crate::MenuFocusSystem)
-                    .before(InputFocusSystems::FocusChangeEvents),
+                    .before(InputFocusSystems::FocusChangeEvents)
+                    .before(UiSystems::Content),
             );
     }
 }

@@ -174,7 +174,7 @@ bitflags! {
         /// so that they can be read back to CPU.
         ///
         /// This is a debugging feature that may reduce performance. It
-        /// primarily exists for the `occlusion_culling` example.
+        /// primarily exists for the [`occlusion_culling` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/occlusion_culling.rs).
         const ALLOW_COPIES_FROM_INDIRECT_PARAMETERS = 1;
     }
 }

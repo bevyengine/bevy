@@ -693,7 +693,6 @@ where
     buffer: Option<Buffer>,
     len: usize,
     capacity: usize,
-    item_size: usize,
     buffer_usage: BufferUsages,
     label: Option<String>,
     label_changed: bool,
@@ -710,7 +709,6 @@ where
             len: 0,
             buffer: None,
             capacity: 0,
-            item_size: T::SHADER_SIZE.get() as usize,
             buffer_usage,
             label: None,
             label_changed: false,
@@ -795,7 +793,7 @@ where
         }
 
         self.capacity = capacity;
-        let size = self.item_size * capacity;
+        let size = T::SHADER_SIZE.get() as usize * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
             label: make_buffer_label::<Self>(&self.label),
             size: size as BufferAddress,
@@ -999,25 +997,4 @@ pub(crate) fn make_buffer_label<'a, T>(label: &'a Option<String>) -> Option<&'a 
         return Some(core::any::type_name::<T>());
     }
     label.as_deref()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::UninitBufferVec;
-    use bevy_math::Vec3;
-    use encase::ShaderType;
-    use wgpu::BufferUsages;
-
-    #[derive(ShaderType, Clone)]
-    struct Padded {
-        value: Vec3,
-    }
-
-    #[test]
-    fn uninit_buffer_vec_uses_shader_size() {
-        // A `Vec3` is 12 bytes on the CPU but the struct is 16 bytes in WGSL.
-        assert_eq!(size_of::<Padded>(), 12);
-        let buffer = UninitBufferVec::<Padded>::new(BufferUsages::STORAGE);
-        assert_eq!(buffer.item_size, 16);
-    }
 }

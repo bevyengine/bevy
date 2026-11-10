@@ -17,6 +17,7 @@
 //! - Click to place cursor; click and drag to extend the selection
 //! - Multi-click: double-click to select a word, triple-click to select a line
 //! - Optional select-all on focus via the `SelectAllOnFocus` component
+//! - Optional placeholder hint text via the [`Placeholder`] component
 //! - Per-character input filtering via the [`EditableTextFilter`] component
 //! - Max character limits via [`EditableText::max_characters`]
 //! - Cursor blinking
@@ -56,7 +57,6 @@
 //!
 //! However, the following features are planned but currently not implemented:
 //!
-//! - Placeholder text (displayed when the input is empty)
 //! - Undo/redo functionality
 //! - Text validation (e.g., email format, numeric input)
 //! - Password-style character masking
@@ -75,14 +75,18 @@
 use crate::{
     scroll::TextViewport,
     text_edit::{poll_and_apply_paste, reveal_cursor, TextEdit},
-    FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
+    FontCx, FontHinting, FontStyle, FontWeight, LayoutCx, LineHeight, TextBrush, TextColor,
+    TextFont, TextLayout,
 };
 use alloc::borrow::Cow;
+use alloc::string::String;
 use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
+use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Vec2;
+use bevy_reflect::prelude::*;
 use core::time::Duration;
 use parley::{FontContext, LayoutContext, PlainEditor};
 
@@ -308,6 +312,69 @@ impl EditableText {
     pub fn is_composing(&self) -> bool {
         self.editor.is_composing()
     }
+}
+
+/// Hint text shown while an [`EditableText`] is empty.
+///
+/// Laid out with the field's own editor settings and drawn as part of the
+/// field, so it clips, scrolls, layers and transforms with it. It never
+/// enters the editor's buffer: [`EditableText::value`] stays empty.
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Debug, Clone)]
+pub struct Placeholder {
+    /// The hint text.
+    pub text: String,
+    /// `None` draws the hint in the field's [`TextColor`], with its alpha
+    /// scaled by [`Placeholder::DEFAULT_ALPHA`].
+    pub color: Option<Color>,
+    /// Overrides the field's [`TextFont::style`], e.g. italic hints.
+    /// Like any text, this needs a font with that face.
+    pub font_style: Option<FontStyle>,
+    /// Overrides the field's [`TextFont::weight`].
+    pub font_weight: Option<FontWeight>,
+    /// When the hint is shown, relative to focus.
+    pub mode: PlaceholderMode,
+}
+
+impl Placeholder {
+    /// Alpha multiplier on the field's [`TextColor`] when
+    /// [`color`](Self::color) is `None`.
+    pub const DEFAULT_ALPHA: f32 = 0.4;
+
+    /// A placeholder in the default color and [`PlaceholderMode`].
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            color: None,
+            font_style: None,
+            font_weight: None,
+            mode: PlaceholderMode::default(),
+        }
+    }
+
+    /// Whether the hint shows for `editable_text`. An IME preedit counts as
+    /// content, since it is drawn in the buffer.
+    pub fn is_shown(&self, editable_text: &EditableText, focused: bool) -> bool {
+        editable_text.editor.raw_text().is_empty()
+            && !(self.mode == PlaceholderMode::UnlessFocused && focused)
+    }
+
+    /// The color the hint is drawn in, for a field drawn in `text_color`.
+    pub fn resolve_color(&self, text_color: Color) -> Color {
+        self.color
+            .unwrap_or_else(|| text_color.with_alpha(text_color.alpha() * Self::DEFAULT_ALPHA))
+    }
+}
+
+/// When a [`Placeholder`] is shown, relative to focus.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Default, Debug, Clone, PartialEq)]
+pub enum PlaceholderMode {
+    /// Shown whenever the field is empty, focused or not.
+    #[default]
+    WhileEmpty,
+    /// Hidden while the field has focus.
+    UnlessFocused,
 }
 
 /// Wrapper around a `parley::Generation`. Used to track when `TextLayoutInfo` is stale and needs reupdating.
