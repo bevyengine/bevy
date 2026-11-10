@@ -46,6 +46,26 @@ use bevy_pbr::{
 };
 
 /// Adds a rendering debug overlay to visualize various renderer buffers.
+///
+/// The plugin is part of `DefaultPlugins` when the `dev` feature is enabled.
+/// The overlay is hidden by default. To control it from the keyboard, insert a
+/// [`RenderDebugOverlayKeybindings`] resource with
+/// [`enable_keybindings`](RenderDebugOverlayKeybindings::enable_keybindings) set to `true`:
+///
+/// ```
+/// # use bevy_dev_tools::render_debug::RenderDebugOverlayKeybindings;
+/// # use bevy_ecs::prelude::World;
+/// # use bevy_utils::default;
+/// let mut world = World::new();
+/// world.insert_resource(RenderDebugOverlayKeybindings {
+///     enable_keybindings: true,
+///     ..default()
+/// });
+/// ```
+///
+/// With the default keybindings, `F1` enables the overlay and cycles through the
+/// supported modes, `F2` cycles the overlay opacity. The overlay is drawn on every
+/// camera.
 #[derive(Default)]
 pub struct RenderDebugOverlayPlugin;
 
@@ -99,7 +119,14 @@ impl Plugin for RenderDebugOverlayPlugin {
     }
 }
 
-/// keybinding resource for configurable keybindings for the overlay
+/// Resource for configuring the [`RenderDebugOverlayPlugin`] keyboard shortcuts.
+///
+/// Keybindings are disabled by default. Set
+/// [`enable_keybindings`](RenderDebugOverlayKeybindings::enable_keybindings)
+/// to `true` to enable them.
+///
+/// Defaults to `F1` for cycling through the debug modes and `F2` for cycling
+/// the overlay opacity.
 #[derive(Resource, Clone, Copy)]
 pub struct RenderDebugOverlayKeybindings {
     /// Whether to enable the automatic keybindings

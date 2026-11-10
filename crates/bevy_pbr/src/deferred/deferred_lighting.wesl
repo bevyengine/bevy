@@ -4,7 +4,7 @@ import package::{
         pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
         pbr_functions,
         pbr_lighting as lighting,
-        mesh_view_bindings::deferred_prepass_texture,
+        mesh_view_bindings::{deferred_prepass_texture, view},
     },
     deferred::{
         functions::pbr_input_from_deferred_gbuffer,
@@ -63,7 +63,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao_tex_pos = vec2<i32>(in.position.xy - view.viewport.xy);
+        let ssao_tex_pos = vec2<i32>(in.position.xy - view.main_pass_viewport.xy);
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
@@ -86,4 +86,3 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     return output_color;
 }
-

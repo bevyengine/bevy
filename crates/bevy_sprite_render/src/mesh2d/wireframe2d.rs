@@ -87,7 +87,6 @@ impl Plugin for Wireframe2dPlugin {
             RenderAssetPlugin::<RenderWireframeMaterial>::default(),
         ))
         .init_asset::<Wireframe2dMaterial>()
-        .init_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
         .init_resource::<Wireframe2dConfig>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .add_systems(Startup, setup_global_wireframe_material)
@@ -146,7 +145,7 @@ impl Plugin for Wireframe2dPlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSystems::PrepareMeshes)
+                        .in_set(RenderSystems::Specialize)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes

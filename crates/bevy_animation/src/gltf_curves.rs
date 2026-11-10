@@ -1,9 +1,7 @@
 //! Concrete curve structures used to load glTF curves into the animation system.
 
-use bevy_math::{
-    curve::{cores::*, iterable::IterableCurve, *},
-    vec4, Quat, Vec4, VectorSpace,
-};
+use bevy_curve::{cores::*, iterable::IterableCurve, *};
+use bevy_math::{vec4, Quat, Vec4, VectorSpace};
 use bevy_reflect::Reflect;
 use either::Either;
 use thiserror::Error;

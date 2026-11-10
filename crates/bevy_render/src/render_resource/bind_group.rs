@@ -2,7 +2,7 @@ use crate::{
     material_bind_groups::FallbackBuffer,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
-    renderer::{RenderDevice, WgpuWrapper},
+    renderer::{wgpu_wrapper, RenderDevice},
     storage::{GpuShaderBuffer, ShaderBuffer},
     texture::GpuImage,
 };
@@ -25,6 +25,11 @@ use super::{BindlessDescriptor, BindlessSlabResourceLimit};
 
 define_atomic_id!(BindGroupId);
 
+wgpu_wrapper! {
+    #[derive(Clone, Debug)]
+    struct WgpuBindGroup(wgpu::BindGroup);
+}
+
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
 /// This makes them accessible in the pipeline (shaders) as uniforms.
@@ -37,7 +42,7 @@ define_atomic_id!(BindGroupId);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: WgpuWrapper<wgpu::BindGroup>,
+    value: WgpuBindGroup,
 }
 
 impl BindGroup {
@@ -66,7 +71,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId::new(),
-            value: WgpuWrapper::new(value),
+            value: WgpuBindGroup::new(value),
         }
     }
 }
@@ -135,15 +140,15 @@ impl Deref for BindGroup {
 /// }
 /// ```
 ///
-/// In WGSL shaders, the binding would look like this:
+/// In WESL shaders, the binding would look like this:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(3) var<storage> storage_buffer: array<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(4) var<storage> raw_buffer: array<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_sampler: sampler;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(3) var<storage> storage_buffer: array<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(4) var<storage> raw_buffer: array<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 2.
@@ -259,14 +264,14 @@ impl Deref for BindGroup {
 /// }
 /// ```
 ///
-/// In WGSL shaders, the binding would look like this:
+/// In WESL shaders, the binding would look like this:
 /// ```wgsl
 /// struct CoolMaterial {
 ///     color: vec4<f32>,
 ///     roughness: f32,
 /// };
 ///
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: CoolMaterial;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: CoolMaterial;
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
@@ -317,7 +322,7 @@ impl Deref for BindGroup {
 /// declaration:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
 /// ```
 ///
 /// On the other hand, if you write this declaration:
@@ -330,7 +335,7 @@ impl Deref for BindGroup {
 /// Then Bevy produces a binding that matches this WGSL declaration instead:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(10) var<storage> material_array: array<StandardMaterial>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(10) var<storage> material_array: array<StandardMaterial>;
 /// ```
 ///
 /// * Just as with the structure-level `uniform` attribute, Bevy converts the
@@ -343,7 +348,7 @@ impl Deref for BindGroup {
 ///   this in WGSL in non-bindless mode:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material: StandardMaterial;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: StandardMaterial;
 /// ```
 ///
 /// * For efficiency reasons, `data` is generally preferred over `uniform`

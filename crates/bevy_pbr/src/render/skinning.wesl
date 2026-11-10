@@ -6,12 +6,12 @@ import package::render::mesh_bindings::mesh;
 @if(SKINNED && !SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(1) var<storage> joint_matrices: array<mat4x4<f32>>;
 
-// An array of matrices specifying the joint positions from the previous frame.
-//
-// This is used for motion vector computation.
-//
-// If this is the first frame, or we're otherwise prevented from using data from
-// the previous frame, this is simply the same as `joint_matrices` above.
+/// An array of matrices specifying the joint positions from the previous frame.
+///
+/// This is used for motion vector computation.
+///
+/// If this is the first frame, or we're otherwise prevented from using data from
+/// the previous frame, this is simply the same as `joint_matrices` above.
 @if(SKINNED && SKINS_USE_UNIFORM_BUFFERS)
 @group(2) @binding(6) var<uniform> prev_joint_matrices: SkinnedMesh;
 @if(SKINNED && !SKINS_USE_UNIFORM_BUFFERS)
@@ -37,10 +37,10 @@ fn skin_model(
         + weights.w * joint_matrices[skin_index + indexes.w];
 }
 
-// Returns the skinned position of a vertex with the given weights from the
-// previous frame.
-//
-// This is used for motion vector computation.
+/// Returns the skinned position of a vertex with the given weights from the
+/// previous frame.
+///
+/// This is used for motion vector computation.
 @if(SKINNED)
 fn skin_prev_model(
     indexes: vec4<u32>,

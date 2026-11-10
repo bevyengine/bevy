@@ -63,6 +63,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_shader::{Shader, ShaderDefVal};
+use bevy_transform::prelude::{GlobalTransform, TransformSystems};
 use bevy_utils::Parallel;
 use core::{
     any::{Any, TypeId},
@@ -97,7 +98,7 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-/// # use bevy_math::primitives::Capsule3d;
+/// # use bevy_shape::Capsule3d;
 /// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
@@ -137,12 +138,12 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// }
 /// ```
 ///
-/// In WGSL shaders, the material's binding would look like this:
+/// In WESL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> color: vec4<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(1) var color_texture: texture_2d<f32>;
-/// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> color: vec4<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
@@ -171,19 +172,19 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         OpaqueRendererMethod::Forward
     }
 
-    #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
     /// for meshes with similar depth, to avoid z-fighting.
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
+    #[inline]
     fn depth_bias(&self) -> f32 {
         0.0
     }
 
-    #[inline]
     /// Returns whether the material would like to read from [`ViewTransmissionTexture`].
     ///
     /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
     /// rendering to take place in a separate [`Transmissive3d`] pass.
+    #[inline]
     fn reads_view_transmission_texture(&self) -> bool {
         false
     }
@@ -452,7 +453,9 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_entities_needing_specialization::<M>.after(AssetEventSystems),
+                    check_entities_needing_specialization::<M>
+                        .after(AssetEventSystems)
+                        .after(TransformSystems::Propagate), //needs to wait for transforms to  render
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -909,6 +912,9 @@ pub struct SpecializedMaterialViewPipelineCache {
 
 /// Finds 3D entities that have changed in such a way as to potentially require
 /// specialization and adds them to the [`EntitiesNeedingSpecialization`] list.
+///
+/// A [`GlobalTransform`] change does not alter the specialized pipeline. It is
+/// included in order to trigger updates to the retained cache
 pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
@@ -918,6 +924,7 @@ pub fn check_entities_needing_specialization<M>(
                 AssetChanged<Mesh3d>,
                 Changed<MeshMaterial3d<M>>,
                 AssetChanged<MeshMaterial3d<M>>,
+                Changed<GlobalTransform>,
             )>,
             With<MeshMaterial3d<M>>,
         ),
@@ -1095,6 +1102,10 @@ pub(crate) fn specialize_material_meshes(
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
                 let Some(material) = render_materials.get(material_instance.asset_id) else {
@@ -1201,12 +1212,16 @@ pub fn queue_material_meshes(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut pending_mesh_material_queues: ResMut<PendingMeshMaterialQueues>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(
+        &ExtractedView,
+        &RenderVisibleEntities,
+        Has<ScreenSpaceTransmission>,
+    )>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     dirty_specializations: Res<DirtySpecializations>,
     mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
-    for (view, visible_entities) in &views {
+    for (view, visible_entities, has_transmission) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -1294,7 +1309,21 @@ pub fn queue_material_meshes(
                 continue;
             };
 
-            match material.properties.render_phase_type {
+            let render_phase_type = if !has_transmission {
+                // Fall back to rendering based on alpha mode when `ScreenSpaceTransmission` is disabled
+                match material.properties.alpha_mode {
+                    AlphaMode::Blend
+                    | AlphaMode::Premultiplied
+                    | AlphaMode::Add
+                    | AlphaMode::Multiply => RenderPhaseType::Transparent,
+                    AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
+                    AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
+                }
+            } else {
+                material.properties.render_phase_type
+            };
+
+            match render_phase_type {
                 RenderPhaseType::Transmissive => {
                     let Some(draw_function) = material
                         .properties
@@ -1369,6 +1398,14 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        alpha_mask_phase.update_cache(*visible_entity, None);
+                        continue;
+                    }
                     let Some(draw_function) = material
                         .properties
                         .get_draw_function(MainPassAlphaMaskDrawFunction)
@@ -1714,23 +1751,17 @@ where
             OpaqueRendererMethod::Deferred => OpaqueRendererMethod::Deferred,
             OpaqueRendererMethod::Auto => default_opaque_render_method.0,
         };
+        let alpha_mode = material.alpha_mode();
+        let reads_view_transmission_texture = material.reads_view_transmission_texture();
 
-        let mut mesh_pipeline_key_bits = MeshPipelineKey::empty();
-        mesh_pipeline_key_bits.set(
-            MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
-            material.reads_view_transmission_texture(),
-        );
-
-        let reads_view_transmission_texture =
-            mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
-
+        let mesh_pipeline_key_bits = MeshPipelineKey::empty();
         let mesh_pipeline_key_bits = ErasedMeshPipelineKey::new(mesh_pipeline_key_bits);
 
-        let render_phase_type = match material.alpha_mode() {
+        let render_phase_type = match alpha_mode {
+            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
                 RenderPhaseType::Transparent
             }
-            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
@@ -1744,7 +1775,7 @@ where
         Ok(PreparedMaterial {
             binding,
             properties: Arc::new(MaterialProperties {
-                alpha_mode: material.alpha_mode(),
+                alpha_mode,
                 depth_bias: material.depth_bias(),
                 reads_view_transmission_texture,
                 render_phase_type,
@@ -1815,12 +1846,106 @@ pub(crate) trait MaterialPropertiesExt {
 
 impl MaterialPropertiesExt for MaterialProperties {
     fn prepass_reads_material(&self) -> bool {
-        // The default prepass shaders doesn't need material's bind group,
-        // but for user provided prepass shaders currently we don't have a way to known this
-        // because material's bind group is used for both prepass and the other passes.
+        // The default prepass shaders don't need the material's bind group,
+        // but for user provided prepass shaders currently we don't have a way to know this
+        // because the material's bind group is used for both prepass and the other passes.
         //
         // So we have to disable the optimization for depth only prepass and always bind the material's bind group.
         self.get_shader(PrepassVertexShader).is_some()
             || self.get_shader(PrepassFragmentShader).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, PostUpdate, TaskPoolPlugin};
+    use bevy_asset::{AssetApp, AssetEventSystems, AssetPlugin};
+    use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_ecs::{entity::Entity, hierarchy::ChildOf};
+    use bevy_math::Vec3;
+    use bevy_mesh::{Mesh, Mesh3d};
+    use bevy_transform::{
+        components::{GlobalTransform, Transform},
+        TransformPlugin, TransformSystems,
+    };
+
+    use super::check_entities_needing_specialization;
+    use crate::{EntitiesNeedingSpecialization, MeshMaterial3d, StandardMaterial};
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            TransformPlugin,
+        ))
+        .init_asset::<Mesh>()
+        .init_asset::<StandardMaterial>()
+        .init_resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+        .add_systems(
+            PostUpdate,
+            check_entities_needing_specialization::<StandardMaterial>
+                .after(AssetEventSystems)
+                .after(TransformSystems::Propagate),
+        );
+        app
+    }
+
+    fn listed(app: &App) -> &[Entity] {
+        &app.world()
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .changed
+    }
+
+    fn settle(app: &mut App) {
+        app.update();
+        app.update();
+        assert!(
+            listed(app).is_empty(),
+            "spawn changes should be consumed before the transform change"
+        );
+    }
+
+    fn spawn_mesh(app: &mut App, parent: Option<Entity>) -> Entity {
+        let mut entity = app.world_mut().spawn((
+            Mesh3d::default(),
+            MeshMaterial3d::<StandardMaterial>::default(),
+        ));
+        if let Some(parent) = parent {
+            entity.insert(ChildOf(parent));
+        }
+        entity.id()
+    }
+
+    #[test]
+    fn transform_change_requeues_affected_meshes() {
+        let mut app = app();
+        let direct = spawn_mesh(&mut app, None);
+        let parent = app.world_mut().spawn(Transform::default()).id();
+        let moved = spawn_mesh(&mut app, Some(parent));
+        let stationary_parent = app.world_mut().spawn(Transform::default()).id();
+        let stationary = spawn_mesh(&mut app, Some(stationary_parent));
+        settle(&mut app);
+
+        *app.world_mut().get_mut::<GlobalTransform>(direct).unwrap() =
+            GlobalTransform::from_translation(Vec3::new(4.0, 5.0, 6.0));
+        app.world_mut()
+            .get_mut::<Transform>(parent)
+            .unwrap()
+            .translation = Vec3::new(1.0, 2.0, 3.0);
+        app.update();
+
+        let queued = listed(&app);
+        assert!(queued.contains(&direct));
+        assert!(queued.contains(&moved));
+        assert!(!queued.contains(&stationary));
+        assert!(app
+            .world()
+            .resource::<EntitiesNeedingSpecialization<StandardMaterial>>()
+            .removed
+            .is_empty());
+
+        app.update();
+        assert!(listed(&app).is_empty());
     }
 }

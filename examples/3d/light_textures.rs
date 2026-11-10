@@ -8,7 +8,7 @@ use bevy::{
     camera::primitives::CubemapLayout,
     color::palettes::css::{SILVER, YELLOW},
     feathers::{
-        controls::{FeathersNumberInput, FeathersRadio, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersNumberInput, FeathersRadio, NumberInputPrecision},
         theme::UiTheme,
         FeathersPlugins,
     },
@@ -18,7 +18,7 @@ use bevy::{
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
     ui::Checked,
-    ui_widgets::ValueChange,
+    ui_widgets::{NumericValue, ValueChange},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use number_input_f32::number_input_f32;
@@ -273,9 +273,9 @@ fn spawn_light_textures(
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands.spawn_scene(bsn! {
-        main_ui_node_scene()
+        @main_ui_node_scene()
         Children [
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Drag to Move",
                 &[
                     (Selection::Camera, "Camera"),
@@ -284,28 +284,26 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Selection::DirectionalLight, "Directional Light"),
                 ],
                 0,
-            ),
-
+            )
+            --
             // Camera's visibility cannot be toggled.
             Visibility::Hidden
-            feathers_option_buttons(
+            @feathers_option_buttons(
                 "Visibility",
                 &[
                     (Visibility::Inherited, "Show"),
                     (Visibility::Hidden, "Hide"),
                 ],
                 0,
-            ),
-
+            )
+            --
             // The number inputs start off hidden because Camera is selected first.
             Visibility::Hidden
-            number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..=5.)
-            ,
-
+            @number_input_f32("Scale Multiplier", Some(AppNumberInput::Scale), 1.0, NumberInputPrecision(2), 0.01..=5.)
+            --
             Visibility::Hidden
             // + epsilon and next_down are used since roll recalculation likes to switch between -PI and PI upon recalculating roll.
-            number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
-            ,
+            @number_input_f32("Roll (-π to π)", Some(AppNumberInput::Roll), 0.0, NumberInputPrecision(2), -PI + f32::EPSILON ..=PI.next_down())
         ]
     });
 }
@@ -352,7 +350,7 @@ fn handle_value_change_number_input(
         }
         commands
             .entity(value_change.source)
-            .insert(NumberInputValue::F32(value_change.value));
+            .insert(NumericValue::F32(value_change.value));
     }
 }
 
@@ -427,12 +425,12 @@ fn handle_selection_change(
                         let scale_multiplier = transform.scale.x / base_scale.0.x;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32(scale_multiplier));
+                            .insert(NumericValue::F32(scale_multiplier));
                     } else {
                         let roll = transform.rotation.to_euler(EulerRot::YXZ).2;
                         commands
                             .entity(input_entity)
-                            .insert(NumberInputValue::F32(roll));
+                            .insert(NumericValue::F32(roll));
                     }
                 }
             }

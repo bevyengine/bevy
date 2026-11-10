@@ -1,10 +1,10 @@
 use crate::{
-    irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE, MeshPipeline, MeshPipelineKey,
-    MeshPipelineSystems, MeshViewBindGroup, ViewKeyCache, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    MeshPipeline, MeshPipelineKey, MeshPipelineSystems, MeshViewBindGroup, ViewKeyCache,
+    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_core_pipeline::{
     core_3d::main_opaque_pass_3d,
     deferred::{
@@ -122,6 +122,8 @@ impl Plugin for DeferredPbrLightingPlugin {
 
 pub fn deferred_lighting(
     view: ViewQuery<(
+        &ExtractedCamera,
+        Option<&MainPassResolutionOverride>,
         &MeshViewBindGroup,
         &ViewTarget,
         &DeferredLightingIdDepthTexture,
@@ -133,6 +135,8 @@ pub fn deferred_lighting(
     mut ctx: RenderContext,
 ) {
     let (
+        camera,
+        resolution_override,
         mesh_view_bind_group,
         target,
         deferred_lighting_id_depth_texture,
@@ -174,6 +178,12 @@ pub fn deferred_lighting(
         multiview_mask: None,
     });
     let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
+
+    if let Some(viewport) =
+        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+    {
+        render_pass.set_camera_viewport(&viewport);
+    }
 
     render_pass.set_render_pipeline(pipeline);
 
@@ -259,7 +269,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
-        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) && IRRADIANCE_VOLUMES_ARE_USABLE {
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
             shader_defs.push("IRRADIANCE_VOLUME".into());
         }
 
@@ -314,10 +324,6 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if self.mesh_pipeline.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
-        }
-
-        if IRRADIANCE_VOLUMES_ARE_USABLE {
-            shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
         if self.mesh_pipeline.clustered_decals_are_usable {

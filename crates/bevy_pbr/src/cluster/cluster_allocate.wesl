@@ -1,32 +1,32 @@
+//! The shader that allocates the clustered object ID buffer.
+//!
+//! The clustered object ID buffer consists of many tightly-packed
+//! variable-length arrays of clustered object IDs. The offset to the start of
+//! each list is stored in `ClusterOffsetsAndCounts`. To allocate the lists in
+//! the buffer, the number of objects of each type in each cluster must be known.
+//!
+//! Since the lists are tightly packed, determining the offsets in the global
+//! buffer is a [prefix sum] problem. To deal with the fact that workgroup sizes
+//! are limited to 256 in `wgpu`, and we will usually have more clusters than
+//! that, we use a two-pass approach:
+//!
+//! 1. First, the *local* allocation pass runs on workgroups of 256 clusters
+//! each. A [Hillis-Steele scan] is performed to allocate the position in the
+//! buffer for each 256 clusters, relative to the first cluster in the workgroup.
+//!
+//! 2. Next, the *global* allocation pass runs a sequential loop over each 256
+//! clusters to calculate the final offsets relative to the previous 256 cluster
+//! chunk.
+//!
+//! At the end of this process, the clusters will have been assigned to their
+//! final positions in the list.
+//!
+//! [prefix sum]: https://en.wikipedia.org/wiki/Prefix_sum
+//!
+//! [Hillis-Steele scan]: https://en.wikipedia.org/wiki/Prefix_sum#Algorithm_1:_Shorter_span,_more_parallel
+
 import package::cluster::ClusterMetadata;
 import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
-
-// The shader that allocates the clustered object ID buffer.
-//
-// The clustered object ID buffer consists of many tightly-packed
-// variable-length arrays of clustered object IDs. The offset to the start of
-// each list is stored in `ClusterOffsetsAndCounts`. To allocate the lists in
-// the buffer, the number of objects of each type in each cluster must be known.
-//
-// Since the lists are tightly packed, determining the offsets in the global
-// buffer is a [prefix sum] problem. To deal with the fact that workgroup sizes
-// are limited to 256 in `wgpu`, and we will usually have more clusters than
-// that, we use a two-pass approach:
-//
-// 1. First, the *local* allocation pass runs on workgroups of 256 clusters
-// each. A [Hillis-Steele scan] is performed to allocate the position in the
-// buffer for each 256 clusters, relative to the first cluster in the workgroup.
-//
-// 2. Next, the *global* allocation pass runs a sequential loop over each 256
-// clusters to calculate the final offsets relative to the previous 256 cluster
-// chunk.
-//
-// At the end of this process, the clusters will have been assigned to their
-// final positions in the list.
-//
-// [prefix sum]: https://en.wikipedia.org/wiki/Prefix_sum
-//
-// [Hillis-Steele scan]: https://en.wikipedia.org/wiki/Prefix_sum#Algorithm_1:_Shorter_span,_more_parallel
 
 @group(0) @binding(0) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCounts;
 @group(0) @binding(1) var<uniform> lights: Lights;
@@ -34,11 +34,11 @@ import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
 @group(0) @binding(3) var<storage, read_write> scratchpad_offsets_and_counts:
     ClusterOffsetsAndCounts;
 
-// The offset of the first clustered light within the buffer for each thread.
+/// The offset of the first clustered light within the buffer for each thread.
 var<workgroup> block_offsets: array<u32, 256>;
 
-// The local allocation pass that, for each chunk of 256 clusters, calculates
-// the offset for each cluster in the chunk.
+/// The local allocation pass that, for each chunk of 256 clusters, calculates
+/// the offset for each cluster in the chunk.
 @compute @workgroup_size(256, 1, 1)
 fn allocate_local_main(
     @builtin(local_invocation_id) local_id: vec3<u32>,
@@ -86,8 +86,8 @@ fn allocate_local_main(
     }
 }
 
-// The global allocation pass that propagates the offsets from each chunk of 256
-// clusters to later chunks sequentially.
+/// The global allocation pass that propagates the offsets from each chunk of 256
+/// clusters to later chunks sequentially.
 @compute @workgroup_size(256, 1, 1)
 fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
     let cluster_count =
@@ -118,11 +118,11 @@ fn allocate_global_main(@builtin(local_invocation_id) local_id: vec3<u32>) {
     }
 }
 
-// Returns the total number of objects in the given cluster.
-//
-// The per-type counts are laid out as:
-//   [0] = (offset, point lights, spot lights, rect lights)
-//   [1] = (reflection probes, irradiance volumes, decals, pad)
+/// Returns the total number of objects in the given cluster.
+///
+/// The per-type counts are laid out as:
+///   [0] = (offset, point lights, spot lights, rect lights)
+///   [1] = (reflection probes, irradiance volumes, decals, pad)
 fn cluster_object_count(cluster_index: u32) -> u32 {
     return
         offsets_and_counts.data[cluster_index][0].y +

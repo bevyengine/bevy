@@ -29,7 +29,7 @@ use crate::{
         OwnedBindingResource, PipelineCache, UnpreparedBindingResource, UnpreparedBindingResources,
     },
     storage::ShaderBuffer,
-    GpuResourceAppExt as _, Render, RenderApp, RenderSystems,
+    GpuResourceAppExt as _, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use crate::{
     render_resource::{
@@ -536,6 +536,7 @@ impl Plugin for MaterialBindGroupPlugin {
             .allow_ambiguous_resource::<MaterialBindGroupAllocators>()
             .init_gpu_resource::<RenderMaterialBindings>()
             .allow_ambiguous_resource::<RenderMaterialBindings>()
+            .add_systems(RenderStartup, init_fallback_resources)
             .add_systems(
                 Render,
                 (
@@ -2065,9 +2066,9 @@ impl MaterialBindlessSlab {
         let table_index = self
             .bindless_index_tables
             .binary_search_by(|bindless_index_table| {
-                if bindless_index < bindless_index_table.index_range.start {
+                if bindless_index_table.index_range.end <= bindless_index {
                     Ordering::Less
-                } else if bindless_index >= bindless_index_table.index_range.end {
+                } else if bindless_index_table.index_range.start > bindless_index {
                     Ordering::Greater
                 } else {
                     Ordering::Equal
@@ -2328,7 +2329,7 @@ impl MaterialBindlessSlab {
 }
 
 /// Creates and inserts the [`FallbackBindlessResources`] and [`FallbackBuffer`].
-pub fn init_fallback_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+fn init_fallback_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
     // Create the `FallbackBindlessResources`.
     commands.insert_resource(FallbackBindlessResources {
         filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
@@ -2863,5 +2864,46 @@ impl RenderMaterialBindings {
             let bind_group_allocator = bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
             bind_group_allocator.free(material_binding_id);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::render_resource::{BindingNumber, BindlessIndexTableDescriptor};
+
+    #[test]
+    fn get_bindless_index_table() {
+        let descriptor = BindlessDescriptor {
+            resources: Default::default(),
+            buffers: Default::default(),
+            index_tables: vec![
+                BindlessIndexTableDescriptor {
+                    indices: BindlessIndex(1)..BindlessIndex(2),
+                    binding_number: BindingNumber(0),
+                },
+                BindlessIndexTableDescriptor {
+                    indices: BindlessIndex(2)..BindlessIndex(3),
+                    binding_number: BindingNumber(1),
+                },
+                BindlessIndexTableDescriptor {
+                    indices: BindlessIndex(4)..BindlessIndex(5),
+                    binding_number: BindingNumber(2),
+                },
+            ]
+            .into(),
+        };
+        let slab = MaterialBindlessSlab::new(&descriptor);
+
+        // Out of range to the left/right is None.
+        assert!(slab.get_bindless_index_table(BindlessIndex(0)).is_none());
+        assert!(slab.get_bindless_index_table(BindlessIndex(5)).is_none());
+
+        // Between entries is None.
+        assert!(slab.get_bindless_index_table(BindlessIndex(3)).is_none());
+
+        // Can find an actual entry.
+        let table = slab.get_bindless_index_table(BindlessIndex(2)).unwrap();
+        assert_eq!(table.binding_number, BindingNumber(1));
     }
 }

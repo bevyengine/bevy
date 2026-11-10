@@ -37,6 +37,8 @@ pub struct AutoExposureUniform {
     pub(super) speed_up: f32,
     pub(super) speed_down: f32,
     pub(super) exponential_transition_distance: f32,
+    pub(super) correction_min: f32,
+    pub(super) correction_max: f32,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -85,5 +87,36 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
             }),
             ..default()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AutoExposureUniform;
+    use bevy_render::render_resource::{encase, ShaderType};
+
+    #[test]
+    fn uniform_serialization_layout() {
+        // The shader's AutoExposure struct contains ten 4-byte scalars.
+        assert_eq!(AutoExposureUniform::min_size().get(), 40);
+
+        let uniform = AutoExposureUniform {
+            min_log_lum: -8.0,
+            inv_log_lum_range: 1.0 / 16.0,
+            log_lum_range: 16.0,
+            low_percent: 0.1,
+            high_percent: 0.9,
+            speed_up: 3.0,
+            speed_down: 1.0,
+            exponential_transition_distance: 1.5,
+            correction_min: -2.0,
+            correction_max: 3.0,
+        };
+        let mut buffer = encase::UniformBuffer::new(Vec::<u8>::new());
+        buffer.write(&uniform).unwrap();
+        let bytes = buffer.into_inner();
+        assert_eq!(bytes.len(), 40);
+        assert_eq!(&bytes[32..36], &(-2.0f32).to_le_bytes());
+        assert_eq!(&bytes[36..40], &3.0f32.to_le_bytes());
     }
 }

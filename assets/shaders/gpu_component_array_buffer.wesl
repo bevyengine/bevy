@@ -1,37 +1,37 @@
 import bevy_pbr::render::{forward_io::VertexOutput, mesh_bindings::mesh};
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-// The custom data that we extract from the ECS and expose to this shader.
+/// The custom data that we extract from the ECS and expose to this shader.
 struct CustomMaterialData {
-    // The tint color for the mesh.
+    /// The tint color for the mesh.
     color: vec3<f32>,
-    // Padding to pad this out to a multiple of 16 bytes.
+    /// Padding to pad this out to a multiple of 16 bytes.
     pad: u32,
 }
 
-// The array of material data that Bevy supplies.
-//
-// We need to declare this type because
-// `binding_array<array<CustomMaterialData>>` isn't currently accepted by Naga.
-// We have to factor the `array<CustomMaterialData>` out into a separate type.
+/// The array of material data that Bevy supplies.
+///
+/// We need to declare this type because
+/// `binding_array<array<CustomMaterialData>>` isn't currently accepted by Naga.
+/// We have to factor the `array<CustomMaterialData>` out into a separate type.
 struct CustomMaterialDataArray {
     data_array: array<CustomMaterialData>,
 }
 
 @if(BINDLESS) {
 
-// The bindings table for bindless mode.
-//
-// These are indexes into the various arrays.
+/// The bindings table for bindless mode.
+///
+/// These are indexes into the various arrays.
 struct CustomMaterialBindings {
     material: u32,              // 0
-    // The index of the data for this instance in the `CustomMaterialDataArray`.
+    /// The index of the data for this instance in the `CustomMaterialDataArray`.
     data: u32,                  // 1
-    // The index of the color texture for this instance in the
-    // `bindless_textures_2d`.
+    /// The index of the color texture for this instance in the
+    /// `bindless_textures_2d`.
     color_texture: u32,         // 2
-    // The index of the sampler for this instance in the
-    // `bindless_samplers_filtering`.
+    /// The index of the sampler for this instance in the
+    /// `bindless_samplers_filtering`.
     color_texture_sampler: u32, // 3
 }
 

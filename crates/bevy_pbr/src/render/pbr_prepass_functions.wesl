@@ -14,11 +14,11 @@ import package::{
 @if(BINDLESS)
 import package::render::pbr_bindings::material_indices;
 
-// Cutoff used for the premultiplied alpha modes BLEND, ADD, and ALPHA_TO_COVERAGE.
+/// Cutoff used for the premultiplied alpha modes BLEND, ADD, and ALPHA_TO_COVERAGE.
 const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 
-// Reusable alpha discard logic suitable for use by custom materials in the prepass.
-// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
+/// Reusable alpha discard logic suitable for use by custom materials in the prepass.
+/// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
 fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) {
     let alpha_mode = material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
@@ -38,8 +38,8 @@ fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: v
     }
 }
 
-// Samples the StandardMaterial's base color (including the base color texture, if any) and then
-// invokes `prepass_alpha_discard` with the material's flags and alpha cutoff.
+/// Samples the StandardMaterial's base color (including the base color texture, if any) and then
+/// invokes `prepass_alpha_discard` with the material's flags and alpha cutoff.
 fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
 
 @if(MAY_DISCARD) {

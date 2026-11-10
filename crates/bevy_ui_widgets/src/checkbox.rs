@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
+use bevy_input_focus::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
 use bevy_picking::events::{
     PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
 };
@@ -38,7 +38,11 @@ use bevy_ecs::entity::Entity;
 /// and how to respond to state changes, see the [crate-level documentation].
 /// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::CheckBox)),
+    Checkable,
+    Focusable
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Checkbox;
@@ -52,7 +56,9 @@ fn checkbox_on_key_input(
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
-            && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+            && (event.key_code == KeyCode::Enter
+                || event.key_code == KeyCode::NumpadEnter
+                || event.key_code == KeyCode::Space)
         {
             ev.propagate(false);
             commands.trigger(ValueChange {
@@ -459,6 +465,36 @@ mod tests {
         assert!(
             app.world().entity(checkbox).contains::<Checked>(),
             "Space should toggle the focused checkbox"
+        );
+    }
+
+    /// With a checkbox focused, pressing `NumpadEnter` toggles it as `Enter` does.
+    #[test]
+    fn numpad_enter_toggles_focused_checkbox() {
+        let (mut app, window) = checkbox_app();
+        let checkbox = app
+            .world_mut()
+            .spawn((Checkbox, TabIndex(0), ChildOf(window)))
+            .id();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(checkbox, FocusCause::Navigated);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::NumpadEnter,
+            logical_key: Key::Enter,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        assert!(
+            app.world().entity(checkbox).contains::<Checked>(),
+            "NumpadEnter should toggle the focused checkbox"
         );
     }
 

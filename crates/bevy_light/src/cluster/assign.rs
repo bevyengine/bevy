@@ -12,9 +12,9 @@ use bevy_ecs::{
 };
 use bevy_math::{
     ops::{self, sin_cos},
-    primitives::HalfSpace,
     Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
 };
+use bevy_shape::HalfSpace;
 use bevy_transform::components::GlobalTransform;
 use tracing::{error, warn};
 
@@ -370,8 +370,7 @@ pub(crate) fn assign_objects_to_clusters(
         };
         let first_slice_depth = first_slice_depth * view_from_world_scale.z;
 
-        // NOTE: Ensure the far_z is at least as far as the first_depth_slice to avoid clustering problems.
-        let far_z = far_z.max(first_slice_depth);
+        let far_z = cluster_far_z(first_slice_depth, far_z, is_orthographic);
         let cluster_factors = calculate_cluster_factors(
             first_slice_depth,
             far_z,
@@ -381,7 +380,9 @@ pub(crate) fn assign_objects_to_clusters(
 
         // If the dynamic resizing feature is on, use the last frame's cluster
         // index count to determine the new number of clusters.
+        // We don’t need to do this if storage buffers are available, because we have plenty of space in that case.
         if config.dynamic_resizing()
+            && !global_cluster_settings.supports_storage_buffers
             && let Some(last_frame_cluster_index_count) =
                 clusters.last_frame_total_cluster_index_count
             && last_frame_cluster_index_count
@@ -809,6 +810,30 @@ pub(crate) fn assign_objects_to_clusters(
         // heuristics on the next frame.
         clusters.last_frame_total_cluster_index_count = Some(total_cluster_index_count);
         clusters.last_frame_farthest_z = Some(farthest_z);
+    }
+}
+
+/// Returns the far depth to use for clustering. The result is always greater than `near`.
+///
+/// [`calculate_cluster_factors`] divides by `ln(far / near)` for perspective views and by
+/// `far - near` for orthographic views. If `far <= near`, the factors are infinite or have the
+/// wrong sign. This occurs when no clusterable object reaches past `near`. In that case, all lit
+/// geometry is in the first slice, so any `far` greater than `near` gives correct results.
+pub(crate) fn cluster_far_z(near: f32, far: f32, is_orthographic: bool) -> f32 {
+    // The comparison also sends NaN to the fallback.
+    if far > near {
+        far
+    } else if is_orthographic {
+        // Orthographic slices are linear and the factors depend on `far - near`.
+        // A fixed gap of 1 unit gives the same factors at all scales.
+        // We can't use `near * 2.0` because near can be 0 or negative.
+        near + 1.0
+    } else {
+        // Perspective slices are logarithmic and the factors depend on `ln(far / near)`.
+        // Doubling `near` makes the ratio always 2, so the factors stay small at all scales.
+        // Do not use `near + 1.0`, for a large `near` the ratio would be almost 1,
+        // and the factors become very large and lose f32 precision.
+        near * 2.0
     }
 }
 

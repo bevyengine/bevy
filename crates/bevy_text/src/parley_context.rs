@@ -50,8 +50,11 @@ impl FontCx {
     pub fn get_family<'a>(&'a mut self, source: &'a FontSource) -> Option<&'a str> {
         let generic_family = match source {
             FontSource::Family(family) => return Some(family.as_str()),
-            FontSource::Handle(_) | FontSource::Families(_) | FontSource::List(_) => return None,
             FontSource::Generic(generic_family) => *generic_family,
+            FontSource::Handle(_)
+            | FontSource::Families(_)
+            | FontSource::List(_)
+            | FontSource::Default => return None,
         };
 
         let family_id = self

@@ -53,9 +53,9 @@ fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: 
     return world_from_local * vertex_position;
 }
 
-// NOTE: The intermediate world_position assignment is important
-// for precision purposes when using the 'equals' depth comparison
-// function.
+/// NOTE: The intermediate world_position assignment is important
+/// for precision purposes when using the 'equals' depth comparison
+/// function.
 fn mesh_position_local_to_clip(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     let world_position = mesh_position_local_to_world(world_from_local, vertex_position);
     return position_world_to_clip(world_position.xyz);
@@ -82,8 +82,8 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
     }
 }
 
-// Calculates the sign of the determinant of the 3x3 model matrix based on a
-// mesh flag
+/// Calculates the sign of the determinant of the 3x3 model matrix based on a
+/// mesh flag
 fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0
@@ -118,10 +118,10 @@ fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: ve
     }
 }
 
-// Returns an appropriate dither level for the current mesh instance.
-//
-// This looks up the LOD range in the `visibility_ranges` table and compares the
-// camera distance to determine the dithering level.
+/// Returns an appropriate dither level for the current mesh instance.
+///
+/// This looks up the LOD range in the `visibility_ranges` table and compares the
+/// camera distance to determine the dithering level.
 @if(VISIBILITY_RANGE_DITHER)
 fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f32>) -> i32 {
 @if(AVAILABLE_STORAGE_BUFFER_BINDINGS__GE_6)

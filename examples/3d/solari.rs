@@ -7,7 +7,7 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     gltf::GltfMaterialName,
     image::{ImageAddressMode, ImageLoaderSettings},
-    mesh::{Indices, VertexAttributeValues},
+    mesh::VertexAttributeValues,
     post_process::bloom::Bloom,
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
@@ -69,6 +69,8 @@ fn main() {
     } else {
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         app.add_systems(Update, toggle_dlss_rr);
+
+        app.add_systems(Update, toggle_restir);
 
         if args.many_lights != Some(true) {
             app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
@@ -417,11 +419,6 @@ fn add_raytracing_meshes_on_scene_load(
             if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
                 mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
             }
-            if let Some(indices) = mesh.indices_mut()
-                && let Indices::U16(_) = indices
-            {
-                *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
-            }
 
             // Prevent rasterization if using pathtracer
             if args.pathtracer == Some(true) {
@@ -469,6 +466,15 @@ fn toggle_dlss_rr(
                 .entity(entity)
                 .insert(Dlss::<DlssRayReconstructionFeature>::default());
         }
+    }
+}
+
+fn toggle_restir(
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut solari_lighting: Single<&mut SolariLighting>,
+) {
+    if key_input.just_pressed(KeyCode::KeyR) {
+        solari_lighting.restir = !solari_lighting.restir;
     }
 }
 
@@ -556,6 +562,7 @@ struct ControlText;
 
 fn update_control_text(
     mut text: Single<&mut Text, With<ControlText>>,
+    solari_lighting: Single<&SolariLighting>,
     robot_light_material: Option<Res<RobotLightMaterial>>,
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
@@ -609,6 +616,12 @@ fn update_control_text(
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     text.0
         .push_str("\nDenoising: App not compiled with DLSS support");
+
+    if solari_lighting.restir {
+        text.0.push_str("\n(R): Disable ReSTIR");
+    } else {
+        text.0.push_str("\n(R): Enable ReSTIR");
+    }
 }
 
 #[derive(Component)]

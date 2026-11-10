@@ -18,7 +18,9 @@ use bevy::{
     color::palettes::css::WHITE,
     feathers::{dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins},
     light::{
-        atmosphere::{Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm},
+        atmosphere::{
+            Falloff, PhaseFunction, ScatteringMedium, ScatteringTerm, EARTH_ATMOSPHERE_HEIGHT,
+        },
         Atmosphere, AtmosphereEnvironmentMapLight,
     },
     pbr::{
@@ -58,7 +60,7 @@ pub struct Args {
     #[argh(option, default = "0.05")]
     car_density: f32,
 
-    /// adds NoCpuCulling to all meshes
+    /// adds `NoCpuCulling` to all meshes
     #[argh(switch)]
     no_cpu_culling: bool,
 
@@ -133,14 +135,20 @@ fn main() {
 }
 
 fn scene() -> impl SceneList {
-    bsn_list![camera(), sun(), loading_screen()]
+    bsn_list! {
+        @camera()
+        --
+        @sun()
+        --
+        @loading_screen()
+    }
 }
 
 fn camera() -> impl Scene {
     bsn! {
         Camera3d
         Hdr
-        template_value(Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y))
+        Transform::from_xyz(15.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y)
         FreeCamera
         AtmosphereSettings {
             // Reduce the default max distance in the aerial view LUT
@@ -183,20 +191,17 @@ fn loading_screen() -> impl Scene {
                 overflow: Overflow::scroll_y(),
             }
             Children [
-                (
-                    LoadingText
-                    Text("Loading...")
-                    TextFont {
-                        font_size: FontSize::Px(24.0),
-                    }
-                ),
-                (
-                    LoadingPaths
-                    Text
-                    TextFont {
-                        font_size: FontSize::Px(14.0),
-                    }
-                ),
+                LoadingText
+                Text("Loading...")
+                TextFont {
+                    font_size: FontSize::Px(24.0),
+                }
+                --
+                LoadingPaths
+                Text
+                TextFont {
+                    font_size: FontSize::Px(14.0),
+                }
             ]
         ]
     }
@@ -209,7 +214,7 @@ fn sun() -> impl Scene {
             contact_shadows_enabled: {Settings::default().contact_shadows_enabled},
             illuminance: light_consts::lux::RAW_SUNLIGHT,
         }
-        template_value(Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y))
+        Transform::from_xyz(1.0, 0.15, 1.0).looking_at(Vec3::ZERO, Vec3::Y)
     }
 }
 
@@ -218,30 +223,29 @@ fn spawn_atmosphere(
     mut commands: Commands,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
 ) {
-    let mut earth_medium = ScatteringMedium::default();
-
-    // Same 60 km atmosphere height as `ScatteringMedium::earth`
-    const ATMOSPHERE_REF_HEIGHT_KM: f32 = 60.0;
+    // 1024 falloff samples over the 100 km atmosphere are ~100 m apart, fine enough to
+    // resolve the haze layer below.
+    let mut earth_medium = ScatteringMedium::earth(1024, 256);
 
     // The scale height of haze is set to 100 meters providing a low-lying dense fog layer.
-    const HAZE_SCALE_HEIGHT_KM: f32 = 0.1;
+    const HAZE_SCALE_HEIGHT: f32 = 100.0;
 
     // Fog has high albedo and very low absorption resulting in a white color.
     const HAZE_SINGLE_SCATTER_ALBEDO: f32 = 0.99;
 
     // Distance at which contrast falls low enough to be indistinguishable from the sky.
     // known as Meteorological Optical Range
-    const HAZE_VISIBILITY_KM: f32 = 12.0;
+    const HAZE_VISIBILITY: f32 = 12_000.0;
 
-    // Koschmieder relation to calculate the extinction coefficient for the medium in m^-1 units.
-    let beta_ext = (3.912 / HAZE_VISIBILITY_KM) * 1e-3;
+    // Extinction coefficient at a 2% contrast threshold.
+    let beta_ext = FogFalloff::koschmieder(HAZE_VISIBILITY, 0.02);
 
     // Add the fog to the earth medium as an additional scattering term.
     earth_medium.terms.push(ScatteringTerm {
         absorption: Vec3::splat(beta_ext * (1.0 - HAZE_SINGLE_SCATTER_ALBEDO)),
         scattering: Vec3::splat(beta_ext * HAZE_SINGLE_SCATTER_ALBEDO),
         falloff: Falloff::Exponential {
-            scale: HAZE_SCALE_HEIGHT_KM / ATMOSPHERE_REF_HEIGHT_KM,
+            scale: HAZE_SCALE_HEIGHT / EARTH_ATMOSPHERE_HEIGHT,
         },
         // Fog is approximated as a mie scatterer with this asymmetry factor
         phase: PhaseFunction::Mie { asymmetry: 0.76 },
@@ -274,7 +278,7 @@ struct CityAssetsReady;
 #[derive(Message)]
 struct CitySpawned;
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity, reason = "One cohesive system.")]
 fn update_loading_screen(
     mut commands: Commands,
     assets: Res<CityAssets>,
@@ -351,13 +355,13 @@ fn on_city_assets_ready(
         &mut stats,
     );
 
-    println!("cars: {}", stats.cars);
-    println!("roads: {}", stats.roads);
-    println!("trees: {}", stats.trees);
-    println!("buildings: {}", stats.buildings);
-    println!("fences: {}", stats.fences);
-    println!("paths: {}", stats.paths);
-    println!(
+    info!("cars: {}", stats.cars);
+    info!("roads: {}", stats.roads);
+    info!("trees: {}", stats.trees);
+    info!("buildings: {}", stats.buildings);
+    info!("fences: {}", stats.fences);
+    info!("paths: {}", stats.paths);
+    info!(
         "total: {}",
         stats.cars + stats.roads + stats.trees + stats.buildings + stats.fences + stats.paths
     );

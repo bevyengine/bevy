@@ -1,10 +1,10 @@
 use crate::{
-    archetype::Archetype,
+    archetype::{Archetype, ArchetypeId},
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
-    storage::{ComponentSparseSet, Table, TableRow},
+    query::{FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
+    storage::{ComponentSparseSet, Table, TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -91,6 +91,22 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
+    /// Returns true if _any_ entity of the current table should be included in the query results.
+    /// If false, the table and all its entities will be skipped.
+    ///
+    /// The table is provided through an earlier call to either [`WorldQuery::set_table`].
+    ///
+    /// Note that this is called after already restricting the matched [`Table`]s to the
+    /// ones that are compatible with the Filter's access.
+    ///
+    /// Implementors of this method will generally either have a trivial `true` body or access the summary tick
+    /// to short circuit checking the ticks on every entity.
+    ///
+    /// # Safety
+    ///
+    /// Must be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`].
+    unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool;
+
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
     ///
@@ -169,16 +185,19 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     };
 
     #[inline]
-    unsafe fn set_archetype(
-        _fetch: &mut (),
-        _state: &ComponentId,
-        _archetype: &Archetype,
-        _table: &Table,
+    unsafe fn set_archetype<'w, 's>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
+        _archetype: &'w Archetype,
+        _table_id: TableId,
+        _table: &'w Table,
     ) {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
+    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table_id: TableId, _table: &Table) {
+    }
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
@@ -187,10 +206,9 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -214,6 +232,11 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -280,16 +303,19 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     };
 
     #[inline]
-    unsafe fn set_archetype(
-        _fetch: &mut (),
-        _state: &ComponentId,
-        _archetype: &Archetype,
-        _table: &Table,
+    unsafe fn set_archetype<'w, 's>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s Self::State,
+        _archetype_id: ArchetypeId,
+        _archetype: &'w Archetype,
+        _table_id: TableId,
+        _table: &'w Table,
     ) {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
+    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table_id: TableId, _table: &Table) {
+    }
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
@@ -298,10 +324,9 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -325,6 +350,11 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -435,7 +465,12 @@ macro_rules! impl_or_query_filter {
             }
 
             #[inline]
-            unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+            unsafe fn set_table<'w, 's>(
+                fetch: &mut Self::Fetch<'w>,
+                state: &'s Self::State,
+                table_id: TableId,
+                table: &'w Table
+            ) {
                 // If this is an archetypal query, then it is guaranteed to match all entities,
                 // so `filter_fetch` will ignore `$filter.matches` and we don't need to initialize it.
                 if Self::IS_ARCHETYPAL {
@@ -447,7 +482,7 @@ macro_rules! impl_or_query_filter {
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
                         // SAFETY: The invariants are upheld by the caller.
-                        unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
+                        unsafe { $filter::set_table(&mut $filter.fetch, $state, table_id, table); }
                     }
                 )*
             }
@@ -456,7 +491,9 @@ macro_rules! impl_or_query_filter {
             unsafe fn set_archetype<'w, 's>(
                 fetch: &mut Self::Fetch<'w>,
                 state: &'s Self::State,
+                archetype_id: ArchetypeId,
                 archetype: &'w Archetype,
+                table_id: TableId,
                 table: &'w Table
             ) {
                 // If this is an archetypal query, then it is guaranteed to match all entities,
@@ -470,7 +507,7 @@ macro_rules! impl_or_query_filter {
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
                         // SAFETY: The invariants are upheld by the caller.
-                       unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
+                       unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype_id, archetype, table_id, table); }
                     }
                 )*
             }
@@ -499,12 +536,11 @@ macro_rules! impl_or_query_filter {
 
             fn init_nested_access(
                 state: &Self::State,
-                _system_name: Option<&str>,
                 _component_access_set: &mut FilteredAccessSet,
-                _world: UnsafeWorldCell,
-            ) {
+            ) -> Result<(), FilteredAccessSet>  {
                 let ($($state,)*) = state;
-                $($filter::init_nested_access($state, _system_name, _component_access_set, _world);)*
+                $($filter::init_nested_access($state, _component_access_set)?;)*
+                Ok(())
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -542,6 +578,21 @@ macro_rules! impl_or_query_filter {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
+
+            #[inline(always)]
+            unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+                let ($($state,)*) = state;
+                let ($($filter,)*) = fetch;
+
+                // If this is an archetypal query, then it is guaranteed to return true,
+                (Self::IS_ARCHETYPAL
+                    // SAFETY: The invariants are upheld by the caller.
+                    $(|| ($filter.matches && unsafe { $filter::filter_table($state, &mut $filter.fetch) }))*
+                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                    // so we treat them as matching for non-archetypal queries, as well.
+                    || !(false $(|| $filter.matches)*))
+            }
 
             #[inline(always)]
             unsafe fn filter_fetch(
@@ -584,6 +635,16 @@ macro_rules! impl_tuple_query_filter {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
+
+
+            #[inline(always)]
+            unsafe fn filter_table(state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+                let ($($state,)*) = state;
+                let ($($name,)*) = fetch;
+
+                // SAFETY: The invariants are upheld by the caller.
+                true $(&& unsafe { $name::filter_table($state, $name) })*
+            }
 
             #[inline(always)]
             unsafe fn filter_fetch(
@@ -641,10 +702,18 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
     const IS_DENSE: bool = true;
 
     #[inline]
-    unsafe fn set_archetype(_: &mut (), _: &ComponentId, _: &Archetype, _: &Table) {}
+    unsafe fn set_archetype(
+        _: &mut (),
+        _: &ComponentId,
+        _: ArchetypeId,
+        _: &Archetype,
+        _: TableId,
+        _: &Table,
+    ) {
+    }
 
     #[inline]
-    unsafe fn set_table(_: &mut (), _: &ComponentId, _: &Table) {}
+    unsafe fn set_table(_: &mut (), _: &ComponentId, _table_id: TableId, _: &Table) {}
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
@@ -653,10 +722,9 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -678,6 +746,11 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Allow<T> {
     const IS_ARCHETYPAL: bool = true;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -766,6 +839,7 @@ pub struct AddedFetch<'w, T: Component> {
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
+    summary_tick: Tick,
     last_run: Tick,
     this_run: Tick,
 }
@@ -774,6 +848,7 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             ticks: self.ticks,
+            summary_tick: self.summary_tick,
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -811,6 +886,9 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
+            // This is a dummy valid chosen for safe behavior.
+            // In case this is never modified it will cause `filter_table` to return `true`, which is always correct.
+            summary_tick: last_run,
             last_run,
             this_run,
         }
@@ -827,13 +905,15 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &'s ComponentId,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table_id, table);
             }
         }
     }
@@ -842,16 +922,24 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         &component_id: &'s ComponentId,
+        _table_id: TableId,
         table: &'w Table,
     ) {
         let table_ticks = Some(
             table
                 .get_added_ticks_slice_for(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.ticks.set_table(table_ticks) };
+
+        if T::HAS_SUMMARY_TICK {
+            fetch.summary_tick = table
+                .get_summary_tick(component_id)
+                .unwrap_unchecked()
+                .get();
+        }
     }
 
     #[inline]
@@ -864,10 +952,9 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -891,6 +978,15 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        !T::HAS_SUMMARY_TICK
+            || fetch
+                .summary_tick
+                .is_newer_than(fetch.last_run, fetch.this_run)
+    }
+
     #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
@@ -902,7 +998,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         fetch.ticks.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
@@ -912,9 +1008,9 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     sparse_set
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                         .get_added_tick(entity)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -1003,6 +1099,7 @@ pub struct ChangedFetch<'w, T: Component> {
         // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
+    summary_tick: Tick,
     last_run: Tick,
     this_run: Tick,
 }
@@ -1011,6 +1108,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             ticks: self.ticks,
+            summary_tick: self.summary_tick,
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -1048,6 +1146,9 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
+            // This is a dummy valid chosen for safe behavior.
+            // In case this is never modified it will cause `filter_table` to return `true`, which is always correct.
+            summary_tick: last_run,
             last_run,
             this_run,
         }
@@ -1064,13 +1165,15 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &'s ComponentId,
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, table_id, table);
             }
         }
     }
@@ -1079,16 +1182,24 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         &component_id: &'s ComponentId,
+        _table_id: TableId,
         table: &'w Table,
     ) {
         let table_ticks = Some(
             table
                 .get_changed_ticks_slice_for(component_id)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.ticks.set_table(table_ticks) };
+
+        if T::HAS_SUMMARY_TICK {
+            fetch.summary_tick = table
+                .get_summary_tick(component_id)
+                .unwrap_unchecked()
+                .get();
+        }
     }
 
     #[inline]
@@ -1101,10 +1212,9 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -1130,6 +1240,14 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
 
     #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, fetch: &mut Self::Fetch<'_>) -> bool {
+        !T::HAS_SUMMARY_TICK
+            || fetch
+                .summary_tick
+                .is_newer_than(fetch.last_run, fetch.this_run)
+    }
+
+    #[inline(always)]
     unsafe fn filter_fetch(
         _state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
@@ -1140,7 +1258,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         fetch.ticks.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
+                let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
@@ -1150,9 +1268,9 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     sparse_set
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                         .get_changed_tick(entity)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -1258,23 +1376,30 @@ unsafe impl WorldQuery for Spawned {
     unsafe fn set_archetype<'w, 's>(
         _fetch: &mut Self::Fetch<'w>,
         _state: &'s (),
+        _archetype_id: ArchetypeId,
         _archetype: &'w Archetype,
+        _table_id: TableId,
         _table: &'w Table,
     ) {
     }
 
     #[inline]
-    unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w>, _state: &'s (), _table: &'w Table) {}
+    unsafe fn set_table<'w, 's>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &'s (),
+        _table_id: TableId,
+        _table: &'w Table,
+    ) {
+    }
 
     #[inline]
     fn update_component_access(_state: &(), _access: &mut FilteredAccess) {}
 
     fn init_nested_access(
         _state: &Self::State,
-        _system_name: Option<&str>,
         _component_access_set: &mut FilteredAccessSet,
-        _world: UnsafeWorldCell,
-    ) {
+    ) -> Result<(), FilteredAccessSet> {
+        Ok(())
     }
 
     fn init_state(_world: &mut World) {}
@@ -1293,6 +1418,11 @@ unsafe impl WorldQuery for Spawned {
 // SAFETY: WorldQuery impl accesses no components or component ticks
 unsafe impl QueryFilter for Spawned {
     const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_table(_state: &Self::State, _fetch: &mut Self::Fetch<'_>) -> bool {
+        true
+    }
 
     #[inline(always)]
     unsafe fn filter_fetch(

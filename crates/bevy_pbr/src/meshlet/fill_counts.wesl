@@ -1,4 +1,4 @@
-/// Copies the counts of meshlets in the hardware and software buckets, resetting the counters in the process.
+//! Copies the counts of meshlets in the hardware and software buckets, resetting the counters in the process.
 
 struct DispatchIndirectArgs {
     x: u32,

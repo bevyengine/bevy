@@ -18,8 +18,8 @@ fn oit_draw(position: vec4f, color: vec4f) {
     {
         return;
     }
-    // get the index of the current fragment relative to the screen size
-    let screen_index = u32(floor(position.x) + floor(position.y) * view.viewport.z);
+    let pixel = vec2<u32>(position.xy - view.main_pass_viewport.xy);
+    let screen_index = pixel.x + pixel.y * u32(view.main_pass_viewport.z);
 
     var new_node_index = atomicAdd(&oit_atomic_counter, 1u);
     // exit early if we've reached the maximum amount of fragments nodes
@@ -36,10 +36,10 @@ fn oit_draw(position: vec4f, color: vec4f) {
     oit_nodes[new_node_index] = node;
 }
 
-// The packing scheme puts depth in the higher bits so that
-//    depth(a) < depth(b) <=> packed(a) < packed(b)
-// irregardless of alpha(a) and alpha(b)
-// The property is used to optimize the resolve step
+/// The packing scheme puts depth in the higher bits so that
+///    depth(a) < depth(b) <=> packed(a) < packed(b)
+/// irregardless of alpha(a) and alpha(b)
+/// The property is used to optimize the resolve step
 fn pack_24bit_depth_8bit_alpha(depth: f32, alpha: f32) -> u32 {
     let depth_bits = u32(saturate(depth) * f32(0xFFFFFFu) + 0.5);
     let alpha_bits = u32(saturate(alpha) * f32(0xFFu) + 0.5);

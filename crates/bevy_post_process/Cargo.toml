@@ -18,6 +18,7 @@ webgpu = []
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.20.0-dev" }
+bevy_curve = { path = "../bevy_curve", version = "0.20.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.20.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.20.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev" }
@@ -48,3 +49,12 @@ rustdoc-args = [
   "--generate-macro-expansion",
 ]
 all-features = true
+
+[package.metadata.wgsl-analyzer]
+edition = "2026_pre"
+root = "src"
+
+[package.metadata.wgsl-analyzer.dependencies]
+bevy_core_pipeline = { path = "../bevy_core_pipeline" }
+bevy_pbr = { path = "../bevy_pbr" }
+bevy_render = { path = "../bevy_render" }

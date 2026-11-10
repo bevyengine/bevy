@@ -1,7 +1,6 @@
 use bevy_app::Propagate;
-use bevy_ecs::template::template;
 use bevy_scene::{bsn, Scene};
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{px, AlignItems, Display, FlexDirection, JustifyContent, Node, UiRect};
 
 use crate::{
@@ -47,9 +46,9 @@ pub fn subpane_header() -> impl Scene {
         ThemeBackgroundColor(tokens::SUBPANE_HEADER_BG)
         ThemeBorderColor(tokens::SUBPANE_HEADER_BORDER)
         InheritableThemeTextColor(tokens::SUBPANE_HEADER_TEXT)
-        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Highest))))
+        Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Highest))
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }
@@ -73,9 +72,9 @@ pub fn subpane_body() -> impl Scene {
         }
         ThemeBackgroundColor(tokens::SUBPANE_BODY_BG)
         ThemeBorderColor(tokens::SUBPANE_BODY_BORDER)
-        template(|_| Ok(Propagate(ThemeContext(SurfaceLevel::Higher))))
+        Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Higher))
         InheritableFont {
-            font: fonts::REGULAR,
+            font: FontSourceTemplate::Families(fonts::SANS),
             font_size: size::MEDIUM_FONT,
             weight: FontWeight::NORMAL,
         }

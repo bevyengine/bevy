@@ -1,8 +1,6 @@
 use bevy_camera::primitives::{Aabb, Frustum, Sphere};
-use bevy_math::{
-    primitives::{HalfSpace, ViewFrustum},
-    Affine3A, Quat, Vec3, Vec3A, Vec4,
-};
+use bevy_math::{Affine3A, Quat, Vec3, Vec3A, Vec4};
+use bevy_shape::{HalfSpace, ViewFrustum};
 use core::hint::black_box;
 use criterion::{criterion_group, Criterion};
 

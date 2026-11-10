@@ -31,8 +31,8 @@ use bevy_utils::default;
 pub struct AutoExposure {
     /// The range of exposure values for the histogram.
     ///
-    /// Pixel values below this range will be ignored, and pixel values above this range will be
-    /// clamped in the sense that they will count towards the highest bin in the histogram.
+    /// Pixel values below this range count towards the lowest bin and are metered at the minimum
+    /// luminance. Pixel values above this range count towards the highest bin in the histogram.
     /// The default value is `-8.0..=8.0`.
     pub range: RangeInclusive<f32>,
 
@@ -89,6 +89,23 @@ pub struct AutoExposure {
     /// The default value is a flat line at 0.0.
     /// For more information, see [`AutoExposureCompensationCurve`].
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
+
+    /// The minimum and maximum exposure adjustments that auto exposure can apply, in stops.
+    ///
+    /// A correction of `1.0` brightens the image by one stop, and `-1.0` darkens it by one stop.
+    /// This limits the automatic correction independently of the luminance [`range`](Self::range)
+    /// used for the histogram. Setting this to `0.0..=0.0` disables the automatic correction.
+    ///
+    /// The applied correction, including compensation from
+    /// [`compensation_curve`](Self::compensation_curve), always stays within this range.
+    /// It is applied in addition to the camera's [`Exposure`](bevy_camera::Exposure) and
+    /// color grading settings.
+    ///
+    /// Neither limit can be NaN or infinite, and the minimum must not be greater than the maximum.
+    /// Invalid ranges are ignored with a one-time warning.
+    ///
+    /// The default value is `f32::MIN..=f32::MAX`, which does not limit the correction.
+    pub correction_range: RangeInclusive<f32>,
 }
 
 impl Default for AutoExposure {
@@ -101,6 +118,7 @@ impl Default for AutoExposure {
             exponential_transition_distance: 1.5,
             metering_mask: default(),
             compensation_curve: default(),
+            correction_range: f32::MIN..=f32::MAX,
         }
     }
 }

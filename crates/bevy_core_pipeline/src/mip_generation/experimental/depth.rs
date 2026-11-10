@@ -759,7 +759,7 @@ pub fn prepare_downsample_depth_view_bind_groups(
         let source_image = match (depth_view, shadow_occlusion_culling) {
             (Some(Some(depth_view)), _) => depth_view,
             (Some(None), _) => {
-                // Depth texture doesn't has depth aspect
+                // Depth texture doesn't have depth aspect
                 continue;
             }
             (None, Some(shadow_occlusion_culling)) => &shadow_occlusion_culling.depth_texture_view,

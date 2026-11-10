@@ -34,7 +34,7 @@ impl SystemInformationDiagnosticsPlugin {
     pub const SYSTEM_MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("system/mem_usage");
     /// Process cpu usage in %
     pub const PROCESS_CPU_USAGE: DiagnosticPath = DiagnosticPath::const_new("process/cpu_usage");
-    /// Process memory usage in %
+    /// Process memory usage in GiB
     pub const PROCESS_MEM_USAGE: DiagnosticPath = DiagnosticPath::const_new("process/mem_usage");
 }
 
@@ -111,7 +111,10 @@ mod internal {
 
     fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>, mut commands: Commands) {
         let (tx, rx) = mpsc::channel();
-        let diagnostic_task = DiagnosticTask::new(tx);
+        let Some(diagnostic_task) = DiagnosticTask::new(tx) else {
+            info!("Unsupported system for diagnostic");
+            return;
+        };
         let waker = Arc::clone(&diagnostic_task.waker);
         let task = AsyncComputeTaskPool::get().spawn(diagnostic_task);
         commands.insert_resource(SysinfoTask {
@@ -147,7 +150,7 @@ mod internal {
             let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
             system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
 
-            system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+            system.refresh_cpu_specifics(CpuRefreshKind::nothing().with_usage());
             system.refresh_memory();
 
             let system_cpu_usage = system.global_cpu_usage().into();
@@ -189,18 +192,19 @@ mod internal {
     }
 
     impl DiagnosticTask {
-        fn new(sender: Sender<SysinfoRefreshData>) -> Self {
-            Self {
+        fn new(sender: Sender<SysinfoRefreshData>) -> Option<Self> {
+            Some(Self {
                 system: System::new_with_specifics(
                     RefreshKind::nothing()
-                        .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
+                        .with_cpu(CpuRefreshKind::nothing().with_usage())
                         .with_memory(MemoryRefreshKind::everything()),
-                ),
+                )
+                .ok()?,
                 // Avoids initial delay on first refresh
                 last_refresh: Instant::now() - sysinfo::MINIMUM_CPU_UPDATE_INTERVAL,
                 sender,
                 waker: Arc::default(),
-            }
+            })
         }
     }
 
@@ -249,25 +253,36 @@ mod internal {
 
     impl Default for SystemInfo {
         fn default() -> Self {
-            let sys = System::new_with_specifics(
+            let os = System::long_os_version().unwrap_or_else(|_| String::from("not available"));
+            let core_count = System::physical_core_count()
+                .map(|x| x.to_string())
+                .unwrap_or_else(|_| String::from("not available"));
+            let system_info = if let Ok(sys) = System::new_with_specifics(
                 RefreshKind::nothing()
                     .with_cpu(CpuRefreshKind::nothing())
                     .with_memory(MemoryRefreshKind::nothing().with_ram()),
-            );
-
-            let system_info = SystemInfo {
-                os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
-                kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
-                cpu: sys
-                    .cpus()
-                    .first()
-                    .map(|cpu| cpu.brand().trim().to_string())
-                    .unwrap_or_else(|| String::from("not available")),
-                core_count: System::physical_core_count()
-                    .map(|x| x.to_string())
-                    .unwrap_or_else(|| String::from("not available")),
-                // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
-                memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
+            ) {
+                SystemInfo {
+                    os,
+                    kernel: System::kernel_version()
+                        .unwrap_or_else(|_| String::from("not available")),
+                    cpu: sys
+                        .cpus()
+                        .first()
+                        .map(|cpu| cpu.brand().trim().to_string())
+                        .unwrap_or_else(|| String::from("not available")),
+                    core_count,
+                    // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
+                    memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
+                }
+            } else {
+                SystemInfo {
+                    os,
+                    kernel: String::from("not available"),
+                    cpu: String::from("not available"),
+                    core_count,
+                    memory: String::from("not available"),
+                }
             };
 
             info!("{system_info:?}");
