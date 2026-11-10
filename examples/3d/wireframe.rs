@@ -15,7 +15,11 @@ use bevy::{
         WireframePlugin, WireframeTopology, WireframeXray,
     },
     prelude::*,
-    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
+    render::{
+        render_resource::{Face, WgpuFeatures},
+        settings::WgpuSettings,
+        RenderPlugin,
+    },
 };
 
 fn main() {
@@ -156,12 +160,17 @@ V - Line width (current: {current_width:.1}px)
 B - Toggle topology (current: {:?})
 N - Toggle global x-ray mode (current: {:?})
 M - Toggle x-ray mode for the green cube (current: {green_cube_xray})
+K - Toggle back-face culling (current: {:?})
 
 WireframeConfig
 -------------
 Global: {}
 Color: {:?}",
-        config.default_topology, config.xray_mode, config.global, config.default_color,
+        config.default_topology,
+        config.xray_mode,
+        config.cull_mode,
+        config.global,
+        config.default_color,
     );
 
     // Toggle showing a wireframe on all meshes
@@ -215,5 +224,12 @@ Color: {:?}",
         for mut xray in &mut xray_cubes {
             xray.0 = !xray.0;
         }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyK) {
+        config.cull_mode = match config.cull_mode {
+            Some(_) => None,
+            None => Some(Face::Back),
+        };
     }
 }
