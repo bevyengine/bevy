@@ -2332,7 +2332,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         // The Bevy renderer will never mark a mesh as batchable
                         // but not multidrawable if multidraw is in use.
                         // However, custom render pipelines might do so, such as
-                        // the [`specialized_mesh_pipeline` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/specialized_mesh_pipeline.rs).
+                        // the `specialized_mesh_pipeline` example.
                         let batch_set_index = match batch.extra_index {
                             PhaseItemExtraIndex::IndirectParametersIndex {
                                 batch_set_index: Some(batch_set_index),
