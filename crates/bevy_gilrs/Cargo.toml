@@ -9,9 +9,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-# Use WGI on Windows targets. No effect on other targets.
+# Use WGI on Windows targets. No effect on other targets. Mutually incompatible with `xinput`.
 wgi = ["gilrs/wgi"]
-# Use XInput on Windows targets (which is compatible with Wine).
+# Use XInput on Windows targets (which is compatible with Wine). Mutually incompatible with `wgi`.
 xinput = ["gilrs/xinput"]
 
 [dependencies]
