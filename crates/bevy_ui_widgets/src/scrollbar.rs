@@ -4,7 +4,6 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -19,31 +18,29 @@ use bevy_picking::events::{
 };
 use bevy_picking::hover::PointerCaptureMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
-    prelude::BorderRect, ui_layout_system, BackgroundColor, BorderColor, BorderRadius,
-    ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ScrollPosition, UiGlobalTransform, UiRect,
+    UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
 // TODO: Move this to a more central place.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
 #[reflect(PartialEq, Clone, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum ControlOrientation {
     /// Horizontal orientation (stretching from left to right)
     Horizontal,
     /// Vertical orientation (stretching from top to bottom)
     #[default]
     Vertical,
-}
-
-/// An event which indicates that we want to scroll the specified item into view (adjusting
-/// the scroll position of it's parent).
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
-#[entity_event(propagate)]
-pub struct ScrollIntoView {
-    /// The activated entity.
-    pub entity: Entity,
 }
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.
@@ -96,14 +93,13 @@ pub struct Scrollbar {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy::Block,
     Visibility,
     ZIndex
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct ScrollbarThumb {
-    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] in [`UiSystems::Layout`].
+    /// Border radius of the scrollbar thumb, used to update [`ComputedNode::border_radius`] after [`UiSystems::Layout`].
     pub border_radius: BorderRadius,
     /// Thickness of the thumb node's border.
     ///
@@ -484,8 +480,8 @@ impl Plugin for ScrollbarPlugin {
             .add_systems(
                 PostUpdate,
                 update_scrollbar_thumb
-                    .in_set(UiSystems::Layout)
-                    .after(ui_layout_system),
+                    .after(UiSystems::Layout)
+                    .before(UiSystems::Clipping),
             );
     }
 }

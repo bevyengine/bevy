@@ -31,15 +31,21 @@ bevy_window = { path = "../bevy_window", version = "0.20.0-dev" }
 # other
 accesskit = "0.25"
 parley = { version = "0.11.0", default-features = false }
+serde = { version = "1", features = ["derive"], optional = true }
 smol_str = "0.2"
+thiserror = { version = "2", default-features = false }
 
 # The shortcut layout (Cmd vs Ctrl) depends on the HOST os, which on wasm is
 # only knowable at runtime -- see `mac_host` in text_input.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features = ["Window", "Navigator"] }
 
+[dev-dependencies]
+ron = "0.12"
+
 [features]
 default = []
+serialize = ["dep:serde"]
 
 [lints]
 workspace = true

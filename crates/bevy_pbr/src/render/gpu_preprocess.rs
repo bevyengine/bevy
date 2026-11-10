@@ -1406,8 +1406,40 @@ impl PreprocessPipelines {
                     && self.early_phase.is_loaded(pipeline_cache)
                     && self.late_phase.is_loaded(pipeline_cache)
                     && self.main_phase.is_loaded(pipeline_cache)
+                    // Without these, `unpack_bins` and `allocate_uniforms`
+                    // skip their dispatches, and mesh preprocessing reads
+                    // stale work items and `MeshUniform` allocations.
+                    && self.bin_unpacking.is_loaded(pipeline_cache)
+                    && self.uniform_allocation.is_loaded(pipeline_cache)
             }
         }
+    }
+}
+
+impl BinUnpackingPipeline {
+    /// Returns true if the bin unpacking pipeline has been loaded into the
+    /// pipeline cache or false otherwise.
+    fn is_loaded(&self, pipeline_cache: &PipelineCache) -> bool {
+        self.pipeline_id
+            .is_some_and(|pipeline_id| pipeline_cache.get_compute_pipeline(pipeline_id).is_some())
+    }
+}
+
+impl UniformAllocationPipelines {
+    /// Returns true if all three uniform allocation pipelines have been
+    /// loaded into the pipeline cache or false otherwise.
+    fn is_loaded(&self, pipeline_cache: &PipelineCache) -> bool {
+        [
+            self.local_scan.pipeline_id_local_scan,
+            self.global_scan.pipeline_id_global_scan,
+            self.fan.pipeline_id_fan,
+        ]
+        .into_iter()
+        .all(|pipeline_id| {
+            pipeline_id.is_some_and(|pipeline_id| {
+                pipeline_cache.get_compute_pipeline(pipeline_id).is_some()
+            })
+        })
     }
 }
 

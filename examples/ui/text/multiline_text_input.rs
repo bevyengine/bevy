@@ -135,11 +135,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         };
 
                                         let mut output = String::new();
-                                        output
-                                            .reserve(input.value().into_iter().map(str::len).sum());
-                                        for sub_str in input.value() {
-                                            output.push_str(sub_str);
-                                        }
+                                        output.push_str(&input.value());
 
                                         info!("{output}");
                                     },
@@ -244,10 +240,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 };
 
                                 let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                output.push_str(&input.value());
 
                                 let Ok(lines) = output.parse::<f32>() else {
                                     return;
@@ -330,10 +323,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 };
 
                                 let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                output.push_str(&input.value());
 
                                 let Ok(font_size) = output.parse::<f32>() else {
                                     return;
@@ -412,10 +402,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 };
 
                                 let mut output = String::new();
-                                output.reserve(input.value().into_iter().map(str::len).sum());
-                                for sub_str in input.value() {
-                                    output.push_str(sub_str);
-                                }
+                                output.push_str(&input.value());
 
                                 let Ok(radius) = output.parse::<f32>() else {
                                     return;

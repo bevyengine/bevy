@@ -47,7 +47,9 @@ fn button_on_key_event(
         let input_event = &event.input;
         if !input_event.repeat
             && input_event.state == ButtonState::Pressed
-            && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
+            && (input_event.key_code == KeyCode::Enter
+                || input_event.key_code == KeyCode::NumpadEnter
+                || input_event.key_code == KeyCode::Space)
         {
             event.propagate(false);
             commands.trigger(Activate {

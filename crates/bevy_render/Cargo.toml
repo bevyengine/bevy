@@ -100,7 +100,7 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.13"
-glam = { version = "0.33.9", default-features = false, features = [
+glam = { version = "0.34.2", default-features = false, features = [
   "std",
   "encase-013",
 ] }
@@ -116,7 +116,7 @@ variadics_please = "2.0"
 tracy-client = { version = "0.19.0", optional = true }
 indexmap = { version = "2" }
 bitflags = "2"
-itertools = "0.14"
+itertools = "0.15"
 weak-table = "0.4"
 tracing = "0.1"
 static_assertions = "1"
@@ -167,6 +167,3 @@ all-features = true
 [package.metadata.wgsl-analyzer]
 edition = "2026_pre"
 root = "src"
-
-[package.metadata.wgsl-analyzer.dependencies]
-bevy_core_pipeline = { path = "../bevy_core_pipeline" }

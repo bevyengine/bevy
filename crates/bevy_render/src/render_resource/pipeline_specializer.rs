@@ -118,11 +118,11 @@ impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
     pub fn specialize(
         &mut self,
         cache: &PipelineCache,
-        specialize_pipeline: &S,
+        pipeline_specializer: &S,
         key: S::Key,
     ) -> CachedComputePipelineId {
         *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
+            let descriptor = pipeline_specializer.specialize(key);
             cache.queue_compute_pipeline(descriptor)
         })
     }
@@ -215,7 +215,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         fn specialize_slow<S>(
             vertex_layout_cache: &mut VertexLayoutCache<S>,
             cache: &PipelineCache,
-            specialize_pipeline: &S,
+            pipeline_specializer: &S,
             key: S::Key,
             layout: &MeshVertexBufferLayoutRef,
             entry: VacantEntry<
@@ -227,7 +227,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
         where
             S: SpecializedMeshPipeline,
         {
-            let descriptor = specialize_pipeline
+            let descriptor = pipeline_specializer
                 .specialize(key.clone(), layout)
                 .map_err(|mut err| {
                     {

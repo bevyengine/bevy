@@ -4,7 +4,9 @@
 //! and triggers whenever the handle or the underlying asset changes.
 
 use crate::{AsAssetId, Asset, AssetId};
+use bevy_ecs::archetype::ArchetypeId;
 use bevy_ecs::component::Components;
+use bevy_ecs::storage::TableId;
 use bevy_ecs::{
     archetype::Archetype,
     change_detection::Tick,
@@ -211,13 +213,22 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &'s Self::State,
+        archetype_id: ArchetypeId,
         archetype: &'w Archetype,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_archetype` for `A`
             unsafe {
-                <&A>::set_archetype(inner, &state.asset_id, archetype, table);
+                <&A>::set_archetype(
+                    inner,
+                    &state.asset_id,
+                    archetype_id,
+                    archetype,
+                    table_id,
+                    table,
+                );
             }
         }
     }
@@ -225,12 +236,13 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     unsafe fn set_table<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
+        table_id: TableId,
         table: &'w Table,
     ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_table` for `A`
             unsafe {
-                <&A>::set_table(inner, &state.asset_id, table);
+                <&A>::set_table(inner, &state.asset_id, table_id, table);
             }
         }
     }
