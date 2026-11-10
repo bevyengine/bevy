@@ -309,7 +309,7 @@ impl FieldAnnotations {
         Self {
             display_name: attributes.get::<DisplayName>().map(|name| name.0),
             read_only: attributes.contains::<ReadOnly>(),
-            range: ValueRange::from_attributes(attributes),
+            range: attributes.value_range(),
             step: attributes.get::<Step>().map(|step| step.0),
             unit: attributes.get::<Unit>().map(|unit| unit.0),
             variant_names: Vec::new(),
