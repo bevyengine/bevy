@@ -1,19 +1,23 @@
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_color::Alpha;
+use bevy_color::{Alpha, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
-use bevy_text::{EditableText, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode};
+use bevy_text::{
+    EditableText, Placeholder, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode,
+};
 use bevy_ui::{
     CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, ResolvedBorderRadius,
     UiGlobalTransform,
 };
+use core::mem;
 
 use crate::{
-    stack_z_offsets, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType, UiCameraMap,
+    stack_z_offsets, ExtractedGlyph, ExtractedUiItem, ExtractedUiNode, ExtractedUiNodes, NodeType,
+    UiCameraMap,
 };
 
 pub(crate) fn calculate_text_scroll_clip(
@@ -310,6 +314,106 @@ pub fn extract_preedit_underlines(
                         },
                     },
                 );
+        }
+    }
+}
+
+/// Extracts the glyphs of shown [`Placeholder`]s, with the field's own
+/// transform, scroll offset, clip, camera and stack index.
+pub fn extract_text_placeholder(
+    mut commands: Commands,
+    extracted_uinodes: ResMut<ExtractedUiNodes>,
+    text_node_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &ComputedStackIndex,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            &TextColor,
+            &TextLayoutInfo,
+            &EditableText,
+            &Placeholder,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let extracted_uinodes = extracted_uinodes.into_inner();
+    let mut camera_mapper = camera_map.get_mapper();
+
+    let mut glyphs = vec![];
+
+    for (
+        entity,
+        uinode,
+        stack_index,
+        global_transform,
+        inherited_visibility,
+        maybe_clip,
+        target_camera,
+        text_color,
+        text_layout_info,
+        editable_text,
+        placeholder,
+    ) in extracted_uinodes
+        .changed
+        .iter()
+        .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
+    {
+        let placeholder_glyphs = &text_layout_info.placeholder_glyphs;
+        if !inherited_visibility.get() || uinode.is_empty() || placeholder_glyphs.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(target_camera) else {
+            continue;
+        };
+
+        let transform = Affine2::from(global_transform)
+            * Affine2::from_translation(uinode.content_box().min - editable_text.viewport.offset);
+
+        let clip =
+            calculate_text_scroll_clip(Some(editable_text), maybe_clip, uinode, global_transform);
+
+        let color = placeholder.resolve_color(text_color.0).to_linear();
+        // color glyphs (emoji) keep their colors but share the hint's alpha
+        let color_glyph = LinearRgba::WHITE.with_alpha(color.alpha);
+
+        for (i, glyph) in placeholder_glyphs.iter().enumerate() {
+            glyphs.push(ExtractedGlyph {
+                color: if glyph.atlas_info.is_alpha_mask {
+                    color
+                } else {
+                    color_glyph
+                },
+                translation: glyph.position,
+                rect: glyph.atlas_info.rect,
+            });
+
+            if placeholder_glyphs
+                .get(i + 1)
+                .is_none_or(|next| next.atlas_info.texture != glyph.atlas_info.texture)
+            {
+                extracted_uinodes
+                    .uinodes
+                    .entry(entity.into())
+                    .or_insert_with(|| (extracted_camera_entity, Default::default()))
+                    .1
+                    .insert(
+                        commands.spawn_empty().id(),
+                        ExtractedUiNode {
+                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            image: glyph.atlas_info.texture,
+                            clip: clip.clone(),
+                            item: ExtractedUiItem::Glyphs {
+                                glyphs: mem::take(&mut glyphs),
+                            },
+                            transform,
+                        },
+                    );
+            }
         }
     }
 }
