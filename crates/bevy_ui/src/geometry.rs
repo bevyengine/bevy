@@ -254,10 +254,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn left(left: Val) -> Self {
+    pub const fn left(left: Val) -> Self {
         Self {
             left,
-            ..Self::DEFAULT
+            right: Val::ZERO,
+            top: Val::ZERO,
+            bottom: Val::ZERO,
         }
     }
 
@@ -276,10 +278,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn right(right: Val) -> Self {
+    pub const fn right(right: Val) -> Self {
         Self {
+            left: Val::ZERO,
             right,
-            ..Self::DEFAULT
+            top: Val::ZERO,
+            bottom: Val::ZERO,
         }
     }
 
@@ -298,10 +302,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn top(top: Val) -> Self {
+    pub const fn top(top: Val) -> Self {
         Self {
+            left: Val::ZERO,
+            right: Val::ZERO,
             top,
-            ..Self::DEFAULT
+            bottom: Val::ZERO,
         }
     }
 
@@ -320,10 +326,12 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn bottom(bottom: Val) -> Self {
+    pub const fn bottom(bottom: Val) -> Self {
         Self {
+            left: Val::ZERO,
+            right: Val::ZERO,
+            top: Val::ZERO,
             bottom,
-            ..Self::DEFAULT
         }
     }
 
