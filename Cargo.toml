@@ -319,6 +319,7 @@ bevy_extract = ["bevy_internal/bevy_extract"]
 
 # Adds gamepad support, via gilrs using WGI on Windows targets.
 bevy_gilrs = ["gamepad", "bevy_internal/bevy_gilrs", "bevy_internal/bevy_gilrs_wgi"]
+
 # Adds gamepad support, via gilrs using XInput on Windows targets (which is compatible with Wine).
 # This must be enabled by spelling out the features listed in `default` and `default_platform` and
 # then this feature for `bevy_gilrs` (else there will be build errors from gilrs).
