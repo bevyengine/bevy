@@ -26,7 +26,7 @@ use bevy_input_focus::{
 };
 use bevy_picking::{events::PointerClick, pointer::PointerButton};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{Expandable, Expanded, InteractionDisabled, Selectable, Selected};
+use bevy_ui::{Expandable, Expanded, InteractionDisabled, Selectable, Selected, UiSystems};
 
 /// Determines how many rows of a [`TreeView`] may be selected at once.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
@@ -131,7 +131,8 @@ impl Plugin for TreePlugin {
                 )
                     .chain()
                     .after(crate::MenuFocusSystem)
-                    .before(InputFocusSystems::FocusChangeEvents),
+                    .before(InputFocusSystems::FocusChangeEvents)
+                    .before(UiSystems::Content),
             );
     }
 }

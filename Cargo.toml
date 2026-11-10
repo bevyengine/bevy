@@ -161,6 +161,7 @@ dev = [
   "bevy_dev_tools",
   "render_dev_tools",
   "file_watcher",
+  "inspector",
 ]
 
 # COLLECTION: Features used to build audio Bevy apps.
@@ -439,6 +440,14 @@ bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Entity inspector built on bevy_ui and bevy_feathers.
 bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
+
+# Adds an entity inspector to `DefaultPlugins`, hidden until F12 is pressed.
+inspector = [
+  "bevy_internal/inspector",
+  "bevy_inspector",
+  "ui_bevy_render",
+  "picking",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]

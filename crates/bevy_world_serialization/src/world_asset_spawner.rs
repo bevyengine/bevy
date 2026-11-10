@@ -361,13 +361,21 @@ impl WorldInstanceSpawner {
         world_asset_ids: &[AssetId<WorldAsset>],
     ) -> Result<(), WorldInstanceSpawnError> {
         for id in world_asset_ids {
-            if let Some(spawned_instances) = self.spawned_worlds.get(id) {
-                for instance_id in spawned_instances {
+            if let Some(spawned_instances) = self.spawned_worlds.get_mut(id) {
+                let mut orphaned_instances = Vec::new();
+                for instance_id in spawned_instances.iter() {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
                         // Despawn the world asset before respawning it. This is a very heavy operation,
                         // but otherwise, entities may be left behind, or be left in an otherwise
                         // invalid state (e.g., invalid relationships).
                         Self::despawn_instance_internal(world, instance_info);
+                        if instance_info
+                            .parent
+                            .is_some_and(|parent| world.get_entity(parent).is_err())
+                        {
+                            orphaned_instances.push(*instance_id);
+                            continue;
+                        }
                         Self::spawn_sync_internal(world, *id, &mut instance_info.entity_map)?;
                         Self::set_instance_parent_sync(world, instance_info);
                         // We trigger `WorldInstanceReady` events after processing all world assets
@@ -375,6 +383,10 @@ impl WorldInstanceSpawner {
                         self.instances_ready
                             .push((*instance_id, instance_info.parent));
                     }
+                }
+                for instance_id in orphaned_instances {
+                    spawned_instances.remove(&instance_id);
+                    self.spawned_instances.remove(&instance_id);
                 }
             }
         }
@@ -391,13 +403,21 @@ impl WorldInstanceSpawner {
         dynamic_world_ids: &[AssetId<DynamicWorld>],
     ) -> Result<(), WorldInstanceSpawnError> {
         for id in dynamic_world_ids {
-            if let Some(spawned_instances) = self.spawned_dynamic_worlds.get(id) {
-                for instance_id in spawned_instances {
+            if let Some(spawned_instances) = self.spawned_dynamic_worlds.get_mut(id) {
+                let mut orphaned_instances = Vec::new();
+                for instance_id in spawned_instances.iter() {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
                         // Despawn the world asset before respawning it. This is a very heavy operation,
                         // but otherwise, entities may be left behind, or be left in an otherwise
                         // invalid state (e.g., invalid relationships).
                         Self::despawn_instance_internal(world, instance_info);
+                        if instance_info
+                            .parent
+                            .is_some_and(|parent| world.get_entity(parent).is_err())
+                        {
+                            orphaned_instances.push(*instance_id);
+                            continue;
+                        }
                         Self::spawn_dynamic_internal(world, *id, &mut instance_info.entity_map)?;
                         Self::set_instance_parent_sync(world, instance_info);
                         // We trigger `WorldInstanceReady` events after processing all dynamic worlds
@@ -405,6 +425,10 @@ impl WorldInstanceSpawner {
                         self.instances_ready
                             .push((*instance_id, instance_info.parent));
                     }
+                }
+                for instance_id in orphaned_instances {
+                    spawned_instances.remove(&instance_id);
+                    self.spawned_instances.remove(&instance_id);
                 }
             }
         }
@@ -1146,5 +1170,29 @@ mod tests {
             world.entity(children[2]).get::<ComponentA>().unwrap().x,
             2.0
         );
+    }
+
+    #[test]
+    fn reload_instance_with_despawned_parent() {
+        let mut asset_world = World::new();
+        asset_world.spawn_empty();
+        let mut assets = Assets::<WorldAsset>::default();
+        let handle = assets.add(WorldAsset::new(asset_world));
+
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+        world.insert_resource(assets);
+        let parent = world.spawn_empty().id();
+
+        let mut spawner = WorldInstanceSpawner::default();
+        let instance = spawner.spawn_as_child(handle.clone(), parent);
+        spawner.spawn_queued_instances(&mut world).unwrap();
+
+        world.despawn(parent);
+        spawner
+            .update_spawned_instances(&mut world, &[handle.id()])
+            .unwrap();
+
+        assert!(!spawner.instance_is_ready(instance));
     }
 }
