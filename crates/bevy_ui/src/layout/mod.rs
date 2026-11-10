@@ -3,6 +3,7 @@ use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
     IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
+    ValContext,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -22,7 +23,7 @@ use bevy_sprite::BorderRect;
 use layout_tree::ComputedLayout;
 use thiserror::Error;
 
-use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont, DEFAULT_REM_SIZE_PX};
+use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont};
 
 pub mod clipping;
 mod convert;
@@ -86,52 +87,6 @@ impl UiRoots {
         self.roots_under_ghosts.clear();
         self.root_ghosts.clear();
         self.fixed_nodes.clear();
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct LayoutContext {
-    pub scale_factor: f32,
-    pub physical_size: Vec2,
-    pub em_size: f32,
-    pub rem_size: f32,
-}
-
-impl LayoutContext {
-    pub const DEFAULT: Self = Self {
-        scale_factor: 1.0,
-        physical_size: Vec2::ZERO,
-        em_size: DEFAULT_REM_SIZE_PX,
-        rem_size: DEFAULT_REM_SIZE_PX,
-    };
-    /// Create a new [`LayoutContext`] from the window's physical size and scale factor
-    #[inline]
-    const fn new(
-        scale_factor: f32,
-        physical_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Self {
-        Self {
-            scale_factor,
-            physical_size,
-            em_size: em_size.0,
-            rem_size: rem_size.0,
-        }
-    }
-}
-
-#[cfg(test)]
-impl LayoutContext {
-    pub const TEST_CONTEXT: Self = Self {
-        physical_size: Vec2::new(1000.0, 1000.0),
-        ..Self::DEFAULT
-    };
-}
-
-impl Default for LayoutContext {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -256,7 +211,7 @@ pub fn sync_taffy_styles_with_nodes(
             {
                 convert::update_taffy_style_from_node(
                     &node,
-                    &LayoutContext::new(
+                    &ValContext::new(
                         target.scale_factor(),
                         target.physical_size().as_vec2(),
                         *em_size,
@@ -602,6 +557,13 @@ fn update_uinode_geometry_recursive(
             return;
         }
 
+        let context = ValContext::new(
+            inverse_target_scale_factor.recip(),
+            target_size,
+            *em_size,
+            rem_size,
+        );
+
         // A `GhostNode`'s `ComputedNode` is cleared except border radius (doesn't matter as resolved border radius is always zero for zero-sized nodes),
         // scale factor and em and rem sizes.
         // The inherited base values are just passed through to the child.
@@ -615,15 +577,12 @@ fn update_uinode_geometry_recursive(
             });
 
             inherited_transform *= transform.compute_affine(
-                inverse_target_scale_factor.recip(),
+                &context,
                 // Normally percentage translations are resolved based on a node's own size
                 // but the size of a `GhostNode` is always zero.
                 // Instead for a `GhostNode` percentage translations are resolved using the size
                 // of its parent.
                 parent_size,
-                target_size,
-                *em_size,
-                rem_size,
             );
 
             if inherited_transform != **global_transform {
@@ -718,13 +677,7 @@ fn update_uinode_geometry_recursive(
         }
 
         // Compute the node's new global transform
-        let mut local_transform = transform.compute_affine(
-            inverse_target_scale_factor.recip(),
-            layout_size,
-            target_size,
-            *em_size,
-            rem_size,
-        );
+        let mut local_transform = transform.compute_affine(&context, layout_size);
         local_transform.translation += local_center;
         inherited_transform *= local_transform;
 
@@ -737,13 +690,7 @@ fn update_uinode_geometry_recursive(
             let new_outline_width = if style.display != Display::None {
                 outline
                     .width
-                    .resolve(
-                        inverse_target_scale_factor.recip(),
-                        computed_node.size().x,
-                        target_size,
-                        *em_size,
-                        rem_size,
-                    )
+                    .resolve(&context, computed_node.size().x)
                     .unwrap_or(0.)
                     .max(0.)
             } else {
@@ -756,13 +703,7 @@ fn update_uinode_geometry_recursive(
 
             let new_outline_offset = outline
                 .offset
-                .resolve(
-                    inverse_target_scale_factor.recip(),
-                    computed_node.size().x,
-                    target_size,
-                    *em_size,
-                    rem_size,
-                )
+                .resolve(&context, computed_node.size().x)
                 .unwrap_or(0.)
                 // Clamp outline offsets to at least the length of the node's shorter side
                 // Negative offset outlines can be useful to create thing like in-set focus indicators
@@ -854,11 +795,13 @@ pub fn update_border_radius(
             // We don't trigger change detection for changes to border radius
             // unless the border radius actually changed
             let new_border_radius = style.border_radius.resolve(
-                node.inverse_scale_factor.recip(),
+                &ValContext::new(
+                    node.inverse_scale_factor.recip(),
+                    target.physical_size.as_vec2(),
+                    node.em_size,
+                    node.rem_size,
+                ),
                 node.size,
-                target.physical_size.as_vec2(),
-                node.em_size,
-                node.rem_size,
             );
             if node.border_radius != new_border_radius {
                 node.border_radius = new_border_radius;
