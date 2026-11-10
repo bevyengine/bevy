@@ -26,7 +26,7 @@ fn minimize_automatically(mut window: Single<&mut Window>, frames: Res<FrameCoun
     window.set_minimized(true);
 }
 
-/// A simple 3d scene, taken from the `3d_scene` example
+/// A simple 3d scene, taken from the [`3d_scene` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/3d_scene.rs)
 fn setup_3d(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
