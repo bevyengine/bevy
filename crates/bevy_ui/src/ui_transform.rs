@@ -56,13 +56,13 @@ impl Val2 {
         Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
-    /// Resolves this [`Val2`] from the given `base_size` and `context`.
+    /// Resolves this [`Val2`] from the given context and `base_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
-    pub fn resolve(&self, base_size: Vec2, context: &ValContext) -> Vec2 {
+    pub fn resolve(&self, context: &ValContext, base_size: Vec2) -> Vec2 {
         Vec2::new(
-            self.x.resolve(base_size.x, context).unwrap_or(0.),
-            self.y.resolve(base_size.y, context).unwrap_or(0.),
+            self.x.resolve(context, base_size.x).unwrap_or(0.),
+            self.y.resolve(context, base_size.y).unwrap_or(0.),
         )
     }
 }
@@ -138,12 +138,12 @@ impl UiTransform {
         }
     }
 
-    /// Resolves the translation from the given `base_size` and `context`
+    /// Resolves the translation from the given context and `base_size`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
-    pub fn compute_affine(&self, base_size: Vec2, context: &ValContext) -> Affine2 {
+    pub fn compute_affine(&self, context: &ValContext, base_size: Vec2) -> Affine2 {
         Affine2::from_mat2_translation(
             Mat2::from(self.rotation) * Mat2::from_diagonal(self.scale),
-            self.translation.resolve(base_size, context),
+            self.translation.resolve(context, base_size),
         )
     }
 }

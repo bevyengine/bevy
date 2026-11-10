@@ -1,10 +1,9 @@
 use crate::val::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::default;
-
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_utils::default;
 
 /// A type which is commonly used to define margins, paddings and borders.
 ///
@@ -557,14 +556,14 @@ impl UiPosition {
         Self::BOTTOM_RIGHT.at(x, y)
     }
 
-    /// Resolves the `Position` into physical coordinates.
-    pub fn resolve(&self, physical_size: Vec2, context: &ValContext) -> Vec2 {
+    /// Resolves the `UiPosition` into physical coordinates.
+    pub fn resolve(&self, context: &ValContext, physical_size: Vec2) -> Vec2 {
         let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
         physical_size * self.anchor
             + d * Vec2::new(
-                self.x.resolve(physical_size.x, context).unwrap_or(0.),
-                self.y.resolve(physical_size.y, context).unwrap_or(0.),
+                self.x.resolve(context, physical_size.x).unwrap_or(0.),
+                self.y.resolve(context, physical_size.y).unwrap_or(0.),
             )
     }
 }
@@ -596,12 +595,7 @@ impl From<(Val, Val)> for UiPosition {
 /// let viewport_size = Vec2::new(1920.0, 1080.0);
 /// let em_size = EmSize(20.0);
 /// let rem_size = RemSize(20.0);
-/// let context = ValContext {
-///     scale_factor: 1.0,
-///     physical_size: viewport_size,
-///     em_size: em_size.0,
-///     rem_size: rem_size.0,
-/// };
+/// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
 ///
 /// let c1 = CornerRadius {
 ///     x: radius.clone(),
@@ -611,10 +605,10 @@ impl From<(Val, Val)> for UiPosition {
 ///     x: Val::ZERO,
 ///     y: radius,
 /// };
-/// let r = c1.resolve(size, &context);
+/// let r = c1.resolve(&context, size);
 /// assert_eq!(
 ///     r,
-///     c2.resolve(size, &context).yx(),
+///     c2.resolve(&context, size).yx(),
 /// );
 /// assert_eq!(
 ///     r,
@@ -667,12 +661,7 @@ impl CornerRadius {
     /// let viewport_size = Vec2::new(1920.0, 1080.0);
     /// let em_size = EmSize(20.0);
     /// let rem_size = RemSize(20.0);
-    /// let context = ValContext {
-    ///     scale_factor: 1.0,
-    ///     physical_size: viewport_size,
-    ///     em_size: em_size.0,
-    ///     rem_size: rem_size.0,
-    /// };
+    /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
     ///
     /// let c1 = CornerRadius::circular(radius.clone());
     /// let c2 = CornerRadius {
@@ -680,10 +669,10 @@ impl CornerRadius {
     ///     y: radius,
     /// };
     ///
-    /// let r = c1.resolve(size, &context);
+    /// let r = c1.resolve(&context, size);
     /// assert_eq!(
     ///     r,
-    ///     c2.resolve(size, &context),
+    ///     c2.resolve(&context, size),
     /// );
     /// assert_eq!(
     ///     r,
@@ -713,12 +702,7 @@ impl CornerRadius {
     /// let viewport_size = Vec2::new(1920.0, 1080.0);
     /// let em_size = EmSize(20.0);
     /// let rem_size = RemSize(20.0);
-    /// let context = ValContext {
-    ///     scale_factor: 1.0,
-    ///     physical_size: viewport_size,
-    ///     em_size: em_size.0,
-    ///     rem_size: rem_size.0,
-    /// };
+    /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
     ///
     /// let c1 = CornerRadius::all(radius.clone());
     /// let c2 = CornerRadius {
@@ -726,10 +710,10 @@ impl CornerRadius {
     ///     y: radius,
     /// };
     ///
-    /// let r = c1.resolve(size, &context);
+    /// let r = c1.resolve(&context, size);
     /// assert_eq!(
     ///     r,
-    ///     c2.resolve(size, &context),
+    ///     c2.resolve(&context, size),
     /// );
     /// assert_eq!(
     ///     r,
@@ -751,7 +735,7 @@ impl CornerRadius {
     }
 
     /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
-    pub fn resolve(&self, size: Vec2, context: &ValContext) -> Vec2 {
+    pub fn resolve(&self, context: &ValContext, size: Vec2) -> Vec2 {
         match self {
             Self {
                 x: Val::Auto,
@@ -766,13 +750,13 @@ impl CornerRadius {
                 y: radius,
             } => Vec2::splat(
                 radius
-                    .resolve(size.min_element(), context)
+                    .resolve(context, size.min_element())
                     .unwrap_or(0.)
                     .clamp(0., 0.5 * size.min_element()),
             ),
             Self { x, y } => Vec2::new(
-                x.resolve(size.x, context).unwrap_or(0.),
-                y.resolve(size.y, context).unwrap_or(0.),
+                x.resolve(context, size.x).unwrap_or(0.),
+                y.resolve(context, size.y).unwrap_or(0.),
             )
             .clamp(Vec2::ZERO, 0.5 * size),
         }
@@ -820,7 +804,8 @@ impl PartialEq for CornerRadius {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::geometry::*;
+    use crate::val::Val;
     use bevy_math::vec2;
     use bevy_text::{EmSize, RemSize};
 
@@ -835,7 +820,7 @@ mod tests {
                 x: Val::Px(100.),
                 y: Val::Auto,
             }
-            .resolve(size, &context),
+            .resolve(&context, size),
             vec2(25., 25.)
         );
         assert_eq!(
@@ -843,7 +828,7 @@ mod tests {
                 x: Val::Px(40.),
                 y: Val::Px(40.),
             }
-            .resolve(size, &context),
+            .resolve(&context, size),
             vec2(40., 25.)
         );
         assert_eq!(
@@ -851,11 +836,11 @@ mod tests {
                 x: Val::ZERO,
                 y: Val::Px(20.),
             }
-            .resolve(size, &context),
+            .resolve(&context, size),
             vec2(0., 20.)
         );
         assert_eq!(
-            CornerRadius::default().resolve(size, &context),
+            CornerRadius::default().resolve(&context, size),
             vec2(0., 0.)
         );
     }

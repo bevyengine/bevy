@@ -3193,12 +3193,12 @@ impl BorderRadius {
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(&self, node_size: Vec2, context: &ValContext) -> ResolvedBorderRadius {
+    pub fn resolve(&self, context: &ValContext, node_size: Vec2) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self.top_left.resolve(node_size, context),
-            top_right: self.top_right.resolve(node_size, context),
-            bottom_left: self.bottom_left.resolve(node_size, context),
-            bottom_right: self.bottom_right.resolve(node_size, context),
+            top_left: self.top_left.resolve(context, node_size),
+            top_right: self.top_right.resolve(context, node_size),
+            bottom_left: self.bottom_left.resolve(context, node_size),
+            bottom_right: self.bottom_right.resolve(context, node_size),
         }
     }
 }

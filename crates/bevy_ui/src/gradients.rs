@@ -3,7 +3,6 @@ use bevy_color::{Color, Srgba};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_text::{EmSize, RemSize};
 use bevy_utils::default;
 use core::{f32, f32::consts::TAU};
 
@@ -606,16 +605,7 @@ const fn far_side2(p: Vec2, h: Vec2) -> f32 {
 
 impl RadialGradientShape {
     /// Resolve the physical dimensions of the end shape of the radial gradient
-    pub fn resolve(
-        &self,
-        position: Vec2,
-        scale_factor: f32,
-        physical_size: Vec2,
-        physical_target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Vec2 {
-        let context = ValContext::new(scale_factor, physical_target_size, em_size, rem_size);
+    pub fn resolve(&self, position: Vec2, context: &ValContext, physical_size: Vec2) -> Vec2 {
         let half_size = 0.5 * physical_size;
         match self {
             RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),
@@ -629,11 +619,11 @@ impl RadialGradientShape {
                 far_side(position.y, half_size.y),
             ),
             RadialGradientShape::Circle(radius) => {
-                Vec2::splat(radius.resolve(physical_size.x, &context).unwrap_or(0.))
+                Vec2::splat(radius.resolve(context, physical_size.x).unwrap_or(0.))
             }
             RadialGradientShape::Ellipse(x, y) => Vec2::new(
-                x.resolve(physical_size.x, &context).unwrap_or(0.),
-                y.resolve(physical_size.y, &context).unwrap_or(0.),
+                x.resolve(context, physical_size.x).unwrap_or(0.),
+                y.resolve(context, physical_size.y).unwrap_or(0.),
             ),
         }
     }

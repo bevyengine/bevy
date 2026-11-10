@@ -1386,7 +1386,7 @@ pub fn process_remote_mutate_components_request(
         .ok_or_else(|| {
             BrpError::component_error(anyhow!("Component `{}` isn't registered", component))
         })?
-        .reflect_mut(world.entity_mut(entity))
+        .reflect_mut(get_entity_mut(world, entity)?)
         .ok_or_else(|| {
             BrpError::component_error(anyhow!("Cannot reflect component `{}`", component))
         })?;
@@ -3086,5 +3086,43 @@ mod tests {
 
         let err = query_name_path(&mut world, serde_json::json!([0, "Rebind"])).unwrap_err();
         assert_eq!(err.code, error_codes::INVALID_PARAMS);
+    }
+
+    #[test]
+    fn mutate_component() {
+        #[derive(Reflect, Component)]
+        #[reflect(Component)]
+        struct Player {
+            health: u32,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Player>();
+        }
+
+        let mut world = World::new();
+        world.insert_resource(atr);
+
+        let entity = world.spawn(Player { health: 50 }).id();
+
+        let params = serde_json::to_value(BrpMutateComponentsParams {
+            entity,
+            component: <Player as bevy_reflect::TypePath>::type_path().to_owned(),
+            path: "health".to_owned(),
+            value: serde_json::json!(75),
+        })
+        .expect("Failed to serialize mutate_components parameters");
+
+        process_remote_mutate_components_request(In(Some(params.clone())), &mut world)
+            .expect("mutate_components should succeed while the entity exists");
+
+        world.despawn(entity);
+
+        let error = process_remote_mutate_components_request(In(Some(params)), &mut world)
+            .expect_err("mutate_components should fail after the entity is despawned");
+
+        assert_eq!(error.code, error_codes::ENTITY_NOT_FOUND);
     }
 }

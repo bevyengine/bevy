@@ -401,19 +401,19 @@ pub(crate) fn update_scrollbar_thumb(
                 thumb_node.inverse_scale_factor = inverse_scale_factor;
             }
 
-            let context = ValContext {
-                scale_factor: target_info.scale_factor(),
-                physical_size: target_info.physical_size().as_vec2(),
-                em_size: thumb_node.em_size.0,
-                rem_size: thumb_node.rem_size.0,
-            };
-            let border_radius = thumb.border_radius.resolve(thumb_physical_size, &context);
+            let context = ValContext::new(
+                target_info.scale_factor(),
+                target_info.physical_size().as_vec2(),
+                thumb_node.em_size,
+                thumb_node.rem_size,
+            );
+            let border_radius = thumb.border_radius.resolve(&context, thumb_physical_size);
             if thumb_node.border_radius != border_radius {
                 thumb_node.border_radius = border_radius;
             }
 
             let resolve_border_val =
-                |val: &Val| val.resolve(thumb_physical_size.x, &context).unwrap_or(0.);
+                |val: &Val| val.resolve(&context, thumb_physical_size.x).unwrap_or(0.);
 
             let mut resolved_border = BorderRect {
                 min_inset: Vec2::new(
@@ -443,7 +443,7 @@ pub(crate) fn update_scrollbar_thumb(
             thumb_node.bypass_change_detection().border = resolved_border;
 
             let new_transform = scrollbar_transform.affine()
-                * thumb_transform.compute_affine(thumb_physical_size, &context)
+                * thumb_transform.compute_affine(&context, thumb_physical_size)
                 * Affine2::from_translation(thumb_center * target_info.scale_factor());
 
             if thumb_global_transform.affine() != new_transform {

@@ -250,13 +250,13 @@ pub(crate) fn position_popover(
                 continue;
             }
             let resolved_translation = transform.translation.resolve(
+                &ValContext::new(
+                    computed_target.scale_factor(),
+                    computed_target.physical_size().as_vec2(),
+                    computed_node.em_size,
+                    computed_node.rem_size,
+                ),
                 computed_node.size(),
-                &ValContext {
-                    scale_factor: computed_target.scale_factor(),
-                    physical_size: computed_target.physical_size().as_vec2(),
-                    em_size: computed_node.em_size.0,
-                    rem_size: computed_node.rem_size.0,
-                },
             );
             let logical_translation = (resolved_translation
                 + parent_matrix.inverse() * physical_translation)
