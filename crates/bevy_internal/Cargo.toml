@@ -501,6 +501,10 @@ gamepad = ["bevy_input/gamepad", "bevy_input_focus?/gamepad"]
 touch = ["bevy_input/touch"]
 gestures = ["bevy_input/gestures"]
 
+# Select gamepad implementation for Windows.
+gilrs_wgi = ["bevy_gilrs?/wgi"]
+gilrs_xinput = ["bevy_gilrs?/xinput"]
+
 # Clipboard support
 bevy_clipboard = ["dep:bevy_clipboard"]
 system_clipboard = [

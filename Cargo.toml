@@ -771,6 +771,12 @@ hotpatching = ["bevy_internal/hotpatching"]
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
+# Use the Windows Game Input system for gamepad support in gilrs on Windows.
+gilrs_wgi = ["bevy_internal/gilrs_wgi"]
+
+# Use the XInput system for gamepad support in gilrs on Windows. (This will work in Wine cross-builds.)
+gilrs_xinput = ["bevy_internal/gilrs_xinput"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.20.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
