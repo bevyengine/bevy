@@ -14,7 +14,7 @@ and then allow you to drag and drop them between different regions at will: "doc
 - the space owned by the `DockTree` is partitioned by `SplitPane` entities, whose `Pane` children are separated by draggable `SplitPaneHandle` entities
 - each `Pane` can hold either a tab group or another `SplitPane`, allowing for recursive splitting
 - each tab group is a leaf node with exactly three children: a `TabList` that stores the tab headers as children, a content area where the thing you want to show on the panel goes, and a hidden node, which holds the content of inactive tabs
-- each tab is made up of two entities that live under its respective tab group: the `Tab` header, which stays in the list, and the `DockPanelContent` holding the panel's UI, which moves between the content area and the hidden node
+- each tab is made up of two entities that live under its respective tab group: the `Tab` header, which stays in the list and shows the title in a `DockTabTitle` text child, and the `DockPanelContent` holding the panel's UI, which moves between the content area and the hidden node
 
 Only the active tab's content sits in the content area; every other tab's content is parked in the hidden node, a `Node` with `Display::None`, so switching tabs moves entities rather than rebuilding them.
 

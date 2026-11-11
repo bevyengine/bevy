@@ -153,6 +153,13 @@ pub struct DockPanelContent {
 #[reflect(Component, Clone, Debug, Default, PartialEq)]
 pub struct DockPanelTitle(pub String);
 
+/// The [`Text`] child of a dock tab header that shows the tab's title.
+///
+/// Other children, such as an icon or a close button, can sit next to it in the header.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Reflect)]
+#[reflect(Component, Clone, Debug, Default, PartialEq)]
+pub struct DockTabTitle;
+
 impl DockPanelTitle {
     /// Creates a title from a string.
     pub fn new(title: impl Into<String>) -> Self {
@@ -344,6 +351,7 @@ impl NodeUi {
 struct TabUi {
     panel: DockPanelKey,
     header: Entity,
+    title: Entity,
     content: Entity,
 }
 
@@ -651,8 +659,11 @@ impl DockBuilder<'_, '_> {
                     flex_shrink: 0.0,
                     ..Default::default()
                 },
-                Text::new(tab.panel.as_str()),
             ))
+            .id();
+        let title = self
+            .commands
+            .spawn((DockTabTitle, Text::new(tab.panel.as_str()), ChildOf(header)))
             .id();
         let content = self
             .commands
@@ -674,6 +685,7 @@ impl DockBuilder<'_, '_> {
         TabUi {
             panel: tab.panel.clone(),
             header,
+            title,
             content,
         }
     }
@@ -734,7 +746,7 @@ fn sync_dock_titles(
             continue;
         };
         let title = title.map_or(content.panel.as_str(), |title| title.0.as_str());
-        if let Ok(mut text) = texts.get_mut(tab.header)
+        if let Ok(mut text) = texts.get_mut(tab.title)
             && text.0 != title
         {
             text.0 = title.into();
@@ -748,6 +760,18 @@ mod tests {
     use crate::DockEdge;
     use alloc::vec;
     use bevy_ecs::{query::Added, resource::Resource, system::ResMut, world::World};
+
+    fn tab_title(world: &World, header: Entity) -> String {
+        world
+            .get::<Children>(header)
+            .into_iter()
+            .flatten()
+            .find(|child| world.get::<DockTabTitle>(**child).is_some())
+            .and_then(|title| world.get::<Text>(*title))
+            .unwrap()
+            .0
+            .clone()
+    }
 
     fn app() -> App {
         let mut app = App::new();
@@ -861,7 +885,7 @@ mod tests {
         assert_eq!(tabs.len(), 2);
         assert!(world.get::<TabList>(leaf_parts[0]).is_some());
         assert!(world.get::<Tab>(tabs[0]).is_some());
-        assert_eq!(world.get::<Text>(tabs[0]).unwrap().0, "a");
+        assert_eq!(tab_title(world, tabs[0]), "a");
         assert_eq!(
             world.get::<SelectedTab>(leaf_parts[0]).unwrap().0,
             Some(tabs[1])
@@ -974,12 +998,12 @@ mod tests {
         let content = content_entity(world, a);
         assert!(world.get::<Built>(content).is_some());
         let header = header_entity(world, a);
-        assert_eq!(world.get::<Text>(header).unwrap().0, "Alpha");
+        assert_eq!(tab_title(world, header), "Alpha");
 
         let b_content = content_entity(world, b);
         assert!(world.get::<Built>(b_content).is_none());
         let header = header_entity(world, b);
-        assert_eq!(world.get::<Text>(header).unwrap().0, "b");
+        assert_eq!(tab_title(world, header), "b");
     }
 
     #[test]
@@ -1064,13 +1088,13 @@ mod tests {
 
         world.get_mut::<DockPanelTitle>(content).unwrap().0 = "Alpha *".into();
         app.update();
-        assert_eq!(app.world().get::<Text>(header).unwrap().0, "Alpha *");
+        assert_eq!(tab_title(app.world(), header), "Alpha *");
 
         app.world_mut()
             .entity_mut(content)
             .remove::<DockPanelTitle>();
         app.update();
-        assert_eq!(app.world().get::<Text>(header).unwrap().0, "a");
+        assert_eq!(tab_title(app.world(), header), "a");
 
         // Removing and re-adding a title in one frame leaves the new title.
         app.world_mut()
@@ -1079,7 +1103,7 @@ mod tests {
             .remove::<DockPanelTitle>()
             .insert(DockPanelTitle::new("Second"));
         app.update();
-        assert_eq!(app.world().get::<Text>(header).unwrap().0, "Second");
+        assert_eq!(tab_title(app.world(), header), "Second");
     }
 
     #[test]
@@ -1100,7 +1124,7 @@ mod tests {
             parent(world, parent(world, header)),
             node_entity(world, left)
         );
-        assert_eq!(world.get::<Text>(header).unwrap().0, "Moved");
+        assert_eq!(tab_title(world, header), "Moved");
     }
 
     #[test]
@@ -1122,7 +1146,7 @@ mod tests {
         app.update();
         let world = app.world_mut();
         let header = header_entity(world, a);
-        assert_eq!(world.get::<Text>(header).unwrap().0, "a");
+        assert_eq!(tab_title(world, header), "a");
     }
 
     #[test]
@@ -1148,7 +1172,7 @@ mod tests {
         let content = content_entity(world, b);
         assert!(world.get::<Built>(content).is_some());
         let header = header_entity(world, b);
-        assert_eq!(world.get::<Text>(header).unwrap().0, "Alpha");
+        assert_eq!(tab_title(world, header), "Alpha");
     }
 
     #[test]
@@ -1278,7 +1302,7 @@ mod tests {
 
         let world = app.world_mut();
         let mut titles: Vec<String> = world
-            .query_filtered::<&Text, With<Tab>>()
+            .query_filtered::<&Text, With<DockTabTitle>>()
             .iter(world)
             .map(|text| text.0.clone())
             .collect();

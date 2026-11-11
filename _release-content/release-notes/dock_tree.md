@@ -15,5 +15,3 @@ tree.add_tab(center, "viewport")?;
 tree.split(center, DockEdge::Left, "outliner")?;
 tree.split(center, DockEdge::Bottom, "assets")?;
 ```
-
-Dragging tabs between groups comes in a later release.
