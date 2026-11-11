@@ -29,16 +29,16 @@ use taffy::{
 
 #[expect(
     unsafe_code,
-    reason = "`TaffyStyle`' uses raw pointers to its `PercentageCalc` values."
+    reason = "`TaffyStyle`' uses raw pointers to its `CalcOp` values."
 )]
-// SAFETY: `Style` is `!Send` because of its raw calc pointers. `PercentageCalc` is `Send + Sync`.
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "`TaffyStyle` owns the `PercentageCalc`s that its `Style` points to."
+    reason = "`TaffyStyle` owns the `CalcOp`s that its `Style` points to."
 )]
-// SAFETY: `Style` is `!Send` because of its raw calc pointers. `PercentageCalc` is `Send + Sync`.
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
 unsafe impl Sync for TaffyStyle {}
 
 /// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
