@@ -61,7 +61,10 @@ pub(crate) fn derive_scene_component(ast: &mut DeriveInput) -> TokenStream {
                 (
                     #scene_impl,
                     <#bevy_scene::InitTemplate::<<#struct_name #type_generics as #bevy_ecs::template::FromTemplate>::Template> as #FQDefault>::default(),
-                    #bevy_scene::template_value(#bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(true)),
+                    #bevy_scene::InsertTemplate {
+                        type_id: ::core::any::TypeId::of::<#bevy_scene::SceneComponentInfo>(),
+                        template: ::std::boxed::Box::new(#bevy_scene::SceneComponentInfo::new::<#struct_name #type_generics>(true)),
+                    },
                 )
             }
         }

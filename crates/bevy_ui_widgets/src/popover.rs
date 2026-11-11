@@ -14,7 +14,7 @@ use bevy_math::{Affine2, Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
-    UiTransform, Val2,
+    UiTransform, Val2, ValContext,
 };
 
 use crate::update_scrollbar_thumb;
@@ -250,11 +250,13 @@ pub(crate) fn position_popover(
                 continue;
             }
             let resolved_translation = transform.translation.resolve(
-                computed_target.scale_factor(),
+                &ValContext::new(
+                    computed_target.scale_factor(),
+                    computed_target.physical_size().as_vec2(),
+                    computed_node.em_size,
+                    computed_node.rem_size,
+                ),
                 computed_node.size(),
-                computed_target.physical_size().as_vec2(),
-                computed_node.em_size,
-                computed_node.rem_size,
             );
             let logical_translation = (resolved_translation
                 + parent_matrix.inverse() * physical_translation)
