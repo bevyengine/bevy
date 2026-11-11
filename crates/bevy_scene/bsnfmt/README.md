@@ -3,7 +3,7 @@
 ## Installation
 
 ```sh
-cargo install --path ./crates/bevy_scene/macros --features fmt --bin bsnfmt
+cargo install --path ./crates/bevy_scene/bsnfmt
 ```
 
 ## Usage
@@ -17,7 +17,7 @@ bsnfmt ./path/to/module.rs
 Write:
 
 ```sh
-bsnfmt ./path/to/module.rs --write
+bsnfmt --write ./path/to/module.rs
 ```
 
 ## Editor integration
