@@ -588,7 +588,6 @@ impl Div<f32> for Val {
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value / rhs),
             Val::Percent(value) => Val::Percent(value / rhs),
             Val::Vw(value) => Val::Vw(value / rhs),
