@@ -182,12 +182,12 @@ impl BsnFmt for BsnSceneListItems {
 }
 
 impl BsnFmt for BsnEntry {
-    fn fmt(&self, base: usize, level: usize) -> String {
+    fn fmt(&self, base_indent: usize, level: usize) -> String {
         match self {
             BsnEntry::Name(ident) => format!("#{}", ident),
-            BsnEntry::FromTemplatePatch(ty) => ty.fmt(base, level),
+            BsnEntry::FromTemplatePatch(ty) => ty.fmt(base_indent, level),
             BsnEntry::TemplatePatch(ty) => {
-                format!("@{}", ty.fmt(base, level))
+                format!("@{}", ty.fmt(base_indent, level))
             }
             BsnEntry::TemplateConstructor {
                 constructor,
@@ -206,27 +206,29 @@ impl BsnFmt for BsnEntry {
                 out.push_str("::");
                 out.push_str(&constructor.function.to_string());
 
-                let args = constructor.args.fmt(base, level);
+                let args = constructor.args.fmt(base_indent, level);
                 out.push('(');
                 out.push_str(&args);
                 out.push(')');
 
                 if let Some(dot_expression) = dot_expression {
-                    out.push_str(&fmt_rust_dot_expr(dot_expression));
+                    out.push_str(&fmt_bevy_dot_expr(dot_expression, base_indent, level + 1));
                 }
 
                 out
             }
             BsnEntry::TemplateValue(token_stream) => {
-                fmt_rust_expr(token_stream, base, level).trim().to_string()
+                fmt_rust_expr(token_stream, base_indent, level)
+                    .trim()
+                    .to_string()
             }
-            BsnEntry::Function(fn_call) => fn_call.fmt(base, level),
-            BsnEntry::UncachedScene(s) | BsnEntry::CachedScene(s) => s.fmt(base, level),
+            BsnEntry::Function(fn_call) => fn_call.fmt(base_indent, level),
+            BsnEntry::UncachedScene(s) | BsnEntry::CachedScene(s) => s.fmt(base_indent, level),
             BsnEntry::RelatedSceneList(r) => {
                 format!(
                     "{} {}",
                     fmt_quote(&r.relationship_path),
-                    r.scene_list.fmt(base, level)
+                    r.scene_list.fmt(base_indent, level)
                 )
             }
         }

@@ -4,6 +4,7 @@
 
 use proc_macro2::TokenStream;
 use quote::ToTokens;
+use syn::Expr;
 
 pub(crate) fn indent(base: usize, level: usize) -> String {
     " ".repeat(base + (level * 4))
@@ -70,29 +71,43 @@ fn fallback(tokens: &TokenStream, base: usize, level: usize) -> String {
     format!("{}{}", indent(base, level), raw)
 }
 
-pub(crate) fn fmt_rust_dot_expr(dot_expr: &TokenStream) -> String {
+pub(crate) fn fmt_bevy_dot_expr(dot_expr: &TokenStream, base: usize, level: usize) -> String {
     let dummy = quote::quote! {
-        fn __dummy() {
-            r#dummy #dot_expr
-        }
+        __dummy_receiver #dot_expr
     };
+    let expr: Expr = syn::parse2(dummy).unwrap();
+    let mut methods = Vec::new();
 
-    let file = syn::parse2::<syn::File>(dummy).unwrap();
-    let formatted = prettyplease::unparse(&file);
-    let mut lines: Vec<&str> = formatted.lines().collect();
+    let mut current = &expr;
+    while let Expr::MethodCall(method_call) = current {
+        methods.push(method_call.clone());
+        current = &method_call.receiver;
+    }
+    methods.reverse();
 
-    // Remove `fn __dummy() {` and `}`
-    lines.remove(0);
-    lines.pop();
-    lines.iter().fold(String::new(), |mut out, line| {
-        let line = line.replace("r#dummy", "");
-        let trimmed = line.trim();
-        if !trimmed.is_empty() {
-            out.push_str(trimmed);
-        }
+    let mut out = String::new();
+    for call in methods {
+        let method = &call.method;
+        let args = &call.args;
 
-        out
-    })
+        // NOTE: Skipping turbofish here, this is fine since BSN doesn't support them in dot expressions
+        let tokens = quote::quote! {
+            fn __dummy() {
+                #method (#args)
+            }
+        };
+        let file = syn::parse2::<syn::File>(tokens).unwrap();
+        let mut formatted = prettyplease::unparse(&file);
+        let mut formatted = formatted.lines().collect::<Vec<_>>();
+        formatted.remove(0);
+        formatted.pop();
+
+        out.push('\n');
+        out.push_str(&indent(base, level));
+        out.push('.');
+        out.push_str(&formatted.join("").trim());
+    }
+    out
 }
 
 /// Formats standard Rust code (expressions, closures) by wrapping them in a dummy
