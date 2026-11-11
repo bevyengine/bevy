@@ -11,6 +11,7 @@ use similar::{ChangeTag, TextDiff};
 use std::{
     fs,
     io::{self, Read},
+    path::PathBuf,
     process,
 };
 use syn::{visit::Visit, File};
@@ -20,7 +21,7 @@ use syn::{visit::Visit, File};
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The file to format. If omitted, reads from stdin and prints to stdout.
-    file: Option<String>,
+    file: Option<PathBuf>,
 
     /// Write the formatted output back to the file.
     /// Ignored if reading from stdin.
@@ -34,7 +35,7 @@ fn main() {
 
     let src = if let Some(path) = &args.file {
         fs::read_to_string(path).unwrap_or_else(|_| {
-            eprintln!("Failed to read file: {}", path);
+            eprintln!("Failed to read file: {}", path.display());
             process::exit(1);
         })
     } else {
@@ -87,7 +88,10 @@ fn main() {
 
     if visitor.edits.is_empty() {
         if !is_stdin && !args.write {
-            eprintln!("\x1b[1;32mNo formatting changes made in {}\x1b[0m", path);
+            eprintln!(
+                "\x1b[1;32mNo formatting changes made in {}\x1b[0m",
+                path.display()
+            );
         }
 
         if is_stdin {
@@ -113,13 +117,14 @@ fn main() {
         fs::write(&path, output).expect("Failed to write to file");
         println!(
             "\x1b[1;32mbsn! fmt: formatted {} block(s) in {}\x1b[0m",
-            edit_count, path
+            edit_count,
+            path.display()
         );
     } else {
         println!(
             "bsn! fmt: found {} unformatted block(s) in {}\n",
             visitor.edits.len(),
-            path
+            path.display()
         );
 
         for edit in &visitor.edits {
