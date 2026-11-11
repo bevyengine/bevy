@@ -55,6 +55,7 @@ const min = -half_size;
 const max = half_size;
 
 // Suppose Y-up right hand, and camera look from +Z to -Z
+// @wgslfmt(ignore)
 const vertices = array(
         // xyz, normal.xyz, uv.xy
         // Front
@@ -257,6 +258,7 @@ const vertices = array(
         1.0,
     );
 
+// @wgslfmt(ignore)
 const indices = array(
         0,
         1,
