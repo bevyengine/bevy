@@ -4203,14 +4203,8 @@ mod val_keywords {
                 DespawnOnExit(super::Scene::ValKeywords),
             ))
             .with_children(|parent| {
-                parent.spawn((
-                    Text::new(
-                        "ValKeywords: 60px / 180px / 300px containers; 10px horizontal margins",
-                    ),
-                    TextFont::from_font_size(24.),
-                ));
                 for (keyword, description) in [
-                    (percent(100), "margins overflow"),
+                    (percent(100), "overflows margin"),
                     (Val::Auto, "flex basis uses width"),
                     (Val::MinContent, "wraps text at every space"),
                     (Val::MaxContent, "keeps text on one line"),
@@ -4244,7 +4238,7 @@ mod val_keywords {
                                     )
                                 ],
                             ));
-                            for width in [60, 180, 300] {
+                            for width in [Val::MinContent, px(180), px(300)] {
                                 row.spawn(Node {
                                     width: px(300),
                                     flex_shrink: 0.,
@@ -4253,7 +4247,7 @@ mod val_keywords {
                                 .with_children(|slot| {
                                     slot.spawn((
                                         Node {
-                                            width: px(width),
+                                            width,
                                             height: percent(100),
                                             align_items: AlignItems::Start,
                                             ..default()
