@@ -1,6 +1,6 @@
 use crate::{
     args::Args,
-    commands::{ClippyCommand, FormatCommand},
+    commands::{ClippyCommand, FormatCommand, WgslFormatCheckCommand},
     Prepare, PreparedCommand,
 };
 use argh::FromArgs;
@@ -15,6 +15,7 @@ impl Prepare for LintsCommand {
         let mut commands = vec![];
         commands.append(&mut FormatCommand::default().prepare(sh, args));
         commands.append(&mut ClippyCommand::default().prepare(sh, args));
+        commands.append(&mut WgslFormatCheckCommand::default().prepare(sh, args));
         commands
     }
 }
