@@ -685,12 +685,6 @@ fn update_uinode_geometry_recursive(
         }
 
         if let Some(outline) = maybe_outline {
-            let context = ValContext::new(
-                inverse_target_scale_factor.recip(),
-                target_size,
-                *em_size,
-                rem_size,
-            );
             // don't trigger change detection unless the outline actually changed
             let new_outline_width = if style.display != Display::None {
                 outline
