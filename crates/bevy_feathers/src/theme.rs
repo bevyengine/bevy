@@ -238,6 +238,11 @@ pub(crate) fn update_theme(
     )>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor, Option<&ThemeContext>)>,
     mut q_text_color: Query<(&mut TextColor, &ThemeTextColor, Option<&ThemeContext>)>,
+    mut q_inheritable_theme_text_color: Query<(
+        &mut Propagate<TextColor>,
+        &InheritableThemeTextColor,
+        Option<&ThemeContext>,
+    )>,
     q_context_changed: Query<Entity, Changed<ThemeContext>>,
     theme: Res<UiTheme>,
 ) {
@@ -259,6 +264,15 @@ pub(crate) fn update_theme(
             let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             text_color.0 = theme.context_color(token, context);
         }
+
+        // Update all parent text span colors.
+        // Note that we don't need to update the children, Propagate will take care of that for us.
+        for (mut propagate_text_color, InheritableThemeTextColor(token), ctx) in
+            q_inheritable_theme_text_color.iter_mut()
+        {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            propagate_text_color.0 = TextColor(theme.context_color(token, context));
+        }
     }
 
     // Because propagation happens after observers run, do a fix-up pass
@@ -279,6 +293,15 @@ pub(crate) fn update_theme(
         if let Ok((mut text_color, ThemeTextColor(token), ctx)) = q_text_color.get_mut(ent) {
             let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             text_color.0 = theme.context_color(token, context);
+        }
+
+        // Update all parent text span colors.
+        // Note that we don't need to update the children, Propagate will take care of that for us.
+        for (mut propagate_text_color, InheritableThemeTextColor(token), ctx) in
+            q_inheritable_theme_text_color.iter_mut()
+        {
+            let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+            propagate_text_color.0 = TextColor(theme.context_color(token, context));
         }
     }
 }
