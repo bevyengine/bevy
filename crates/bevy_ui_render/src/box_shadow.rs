@@ -313,43 +313,28 @@ pub fn extract_shadows(
                 continue;
             }
 
-            let resolve_val = |val: &Val, base, scale_factor| match val {
-                Val::Auto
-                | Val::MinContent
-                | Val::MaxContent
-                | Val::Stretch
-                | Val::Content
-                | Val::FitContent => 0.,
-                Val::Calc(_) => val
-                    .resolve(
-                        &ValContext {
-                            scale_factor,
-                            physical_size: ui_physical_viewport_size,
-                            em_size: uinode.em_size.0,
-                            rem_size: uinode.rem_size.0,
-                        },
-                        base,
-                    )
-                    .unwrap_or(0.),
-                Val::Px(px) => px * scale_factor,
-                Val::Percent(percent) => percent / 100. * base,
-                Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
-                Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
-                Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
-                Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
-                Val::Em(em) => em * uinode.em_size.0 * scale_factor,
-                Val::Rem(rem) => rem * uinode.rem_size.0 * scale_factor,
+            let resolve_val = |val: &Val, base| {
+                val.resolve(
+                    &ValContext {
+                        scale_factor,
+                        physical_size: ui_physical_viewport_size,
+                        em_size: uinode.em_size.0,
+                        rem_size: uinode.rem_size.0,
+                    },
+                    base,
+                )
+                .unwrap_or(0.)
             };
 
-            let spread_x = resolve_val(&drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_x = resolve_val(&drop_shadow.spread_radius, uinode.size().x);
             let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
             let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-            let blur_radius = resolve_val(&drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let blur_radius = resolve_val(&drop_shadow.blur_radius, uinode.size().x);
             let offset = vec2(
-                resolve_val(&drop_shadow.x_offset, uinode.size().x, scale_factor),
-                resolve_val(&drop_shadow.y_offset, uinode.size().y, scale_factor),
+                resolve_val(&drop_shadow.x_offset, uinode.size().x),
+                resolve_val(&drop_shadow.y_offset, uinode.size().y),
             );
 
             let shadow_size = uinode.size() + spread;
