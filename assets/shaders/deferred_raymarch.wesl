@@ -6,19 +6,20 @@
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import bevy_pbr::render::mesh_view_bindings::view;
 import bevy_pbr::render::view_transformations::{
-    uv_to_ndc,
+    direction_view_to_world,
     position_ndc_to_view,
     position_ndc_to_world,
-    direction_view_to_world,
     position_world_to_view,
-    view_z_to_depth_ndc,
+    uv_to_ndc,
+    view_z_to_depth_ndc
 };
 import bevy_pbr::deferred::functions::deferred_gbuffer_from_pbr_input;
-import bevy_pbr::render::pbr_types::{pbr_input_new, STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE};
+import bevy_pbr::render::pbr_types::{STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE, pbr_input_new};
 import bevy_pbr::render::mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT;
 import bevy_render::globals::Globals;
 
-@group(0) @binding(1) var<uniform> globals: Globals;
+@group(0) @binding(1)
+var<uniform> globals: Globals;
 
 const FAR: f32 = 100.0;
 const SURFACE_EPSILON: f32 = 0.001;
@@ -43,16 +44,14 @@ fn map(p: vec3<f32>) -> f32 {
 fn sdf_normal(p: vec3<f32>) -> vec3<f32> {
     let e = vec2<f32>(1.0, -1.0) * 0.0005;
     return normalize(
-        e.xyy * map(p + e.xyy) +
-        e.yyx * map(p + e.yyx) +
-        e.yxy * map(p + e.yxy) +
-        e.xxx * map(p + e.xxx)
-    );
+            e.xyy * map(p + e.xyy) + e.yyx * map(p + e.yyx) + e.yxy * map(p + e.yxy)
+            + e.xxx * map(p + e.xxx),
+        );
 }
 
 fn raymarch(ray_origin: vec3<f32>, ray_dir: vec3<f32>) -> f32 {
     var t = 0.0;
-    for (var i = 0u; i < MAX_STEPS; i++) {
+    for(var i = 0u; i < MAX_STEPS; i++) {
         let d = map(ray_origin + ray_dir * t);
         if d < SURFACE_EPSILON {
             return t;
@@ -120,9 +119,8 @@ fn fragment(in: FullscreenVertexOutput) -> GBufferOutput {
 
     // Per-pixel base color
     let field = gyroid_field(world_pos);
-    let color = 0.5 + 0.5 * cos(
-        6.2831 * (field * 0.4 + globals.time * 0.05) + vec3<f32>(0.0, 0.8, 1.6)
-    );
+    let color = 0.5
+        + 0.5 * cos(6.2831 * (field * 0.4 + globals.time * 0.05) + vec3<f32>(0.0, 0.8, 1.6));
     pbr_input.material.base_color = vec4<f32>(color, 1.0);
     pbr_input.material.metallic = 0.7;
     pbr_input.material.perceptual_roughness = 0.25;

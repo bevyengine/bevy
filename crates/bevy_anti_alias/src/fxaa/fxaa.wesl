@@ -8,52 +8,54 @@
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@group(0) @binding(0) var screenTexture: texture_2d<f32>;
-@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(0)
+var screenTexture: texture_2d<f32>;
+@group(0) @binding(1)
+var samp: sampler;
 
 /// Trims the algorithm from processing darks.
-    @if(EDGE_THRESH_MIN_LOW)
-    const EDGE_THRESHOLD_MIN: f32 = 0.0833;
+@if(EDGE_THRESH_MIN_LOW)
+const EDGE_THRESHOLD_MIN: f32 = 0.0833;
 
-    @if(EDGE_THRESH_MIN_MEDIUM)
-    const EDGE_THRESHOLD_MIN: f32 = 0.0625;
+@if(EDGE_THRESH_MIN_MEDIUM)
+const EDGE_THRESHOLD_MIN: f32 = 0.0625;
 
-    @if(EDGE_THRESH_MIN_HIGH)
-    const EDGE_THRESHOLD_MIN: f32 = 0.0312;
+@if(EDGE_THRESH_MIN_HIGH)
+const EDGE_THRESHOLD_MIN: f32 = 0.0312;
 
-    @if(EDGE_THRESH_MIN_ULTRA)
-    const EDGE_THRESHOLD_MIN: f32 = 0.0156;
+@if(EDGE_THRESH_MIN_ULTRA)
+const EDGE_THRESHOLD_MIN: f32 = 0.0156;
 
-    @if(EDGE_THRESH_MIN_EXTREME)
-    const EDGE_THRESHOLD_MIN: f32 = 0.0078;
+@if(EDGE_THRESH_MIN_EXTREME)
+const EDGE_THRESHOLD_MIN: f32 = 0.0078;
 
 /// The minimum amount of local contrast required to apply algorithm.
-    @if(EDGE_THRESH_LOW)
-    const EDGE_THRESHOLD_MAX: f32 = 0.250;
+@if(EDGE_THRESH_LOW)
+const EDGE_THRESHOLD_MAX: f32 = 0.250;
 
-    @if(EDGE_THRESH_MEDIUM)
-    const EDGE_THRESHOLD_MAX: f32 = 0.166;
+@if(EDGE_THRESH_MEDIUM)
+const EDGE_THRESHOLD_MAX: f32 = 0.166;
 
-    @if(EDGE_THRESH_HIGH)
-    const EDGE_THRESHOLD_MAX: f32 = 0.125;
+@if(EDGE_THRESH_HIGH)
+const EDGE_THRESHOLD_MAX: f32 = 0.125;
 
-    @if(EDGE_THRESH_ULTRA)
-    const EDGE_THRESHOLD_MAX: f32 = 0.063;
+@if(EDGE_THRESH_ULTRA)
+const EDGE_THRESHOLD_MAX: f32 = 0.063;
 
-    @if(EDGE_THRESH_EXTREME)
-    const EDGE_THRESHOLD_MAX: f32 = 0.031;
+@if(EDGE_THRESH_EXTREME)
+const EDGE_THRESHOLD_MAX: f32 = 0.031;
 
 const ITERATIONS: i32 = 12; //default is 12
 const SUBPIXEL_QUALITY: f32 = 0.75;
 // #define QUALITY(q) ((q) < 5 ? 1.0 : ((q) > 5 ? ((q) < 10 ? 2.0 : ((q) < 11 ? 4.0 : 8.0)) : 1.5))
 fn QUALITY(q: i32) -> f32 {
-    switch (q) {
+    switch q {
         //case 0, 1, 2, 3, 4: { return 1.0; }
-        default:              { return 1.0; }
-        case 5:               { return 1.5; }
-        case 6, 7, 8, 9:      { return 2.0; }
-        case 10:              { return 4.0; }
-        case 11:              { return 8.0; }
+        default { return 1.0; }
+        case 5 { return 1.5; }
+        case 6, 7, 8, 9 { return 2.0; }
+        case 10 { return 4.0; }
+        case 11 { return 8.0; }
     }
 }
 
@@ -75,10 +77,14 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let lumaCenter = rgb2luma(colorCenter);
 
     // Luma at the four direct neighbors of the current fragment.
-    let lumaDown = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, -1)).rgb);
-    let lumaUp = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, 1)).rgb);
-    let lumaLeft = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, 0)).rgb);
-    let lumaRight = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(1, 0)).rgb);
+    let lumaDown =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, -1)).rgb);
+    let lumaUp =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(0, 1)).rgb);
+    let lumaLeft =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, 0)).rgb);
+    let lumaRight =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(1, 0)).rgb);
 
     // Find the maximum and minimum luma around the current fragment.
     let lumaMin = min(lumaCenter, min(min(lumaDown, lumaUp), min(lumaLeft, lumaRight)));
@@ -88,15 +94,19 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let lumaRange = lumaMax - lumaMin;
 
     // If the luma variation is lower than a threshold (or if we are in a really dark area), we are not on an edge, don't perform any AA.
-    if (lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD_MAX)) {
+    if lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD_MAX) {
         return centerSample;
     }
 
     // Query the 4 remaining corners lumas.
-    let lumaDownLeft  = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, -1)).rgb);
-    let lumaUpRight   = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(1, 1)).rgb);
-    let lumaUpLeft    = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, 1)).rgb);
-    let lumaDownRight = rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(1, -1)).rgb);
+    let lumaDownLeft =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, -1)).rgb);
+    let lumaUpRight =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(1, 1)).rgb);
+    let lumaUpLeft =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(-1, 1)).rgb);
+    let lumaDownRight =
+        rgb2luma(textureSampleLevel(screenTexture, samp, texCoord, 0.0, vec2<i32>(1, -1)).rgb);
 
     // Combine the four edges lumas (using intermediary variables for future computations with the same values).
     let lumaDownUp = lumaDown + lumaUp;
@@ -109,13 +119,13 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let lumaUpCorners = lumaUpRight + lumaUpLeft;
 
     // Compute an estimation of the gradient along the horizontal and vertical axis.
-    let edgeHorizontal = abs(-2.0 * lumaLeft   + lumaLeftCorners)  +
-                         abs(-2.0 * lumaCenter + lumaDownUp) * 2.0 +
-                         abs(-2.0 * lumaRight  + lumaRightCorners);
+    let edgeHorizontal =
+        abs(-2.0 * lumaLeft + lumaLeftCorners) + abs(-2.0 * lumaCenter + lumaDownUp) * 2.0
+        + abs(-2.0 * lumaRight + lumaRightCorners);
 
-    let edgeVertical =   abs(-2.0 * lumaUp     + lumaUpCorners)       +
-                         abs(-2.0 * lumaCenter + lumaLeftRight) * 2.0 +
-                         abs(-2.0 * lumaDown   + lumaDownCorners);
+    let edgeVertical =
+        abs(-2.0 * lumaUp + lumaUpCorners) + abs(-2.0 * lumaCenter + lumaLeftRight) * 2.0
+        + abs(-2.0 * lumaDown + lumaDownCorners);
 
     // Is the local edge horizontal or vertical ?
     let isHorizontal = (edgeHorizontal >= edgeVertical);
@@ -139,7 +149,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     // Average luma in the correct direction.
     var lumaLocalAverage = 0.0;
-    if (is1Steepest) {
+    if is1Steepest {
         // Switch the direction
         stepLength = -stepLength;
         lumaLocalAverage = 0.5 * (luma1 + lumaCenter);
@@ -151,7 +161,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Compute offset (for each iteration step) in the right direction.
     var currentUv = texCoord;
     var offset = vec2<f32>(0.0, 0.0);
-    if (isHorizontal) {
+    if isHorizontal {
         currentUv.y = currentUv.y + stepLength * 0.5;
         offset.x = inverseScreenSize.x;
     } else {
@@ -179,15 +189,15 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     uv2 = select(uv2 - offset, uv2, reached2); // * QUALITY(1); // (quality 1 is 1.0)
 
     // If both sides have not been reached, continue to explore.
-    if (!reachedBoth) {
-        for (var i: i32 = 2; i < ITERATIONS; i = i + 1) {
+    if !reachedBoth {
+        for(var i: i32 = 2; i < ITERATIONS; i = i + 1) {
             // If needed, read luma in 1st direction, compute delta.
-            if (!reached1) {
+            if !reached1 {
                 lumaEnd1 = rgb2luma(textureSampleLevel(screenTexture, samp, uv1, 0.0).rgb);
                 lumaEnd1 = lumaEnd1 - lumaLocalAverage;
             }
             // If needed, read luma in opposite direction, compute delta.
-            if (!reached2) {
+            if !reached2 {
                 lumaEnd2 = rgb2luma(textureSampleLevel(screenTexture, samp, uv2, 0.0).rgb);
                 lumaEnd2 = lumaEnd2 - lumaLocalAverage;
             }
@@ -197,15 +207,15 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
             reachedBoth = reached1 && reached2;
 
             // If the side is not reached, we continue to explore in this direction, with a variable quality.
-            if (!reached1) {
+            if !reached1 {
                 uv1 = uv1 - offset * QUALITY(i);
             }
-            if (!reached2) {
+            if !reached2 {
                 uv2 = uv2 + offset * QUALITY(i);
             }
 
             // If both sides have been reached, stop the exploration.
-            if (reachedBoth) {
+            if reachedBoth {
                 break;
             }
         }
@@ -233,14 +243,15 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var correctVariation = select(correctVariation2, correctVariation1, isDirection1);
 
     // UV offset: read in the direction of the closest side of the edge.
-    let pixelOffset = - distanceFinal / edgeThickness + 0.5;
+    let pixelOffset = -distanceFinal / edgeThickness + 0.5;
 
     // If the luma variation is incorrect, do not offset.
     var finalOffset = select(0.0, pixelOffset, correctVariation);
 
     // Sub-pixel shifting
     // Full weighted average of the luma over the 3x3 neighborhood.
-    let lumaAverage = (1.0 / 12.0) * (2.0 * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);
+    let lumaAverage = (1.0 / 12.0)
+        * (2.0 * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);
     // Ratio of the delta between the global average and the center luma, over the luma range in the 3x3 neighborhood.
     let subPixelOffset1 = clamp(abs(lumaAverage - lumaCenter) / lumaRange, 0.0, 1.0);
     let subPixelOffset2 = (-2.0 * subPixelOffset1 + 3.0) * subPixelOffset1 * subPixelOffset1;
@@ -252,7 +263,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     // Compute the final UV coordinates.
     var finalUv = texCoord;
-    if (isHorizontal) {
+    if isHorizontal {
         finalUv.y = finalUv.y + finalOffset * stepLength;
     } else {
         finalUv.x = finalUv.x + finalOffset * stepLength;

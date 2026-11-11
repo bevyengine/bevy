@@ -1,15 +1,29 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
 import bevy_render::view::View;
-import package::scene::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB};
-import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic, sample_environment_map_light};
-import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::brdf::{F_AB, brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf};
+import package::scene::sampling::{
+    power_heuristic,
+    random_emissive_light_pdf,
+    sample_environment_map_light,
+    sample_random_light
+};
+import package::scene::bindings::{
+    MIRROR_ROUGHNESS_THRESHOLD,
+    RAY_T_MAX,
+    RAY_T_MIN,
+    resolve_ray_hit_full,
+    trace_ray
+};
 
 enable wgpu_ray_query;
 
-@group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
-@group(1) @binding(1) var view_output: texture_storage_2d<rgba16float, write>;
-@group(1) @binding(2) var<uniform> view: View;
+@group(1) @binding(0)
+var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
+@group(1) @binding(1)
+var view_output: texture_storage_2d<rgba16float, write>;
+@group(1) @binding(2)
+var<uniform> view: View;
 
 @compute @workgroup_size(8, 8, 1)
 fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -48,7 +62,8 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             // Emissive contribution
             var mis_weight = 1.0;
-            if p_bounce != 0.0 { // Not first bounce
+            if p_bounce != 0.0 {
+                // Not first bounce
                 let p_light = random_emissive_light_pdf(ray_hit, ray.t, NdotV);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
@@ -57,23 +72,52 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             }
 
             // Sample direct lighting, but only if the surface is not mirror-like
-            let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD && ray_hit.material.metallic > 0.9999;
+            let is_perfectly_specular = ray_hit.material.roughness <= MIRROR_ROUGHNESS_THRESHOLD
+                && ray_hit.material.metallic > 0.9999;
             if !is_perfectly_specular {
-                let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+                let direct_lighting = sample_random_light(
+                        ray_hit.world_position,
+                        ray_hit.world_normal,
+                        &rng,
+                    );
 
                 mis_weight = 1.0;
                 if direct_lighting.brdf_rays_can_hit {
-                    let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
-                    mis_weight = power_heuristic(1.0 / direct_lighting.inverse_solid_angle_pdf, pdf_of_bounce);
+                    let pdf_of_bounce = brdf_pdf(
+                            wo,
+                            direct_lighting.wi,
+                            ray_hit.world_normal,
+                            ray_hit.material,
+                            F_ab,
+                        );
+                    mis_weight = power_heuristic(
+                            1.0 / direct_lighting.inverse_solid_angle_pdf,
+                            pdf_of_bounce,
+                        );
                 }
 
-                let direct_lighting_brdf = evaluate_brdf(wo, direct_lighting.wi, ray_hit.world_normal, ray_hit.material, F_ab);
-                radiance += mis_weight * throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
+                let direct_lighting_brdf = evaluate_brdf(
+                        wo,
+                        direct_lighting.wi,
+                        ray_hit.world_normal,
+                        ray_hit.material,
+                        F_ab,
+                    );
+                radiance += mis_weight * throughput * direct_lighting.radiance
+                    * direct_lighting.inverse_pdf * direct_lighting_brdf;
             }
 
             // Sample new ray direction from the material BRDF for next bounce and apply BRDF
-            let next_bounce = evaluate_and_sample_brdf(wo, ray_hit.world_normal, ray_hit.material, F_ab, &rng);
-            if next_bounce.pdf == 0.0 { break; }
+            let next_bounce = evaluate_and_sample_brdf(
+                    wo,
+                    ray_hit.world_normal,
+                    ray_hit.material,
+                    F_ab,
+                    &rng,
+                );
+            if next_bounce.pdf == 0.0 {
+                break;
+            }
             ray_direction = next_bounce.wi;
             ray_origin = ray_hit.world_position + (ray_hit.geometric_world_normal * RAY_T_MIN);
             ray_t_min = RAY_T_MIN;
@@ -82,7 +126,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             // Russian roulette for early termination
             let rr = saturate(luminance(throughput));
-            if rand_f(&rng) >= rr { break; }
+            if rand_f(&rng) >= rr {
+                break;
+            }
             throughput /= rr;
         } else {
             radiance += throughput * sample_environment_map_light(ray_direction);

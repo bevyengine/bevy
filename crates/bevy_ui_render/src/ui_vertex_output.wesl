@@ -8,6 +8,7 @@ struct UiVertexOutput {
     /// The border radius y value in pixels. Order is top left, top right, bottom right, bottom left.
     @location(3) border_radius_y: vec4<f32>,
     /// The size of the node in pixels. Order is width, height.
-    @location(4) @interpolate(flat) size: vec2<f32>,
+    @interpolate(flat)
+    @location(4) size: vec2<f32>,
     @builtin(position) position: vec4<f32>,
-};
+}

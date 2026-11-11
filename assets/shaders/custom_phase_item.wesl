@@ -9,7 +9,7 @@ struct Vertex {
     @location(0) position: vec3<f32>,
     /// The color of the vertex.
     @location(1) color: vec3<f32>,
-};
+}
 
 /// Information passed from the vertex shader to the fragment shader.
 struct VertexOutput {
@@ -17,7 +17,7 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     /// The color of the vertex.
     @location(0) color: vec3<f32>,
-};
+}
 
 /// The vertex shader entry point.
 @vertex

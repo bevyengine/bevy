@@ -1,26 +1,23 @@
 import package::{
+    deferred::{functions::pbr_input_from_deferred_gbuffer, types::unpack_unorm3x4_plus_unorm_20_},
     prepass::utils as prepass_utils,
     render::{
-        pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
         pbr_functions,
         pbr_lighting as lighting,
         mesh_view_bindings::{deferred_prepass_texture, view},
-    },
-    deferred::{
-        functions::pbr_input_from_deferred_gbuffer,
-        types::unpack_unorm3x4_plus_unorm_20_,
-    },
+        pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT
+    }
 };
 
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) import package::ssao::utils::ssao_multibounce;
+@if(SCREEN_SPACE_AMBIENT_OCCLUSION)
+import package::render::mesh_view_bindings::screen_space_ambient_occlusion_texture;
+@if(SCREEN_SPACE_AMBIENT_OCCLUSION)
+import package::ssao::utils::ssao_multibounce;
 
 struct FullscreenVertexOutput {
-    @builtin(position)
-    position: vec4<f32>,
-    @location(0)
-    uv: vec2<f32>,
-};
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
 
 struct PbrDeferredLightingDepthId {
     depth_id: u32, // limited to u8
@@ -40,7 +37,11 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {
     // See the full screen vertex shader for explanation above for how this works.
     let uv = vec2<f32>(f32(vertex_index >> 1u), f32(vertex_index & 1u)) * 2.0;
     // Depth is stored as unorm, so we are dividing the u8 depth_id by 255.0 here.
-    let clip_position = vec4<f32>(uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0), f32(depth_id.depth_id) / 255.0, 1.0);
+    let clip_position = vec4<f32>(
+            uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+            f32(depth_id.depth_id) / 255.0,
+            1.0,
+        );
 
     return FullscreenVertexOutput(clip_position, uv);
 }
@@ -60,22 +61,22 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var output_color = vec4(0.0);
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+    if (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            let ssao_tex_pos = vec2<i32>(in.position.xy - view.main_pass_viewport.xy);
+            let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
+            let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
+            pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 
-@if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao_tex_pos = vec2<i32>(in.position.xy - view.main_pass_viewport.xy);
-        let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
-        let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
-        pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
-
-        // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001); 
-        var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
-        let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-        // Use SSAO to estimate the specular occlusion.
-        // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
-        pbr_input.specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
-}
+            // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+            let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
+            var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
+            let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
+            // Use SSAO to estimate the specular occlusion.
+            // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
+            pbr_input.specular_occlusion =
+                saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
+        }
 
         output_color = pbr_functions::apply_pbr_lighting(pbr_input);
     } else {

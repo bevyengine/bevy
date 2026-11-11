@@ -14,16 +14,27 @@
 //! shader must compute the exact same visibility results.
 
 import package::cluster::{
-    Aabb, CLUSTERABLE_OBJECT_TYPE_DECAL, CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
-    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
-    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT, ClusterableObjectZSlice,
-    calculate_sphere_cluster_bounds, compute_view_from_world_scale
+    Aabb,
+    CLUSTERABLE_OBJECT_TYPE_DECAL,
+    CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME,
+    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
+    CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT,
+    CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE,
+    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
+    ClusterableObjectZSlice,
+    calculate_sphere_cluster_bounds,
+    compute_view_from_world_scale
 };
 import package::render::clustered_forward;
 import package::light_probe::transpose_affine_matrix;
 import package::render::mesh_view_types::{
-    ClusterOffsetsAndCounts, ClusterableObjectIndexLists, ClusteredDecals, ClusteredLights,
-    LightProbes, Lights, POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
+    ClusterOffsetsAndCounts,
+    ClusterableObjectIndexLists,
+    ClusteredDecals,
+    ClusteredLights,
+    LightProbes,
+    Lights,
+    POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
 };
 import bevy_render::view::View;
 import bevy_render::maths::quat_rotate;
@@ -37,11 +48,14 @@ struct Vertex {
 struct Varyings {
     @builtin(position) position: vec4<f32>,
     /// The index of the Z slice we're rasterizing.
-    @location(0) @interpolate(flat) instance_id: u32,
+    @interpolate(flat)
+    @location(0) instance_id: u32,
     /// The view-space center of the bounding sphere of the object.
-    @location(1) @interpolate(flat) sphere_position: vec3<f32>,
+    @interpolate(flat)
+    @location(1) sphere_position: vec3<f32>,
     /// The view-space radius of the bounding sphere of the object.
-    @location(2) @interpolate(flat) sphere_radius: f32,
+    @interpolate(flat)
+    @location(2) sphere_radius: f32,
 }
 
 /// The same as the `ClusterOffsetsAndCounts` structure, but with atomic fields
@@ -64,36 +78,45 @@ struct ClusterOffsetsAndCountsElementAtomic {
 }
 
 /// The list of clusterable object Z slices that we read from to.
-@group(0) @binding(0) var<storage> z_slices: array<ClusterableObjectZSlice>;
+@group(0) @binding(0)
+var<storage> z_slices: array<ClusterableObjectZSlice>;
 @if(!VERTEX_SHADER)
 /// The list of indices per cluster that we write to in the populate pass.
-@group(0) @binding(1) var<storage, read_write> index_lists: ClusterableObjectIndexLists;
+@group(0) @binding(1)
+var<storage, read_write> index_lists: ClusterableObjectIndexLists;
 /// Information about each light.
-@group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
+@group(0) @binding(2)
+var<storage> clustered_lights: ClusteredLights;
 /// Information about each light probe (reflection probe or irradiance volume).
-@group(0) @binding(3) var<uniform> light_probes: LightProbes;
+@group(0) @binding(3)
+var<uniform> light_probes: LightProbes;
 /// Information about each clustered decal.
-@group(0) @binding(4) var<storage> clustered_decals: ClusteredDecals;
+@group(0) @binding(4)
+var<storage> clustered_decals: ClusteredDecals;
 /// Information about the clusters as a whole, including the dimensions of the
 /// cluster grid.
-@group(0) @binding(5) var<uniform> lights: Lights;
+@group(0) @binding(5)
+var<uniform> lights: Lights;
 /// Information about the view.
-@group(0) @binding(6) var<uniform> view: View;
+@group(0) @binding(6)
+var<uniform> view: View;
 @if(!VERTEX_SHADER && POPULATE_PASS) {
-/// The number of objects in each cluster, and the offset of each list.
-@group(0) @binding(7) var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
-/// For each cluster, the counts of objects written *so far* to it.
-///
-/// We use this during the populate phase in order to write the ID of each object
-/// to the correct spot.
-@group(0) @binding(8) var<storage, read_write> scratchpad_offsets_and_counts:
-    ClusterOffsetsAndCountsAtomic;
+    /// The number of objects in each cluster, and the offset of each list.
+    @group(0) @binding(7)
+    var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
+    /// For each cluster, the counts of objects written *so far* to it.
+    ///
+    /// We use this during the populate phase in order to write the ID of each object
+    /// to the correct spot.
+    @group(0) @binding(8)
+    var<storage, read_write> scratchpad_offsets_and_counts: ClusterOffsetsAndCountsAtomic;
 }
 @if(!VERTEX_SHADER && !POPULATE_PASS)
 /// The number of objects in each cluster.
 ///
 /// During the count pass, we write to this.
-@group(0) @binding(7) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
+@group(0) @binding(7)
+var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
 
 /// The vertex entry point.
 @vertex
@@ -108,8 +131,10 @@ fn vertex_main(vertex: Vertex) -> Varyings {
     let radius = bounding_sphere.w;
 
     let view_from_world_scale = compute_view_from_world_scale(view.world_from_view);
-    let max_view_from_world_scale = max(view_from_world_scale.x,
-        max(view_from_world_scale.y, view_from_world_scale.z));
+    let max_view_from_world_scale = max(
+            view_from_world_scale.x,
+            max(view_from_world_scale.y, view_from_world_scale.z),
+        );
     let is_orthographic = view.clip_from_view[3].w == 1.0;
 
     // Calculate an approximate AABB of the cluster by computing its bounding
@@ -119,15 +144,15 @@ fn vertex_main(vertex: Vertex) -> Varyings {
     // algorithm. However, that's sequential. I believe that this simple
     // approach is the standard way to do cluster assignment on GPU.
     let cluster_bounds = calculate_sphere_cluster_bounds(
-        position,
-        radius,
-        view.view_from_world,
-        view.clip_from_view,
-        view_from_world_scale,
-        lights.cluster_dimensions.xyz,
-        lights.cluster_factors.zw,
-        is_orthographic
-    );
+            position,
+            radius,
+            view.view_from_world,
+            view.clip_from_view,
+            view_from_world_scale,
+            lights.cluster_dimensions.xyz,
+            lights.cluster_factors.zw,
+            is_orthographic,
+        );
     let cluster_bounds_xy = vec4<u32>(cluster_bounds.min.xy, cluster_bounds.max.xy + vec2<u32>(1u));
 
     // Calculate the bounding sphere's center and radius in view space.
@@ -135,11 +160,11 @@ fn vertex_main(vertex: Vertex) -> Varyings {
     let view_radius = max_view_from_world_scale * radius;
 
     return Varyings(
-        calculate_vertex_position(vertex, cluster_bounds_xy),
-        instance_id,
-        view_position,
-        view_radius
-    );
+            calculate_vertex_position(vertex, cluster_bounds_xy),
+            instance_id,
+            view_position,
+            view_radius,
+        );
 }
 
 /// Returns the position of the quad vertex necessary to enclose all the
@@ -147,11 +172,10 @@ fn vertex_main(vertex: Vertex) -> Varyings {
 /// The cluster bounds are supplied as `vec4(min X, min Y, max X, max Y)`.
 fn calculate_vertex_position(vertex: Vertex, cluster_bounds: vec4<u32>) -> vec4<f32> {
     let framebuffer_position = vec2<u32>(
-        select(cluster_bounds.x, cluster_bounds.z, vertex.position.x == 1.0),
-        select(cluster_bounds.y, cluster_bounds.w, vertex.position.y == 1.0)
-    );
-    let vertex_position =
-        vec2<f32>(framebuffer_position) / vec2<f32>(lights.cluster_dimensions.xy);
+            select(cluster_bounds.x, cluster_bounds.z, vertex.position.x == 1.0),
+            select(cluster_bounds.y, cluster_bounds.w, vertex.position.y == 1.0),
+        );
+    let vertex_position = vec2<f32>(framebuffer_position) / vec2<f32>(lights.cluster_dimensions.xy);
     return vec4(mix(vec2(-1.0, 1.0), vec2(1.0, -1.0), vertex_position), 0.0, 1.0);
 }
 
@@ -177,53 +201,55 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     // Determine the AABB of the cluster this fragment represents.
     let cluster_position = vec3<u32>(vec2<u32>(floor(varyings.position.xy)), z_slice);
     let cluster_aabb = compute_aabb_for_cluster(
-        z_near,
-        z_far,
-        tile_size,
-        screen_size,
-        view.view_from_clip,
-        is_orthographic,
-        lights.cluster_dimensions.xyz,
-        cluster_position
-    );
+            z_near,
+            z_far,
+            tile_size,
+            screen_size,
+            view.view_from_clip,
+            is_orthographic,
+            lights.cluster_dimensions.xyz,
+            cluster_position,
+        );
     let cluster_aabb_center = (cluster_aabb.max + cluster_aabb.min) * 0.5;
     let cluster_aabb_half_size = (cluster_aabb.max - cluster_aabb.min) * 0.5;
 
     // See if the object sphere intersects the AABB. If it doesn't, cull the
     // object.
     let object_intersects_cluster_aabb = sphere_intersects_aabb(
-        varyings.sphere_position,
-        varyings.sphere_radius,
-        cluster_aabb_center,
-        cluster_aabb_half_size
-    );
-    if (!object_intersects_cluster_aabb) {
+            varyings.sphere_position,
+            varyings.sphere_radius,
+            cluster_aabb_center,
+            cluster_aabb_half_size,
+        );
+    if !object_intersects_cluster_aabb {
         return vec4<f32>(0.0);
     }
 
     // Do further, more precise culling for spot lights.
-    if (object_type == CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT && cull_spot_light(
-        object_index,
-        cluster_aabb_center,
-        length(cluster_aabb_half_size),
-        varyings.sphere_position,
-        varyings.sphere_radius
-    )) {
+    if object_type == CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT && cull_spot_light(
+            object_index,
+            cluster_aabb_center,
+            length(cluster_aabb_half_size),
+            varyings.sphere_position,
+            varyings.sphere_radius,
+        ) {
         return vec4<f32>(0.0);
     }
 
     // Do further, more precise culling for rect lights.
-    if (object_type == CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT && cull_rect_light(
-        object_index,
-        cluster_aabb_center,
-        length(cluster_aabb_half_size),
-        varyings.sphere_position
-    )) {
+    if object_type == CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT && cull_rect_light(
+            object_index,
+            cluster_aabb_center,
+            length(cluster_aabb_half_size),
+            varyings.sphere_position,
+        ) {
         return vec4<f32>(0.0);
     }
 
-    let cluster_index =
-        clustered_forward::fragment_cluster_index(cluster_position, lights.cluster_dimensions);
+    let cluster_index = clustered_forward::fragment_cluster_index(
+            cluster_position,
+            lights.cluster_dimensions,
+        );
 
     // If this is the populate pass, reserve a slot and write in the actual
     // object index. Otherwise, if this is the count pass, just bump the
@@ -231,10 +257,11 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
     @if(POPULATE_PASS)
     let output_index = allocate_list_entry(cluster_index, object_type);
     @if(POPULATE_PASS)
-    if (output_index < arrayLength(&index_lists.data)) {
+    if output_index < arrayLength(&index_lists.data) {
         index_lists.data[output_index] = object_index;
     }
-    @else   // POPULATE_PASS
+    @else
+    // POPULATE_PASS
     increment_object_count(cluster_index, object_type);
 
     return vec4<f32>(0.0);
@@ -246,7 +273,7 @@ fn sphere_intersects_aabb(
     sphere_center: vec3<f32>,
     sphere_radius: f32,
     aabb_center: vec3<f32>,
-    aabb_half_size: vec3<f32>
+    aabb_half_size: vec3<f32>,
 ) -> bool {
     let delta = max(vec3(0.0), abs(aabb_center - sphere_center) - aabb_half_size);
     let dist_sq = dot(delta, delta);
@@ -262,7 +289,7 @@ fn compute_aabb_for_cluster(
     view_from_clip: mat4x4<f32>,
     is_orthographic: bool,
     cluster_dimensions: vec3<u32>,
-    ijk_u: vec3<u32>
+    ijk_u: vec3<u32>,
 ) -> Aabb {
     let ijk = vec3<f32>(ijk_u);
 
@@ -272,7 +299,7 @@ fn compute_aabb_for_cluster(
 
     var cluster_min: vec3<f32>;
     var cluster_max: vec3<f32>;
-    if (is_orthographic) {
+    if is_orthographic {
         // Use linear depth slicing for orthographic
 
         // Convert to view space at the cluster near and far planes
@@ -294,14 +321,14 @@ fn compute_aabb_for_cluster(
 
         let z_far_over_z_near = -z_far / -z_near;
         var cluster_near = 0.0;
-        if (ijk.z != 0.0) {
-            cluster_near = -z_near *
-                pow(z_far_over_z_near, (ijk.z - 1.0) / f32(cluster_dimensions.z - 1u));
+        if ijk.z != 0.0 {
+            cluster_near = -z_near
+                * pow(z_far_over_z_near, (ijk.z - 1.0) / f32(cluster_dimensions.z - 1u));
         }
         // NOTE: This could be simplified to:
         // cluster_far = cluster_near * z_far_over_z_near;
         var cluster_far: f32;
-        if (cluster_dimensions.z == 1u) {
+        if cluster_dimensions.z == 1u {
             cluster_far = -z_far;
         } else {
             cluster_far = -z_near * pow(z_far_over_z_near, ijk.z / f32(cluster_dimensions.z - 1u));
@@ -326,15 +353,10 @@ fn screen_to_view(
     screen_size: vec2<f32>,
     view_from_clip: mat4x4<f32>,
     screen: vec2<f32>,
-    ndc_z: f32
+    ndc_z: f32,
 ) -> vec4<f32> {
     let tex_coord = screen / screen_size;
-    let clip = vec4(
-        tex_coord.x * 2.0 - 1.0,
-        (1.0 - tex_coord.y) * 2.0 - 1.0,
-        ndc_z,
-        1.0
-    );
+    let clip = vec4(tex_coord.x * 2.0 - 1.0, (1.0 - tex_coord.y) * 2.0 - 1.0, ndc_z, 1.0);
     return clip_to_view(view_from_clip, clip);
 }
 
@@ -360,7 +382,7 @@ fn compute_z_near_and_z_far(is_orthographic: bool) -> vec2<f32> {
     let cluster_factors = lights.cluster_factors;
     var z_near: f32;
     var z_far: f32;
-    if (is_orthographic) {
+    if is_orthographic {
         z_near = -cluster_factors.z;
         z_far = -(cluster_dimensions.z + cluster_factors.w * cluster_factors.z) / cluster_factors.w;
     } else {
@@ -377,7 +399,7 @@ fn cull_spot_light(
     cluster_aabb_sphere_center: vec3<f32>,
     cluster_aabb_sphere_radius: f32,
     sphere_position: vec3<f32>,
-    sphere_radius: f32
+    sphere_radius: f32,
 ) -> bool {
     let light_custom_data = clustered_lights.data[object_index].light_custom_data;
     let light_flags = clustered_lights.data[object_index].flags;
@@ -393,22 +415,21 @@ fn cull_spot_light(
     // `view_light_direction`.
     let world_light_direction_rev_xz = light_custom_data.xy;
     let world_light_direction_rev_y_sign = select(
-        1.0,
-        -1.0,
-        (light_flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u
-    );
+            1.0,
+            -1.0,
+            (light_flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u,
+        );
     let world_light_direction_rev = vec3(
-        world_light_direction_rev_xz.x,
-        world_light_direction_rev_y_sign * sqrt(
-            1.0 -
-                world_light_direction_rev_xz.x * world_light_direction_rev_xz.x -
-                world_light_direction_rev_xz.y * world_light_direction_rev_xz.y
-        ),
-        world_light_direction_rev_xz.y
-    );
+            world_light_direction_rev_xz.x,
+            world_light_direction_rev_y_sign * sqrt(
+                1.0 - world_light_direction_rev_xz.x * world_light_direction_rev_xz.x
+                - world_light_direction_rev_xz.y * world_light_direction_rev_xz.y,
+            ),
+            world_light_direction_rev_xz.y,
+        );
     let world_light_direction = -world_light_direction_rev;
-    let view_light_direction = normalize((view.view_from_world *
-        vec4(world_light_direction, 0.0)).xyz);
+    let view_light_direction =
+        normalize((view.view_from_world * vec4(world_light_direction, 0.0)).xyz);
 
     let angle_cos = cos_atan(light_tan_angle);
     let angle_sin = sin_atan(light_tan_angle);
@@ -418,8 +439,8 @@ fn cull_spot_light(
     let spot_light_dist_sq = dot(spot_light_offset, spot_light_offset);
     let v1_len = dot(spot_light_offset, view_light_direction);
 
-    let distance_closest_point = angle_cos * sqrt(spot_light_dist_sq - v1_len * v1_len) -
-        v1_len * angle_sin;
+    let distance_closest_point = angle_cos * sqrt(spot_light_dist_sq - v1_len * v1_len)
+        - v1_len * angle_sin;
     let angle_cull = distance_closest_point > cluster_aabb_sphere_radius;
 
     let front_cull = v1_len > cluster_aabb_sphere_radius + sphere_radius;
@@ -433,12 +454,12 @@ fn cull_rect_light(
     object_index: u32,
     cluster_aabb_sphere_center: vec3<f32>,
     cluster_aabb_sphere_radius: f32,
-    sphere_position: vec3<f32>
+    sphere_position: vec3<f32>,
 ) -> bool {
     let rotation = clustered_lights.data[object_index].light_custom_data;
     let world_light_direction = quat_rotate(rotation, vec3<f32>(0.0, 0.0, -1.0));
-    let view_light_direction = normalize((view.view_from_world *
-        vec4(world_light_direction, 0.0)).xyz);
+    let view_light_direction =
+        normalize((view.view_from_world * vec4(world_light_direction, 0.0)).xyz);
 
     // Signed distance from the cluster center to the light plane along the
     // facing direction. Cull if the whole cluster sphere is on the back side.
@@ -462,76 +483,77 @@ fn sin_atan(tan_theta: f32) -> f32 {
 /// Allocates space in the appropriate list and returns the global index that the
 /// object index should be written to.
 fn allocate_list_entry(cluster_index: u32, object_type: u32) -> u32 {
-    switch (object_type) {
-        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
-            return offsets_and_counts.data[cluster_index][0u].x +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].point_lights, 1u);
+    switch object_type {
+        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT {
+            return offsets_and_counts.data[cluster_index][0u].x
+                + atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].point_lights, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
-            return offsets_and_counts.data[cluster_index][0u].x +
-                offsets_and_counts.data[cluster_index][0u].y +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].spot_lights, 1u);
+        case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT {
+            return offsets_and_counts.data[cluster_index][0u].x
+                + offsets_and_counts.data[cluster_index][0u].y
+                + atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].spot_lights, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
-            return offsets_and_counts.data[cluster_index][0u].x +
-                offsets_and_counts.data[cluster_index][0u].y +
-                offsets_and_counts.data[cluster_index][0u].z +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].rect_lights, 1u);
+        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT {
+            return offsets_and_counts.data[cluster_index][0u].x
+                + offsets_and_counts.data[cluster_index][0u].y
+                + offsets_and_counts.data[cluster_index][0u].z
+                + atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].rect_lights, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
-            return offsets_and_counts.data[cluster_index][0u].x +
-                offsets_and_counts.data[cluster_index][0u].y +
-                offsets_and_counts.data[cluster_index][0u].z +
-                offsets_and_counts.data[cluster_index][0u].w +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].reflection_probes, 1u);
-        }
-        case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: {
-            return offsets_and_counts.data[cluster_index][0u].x +
-                offsets_and_counts.data[cluster_index][0u].y +
-                offsets_and_counts.data[cluster_index][0u].z +
-                offsets_and_counts.data[cluster_index][0u].w +
-                offsets_and_counts.data[cluster_index][1u].x +
-                atomicAdd(
-                    &scratchpad_offsets_and_counts.data[cluster_index].irradiance_volumes,
-                    1u
+        case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE {
+            return offsets_and_counts.data[cluster_index][0u].x
+                + offsets_and_counts.data[cluster_index][0u].y
+                + offsets_and_counts.data[cluster_index][0u].z
+                + offsets_and_counts.data[cluster_index][0u].w + atomicAdd(
+                    &scratchpad_offsets_and_counts.data[cluster_index].reflection_probes,
+                    1u,
                 );
         }
-        case CLUSTERABLE_OBJECT_TYPE_DECAL: {
-            return offsets_and_counts.data[cluster_index][0u].x +
-                offsets_and_counts.data[cluster_index][0u].y +
-                offsets_and_counts.data[cluster_index][0u].z +
-                offsets_and_counts.data[cluster_index][0u].w +
-                offsets_and_counts.data[cluster_index][1u].x +
-                offsets_and_counts.data[cluster_index][1u].y +
-                atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].decals, 1u);
+        case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME {
+            return offsets_and_counts.data[cluster_index][0u].x
+                + offsets_and_counts.data[cluster_index][0u].y
+                + offsets_and_counts.data[cluster_index][0u].z
+                + offsets_and_counts.data[cluster_index][0u].w
+                + offsets_and_counts.data[cluster_index][1u].x + atomicAdd(
+                    &scratchpad_offsets_and_counts.data[cluster_index].irradiance_volumes,
+                    1u,
+                );
         }
-        default: {}
+        case CLUSTERABLE_OBJECT_TYPE_DECAL {
+            return offsets_and_counts.data[cluster_index][0u].x
+                + offsets_and_counts.data[cluster_index][0u].y
+                + offsets_and_counts.data[cluster_index][0u].z
+                + offsets_and_counts.data[cluster_index][0u].w
+                + offsets_and_counts.data[cluster_index][1u].x
+                + offsets_and_counts.data[cluster_index][1u].y
+                + atomicAdd(&scratchpad_offsets_and_counts.data[cluster_index].decals, 1u);
+        }
+        default {}
     }
     return 0xffffffffu;
 }
 @if(!VERTEX_SHADER && !POPULATE_PASS)
 /// Increments the count of objects of the given type for the given cluster.
 fn increment_object_count(cluster_index: u32, object_type: u32) {
-    switch (object_type) {
-        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT: {
+    switch object_type {
+        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT {
             atomicAdd(&offsets_and_counts.data[cluster_index].point_lights, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT: {
+        case CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT {
             atomicAdd(&offsets_and_counts.data[cluster_index].spot_lights, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
+        case CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT {
             atomicAdd(&offsets_and_counts.data[cluster_index].rect_lights, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
+        case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE {
             atomicAdd(&offsets_and_counts.data[cluster_index].reflection_probes, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: {
+        case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME {
             atomicAdd(&offsets_and_counts.data[cluster_index].irradiance_volumes, 1u);
         }
-        case CLUSTERABLE_OBJECT_TYPE_DECAL: {
+        case CLUSTERABLE_OBJECT_TYPE_DECAL {
             atomicAdd(&offsets_and_counts.data[cluster_index].decals, 1u);
         }
-        default: {}
+        default {}
     }
 }
 
@@ -541,24 +563,24 @@ fn increment_object_count(cluster_index: u32, object_type: u32) {
 fn get_object_bounding_sphere(object_index: u32, object_type: u32) -> vec4<f32> {
     var position = vec3<f32>(0.0);
     var radius = 0.0;
-    switch (object_type) {
-        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT: {
+    switch object_type {
+        case CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT, CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT, CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT {
             position = clustered_lights.data[object_index].position_radius.xyz;
             radius = clustered_lights.data[object_index].range;
         }
-        case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE: {
+        case CLUSTERABLE_OBJECT_TYPE_REFLECTION_PROBE {
             position = light_probes.reflection_probes[object_index].world_position;
             radius = light_probes.reflection_probes[object_index].bounding_sphere_radius;
         }
-        case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME: {
+        case CLUSTERABLE_OBJECT_TYPE_IRRADIANCE_VOLUME {
             position = light_probes.irradiance_volumes[object_index].world_position;
             radius = light_probes.irradiance_volumes[object_index].bounding_sphere_radius;
         }
-        case CLUSTERABLE_OBJECT_TYPE_DECAL: {
+        case CLUSTERABLE_OBJECT_TYPE_DECAL {
             position = clustered_decals.decals[object_index].world_position;
             radius = clustered_decals.decals[object_index].bounding_sphere_radius;
         }
-        default: {}
+        default {}
     }
     return vec4(position, radius);
 }

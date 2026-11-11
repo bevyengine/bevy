@@ -1,4 +1,7 @@
-import bevy_sprite_render::{mesh2d::vertex_output::VertexOutput, sprite_mesh::functions as sprite_fn};
+import bevy_sprite_render::{
+    mesh2d::vertex_output::VertexOutput,
+    sprite_mesh::functions as sprite_fn
+};
 
 struct DissolveMaterial {
     burn_edge_color: vec4<f32>,
@@ -12,7 +15,8 @@ struct DissolveMaterial {
     _webgl2_padding_16b: u32,
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(20) var<uniform> material: DissolveMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(20)
+var<uniform> material: DissolveMaterial;
 
 @fragment
 fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -50,11 +54,11 @@ fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {
 /// However, to avoid increasing the size of the bevy git repository, we generate the noise in the shader.
 fn simplex_noise_2d(v: vec2<f32>) -> f32 {
     let C = vec4(
-        0.211324865405187, // (3.0 - sqrt(3.0)) / 6.0
-        0.366025403784439, // 0.5 * (sqrt(3.0) - 1.0)
-        -0.577350269189626, // -1.0 + 2.0 * C.x
-        0.024390243902439 // 1.0 / 41.0
-    );
+            0.211324865405187, // (3.0 - sqrt(3.0)) / 6.0
+            0.366025403784439, // 0.5 * (sqrt(3.0) - 1.0)
+            -0.577350269189626, // -1.0 + 2.0 * C.x
+            0.024390243902439, // 1.0 / 41.0
+        );
 
     // first corner
     var i = floor(v + dot(v, C.yy));
@@ -101,7 +105,7 @@ fn fbm_simplex_2d(pos: vec2<f32>) -> f32 {
     var amplitude = 1.;
     var frequency = 1.;
 
-    for (var i = 0; i < octaves; i+= 1) {
+    for(var i = 0; i < octaves; i += 1) {
         sum += simplex_noise_2d(pos * frequency) * amplitude;
         amplitude *= gain;
         frequency *= lacunarity;

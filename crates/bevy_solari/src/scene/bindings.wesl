@@ -14,9 +14,13 @@ struct InstanceGeometryIds {
 
 const INDEX_BUFFER_FLAG_U16 = 1u << 31u;
 
-struct VertexBuffer { vertices: array<PackedVertex> }
+struct VertexBuffer {
+    vertices: array<PackedVertex>,
+}
 
-struct IndexBuffer { indices: array<u32> }
+struct IndexBuffer {
+    indices: array<u32>,
+}
 
 struct PackedVertex {
     a: vec4<f32>,
@@ -121,34 +125,61 @@ struct EnvironmentMapLight {
 
 const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 
-@group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
-@group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
-@group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
-@group(0) @binding(3) var samplers: binding_array<sampler>;
-@group(0) @binding(4) var<storage> materials: array<Material>;
-@group(0) @binding(5) var tlas: acceleration_structure;
-@group(0) @binding(6) var previous_frame_tlas: acceleration_structure;
-@group(0) @binding(7) var<storage> transforms: array<mat3x4<f32>>;
-@group(0) @binding(8) var<storage> previous_frame_transforms: array<mat3x4<f32>>;
-@group(0) @binding(9) var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(10) var<storage> material_ids: array<u32>;
-@group(0) @binding(11) var brdf_dfg_lut: texture_2d<f32>;
-@group(0) @binding(12) var brdf_dfg_lut_sampler: sampler;
-@group(0) @binding(13) var<storage> light_sources: array<LightSource>;
-@group(0) @binding(14) var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(15) var<storage> point_lights: array<PointLight>;
-@group(0) @binding(16) var<storage> rect_lights: array<RectLight>;
-@group(0) @binding(17) var environment_map: texture_cube<f32>;
-@group(0) @binding(18) var environment_map_sampler: sampler;
-@group(0) @binding(19) var<storage> environment_map_light: EnvironmentMapLight;
-@group(0) @binding(20) var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(0)
+var<storage> vertex_buffers: binding_array<VertexBuffer>;
+@group(0) @binding(1)
+var<storage> index_buffers: binding_array<IndexBuffer>;
+@group(0) @binding(2)
+var textures: binding_array<texture_2d<f32>>;
+@group(0) @binding(3)
+var samplers: binding_array<sampler>;
+@group(0) @binding(4)
+var<storage> materials: array<Material>;
+@group(0) @binding(5)
+var tlas: acceleration_structure;
+@group(0) @binding(6)
+var previous_frame_tlas: acceleration_structure;
+@group(0) @binding(7)
+var<storage> transforms: array<mat3x4<f32>>;
+@group(0) @binding(8)
+var<storage> previous_frame_transforms: array<mat3x4<f32>>;
+@group(0) @binding(9)
+var<storage> geometry_ids: array<InstanceGeometryIds>;
+@group(0) @binding(10)
+var<storage> material_ids: array<u32>;
+@group(0) @binding(11)
+var brdf_dfg_lut: texture_2d<f32>;
+@group(0) @binding(12)
+var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(13)
+var<storage> light_sources: array<LightSource>;
+@group(0) @binding(14)
+var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(15)
+var<storage> point_lights: array<PointLight>;
+@group(0) @binding(16)
+var<storage> rect_lights: array<RectLight>;
+@group(0) @binding(17)
+var environment_map: texture_cube<f32>;
+@group(0) @binding(18)
+var environment_map_sampler: sampler;
+@group(0) @binding(19)
+var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(20)
+var<storage> previous_frame_light_id_translations: array<u32>;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;
 
 const RAY_NO_CULL = 0xFFu;
 
-fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
+fn trace_ray(
+    ray_origin: vec3<f32>,
+    ray_direction: vec3<f32>,
+    ray_t_min: f32,
+    ray_t_max: f32,
+    ray_flag: u32,
+) -> RayIntersection {
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, tlas, ray);
@@ -161,7 +192,13 @@ fn trace_ray(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ra
     return rayQueryGetCommittedIntersection(&rq);
 }
 
-fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray_t_min: f32, ray_t_max: f32, ray_flag: u32) -> RayIntersection {
+fn trace_ray_previous_frame(
+    ray_origin: vec3<f32>,
+    ray_direction: vec3<f32>,
+    ray_t_min: f32,
+    ray_t_max: f32,
+    ray_flag: u32,
+) -> RayIntersection {
     let ray = RayDesc(ray_flag, RAY_NO_CULL, ray_t_min, ray_t_max, ray_origin, ray_direction);
     var rq: ray_query;
     rayQueryInitialize(&rq, previous_frame_tlas, ray);
@@ -175,8 +212,15 @@ fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray
 }
 
 fn passes_alpha_test(candidate: RayIntersection) -> bool {
-    let barycentrics = vec3(1.0 - candidate.barycentrics.x - candidate.barycentrics.y, candidate.barycentrics);
-    return !resolve_triangle_data_full(candidate.instance_custom_data, candidate.primitive_index, barycentrics).material.alpha_masked_out;
+    let barycentrics = vec3(
+            1.0 - candidate.barycentrics.x - candidate.barycentrics.y,
+            candidate.barycentrics,
+        );
+    return !resolve_triangle_data_full(
+            candidate.instance_custom_data,
+            candidate.primitive_index,
+            barycentrics,
+        ).material.alpha_masked_out;
 }
 
 fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
@@ -242,8 +286,15 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
 }
 
 fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
-    let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
-    var resolved = resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
+    let barycentrics = vec3(
+            1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y,
+            ray_hit.barycentrics,
+        );
+    var resolved = resolve_triangle_data_full(
+            ray_hit.instance_custom_data,
+            ray_hit.primitive_index,
+            barycentrics,
+        );
 
     // Flip normals for backfacing hits of double sided materials
     if !ray_hit.front_face && resolved.double_sided {
@@ -265,29 +316,41 @@ fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -
     let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + (index_offset & ~INDEX_BUFFER_FLAG_U16);
     var indices: vec3<u32>;
     if (index_offset & INDEX_BUFFER_FLAG_U16) != 0u {
-        let words = vec3((*index_buffer)[indices_i.x >> 1u], (*index_buffer)[indices_i.y >> 1u], (*index_buffer)[indices_i.z >> 1u]);
+        let words = vec3(
+                (*index_buffer)[indices_i.x >> 1u],
+                (*index_buffer)[indices_i.y >> 1u],
+                (*index_buffer)[indices_i.z >> 1u],
+            );
         indices = (words >> ((indices_i & vec3(1u)) * 16u)) & vec3(0xFFFFu);
     } else {
-        indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]);
+        indices = vec3(
+                (*index_buffer)[indices_i.x],
+                (*index_buffer)[indices_i.y],
+                (*index_buffer)[indices_i.z],
+            );
     }
     indices += instance_geometry_ids.vertex_buffer_offset;
 
     return array<Vertex, 3>(
-        unpack_vertex((*vertex_buffer)[indices.x]),
-        unpack_vertex((*vertex_buffer)[indices.y]),
-        unpack_vertex((*vertex_buffer)[indices.z])
-    );
+            unpack_vertex((*vertex_buffer)[indices.x]),
+            unpack_vertex((*vertex_buffer)[indices.y]),
+            unpack_vertex((*vertex_buffer)[indices.z]),
+        );
 }
 
 fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> array<vec3<f32>, 3> {
     return array<vec3<f32>, 3>(
-        (transform * vec4(vertices[0].position, 1.0)).xyz,
-        (transform * vec4(vertices[1].position, 1.0)).xyz,
-        (transform * vec4(vertices[2].position, 1.0)).xyz
-    );
+            (transform * vec4(vertices[0].position, 1.0)).xyz,
+            (transform * vec4(vertices[1].position, 1.0)).xyz,
+            (transform * vec4(vertices[2].position, 1.0)).xyz,
+        );
 }
 
-fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+fn resolve_triangle_data_full(
+    instance_id: u32,
+    triangle_id: u32,
+    barycentrics: vec3<f32>,
+) -> ResolvedRayHitFull {
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
 
@@ -298,24 +361,52 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
 
     let world_vertices = transform_positions(transform, vertices);
-    let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
+    let world_position = mat3x3(
+            world_vertices[0],
+            world_vertices[1],
+            world_vertices[2],
+        ) * barycentrics;
 
     let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
-    let previous_frame_world_position = mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * barycentrics;
+    let previous_frame_world_position = mat3x3(
+            previous_frame_world_vertices[0],
+            previous_frame_world_vertices[1],
+            previous_frame_world_vertices[2],
+        ) * barycentrics;
 
     let mesh_uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
     let uv = material.uv_transform * mesh_uv + material.uv_translation;
 
-    let transform_3x3 = mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz);
+    let transform_3x3 = mat3x3(
+            transform[0].xyz,
+            transform[1].xyz,
+            transform[2].xyz,
+        );
 
-    let cofactor = mat3x3(cross(transform_3x3[1], transform_3x3[2]), cross(transform_3x3[2], transform_3x3[0]), cross(transform_3x3[0], transform_3x3[1]));
+    let cofactor = mat3x3(
+            cross(transform_3x3[1], transform_3x3[2]),
+            cross(transform_3x3[2], transform_3x3[0]),
+            cross(transform_3x3[0], transform_3x3[1]),
+        );
     let determinant = dot(transform_3x3[0], cofactor[0]);
     let determinant_sign = select(sign(determinant), 1.0, determinant == 0.0);
 
-    let local_tangent = mat3x3(vertices[0].tangent.xyz, vertices[1].tangent.xyz, vertices[2].tangent.xyz) * barycentrics;
-    let world_tangent = vec4(normalize(transform_3x3 * local_tangent), vertices[0].tangent.w * determinant_sign);
+    let local_tangent = mat3x3(
+            vertices[0].tangent.xyz,
+            vertices[1].tangent.xyz,
+            vertices[2].tangent.xyz,
+        ) * barycentrics;
+    let world_tangent = vec4(
+            normalize(transform_3x3 * local_tangent),
+            vertices[0].tangent.w * determinant_sign,
+        );
 
-    let local_normal = mat3x3(vertices[0].normal, vertices[1].normal, vertices[2].normal) * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
+    let local_normal = mat3x3(
+            vertices[0].normal,
+            vertices[1].normal,
+            vertices[2].normal,
+        )
+        * barycentrics; // TODO: Use barycentric lerp, ray_hit.object_to_world, cross product geo normal
     var world_normal = normalize(determinant_sign * (cofactor * local_normal));
 
     let geometric_world_normal = world_normal;
@@ -328,7 +419,9 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         if (material.flags & MATERIAL_FLAG_FLIP_NORMAL_MAP_Y) != 0u {
             Nt.y = -Nt.y;
         }
-        Nt.z = sqrt(max(1.0 - dot(Nt.xy, Nt.xy), 0.0)); // Reconstruct Z to support two-channel normal maps
+        Nt.z = sqrt(
+                max(1.0 - dot(Nt.xy, Nt.xy), 0.0),
+            ); // Reconstruct Z to support two-channel normal maps
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 
@@ -339,15 +432,15 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let resolved_material = resolve_material(material, uv);
 
     return ResolvedRayHitFull(
-        world_position,
-        previous_frame_world_position,
-        world_normal,
-        geometric_world_normal,
-        world_tangent,
-        uv,
-        triangle_area,
-        instance_geometry_ids.triangle_count,
-        resolved_material,
-        (material.flags & MATERIAL_FLAG_DOUBLE_SIDED) != 0u,
-    );
+            world_position,
+            previous_frame_world_position,
+            world_normal,
+            geometric_world_normal,
+            world_tangent,
+            uv,
+            triangle_area,
+            instance_geometry_ids.triangle_count,
+            resolved_material,
+            (material.flags & MATERIAL_FLAG_DOUBLE_SIDED) != 0u,
+        );
 }

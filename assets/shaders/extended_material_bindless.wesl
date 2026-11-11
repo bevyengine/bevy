@@ -7,7 +7,7 @@ import bevy_pbr::render::{
     forward_io::{FragmentOutput, VertexOutput},
     mesh_bindings::mesh,
     pbr_fragment::pbr_input_from_standard_material,
-    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
+    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing}
 };
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
@@ -40,23 +40,25 @@ struct ExampleBindlessExtendedMaterial {
 /// The indices of the bindless resources in the bindless resource arrays, for
 /// the `ExampleBindlessExtension` fields.
 @if(BINDLESS) {
-@group(constants::MATERIAL_BIND_GROUP) @binding(100) var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
-/// An array that holds the `ExampleBindlessExtendedMaterial` plain old data,
-/// indexed by `ExampleBindlessExtendedMaterialIndices.material`.
-@group(constants::MATERIAL_BIND_GROUP) @binding(101) var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(100)
+    var<storage> example_extended_material_indices: array<ExampleBindlessExtendedMaterialIndices>;
+    /// An array that holds the `ExampleBindlessExtendedMaterial` plain old data,
+    /// indexed by `ExampleBindlessExtendedMaterialIndices.material`.
+    @group(constants::MATERIAL_BIND_GROUP) @binding(101)
+    var<storage> example_extended_material: array<ExampleBindlessExtendedMaterial>;
 }
 // In non-bindless mode, we simply use a uniform for the plain old data.
 @else {
-@group(constants::MATERIAL_BIND_GROUP) @binding(50) var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
-@group(constants::MATERIAL_BIND_GROUP) @binding(51) var modulate_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(52) var modulate_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(50)
+    var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(51)
+    var modulate_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(52)
+    var modulate_sampler: sampler;
 }
 
 @fragment
-fn fragment(
-    in: VertexOutput,
-    @builtin(front_facing) is_front: bool,
-) -> FragmentOutput {
+fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {
     // Fetch the material slot. We'll use this in turn to fetch the bindless
     // indices from `example_extended_material_indices`.
     @if(BINDLESS)
@@ -77,15 +79,17 @@ fn fragment(
     // data from the appropriate arrays.
     @if(BINDLESS)
     pbr_input.material.base_color *= textureSample(
-        bindless_textures_2d[example_extended_material_indices[slot].modulate_texture],
-        bindless_samplers_filtering[
-            example_extended_material_indices[slot].modulate_texture_sampler
-        ],
-        uv
-    ) * example_extended_material[example_extended_material_indices[slot].material].modulate_color;
+            bindless_textures_2d[example_extended_material_indices[slot].modulate_texture],
+            bindless_samplers_filtering[
+                example_extended_material_indices[slot].modulate_texture_sampler
+            ],
+            uv,
+        )
+        * example_extended_material[example_extended_material_indices[slot].material]
+            .modulate_color;
     @else
-    pbr_input.material.base_color *= textureSample(modulate_texture, modulate_sampler, uv) *
-        example_extended_material.modulate_color;
+    pbr_input.material.base_color *= textureSample(modulate_texture, modulate_sampler, uv)
+        * example_extended_material.modulate_color;
 
     var out: FragmentOutput;
     // Apply lighting.

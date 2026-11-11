@@ -15,22 +15,28 @@ fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0)
+var<uniform> view: View;
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
 
-    @location(2) @interpolate(flat) size: vec2<f32>,
-    @location(3) @interpolate(flat) flags: u32,
-    @location(4) @interpolate(flat) radius_x: vec4<f32>,
-    @location(5) @interpolate(flat) radius_y: vec4<f32>,
-    @location(6) @interpolate(flat) border: vec4<f32>,
+    @interpolate(flat)
+    @location(2) size: vec2<f32>,
+    @interpolate(flat)
+    @location(3) flags: u32,
+    @interpolate(flat)
+    @location(4) radius_x: vec4<f32>,
+    @interpolate(flat)
+    @location(5) radius_y: vec4<f32>,
+    @interpolate(flat)
+    @location(6) border: vec4<f32>,
 
     /// Position relative to the center of the rectangle.
     @location(7) point: vec2<f32>,
     @builtin(position) position: vec4<f32>,
-};
+}
 
 @vertex
 fn vertex(
@@ -38,11 +44,9 @@ fn vertex(
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
     @location(3) flags: u32,
-
     /// x: top left, y: top right, z: bottom right, w: bottom left.
     @location(4) radius_x: vec4<f32>,
     @location(5) radius_y: vec4<f32>,
-
     /// x: left, y: top, z: right, w: bottom.
     @location(6) border: vec4<f32>,
     @location(7) size: vec2<f32>,
@@ -62,9 +66,10 @@ fn vertex(
     return out;
 }
 
-@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1) var sprite_sampler: sampler;
-
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var sprite_sampler: sampler;
 
 /// Returns the radius of the corner closest to the given point.
 ///
@@ -161,7 +166,12 @@ fn sd_inset_rounded_box(
     return sd_rounded_box(inner_point, inner_size, rx, ry);
 }
 
-fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f32>, flags: u32) -> bool {
+fn nearest_border_active(
+    point_vs_mid: vec2<f32>,
+    size: vec2<f32>,
+    width: vec4<f32>,
+    flags: u32,
+) -> bool {
     if (flags & BORDER_ANY) == BORDER_ANY {
         return true;
     }
@@ -176,10 +186,10 @@ fn nearest_border_active(point_vs_mid: vec2<f32>, size: vec2<f32>, width: vec4<f
 
     let min_dist = min(min(left, top), min(right, bottom));
 
-    return (enabled(flags, BORDER_LEFT) && min_dist == left) ||
-        (enabled(flags, BORDER_TOP) && min_dist == top) ||
-        (enabled(flags, BORDER_RIGHT) && min_dist == right) ||
-        (enabled(flags, BORDER_BOTTOM) && min_dist == bottom);
+    return (enabled(flags, BORDER_LEFT) && min_dist == left)
+        || (enabled(flags, BORDER_TOP) && min_dist == top)
+        || (enabled(flags, BORDER_RIGHT) && min_dist == right)
+        || (enabled(flags, BORDER_BOTTOM) && min_dist == bottom);
 }
 
 /// get alpha for antialiasing for sdf
@@ -223,7 +233,11 @@ fn draw_uinode_border(
     // This select statement ensures we only perform anti-aliasing where a non-zero width border
     // is present, otherwise an outline about the external boundary would be drawn even without
     // a border.
-    let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
+    let t = select(
+            1.0 - step(0.0, border_distance),
+            antialias(border_distance),
+            external_distance < internal_distance,
+        );
     @else
     let t = 1.0 - step(0.0, border_distance);
 
@@ -241,7 +255,8 @@ fn draw_uinode_background(
     flags: u32,
 ) -> vec4<f32> {
     // When drawing the background only draw the internal area and not the border.
-    let internal_distance = sd_inset_rounded_box(point, size, radius_x, radius_y, border) * select(1., -1, enabled(flags, INVERT));
+    let internal_distance = sd_inset_rounded_box(point, size, radius_x, radius_y, border)
+        * select(1., -1, enabled(flags, INVERT));
 
     @if(ANTI_ALIAS)
     let t = antialias(internal_distance);
@@ -260,9 +275,25 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     if enabled(in.flags, BORDER_ANY) {
-        return draw_uinode_border(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
+        return draw_uinode_border(
+                color,
+                in.point,
+                in.size,
+                in.radius_x,
+                in.radius_y,
+                in.border,
+                in.flags,
+            );
     } else {
-        return draw_uinode_background(color, in.point, in.size, in.radius_x, in.radius_y, in.border, in.flags);
+        return draw_uinode_background(
+                color,
+                in.point,
+                in.size,
+                in.radius_x,
+                in.radius_y,
+                in.border,
+                in.flags,
+            );
     }
 }
 

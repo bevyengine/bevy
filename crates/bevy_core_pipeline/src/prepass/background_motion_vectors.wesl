@@ -11,8 +11,10 @@ struct PreviousViewUniforms {
     view_from_clip: mat4x4<f32>,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
-@group(0) @binding(1) var<uniform> previous_view: PreviousViewUniforms;
+@group(0) @binding(0)
+var<uniform> view: View;
+@group(0) @binding(1)
+var<uniform> previous_view: PreviousViewUniforms;
 
 /// Writes motion vectors for sky pixels (depth == 0 in reversed-Z) based on camera rotation.
 ///

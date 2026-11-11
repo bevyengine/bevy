@@ -1,10 +1,26 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::deferred::types::unpack_24bit_normal;
-import bevy_pbr::render::pbr_functions::{calculate_diffuse_color, calculate_F0, calculate_F0_dielectric};
+import bevy_pbr::render::pbr_functions::{
+    calculate_F0,
+    calculate_F0_dielectric,
+    calculate_diffuse_color
+};
 import bevy_render::utils::octahedral_decode;
 import package::realtime::gbuffer_utils::gpixel_resolve;
-import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
-import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
+import package::realtime::bindings::{
+    depth_buffer,
+    diffuse_albedo,
+    dlss_rr_depth,
+    gbuffer,
+    load_motion_vector,
+    motion_vectors,
+    normal_roughness,
+    previous_view,
+    specular_albedo,
+    specular_motion_vectors,
+    view
+};
+import package::scene::brdf::{F_AB, evaluate_specular_brdf, lobe_reflectances};
 import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
 
 enable wgpu_ray_query;
@@ -27,7 +43,9 @@ const ENVIRONMENT_VIRTUAL_DISTANCE = 10000.0;
 @compute @workgroup_size(8, 8, 1)
 fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_id = global_id.xy;
-    if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) { return; }
+    if any(pixel_id >= vec2u(view.main_pass_viewport.zw)) {
+        return;
+    }
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     let surface_motion_vector = load_motion_vector(pixel_id);
@@ -44,13 +62,43 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
         return;
     }
 
-    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
-    let F0 = calculate_F0(surface.material.base_color, surface.material.metallic, vec3(surface.material.reflectance));
+    let surface = gpixel_resolve(
+            textureLoad(gbuffer, pixel_id, 0),
+            depth,
+            pixel_id,
+            view.main_pass_viewport.zw,
+            view.world_from_clip,
+        );
+    let F0 = calculate_F0(
+            surface.material.base_color,
+            surface.material.metallic,
+            vec3(surface.material.reflectance),
+        );
     let wo = normalize(view.world_position - surface.world_position);
 
-    textureStore(diffuse_albedo, pixel_id, vec4(calculate_diffuse_color(surface.material.base_color, surface.material.metallic, 0.0, 0.0), 0.0));
-    textureStore(specular_albedo, pixel_id, vec4(env_brdf_approx2(F0, surface.material.roughness, surface.world_normal, wo), 0.0));
-    textureStore(normal_roughness, pixel_id, vec4(surface.world_normal, surface.material.perceptual_roughness));
+    textureStore(
+        diffuse_albedo,
+        pixel_id,
+        vec4(
+            calculate_diffuse_color(
+                surface.material.base_color,
+                surface.material.metallic,
+                0.0,
+                0.0,
+            ),
+            0.0,
+        ),
+    );
+    textureStore(
+        specular_albedo,
+        pixel_id,
+        vec4(env_brdf_approx2(F0, surface.material.roughness, surface.world_normal, wo), 0.0),
+    );
+    textureStore(
+        normal_roughness,
+        pixel_id,
+        vec4(surface.world_normal, surface.material.perceptual_roughness),
+    );
 
     // Resetting to the specular motion vector on the frames we draw a diffuse lobe means we
     // wouldn't be writing the motion vectors that frame, so it would alternate the guide between
@@ -105,14 +153,21 @@ fn psr_init(world_normal: vec3<f32>, material: ResolvedMaterial) -> PsrState {
 /// when k is even, and a rotation composed with any one fixed reflection when k is odd.
 fn psr_chain_mirror(psr: PsrState, plane_normal: vec3<f32>) -> PsrState {
     var chained = psr;
-    chained.mirror_rotor = quaternion_multiply(psr.mirror_rotor, mirror_chain_rotor(plane_normal, psr.mirror_parity_odd));
+    chained.mirror_rotor = quaternion_multiply(
+            psr.mirror_rotor,
+            mirror_chain_rotor(plane_normal, psr.mirror_parity_odd),
+        );
     chained.mirror_parity_odd = !psr.mirror_parity_odd;
     return chained;
 }
 
 fn psr_environment_miss(pixel_id: vec2<u32>, primary_wo: vec3<f32>) {
     let far_position = view.world_position - (primary_wo * ENVIRONMENT_VIRTUAL_DISTANCE);
-    textureStore(specular_motion_vectors, pixel_id, vec4(calculate_motion_vector(far_position, far_position), vec2(0.0)));
+    textureStore(
+        specular_motion_vectors,
+        pixel_id,
+        vec4(calculate_motion_vector(far_position, far_position), vec2(0.0)),
+    );
 }
 
 /// Primary surface replacement for perfect mirrors. The reflection chain has been followed to its
@@ -133,15 +188,24 @@ fn replace_primary_surface(
     let path_length = primary_distance + psr.reflection_length;
 
     // Too curved to track the reflection; fall back to the surface's own motion so the guide is not stale
-    if psr.replace_fully && 2.0 * reflector_curvature(pixel_id, primary_normal) * psr.reflection_length > MAX_VIRTUAL_DEPTH_JITTER * path_length {
-        textureStore(specular_motion_vectors, pixel_id, vec4(load_motion_vector(pixel_id), vec2(0.0)));
+    if psr.replace_fully
+        && 2.0 * reflector_curvature(pixel_id, primary_normal) * psr.reflection_length
+        > MAX_VIRTUAL_DEPTH_JITTER * path_length {
+        textureStore(
+            specular_motion_vectors,
+            pixel_id,
+            vec4(load_motion_vector(pixel_id), vec2(0.0)),
+        );
         return;
     }
 
     let virtual_position = primary_world_position - (primary_wo * psr.reflection_length);
     let world_motion = ray_hit.previous_frame_world_position - ray_hit.world_position;
     let virtual_previous_position = virtual_position + apply_mirror_chain(psr, world_motion);
-    let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_position);
+    let specular_motion_vector = calculate_motion_vector(
+            virtual_position,
+            virtual_previous_position,
+        );
 
     textureStore(specular_motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
 
@@ -157,19 +221,59 @@ fn replace_primary_surface(
     @if(MOTION_VECTORS_READ_WRITE)
     textureStore(motion_vectors, pixel_id, vec4(specular_motion_vector, vec2(0.0)));
 
-    let reflected_diffuse = calculate_diffuse_color(ray_hit.material.base_color, ray_hit.material.metallic, 0.0, 0.0);
-    let reflected_F0 = calculate_F0(ray_hit.material.base_color, ray_hit.material.metallic, vec3(ray_hit.material.reflectance));
-    let reflected_specular = env_brdf_approx2(reflected_F0, ray_hit.material.roughness, virtual_normal, wo);
+    let reflected_diffuse = calculate_diffuse_color(
+            ray_hit.material.base_color,
+            ray_hit.material.metallic,
+            0.0,
+            0.0,
+        );
+    let reflected_F0 = calculate_F0(
+            ray_hit.material.base_color,
+            ray_hit.material.metallic,
+            vec3(ray_hit.material.reflectance),
+        );
+    let reflected_specular = env_brdf_approx2(
+            reflected_F0,
+            ray_hit.material.roughness,
+            virtual_normal,
+            wo,
+        );
 
-    let own_diffuse = calculate_diffuse_color(primary_material.base_color, primary_material.metallic, 0.0, 0.0);
-    let own_F0 = calculate_F0(primary_material.base_color, primary_material.metallic, vec3(primary_material.reflectance));
-    let own_specular = env_brdf_approx2(own_F0, primary_material.roughness, primary_normal, primary_wo);
+    let own_diffuse = calculate_diffuse_color(
+            primary_material.base_color,
+            primary_material.metallic,
+            0.0,
+            0.0,
+        );
+    let own_F0 = calculate_F0(
+            primary_material.base_color,
+            primary_material.metallic,
+            vec3(primary_material.reflectance),
+        );
+    let own_specular = env_brdf_approx2(
+            own_F0,
+            primary_material.roughness,
+            primary_normal,
+            primary_wo,
+        );
 
     let specular_fraction = specular_fraction(primary_material, primary_F_ab);
 
-    textureStore(diffuse_albedo, pixel_id, vec4(psr.throughput * reflected_diffuse + own_diffuse, 0.0));
-    textureStore(specular_albedo, pixel_id, vec4(mix(own_specular, psr.throughput * reflected_specular, specular_fraction), 0.0));
-    textureStore(normal_roughness, pixel_id, vec4(virtual_normal, ray_hit.material.perceptual_roughness));
+    textureStore(
+        diffuse_albedo,
+        pixel_id,
+        vec4(psr.throughput * reflected_diffuse + own_diffuse, 0.0),
+    );
+    textureStore(
+        specular_albedo,
+        pixel_id,
+        vec4(mix(own_specular, psr.throughput * reflected_specular, specular_fraction), 0.0),
+    );
+    textureStore(
+        normal_roughness,
+        pixel_id,
+        vec4(virtual_normal, ray_hit.material.perceptual_roughness),
+    );
 }
 
 fn primary_surface_glossy(material: ResolvedMaterial) -> bool {
@@ -178,21 +282,39 @@ fn primary_surface_glossy(material: ResolvedMaterial) -> bool {
 
 fn is_delta_mirror(material: ResolvedMaterial) -> bool {
     return material.roughness <= MIRROR_ROUGHNESS_THRESHOLD
-        && specular_fraction(material, F_AB(material.perceptual_roughness, 1.0)) >= FULL_REPLACEMENT_FRACTION;
+        && specular_fraction(material, F_AB(material.perceptual_roughness, 1.0))
+        >= FULL_REPLACEMENT_FRACTION;
 }
 
 /// Share of a surface's total reflectance that leaves through the specular lobe, in 0..1.
 fn specular_fraction(material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
-    let rho = lobe_reflectances(material.base_color, calculate_F0_dielectric(vec3(material.reflectance)), material, F_ab);
+    let rho = lobe_reflectances(
+            material.base_color,
+            calculate_F0_dielectric(vec3(material.reflectance)),
+            material,
+            F_ab,
+        );
     let specular_luminance = luminance(rho.specular);
     return specular_luminance / max(specular_luminance + luminance(rho.diffuse), 0.0001);
 }
 
-fn psr_bounce_reflectance(wo: vec3<f32>, wi: vec3<f32>, normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, delta: bool) -> vec3<f32> {
+fn psr_bounce_reflectance(
+    wo: vec3<f32>,
+    wi: vec3<f32>,
+    normal: vec3<f32>,
+    material: ResolvedMaterial,
+    F_ab: vec2<f32>,
+    delta: bool,
+) -> vec3<f32> {
     if delta {
         return evaluate_specular_brdf(wo, wi, normal, material, F_ab);
     }
-    return lobe_reflectances(material.base_color, calculate_F0_dielectric(vec3(material.reflectance)), material, F_ab).specular;
+    return lobe_reflectances(
+            material.base_color,
+            calculate_F0_dielectric(vec3(material.reflectance)),
+            material,
+            F_ab,
+        ).specular;
 }
 
 /// Angle, in radians, that the shading normal changes over one pixel in screen space.
@@ -231,10 +353,14 @@ fn quaternion_multiply(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
     return vec4(a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz), a.w * b.w - dot(a.xyz, b.xyz));
 }
 
-fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: vec3<f32>) -> vec2<f32> {
+fn calculate_motion_vector(
+    world_position: vec3<f32>,
+    previous_world_position: vec3<f32>,
+) -> vec2<f32> {
     let clip_position_t = view.unjittered_clip_from_world * vec4(world_position, 1.0);
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view.unjittered_clip_from_world * vec4(previous_world_position, 1.0);
+    let previous_clip_position_t = previous_view.unjittered_clip_from_world
+        * vec4(previous_world_position, 1.0);
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // Motion vectors are UV-space offsets in [-1, 1], from one corner to the diagonally-opposite one.
     // A clip-space diagonal difference is in [-2, 2], so scale by 0.5, and flip y since V goes down
@@ -242,7 +368,12 @@ fn calculate_motion_vector(world_position: vec3<f32>, previous_world_position: v
     return (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 }
 
-fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3<f32>) -> vec3<f32> {
+fn env_brdf_approx2(
+    specular_color: vec3<f32>,
+    alpha: f32,
+    N: vec3<f32>,
+    V: vec3<f32>,
+) -> vec3<f32> {
     let NoV = abs(dot(N, V));
 
     var X: vec4<f32>;
@@ -257,10 +388,24 @@ fn env_brdf_approx2(specular_color: vec3<f32>, alpha: f32, N: vec3<f32>, V: vec3
     Y.z = alpha * alpha;
     Y.w = alpha * Y.z;
 
-    let M1 = mat2x2<f32>(0.99044, 1.29678, -1.28514, -0.755907);
-    let M2 = mat3x3<f32>(1.0, 20.3225, 121.563, 2.92338, -27.0302, 626.13, 59.4188, 222.592, 316.627);
-    let M3 = mat2x2<f32>(0.0365463, 9.0632, 3.32707, -9.04756);
-    let M4 = mat3x3<f32>(1.0, 9.04401, 5.56589, 3.59685, -16.3174, 19.7886, -1.36772, 9.22949, -20.2123);
+    let M1 = mat2x2<f32>(
+            0.99044, 1.29678,
+            -1.28514, -0.755907,
+        );
+    let M2 = mat3x3<f32>(
+            1.0, 20.3225, 121.563,
+            2.92338, -27.0302, 626.13,
+            59.4188, 222.592, 316.627,
+        );
+    let M3 = mat2x2<f32>(
+            0.0365463, 9.0632,
+            3.32707, -9.04756,
+        );
+    let M4 = mat3x3<f32>(
+            1.0, 9.04401, 5.56589,
+            3.59685, -16.3174, 19.7886,
+            -1.36772, 9.22949, -20.2123,
+        );
 
     var bias = dot(M1 * X.xy, Y.xy) / dot(M2 * X.xyw, Y.xyw);
     let scale = dot(M3 * X.xy, Y.xy) / dot(M4 * X.xzw, Y.xyw);
