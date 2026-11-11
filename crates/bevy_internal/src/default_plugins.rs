@@ -95,6 +95,8 @@ plugin_group! {
         bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
+        #[cfg(feature = "inspector")]
+        bevy_inspector::overlay:::InspectorOverlayPlugin,
         #[plugin_group]
         #[cfg(feature = "bevy_ui_widgets")]
         bevy_ui_widgets:::UiWidgetsPlugins,

@@ -29,12 +29,12 @@ use bevy_shader::ShaderRef;
 use bevy_ui::{
     percent, px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
     Display, InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
-    UiSystems, UiTransform, Val2,
+    UiTransform, Val2,
 };
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
-use crate::{palette, theme::ThemeBackgroundColor, tokens};
+use crate::{palette, theme::ThemeBackgroundColor, tokens, FeathersSystems};
 
 // Constants must be the same as in `color_wheel.wesl`
 const RING_WIDTH: f32 = 12.0;
@@ -620,7 +620,7 @@ impl Plugin for ColorWheelPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins(UiMaterialPlugin::<ColorWheelMaterial>::default());
         // Ensure thumbs stay inside ring/triangle on next frame when scale and/or layout change
-        app.add_systems(PostUpdate, update_wheel_color.in_set(UiSystems::Content));
+        app.add_systems(PostUpdate, update_wheel_color.in_set(FeathersSystems));
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)
             .add_observer(on_drag)

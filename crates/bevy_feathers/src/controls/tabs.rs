@@ -44,7 +44,7 @@ use crate::{
         InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
         ThemeContext, ThemedText, UiTheme,
     },
-    tokens,
+    tokens, FeathersSystems,
 };
 
 const TAB_PADDING: f32 = 10.0;
@@ -979,13 +979,16 @@ impl Plugin for FeathersTabsPlugin {
         app.add_observer(spawn_tab_drag_proxy).add_systems(
             PostUpdate,
             (
-                arrange_tab_lists,
-                update_tab_styles,
-                keep_captions_on_one_line,
-                update_tab_fillets,
-                update_insertion_indicators,
-            )
-                .in_set(UiSystems::Content),
+                keep_captions_on_one_line.in_set(UiSystems::Prepare),
+                (
+                    arrange_tab_lists,
+                    update_tab_styles,
+                    update_tab_fillets,
+                    update_insertion_indicators,
+                )
+                    .chain()
+                    .in_set(FeathersSystems),
+            ),
         );
     }
 }

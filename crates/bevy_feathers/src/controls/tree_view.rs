@@ -19,8 +19,7 @@ use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
 use bevy_text::{FontSize, FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, Display, Expandable, Expanded, FlexDirection, InteractionDisabled,
-    JustifyContent, Node, Outline, Overflow, PositionType, Selected, UiRect, UiSystems,
-    UiTransform,
+    JustifyContent, Node, Outline, Overflow, PositionType, Selected, UiRect, UiTransform,
 };
 use bevy_ui_widgets::{
     ControlOrientation, MenuFocusSystem, ScrollArea, SelectedTreeItem, TreeItem, TreeItemChildren,
@@ -33,7 +32,7 @@ use crate::{
     display::icon,
     font_styles::InheritableFont,
     theme::{InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, UiTheme},
-    tokens,
+    tokens, FeathersSystems,
 };
 
 const INDENT_STEP: f32 = 14.0;
@@ -548,7 +547,7 @@ impl Plugin for TreeViewPlugin {
             )
                 .chain()
                 .after(MenuFocusSystem)
-                .in_set(UiSystems::Content),
+                .in_set(FeathersSystems),
         );
     }
 }

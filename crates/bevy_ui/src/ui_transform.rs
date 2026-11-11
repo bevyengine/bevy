@@ -1,4 +1,5 @@
 use crate::Val;
+use crate::ValArithmeticError;
 use crate::ValContext;
 use crate::ValNum;
 use bevy_derive::Deref;

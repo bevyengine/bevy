@@ -1,3 +1,8 @@
+use crate::{
+    layout::UiTreeDirty, val::CalcOp, ContentSize, FixedNode, GhostNode, IgnoreScroll,
+    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
+    ScrollPosition, UiTransform, ValContext,
+};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -10,6 +15,8 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_text::{ComputedTextBlock, FontCx};
 use bevy_utils::default;
+use std::sync::LazyLock;
+use taffy::style_helpers::{fr, length, minmax};
 use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_hidden_layout, compute_leaf_layout, compute_oof_layout, compute_root_layout,
@@ -18,12 +25,6 @@ use taffy::{
     Cache, CacheTree, Layout, LayoutBlockContainer, LayoutContainingBlock, LayoutFlexboxContainer,
     LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
     TraversePartialTree, TraverseTree,
-};
-
-use crate::{
-    layout::UiTreeDirty, val::CalcOp, ContentSize, FixedNode, GhostNode, IgnoreScroll,
-    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
-    ScrollPosition, UiTransform, ValContext,
 };
 
 #[expect(
@@ -66,7 +67,13 @@ pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
     calc.resolve(basis, &ValContext::default()).unwrap()
 }
 
-pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle {
+impl TaffyStyle {
+    pub fn viewport_node() -> &'static TaffyStyle {
+        &VIEWPORT_NODE_TAFFY_STYLE
+    }
+}
+
+static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyStyle {
     style: Style {
         dummy: core::marker::PhantomData,
         display: Display::Grid,
@@ -106,8 +113,8 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle {
         flex_basis: taffy::Dimension::auto(),
         flex_grow: 0.0,
         flex_shrink: 1.0,
-        grid_template_rows: Vec::new(),
-        grid_template_columns: Vec::new(),
+        grid_template_rows: vec![minmax(length(0.0), fr(1.0))],
+        grid_template_columns: vec![minmax(length(0.0), fr(1.0))],
         grid_auto_rows: Vec::new(),
         grid_auto_columns: Vec::new(),
         grid_auto_flow: taffy::GridAutoFlow::Row,
@@ -124,7 +131,7 @@ pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle {
         },
     },
     calcs: vec![],
-};
+});
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
@@ -649,7 +656,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE.style, |entity| {
+        entity_from_node_id(node_id).map_or(&TaffyStyle::viewport_node().style, |entity| {
             &self
                 .style_query
                 .get(entity)

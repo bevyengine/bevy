@@ -901,7 +901,7 @@ impl From<ColorGrading> for ColorGradingUniform {
 /// Doing this, however, reduces the amount of control that your app has over
 /// instancing decisions. In certain circumstances, you may want to disable
 /// indirect drawing so that your app can manually instance meshes as it sees
-/// fit. See the `custom_shader_instancing` example.
+/// fit. See the [`custom_shader_instancing` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/custom_shader_instancing.rs).
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
