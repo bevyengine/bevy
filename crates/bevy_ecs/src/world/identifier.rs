@@ -28,10 +28,10 @@ impl WorldId {
     /// Please note that the [`WorldId`]s created from this method are unique across
     /// time - if a given [`WorldId`] is [`Drop`]ped its value still cannot be reused
     pub fn new() -> Option<Self> {
-        // NOTE: this is not really a std vs. no_std change.
-        // The split is done to silence a warning and also satisfy builds for an older no_std target on CI.
-        // Once you see the deprecation warning for no_std, collapse the function into this first branch.
-        #[cfg(feature = "std")]
+        // NOTE: `fetch_update` has been deprecated for `try_update` in core, but on targets without native
+        // pointer-sized atomics, `AtomicUsize` comes from `portable_atomic` which doesn't have `try_update`
+        // Once `portable_atomic` provides `try_update`, collapse the function into this first branch.
+        #[cfg(target_has_atomic = "ptr")]
         {
             MAX_WORLD_ID
                 // We use `Relaxed` here since this atomic only needs to be consistent with itself
@@ -41,7 +41,7 @@ impl WorldId {
                 .map(WorldId)
                 .ok()
         }
-        #[cfg(not(feature = "std"))]
+        #[cfg(not(target_has_atomic = "ptr"))]
         {
             MAX_WORLD_ID
                 // We use `Relaxed` here since this atomic only needs to be consistent with itself

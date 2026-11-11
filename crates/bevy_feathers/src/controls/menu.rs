@@ -18,7 +18,7 @@ use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, AlignSelf, BoxShadow, Display, FlexDirection, GlobalZIndex,
     InteractionDisabled, JustifyContent, Node, OverrideClip, PositionType, Pressed, UiRect,
@@ -431,7 +431,7 @@ impl FeathersMenuItem {
             ThemeBackgroundColor(tokens::MENU_BG) // Same as menu
             InheritableThemeTextColor(tokens::MENUITEM_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }

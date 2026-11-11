@@ -10,7 +10,9 @@ use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
-use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
+use bevy_camera::{
+    visibility::ViewVisibility, Camera, Camera3d, MainPassResolutionOverride, Viewport,
+};
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_derive::{Deref, DerefMut};
@@ -94,9 +96,7 @@ impl Plugin for WireframePlugin {
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
-        .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
         .init_resource::<WireframeConfig>()
-        .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .register_type::<WireframeLineWidth>()
         .register_type::<WireframeTopology>()
         .register_type::<WireframeXray>()
@@ -808,6 +808,7 @@ pub fn wireframe_3d(
     world: &World,
     view: ViewQuery<(
         &ExtractedCamera,
+        Option<&MainPassResolutionOverride>,
         &ExtractedView,
         &ViewTarget,
         &ViewDepthStencilTexture,
@@ -817,7 +818,7 @@ pub fn wireframe_3d(
 ) {
     let view_entity = view.entity();
 
-    let (camera, extracted_view, target, depth) = view.into_inner();
+    let (camera, resolution_override, extracted_view, target, depth) = view.into_inner();
 
     let Some(wireframe_phase) = wireframe_phases.get(&extracted_view.retained_view_entity) else {
         return;
@@ -836,8 +837,10 @@ pub fn wireframe_3d(
         multiview_mask: None,
     });
 
-    if let Some(viewport) = camera.viewport.as_ref() {
-        render_pass.set_camera_viewport(viewport);
+    if let Some(viewport) =
+        Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+    {
+        render_pass.set_camera_viewport(&viewport);
     }
 
     if let Err(err) = wireframe_phase.render(&mut render_pass, world, view_entity) {
@@ -1524,6 +1527,10 @@ pub fn specialize_wireframes(
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                // Retry specialization once the mesh is ready.
+                view_pending_wireframe_queues
+                    .current_frame
+                    .insert((*render_entity, *visible_entity));
                 continue;
             };
 

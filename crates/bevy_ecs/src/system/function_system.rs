@@ -542,6 +542,20 @@ where
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_utils::DebugName;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::{RunSystemOnce, SystemName};
+    /// # let mut world = World::new();
+    /// let function = |name: SystemName| {
+    ///     assert_eq!(name.name(), DebugName::borrowed("system name"));
+    /// };
+    /// let system = IntoSystem::into_system(function).with_name("system name");
+    /// let name = world.run_system_once(system).unwrap();
+    /// ```
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
         self.system_meta.set_name(new_name.into());
         self
@@ -584,12 +598,11 @@ fn init_param_or_panic<P: SystemParam>(
             let mut access = err2.access.clone();
             let err1 = P::init_access(state, system_meta, &mut access).err();
             panic_for_param_conflict(system_meta.name(), world, err1, err2);
-        } else {
-            // The ordinary panic message includes multiple `DebugName`s,
-            // each of which would be replaced with an "Enable the debug feature" message.
-            // Don't even bother calling `init_access` again if we can't use the parameter name.
-            panic_for_param_conflict_no_debug(err2);
         }
+        // The ordinary panic message includes multiple `DebugName`s,
+        // each of which would be replaced with an "Enable the debug feature" message.
+        // Don't even bother calling `init_access` again if we can't use the parameter name.
+        panic_for_param_conflict_no_debug(err2);
     });
     access
 }
@@ -855,14 +868,16 @@ where
         IntoResult::into_result(out)
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
-        let new = subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run).ptr_address();
-        if new != self.current_ptr {
-            log::debug!("system {} hotpatched", self.name());
+        #[cfg(feature = "hotpatching")]
+        {
+            let new = subsecond::HotFn::current(F::run).ptr_address();
+            if new != self.current_ptr {
+                log::debug!("system {} hotpatched", self.name());
+            }
+            self.current_ptr = new;
         }
-        self.current_ptr = new;
     }
 
     #[inline]
@@ -890,6 +905,15 @@ where
             param: F::Param::init_state(world),
             world_id: world.id(),
         });
+        #[cfg(feature = "trace")]
+        {
+            // Only a schedule's own span becomes the parent, never e.g. the "plugin build" span.
+            let parent = Span::current();
+            if parent.metadata().is_some_and(|m| m.name() == "schedule") {
+                let name = self.system_meta.name.clone().to_string();
+                self.system_meta.system_span = info_span!(parent: &parent, "system", name = name);
+            }
+        }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let access =
             init_param_or_panic::<F::Param>(&state.param, &mut self.system_meta, world.into());

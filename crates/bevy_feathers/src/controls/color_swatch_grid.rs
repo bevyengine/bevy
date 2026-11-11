@@ -7,6 +7,7 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, SystemParam},
 };
 use bevy_math::UVec2;
@@ -25,7 +26,7 @@ use crate::{
     focus::FocusIndicator,
     palette,
     theme::ThemeBorderColor,
-    tokens,
+    tokens, FeathersSystems,
 };
 
 /// A rectangular grid of color swatches, which allows one swatch to be selected.
@@ -420,6 +421,6 @@ pub struct ColorSwatchGridPlugin;
 
 impl Plugin for ColorSwatchGridPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(PostUpdate, update_cell_ring);
+        app.add_systems(PostUpdate, update_cell_ring.in_set(FeathersSystems));
     }
 }

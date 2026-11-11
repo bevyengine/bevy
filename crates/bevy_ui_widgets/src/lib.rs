@@ -47,9 +47,13 @@
 //!
 //! For more guidance on this, see the documentation for [`EntityEvent`].
 
+extern crate alloc;
+
 mod button;
 mod checkbox;
 mod dialog;
+mod dock;
+mod drag_proxy;
 mod list;
 mod menu;
 mod modal;
@@ -60,6 +64,7 @@ mod radio;
 mod scrollarea;
 mod scrollbar;
 mod slider;
+mod split_pane;
 mod tabs;
 mod text_input;
 mod tree;
@@ -68,6 +73,8 @@ use bevy_input_focus::pointer_focus::PointerFocusPlugin;
 pub use button::*;
 pub use checkbox::*;
 pub use dialog::*;
+pub use dock::*;
+pub use drag_proxy::*;
 pub use list::*;
 pub use menu::*;
 pub use modal::*;
@@ -77,6 +84,7 @@ pub use radio::*;
 pub use scrollarea::*;
 pub use scrollbar::*;
 pub use slider::*;
+pub use split_pane::*;
 pub use tabs::*;
 pub use text_input::*;
 pub use tree::*;
@@ -101,12 +109,14 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)
+            .add(DragProxyPlugin)
             .add(ModalDialogPlugin)
             .add(PopoverPlugin)
             .add(RadioGroupPlugin)
             .add(ScrollAreaPlugin)
             .add(ScrollbarPlugin)
             .add(SliderPlugin)
+            .add(SplitPanePlugin)
             .add(TabPlugin)
             .add(TreePlugin)
             .add(PointerFocusPlugin)

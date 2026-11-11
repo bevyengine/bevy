@@ -91,10 +91,12 @@ plugin_group! {
         bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
-        #[cfg(feature = "render_dev_tools")]
+        #[custom(cfg(all(feature = "render_dev_tools", feature = "bevy_pbr")))]
         bevy_dev_tools::render_debug:::RenderDebugOverlayPlugin,
         #[cfg(feature = "hotpatching")]
         bevy_app::hotpatch:::HotPatchPlugin,
+        #[cfg(feature = "inspector")]
+        bevy_inspector::overlay:::InspectorOverlayPlugin,
         #[plugin_group]
         #[cfg(feature = "bevy_ui_widgets")]
         bevy_ui_widgets:::UiWidgetsPlugins,
@@ -147,12 +149,12 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             app.ignore_ambiguity(
                 bevy_app::PostUpdate,
                 bevy_animation::advance_animations,
-                bevy_ui::ui_layout_system,
+                bevy_ui::UiSystems::Layout,
             );
             app.ignore_ambiguity(
                 bevy_app::PostUpdate,
                 bevy_animation::animate_targets,
-                bevy_ui::ui_layout_system,
+                bevy_ui::UiSystems::Layout,
             );
         }
     }

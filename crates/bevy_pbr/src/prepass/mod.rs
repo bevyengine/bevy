@@ -10,6 +10,7 @@ use crate::{
     PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshDraws,
     RenderMeshInstanceFlags, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    VISIBILITY_RANGES_BINDING_INDEX,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -298,7 +299,7 @@ pub fn init_prepass_pipeline(
                 (2, uniform_buffer::<PreviousViewData>(true)),
                 // VisibilityRanges
                 (
-                    14,
+                    VISIBILITY_RANGES_BINDING_INDEX,
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
@@ -323,7 +324,7 @@ pub fn init_prepass_pipeline(
                 (1, uniform_buffer::<GlobalsUniform>(false)),
                 // VisibilityRanges
                 (
-                    14,
+                    VISIBILITY_RANGES_BINDING_INDEX,
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
@@ -880,7 +881,10 @@ pub fn prepare_prepass_view_bind_group(
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
+                (
+                    VISIBILITY_RANGES_BINDING_INDEX,
+                    visibility_ranges_buffer.as_entire_binding(),
+                ),
             )),
         ));
 
@@ -892,7 +896,10 @@ pub fn prepare_prepass_view_bind_group(
                     (0, view_binding),
                     (1, globals_binding),
                     (2, previous_view_uniforms_binding),
-                    (14, visibility_ranges_buffer.as_entire_binding()),
+                    (
+                        VISIBILITY_RANGES_BINDING_INDEX,
+                        visibility_ranges_buffer.as_entire_binding(),
+                    ),
                 )),
             ));
         }
@@ -1134,6 +1141,10 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 }
                 let Some(mesh) = render_meshes.get(draw.mesh_asset_id()) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_prepass_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 

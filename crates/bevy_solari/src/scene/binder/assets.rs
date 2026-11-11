@@ -6,6 +6,7 @@ use super::{
 use bevy_asset::AssetId;
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_image::Image;
+use bevy_material::AlphaMode;
 use bevy_math::{Mat2, Vec2, Vec3};
 use bevy_pbr::StandardMaterial;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -44,6 +45,9 @@ pub struct GpuMaterial {
     flags: u32,
     uv_translation: Vec2,
     uv_transform: Mat2,
+    alpha: f32,
+    alpha_cutoff: f32,
+    _padding: Vec2,
 }
 
 impl_atomic_pod!(GpuMaterial, GpuMaterialBlob);
@@ -55,6 +59,7 @@ pub struct AssetState {
     pub material_slots: SlotAllocator<AssetId<StandardMaterial>>,
     material_textures: HashMap<AssetId<StandardMaterial>, MaterialTextures>,
     pub emissive_materials: HashSet<AssetId<StandardMaterial>>,
+    pub non_opaque_materials: HashSet<AssetId<StandardMaterial>>,
     /// Materials to retry because at least one required texture is not on the GPU yet.
     unresolved_materials: HashSet<AssetId<StandardMaterial>>,
     /// Bound images whose replacement GPU data has not landed yet.
@@ -69,6 +74,7 @@ impl AssetState {
             material_slots: SlotAllocator::new(),
             material_textures: HashMap::default(),
             emissive_materials: HashSet::default(),
+            non_opaque_materials: HashSet::default(),
             unresolved_materials: HashSet::default(),
             pending_texture_updates: HashSet::default(),
         }
@@ -193,8 +199,30 @@ impl AssetState {
         self.unresolved_materials.remove(&material_id);
         let slot = self.material_slots.get_or_allocate(material_id);
 
+        let base_color = LinearRgba::from(material.base_color);
+
         let emissive = material.emissive.to_vec3();
         let is_emissive = emissive != Vec3::ZERO;
+
+        let alpha_cutoff = match material.alpha_mode {
+            AlphaMode::Mask(cutoff) => cutoff,
+            // Without MSAA alpha to coverage is treated as a mask with a cutoff of 0.5
+            AlphaMode::AlphaToCoverage => 0.5,
+            AlphaMode::Opaque
+            | AlphaMode::Blend
+            | AlphaMode::Premultiplied
+            | AlphaMode::Add
+            | AlphaMode::Multiply => 0.0,
+        };
+        let is_opaque = match material.alpha_mode {
+            AlphaMode::Opaque => true,
+            AlphaMode::Mask(_) | AlphaMode::AlphaToCoverage => false,
+            // TODO: Solari doesn't support transparency yet, so these are traced as opaque for now
+            #[expect(clippy::match_same_arms, reason = "Transparency not yet supported")]
+            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
+                true
+            }
+        };
 
         let mut flags = 0;
         if material.double_sided {
@@ -211,7 +239,7 @@ impl AssetState {
                 base_color_texture_id: texture_ids[1],
                 emissive_texture_id: texture_ids[2],
                 metallic_roughness_texture_id: texture_ids[3],
-                base_color: LinearRgba::from(material.base_color).to_vec3(),
+                base_color: base_color.to_vec3(),
                 perceptual_roughness: material.perceptual_roughness.clamp(0.0, 1.0),
                 emissive,
                 metallic: material.metallic.clamp(0.0, 1.0),
@@ -219,6 +247,9 @@ impl AssetState {
                 flags,
                 uv_translation: material.uv_transform.translation,
                 uv_transform: material.uv_transform.matrix2,
+                alpha: base_color.alpha,
+                alpha_cutoff,
+                _padding: Vec2::ZERO,
             },
         );
 
@@ -227,7 +258,12 @@ impl AssetState {
         } else {
             self.emissive_materials.remove(&material_id)
         };
-        if !was_resolved || was_emissive != is_emissive {
+        let was_opaque = if is_opaque {
+            !self.non_opaque_materials.remove(&material_id)
+        } else {
+            self.non_opaque_materials.insert(material_id)
+        };
+        if !was_resolved || was_emissive != is_emissive || was_opaque != is_opaque {
             instances.invalidate_material(material_id);
         }
     }
@@ -266,6 +302,7 @@ impl AssetState {
         self.release_material_textures(material_id);
         self.material_textures.remove(&material_id);
         self.emissive_materials.remove(&material_id);
+        self.non_opaque_materials.remove(&material_id);
         instances.invalidate_material(material_id);
     }
 

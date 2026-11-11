@@ -142,7 +142,7 @@ where
     /// can in order to execute custom drawing commands. Draw functions for each
     /// entity are simply called in order at rendering time.
     ///
-    /// See the `custom_phase_item` example for an example of how to use this.
+    /// See the [`custom_phase_item` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/custom_phase_item.rs) for an example of how to use this.
     pub non_mesh_items: IndexMap<(BPI::BatchSetKey, BPI::BinKey), NonMeshEntities>,
 
     /// GPU-authored instance batches. Each entry is already an N-instance
