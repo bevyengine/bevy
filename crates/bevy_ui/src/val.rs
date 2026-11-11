@@ -493,10 +493,7 @@ impl Val {
     /// ```
     /// # use bevy_ui::{Val, ValArithmeticError};
     /// assert_eq!(Val::Px(3.).try_mul(2.), Ok(Val::Px(6.)));
-    /// assert_eq!(
-    ///     Val::Px(Val::Content).try_mul(Val::Percent(2.)),
-    ///     Err(ValArithmeticError::NonEvaluable)
-    /// );
+    /// assert_eq!(Val::Auto.try_mul(2.), Err(ValArithmeticError::NonEvaluable));
     /// ```
     pub const fn try_mul(self, scalar: f32) -> Result<Val, ValArithmeticError> {
         match self {
@@ -518,11 +515,8 @@ impl Val {
     ///
     /// ```
     /// # use bevy_ui::{Val, ValArithmeticError};
-    /// assert_eq!(Val::Px(3.).try_mul(2.), Ok(Val::Px(6.)));
-    /// assert_eq!(
-    ///     Val::Px(Val::Content).try_mul(Val::Percent(2.)),
-    ///     Err(ValArithmeticError::NonEvaluable)
-    /// );
+    /// assert_eq!(Val::Px(6.).try_div(2.), Ok(Val::Px(3.)));
+    /// assert_eq!(Val::Auto.try_div(2.), Err(ValArithmeticError::NonEvaluable));
     /// ```
     pub const fn try_div(self, scalar: f32) -> Result<Val, ValArithmeticError> {
         match self {
@@ -920,16 +914,24 @@ mod tests {
     #[test]
     fn val_try_add_incompatible_variants() {
         assert_eq!(
-            Val::Auto.try_add(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
             Val::Px(1.).try_add(Val::Percent(2.)),
             Err(ValArithmeticError::IncompatibleUnits)
         );
+    }
+
+    #[test]
+    fn val_try_add_keyword_is_non_evaluable() {
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::NonEvaluable)
+        );
         assert_eq!(
             Val::Auto.try_add(Val::Px(1.)),
-            Err(ValArithmeticError::IncompatibleUnits)
+            Err(ValArithmeticError::NonEvaluable)
+        );
+        assert_eq!(
+            Val::Px(1.).try_add(Val::MinContent),
+            Err(ValArithmeticError::NonEvaluable)
         );
     }
 
@@ -949,16 +951,138 @@ mod tests {
     #[test]
     fn val_try_sub_incompatible_variants() {
         assert_eq!(
-            Val::Auto.try_sub(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
             Val::Px(1.).try_sub(Val::Percent(2.)),
             Err(ValArithmeticError::IncompatibleUnits)
         );
+    }
+
+    #[test]
+    fn val_try_sub_keyword_is_non_evaluable() {
+        assert_eq!(
+            Val::Auto.try_sub(Val::Auto),
+            Err(ValArithmeticError::NonEvaluable)
+        );
         assert_eq!(
             Val::Auto.try_sub(Val::Px(1.)),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+        assert_eq!(
+            Val::Px(1.).try_sub(Val::MinContent),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn val_try_mul() {
+        assert_eq!(Val::Px(3.).try_mul(2.), Ok(Val::Px(6.)));
+        assert_eq!(Val::Percent(3.).try_mul(2.), Ok(Val::Percent(6.)));
+        assert_eq!(Val::Rem(3.).try_mul(-1.), Ok(Val::Rem(-3.)));
+        assert_eq!(Val::Auto.try_mul(2.), Err(ValArithmeticError::NonEvaluable));
+        assert_eq!(
+            Val::Stretch.try_mul(2.),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn val_try_div() {
+        assert_eq!(Val::Px(6.).try_div(2.), Ok(Val::Px(3.)));
+        assert_eq!(Val::Percent(6.).try_div(2.), Ok(Val::Percent(3.)));
+        assert_eq!(Val::Em(6.).try_div(-2.), Ok(Val::Em(-3.)));
+        assert_eq!(Val::Auto.try_div(2.), Err(ValArithmeticError::NonEvaluable));
+        assert_eq!(
+            Val::FitContent.try_div(2.),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn val_is_keyword() {
+        for keyword in [
+            Val::Auto,
+            Val::MinContent,
+            Val::MaxContent,
+            Val::FitContent,
+            Val::Stretch,
+            Val::Content,
+        ] {
+            assert!(keyword.is_keyword());
+        }
+        for numeric in [
+            Val::Px(1.),
+            Val::Percent(1.),
+            Val::Vw(1.),
+            Val::Vh(1.),
+            Val::VMin(1.),
+            Val::VMax(1.),
+            Val::Em(1.),
+            Val::Rem(1.),
+        ] {
+            assert!(!numeric.is_keyword());
+        }
+    }
+
+    #[test]
+    fn val_numeric_operators() {
+        assert_eq!(Val::Px(3.) * 2., Val::Px(6.));
+        assert_eq!(Val::Px(6.) / 2., Val::Px(3.));
+        assert_eq!(-Val::Px(3.), Val::Px(-3.));
+        let mut val = Val::Percent(3.);
+        val *= 2.;
+        assert_eq!(val, Val::Percent(6.));
+        val /= 3.;
+        assert_eq!(val, Val::Percent(2.));
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_mul_keyword_panics() {
+        let _ = Val::Auto * 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_mul_assign_keyword_panics() {
+        let mut val = Val::Auto;
+        val *= 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_div_keyword_panics() {
+        let _ = Val::Auto / 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_div_assign_keyword_panics() {
+        let mut val = Val::Auto;
+        val /= 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_neg_keyword_panics() {
+        let _ = -Val::Auto;
+    }
+
+    #[test]
+    fn val_try_interpolate_stable() {
+        assert_eq!(
+            Val::Px(0.).try_interpolate_stable(&Val::Px(10.), 0.5),
+            Ok(Val::Px(5.))
+        );
+        assert_eq!(
+            Val::Px(0.).try_interpolate_stable(&Val::Percent(10.), 0.5),
             Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_interpolate_stable(&Val::Px(10.), 0.5),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+        assert_eq!(
+            Val::Auto.try_interpolate_stable(&Val::Auto, 0.5),
+            Err(ValArithmeticError::NonEvaluable)
         );
     }
 
