@@ -1,4 +1,4 @@
-import package::maths::{PI_2,PI,FRAC_PI_3};
+import package::maths::{FRAC_PI_3, PI, PI_2};
 
 const HUE_GUARD: f32 = 0.0001;
 
@@ -28,19 +28,11 @@ fn inverse_gamma(value: f32) -> f32 {
 }
 
 fn srgb_to_linear_rgb(color: vec3<f32>) -> vec3<f32> {
-    return vec3(
-        gamma(color.x),
-        gamma(color.y),
-        gamma(color.z)
-    );
+    return vec3(gamma(color.x), gamma(color.y), gamma(color.z));
 }
 
 fn linear_rgb_to_srgb(color: vec3<f32>) -> vec3<f32> {
-    return vec3(
-        inverse_gamma(color.x),
-        inverse_gamma(color.y),
-        inverse_gamma(color.z)
-    );
+    return vec3(inverse_gamma(color.x), inverse_gamma(color.y), inverse_gamma(color.z));
 }
 
 fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
@@ -60,10 +52,10 @@ fn oklab_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
     let m = m_ * m_ * m_;
     let s = s_ * s_ * s_;
     return vec3(
-        4.0767417 * l - 3.3077116 * m + 0.23096994 * s,
-        -1.268438 * l + 2.6097574 * m - 0.34131938 * s,
-        -0.0041960863 * l - 0.7034186 * m + 1.7076147 * s,
-    );
+            4.0767417 * l - 3.3077116 * m + 0.23096994 * s,
+            -1.268438 * l + 2.6097574 * m - 0.34131938 * s,
+            -0.0041960863 * l - 0.7034186 * m + 1.7076147 * s,
+        );
 }
 
 fn okhsl_to_oklab(okhsl: vec3<f32>) -> vec3<f32> {
@@ -71,10 +63,10 @@ fn okhsl_to_oklab(okhsl: vec3<f32>) -> vec3<f32> {
     let s = okhsl.y;
     let l = okhsl.z;
 
-    if (l >= 1.0) {
+    if l >= 1.0 {
         return vec3<f32>(1.0, 0.0, 0.0);
     }
-    if (l <= 0.0) {
+    if l <= 0.0 {
         return vec3<f32>(0.0, 0.0, 0.0);
     }
 
@@ -96,7 +88,7 @@ fn okhsl_to_oklab(okhsl: vec3<f32>) -> vec3<f32> {
     var k_1: f32 = 0.0;
     var k_2: f32 = 0.0;
 
-    if (s < mid) {
+    if s < mid {
         t = mid_inv * s;
         k_1 = mid * C_0;
         k_2 = 1.0 - k_1 / C_mid;
@@ -123,10 +115,10 @@ fn linear_rgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
     let m_ = pow(c.x * 0.2119034982 + c.y * 0.6806995451 + c.z * 0.1073969566, 1.0 / 3.0);
     let s_ = pow(c.x * 0.0883024619 + c.y * 0.2817188376 + c.z * 0.6299787005, 1.0 / 3.0);
     return vec3(
-        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
-    );
+            0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+            1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+            0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+        );
 }
 
 fn hsl_to_linear_rgb(hsl: vec3<f32>) -> vec3<f32> {
@@ -140,17 +132,29 @@ fn hsl_to_linear_rgb(hsl: vec3<f32>) -> vec3<f32> {
     var g: f32 = 0.0;
     var b: f32 = 0.0;
     if 0.0 <= hp && hp < 1.0 {
-        r = c; g = x; b = 0.0;
+        r = c;
+        g = x;
+        b = 0.0;
     } else if 1.0 <= hp && hp < 2.0 {
-        r = x; g = c; b = 0.0;
+        r = x;
+        g = c;
+        b = 0.0;
     } else if 2.0 <= hp && hp < 3.0 {
-        r = 0.0; g = c; b = x;
+        r = 0.0;
+        g = c;
+        b = x;
     } else if 3.0 <= hp && hp < 4.0 {
-        r = 0.0; g = x; b = c;
+        r = 0.0;
+        g = x;
+        b = c;
     } else if 4.0 <= hp && hp < 5.0 {
-        r = x; g = 0.0; b = c;
+        r = x;
+        g = 0.0;
+        b = c;
     } else if 5.0 <= hp && hp < 6.0 {
-        r = c; g = 0.0; b = x;
+        r = c;
+        g = 0.0;
+        b = x;
     }
     let m = l - 0.5 * c;
     return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
@@ -167,17 +171,29 @@ fn hsv_to_linear_rgb(hsva: vec3<f32>) -> vec3<f32> {
     var g: f32 = 0.0;
     var b: f32 = 0.0;
     if 0.0 <= h && h < 1.0 {
-        r = c; g = x; b = 0.0;
+        r = c;
+        g = x;
+        b = 0.0;
     } else if 1.0 <= h && h < 2.0 {
-        r = x; g = c; b = 0.0;
+        r = x;
+        g = c;
+        b = 0.0;
     } else if 2.0 <= h && h < 3.0 {
-        r = 0.0; g = c; b = x;
+        r = 0.0;
+        g = c;
+        b = x;
     } else if 3.0 <= h && h < 4.0 {
-        r = 0.0; g = x; b = c;
+        r = 0.0;
+        g = x;
+        b = c;
     } else if 4.0 <= h && h < 5.0 {
-        r = x; g = 0.0; b = c;
+        r = x;
+        g = 0.0;
+        b = c;
     } else if 5.0 <= h && h < 6.0 {
-        r = c; g = 0.0; b = x;
+        r = c;
+        g = 0.0;
+        b = x;
     }
     return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
 }
@@ -189,7 +205,7 @@ fn hwb_to_hsv(hwb: vec3<f32>) -> vec3<f32> {
 
     let value = 1. - blackness;
     var saturation: f32;
-    if (value != 0.0) {
+    if value != 0.0 {
         saturation = 1. - (whiteness / value);
     } else {
         saturation = 0.0;
@@ -229,11 +245,7 @@ fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     } else {
         h += hue_diff * t;
     }
-    return vec3(
-        mix(a.x, b.x, t),
-        mix(a.y, b.y, t),
-        fract(h),
-    );
+    return vec3(mix(a.x, b.x, t), mix(a.y, b.y, t), fract(h));
 }
 
 fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -255,11 +267,7 @@ fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     } else {
         h += hue_diff * t;
     }
-    return vec3(
-        mix(a.x, b.x, t),
-        mix(a.y, b.y, t),
-        fract(h),
-    );
+    return vec3(mix(a.x, b.x, t), mix(a.y, b.y, t), fract(h));
 }
 
 fn mix_hsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -274,11 +282,7 @@ fn mix_hsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
         g = h;
     }
 
-    return vec3(
-        fract(h + (fract(g - h + 0.5) - 0.5) * t),
-        mix(a.y, b.y, t),
-        mix(a.z, b.z, t),
-    );
+    return vec3(fract(h + (fract(g - h + 0.5) - 0.5) * t), mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
 
 fn mix_hsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -291,11 +295,7 @@ fn mix_hsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     }
 
     let d = fract(g - h + 0.5) - 0.5;
-    return vec3(
-        fract(h + (d + select(1., -1., 0. < d)) * t),
-        mix(a.y, b.y, t),
-        mix(a.z, b.z, t),
-    );
+    return vec3(fract(h + (d + select(1., -1., 0. < d)) * t), mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
 
 fn mix_okhsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -308,11 +308,7 @@ fn mix_okhsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
         g = h;
     }
 
-    return vec3(
-        fract(h + (fract(g - h + 0.5) - 0.5) * t),
-        mix(a.y, b.y, t),
-        mix(a.z, b.z, t),
-    );
+    return vec3(fract(h + (fract(g - h + 0.5) - 0.5) * t), mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
 
 fn mix_okhsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -327,10 +323,10 @@ fn mix_okhsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 
     let d = fract(g - h + 0.5) - 0.5;
     return vec3(
-        fract(h + (d + select(1.0, -1.0, 0.0 < d)) * t),
-        mix(a.y, b.y, t),
-        mix(a.z, b.z, t),
-    );
+            fract(h + (d + select(1.0, -1.0, 0.0 < d)) * t),
+            mix(a.y, b.y, t),
+            mix(a.z, b.z, t),
+        );
 }
 
 fn mix_hsv(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -355,11 +351,7 @@ fn mix_hsv(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     } else {
         h += hue_diff * t;
     }
-    return vec3(
-        fract(h),
-        mix(a.y, b.y, t),
-        mix(a.z, b.z, t),
-    );
+    return vec3(fract(h), mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
 
 fn mix_hsv_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
@@ -381,11 +373,7 @@ fn mix_hsv_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     } else {
         h += hue_diff * t;
     }
-    return vec3(
-        fract(h),
-        mix(a.y, b.y, t),
-        mix(a.z, b.z, t),
-    );
+    return vec3(fract(h), mix(a.y, b.y, t), mix(a.z, b.z, t));
 }
 
 /// Converts HSV to RGB.
@@ -407,14 +395,14 @@ fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
 ///
 /// <https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB>
 fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
-    let x_max = max(rgb.r, max(rgb.g, rgb.b));  // i.e. V
+    let x_max = max(rgb.r, max(rgb.g, rgb.b)); // i.e. V
     let x_min = min(rgb.r, min(rgb.g, rgb.b));
-    let c = x_max - x_min;  // chroma
+    let c = x_max - x_min; // chroma
 
     var swizzle = vec3<f32>(0.0);
-    if (x_max == rgb.r) {
+    if x_max == rgb.r {
         swizzle = vec3(rgb.gb, 0.0);
-    } else if (x_max == rgb.g) {
+    } else if x_max == rgb.g {
         swizzle = vec3(rgb.br, 2.0);
     } else {
         swizzle = vec3(rgb.rg, 4.0);
@@ -424,7 +412,7 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
 
     // Avoid division by zero.
     var s = 0.0;
-    if (x_max > 0.0) {
+    if x_max > 0.0 {
         s = c / x_max;
     }
 
@@ -450,19 +438,20 @@ fn okhsl_to_ST(cusp: vec2<f32>) -> vec2<f32> {
 /// Derived by optimization to ensure S_mid < S_max and T_mid < T_max.
 fn okhsl_get_ST_mid(a_: f32, b_: f32) -> vec2<f32> {
     let S = 0.11516993
-        + 1.0 / (7.4477897
-            + 4.1590123 * b_
-            + a_ * (-2.1955736
-                + 1.751984 * b_
-                + a_ * (-2.1370494 - 10.02301 * b_
-                    + a_ * (-4.2489457 + 5.387708 * b_ + 4.69891 * a_))));
+        + 1.0
+        / (7.4477897 + 4.1590123 * b_
+            + a_
+            * (-2.1955736 + 1.751984 * b_
+                + a_
+                * (-2.1370494 - 10.02301 * b_ + a_ * (-4.2489457 + 5.387708 * b_ + 4.69891 * a_))));
 
     let T = 0.11239642
-        + 1.0 / (1.6132032 - 0.6812438 * b_
-            + a_ * (0.40370612
-                + 0.9014812 * b_
-                + a_ * (-0.27087943
-                    + 0.6122399 * b_
+        + 1.0
+        / (1.6132032 - 0.6812438 * b_
+            + a_
+            * (0.40370612 + 0.9014812 * b_
+                + a_
+                * (-0.27087943 + 0.6122399 * b_
                     + a_ * (0.00299215 - 0.45399568 * b_ - 0.14661872 * a_))));
 
     return vec2<f32>(S, T);
@@ -471,25 +460,45 @@ fn okhsl_get_ST_mid(a_: f32, b_: f32) -> vec2<f32> {
 /// Approximate max saturation using a polynomial, then refine with 1 step of Halley's method.
 /// a and b must be normalized (a^2 + b^2 == 1).
 fn okhsl_compute_max_saturation(a: f32, b: f32) -> f32 {
-    var k0: f32 = 0.0; var k1: f32 = 0.0; var k2: f32 = 0.0;
-    var k3: f32 = 0.0; var k4: f32 = 0.0;
-    var wl: f32 = 0.0; var wm: f32 = 0.0; var ws: f32 = 0.0;
+    var k0: f32 = 0.0;
+    var k1: f32 = 0.0;
+    var k2: f32 = 0.0;
+    var k3: f32 = 0.0;
+    var k4: f32 = 0.0;
+    var wl: f32 = 0.0;
+    var wm: f32 = 0.0;
+    var ws: f32 = 0.0;
 
-    if (-1.8817033 * a - 0.8093649 * b > 1.0) {
+    if -1.8817033 * a - 0.8093649 * b > 1.0 {
         // Red component limit
-        k0 = 1.1908628; k1 = 1.7657673; k2 = 0.5966264;
-        k3 = 0.755152; k4 = 0.5677124;
-        wl = 4.0767417; wm = -3.3077116; ws = 0.23096994;
-    } else if (1.8144411 * a - 1.1944528 * b > 1.0) {
+        k0 = 1.1908628;
+        k1 = 1.7657673;
+        k2 = 0.5966264;
+        k3 = 0.755152;
+        k4 = 0.5677124;
+        wl = 4.0767417;
+        wm = -3.3077116;
+        ws = 0.23096994;
+    } else if 1.8144411 * a - 1.1944528 * b > 1.0 {
         // Green component limit
-        k0 = 0.73956515; k1 = -0.45954404; k2 = 0.08285427;
-        k3 = 0.1254107; k4 = 0.14503204;
-        wl = -1.268438; wm = 2.6097574; ws = -0.34131938;
+        k0 = 0.73956515;
+        k1 = -0.45954404;
+        k2 = 0.08285427;
+        k3 = 0.1254107;
+        k4 = 0.14503204;
+        wl = -1.268438;
+        wm = 2.6097574;
+        ws = -0.34131938;
     } else {
         // Blue component limit
-        k0 = 1.3573365; k1 = -0.00915799; k2 = -1.1513021;
-        k3 = -0.50559606; k4 = 0.00692167;
-        wl = -0.0041960863; wm = -0.7034186; ws = 1.7076147;
+        k0 = 1.3573365;
+        k1 = -0.00915799;
+        k2 = -1.1513021;
+        k3 = -0.50559606;
+        k4 = 0.00692167;
+        wl = -0.0041960863;
+        wm = -0.7034186;
+        ws = 1.7076147;
     }
 
     var S = k0 + k1 * a + k2 * b + k3 * a * a + k4 * a * b;
@@ -533,12 +542,19 @@ fn okhsl_find_cusp(a: f32, b: f32) -> vec2<f32> {
 
 /// Find intersection of the gamut boundary with the line from (L0, 0) to (L1, C1).
 /// Uses 1 step of Halley's method.
-fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp: vec2<f32>) -> f32 {
+fn okhsl_find_gamut_intersection(
+    a: f32,
+    b: f32,
+    L1: f32,
+    C1: f32,
+    L0: f32,
+    cusp: vec2<f32>,
+) -> f32 {
     let cusp_L = cusp.x;
     let cusp_C = cusp.y;
     var t: f32;
 
-    if (((L1 - L0) * cusp_C - (cusp_L - L0) * C1) <= 0.0) {
+    if ((L1 - L0) * cusp_C - (cusp_L - L0) * C1) <= 0.0 {
         // Lower half of the gamut
         t = cusp_C * L0 / (C1 * cusp_L + cusp_C * (L0 - L1));
     } else {
@@ -559,7 +575,7 @@ fn okhsl_find_gamut_intersection(a: f32, b: f32, L1: f32, C1: f32, L0: f32, cusp
         let m_dt = dL + dC * k_m;
         let s_dt = dL + dC * k_s;
 
-        for (var i = 0; i < 1; i = i + 1) {
+        for(var i = 0; i < 1; i = i + 1) {
             let L = L0 * (1.0 - t) + t * L1;
             let C = t * C1;
 
@@ -617,7 +633,8 @@ fn okhsl_get_Cs(L: f32, a_: f32, b_: f32) -> vec3<f32> {
     let ST_mid = okhsl_get_ST_mid(a_, b_);
     let C_a = L * ST_mid.x;
     let C_b = (1.0 - L) * ST_mid.y;
-    let C_mid = 0.9 * k * sqrt(sqrt(1.0 / (1.0 / (C_a * C_a * C_a * C_a) + 1.0 / (C_b * C_b * C_b * C_b))));
+    let C_mid = 0.9 * k
+        * sqrt(sqrt(1.0 / (1.0 / (C_a * C_a * C_a * C_a) + 1.0 / (C_b * C_b * C_b * C_b))));
 
     let C_0_a = L * 0.4;
     let C_0_b = (1.0 - L) * 0.8;

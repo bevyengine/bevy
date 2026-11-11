@@ -5,37 +5,60 @@ import package::scene::sampling::{LightSample, NULL_LIGHT_ID};
 
 enable wgpu_ray_query;
 
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
-@group(1) @binding(2) var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
-@group(1) @binding(3) var gbuffer: texture_2d<u32>;
-@group(1) @binding(4) var depth_buffer: texture_depth_2d;
+@group(1) @binding(0)
+var view_output: texture_storage_2d<rgba16float, read_write>;
+@group(1) @binding(1)
+var<storage, read_write> light_tile_samples: array<LightSample>;
+@group(1) @binding(2)
+var<storage, read_write> light_tile_resolved_samples: array<ResolvedLightSamplePacked>;
+@group(1) @binding(3)
+var gbuffer: texture_2d<u32>;
+@group(1) @binding(4)
+var depth_buffer: texture_depth_2d;
 @if(MOTION_VECTORS_READ_WRITE)
-@group(1) @binding(5) var motion_vectors: texture_storage_2d<rg16float, read_write>;
+@group(1) @binding(5)
+var motion_vectors: texture_storage_2d<rg16float, read_write>;
 @if(!MOTION_VECTORS_READ_WRITE)
-@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(6) var<uniform> view: View;
-@group(1) @binding(7) var<uniform> previous_view: PreviousViewUniforms;
-@group(1) @binding(8) var<storage, read_write> world_cache: WorldCache;
-@group(1) @binding(9) var<uniform> constants: SolariLightingSettings;
+@group(1) @binding(5)
+var motion_vectors: texture_2d<f32>;
+@group(1) @binding(6)
+var<uniform> view: View;
+@group(1) @binding(7)
+var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(8)
+var<storage, read_write> world_cache: WorldCache;
+@group(1) @binding(9)
+var<uniform> constants: SolariLightingSettings;
 // Views without an atmosphere bind fallbacks with a zero `outer_radius`.
-@group(1) @binding(10) var atmosphere_transmittance_lut: texture_2d<f32>;
-@group(1) @binding(11) var atmosphere_transmittance_sampler: sampler;
-@group(1) @binding(12) var<uniform> atmosphere: Atmosphere;
+@group(1) @binding(10)
+var atmosphere_transmittance_lut: texture_2d<f32>;
+@group(1) @binding(11)
+var atmosphere_transmittance_sampler: sampler;
+@group(1) @binding(12)
+var<uniform> atmosphere: Atmosphere;
 
 @if(RESTIR) {
-@group(1) @binding(13) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(14) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(15) var<storage, read_write> reservoirs_a: array<Reservoir>;
-@group(1) @binding(16) var<storage, read_write> reservoirs_b: array<Reservoir>;
+    @group(1) @binding(13)
+    var previous_gbuffer: texture_2d<u32>;
+    @group(1) @binding(14)
+    var previous_depth_buffer: texture_depth_2d;
+    @group(1) @binding(15)
+    var<storage, read_write> reservoirs_a: array<Reservoir>;
+    @group(1) @binding(16)
+    var<storage, read_write> reservoirs_b: array<Reservoir>;
 }
 
 @if(DLSS_RR_GUIDE_BUFFERS) {
-@group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;
-@group(2) @binding(2) var normal_roughness: texture_storage_2d<rgba16float, write>;
-@group(2) @binding(3) var dlss_rr_depth: texture_storage_2d<r32float, write>;
-@group(2) @binding(4) var specular_motion_vectors: texture_storage_2d<rg16float, write>;
+    @group(2) @binding(0)
+    var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
+    @group(2) @binding(1)
+    var specular_albedo: texture_storage_2d<rgba8unorm, write>;
+    @group(2) @binding(2)
+    var normal_roughness: texture_storage_2d<rgba16float, write>;
+    @group(2) @binding(3)
+    var dlss_rr_depth: texture_storage_2d<r32float, write>;
+    @group(2) @binding(4)
+    var specular_motion_vectors: texture_storage_2d<rg16float, write>;
 }
 
 fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
@@ -79,14 +102,7 @@ struct Reservoir {
 }
 
 fn empty_reservoir() -> Reservoir {
-    return Reservoir(
-        vec3(0.0),
-        0.0,
-        vec3(0.0),
-        0.0,
-        vec2(0.0),
-        LightSample(NULL_LIGHT_ID, 0u),
-    );
+    return Reservoir(vec3(0.0), 0.0, vec3(0.0), 0.0, vec2(0.0), LightSample(NULL_LIGHT_ID, 0u));
 }
 
 struct WorldCacheGeometryData {

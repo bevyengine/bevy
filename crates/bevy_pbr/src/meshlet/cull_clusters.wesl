@@ -1,33 +1,35 @@
 import package::meshlet::bindings::{
     InstancedOffset,
+    constants,
     get_aabb,
     get_aabb_error,
-    constants,
-    view,
-    meshlet_instance_uniforms,
     meshlet_cull_data,
-    meshlet_software_raster_indirect_args,
     meshlet_hardware_raster_indirect_args,
-    meshlet_previous_raster_counts,
-    meshlet_raster_clusters,
+    meshlet_instance_uniforms,
     meshlet_meshlet_cull_count_read,
     meshlet_meshlet_cull_count_write,
     meshlet_meshlet_cull_dispatch,
     meshlet_meshlet_cull_queue,
+    meshlet_previous_raster_counts,
+    meshlet_raster_clusters,
+    meshlet_software_raster_indirect_args,
+    view
 };
 import package::meshlet::cull_shared::{
     ScreenAabb,
-    project_aabb,
-    lod_error_is_imperceptible,
     aabb_in_frustum,
-    should_occlusion_cull_aabb,
+    lod_error_is_imperceptible,
+    project_aabb,
+    should_occlusion_cull_aabb
 };
 import bevy_render::maths::affine3_to_square;
 
-@compute
-@workgroup_size(128, 1, 1) // 1 cluster per thread
+@compute @workgroup_size(128, 1, 1)
+// 1 cluster per thread
 fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
-    if global_invocation_id.x >= meshlet_meshlet_cull_count_read { return; }
+    if global_invocation_id.x >= meshlet_meshlet_cull_count_read {
+        return;
+    }
 
     @if(MESHLET_FIRST_CULLING_PASS)
     let meshlet_id = global_invocation_id.x;
@@ -43,26 +45,29 @@ fn cull_clusters(@builtin(global_invocation_id) global_invocation_id: vec3<u32>)
 
     let is_imperceptible = lod_error_is_imperceptible(lod_sphere, error, instance_id);
     // Error and frustum cull, in both passes
-    if !is_imperceptible || !aabb_in_frustum(aabb, instance_id) { return; }
+    if !is_imperceptible || !aabb_in_frustum(aabb, instance_id) {
+        return;
+    }
 
     // If we pass, try occlusion culling
     // If this node was occluded, push its children to the second pass to check against this frame's HZB
     if should_occlusion_cull_aabb(aabb, instance_id) {
-@if(MESHLET_FIRST_CULLING_PASS) {
-        let id = atomicAdd(&meshlet_meshlet_cull_count_write, 1u);
-        let value = InstancedOffset(instance_id, instanced_offset.offset);
-        meshlet_meshlet_cull_queue[constants.rightmost_slot - id] = value;
-        if ((id & 127u) == 0) {
-            atomicAdd(&meshlet_meshlet_cull_dispatch.x, 1u);
+        @if(MESHLET_FIRST_CULLING_PASS) {
+            let id = atomicAdd(&meshlet_meshlet_cull_count_write, 1u);
+            let value = InstancedOffset(instance_id, instanced_offset.offset);
+            meshlet_meshlet_cull_queue[constants.rightmost_slot - id] = value;
+            if (id & 127u) == 0 {
+                atomicAdd(&meshlet_meshlet_cull_dispatch.x, 1u);
+            }
         }
-}
         return;
     }
 
     // If we pass, rasterize the meshlet
     // Check how big the cluster is in screen space
-    let world_from_local = affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
-    let clip_from_local  = view.clip_from_world * world_from_local;
+    let world_from_local =
+        affine3_to_square(meshlet_instance_uniforms[instance_id].world_from_local);
+    let clip_from_local = view.clip_from_world * world_from_local;
     let projection = view.clip_from_world;
     var near: f32;
     if projection[3][3] == 1.0 {

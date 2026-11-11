@@ -96,7 +96,7 @@ struct View {
     color_grading: ColorGrading,
     mip_bias: f32,
     frame_count: u32,
-};
+}
 
 // -----------------
 // TO WORLD --------
@@ -221,28 +221,32 @@ fn perspective_camera_near(clip_from_view: mat4x4<f32>) -> f32 {
 
 /// Convert ndc depth to linear view z.
 /// Note: Depth values in front of the camera will be negative as -z is forward
-fn depth_ndc_to_view_z(ndc_depth: f32, clip_from_view: mat4x4<f32>, view_from_clip: mat4x4<f32>) -> f32 {
-@if(VIEW_PROJECTION_PERSPECTIVE)
+fn depth_ndc_to_view_z(
+    ndc_depth: f32,
+    clip_from_view: mat4x4<f32>,
+    view_from_clip: mat4x4<f32>,
+) -> f32 {
+    @if(VIEW_PROJECTION_PERSPECTIVE)
     return -perspective_camera_near(clip_from_view) / ndc_depth;
-@elif(VIEW_PROJECTION_ORTHOGRAPHIC)
+    @elif(VIEW_PROJECTION_ORTHOGRAPHIC)
     return -(clip_from_view[3][2] - ndc_depth) / clip_from_view[2][2];
-@else {
-    let view_pos = view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
-    return view_pos.z / view_pos.w;
-}
+    @else {
+        let view_pos = view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
+        return view_pos.z / view_pos.w;
+    }
 }
 
 /// Convert linear view z to ndc depth.
 /// Note: View z input should be negative for values in front of the camera as -z is forward
 fn view_z_to_depth_ndc(view_z: f32, clip_from_view: mat4x4<f32>) -> f32 {
-@if(VIEW_PROJECTION_PERSPECTIVE)
+    @if(VIEW_PROJECTION_PERSPECTIVE)
     return -perspective_camera_near(clip_from_view) / view_z;
-@elif(VIEW_PROJECTION_ORTHOGRAPHIC)
+    @elif(VIEW_PROJECTION_ORTHOGRAPHIC)
     return clip_from_view[3][2] + view_z * clip_from_view[2][2];
-@else {
-    let ndc_pos = clip_from_view * vec4(0.0, 0.0, view_z, 1.0);
-    return ndc_pos.z / ndc_pos.w;
-}
+    @else {
+        let ndc_pos = clip_from_view * vec4(0.0, 0.0, view_z, 1.0);
+        return ndc_pos.z / ndc_pos.w;
+    }
 }
 
 // -----------------

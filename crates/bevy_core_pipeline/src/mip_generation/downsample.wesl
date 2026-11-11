@@ -1,225 +1,263 @@
 //! Single pass downsampling shader for creating the mip chain for a texture
 //! Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
 
-@group(0) @binding(0) var sampler_linear_clamp: sampler;
-@group(0) @binding(1) var<uniform> constants: Constants;
+@group(0) @binding(0)
+var sampler_linear_clamp: sampler;
+@group(0) @binding(1)
+var<uniform> constants: Constants;
 
 @if(TEXTURE_FORMAT_RGBA8UNORM) {
-alias MipWrite2d = texture_storage_2d<rgba8unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rgba8unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgba8unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgba8unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgba8unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgba8unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgba8unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgba8unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RGBA8SNORM) {
-alias MipWrite2d = texture_storage_2d<rgba8snorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rgba8snorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgba8snorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgba8snorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgba8snorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgba8snorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgba8snorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgba8snorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RGBA16UNORM) {
-alias MipWrite2d = texture_storage_2d<rgba16unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rgba16unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgba16unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgba16unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgba16unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgba16unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgba16unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgba16unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RGBA16SNORM) {
-alias MipWrite2d = texture_storage_2d<rgba16snorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rgba16snorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgba16snorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgba16snorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgba16snorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgba16snorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgba16snorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgba16snorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RGBA16FLOAT) {
-alias MipWrite2d = texture_storage_2d<rgba16float, write>;
-alias MipReadWrite2d = texture_storage_2d<rgba16float, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgba16float, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgba16float, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgba16float, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgba16float, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgba16float, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgba16float, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG8UNORM) {
-alias MipWrite2d = texture_storage_2d<rg8unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rg8unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg8unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg8unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg8unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg8unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg8unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg8unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG8SNORM) {
-alias MipWrite2d = texture_storage_2d<rg8snorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rg8snorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg8snorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg8snorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg8snorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg8snorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg8snorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg8snorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG16UNORM) {
-alias MipWrite2d = texture_storage_2d<rg16unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rg16unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg16unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg16unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg16unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg16unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg16unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg16unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG16SNORM) {
-alias MipWrite2d = texture_storage_2d<rg16snorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rg16snorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg16snorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg16snorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg16snorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg16snorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg16snorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg16snorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG16FLOAT) {
-alias MipWrite2d = texture_storage_2d<rg16float, write>;
-alias MipReadWrite2d = texture_storage_2d<rg16float, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg16float, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg16float, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg16float, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg16float, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg16float, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg16float, read_write>;
 }
 
 @if(TEXTURE_FORMAT_R32FLOAT) {
-alias MipWrite2d = texture_storage_2d<r32float, write>;
-alias MipReadWrite2d = texture_storage_2d<r32float, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<r32float, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<r32float, read_write>;
+    alias MipWrite2d = texture_storage_2d<r32float, write>;
+    alias MipReadWrite2d = texture_storage_2d<r32float, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<r32float, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<r32float, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG32FLOAT) {
-alias MipWrite2d = texture_storage_2d<rg32float, write>;
-alias MipReadWrite2d = texture_storage_2d<rg32float, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg32float, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg32float, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg32float, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg32float, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg32float, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg32float, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RGBA32FLOAT) {
-alias MipWrite2d = texture_storage_2d<rgba32float, write>;
-alias MipReadWrite2d = texture_storage_2d<rgba32float, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgba32float, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgba32float, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgba32float, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgba32float, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgba32float, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgba32float, read_write>;
 }
 
 @if(TEXTURE_FORMAT_BGRA8UNORM) {
-alias MipWrite2d = texture_storage_2d<bgra8unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<bgra8unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<bgra8unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<bgra8unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<bgra8unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<bgra8unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<bgra8unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<bgra8unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_R8UNORM) {
-alias MipWrite2d = texture_storage_2d<r8unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<r8unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<r8unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<r8unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<r8unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<r8unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<r8unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<r8unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_R8SNORM) {
-alias MipWrite2d = texture_storage_2d<r8snorm, write>;
-alias MipReadWrite2d = texture_storage_2d<r8snorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<r8snorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<r8snorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<r8snorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<r8snorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<r8snorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<r8snorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_R16UNORM) {
-alias MipWrite2d = texture_storage_2d<r16unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<r16unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<r16unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<r16unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<r16unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<r16unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<r16unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<r16unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_R16SNORM) {
-alias MipWrite2d = texture_storage_2d<r16snorm, write>;
-alias MipReadWrite2d = texture_storage_2d<r16snorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<r16snorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<r16snorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<r16snorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<r16snorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<r16snorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<r16snorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_R16FLOAT) {
-alias MipWrite2d = texture_storage_2d<r16float, write>;
-alias MipReadWrite2d = texture_storage_2d<r16float, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<r16float, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<r16float, read_write>;
+    alias MipWrite2d = texture_storage_2d<r16float, write>;
+    alias MipReadWrite2d = texture_storage_2d<r16float, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<r16float, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<r16float, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RGB10A2UNORM) {
-alias MipWrite2d = texture_storage_2d<rgb10a2unorm, write>;
-alias MipReadWrite2d = texture_storage_2d<rgb10a2unorm, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rgb10a2unorm, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rgb10a2unorm, read_write>;
+    alias MipWrite2d = texture_storage_2d<rgb10a2unorm, write>;
+    alias MipReadWrite2d = texture_storage_2d<rgb10a2unorm, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rgb10a2unorm, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rgb10a2unorm, read_write>;
 }
 
 @if(TEXTURE_FORMAT_RG11B10UFLOAT) {
-alias MipWrite2d = texture_storage_2d<rg11b10ufloat, write>;
-alias MipReadWrite2d = texture_storage_2d<rg11b10ufloat, read_write>;
-alias MipWrite2dArray = texture_storage_2d_array<rg11b10ufloat, write>;
-alias MipReadWrite2dArray = texture_storage_2d_array<rg11b10ufloat, read_write>;
+    alias MipWrite2d = texture_storage_2d<rg11b10ufloat, write>;
+    alias MipReadWrite2d = texture_storage_2d<rg11b10ufloat, read_write>;
+    alias MipWrite2dArray = texture_storage_2d_array<rg11b10ufloat, write>;
+    alias MipReadWrite2dArray = texture_storage_2d_array<rg11b10ufloat, read_write>;
 }
 
 @if(ARRAY_TEXTURE) {
-alias SourceTexture = texture_2d_array<f32>;
-alias MipWrite = MipWrite2dArray;
-alias MipReadWrite = MipReadWrite2dArray;
+    alias SourceTexture = texture_2d_array<f32>;
+    alias MipWrite = MipWrite2dArray;
+    alias MipReadWrite = MipReadWrite2dArray;
 } @else {
-alias SourceTexture = texture_2d<f32>;
-alias MipWrite = MipWrite2d;
-alias MipReadWrite = MipReadWrite2d;
+    alias SourceTexture = texture_2d<f32>;
+    alias MipWrite = MipWrite2d;
+    alias MipReadWrite = MipReadWrite2d;
 }
 
 @if(COMBINE_BIND_GROUP || SPLIT_BIND_GROUP_FIRST) {
-@group(0) @binding(2) var mip_0: SourceTexture;
-@group(0) @binding(3) var mip_1: MipWrite;
-@group(0) @binding(4) var mip_2: MipWrite;
-@group(0) @binding(5) var mip_3: MipWrite;
-@group(0) @binding(6) var mip_4: MipWrite;
-@group(0) @binding(7) var mip_5: MipWrite;
+    @group(0) @binding(2)
+    var mip_0: SourceTexture;
+    @group(0) @binding(3)
+    var mip_1: MipWrite;
+    @group(0) @binding(4)
+    var mip_2: MipWrite;
+    @group(0) @binding(5)
+    var mip_3: MipWrite;
+    @group(0) @binding(6)
+    var mip_4: MipWrite;
+    @group(0) @binding(7)
+    var mip_5: MipWrite;
 }
 
 @if(COMBINE_BIND_GROUP) {
-@group(0) @binding(8) var mip_6: MipReadWrite;
-@group(0) @binding(9) var mip_7: MipWrite;
-@group(0) @binding(10) var mip_8: MipWrite;
-@group(0) @binding(11) var mip_9: MipWrite;
-@group(0) @binding(12) var mip_10: MipWrite;
-@group(0) @binding(13) var mip_11: MipWrite;
-@group(0) @binding(14) var mip_12: MipWrite;
+    @group(0) @binding(8)
+    var mip_6: MipReadWrite;
+    @group(0) @binding(9)
+    var mip_7: MipWrite;
+    @group(0) @binding(10)
+    var mip_8: MipWrite;
+    @group(0) @binding(11)
+    var mip_9: MipWrite;
+    @group(0) @binding(12)
+    var mip_10: MipWrite;
+    @group(0) @binding(13)
+    var mip_11: MipWrite;
+    @group(0) @binding(14)
+    var mip_12: MipWrite;
 }
 
 @if(SPLIT_BIND_GROUP_FIRST) {
-@group(0) @binding(8) var mip_6: MipWrite;
+    @group(0) @binding(8)
+    var mip_6: MipWrite;
 }
 
 @if(SPLIT_BIND_GROUP_SECOND) {
-@group(0) @binding(2) var mip_6: SourceTexture;
-@group(0) @binding(3) var mip_7: MipWrite;
-@group(0) @binding(4) var mip_8: MipWrite;
-@group(0) @binding(5) var mip_9: MipWrite;
-@group(0) @binding(6) var mip_10: MipWrite;
-@group(0) @binding(7) var mip_11: MipWrite;
-@group(0) @binding(8) var mip_12: MipWrite;
+    @group(0) @binding(2)
+    var mip_6: SourceTexture;
+    @group(0) @binding(3)
+    var mip_7: MipWrite;
+    @group(0) @binding(4)
+    var mip_8: MipWrite;
+    @group(0) @binding(5)
+    var mip_9: MipWrite;
+    @group(0) @binding(6)
+    var mip_10: MipWrite;
+    @group(0) @binding(7)
+    var mip_11: MipWrite;
+    @group(0) @binding(8)
+    var mip_12: MipWrite;
 }
 
-struct Constants { mips: u32, inverse_input_size: vec2f }
+struct Constants {
+    mips: u32,
+    inverse_input_size: vec2f,
+}
 
 var<workgroup> spd_intermediate_r: array<array<f32, 16>, 16>;
 var<workgroup> spd_intermediate_g: array<array<f32, 16>, 16>;
 var<workgroup> spd_intermediate_b: array<array<f32, 16>, 16>;
 var<workgroup> spd_intermediate_a: array<array<f32, 16>, 16>;
 
-@compute
-@workgroup_size(256, 1, 1)
+@compute @workgroup_size(256, 1, 1)
 fn downsample_first(
     @builtin(workgroup_id) workgroup_id: vec3u,
-    @builtin(local_invocation_index) local_invocation_index: u32
+    @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
-
     let sub_xy = remap_for_wave_reduction(local_invocation_index % 64u);
     let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) % 2u);
     let y = sub_xy.y + 8u * (local_invocation_index >> 7u);
 
-    spd_downsample_mips_0_1(x, y, workgroup_id.xy, local_invocation_index, constants.mips, workgroup_id.z);
+    spd_downsample_mips_0_1(
+        x,
+        y,
+        workgroup_id.xy,
+        local_invocation_index,
+        constants.mips,
+        workgroup_id.z,
+    );
 
-    spd_downsample_next_four(x, y, workgroup_id.xy, local_invocation_index, 2u, constants.mips, workgroup_id.z);
+    spd_downsample_next_four(
+        x,
+        y,
+        workgroup_id.xy,
+        local_invocation_index,
+        2u,
+        constants.mips,
+        workgroup_id.z,
+    );
 }
 
 // TODO: Once wgpu supports globallycoherent buffers, make it actually a single pass
-@compute
-@workgroup_size(256, 1, 1)
+@compute @workgroup_size(256, 1, 1)
 fn downsample_second(
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
@@ -230,10 +268,25 @@ fn downsample_second(
 
     spd_downsample_mips_6_7(x, y, constants.mips, workgroup_id.z);
 
-    spd_downsample_next_four(x, y, vec2(0u), local_invocation_index, 8u, constants.mips, workgroup_id.z);
+    spd_downsample_next_four(
+        x,
+        y,
+        vec2(0u),
+        local_invocation_index,
+        8u,
+        constants.mips,
+        workgroup_id.z,
+    );
 }
 
-fn spd_downsample_mips_0_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, mips: u32, slice: u32) {
+fn spd_downsample_mips_0_1(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+    mips: u32,
+    slice: u32,
+) {
     var v: array<vec4f, 4>;
 
     var tex = (workgroup_id * 64u) + vec2(x * 2u, y * 2u);
@@ -256,96 +309,131 @@ fn spd_downsample_mips_0_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
     v[3] = spd_reduce_load_source_image(tex, slice);
     spd_store(pix, v[3], 0u, slice);
 
-    if mips <= 1u { return; }
-
-@if(SUBGROUP_SUPPORT) {
-    v[0] = spd_reduce_quad(v[0]);
-    v[1] = spd_reduce_quad(v[1]);
-    v[2] = spd_reduce_quad(v[2]);
-    v[3] = spd_reduce_quad(v[3]);
-
-    if local_invocation_index % 4u == 0u {
-        spd_store((workgroup_id * 16u) + vec2(x / 2u, y / 2u), v[0], 1u, slice);
-        spd_store_intermediate(x / 2u, y / 2u, v[0]);
-
-        spd_store((workgroup_id * 16u) + vec2(x / 2u + 8u, y / 2u), v[1], 1u, slice);
-        spd_store_intermediate(x / 2u + 8u, y / 2u, v[1]);
-
-        spd_store((workgroup_id * 16u) + vec2(x / 2u, y / 2u + 8u), v[2], 1u, slice);
-        spd_store_intermediate(x / 2u, y / 2u + 8u, v[2]);
-
-        spd_store((workgroup_id * 16u) + vec2(x / 2u + 8u, y / 2u + 8u), v[3], 1u, slice);
-        spd_store_intermediate(x / 2u + 8u, y / 2u + 8u, v[3]);
+    if mips <= 1u {
+        return;
     }
-}
-@else {
-    for (var i = 0u; i < 4u; i++) {
-        spd_store_intermediate(x, y, v[i]);
-        workgroupBarrier();
-        if local_invocation_index < 64u {
-            v[i] = spd_reduce_intermediate(
-                vec2(x * 2u + 0u, y * 2u + 0u),
-                vec2(x * 2u + 1u, y * 2u + 0u),
-                vec2(x * 2u + 0u, y * 2u + 1u),
-                vec2(x * 2u + 1u, y * 2u + 1u),
-            );
-            spd_store(vec2(workgroup_id * 16) + vec2(x + (i % 2u) * 8u, y + (i / 2u) * 8u), v[i], 1u, slice);
+
+    @if(SUBGROUP_SUPPORT) {
+        v[0] = spd_reduce_quad(v[0]);
+        v[1] = spd_reduce_quad(v[1]);
+        v[2] = spd_reduce_quad(v[2]);
+        v[3] = spd_reduce_quad(v[3]);
+
+        if local_invocation_index % 4u == 0u {
+            spd_store((workgroup_id * 16u) + vec2(x / 2u, y / 2u), v[0], 1u, slice);
+            spd_store_intermediate(x / 2u, y / 2u, v[0]);
+
+            spd_store((workgroup_id * 16u) + vec2(x / 2u + 8u, y / 2u), v[1], 1u, slice);
+            spd_store_intermediate(x / 2u + 8u, y / 2u, v[1]);
+
+            spd_store((workgroup_id * 16u) + vec2(x / 2u, y / 2u + 8u), v[2], 1u, slice);
+            spd_store_intermediate(x / 2u, y / 2u + 8u, v[2]);
+
+            spd_store((workgroup_id * 16u) + vec2(x / 2u + 8u, y / 2u + 8u), v[3], 1u, slice);
+            spd_store_intermediate(x / 2u + 8u, y / 2u + 8u, v[3]);
         }
-        workgroupBarrier();
-    }
+    } @else {
+        for(var i = 0u; i < 4u; i++) {
+            spd_store_intermediate(x, y, v[i]);
+            workgroupBarrier();
+            if local_invocation_index < 64u {
+                v[i] = spd_reduce_intermediate(
+                        vec2(x * 2u + 0u, y * 2u + 0u),
+                        vec2(x * 2u + 1u, y * 2u + 0u),
+                        vec2(x * 2u + 0u, y * 2u + 1u),
+                        vec2(x * 2u + 1u, y * 2u + 1u),
+                    );
+                spd_store(
+                    vec2(workgroup_id * 16) + vec2(x + (i % 2u) * 8u, y + (i / 2u) * 8u),
+                    v[i],
+                    1u,
+                    slice,
+                );
+            }
+            workgroupBarrier();
+        }
 
-    if local_invocation_index < 64u {
-        spd_store_intermediate(x + 0u, y + 0u, v[0]);
-        spd_store_intermediate(x + 8u, y + 0u, v[1]);
-        spd_store_intermediate(x + 0u, y + 8u, v[2]);
-        spd_store_intermediate(x + 8u, y + 8u, v[3]);
+        if local_invocation_index < 64u {
+            spd_store_intermediate(x + 0u, y + 0u, v[0]);
+            spd_store_intermediate(x + 8u, y + 0u, v[1]);
+            spd_store_intermediate(x + 0u, y + 8u, v[2]);
+            spd_store_intermediate(x + 8u, y + 8u, v[3]);
+        }
     }
 }
-}
 
-fn spd_downsample_next_four(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, mips: u32, slice: u32) {
-    if mips <= base_mip { return; }
+fn spd_downsample_next_four(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+    base_mip: u32,
+    mips: u32,
+    slice: u32,
+) {
+    if mips <= base_mip {
+        return;
+    }
     workgroupBarrier();
     spd_downsample_mip_2(x, y, workgroup_id, local_invocation_index, base_mip, slice);
 
-    if mips <= base_mip + 1u { return; }
+    if mips <= base_mip + 1u {
+        return;
+    }
     workgroupBarrier();
     spd_downsample_mip_3(x, y, workgroup_id, local_invocation_index, base_mip + 1u, slice);
 
-    if mips <= base_mip + 2u { return; }
+    if mips <= base_mip + 2u {
+        return;
+    }
     workgroupBarrier();
     spd_downsample_mip_4(x, y, workgroup_id, local_invocation_index, base_mip + 2u, slice);
 
-    if mips <= base_mip + 3u { return; }
+    if mips <= base_mip + 3u {
+        return;
+    }
     workgroupBarrier();
     spd_downsample_mip_5(x, y, workgroup_id, local_invocation_index, base_mip + 3u, slice);
 }
 
-fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
-@if(SUBGROUP_SUPPORT) {
-    var v = spd_load_intermediate(x, y);
-    v = spd_reduce_quad(v);
-    if local_invocation_index % 4u == 0u {
-        spd_store((workgroup_id * 8u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
-        spd_store_intermediate(x + (y / 2u) % 2u, y, v);
+fn spd_downsample_mip_2(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+    base_mip: u32,
+    slice: u32,
+) {
+    @if(SUBGROUP_SUPPORT) {
+        var v = spd_load_intermediate(x, y);
+        v = spd_reduce_quad(v);
+        if local_invocation_index % 4u == 0u {
+            spd_store((workgroup_id * 8u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
+            spd_store_intermediate(x + (y / 2u) % 2u, y, v);
+        }
+    } @else {
+        if local_invocation_index < 64u {
+            let v = spd_reduce_intermediate(
+                    vec2(x * 2u + 0u, y * 2u + 0u),
+                    vec2(x * 2u + 1u, y * 2u + 0u),
+                    vec2(x * 2u + 0u, y * 2u + 1u),
+                    vec2(x * 2u + 1u, y * 2u + 1u),
+                );
+            spd_store((workgroup_id * 8u) + vec2(x, y), v, base_mip, slice);
+            spd_store_intermediate(x * 2u + y % 2u, y * 2u, v);
+        }
     }
-}
-@else {
-    if local_invocation_index < 64u {
-        let v = spd_reduce_intermediate(
-            vec2(x * 2u + 0u, y * 2u + 0u),
-            vec2(x * 2u + 1u, y * 2u + 0u),
-            vec2(x * 2u + 0u, y * 2u + 1u),
-            vec2(x * 2u + 1u, y * 2u + 1u),
-        );
-        spd_store((workgroup_id * 8u) + vec2(x, y), v, base_mip, slice);
-        spd_store_intermediate(x * 2u + y % 2u, y * 2u, v);
-    }
-}
 }
 
-fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
-@if(SUBGROUP_SUPPORT)
+fn spd_downsample_mip_3(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+    base_mip: u32,
+    slice: u32,
+) {
+    @if(SUBGROUP_SUPPORT)
     if local_invocation_index < 64u {
         var v = spd_load_intermediate(x * 2u + y % 2u, y * 2u);
         v = spd_reduce_quad(v);
@@ -354,21 +442,29 @@ fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             spd_store_intermediate(x * 2u + y / 2u, y * 2u, v);
         }
     }
-@else   // SUBGROUP_SUPPORT
+    @else
+    // SUBGROUP_SUPPORT
     if local_invocation_index < 16u {
         let v = spd_reduce_intermediate(
-            vec2(x * 4u + 0u + 0u, y * 4u + 0u),
-            vec2(x * 4u + 2u + 0u, y * 4u + 0u),
-            vec2(x * 4u + 0u + 1u, y * 4u + 2u),
-            vec2(x * 4u + 2u + 1u, y * 4u + 2u),
-        );
+                vec2(x * 4u + 0u + 0u, y * 4u + 0u),
+                vec2(x * 4u + 2u + 0u, y * 4u + 0u),
+                vec2(x * 4u + 0u + 1u, y * 4u + 2u),
+                vec2(x * 4u + 2u + 1u, y * 4u + 2u),
+            );
         spd_store((workgroup_id * 4u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x * 4u + y, y * 4u, v);
     }
 }
 
-fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
-@if(SUBGROUP_SUPPORT)
+fn spd_downsample_mip_4(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+    base_mip: u32,
+    slice: u32,
+) {
+    @if(SUBGROUP_SUPPORT)
     if local_invocation_index < 16u {
         var v = spd_load_intermediate(x * 4u + y, y * 4u);
         v = spd_reduce_quad(v);
@@ -377,21 +473,29 @@ fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             spd_store_intermediate(x / 2u + y, 0u, v);
         }
     }
-@else   // SUBGROUP_SUPPORT
+    @else
+    // SUBGROUP_SUPPORT
     if local_invocation_index < 4u {
         let v = spd_reduce_intermediate(
-            vec2(x * 8u + 0u + 0u + y * 2u, y * 8u + 0u),
-            vec2(x * 8u + 4u + 0u + y * 2u, y * 8u + 0u),
-            vec2(x * 8u + 0u + 1u + y * 2u, y * 8u + 4u),
-            vec2(x * 8u + 4u + 1u + y * 2u, y * 8u + 4u),
-        );
+                vec2(x * 8u + 0u + 0u + y * 2u, y * 8u + 0u),
+                vec2(x * 8u + 4u + 0u + y * 2u, y * 8u + 0u),
+                vec2(x * 8u + 0u + 1u + y * 2u, y * 8u + 4u),
+                vec2(x * 8u + 4u + 1u + y * 2u, y * 8u + 4u),
+            );
         spd_store((workgroup_id * 2u) + vec2(x, y), v, base_mip, slice);
         spd_store_intermediate(x + y * 2u, 0u, v);
     }
 }
 
-fn spd_downsample_mip_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32) {
-@if(SUBGROUP_SUPPORT)
+fn spd_downsample_mip_5(
+    x: u32,
+    y: u32,
+    workgroup_id: vec2u,
+    local_invocation_index: u32,
+    base_mip: u32,
+    slice: u32,
+) {
+    @if(SUBGROUP_SUPPORT)
     if local_invocation_index < 4u {
         var v = spd_load_intermediate(local_invocation_index, 0u);
         v = spd_reduce_quad(v);
@@ -399,7 +503,8 @@ fn spd_downsample_mip_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
             spd_store(workgroup_id, v, base_mip, slice);
         }
     }
-@else   // SUBGROUP_SUPPORT
+    @else
+    // SUBGROUP_SUPPORT
     if local_invocation_index < 1u {
         let v = spd_reduce_intermediate(vec2(0u, 0u), vec2(1u, 0u), vec2(2u, 0u), vec2(3u, 0u));
         spd_store(workgroup_id, v, base_mip, slice);
@@ -410,48 +515,50 @@ fn spd_downsample_mips_6_7(x: u32, y: u32, mips: u32, slice: u32) {
     var tex = vec2(x * 4u + 0u, y * 4u + 0u);
     var pix = vec2(x * 2u + 0u, y * 2u + 0u);
     let v0 = spd_reduce_load_4(
-        vec2(x * 4u + 0u, y * 4u + 0u),
-        vec2(x * 4u + 1u, y * 4u + 0u),
-        vec2(x * 4u + 0u, y * 4u + 1u),
-        vec2(x * 4u + 1u, y * 4u + 1u),
-        slice
-    );
+            vec2(x * 4u + 0u, y * 4u + 0u),
+            vec2(x * 4u + 1u, y * 4u + 0u),
+            vec2(x * 4u + 0u, y * 4u + 1u),
+            vec2(x * 4u + 1u, y * 4u + 1u),
+            slice,
+        );
     spd_store(pix, v0, 6u, slice);
 
     tex = vec2(x * 4u + 2u, y * 4u + 0u);
     pix = vec2(x * 2u + 1u, y * 2u + 0u);
     let v1 = spd_reduce_load_4(
-        vec2(x * 4u + 2u, y * 4u + 0u),
-        vec2(x * 4u + 3u, y * 4u + 0u),
-        vec2(x * 4u + 2u, y * 4u + 1u),
-        vec2(x * 4u + 3u, y * 4u + 1u),
-        slice
-    );
+            vec2(x * 4u + 2u, y * 4u + 0u),
+            vec2(x * 4u + 3u, y * 4u + 0u),
+            vec2(x * 4u + 2u, y * 4u + 1u),
+            vec2(x * 4u + 3u, y * 4u + 1u),
+            slice,
+        );
     spd_store(pix, v1, 6u, slice);
 
     tex = vec2(x * 4u + 0u, y * 4u + 2u);
     pix = vec2(x * 2u + 0u, y * 2u + 1u);
     let v2 = spd_reduce_load_4(
-        vec2(x * 4u + 0u, y * 4u + 2u),
-        vec2(x * 4u + 1u, y * 4u + 2u),
-        vec2(x * 4u + 0u, y * 4u + 3u),
-        vec2(x * 4u + 1u, y * 4u + 3u),
-        slice
-    );
+            vec2(x * 4u + 0u, y * 4u + 2u),
+            vec2(x * 4u + 1u, y * 4u + 2u),
+            vec2(x * 4u + 0u, y * 4u + 3u),
+            vec2(x * 4u + 1u, y * 4u + 3u),
+            slice,
+        );
     spd_store(pix, v2, 6u, slice);
 
     tex = vec2(x * 4u + 2u, y * 4u + 2u);
     pix = vec2(x * 2u + 1u, y * 2u + 1u);
     let v3 = spd_reduce_load_4(
-        vec2(x * 4u + 2u, y * 4u + 2u),
-        vec2(x * 4u + 3u, y * 4u + 2u),
-        vec2(x * 4u + 2u, y * 4u + 3u),
-        vec2(x * 4u + 3u, y * 4u + 3u),
-        slice
-    );
+            vec2(x * 4u + 2u, y * 4u + 2u),
+            vec2(x * 4u + 3u, y * 4u + 2u),
+            vec2(x * 4u + 2u, y * 4u + 3u),
+            vec2(x * 4u + 3u, y * 4u + 3u),
+            slice,
+        );
     spd_store(pix, v3, 6u, slice);
 
-    if mips < 7u { return; }
+    if mips < 7u {
+        return;
+    }
 
     let v = spd_reduce_4(v0, v1, v2, v3);
     spd_store(vec2(x, y), v, 7u, slice);
@@ -481,19 +588,20 @@ fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
     @if(SPLIT_BIND_GROUP_SECOND)
     let result = textureSampleLevel(mip_6, sampler_linear_clamp, texture_coord, slice, 0.0);
 
-@if(SRGB_CONVERSION)
+    @if(SRGB_CONVERSION)
     return vec4(
-        srgb_from_linear(result.r),
-        srgb_from_linear(result.g),
-        srgb_from_linear(result.b),
-        result.a
-    );
-@else   // SRGB_CONVERSION
+            srgb_from_linear(result.r),
+            srgb_from_linear(result.g),
+            srgb_from_linear(result.b),
+            result.a,
+        );
+    @else
+    // SRGB_CONVERSION
     return result;
-
 }
 
-@else   // ARRAY_TEXTURE
+@else
+// ARRAY_TEXTURE
 fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
     let texture_coord = (vec2f(uv) + 0.5) * constants.inverse_input_size;
 
@@ -504,126 +612,131 @@ fn spd_reduce_load_source_image(uv: vec2u, slice: u32) -> vec4f {
     @if(SPLIT_BIND_GROUP_SECOND)
     let result = textureSampleLevel(mip_6, sampler_linear_clamp, texture_coord, 0.0);
 
-@if(SRGB_CONVERSION)
+    @if(SRGB_CONVERSION)
     return vec4(
-        srgb_from_linear(result.r),
-        srgb_from_linear(result.g),
-        srgb_from_linear(result.b),
-        result.a
-    );
-@else   // SRGB_CONVERSION
+            srgb_from_linear(result.r),
+            srgb_from_linear(result.g),
+            srgb_from_linear(result.b),
+            result.a,
+        );
+    @else
+    // SRGB_CONVERSION
     return result;
-
 }
 
 @if(ARRAY_TEXTURE)
 fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
-    if mip >= constants.mips { return; }
+    if mip >= constants.mips {
+        return;
+    }
     switch mip {
         @if(COMBINE_BIND_GROUP)
-        case 0u: { textureStore(mip_1, pix, slice, value); }
+        case 0u { textureStore(mip_1, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 1u: { textureStore(mip_2, pix, slice, value); }
+        case 1u { textureStore(mip_2, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 2u: { textureStore(mip_3, pix, slice, value); }
+        case 2u { textureStore(mip_3, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 3u: { textureStore(mip_4, pix, slice, value); }
+        case 3u { textureStore(mip_4, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 4u: { textureStore(mip_5, pix, slice, value); }
+        case 4u { textureStore(mip_5, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 5u: { textureStore(mip_6, pix, slice, value); }
+        case 5u { textureStore(mip_6, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 6u: { textureStore(mip_7, pix, slice, value); }
+        case 6u { textureStore(mip_7, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 7u: { textureStore(mip_8, pix, slice, value); }
+        case 7u { textureStore(mip_8, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 8u: { textureStore(mip_9, pix, slice, value); }
+        case 8u { textureStore(mip_9, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 9u: { textureStore(mip_10, pix, slice, value); }
+        case 9u { textureStore(mip_10, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 10u: { textureStore(mip_11, pix, slice, value); }
+        case 10u { textureStore(mip_11, pix, slice, value); }
         @if(COMBINE_BIND_GROUP)
-        case 11u: { textureStore(mip_12, pix, slice, value); }
+        case 11u { textureStore(mip_12, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 0u: { textureStore(mip_1, pix, slice, value); }
+        case 0u { textureStore(mip_1, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 1u: { textureStore(mip_2, pix, slice, value); }
+        case 1u { textureStore(mip_2, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 2u: { textureStore(mip_3, pix, slice, value); }
+        case 2u { textureStore(mip_3, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 3u: { textureStore(mip_4, pix, slice, value); }
+        case 3u { textureStore(mip_4, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 4u: { textureStore(mip_5, pix, slice, value); }
+        case 4u { textureStore(mip_5, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 5u: { textureStore(mip_6, pix, slice, value); }
+        case 5u { textureStore(mip_6, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 6u: { textureStore(mip_7, pix, slice, value); }
+        case 6u { textureStore(mip_7, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 7u: { textureStore(mip_8, pix, slice, value); }
+        case 7u { textureStore(mip_8, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 8u: { textureStore(mip_9, pix, slice, value); }
+        case 8u { textureStore(mip_9, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 9u: { textureStore(mip_10, pix, slice, value); }
+        case 9u { textureStore(mip_10, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 10u: { textureStore(mip_11, pix, slice, value); }
+        case 10u { textureStore(mip_11, pix, slice, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 11u: { textureStore(mip_12, pix, slice, value); }
-        default: {}
+        case 11u { textureStore(mip_12, pix, slice, value); }
+        default {}
     }
 }
-@else   // ARRAY_TEXTURE
+@else
+// ARRAY_TEXTURE
 fn spd_store(pix: vec2u, value: vec4f, mip: u32, slice: u32) {
-    if mip >= constants.mips { return; }
+    if mip >= constants.mips {
+        return;
+    }
     switch mip {
         @if(COMBINE_BIND_GROUP)
-        case 0u: { textureStore(mip_1, pix, value); }
+        case 0u { textureStore(mip_1, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 1u: { textureStore(mip_2, pix, value); }
+        case 1u { textureStore(mip_2, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 2u: { textureStore(mip_3, pix, value); }
+        case 2u { textureStore(mip_3, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 3u: { textureStore(mip_4, pix, value); }
+        case 3u { textureStore(mip_4, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 4u: { textureStore(mip_5, pix, value); }
+        case 4u { textureStore(mip_5, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 5u: { textureStore(mip_6, pix, value); }
+        case 5u { textureStore(mip_6, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 6u: { textureStore(mip_7, pix, value); }
+        case 6u { textureStore(mip_7, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 7u: { textureStore(mip_8, pix, value); }
+        case 7u { textureStore(mip_8, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 8u: { textureStore(mip_9, pix, value); }
+        case 8u { textureStore(mip_9, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 9u: { textureStore(mip_10, pix, value); }
+        case 9u { textureStore(mip_10, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 10u: { textureStore(mip_11, pix, value); }
+        case 10u { textureStore(mip_11, pix, value); }
         @if(COMBINE_BIND_GROUP)
-        case 11u: { textureStore(mip_12, pix, value); }
+        case 11u { textureStore(mip_12, pix, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 0u: { textureStore(mip_1, pix, value); }
+        case 0u { textureStore(mip_1, pix, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 1u: { textureStore(mip_2, pix, value); }
+        case 1u { textureStore(mip_2, pix, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 2u: { textureStore(mip_3, pix, value); }
+        case 2u { textureStore(mip_3, pix, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 3u: { textureStore(mip_4, pix, value); }
+        case 3u { textureStore(mip_4, pix, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 4u: { textureStore(mip_5, pix, value); }
+        case 4u { textureStore(mip_5, pix, value); }
         @if(SPLIT_BIND_GROUP_FIRST)
-        case 5u: { textureStore(mip_6, pix, value); }
+        case 5u { textureStore(mip_6, pix, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 6u: { textureStore(mip_7, pix, value); }
+        case 6u { textureStore(mip_7, pix, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 7u: { textureStore(mip_8, pix, value); }
+        case 7u { textureStore(mip_8, pix, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 8u: { textureStore(mip_9, pix, value); }
+        case 8u { textureStore(mip_9, pix, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 9u: { textureStore(mip_10, pix, value); }
+        case 9u { textureStore(mip_10, pix, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 10u: { textureStore(mip_11, pix, value); }
+        case 10u { textureStore(mip_11, pix, value); }
         @if(SPLIT_BIND_GROUP_SECOND)
-        case 11u: { textureStore(mip_12, pix, value); }
-        default: {}
+        case 11u { textureStore(mip_12, pix, value); }
+        default {}
     }
 }
 
@@ -635,7 +748,12 @@ fn spd_store_intermediate(x: u32, y: u32, value: vec4f) {
 }
 
 fn spd_load_intermediate(x: u32, y: u32) -> vec4f {
-    return vec4(spd_intermediate_r[x][y], spd_intermediate_g[x][y], spd_intermediate_b[x][y], spd_intermediate_a[x][y]);
+    return vec4(
+            spd_intermediate_r[x][y],
+            spd_intermediate_g[x][y],
+            spd_intermediate_b[x][y],
+            spd_intermediate_a[x][y],
+        );
 }
 
 fn spd_reduce_intermediate(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u) -> vec4f {
@@ -649,39 +767,40 @@ fn spd_reduce_intermediate(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u) -> vec4f 
 @if(ARRAY_TEXTURE)
 fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> vec4f {
     @if(COMBINE_BIND_GROUP) {
-    let v0 = textureLoad(mip_6, i0, slice);
-    let v1 = textureLoad(mip_6, i1, slice);
-    let v2 = textureLoad(mip_6, i2, slice);
-    let v3 = textureLoad(mip_6, i3, slice);
-    return spd_reduce_4(v0, v1, v2, v3);
+        let v0 = textureLoad(mip_6, i0, slice);
+        let v1 = textureLoad(mip_6, i1, slice);
+        let v2 = textureLoad(mip_6, i2, slice);
+        let v3 = textureLoad(mip_6, i3, slice);
+        return spd_reduce_4(v0, v1, v2, v3);
     }
     @if(SPLIT_BIND_GROUP_FIRST)
     return vec4(0.0, 0.0, 0.0, 0.0);
     @if(SPLIT_BIND_GROUP_SECOND) {
-    let v0 = textureLoad(mip_6, i0, slice, 0);
-    let v1 = textureLoad(mip_6, i1, slice, 0);
-    let v2 = textureLoad(mip_6, i2, slice, 0);
-    let v3 = textureLoad(mip_6, i3, slice, 0);
-    return spd_reduce_4(v0, v1, v2, v3);
+        let v0 = textureLoad(mip_6, i0, slice, 0);
+        let v1 = textureLoad(mip_6, i1, slice, 0);
+        let v2 = textureLoad(mip_6, i2, slice, 0);
+        let v3 = textureLoad(mip_6, i3, slice, 0);
+        return spd_reduce_4(v0, v1, v2, v3);
     }
 }
-@else   // ARRAY_TEXTURE
+@else
+// ARRAY_TEXTURE
 fn spd_reduce_load_4(i0: vec2u, i1: vec2u, i2: vec2u, i3: vec2u, slice: u32) -> vec4f {
     @if(COMBINE_BIND_GROUP) {
-    let v0 = textureLoad(mip_6, i0);
-    let v1 = textureLoad(mip_6, i1);
-    let v2 = textureLoad(mip_6, i2);
-    let v3 = textureLoad(mip_6, i3);
-    return spd_reduce_4(v0, v1, v2, v3);
+        let v0 = textureLoad(mip_6, i0);
+        let v1 = textureLoad(mip_6, i1);
+        let v2 = textureLoad(mip_6, i2);
+        let v3 = textureLoad(mip_6, i3);
+        return spd_reduce_4(v0, v1, v2, v3);
     }
     @if(SPLIT_BIND_GROUP_FIRST)
     return vec4(0.0, 0.0, 0.0, 0.0);
     @if(SPLIT_BIND_GROUP_SECOND) {
-    let v0 = textureLoad(mip_6, i0, 0);
-    let v1 = textureLoad(mip_6, i1, 0);
-    let v2 = textureLoad(mip_6, i2, 0);
-    let v3 = textureLoad(mip_6, i3, 0);
-    return spd_reduce_4(v0, v1, v2, v3);
+        let v0 = textureLoad(mip_6, i0, 0);
+        let v1 = textureLoad(mip_6, i1, 0);
+        let v2 = textureLoad(mip_6, i2, 0);
+        let v3 = textureLoad(mip_6, i3, 0);
+        return spd_reduce_4(v0, v1, v2, v3);
     }
 }
 

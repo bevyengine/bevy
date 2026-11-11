@@ -10,13 +10,16 @@ fn get_aabb_size_in_pixels(aabb: vec4<f32>, depth_pyramid: texture_2d<f32>) -> v
 fn get_occluder_depth(
     aabb: vec4<f32>,
     aabb_pixel_size: vec2<f32>,
-    depth_pyramid: texture_2d<f32>
+    depth_pyramid: texture_2d<f32>,
 ) -> f32 {
     let aabb_width_pixels = aabb_pixel_size.x;
     let aabb_height_pixels = aabb_pixel_size.y;
 
     let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
-    let depth_level = max(0, i32(ceil(log2(max(aabb_width_pixels, aabb_height_pixels))))); // TODO: Naga doesn't like this being a u32
+    let depth_level = max(
+            0,
+            i32(ceil(log2(max(aabb_width_pixels, aabb_height_pixels)))),
+        ); // TODO: Naga doesn't like this being a u32
     let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
     let max_texel = depth_pyramid_size - 1.0;
     let aabb_top_left = aabb.xy * depth_pyramid_size;

@@ -2,24 +2,21 @@
 
 import package::{
     meshlet::bindings::{
-        meshlet_cluster_meshlet_ids,
-        meshlets,
-        meshlet_cluster_instance_ids,
-        meshlet_instance_uniforms,
-        meshlet_raster_clusters,
-        meshlet_previous_raster_counts,
-        meshlet_software_raster_cluster_count,
-        meshlet_visibility_buffer,
-        view,
-        get_meshlet_vertex_count,
         get_meshlet_triangle_count,
+        get_meshlet_vertex_count,
         get_meshlet_vertex_id,
         get_meshlet_vertex_position,
+        meshlet_cluster_instance_ids,
+        meshlet_cluster_meshlet_ids,
+        meshlet_instance_uniforms,
+        meshlet_previous_raster_counts,
+        meshlet_raster_clusters,
+        meshlet_software_raster_cluster_count,
+        meshlet_visibility_buffer,
+        meshlets,
+        view
     },
-    render::{
-        mesh_functions::mesh_position_local_to_world,
-        view_transformations::ndc_to_uv,
-    },
+    render::{mesh_functions::mesh_position_local_to_world, view_transformations::ndc_to_uv}
 };
 import bevy_render::maths::affine3_to_square;
 
@@ -27,8 +24,8 @@ import bevy_render::maths::affine3_to_square;
 
 var<workgroup> viewport_vertices: array<vec3f, 256>;
 
-@compute
-@workgroup_size(128, 1, 1) // 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup
+@compute @workgroup_size(128, 1, 1)
+// 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup
 fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32,
@@ -37,10 +34,12 @@ fn rasterize_cluster(
 ) {
     var workgroup_id_1d = workgroup_id.x;
 
-@if(MESHLET_2D_DISPATCH) {
-    workgroup_id_1d += workgroup_id.y * num_workgroups.x;
-    if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
-}
+    @if(MESHLET_2D_DISPATCH) {
+        workgroup_id_1d += workgroup_id.y * num_workgroups.x;
+        if workgroup_id_1d >= meshlet_software_raster_cluster_count {
+            return;
+        }
+    }
 
     let cluster_id = workgroup_id_1d + meshlet_previous_raster_counts[0];
     let instanced_offset = meshlet_raster_clusters[cluster_id];
@@ -50,13 +49,16 @@ fn rasterize_cluster(
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
     // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet
-    for (var i = 0u; i <= 128u; i += 128u) {
+    for(var i = 0u; i <= 128u; i += 128u) {
         let vertex_id = local_invocation_index + i;
         if vertex_id < get_meshlet_vertex_count(&meshlet) {
             let vertex_position = get_meshlet_vertex_position(&meshlet, vertex_id);
 
             // Project vertex to viewport space
-            let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
+            let world_position = mesh_position_local_to_world(
+                    world_from_local,
+                    vec4(vertex_position, 1.0),
+                );
             let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
             let ndc_position = clip_position.xyz / clip_position.w;
             let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
@@ -69,9 +71,15 @@ fn rasterize_cluster(
 
     // Load 1 triangle's worth of vertex data per thread
     let triangle_id = local_invocation_index;
-    if triangle_id >= get_meshlet_triangle_count(&meshlet) { return; }
+    if triangle_id >= get_meshlet_triangle_count(&meshlet) {
+        return;
+    }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
-    let vertex_ids = vec3(get_meshlet_vertex_id(index_ids[0]), get_meshlet_vertex_id(index_ids[1]), get_meshlet_vertex_id(index_ids[2]));
+    let vertex_ids = vec3(
+            get_meshlet_vertex_id(index_ids[0]),
+            get_meshlet_vertex_id(index_ids[1]),
+            get_meshlet_vertex_id(index_ids[2]),
+        );
     let vertex_0 = viewport_vertices[vertex_ids[2]];
     let vertex_1 = viewport_vertices[vertex_ids[1]];
     let vertex_2 = viewport_vertices[vertex_ids[0]];
@@ -79,7 +87,9 @@ fn rasterize_cluster(
 
     // Backface culling
     let triangle_double_area = edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
-    if triangle_double_area <= 0.0 { return; }
+    if triangle_double_area <= 0.0 {
+        return;
+    }
 
     // Setup triangle gradients
     let w_x = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
@@ -101,10 +111,10 @@ fn rasterize_cluster(
     // Setup initial triangle equations
     let starting_pixel = vec2(min_x, min_y) + 0.5;
     var w_row = vec3(
-        edge_function(vertex_1.xy, vertex_2.xy, starting_pixel),
-        edge_function(vertex_2.xy, vertex_0.xy, starting_pixel),
-        edge_function(vertex_0.xy, vertex_1.xy, starting_pixel),
-    );
+            edge_function(vertex_1.xy, vertex_2.xy, starting_pixel),
+            edge_function(vertex_2.xy, vertex_0.xy, starting_pixel),
+            edge_function(vertex_0.xy, vertex_1.xy, starting_pixel),
+        );
     var z_row = dot(vertices_z, w_row);
 
     // Rasterize triangle
@@ -114,7 +124,7 @@ fn rasterize_cluster(
         let open_edge = edge_012 < vec3(0.0);
         let inverse_edge_012 = select(1.0 / edge_012, vec3(1e8), edge_012 == vec3(0.0));
         let max_x_diff = vec3(max_x - min_x);
-        for (var y = min_y; y <= max_y; y += 1.0) {
+        for(var y = min_y; y <= max_y; y += 1.0) {
             // Calculate start and end X interval for pixels in this row within the triangle
             let cross_x = w_row * inverse_edge_012;
             let min_x2 = select(vec3(0.0), cross_x, open_edge);
@@ -128,7 +138,7 @@ fn rasterize_cluster(
             x1 += min_x;
 
             // Iterate scanline X interval
-            for (var x = x0; x <= x1; x += 1.0) {
+            for(var x = x0; x <= x1; x += 1.0) {
                 // Check if point at pixel is within triangle (TODO: this shouldn't be needed, but there's bugs without it)
                 if min3(w[0], w[1], w[2]) >= 0.0 {
                     write_visibility_buffer_pixel(x, y, z, packed_ids);
@@ -145,11 +155,11 @@ fn rasterize_cluster(
         }
     } else {
         // Iterate over every pixel in the triangle's bounding box
-        for (var y = min_y; y <= max_y; y += 1.0) {
+        for(var y = min_y; y <= max_y; y += 1.0) {
             var w = w_row;
             var z = z_row;
 
-            for (var x = min_x; x <= max_x; x += 1.0) {
+            for(var x = min_x; x <= max_x; x += 1.0) {
                 // Check if point at pixel is within triangle
                 if min3(w[0], w[1], w[2]) >= 0.0 {
                     write_visibility_buffer_pixel(x, y, z, packed_ids);

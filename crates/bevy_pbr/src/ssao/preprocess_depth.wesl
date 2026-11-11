@@ -7,24 +7,38 @@
 
 import bevy_render::view::View;
 
-@group(0) @binding(0) var input_depth: texture_depth_2d;
+@group(0) @binding(0)
+var input_depth: texture_depth_2d;
 @if(USE_R16FLOAT) {
-@group(0) @binding(1) var preprocessed_depth_mip0: texture_storage_2d<r16float, write>;
-@group(0) @binding(2) var preprocessed_depth_mip1: texture_storage_2d<r16float, write>;
-@group(0) @binding(3) var preprocessed_depth_mip2: texture_storage_2d<r16float, write>;
-@group(0) @binding(4) var preprocessed_depth_mip3: texture_storage_2d<r16float, write>;
-@group(0) @binding(5) var preprocessed_depth_mip4: texture_storage_2d<r16float, write>;
+    @group(0) @binding(1)
+    var preprocessed_depth_mip0: texture_storage_2d<r16float, write>;
+    @group(0) @binding(2)
+    var preprocessed_depth_mip1: texture_storage_2d<r16float, write>;
+    @group(0) @binding(3)
+    var preprocessed_depth_mip2: texture_storage_2d<r16float, write>;
+    @group(0) @binding(4)
+    var preprocessed_depth_mip3: texture_storage_2d<r16float, write>;
+    @group(0) @binding(5)
+    var preprocessed_depth_mip4: texture_storage_2d<r16float, write>;
 }
 @if(!USE_R16FLOAT) {
-@group(0) @binding(1) var preprocessed_depth_mip0: texture_storage_2d<r32float, write>;
-@group(0) @binding(2) var preprocessed_depth_mip1: texture_storage_2d<r32float, write>;
-@group(0) @binding(3) var preprocessed_depth_mip2: texture_storage_2d<r32float, write>;
-@group(0) @binding(4) var preprocessed_depth_mip3: texture_storage_2d<r32float, write>;
-@group(0) @binding(5) var preprocessed_depth_mip4: texture_storage_2d<r32float, write>;
+    @group(0) @binding(1)
+    var preprocessed_depth_mip0: texture_storage_2d<r32float, write>;
+    @group(0) @binding(2)
+    var preprocessed_depth_mip1: texture_storage_2d<r32float, write>;
+    @group(0) @binding(3)
+    var preprocessed_depth_mip2: texture_storage_2d<r32float, write>;
+    @group(0) @binding(4)
+    var preprocessed_depth_mip3: texture_storage_2d<r32float, write>;
+    @group(0) @binding(5)
+    var preprocessed_depth_mip4: texture_storage_2d<r32float, write>;
 }
-@group(1) @binding(0) var point_clamp_sampler: sampler;
-@group(1) @binding(1) var linear_clamp_sampler: sampler;
-@group(1) @binding(2) var<uniform> view: View;
+@group(1) @binding(0)
+var point_clamp_sampler: sampler;
+@group(1) @binding(1)
+var linear_clamp_sampler: sampler;
+@group(1) @binding(2)
+var<uniform> view: View;
 
 /// Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
@@ -42,15 +56,18 @@ fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     let weight3 = saturate((depth3 - min_depth) * falloff_mul + falloff_add);
     let weight_total = weight0 + weight1 + weight2 + weight3;
 
-    return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
+    return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3))
+        / weight_total;
 }
 
 /// Used to share the depths from the previous MIP level between all invocations in a workgroup
 var<workgroup> previous_mip_depth: array<array<f32, 8>, 8>;
 
-@compute
-@workgroup_size(8, 8, 1)
-fn preprocess_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_id) local_id: vec3<u32>) {
+@compute @workgroup_size(8, 8, 1)
+fn preprocess_depth(
+    @builtin(global_invocation_id) global_id: vec3<u32>,
+    @builtin(local_invocation_id) local_id: vec3<u32>,
+) {
     let base_coordinates = vec2<i32>(global_id.xy);
 
     // MIP 0 - Copy 4 texels from the input depth (per invocation, 8x8 invocations per workgroup)
@@ -80,7 +97,11 @@ fn preprocess_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builti
         let depth2 = previous_mip_depth[local_id.x + 0u][local_id.y + 1u];
         let depth3 = previous_mip_depth[local_id.x + 1u][local_id.y + 1u];
         let depth_mip2 = weighted_average(depth0, depth1, depth2, depth3);
-        textureStore(preprocessed_depth_mip2, base_coordinates / 2i, vec4<f32>(depth_mip2, 0.0, 0.0, 0.0));
+        textureStore(
+            preprocessed_depth_mip2,
+            base_coordinates / 2i,
+            vec4<f32>(depth_mip2, 0.0, 0.0, 0.0),
+        );
         previous_mip_depth[local_id.x][local_id.y] = depth_mip2;
     }
 
@@ -93,7 +114,11 @@ fn preprocess_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builti
         let depth2 = previous_mip_depth[local_id.x + 0u][local_id.y + 2u];
         let depth3 = previous_mip_depth[local_id.x + 2u][local_id.y + 2u];
         let depth_mip3 = weighted_average(depth0, depth1, depth2, depth3);
-        textureStore(preprocessed_depth_mip3, base_coordinates / 4i, vec4<f32>(depth_mip3, 0.0, 0.0, 0.0));
+        textureStore(
+            preprocessed_depth_mip3,
+            base_coordinates / 4i,
+            vec4<f32>(depth_mip3, 0.0, 0.0, 0.0),
+        );
         previous_mip_depth[local_id.x][local_id.y] = depth_mip3;
     }
 
@@ -106,6 +131,10 @@ fn preprocess_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builti
         let depth2 = previous_mip_depth[local_id.x + 0u][local_id.y + 4u];
         let depth3 = previous_mip_depth[local_id.x + 4u][local_id.y + 4u];
         let depth_mip4 = weighted_average(depth0, depth1, depth2, depth3);
-        textureStore(preprocessed_depth_mip4, base_coordinates / 8i, vec4<f32>(depth_mip4, 0.0, 0.0, 0.0));
+        textureStore(
+            preprocessed_depth_mip4,
+            base_coordinates / 8i,
+            vec4<f32>(depth_mip4, 0.0, 0.0, 0.0),
+        );
     }
 }

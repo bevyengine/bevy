@@ -1,13 +1,10 @@
 import bevy_render::{
-    view::ColorGrading,
     color_operations::{hsv_to_rgb, rgb_to_hsv},
     maths::{PI_2, powsafe},
+    view::ColorGrading
 };
 
-import package::tonemapping::lut_bindings::{
-    dt_lut_texture,
-    dt_lut_sampler,
-};
+import package::tonemapping::lut_bindings::{dt_lut_sampler, dt_lut_texture};
 
 /// Half the size of the crossfade region between shadows and midtones and
 /// between midtones and highlights. This value, 0.1, corresponds to 10% of the
@@ -21,13 +18,13 @@ const LEVEL_MARGIN_DIV: f32 = 0.5 / LEVEL_MARGIN;
 fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     // Don't include code that will try to sample from LUTs if tonemap method doesn't require it
     // Allows this file to be imported without necessarily needing the lut texture bindings
-@if(TONEMAP_METHOD_AGX)
+    @if(TONEMAP_METHOD_AGX)
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-@elif(TONEMAP_METHOD_TONY_MC_MAPFACE)
+    @elif(TONEMAP_METHOD_TONY_MC_MAPFACE)
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-@elif(TONEMAP_METHOD_BLENDER_FILMIC)
+    @elif(TONEMAP_METHOD_BLENDER_FILMIC)
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-@else
+    @else
     return vec3(1.0, 0.0, 1.0);
 }
 
@@ -38,21 +35,21 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
 
 fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
-        0.2126, 0.7152, 0.0722,
-        -0.1146, -0.3854, 0.5,
-        0.5, -0.4542, -0.0458
-    );
+            0.2126, 0.7152, 0.0722,
+            -0.1146, -0.3854, 0.5,
+            0.5, -0.4542, -0.0458,
+        );
     return col * m;
 }
 
 fn tonemap_curve(v: f32) -> f32 {
-@if(false) {
-    // Large linear part in the lows, but compresses highs.
-    let c = v + v * v + 0.5 * v * v * v;
-    return c / (1.0 + c);
-} @else {
-    return 1.0 - exp(-v);
-}
+    @if(false) {
+        // Large linear part in the lows, but compresses highs.
+        let c = v + v * v + 0.5 * v * v * v;
+        return c / (1.0 + c);
+    } @else {
+        return 1.0 - exp(-v);
+    }
 }
 
 fn tonemap_curve3_(v: vec3<f32>) -> vec3<f32> {
@@ -70,7 +67,8 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
     let desat_col = mix(boring_color.rgb, ycbcr.xxx, desat);
 
     let tm_luma = tonemap_curve(ycbcr.x);
-    let tm0 = boring_color.rgb * max(0.0, tm_luma / max(1e-5, tonemapping_luminance(boring_color.rgb)));
+    let tm0 = boring_color.rgb
+        * max(0.0, tm_luma / max(1e-5, tonemapping_luminance(boring_color.rgb)));
     let final_mult = 0.97;
     let tm1 = tonemap_curve3_(desat_col);
 
@@ -88,7 +86,10 @@ fn somewhat_boring_display_transform(col: vec3<f32>) -> vec3<f32> {
 const TONY_MC_MAPFACE_LUT_DIMS: f32 = 48.0;
 
 fn sample_tony_mc_mapface_lut(stimulus: vec3<f32>) -> vec3<f32> {
-    var uv = (stimulus / (stimulus + 1.0)) * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS)) + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS);
+    var uv =
+        (stimulus / (stimulus + 1.0))
+        * (f32(TONY_MC_MAPFACE_LUT_DIMS - 1.0) / f32(TONY_MC_MAPFACE_LUT_DIMS))
+        + 0.5 / f32(TONY_MC_MAPFACE_LUT_DIMS);
     return sample_current_lut(saturate(uv)).rgb;
 }
 
@@ -114,17 +115,17 @@ fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
 
     // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
     let rgb_to_rrt = mat3x3<f32>(
-        vec3(0.59719, 0.35458, 0.04823),
-        vec3(0.07600, 0.90834, 0.01566),
-        vec3(0.02840, 0.13383, 0.83777)
-    );
+            vec3(0.59719, 0.35458, 0.04823),
+            vec3(0.07600, 0.90834, 0.01566),
+            vec3(0.02840, 0.13383, 0.83777),
+        );
 
     // ODT_SAT => XYZ => D60_2_D65 => sRGB
     let odt_to_rgb = mat3x3<f32>(
-        vec3(1.60475, -0.53108, -0.07367),
-        vec3(-0.10208, 1.10813, -0.00605),
-        vec3(-0.00327, -0.07276, 1.07602)
-    );
+            vec3(1.60475, -0.53108, -0.07367),
+            vec3(-0.10208, 1.10813, -0.00605),
+            vec3(-0.00327, -0.07276, 1.07602),
+        );
 
     fitted_color *= rgb_to_rrt;
 
@@ -162,25 +163,37 @@ fn saturation(color: vec3<f32>, saturationAmount: f32) -> vec3<f32> {
     Similar to OCIO lg2 AllocationTransform.
     ref[0]
 */
-fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
+fn convertOpenDomainToNormalizedLog2_(
+    color: vec3<f32>,
+    minimum_ev: f32,
+    maximum_ev: f32,
+) -> vec3<f32> {
     let in_midgray = 0.18;
 
     // remove negative before log transform
     var normalized_color = max(vec3(0.0), color);
     // avoid infinite issue with log -- ref[1]
-    normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color  < vec3<f32>(0.00003051757));
+    normalized_color = select(
+            normalized_color,
+            0.00001525878 + normalized_color,
+            normalized_color < vec3<f32>(0.00003051757),
+        );
     normalized_color = clamp(
-        log2(normalized_color / in_midgray),
-        vec3(minimum_ev),
-        vec3(maximum_ev)
-    );
+            log2(normalized_color / in_midgray),
+            vec3(minimum_ev),
+            vec3(maximum_ev),
+        );
     let total_exposure = maximum_ev - minimum_ev;
 
     return (normalized_color - minimum_ev) / total_exposure;
 }
 
 // Inverse of above
-fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_ev: f32) -> vec3<f32> {
+fn convertNormalizedLog2ToOpenDomain(
+    color: vec3<f32>,
+    minimum_ev: f32,
+    maximum_ev: f32,
+) -> vec3<f32> {
     var open_color = color;
     let in_midgray = 0.18;
     let total_exposure = maximum_ev - minimum_ev;
@@ -191,7 +204,6 @@ fn convertNormalizedLog2ToOpenDomain(color: vec3<f32>, minimum_ev: f32, maximum_
 
     return open_color;
 }
-
 
 /*=================
     Main processes
@@ -310,10 +322,7 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
 
 /// Performs the "sectional" color grading: i.e. the color grading that applies
 /// individually to shadows, midtones, and highlights.
-fn sectional_color_grading(
-    in: vec3<f32>,
-    color_grading: ptr<function, ColorGrading>,
-) -> vec3<f32> {
+fn sectional_color_grading(in: vec3<f32>, color_grading: ptr<function, ColorGrading>) -> vec3<f32> {
     var color = in;
 
     // Determine whether the color is a shadow, midtone, or highlight. Colors
@@ -327,14 +336,14 @@ fn sectional_color_grading(
     // discontinuities.
     var levels = vec3(0.0);
     let midtone_range = (*color_grading).midtone_range;
-    if (level < midtone_range.x - LEVEL_MARGIN) {
+    if level < midtone_range.x - LEVEL_MARGIN {
         levels.x = 1.0;
-    } else if (level < midtone_range.x + LEVEL_MARGIN) {
+    } else if level < midtone_range.x + LEVEL_MARGIN {
         levels.y = ((level - midtone_range.x) * LEVEL_MARGIN_DIV) + 0.5;
         levels.x = 1.0 - levels.y;
-    } else if (level < midtone_range.y - LEVEL_MARGIN) {
+    } else if level < midtone_range.y - LEVEL_MARGIN {
         levels.y = 1.0;
-    } else if (level < midtone_range.y + LEVEL_MARGIN) {
+    } else if level < midtone_range.y + LEVEL_MARGIN {
         levels.z = ((level - midtone_range.y) * LEVEL_MARGIN_DIV) + 0.5;
         levels.y = 1.0 - levels.z;
     } else {
@@ -372,54 +381,54 @@ fn sectional_color_grading(
 
 fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     var color = max(in.rgb, vec3(0.0));
-    var color_grading = in_color_grading;   // So we can take pointers to it.
+    var color_grading = in_color_grading; // So we can take pointers to it.
 
     // Rotate hue if needed, by converting to and from HSV. Remember that hue is
     // an angle, so it needs to be modulo 2π.
-@if(HUE_ROTATE) {
-    var hsv = rgb_to_hsv(color);
-    hsv.r = (hsv.r + color_grading.hue) % PI_2;
-    color = hsv_to_rgb(hsv);
-}
+    @if(HUE_ROTATE) {
+        var hsv = rgb_to_hsv(color);
+        hsv.r = (hsv.r + color_grading.hue) % PI_2;
+        color = hsv_to_rgb(hsv);
+    }
 
     // Perform white balance correction. Conveniently, this is a linear
     // transform. The matrix was pre-calculated from the temperature and tint
     // values on the CPU.
-@if(WHITE_BALANCE) {
-    color = max(color_grading.balance * color, vec3(0.0));
-}
+    @if(WHITE_BALANCE) {
+        color = max(color_grading.balance * color, vec3(0.0));
+    }
 
     // Perform the "sectional" color grading: i.e. the color grading that
     // applies individually to shadows, midtones, and highlights.
-@if(SECTIONAL_COLOR_GRADING) {
-    color = sectional_color_grading(color, &color_grading);
-} @else {
-    // If we're not doing sectional color grading, the exposure might still need
-    // to be applied, for example when using auto exposure.
-    color = color * powsafe(vec3(2.0), color_grading.exposure);
-}
+    @if(SECTIONAL_COLOR_GRADING) {
+        color = sectional_color_grading(color, &color_grading);
+    } @else {
+        // If we're not doing sectional color grading, the exposure might still need
+        // to be applied, for example when using auto exposure.
+        color = color * powsafe(vec3(2.0), color_grading.exposure);
+    }
 
     // tone_mapping
-@if(TONEMAP_METHOD_LINEAR) {
-    color = color;
-} @elif(TONEMAP_METHOD_REINHARD) {
-    color = tonemapping_reinhard(color.rgb);
-} @elif(TONEMAP_METHOD_REINHARD_LUMINANCE) {
-    color = tonemapping_reinhard_luminance(color.rgb);
-} @elif(TONEMAP_METHOD_ACES_FITTED) {
-    color = ACESFitted(color.rgb);
-} @elif(TONEMAP_METHOD_AGX) {
-    color = applyAgXLog(color);
-    color = applyLUT3D(color, 32.0);
-} @elif(TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM) {
-    color = somewhat_boring_display_transform(color.rgb);
-} @elif(TONEMAP_METHOD_TONY_MC_MAPFACE) {
-    color = sample_tony_mc_mapface_lut(color);
-} @elif(TONEMAP_METHOD_BLENDER_FILMIC) {
-    color = sample_blender_filmic_lut(color.rgb);
-} @elif(TONEMAP_METHOD_PBR_NEUTRAL) {
-    color = tonemapping_pbr_neutral(color.rgb);
-}
+    @if(TONEMAP_METHOD_LINEAR) {
+        color = color;
+    } @elif(TONEMAP_METHOD_REINHARD) {
+        color = tonemapping_reinhard(color.rgb);
+    } @elif(TONEMAP_METHOD_REINHARD_LUMINANCE) {
+        color = tonemapping_reinhard_luminance(color.rgb);
+    } @elif(TONEMAP_METHOD_ACES_FITTED) {
+        color = ACESFitted(color.rgb);
+    } @elif(TONEMAP_METHOD_AGX) {
+        color = applyAgXLog(color);
+        color = applyLUT3D(color, 32.0);
+    } @elif(TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM) {
+        color = somewhat_boring_display_transform(color.rgb);
+    } @elif(TONEMAP_METHOD_TONY_MC_MAPFACE) {
+        color = sample_tony_mc_mapface_lut(color);
+    } @elif(TONEMAP_METHOD_BLENDER_FILMIC) {
+        color = sample_blender_filmic_lut(color.rgb);
+    } @elif(TONEMAP_METHOD_PBR_NEUTRAL) {
+        color = tonemapping_pbr_neutral(color.rgb);
+    }
 
     // Perceptual post tonemapping grading
     color = saturation(color, color_grading.post_saturation);

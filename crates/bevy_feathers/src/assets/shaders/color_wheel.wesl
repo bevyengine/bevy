@@ -11,15 +11,16 @@ const PADDING: f32 = 4.0;
 const MIN_DIAMETER: f32 = MIN_HEIGHT - 2.0 * PADDING;
 
 struct ColorPlaneUniform {
-  // Hue in degrees, in the range [0, 360).
-  hue : f32,
-  // Scale (physical pixels / logical pixels)
-  scale: f32,
-@if(SIXTEEN_BYTE_ALIGNMENT)
-  _webgl2_padding_8b : vec2<f32>,
+    // Hue in degrees, in the range [0, 360).
+    hue: f32,
+    // Scale (physical pixels / logical pixels)
+    scale: f32,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
+    _webgl2_padding_8b: vec2<f32>,
 }
 
-@group(1) @binding(0) var<uniform> uniform_data : ColorPlaneUniform;
+@group(1) @binding(0)
+var<uniform> uniform_data: ColorPlaneUniform;
 
 // 2d cross product
 fn cross_2d(a: vec2<f32>, b: vec2<f32>) -> f32 {
@@ -71,12 +72,12 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     // Triangle SDF, winding counterclockwise, positive inside
     let triangle_sd = min(
-        line_distance(centered, hue_point, white_point),
-        min(
-            line_distance(centered, white_point, black_point),
-            line_distance(centered, black_point, hue_point),
-        ),
-    );
+            line_distance(centered, hue_point, white_point),
+            min(
+                line_distance(centered, white_point, black_point),
+                line_distance(centered, black_point, hue_point),
+            ),
+        );
     let triangle_aa = fwidth(triangle_sd);
     let triangle_alpha = smoothstep(-triangle_aa, 0.0, triangle_sd);
 

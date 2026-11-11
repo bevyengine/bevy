@@ -2,7 +2,8 @@
 import bevy_render::view::View;
 import bevy_render::maths::affine3_to_square;
 
-@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(0)
+var<uniform> view: View;
 
 struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
@@ -17,7 +18,8 @@ struct LineGizmoUniform {
     _padding: vec2<f32>,
 }
 
-@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0)
+var<uniform> line_gizmo: LineGizmoUniform;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,
@@ -25,27 +27,27 @@ struct VertexInput {
     @location(2) color_a: vec4<f32>,
     @location(3) color_b: vec4<f32>,
     @builtin(vertex_index) index: u32,
-};
+}
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
     @location(2) line_fraction: f32,
-};
+}
 
 const EPSILON: f32 = 4.88e-04;
 
 @vertex
 fn vertex(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec2<f32>, 6>(
-        vec2(-0.5, 0.),
-        vec2(-0.5, 1.),
-        vec2(0.5, 1.),
-        vec2(-0.5, 0.),
-        vec2(0.5, 1.),
-        vec2(0.5, 0.)
-    );
+            vec2(-0.5, 0.),
+            vec2(-0.5, 1.),
+            vec2(0.5, 1.),
+            vec2(-0.5, 0.),
+            vec2(0.5, 1.),
+            vec2(0.5, 0.),
+        );
     let position = positions[vertex.index];
 
     let world_from_local = affine3_to_square(line_gizmo.world_from_local);
@@ -72,38 +74,39 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     var alpha = 1.;
 
     var uv: f32;
-@if(PERSPECTIVE) {
-    line_width /= clip.w;
+    @if(PERSPECTIVE) {
+        line_width /= clip.w;
 
-    // get height of near clipping plane in world space
-    let pos0 = view.view_from_clip * vec4(0, -1, 0, 1); // Bottom of the screen
-    let pos1 = view.view_from_clip * vec4(0, 1, 0, 1); // Top of the screen
-    let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
+        // get height of near clipping plane in world space
+        let pos0 = view.view_from_clip * vec4(0, -1, 0, 1); // Bottom of the screen
+        let pos1 = view.view_from_clip * vec4(0, 1, 0, 1); // Top of the screen
+        let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
 
-    // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
-    let position_a = view.world_from_clip * clip_a;
-    let position_b = view.world_from_clip * clip_b;
-    let world_distance = length(position_a.xyz - position_b.xyz);
+        // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
+        let position_a = view.world_from_clip * clip_a;
+        let position_b = view.world_from_clip * clip_b;
+        let world_distance = length(position_a.xyz - position_b.xyz);
 
-    // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
-    let clipped_offset = length(position_a.xyz - vertex.position_a);
+        // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
+        let clipped_offset = length(position_a.xyz - vertex.position_a);
 
-    uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
-} @else {
-    // Get the distance of b to the camera along camera axes
-    let camera_b = view.view_from_clip * clip_b;
+        uv =
+            (clipped_offset + position.y * world_distance) * resolution.y
+            / near_clipping_plane_height / line_gizmo.line_width;
+    } @else {
+        // Get the distance of b to the camera along camera axes
+        let camera_b = view.view_from_clip * clip_b;
 
-    // This differentiates between orthographic and perspective cameras.
-    // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
-    var depth_adaptment: f32;
-    if (clip_b.w == 1.0) {
-        depth_adaptment = 1.0;
+        // This differentiates between orthographic and perspective cameras.
+        // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
+        var depth_adaptment: f32;
+        if clip_b.w == 1.0 {
+            depth_adaptment = 1.0;
+        } else {
+            depth_adaptment = -camera_b.z;
+        }
+        uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
     }
-    else {
-        depth_adaptment = -camera_b.z;
-    }
-    uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
-}
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
     if line_width > 0.0 && line_width < 1. {
@@ -130,7 +133,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
-    let line_fraction = 2.0 * line_gizmo.line_scale / (line_gizmo.gap_scale + line_gizmo.line_scale);
+    let line_fraction = 2.0 * line_gizmo.line_scale
+        / (line_gizmo.gap_scale + line_gizmo.line_scale);
     uv /= (line_gizmo.gap_scale + line_gizmo.line_scale) / 2.0;
     return VertexOutput(clip_position, color, uv, line_fraction);
 }
@@ -155,11 +159,11 @@ struct FragmentInput {
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
     @location(2) line_fraction: f32,
-};
+}
 
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
-};
+}
 
 fn non_solid_uv(in: FragmentInput) -> f32 {
     @if(PERSPECTIVE)

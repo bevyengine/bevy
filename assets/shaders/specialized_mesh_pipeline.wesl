@@ -3,10 +3,7 @@
 
 // First we import everything we need from bevy_pbr
 // A 2D shader would be very similar but import from bevy_sprite_render instead
-import bevy_pbr::render::{
-    mesh_functions,
-    view_transformations::position_world_to_clip
-};
+import bevy_pbr::render::{mesh_functions, view_transformations::position_world_to_clip};
 
 struct Vertex {
     // This is needed if you are using batching and/or gpu preprocessing
@@ -21,7 +18,7 @@ struct Vertex {
     // and color at location 1
     @if(VERTEX_COLORS)
     @location(1) color: vec4<f32>,
-};
+}
 
 /// This is the output of the vertex shader and we also use it as the input for the fragment shader
 struct VertexOutput {
@@ -29,7 +26,7 @@ struct VertexOutput {
     @location(0) world_position: vec4<f32>,
     @if(VERTEX_COLORS)
     @location(1) color: vec3<f32>,
-};
+}
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
@@ -37,14 +34,20 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     // This is how bevy computes the world position
     // The vertex.instance_index is very important. Especially if you are using batching and gpu preprocessing
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
-@if(VERTEX_POSITIONS_COMPRESSED) {
-    let mesh_metadata = bevy_pbr::render::mesh_functions::get_metadata(vertex.instance_index);
-    let vertex_position = bevy_render::utils::decompress_vertex_position(vertex.compressed_position, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
-}
-@else {
-    let vertex_position = vertex.position;
-}
-    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
+    @if(VERTEX_POSITIONS_COMPRESSED) {
+        let mesh_metadata = bevy_pbr::render::mesh_functions::get_metadata(vertex.instance_index);
+        let vertex_position = bevy_render::utils::decompress_vertex_position(
+                vertex.compressed_position,
+                mesh_metadata.aabb_center,
+                mesh_metadata.aabb_half_extents,
+            );
+    } @else {
+        let vertex_position = vertex.position;
+    }
+    out.world_position = mesh_functions::mesh_position_local_to_world(
+            world_from_local,
+            vec4(vertex_position, 1.0),
+        );
     out.clip_position = position_world_to_clip(out.world_position.xyz);
 
     @if(VERTEX_COLORS)

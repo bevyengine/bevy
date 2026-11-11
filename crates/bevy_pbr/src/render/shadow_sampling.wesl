@@ -1,27 +1,27 @@
 import package::render::{
     mesh_view_bindings as view_bindings,
-    utils::interleaved_gradient_noise,
     utils,
+    utils::interleaved_gradient_noise
 };
-import bevy_render::maths::{orthonormalize, PI};
+import bevy_render::maths::{PI, orthonormalize};
 
 /// Do the lookup, using HW 2x2 PCF and comparison
 fn sample_shadow_map_hardware(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
     @if(NO_ARRAY_TEXTURES_SUPPORT)
     return textureSampleCompare(
-        view_bindings::directional_shadow_textures,
-        view_bindings::shadow_textures_comparison_sampler,
-        light_local,
-        depth,
-    );
+            view_bindings::directional_shadow_textures,
+            view_bindings::shadow_textures_comparison_sampler,
+            light_local,
+            depth,
+        );
     @else
     return textureSampleCompareLevel(
-        view_bindings::directional_shadow_textures,
-        view_bindings::shadow_textures_comparison_sampler,
-        light_local,
-        array_index,
-        depth,
-    );
+            view_bindings::directional_shadow_textures,
+            view_bindings::shadow_textures_comparison_sampler,
+            light_local,
+            array_index,
+            depth,
+        );
 }
 
 /// Does a single sample of the blocker search, a part of the PCSS algorithm.
@@ -32,34 +32,31 @@ fn search_for_blockers_in_shadow_map_hardware(
     array_index: i32,
 ) -> vec2<f32> {
     @if(WEBGL2) {
-    // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
-    // with different samplers, or it'll blow up.
-    return vec2(0.0);
+        // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
+        // with different samplers, or it'll blow up.
+        return vec2(0.0);
     } @else {
-
-    @if(PCSS_SAMPLERS_AVAILABLE) {
-
-    @if(NO_ARRAY_TEXTURES_SUPPORT)
-    let sampled_depth = textureSampleLevel(
-        view_bindings::directional_shadow_textures,
-        view_bindings::linear_sampler,
-        light_local,
-        0u,
-    );
-    @else   // NO_ARRAY_TEXTURES_SUPPORT
-    let sampled_depth = textureSampleLevel(
-        view_bindings::directional_shadow_textures,
-        view_bindings::linear_sampler,
-        light_local,
-        array_index,
-        0u,
-    );
-    return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
-
-    } @else {
-    return vec2(0.0);
-    }
-
+        @if(PCSS_SAMPLERS_AVAILABLE) {
+            @if(NO_ARRAY_TEXTURES_SUPPORT)
+            let sampled_depth = textureSampleLevel(
+                    view_bindings::directional_shadow_textures,
+                    view_bindings::linear_sampler,
+                    light_local,
+                    0u,
+                );
+            @else
+            // NO_ARRAY_TEXTURES_SUPPORT
+            let sampled_depth = textureSampleLevel(
+                    view_bindings::directional_shadow_textures,
+                    view_bindings::linear_sampler,
+                    light_local,
+                    array_index,
+                    0u,
+                );
+            return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
+        } @else {
+            return vec2(0.0);
+        }
     }
 }
 
@@ -73,29 +70,29 @@ const POINT_SHADOW_TEMPORAL_OFFSET_SCALE: f32 = 0.5;
 ///
 /// https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels?redirectedfrom=MSDN
 const D3D_SAMPLE_POINT_POSITIONS: array<vec2<f32>, 8> = array(
-    vec2( 0.125, -0.375),
-    vec2(-0.125,  0.375),
-    vec2( 0.625,  0.125),
-    vec2(-0.375, -0.625),
-    vec2(-0.625,  0.625),
-    vec2(-0.875, -0.125),
-    vec2( 0.375,  0.875),
-    vec2( 0.875, -0.875),
-);
+        vec2(0.125, -0.375),
+        vec2(-0.125, 0.375),
+        vec2(0.625, 0.125),
+        vec2(-0.375, -0.625),
+        vec2(-0.625, 0.625),
+        vec2(-0.875, -0.125),
+        vec2(0.375, 0.875),
+        vec2(0.875, -0.875),
+    );
 
 /// And these are the coefficients corresponding to the probability distribution
 /// function of a 2D Gaussian lobe with zero mean and the identity covariance
 /// matrix at those points.
 const D3D_SAMPLE_POINT_COEFFS: array<f32, 8> = array(
-    0.157112,
-    0.157112,
-    0.138651,
-    0.130251,
-    0.114946,
-    0.114946,
-    0.107982,
-    0.079001,
-);
+        0.157112,
+        0.157112,
+        0.138651,
+        0.130251,
+        0.114946,
+        0.114946,
+        0.107982,
+        0.079001,
+    );
 
 /// https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1
 fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_index: i32) -> f32 {
@@ -127,17 +124,53 @@ fn sample_shadow_map_castano_thirteen(light_local: vec2<f32>, depth: f32, array_
 
     var sum = 0.0;
 
-    sum += uw0 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u0, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u1, v0) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw0 * sample_shadow_map_hardware(base_uv + (vec2(u2, v0) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw0 * sample_shadow_map_hardware(
+            base_uv + (vec2(u0, v0) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
+    sum += uw1 * vw0 * sample_shadow_map_hardware(
+            base_uv + (vec2(u1, v0) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
+    sum += uw2 * vw0 * sample_shadow_map_hardware(
+            base_uv + (vec2(u2, v0) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
 
-    sum += uw0 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u0, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u1, v1) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw1 * sample_shadow_map_hardware(base_uv + (vec2(u2, v1) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw1 * sample_shadow_map_hardware(
+            base_uv + (vec2(u0, v1) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
+    sum += uw1 * vw1 * sample_shadow_map_hardware(
+            base_uv + (vec2(u1, v1) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
+    sum += uw2 * vw1 * sample_shadow_map_hardware(
+            base_uv + (vec2(u2, v1) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
 
-    sum += uw0 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u0, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw1 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u1, v2) * inv_shadow_map_size), depth, array_index);
-    sum += uw2 * vw2 * sample_shadow_map_hardware(base_uv + (vec2(u2, v2) * inv_shadow_map_size), depth, array_index);
+    sum += uw0 * vw2 * sample_shadow_map_hardware(
+            base_uv + (vec2(u0, v2) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
+    sum += uw1 * vw2 * sample_shadow_map_hardware(
+            base_uv + (vec2(u1, v2) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
+    sum += uw2 * vw2 * sample_shadow_map_hardware(
+            base_uv + (vec2(u2, v2) * inv_shadow_map_size),
+            depth,
+            array_index,
+        );
 
     return sum * (1.0 / 144.0);
 }
@@ -151,12 +184,14 @@ fn map(min1: f32, max1: f32, min2: f32, max2: f32, value: f32) -> f32 {
 /// See: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
 fn random_rotation_matrix(scale: vec2<f32>, temporal: bool) -> mat2x2<f32> {
     let random_angle = 2.0 * PI * interleaved_gradient_noise(
-        scale, select(1u, view_bindings::globals.frame_count, temporal));
+            scale,
+            select(1u, view_bindings::globals.frame_count, temporal),
+        );
     let m = vec2(sin(random_angle), cos(random_angle));
     return mat2x2(
-        m.y, -m.x,
-        m.x, m.y
-    );
+            m.y, -m.x,
+            m.x, m.y,
+        );
 }
 
 /// Calculates the distance between spiral samples for the given texel size and
@@ -243,7 +278,7 @@ fn search_for_blockers_in_shadow_map(
     sum += search_for_blockers_in_shadow_map_hardware(light_local + offset6, depth, array_index);
     sum += search_for_blockers_in_shadow_map_hardware(light_local + offset7, depth, array_index);
 
-    if (sum.y == 0.0) {
+    if sum.y == 0.0 {
         return 0.0;
     }
     return sum.x / sum.y;
@@ -260,7 +295,14 @@ fn sample_shadow_map(
     return sample_shadow_map_castano_thirteen(light_local, depth, array_index);
     @elif(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_map_jimenez_fourteen(
-        light_local, depth, array_index, frag_coord_xy, texel_size, 1.0, true);
+            light_local,
+            depth,
+            array_index,
+            frag_coord_xy,
+            texel_size,
+            1.0,
+            true,
+        );
     @elif(SHADOW_FILTER_METHOD_HARDWARE_2X2)
     return sample_shadow_map_hardware(light_local, depth, array_index);
     @else
@@ -292,7 +334,12 @@ fn sample_shadow_map_pcss(
 ) -> f32 {
     // Determine the average Z value of the closest blocker.
     let z_blocker = search_for_blockers_in_shadow_map(
-        light_local, depth, array_index, texel_size, light_size);
+            light_local,
+            depth,
+            array_index,
+            texel_size,
+            light_size,
+        );
 
     // Don't let the blur size go below 0.5, or shadows will look unacceptably aliased.
     let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
@@ -304,10 +351,25 @@ fn sample_shadow_map_pcss(
     // provide better blurs.
     @if(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_map_jimenez_fourteen(
-        light_local, depth, array_index, frag_coord_xy, texel_size, blur_size, true);
-    @else   // SHADOW_FILTER_METHOD_TEMPORAL
+            light_local,
+            depth,
+            array_index,
+            frag_coord_xy,
+            texel_size,
+            blur_size,
+            true,
+        );
+    @else
+    // SHADOW_FILTER_METHOD_TEMPORAL
     return sample_shadow_map_jimenez_fourteen(
-        light_local, depth, array_index, frag_coord_xy, texel_size, blur_size, false);
+            light_local,
+            depth,
+            array_index,
+            frag_coord_xy,
+            texel_size,
+            blur_size,
+            false,
+        );
 }
 
 // NOTE: Due to the non-uniform control flow in `shadows::fetch_point_shadow`,
@@ -318,19 +380,19 @@ fn sample_shadow_map_pcss(
 fn sample_shadow_cubemap_hardware(light_local: vec3<f32>, depth: f32, light_id: u32) -> f32 {
     @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
     return textureSampleCompare(
-        view_bindings::point_shadow_textures,
-        view_bindings::shadow_textures_comparison_sampler,
-        light_local,
-        depth
-    );
+            view_bindings::point_shadow_textures,
+            view_bindings::shadow_textures_comparison_sampler,
+            light_local,
+            depth,
+        );
     @else
     return textureSampleCompareLevel(
-        view_bindings::point_shadow_textures,
-        view_bindings::shadow_textures_comparison_sampler,
-        light_local,
-        i32(light_id),
-        depth
-    );
+            view_bindings::point_shadow_textures,
+            view_bindings::shadow_textures_comparison_sampler,
+            light_local,
+            i32(light_id),
+            depth,
+        );
 }
 
 /// Performs one sample of the blocker search. This variation of the blocker
@@ -341,33 +403,29 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
     light_id: u32,
 ) -> vec2<f32> {
     @if(WEBGL2) {
-    // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
-    // with different samplers, or it'll blow up.
-    return vec2(0.0);
+        // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
+        // with different samplers, or it'll blow up.
+        return vec2(0.0);
     } @else {
+        @if(PCSS_SAMPLERS_AVAILABLE) {
+            @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
+            let sampled_depth = textureSample(
+                    view_bindings::point_shadow_textures,
+                    view_bindings::linear_sampler,
+                    light_local,
+                );
+            @else
+            let sampled_depth = textureSample(
+                    view_bindings::point_shadow_textures,
+                    view_bindings::linear_sampler,
+                    light_local,
+                    i32(light_id),
+                );
 
-    @if(PCSS_SAMPLERS_AVAILABLE) {
-
-    @if(NO_CUBE_ARRAY_TEXTURES_SUPPORT)
-    let sampled_depth = textureSample(
-        view_bindings::point_shadow_textures,
-        view_bindings::linear_sampler,
-        light_local,
-    );
-    @else
-    let sampled_depth = textureSample(
-        view_bindings::point_shadow_textures,
-        view_bindings::linear_sampler,
-        light_local,
-        i32(light_id),
-    );
-
-    return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
-
-    } @else {
-    return vec2(0.0);
-    }
-
+            return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
+        } @else {
+            return vec2(0.0);
+        }
     }
 }
 
@@ -381,10 +439,10 @@ fn sample_shadow_cubemap_at_offset(
     light_id: u32,
 ) -> f32 {
     return sample_shadow_cubemap_hardware(
-        light_local + position.x * x_basis + position.y * y_basis,
-        depth,
-        light_id
-    ) * coeff;
+            light_local + position.x * x_basis + position.y * y_basis,
+            depth,
+            light_id,
+        ) * coeff;
 }
 
 /// Computes the search position and performs one sample of the blocker search.
@@ -401,10 +459,10 @@ fn search_for_blockers_in_shadow_cubemap_at_offset(
     light_id: u32,
 ) -> vec2<f32> {
     return search_for_blockers_in_shadow_cubemap_hardware(
-        light_local + position.x * x_basis + position.y * y_basis,
-        depth,
-        light_id
-    );
+            light_local + position.x * x_basis + position.y * y_basis,
+            depth,
+            light_id,
+        );
 }
 
 /// This more or less does what Castano13 does, but in 3D space. Castano13 is
@@ -425,29 +483,77 @@ fn sample_shadow_cubemap_gaussian(
 
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[0], D3D_SAMPLE_POINT_COEFFS[0],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[0],
+            D3D_SAMPLE_POINT_COEFFS[0],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[1], D3D_SAMPLE_POINT_COEFFS[1],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[1],
+            D3D_SAMPLE_POINT_COEFFS[1],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[2], D3D_SAMPLE_POINT_COEFFS[2],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[2],
+            D3D_SAMPLE_POINT_COEFFS[2],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[3], D3D_SAMPLE_POINT_COEFFS[3],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[3],
+            D3D_SAMPLE_POINT_COEFFS[3],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[4], D3D_SAMPLE_POINT_COEFFS[4],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[4],
+            D3D_SAMPLE_POINT_COEFFS[4],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[5], D3D_SAMPLE_POINT_COEFFS[5],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[5],
+            D3D_SAMPLE_POINT_COEFFS[5],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[6], D3D_SAMPLE_POINT_COEFFS[6],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[6],
+            D3D_SAMPLE_POINT_COEFFS[6],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[7], D3D_SAMPLE_POINT_COEFFS[7],
-        basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[7],
+            D3D_SAMPLE_POINT_COEFFS[7],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     return sum;
 }
 
@@ -465,22 +571,22 @@ fn sample_shadow_cubemap_jittered(
 ) -> f32 {
     let rotation_matrix = random_rotation_matrix(frag_coord_xy, temporal);
 
-    let sample_offset0 = rotation_matrix * utils::SPIRAL_OFFSET_0_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset1 = rotation_matrix * utils::SPIRAL_OFFSET_1_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset2 = rotation_matrix * utils::SPIRAL_OFFSET_2_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset3 = rotation_matrix * utils::SPIRAL_OFFSET_3_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset4 = rotation_matrix * utils::SPIRAL_OFFSET_4_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset5 = rotation_matrix * utils::SPIRAL_OFFSET_5_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset6 = rotation_matrix * utils::SPIRAL_OFFSET_6_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
-    let sample_offset7 = rotation_matrix * utils::SPIRAL_OFFSET_7_ *
-        POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset0 = rotation_matrix * utils::SPIRAL_OFFSET_0_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset1 = rotation_matrix * utils::SPIRAL_OFFSET_1_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset2 = rotation_matrix * utils::SPIRAL_OFFSET_2_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset3 = rotation_matrix * utils::SPIRAL_OFFSET_3_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset4 = rotation_matrix * utils::SPIRAL_OFFSET_4_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset5 = rotation_matrix * utils::SPIRAL_OFFSET_5_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset6 = rotation_matrix * utils::SPIRAL_OFFSET_6_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
+    let sample_offset7 = rotation_matrix * utils::SPIRAL_OFFSET_7_
+        * POINT_SHADOW_TEMPORAL_OFFSET_SCALE;
 
     // Create an orthonormal basis so we can apply a 2D sampling pattern to a
     // cubemap.
@@ -488,21 +594,77 @@ fn sample_shadow_cubemap_jittered(
 
     var sum: f32 = 0.0;
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset0, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset0,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset1, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset1,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset2, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset2,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset3, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset3,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset4, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset4,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset5, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset5,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset6, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset6,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += sample_shadow_cubemap_at_offset(
-        sample_offset7, 0.125, basis[0], basis[1], light_local, depth, light_id);
+            sample_offset7,
+            0.125,
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     return sum;
 }
 
@@ -515,10 +677,22 @@ fn sample_shadow_cubemap(
 ) -> f32 {
     @if(SHADOW_FILTER_METHOD_GAUSSIAN)
     return sample_shadow_cubemap_gaussian(
-        light_local, depth, POINT_SHADOW_SCALE, distance_to_light, light_id);
+            light_local,
+            depth,
+            POINT_SHADOW_SCALE,
+            distance_to_light,
+            light_id,
+        );
     @elif(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_cubemap_jittered(
-        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE, distance_to_light, light_id, true);
+            light_local,
+            depth,
+            frag_coord_xy,
+            POINT_SHADOW_SCALE,
+            distance_to_light,
+            light_id,
+            true,
+        );
     @elif(SHADOW_FILTER_METHOD_HARDWARE_2X2)
     return sample_shadow_cubemap_hardware(light_local, depth, light_id);
     @else
@@ -549,23 +723,71 @@ fn search_for_blockers_in_shadow_cubemap(
 
     var sum: vec2<f32> = vec2(0.0);
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[0], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[0],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[1], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[1],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[2], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[2],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[3], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[3],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[4], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[4],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[5], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[5],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[6], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[6],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
     sum += search_for_blockers_in_shadow_cubemap_at_offset(
-        D3D_SAMPLE_POINT_POSITIONS[7], basis[0], basis[1], light_local, depth, light_id);
+            D3D_SAMPLE_POINT_POSITIONS[7],
+            basis[0],
+            basis[1],
+            light_local,
+            depth,
+            light_id,
+        );
 
-    if (sum.y == 0.0) {
+    if sum.y == 0.0 {
         return 0.0;
     }
     return sum.x / sum.y;
@@ -585,15 +807,34 @@ fn sample_shadow_cubemap_pcss(
     frag_coord_xy: vec2<f32>,
 ) -> f32 {
     let z_blocker = search_for_blockers_in_shadow_cubemap(
-        light_local, depth, light_size, distance_to_light, light_id);
+            light_local,
+            depth,
+            light_size,
+            distance_to_light,
+            light_id,
+        );
 
     // Don't let the blur size go below 0.5, or shadows will look unacceptably aliased.
     let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
 
     @if(SHADOW_FILTER_METHOD_TEMPORAL)
     return sample_shadow_cubemap_jittered(
-        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, true);
+            light_local,
+            depth,
+            frag_coord_xy,
+            POINT_SHADOW_SCALE * blur_size,
+            distance_to_light,
+            light_id,
+            true,
+        );
     @else
     return sample_shadow_cubemap_jittered(
-        light_local, depth, frag_coord_xy, POINT_SHADOW_SCALE * blur_size, distance_to_light, light_id, false);
+            light_local,
+            depth,
+            frag_coord_xy,
+            POINT_SHADOW_SCALE * blur_size,
+            distance_to_light,
+            light_id,
+            false,
+        );
 }

@@ -1,7 +1,4 @@
-import bevy_render::{
-    view::View,
-    globals::Globals,
-};
+import bevy_render::{globals::Globals, view::View};
 import package::ui_vertex_output::UiVertexOutput;
 
 @group(0) @binding(0)

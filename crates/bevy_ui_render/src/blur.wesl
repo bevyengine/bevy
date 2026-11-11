@@ -10,15 +10,20 @@
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import package::ui::sd_rounded_box;
 
-@group(0) @binding(0) var input_texture: texture_2d<f32>;
-@group(0) @binding(1) var texture_sampler: sampler;
-@group(0) @binding(2) var<uniform> blur_regions: BlurRegionUniform;
+@group(0) @binding(0)
+var input_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var texture_sampler: sampler;
+@group(0) @binding(2)
+var<uniform> blur_regions: BlurRegionUniform;
 // Auxiliary inputs, only bound for the passes that use them.
 // Kawase composite: the half-resolution blurred scene.
 // Bokeh vertical:   the complex response of the red and green channels.
-@group(0) @binding(3) var aux_texture_a: texture_2d<f32>;
+@group(0) @binding(3)
+var aux_texture_a: texture_2d<f32>;
 // Bokeh vertical: the complex response of the blue channel.
-@group(0) @binding(4) var aux_texture_b: texture_2d<f32>;
+@group(0) @binding(4)
+var aux_texture_b: texture_2d<f32>;
 
 struct BlurRegionUniform {
     params: vec4<f32>,
@@ -45,18 +50,18 @@ fn is_blurred(position: vec2<f32>) -> bool {
 // region. Negative inside a region, positive outside.
 fn min_region_distance(position: vec2<f32>) -> f32 {
     var min_distance = 1e30;
-    for (var i = 0u; i < blur_regions.current_regions_count; i++) {
+    for(var i = 0u; i < blur_regions.current_regions_count; i++) {
         let region = blur_regions.regions[i];
         let center = vec2((region.max_x + region.min_x) * 0.5, (region.max_y + region.min_y) * 0.5);
         let dims = vec2(region.max_x - region.min_x, region.max_y - region.min_y);
         let half_smallest_dimension = min(dims.x, dims.y) * 0.5;
 
         let distance = sd_rounded_box(
-            position - center,
-            dims,
-            min(region.border_radii_x, vec4(half_smallest_dimension)),
-            min(region.border_radii_y, vec4(half_smallest_dimension)),
-        );
+                position - center,
+                dims,
+                min(region.border_radii_x, vec4(half_smallest_dimension)),
+                min(region.border_radii_y, vec4(half_smallest_dimension)),
+            );
         min_distance = min(min_distance, distance);
     }
     return min_distance;
@@ -93,7 +98,7 @@ fn gaussian_blur(frag_coord: vec4<f32>, frag_offset: vec2<f32>) -> vec4<f32> {
     // taking advantage of bilinear filtering.
     var sum = textureSampleLevel(input_texture, texture_sampler, uv, 0.0).rgb;
     var weight_sum = 1.0;
-    for (var i = 1; i <= support; i += 2) {
+    for(var i = 1; i <= support; i += 2) {
         // This is a well-known trick to reduce the number of needed texture
         // samples by a factor of two. We seek to accumulate two adjacent
         // samples c₀ and c₁ with weights w₀ and w₁ respectively, with a single
@@ -113,10 +118,9 @@ fn gaussian_blur(frag_coord: vec4<f32>, frag_offset: vec2<f32>) -> vec4<f32> {
         let uv_offset = offset * (f32(i) + w1 / (w0 + w1));
         let weight = w0 + w1;
 
-        sum += (
-            textureSampleLevel(input_texture, texture_sampler, uv + uv_offset, 0.0).rgb +
-            textureSampleLevel(input_texture, texture_sampler, uv - uv_offset, 0.0).rgb
-        ) * weight;
+        sum += (textureSampleLevel(input_texture, texture_sampler, uv + uv_offset, 0.0).rgb
+                + textureSampleLevel(input_texture, texture_sampler, uv - uv_offset, 0.0).rgb)
+            * weight;
         weight_sum += weight * 2.0;
     }
 
@@ -152,7 +156,7 @@ fn box_blur(frag_coord: vec4<f32>, frag_offset: vec2<f32>) -> vec4<f32> {
     let offset = frag_offset * scale / vec2<f32>(textureDimensions(input_texture));
 
     var sum = textureSampleLevel(input_texture, texture_sampler, uv, 0.0).rgb;
-    for (var i = 1; i <= radius; i++) {
+    for(var i = 1; i <= radius; i++) {
         sum += textureSampleLevel(input_texture, texture_sampler, uv + offset * f32(i), 0.0).rgb;
         sum += textureSampleLevel(input_texture, texture_sampler, uv - offset * f32(i), 0.0).rgb;
     }
@@ -196,8 +200,18 @@ fn kawase_downsample(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var sum = textureSampleLevel(input_texture, texture_sampler, in.uv, 0.0).rgb * 4.0;
     sum += textureSampleLevel(input_texture, texture_sampler, in.uv - half_pixel, 0.0).rgb;
     sum += textureSampleLevel(input_texture, texture_sampler, in.uv + half_pixel, 0.0).rgb;
-    sum += textureSampleLevel(input_texture, texture_sampler, in.uv + vec2(half_pixel.x, -half_pixel.y), 0.0).rgb;
-    sum += textureSampleLevel(input_texture, texture_sampler, in.uv - vec2(half_pixel.x, -half_pixel.y), 0.0).rgb;
+    sum += textureSampleLevel(
+            input_texture,
+            texture_sampler,
+            in.uv + vec2(half_pixel.x, -half_pixel.y),
+            0.0,
+        ).rgb;
+    sum += textureSampleLevel(
+            input_texture,
+            texture_sampler,
+            in.uv - vec2(half_pixel.x, -half_pixel.y),
+            0.0,
+        ).rgb;
 
     return vec4(sum / 8.0, 1.0);
 }
@@ -208,14 +222,20 @@ fn kawase_upsample_from(source: texture_2d<f32>, uv: vec2<f32>) -> vec4<f32> {
     let offset = blur_regions.params.x;
     let half_pixel = 0.25 * offset / vec2<f32>(textureDimensions(source));
 
-    var sum = textureSampleLevel(source, texture_sampler, uv + vec2(-half_pixel.x * 2.0, 0.0), 0.0).rgb;
-    sum += textureSampleLevel(source, texture_sampler, uv + vec2(-half_pixel.x, half_pixel.y), 0.0).rgb * 2.0;
+    var sum = textureSampleLevel(source, texture_sampler, uv + vec2(-half_pixel.x * 2.0, 0.0), 0.0)
+            .rgb;
+    sum += textureSampleLevel(source, texture_sampler, uv + vec2(-half_pixel.x, half_pixel.y), 0.0)
+            .rgb * 2.0;
     sum += textureSampleLevel(source, texture_sampler, uv + vec2(0.0, half_pixel.y * 2.0), 0.0).rgb;
-    sum += textureSampleLevel(source, texture_sampler, uv + vec2(half_pixel.x, half_pixel.y), 0.0).rgb * 2.0;
+    sum += textureSampleLevel(source, texture_sampler, uv + vec2(half_pixel.x, half_pixel.y), 0.0)
+            .rgb * 2.0;
     sum += textureSampleLevel(source, texture_sampler, uv + vec2(half_pixel.x * 2.0, 0.0), 0.0).rgb;
-    sum += textureSampleLevel(source, texture_sampler, uv + vec2(half_pixel.x, -half_pixel.y), 0.0).rgb * 2.0;
-    sum += textureSampleLevel(source, texture_sampler, uv + vec2(0.0, -half_pixel.y * 2.0), 0.0).rgb;
-    sum += textureSampleLevel(source, texture_sampler, uv + vec2(-half_pixel.x, -half_pixel.y), 0.0).rgb * 2.0;
+    sum += textureSampleLevel(source, texture_sampler, uv + vec2(half_pixel.x, -half_pixel.y), 0.0)
+            .rgb * 2.0;
+    sum += textureSampleLevel(source, texture_sampler, uv + vec2(0.0, -half_pixel.y * 2.0), 0.0)
+            .rgb;
+    sum += textureSampleLevel(source, texture_sampler, uv + vec2(-half_pixel.x, -half_pixel.y), 0.0)
+            .rgb * 2.0;
 
     return vec4(sum / 12.0, 1.0);
 }
@@ -294,10 +314,14 @@ fn bokeh_horizontal(in: FullscreenVertexOutput) -> BokehHorizontalOutput {
 
     let texel = 1.0 / vec2<f32>(textureDimensions(input_texture));
     let support = i32(radius);
-    for (var x = -support; x <= support; x++) {
+    for(var x = -support; x <= support; x++) {
         let kernel = bokeh_kernel(f32(x), radius);
         let color = textureSampleLevel(
-            input_texture, texture_sampler, in.uv + vec2(f32(x), 0.0) * texel, 0.0).rgb;
+                input_texture,
+                texture_sampler,
+                in.uv + vec2(f32(x), 0.0) * texel,
+                0.0,
+            ).rgb;
         // The input color is real-valued, so this is a scalar-complex product.
         out.red_green += vec4(color.r * kernel, color.g * kernel);
         out.blue += vec4(color.b * kernel, 0.0, 0.0);
@@ -321,7 +345,7 @@ fn bokeh_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var blue = vec2(0.0);
 
     let support = i32(radius);
-    for (var y = -support; y <= support; y++) {
+    for(var y = -support; y <= support; y++) {
         let kernel = bokeh_kernel(f32(y), radius);
         let uv = in.uv + vec2(0.0, f32(y)) * texel;
         let red_green = textureSampleLevel(aux_texture_a, texture_sampler, uv, 0.0);
@@ -342,8 +366,8 @@ fn bokeh_vertical(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // zero. This preserves luminance and keeps the hue stable. 
 
     // The constants for calculating luminance are from the BT.709 standard.
-    let bt709 : vec3<f32> = vec3<f32>(0.2126, 0.7152, 0.0722);
-    
+    let bt709: vec3<f32> = vec3<f32>(0.2126, 0.7152, 0.0722);
+
     let luma = max(dot(color, bt709), 0.0);
     let min_channel = min(color.r, min(color.g, color.b));
     var resolved = color;

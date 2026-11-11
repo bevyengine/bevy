@@ -5,8 +5,8 @@
 
 import bevy_pbr::{
     deferred::functions::deferred_output,
-    render::pbr_fragment::pbr_input_from_standard_material,
-    prepass::io::{VertexOutput, FragmentOutput},
+    prepass::io::{FragmentOutput, VertexOutput},
+    render::pbr_fragment::pbr_input_from_standard_material
 };
 import bevy_render::globals::Globals;
 
@@ -21,11 +21,15 @@ struct WaterSettings {
     octave_strengths: vec4<f32>,
 }
 
-@group(0) @binding(1) var<uniform> globals: Globals;
+@group(0) @binding(1)
+var<uniform> globals: Globals;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(100) var water_normals_texture: texture_2d<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(101) var water_normals_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(102) var<uniform> water_settings: WaterSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100)
+var water_normals_texture: texture_2d<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(101)
+var water_normals_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(102)
+var<uniform> water_settings: WaterSettings;
 
 /// Samples a single octave of noise and returns the resulting normal.
 fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {
@@ -41,11 +45,11 @@ fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
     let uv2 = uv * water_settings.octave_scales[2] + water_settings.octave_vectors[1].xy * time;
     let uv3 = uv * water_settings.octave_scales[3] + water_settings.octave_vectors[1].zw * time;
     return normalize(
-        sample_noise_octave(uv0, water_settings.octave_strengths[0]) +
-        sample_noise_octave(uv1, water_settings.octave_strengths[1]) +
-        sample_noise_octave(uv2, water_settings.octave_strengths[2]) +
-        sample_noise_octave(uv3, water_settings.octave_strengths[3])
-    );
+            sample_noise_octave(uv0, water_settings.octave_strengths[0])
+            + sample_noise_octave(uv1, water_settings.octave_strengths[1])
+            + sample_noise_octave(uv2, water_settings.octave_strengths[2])
+            + sample_noise_octave(uv3, water_settings.octave_strengths[3]),
+        );
 }
 
 @fragment

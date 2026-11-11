@@ -11,12 +11,15 @@ struct BloomUniforms {
     viewport: vec4<f32>,
     scale: vec2<f32>,
     aspect: f32,
-};
+}
 
-@group(0) @binding(0) var input_texture: texture_2d<f32>;
-@group(0) @binding(1) var s: sampler;
+@group(0) @binding(0)
+var input_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var s: sampler;
 
-@group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
+@group(0) @binding(2)
+var<uniform> uniforms: BloomUniforms;
 
 @if(FIRST_DOWNSAMPLE)
 /// https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
@@ -59,83 +62,83 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     var k: vec3<f32>;
     var l: vec3<f32>;
     var m: vec3<f32>;
-@if(UNIFORM_SCALE) {
-    // This is the fast path. When the bloom scale is uniform, the 13 tap sampling kernel can be
-    // expressed with constant offsets.
-    //
-    // It's possible that this isn't meaningfully faster than the "slow" path. However, because it
-    // is hard to test performance on all platforms, and uniform bloom is the most common case, this
-    // path was retained when adding non-uniform (anamorphic) bloom. This adds a small, but nonzero,
-    // cost to maintainability, but it does help me sleep at night.
-    a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
-    b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
-    c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
-    d = textureSample(input_texture, s, uv, vec2<i32>(-2, 0)).rgb;
-    e = textureSample(input_texture, s, uv).rgb;
-    f = textureSample(input_texture, s, uv, vec2<i32>(2, 0)).rgb;
-    g = textureSample(input_texture, s, uv, vec2<i32>(-2, -2)).rgb;
-    h = textureSample(input_texture, s, uv, vec2<i32>(0, -2)).rgb;
-    i = textureSample(input_texture, s, uv, vec2<i32>(2, -2)).rgb;
-    j = textureSample(input_texture, s, uv, vec2<i32>(-1, 1)).rgb;
-    k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
-    l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
-    m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
-} @else {
-    // This is the flexible, but potentially slower, path for non-uniform sampling. Because the
-    // sample is not a constant, and it can fall outside of the limits imposed on constant sample
-    // offsets (-8..8), we have to compute the pixel offset in uv coordinates using the size of the
-    // texture.
-    //
-    // It isn't clear if this is meaningfully slower than using the offset syntax, the spec doesn't
-    // mention it anywhere: https://www.w3.org/TR/WGSL/#texturesample, but the fact that the offset
-    // syntax uses a const-expr implies that it allows some compiler optimizations - maybe more
-    // impactful on mobile?
-    let scale = uniforms.scale;
-    let ps = scale / vec2<f32>(textureDimensions(input_texture));
-    let pl = 2.0 * ps;
-    let ns = -1.0 * ps;
-    let nl = -2.0 * ps;
-    a = textureSample(input_texture, s, uv + vec2<f32>(nl.x, pl.y)).rgb;
-    b = textureSample(input_texture, s, uv + vec2<f32>(0.00, pl.y)).rgb;
-    c = textureSample(input_texture, s, uv + vec2<f32>(pl.x, pl.y)).rgb;
-    d = textureSample(input_texture, s, uv + vec2<f32>(nl.x, 0.00)).rgb;
-    e = textureSample(input_texture, s, uv).rgb;
-    f = textureSample(input_texture, s, uv + vec2<f32>(pl.x, 0.00)).rgb;
-    g = textureSample(input_texture, s, uv + vec2<f32>(nl.x, nl.y)).rgb;
-    h = textureSample(input_texture, s, uv + vec2<f32>(0.00, nl.y)).rgb;
-    i = textureSample(input_texture, s, uv + vec2<f32>(pl.x, nl.y)).rgb;
-    j = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ps.y)).rgb;
-    k = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ps.y)).rgb;
-    l = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ns.y)).rgb;
-    m = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ns.y)).rgb;
-}
+    @if(UNIFORM_SCALE) {
+        // This is the fast path. When the bloom scale is uniform, the 13 tap sampling kernel can be
+        // expressed with constant offsets.
+        //
+        // It's possible that this isn't meaningfully faster than the "slow" path. However, because it
+        // is hard to test performance on all platforms, and uniform bloom is the most common case, this
+        // path was retained when adding non-uniform (anamorphic) bloom. This adds a small, but nonzero,
+        // cost to maintainability, but it does help me sleep at night.
+        a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
+        b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
+        c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
+        d = textureSample(input_texture, s, uv, vec2<i32>(-2, 0)).rgb;
+        e = textureSample(input_texture, s, uv).rgb;
+        f = textureSample(input_texture, s, uv, vec2<i32>(2, 0)).rgb;
+        g = textureSample(input_texture, s, uv, vec2<i32>(-2, -2)).rgb;
+        h = textureSample(input_texture, s, uv, vec2<i32>(0, -2)).rgb;
+        i = textureSample(input_texture, s, uv, vec2<i32>(2, -2)).rgb;
+        j = textureSample(input_texture, s, uv, vec2<i32>(-1, 1)).rgb;
+        k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
+        l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
+        m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
+    } @else {
+        // This is the flexible, but potentially slower, path for non-uniform sampling. Because the
+        // sample is not a constant, and it can fall outside of the limits imposed on constant sample
+        // offsets (-8..8), we have to compute the pixel offset in uv coordinates using the size of the
+        // texture.
+        //
+        // It isn't clear if this is meaningfully slower than using the offset syntax, the spec doesn't
+        // mention it anywhere: https://www.w3.org/TR/WGSL/#texturesample, but the fact that the offset
+        // syntax uses a const-expr implies that it allows some compiler optimizations - maybe more
+        // impactful on mobile?
+        let scale = uniforms.scale;
+        let ps = scale / vec2<f32>(textureDimensions(input_texture));
+        let pl = 2.0 * ps;
+        let ns = -1.0 * ps;
+        let nl = -2.0 * ps;
+        a = textureSample(input_texture, s, uv + vec2<f32>(nl.x, pl.y)).rgb;
+        b = textureSample(input_texture, s, uv + vec2<f32>(0.00, pl.y)).rgb;
+        c = textureSample(input_texture, s, uv + vec2<f32>(pl.x, pl.y)).rgb;
+        d = textureSample(input_texture, s, uv + vec2<f32>(nl.x, 0.00)).rgb;
+        e = textureSample(input_texture, s, uv).rgb;
+        f = textureSample(input_texture, s, uv + vec2<f32>(pl.x, 0.00)).rgb;
+        g = textureSample(input_texture, s, uv + vec2<f32>(nl.x, nl.y)).rgb;
+        h = textureSample(input_texture, s, uv + vec2<f32>(0.00, nl.y)).rgb;
+        i = textureSample(input_texture, s, uv + vec2<f32>(pl.x, nl.y)).rgb;
+        j = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ps.y)).rgb;
+        k = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ps.y)).rgb;
+        l = textureSample(input_texture, s, uv + vec2<f32>(ns.x, ns.y)).rgb;
+        m = textureSample(input_texture, s, uv + vec2<f32>(ps.x, ns.y)).rgb;
+    }
 
-@if(FIRST_DOWNSAMPLE) {
-    // [COD] slide 168
-    //
-    // The first downsample pass reads from the rendered frame which may exhibit
-    // 'fireflies' (individual very bright pixels) that should not cause the bloom effect.
-    //
-    // The first downsample uses a firefly-reduction method proposed by Brian Karis
-    // which takes a weighted-average of the samples to limit their luma range to [0, 1].
-    // This implementation matches the LearnOpenGL article [PBB].
-    var group0 = (a + b + d + e) * (0.125f / 4.0f);
-    var group1 = (b + c + e + f) * (0.125f / 4.0f);
-    var group2 = (d + e + g + h) * (0.125f / 4.0f);
-    var group3 = (e + f + h + i) * (0.125f / 4.0f);
-    var group4 = (j + k + l + m) * (0.5f / 4.0f);
-    group0 *= karis_average(group0);
-    group1 *= karis_average(group1);
-    group2 *= karis_average(group2);
-    group3 *= karis_average(group3);
-    group4 *= karis_average(group4);
-    return group0 + group1 + group2 + group3 + group4;
-} @else {
-    var sample = (a + c + g + i) * 0.03125;
-    sample += (b + d + f + h) * 0.0625;
-    sample += (e + j + k + l + m) * 0.125;
-    return sample;
-}
+    @if(FIRST_DOWNSAMPLE) {
+        // [COD] slide 168
+        //
+        // The first downsample pass reads from the rendered frame which may exhibit
+        // 'fireflies' (individual very bright pixels) that should not cause the bloom effect.
+        //
+        // The first downsample uses a firefly-reduction method proposed by Brian Karis
+        // which takes a weighted-average of the samples to limit their luma range to [0, 1].
+        // This implementation matches the LearnOpenGL article [PBB].
+        var group0 = (a + b + d + e) * (0.125f / 4.0f);
+        var group1 = (b + c + e + f) * (0.125f / 4.0f);
+        var group2 = (d + e + g + h) * (0.125f / 4.0f);
+        var group3 = (e + f + h + i) * (0.125f / 4.0f);
+        var group4 = (j + k + l + m) * (0.5f / 4.0f);
+        group0 *= karis_average(group0);
+        group1 *= karis_average(group1);
+        group2 *= karis_average(group2);
+        group3 *= karis_average(group3);
+        group4 *= karis_average(group4);
+        return group0 + group1 + group2 + group3 + group4;
+    } @else {
+        var sample = (a + c + g + i) * 0.03125;
+        sample += (b + d + f + h) * 0.0625;
+        sample += (e + j + k + l + m) * 0.125;
+        return sample;
+    }
 }
 
 /// [COD] slide 162
@@ -176,7 +179,7 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
     // with f32::MAX (E+38) Chrome fails with ":value 340282346999999984391321947108527833088.0 cannot be represented as 'f32'"
     sample = clamp(sample, vec3<f32>(0.0001), vec3<f32>(3.40282347E+37));
 
-@if(USE_THRESHOLD)
+    @if(USE_THRESHOLD)
     sample = soft_threshold(sample);
 
     return vec4<f32>(sample, 1.0);

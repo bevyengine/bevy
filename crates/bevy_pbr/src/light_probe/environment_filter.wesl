@@ -1,7 +1,7 @@
 import bevy_render::maths::PI;
 import package::render::{
     pbr_lighting as lighting,
-    utils::{sample_cosine_hemisphere, dir_to_cube_uv, sample_cube_dir, hammersley_2d, rand_vec2f}
+    utils::{dir_to_cube_uv, hammersley_2d, rand_vec2f, sample_cosine_hemisphere, sample_cube_dir}
 };
 
 struct FilteringConstants {
@@ -11,11 +11,16 @@ struct FilteringConstants {
     noise_size_bits: vec2u,
 }
 
-@group(0) @binding(0) var input_texture: texture_2d_array<f32>;
-@group(0) @binding(1) var input_sampler: sampler;
-@group(0) @binding(2) var output_texture: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(3) var<uniform> constants: FilteringConstants;
-@group(0) @binding(4) var blue_noise_texture: texture_2d_array<f32>;
+@group(0) @binding(0)
+var input_texture: texture_2d_array<f32>;
+@group(0) @binding(1)
+var input_sampler: sampler;
+@group(0) @binding(2)
+var output_texture: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(3)
+var<uniform> constants: FilteringConstants;
+@group(0) @binding(4)
+var blue_noise_texture: texture_2d_array<f32>;
 
 /// Sample an environment map with a specific LOD
 fn sample_environment(dir: vec3f, level: f32) -> vec4f {
@@ -52,8 +57,7 @@ fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
     return 0.5 * log2(omega_s / omega_p);
 }
 
-@compute
-@workgroup_size(8, 8, 1)
+@compute @workgroup_size(8, 8, 1)
 fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(output_texture).xy;
     let source_width = f32(textureDimensions(input_texture, 0).x);
@@ -62,7 +66,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let coords = vec2u(global_id.xy);
     let face = global_id.z;
 
-    if (any(coords >= size)) {
+    if any(coords >= size) {
         return;
     }
 
@@ -84,7 +88,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     var total_weight = 0.0;
 
     // Skip sampling for mirror reflection (roughness = 0)
-    if (roughness < 0.01) {
+    if roughness < 0.01 {
         radiance = sample_environment(normal, 0.0).rgb;
         textureStore(output_texture, coords, face, vec4f(radiance, 1.0));
         return;
@@ -93,7 +97,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     // For higher roughness values, use importance sampling
     let sample_count = constants.sample_count;
 
-    for (var i = 0u; i < sample_count; i++) {
+    for(var i = 0u; i < sample_count; i++) {
         // Get sample coordinates from Hammersley sequence with blue noise offset
         var xi = hammersley_2d(i, sample_count);
         xi = fract(xi + vector_noise.rg); // Apply Cranley-Patterson rotation
@@ -104,7 +108,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
         // Calculate weight (N·L)
         let NdotL = dot(normal, light_dir);
 
-        if (NdotL > 0.0) {
+        if NdotL > 0.0 {
             // Reconstruct the microfacet half-vector from view and light and compute PDF terms
             let half_vector = normalize(view + light_dir);
             let NdotH = dot(normal, half_vector);
@@ -133,7 +137,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     }
 
     // Normalize by total weight
-    if (total_weight > 0.0) {
+    if total_weight > 0.0 {
         radiance = radiance / total_weight;
     }
 
@@ -141,8 +145,7 @@ fn generate_radiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     textureStore(output_texture, coords, face, vec4f(radiance, 1.0));
 }
 
-@compute
-@workgroup_size(8, 8, 1)
+@compute @workgroup_size(8, 8, 1)
 fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let size = textureDimensions(output_texture).xy;
     let invSize = 1.0 / vec2f(size);
@@ -150,7 +153,7 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     let coords = vec2u(global_id.xy);
     let face = global_id.z;
 
-    if (any(coords >= size)) {
+    if any(coords >= size) {
         return;
     }
 
@@ -161,10 +164,11 @@ fn generate_irradiance_map(@builtin(global_invocation_id) global_id: vec3u) {
     var irradiance = vec3f(0.0);
 
     // Use uniform sampling on a hemisphere
-    for (var i = 0u; i < constants.sample_count; i++) {
+    for(var i = 0u; i < constants.sample_count; i++) {
         // Build a deterministic RNG seed for this pixel / sample
         // 4 randomly chosen 32-bit primes
-        var rng: u32 = (coords.x * 2131358057u) ^ (coords.y * 3416869721u) ^ (face * 1199786941u) ^ (i * 566200673u);
+        var rng: u32 = (coords.x * 2131358057u) ^ (coords.y * 3416869721u) ^ (face * 1199786941u)
+            ^ (i * 566200673u);
 
         // Sample a direction from the upper hemisphere around the normal
         var sample_dir = sample_cosine_hemisphere(normal, &rng);

@@ -1,13 +1,19 @@
 import package::{
     atmosphere::{
         bindings::{atmosphere, settings},
+        bruneton_functions::ray_intersects_ground,
         functions::{
-            multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
-            get_local_r, get_local_up, sample_density_lut, FRAC_4_PI,
+            ABSORPTION_DENSITY,
+            FRAC_4_PI,
+            MIN_EXTINCTION,
+            SCATTERING_DENSITY,
+            get_local_r,
+            get_local_up,
             max_atmosphere_distance,
-            MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
-        },
-        bruneton_functions::ray_intersects_ground
+            multiscattering_lut_uv_to_r_mu,
+            sample_density_lut,
+            sample_transmittance_lut
+        }
     }
 };
 
@@ -15,7 +21,8 @@ import bevy_render::maths::{PI, PI_2};
 
 const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
 
-@group(0) @binding(13) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13)
+var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
 fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
@@ -35,8 +42,7 @@ var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
 /// Shared memory array for workgroup communication
 var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
 
-@compute
-@workgroup_size(1, 1, 64)
+@compute @workgroup_size(1, 1, 64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var uv = (vec2<f32>(global_id.xy) + 0.5) / vec2<f32>(settings.multiscattering_lut_size);
 
@@ -55,7 +61,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     workgroupBarrier();
 
     // Parallel reduction bitshift to the right to divide by 2 each step
-    for (var step = 32u; step > 0u; step >>= 1u) {
+    for(var step = 32u; step > 0u; step >>= 1u) {
         if global_id.z < step {
             multi_scat_shared_mem[global_id.z] += multi_scat_shared_mem[global_id.z + step];
             l_shared_mem[global_id.z] += l_shared_mem[global_id.z + step];
@@ -79,9 +85,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 struct MultiscatteringSample {
     l_2: vec3<f32>,
     f_ms: vec3<f32>,
-};
+}
 
-fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) -> MultiscatteringSample {
+fn sample_multiscattering_dir(
+    r: f32,
+    ray_dir: vec3<f32>,
+    light_dir: vec3<f32>,
+) -> MultiscatteringSample {
     // get the cosine of the zenith angle of the view direction with respect to the light direction
     let mu_view = ray_dir.y;
     let t_max = max_atmosphere_distance(r, mu_view);
@@ -92,7 +102,7 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
     var l_2 = vec3(0.0);
     var f_ms = vec3(0.0);
     var throughput = vec3(1.0);
-    for (var i: u32 = 0u; i < settings.multiscattering_lut_samples; i++) {
+    for(var i: u32 = 0u; i < settings.multiscattering_lut_samples; i++) {
         let t_i = dt * (f32(i) + 0.5);
         let local_r = get_local_r(r, mu_view, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
@@ -129,7 +139,9 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         let local_up = get_local_up(r, t_max, ray_dir);
         let mu_light = dot(light_dir, local_up);
         let transmittance_to_light = sample_transmittance_lut(atmosphere.inner_radius, mu_light);
-        let ground_luminance = transmittance_to_light * transmittance_to_ground * max(mu_light, 0.0) * atmosphere.ground_albedo / PI;
+        let ground_luminance =
+            transmittance_to_light * transmittance_to_ground * max(mu_light, 0.0)
+            * atmosphere.ground_albedo / PI;
         l_2 += ground_luminance;
     }
 

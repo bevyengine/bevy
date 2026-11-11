@@ -2,20 +2,24 @@ import bevy_render::view::View;
 import bevy_pbr::render::utils::coords_to_viewport_uv;
 
 struct SkyboxUniforms {
-	brightness: f32,
-	transform: mat4x4<f32>,
-	@if(SIXTEEN_BYTE_ALIGNMENT)
-	_wasm_padding_8b: u32,
-	@if(SIXTEEN_BYTE_ALIGNMENT)
-	_wasm_padding_12b: u32,
-	@if(SIXTEEN_BYTE_ALIGNMENT)
-	_wasm_padding_16b: u32,
+    brightness: f32,
+    transform: mat4x4<f32>,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
+    _wasm_padding_8b: u32,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
+    _wasm_padding_12b: u32,
+    @if(SIXTEEN_BYTE_ALIGNMENT)
+    _wasm_padding_16b: u32,
 }
 
-@group(0) @binding(0) var skybox: texture_cube<f32>;
-@group(0) @binding(1) var skybox_sampler: sampler;
-@group(0) @binding(2) var<uniform> view: View;
-@group(0) @binding(3) var<uniform> uniforms: SkyboxUniforms;
+@group(0) @binding(0)
+var skybox: texture_cube<f32>;
+@group(0) @binding(1)
+var skybox_sampler: sampler;
+@group(0) @binding(2)
+var<uniform> view: View;
+@group(0) @binding(3)
+var<uniform> uniforms: SkyboxUniforms;
 
 fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
@@ -27,10 +31,10 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
     // Use the position on the near clipping plane to avoid -inf world position
     // because the far plane of an infinite reverse projection is at infinity.
     let view_position_homogeneous = view.view_from_clip * vec4(
-        coords_to_viewport_uv(position, viewport) * vec2(2.0, -2.0) + vec2(-1.0, 1.0),
-        1.0,
-        1.0,
-    );
+            coords_to_viewport_uv(position, viewport) * vec2(2.0, -2.0) + vec2(-1.0, 1.0),
+            1.0,
+            1.0,
+        );
 
     // Transforming the view space ray direction by the skybox transform matrix, it is 
     // equivalent to rotating the skybox itself.
@@ -48,7 +52,7 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-};
+}
 
 //  3 |  2.
 //  2 |  :  `.
@@ -64,10 +68,8 @@ struct VertexOutput {
 @vertex
 fn skybox_vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     // See the explanation above for how this works.
-    let clip_position = vec2(
-        f32(vertex_index & 1u),
-        f32((vertex_index >> 1u) & 1u),
-    ) * 4.0 - vec2(1.0);
+    let clip_position = vec2(f32(vertex_index & 1u), f32((vertex_index >> 1u) & 1u)) * 4.0
+        - vec2(1.0);
 
     return VertexOutput(vec4(clip_position, 0.0, 1.0));
 }
