@@ -12,7 +12,6 @@ use std::{
     fs,
     io::{self, Read},
     path::PathBuf,
-    process,
 };
 use syn::{visit::Visit, File};
 
@@ -33,7 +32,7 @@ fn stdin() {
     let mut buffer = String::new();
     io::stdin().read_to_string(&mut buffer).unwrap_or_else(|_| {
         eprintln!("Failed to read from stdin");
-        process::exit(1);
+        std::process::exit(1);
     });
 
     let Some((_, out)) = format(&buffer) else {
@@ -49,7 +48,7 @@ fn format_files(files: Vec<PathBuf>, check: bool) {
         let path = path.canonicalize().unwrap();
         let src = fs::read_to_string(&path).unwrap_or_else(|_| {
             eprintln!("Failed to read file: {}", path.display());
-            process::exit(1);
+            std::process::exit(1);
         });
 
         let Some((visitor, out)) = format(&src) else {
@@ -58,9 +57,10 @@ fn format_files(files: Vec<PathBuf>, check: bool) {
         };
 
         if check {
-            println!("Diff in {}", path.display());
-            for edit in &visitor.edits {
+            for edit in visitor.edits.iter().rev() {
                 let diff = TextDiff::from_lines(&edit.original_text, &edit.new_text);
+                println!("Diff in {}:{}:", path.display(), edit.start_line);
+
                 for change in diff
                     .grouped_ops(3)
                     .iter()
@@ -86,6 +86,7 @@ fn format_files(files: Vec<PathBuf>, check: bool) {
                     // reset color
                     print!("\x1b[0m");
                 }
+                print!("\n");
             }
         } else {
             fs::write(path, out).expect("Failed to write to file");
@@ -100,7 +101,7 @@ fn format_files(files: Vec<PathBuf>, check: bool) {
 fn format(input: &str) -> Option<(BsnVisitor<'_>, String)> {
     let ast: File = syn::parse_file(input).unwrap_or_else(|_| {
         eprintln!("Failed to parse Rust file: Invalid syntax.");
-        process::exit(1);
+        std::process::exit(1);
     });
 
     let mut visitor = BsnVisitor {
