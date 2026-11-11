@@ -33,9 +33,9 @@
 //! ⟨a⟩    Saturated value (clamped to [0..1])
 
 import package::{
-    render::mesh_view_types::{POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE, RectLight},
-    render::mesh_view_bindings as view_bindings,
     atmosphere::functions::directional_light_transmittance,
+    render::mesh_view_bindings as view_bindings,
+    render::mesh_view_types::{POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE, RectLight}
 };
 import bevy_render::maths::{PI, orthonormalize, quat_rotate};
 
@@ -63,7 +63,8 @@ struct LayerLightingInput {
 struct LightingInput {
     @if(STANDARD_MATERIAL_CLEARCOAT)
     layers: array<LayerLightingInput, 2>,
-    @else   // STANDARD_MATERIAL_CLEARCOAT
+    @else
+    // STANDARD_MATERIAL_CLEARCOAT
     layers: array<LayerLightingInput, 1>,
 
     /// The world-space position.
@@ -387,8 +388,8 @@ fn compute_specular_layer_values_for_point_light(
     LtFdotR = max(0.0001, LtFdotR);
 
     let centerToRay = LtFdotR * R - light_to_frag;
-    let closestPoint = light_to_frag + centerToRay * saturate(
-        light_radius * inverseSqrt(dot(centerToRay, centerToRay)));
+    let closestPoint = light_to_frag
+        + centerToRay * saturate(light_radius * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
 
     // Karis 2013, page 14. The constant 2 (or 3) is hand tuned to fit reference.
@@ -524,18 +525,23 @@ fn Fd_Burley(
 
 // Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-@if(DFG_LUT)
-    return textureSampleLevel(view_bindings::dfg_lut, view_bindings::linear_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
-@else {
-    // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
-    let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
-    let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
-    let r = perceptual_roughness * c0 + c1;
-    let a004 = min(r.x * r.x, exp2(-9.28 * NdotV)) * r.x + r.y;
-    // Keep F_ab positive to avoid divide-by-zero in downstream BRDF terms.
-    let f_ab_epsilon = 0.00005;
-    return max(vec2<f32>(-1.04, 1.04) * a004 + r.zw, vec2<f32>(f_ab_epsilon));
-}
+    @if(DFG_LUT)
+    return textureSampleLevel(
+            view_bindings::dfg_lut,
+            view_bindings::linear_sampler,
+            vec2<f32>(NdotV, perceptual_roughness),
+            0.0,
+        ).rg;
+    @else {
+        // Polynomial approximation, see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
+        let c0 = vec4<f32>(-1.0, -0.0275, -0.572, 0.022);
+        let c1 = vec4<f32>(1.0, 0.0425, 1.04, -0.04);
+        let r = perceptual_roughness * c0 + c1;
+        let a004 = min(r.x * r.x, exp2(-9.28 * NdotV)) * r.x + r.y;
+        // Keep F_ab positive to avoid divide-by-zero in downstream BRDF terms.
+        let f_ab_epsilon = 0.00005;
+        return max(vec2<f32>(-1.04, 1.04) * a004 + r.zw, vec2<f32>(f_ab_epsilon));
+    }
 }
 
 fn EnvBRDFApprox(F0: vec3<f32>, F_ab: vec2<f32>) -> vec3<f32> {
@@ -568,14 +574,14 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     let max_axis = max(abs_direction.x, max(abs_direction.y, abs_direction.z));
 
     let face_index = select(
-        select(X_PLUS, X_MINUS, direction.x < 0.0),
-        select(
-            select(Y_PLUS, Y_MINUS, direction.y < 0.0),
-            select(Z_PLUS, Z_MINUS, direction.z < 0.0),
-            max_axis != abs_direction.y
-        ),
-        max_axis != abs_direction.x
-    );
+            select(X_PLUS, X_MINUS, direction.x < 0.0),
+            select(
+                select(Y_PLUS, Y_MINUS, direction.y < 0.0),
+                select(Z_PLUS, Z_MINUS, direction.z < 0.0),
+                max_axis != abs_direction.y,
+            ),
+            max_axis != abs_direction.x,
+        );
 
     var face_uv: vec2<f32>;
     var divisor: f32;
@@ -583,34 +589,58 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     var face_size: vec2<f32>;
 
     switch face_index {
-        case X_PLUS:  { face_uv = vec2<f32>(direction.z, -direction.y); divisor = direction.x; }
-        case X_MINUS: { face_uv = vec2<f32>(-direction.z, -direction.y); divisor = -direction.x; }
-        case Y_PLUS:  { face_uv = vec2<f32>(direction.x,  -direction.z); divisor = direction.y; }
-        case Y_MINUS: { face_uv = vec2<f32>(direction.x, direction.z); divisor = -direction.y; }
-        case Z_PLUS:  { face_uv = vec2<f32>(direction.x, direction.y); divisor = direction.z; }
-        case Z_MINUS: { face_uv = vec2<f32>(direction.x, -direction.y); divisor = -direction.z; }
-        default: {}
+        case X_PLUS {
+            face_uv = vec2<f32>(direction.z, -direction.y);
+            divisor = direction.x;
+        }
+        case X_MINUS {
+            face_uv = vec2<f32>(-direction.z, -direction.y);
+            divisor = -direction.x;
+        }
+        case Y_PLUS {
+            face_uv = vec2<f32>(direction.x, -direction.z);
+            divisor = direction.y;
+        }
+        case Y_MINUS {
+            face_uv = vec2<f32>(direction.x, direction.z);
+            divisor = -direction.y;
+        }
+        case Z_PLUS {
+            face_uv = vec2<f32>(direction.x, direction.y);
+            divisor = direction.z;
+        }
+        case Z_MINUS {
+            face_uv = vec2<f32>(direction.x, -direction.y);
+            divisor = -direction.z;
+        }
+        default {}
     }
     face_uv = (face_uv / divisor) * 0.5 + 0.5;
 
     switch cubemap_type {
-        case CUBEMAP_TYPE_CROSS_VERTICAL: {
-            face_size = vec2(1.0/3.0, 1.0/4.0);
-            corner_uv = vec2<u32>((0x111102u >> (4 * face_index)) & 0xFu, (0x132011u >> (4 * face_index)) & 0xFu);
+        case CUBEMAP_TYPE_CROSS_VERTICAL {
+            face_size = vec2(1.0 / 3.0, 1.0 / 4.0);
+            corner_uv = vec2<u32>(
+                    (0x111102u >> (4 * face_index)) & 0xFu,
+                    (0x132011u >> (4 * face_index)) & 0xFu,
+                );
         }
-        case CUBEMAP_TYPE_CROSS_HORIZONTAL: {
-            face_size = vec2(1.0/4.0, 1.0/3.0);
-            corner_uv = vec2<u32>((0x131102u >> (4 * face_index)) & 0xFu, (0x112011u >> (4 * face_index)) & 0xFu);
+        case CUBEMAP_TYPE_CROSS_HORIZONTAL {
+            face_size = vec2(1.0 / 4.0, 1.0 / 3.0);
+            corner_uv = vec2<u32>(
+                    (0x131102u >> (4 * face_index)) & 0xFu,
+                    (0x112011u >> (4 * face_index)) & 0xFu,
+                );
         }
-        case CUBEMAP_TYPE_SEQUENCE_HORIZONTAL: {
-            face_size = vec2(1.0/6.0, 1.0);
+        case CUBEMAP_TYPE_SEQUENCE_HORIZONTAL {
+            face_size = vec2(1.0 / 6.0, 1.0);
             corner_uv.x = face_index;
         }
-        case CUBEMAP_TYPE_SEQUENCE_VERTICAL: {
-            face_size = vec2(1.0, 1.0/6.0);
+        case CUBEMAP_TYPE_SEQUENCE_VERTICAL {
+            face_size = vec2(1.0, 1.0 / 6.0);
             corner_uv.y = face_index;
         }
-        default: {}
+        default {}
     }
 
     return (vec2<f32>(corner_uv) + face_uv) * face_size;
@@ -646,19 +676,22 @@ fn point_light(
     let L = normalize(light_to_frag);
     let distance_square = dot(light_to_frag, light_to_frag);
     let distance = sqrt(distance_square);
-    let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
+    let rangeAttenuation = getDistanceAttenuation(
+            distance_square,
+            (*light).color_inverse_square_range.w,
+        );
 
     // Base layer
 
     let a = (*input).layers[LAYER_BASE].roughness;
     let specular_L_a_prime = compute_specular_layer_values_for_point_light(
-        input,
-        LAYER_BASE,
-        V,
-        light_to_frag,
-        (*light).position_radius.w,
-        distance,
-    );
+            input,
+            LAYER_BASE,
+            V,
+            light_to_frag,
+            (*light).position_radius.w,
+            distance,
+        );
     let L_spec = specular_L_a_prime.xyz;
     let a_prime = specular_L_a_prime.w;
     var specular_derived_input = derive_lighting_input(N, V, L_spec);
@@ -668,16 +701,31 @@ fn point_light(
 
     let brdf_roughness = mix(a, a_prime, specular_fix_remap(a));
 
-@if(STANDARD_MATERIAL_ANISOTROPY)
-    var specular_light = specular_anisotropy(input, &specular_derived_input, L, brdf_roughness, specular_intensity);
-@else   // STANDARD_MATERIAL_ANISOTROPY
-    var specular_light = specular(input, &specular_derived_input, brdf_roughness, specular_intensity);
+    @if(STANDARD_MATERIAL_ANISOTROPY)
+    var specular_light = specular_anisotropy(
+            input,
+            &specular_derived_input,
+            L,
+            brdf_roughness,
+            specular_intensity,
+        );
+    @else
+    // STANDARD_MATERIAL_ANISOTROPY
+    var specular_light = specular(
+            input,
+            &specular_derived_input,
+            brdf_roughness,
+            specular_intensity,
+        );
 
     // Sphere area light visibility (solid-angle attenuation)
     let light_radius = (*light).position_radius.w;
     if light_radius > 0.0 {
         let solid_angle = light_radius * light_radius / (distance * distance);
-        specular_light *= saturate(specular_derived_input.NdotL / max(specular_derived_input.NdotL + solid_angle, 1e-4));
+        specular_light *= saturate(
+                specular_derived_input.NdotL
+                / max(specular_derived_input.NdotL + solid_angle, 1e-4),
+            );
     }
 
     // Clearcoat
@@ -695,56 +743,63 @@ fn point_light(
     // from the main layer normal.
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_specular_L_a_prime = compute_specular_layer_values_for_point_light(
-        input,
-        LAYER_CLEARCOAT,
-        V,
-        light_to_frag,
-        (*light).position_radius.w,
-        distance,
-    );
+            input,
+            LAYER_CLEARCOAT,
+            V,
+            light_to_frag,
+            (*light).position_radius.w,
+            distance,
+        );
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let L_clearcoat_spec = clearcoat_specular_L_a_prime.xyz;
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_a_prime = clearcoat_specular_L_a_prime.w;
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    var clearcoat_specular_derived_input =
-        derive_lighting_input(clearcoat_N, V, L_clearcoat_spec);
+    var clearcoat_specular_derived_input = derive_lighting_input(clearcoat_N, V, L_clearcoat_spec);
 
     // Calculate the specular light.
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let clearcoat_normalizationFactor = clearcoat_a / clearcoat_a_prime;
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_specular_intensity = clearcoat_normalizationFactor * clearcoat_normalizationFactor;
+    let clearcoat_specular_intensity = clearcoat_normalizationFactor
+        * clearcoat_normalizationFactor;
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_brdf_roughness = mix(clearcoat_a, clearcoat_a_prime, specular_fix_remap(clearcoat_a));
+    let clearcoat_brdf_roughness = mix(
+            clearcoat_a,
+            clearcoat_a_prime,
+            specular_fix_remap(clearcoat_a),
+        );
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let Fc_Frc = specular_clearcoat(
-        input,
-        &clearcoat_specular_derived_input,
-        clearcoat_strength,
-        clearcoat_brdf_roughness,
-        clearcoat_specular_intensity
-    );
+            input,
+            &clearcoat_specular_derived_input,
+            clearcoat_strength,
+            clearcoat_brdf_roughness,
+            clearcoat_specular_intensity,
+        );
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    let inv_Fc = 1.0 - Fc_Frc.r;    // Inverse Fresnel term.
+    let inv_Fc = 1.0 - Fc_Frc.r; // Inverse Fresnel term.
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    var Frc = Fc_Frc.g;             // Clearcoat light.
+    var Frc = Fc_Frc.g; // Clearcoat light.
 
     // Sphere area light visibility (solid-angle attenuation) for clearcoat
     @if(STANDARD_MATERIAL_CLEARCOAT)
     if light_radius > 0.0 {
         let solid_angle = light_radius * light_radius / (distance * distance);
-        Frc *= saturate(clearcoat_specular_derived_input.NdotL / max(clearcoat_specular_derived_input.NdotL + solid_angle, 1e-4));
+        Frc *= saturate(
+                clearcoat_specular_derived_input.NdotL
+                / max(clearcoat_specular_derived_input.NdotL + solid_angle, 1e-4),
+            );
     }
 
     // Diffuse.
     // Comes after specular since its N⋅L is used in the lighting equation.
     var derived_input = derive_lighting_input(N, V, L);
     var diffuse = vec3(0.0);
-    if (enable_diffuse) {
+    if enable_diffuse {
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
@@ -762,39 +817,46 @@ fn point_light(
     // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
 
     var color_times_NdotL: vec3<f32>;
-@if(STANDARD_MATERIAL_CLEARCOAT)
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
-    color_times_NdotL = (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc) * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
-@else   // STANDARD_MATERIAL_CLEARCOAT
-    color_times_NdotL = diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL;
+    color_times_NdotL =
+        (diffuse * derived_input.NdotL + specular_light * specular_derived_input.NdotL * inv_Fc)
+        * inv_Fc + Frc * clearcoat_specular_derived_input.NdotL;
+    @else
+    // STANDARD_MATERIAL_CLEARCOAT
+    color_times_NdotL = diffuse * derived_input.NdotL
+        + specular_light * specular_derived_input.NdotL;
 
     var texture_sample = 1f;
 
-@if(LIGHT_TEXTURES)
+    @if(LIGHT_TEXTURES)
     if enable_texture && (*light).decal_index != 0xFFFFFFFFu {
-        let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
+        let relative_position =
+            (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world
+                * vec4(P, 1.0)).xyz;
         let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
         let decal_uv = cubemap_uv(relative_position, cubemap_type);
-        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
+        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index]
+                .base_color_texture_index;
 
         texture_sample = textureSampleLevel(
-            view_bindings::clustered_decal_textures[image_index],
-            view_bindings::clustered_decal_sampler,
-            decal_uv,
-            0.0
-        ).r;
+                view_bindings::clustered_decal_textures[image_index],
+                view_bindings::clustered_decal_sampler,
+                decal_uv,
+                0.0,
+            ).r;
     }
 
-    return color_times_NdotL * (*light).color_inverse_square_range.rgb *
-        rangeAttenuation * texture_sample;
+    return color_times_NdotL * (*light).color_inverse_square_range.rgb * rangeAttenuation
+        * texture_sample;
 }
 
 fn spot_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
-    enable_diffuse: bool
+    enable_diffuse: bool,
 ) -> vec3<f32> {
     // reuse the point light calculations
     let point_light = point_light(light_id, input, enable_diffuse, false);
@@ -818,20 +880,24 @@ fn spot_light(
 
     var texture_sample = 1f;
 
-@if(LIGHT_TEXTURES)
+    @if(LIGHT_TEXTURES)
     if (*light).decal_index != 0xFFFFFFFFu {
-        let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
-            vec4((*input).P, 1.0)).xyz;
+        let local_position =
+            (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world
+                * vec4((*input).P, 1.0)).xyz;
         if local_position.z < 0.0 {
-            let decal_uv = (local_position.xy / (local_position.z * (*light).spot_light_tan_angle)) * vec2(-0.5, 0.5) + 0.5;
-            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
+            let decal_uv =
+                (local_position.xy / (local_position.z * (*light).spot_light_tan_angle))
+                * vec2(-0.5, 0.5) + 0.5;
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index]
+                    .base_color_texture_index;
 
             texture_sample = textureSampleLevel(
-                view_bindings::clustered_decal_textures[image_index],
-                view_bindings::clustered_decal_sampler,
-                decal_uv,
-                0.0
-            ).r;
+                    view_bindings::clustered_decal_textures[image_index],
+                    view_bindings::clustered_decal_sampler,
+                    decal_uv,
+                    0.0,
+                ).r;
         }
     }
 
@@ -841,7 +907,7 @@ fn spot_light(
 fn directional_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
-    enable_diffuse: bool
+    enable_diffuse: bool,
 ) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
@@ -856,13 +922,14 @@ fn directional_light(
     var derived_input = derive_lighting_input(N, V, L);
 
     var diffuse = vec3(0.0);
-    if (enable_diffuse) {
+    if enable_diffuse {
         diffuse = diffuse_color * Fd_Burley(input, &derived_input);
     }
 
-@if(STANDARD_MATERIAL_ANISOTROPY)
+    @if(STANDARD_MATERIAL_ANISOTROPY)
     let specular_light = specular_anisotropy(input, &derived_input, L, roughness, 1.0);
-@else   // STANDARD_MATERIAL_ANISOTROPY
+    @else
+    // STANDARD_MATERIAL_ANISOTROPY
     let specular_light = specular(input, &derived_input, roughness, 1.0);
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
@@ -879,59 +946,66 @@ fn directional_light(
     var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, L);
 
     @if(STANDARD_MATERIAL_CLEARCOAT)
-    let Fc_Frc =
-        specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, clearcoat_roughness, 1.0);
+    let Fc_Frc = specular_clearcoat(
+            input,
+            &derived_clearcoat_input,
+            clearcoat_strength,
+            clearcoat_roughness,
+            1.0,
+        );
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let inv_Fc = 1.0 - Fc_Frc.r;
     @if(STANDARD_MATERIAL_CLEARCOAT)
     let Frc = Fc_Frc.g;
 
     var color: vec3<f32>;
-@if(STANDARD_MATERIAL_CLEARCOAT)
+    @if(STANDARD_MATERIAL_CLEARCOAT)
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.md.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
-    color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL +
-        Frc * derived_clearcoat_input.NdotL;
-@else   // STANDARD_MATERIAL_CLEARCOAT
+    color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL
+        + Frc * derived_clearcoat_input.NdotL;
+    @else
+    // STANDARD_MATERIAL_CLEARCOAT
     color = (diffuse + specular_light) * derived_input.NdotL;
 
     var texture_sample = 1f;
 
-@if(LIGHT_TEXTURES)
+    @if(LIGHT_TEXTURES)
     if (*light).decal_index != 0xFFFFFFFFu {
-        let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
-            vec4((*input).P, 1.0)).xyz;
+        let local_position =
+            (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world
+                * vec4((*input).P, 1.0)).xyz;
         let decal_uv = local_position.xy * vec2(-0.5, 0.5) + 0.5;
 
         // if tiled or within tile
         if (view_bindings::clustered_decals.decals[(*light).decal_index].tag != 0u)
-                || all(clamp(decal_uv, vec2(0.0), vec2(1.0)) == decal_uv)
-        {
-            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].base_color_texture_index;
+            || all(clamp(decal_uv, vec2(0.0), vec2(1.0)) == decal_uv) {
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index]
+                    .base_color_texture_index;
 
             texture_sample = textureSampleLevel(
-                view_bindings::clustered_decal_textures[image_index],
-                view_bindings::clustered_decal_sampler,
-                decal_uv - floor(decal_uv),
-                0.0
-            ).r;
+                    view_bindings::clustered_decal_textures[image_index],
+                    view_bindings::clustered_decal_sampler,
+                    decal_uv - floor(decal_uv),
+                    0.0,
+                ).r;
         } else {
             texture_sample = 0f;
         }
     }
 
-color *= (*light).color.rgb * texture_sample;
+    color *= (*light).color.rgb * texture_sample;
 
-@if(ATMOSPHERE)
+    @if(ATMOSPHERE)
     color *= directional_light_transmittance(
-        view_bindings::atmosphere,
-        view_bindings::atmosphere_transmittance_texture,
-        view_bindings::linear_sampler,
-        (*input).P,
-        L,
-        (*light).sun_disk_angular_size,
-    );
+            view_bindings::atmosphere,
+            view_bindings::atmosphere_transmittance_texture,
+            view_bindings::linear_sampler,
+            (*input).P,
+            L,
+            (*light).sun_disk_angular_size,
+        );
 
     return color;
 }
@@ -957,12 +1031,18 @@ fn ltc_integrate_quad(
     V: vec3<f32>,
     P: vec3<f32>,
     Minv: mat3x3<f32>,
-    points: array<vec3<f32>, 4>
+    points: array<vec3<f32>, 4>,
 ) -> f32 {
     let T1 = normalize(V - N * dot(V, N));
     let T2 = -cross(N, T1);
 
-    let Minv_local = Minv * transpose(mat3x3<f32>(T1, T2, N));
+    let Minv_local = Minv * transpose(
+            mat3x3<f32>(
+                T1,
+                T2,
+                N,
+            ),
+        );
 
     // Transform quad vertices into LTC-distorted space
     var L: array<vec3<f32>, 4>;
@@ -977,31 +1057,31 @@ fn ltc_integrate_quad(
     var clipped: array<vec3<f32>, 5>;
     var n_clipped: i32 = 0;
 
-    for (var i = 0i; i < 4i; i++) {
+    for(var i = 0i; i < 4i; i++) {
         let a = L[i];
         let b = L[(i + 1) % 4];
-        if (a.z >= 0.0) {
+        if a.z >= 0.0 {
             clipped[n_clipped] = a;
             n_clipped++;
         }
-        if ((a.z >= 0.0) != (b.z >= 0.0)) {
+        if (a.z >= 0.0) != (b.z >= 0.0) {
             let t = a.z / (a.z - b.z);
             clipped[n_clipped] = mix(a, b, t);
             n_clipped++;
         }
     }
 
-    if (n_clipped == 0) {
+    if n_clipped == 0 {
         return 0.0;
     }
 
-    for (var i = 0i; i < n_clipped; i++) {
+    for(var i = 0i; i < n_clipped; i++) {
         clipped[i] = normalize(clipped[i]);
     }
 
     // Sum edge integrals over clipped polygon
     var sum = 0.0;
-    for (var i = 0i; i < n_clipped; i++) {
+    for(var i = 0i; i < n_clipped; i++) {
         sum += ltc_integrate_edge(clipped[i], clipped[(i + 1) % n_clipped]);
     }
 
@@ -1015,18 +1095,17 @@ fn unpack_clustered_rect_light(light_id: u32) -> RectLight {
     let light = &view_bindings::clustered_lights.data[light_id];
     let rotation = (*light).light_custom_data;
     return RectLight(
-        vec4<f32>((*light).color_inverse_square_range.xyz, 1.0),
-        (*light).position_radius.xyz,
-        // width
-        (*light).position_radius.w,
-        quat_rotate(rotation, vec3<f32>(1.0, 0.0, 0.0)),
-        // height
-        (*light).color_inverse_square_range.w,
-        quat_rotate(rotation, vec3<f32>(0.0, 1.0, 0.0)),
-        (*light).range,
-    );
+            vec4<f32>((*light).color_inverse_square_range.xyz, 1.0),
+            (*light).position_radius.xyz,
+            // width
+            (*light).position_radius.w,
+            quat_rotate(rotation, vec3<f32>(1.0, 0.0, 0.0)),
+            // height
+            (*light).color_inverse_square_range.w,
+            quat_rotate(rotation, vec3<f32>(0.0, 1.0, 0.0)),
+            (*light).range,
+        );
 }
-
 
 @if(AREA_LIGHT_LUTS)
 fn rect_light(
@@ -1048,7 +1127,7 @@ fn rect_light(
     let range_falloff = getRangeFalloff(distance_square, inverse_range_squared);
 
     let light_normal = cross((*light).up, (*light).right);
-    let hw = (*light).right * (*light).width  * 0.5;
+    let hw = (*light).right * (*light).width * 0.5;
     let hh = (*light).up * (*light).height * 0.5;
     var corners: array<vec3<f32>, 4>;
     corners[0] = (*light).position + hw - hh;
@@ -1062,56 +1141,83 @@ fn rect_light(
     }
 
     let LUT_SCALE = 63.0 / 64.0;
-    let LUT_BIAS  =  0.5 / 64.0;
+    let LUT_BIAS = 0.5 / 64.0;
     let uv = vec2<f32>(perceptual_roughness, sqrt(1.0 - NdotV)) * LUT_SCALE + LUT_BIAS;
-    let t1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, uv, 0, 0.0);
-    let t2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, uv, 1, 0.0);
+    let t1 = textureSampleLevel(
+            view_bindings::area_light_luts,
+            view_bindings::linear_sampler,
+            uv,
+            0,
+            0.0,
+        );
+    let t2 = textureSampleLevel(
+            view_bindings::area_light_luts,
+            view_bindings::linear_sampler,
+            uv,
+            1,
+            0.0,
+        );
 
     // Reconstruct the GGX inverse-LTC matrix
     let Minv = mat3x3<f32>(
-        vec3<f32>(t1.x, 0.0, t1.y),
-        vec3<f32>(0.0,  1.0, 0.0),
-        vec3<f32>(t1.z, 0.0, t1.w),
-    );
+            vec3<f32>(t1.x, 0.0, t1.y),
+            vec3<f32>(0.0, 1.0, 0.0),
+            vec3<f32>(t1.z, 0.0, t1.w),
+        );
     let spec = ltc_integrate_quad(N, V, P, Minv, corners);
 
     // Use Lambertian diffuse, Burley would require a second LUT
     let identity = mat3x3<f32>(
-        vec3<f32>(1.0, 0.0, 0.0),
-        vec3<f32>(0.0, 1.0, 0.0),
-        vec3<f32>(0.0, 0.0, 1.0),
-    );
+            vec3<f32>(1.0, 0.0, 0.0),
+            vec3<f32>(0.0, 1.0, 0.0),
+            vec3<f32>(0.0, 0.0, 1.0),
+        );
     let diff = select(0.0, ltc_integrate_quad(N, V, P, identity, corners), enable_diffuse);
 
     // t2.x encodes the bsdf magnitude and t2.y the fresnel direction
     let F0 = mix((*input).F0_dielectric, (*input).F0_metallic, (*input).metallic);
     let spec_weight = F0 * t2.x + (1.0 - F0) * t2.y;
 
-@if(STANDARD_MATERIAL_CLEARCOAT) {
-    let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
-    let clearcoat_strength = (*input).clearcoat_strength;
-    let clearcoat_perceptual_roughness = (*input).layers[LAYER_CLEARCOAT].perceptual_roughness;
-    let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
+    @if(STANDARD_MATERIAL_CLEARCOAT) {
+        let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
+        let clearcoat_strength = (*input).clearcoat_strength;
+        let clearcoat_perceptual_roughness = (*input).layers[LAYER_CLEARCOAT].perceptual_roughness;
+        let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
 
-    // Sample LUTs for clearcoat layer
-    let cc_uv = vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE + LUT_BIAS;
-    let tc1 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, cc_uv, 0, 0.0);
-    let tc2 = textureSampleLevel(view_bindings::area_light_luts, view_bindings::linear_sampler, cc_uv, 1, 0.0);
-    let Minv_cc = mat3x3<f32>(
-        vec3<f32>(tc1.x, 0.0, tc1.y),
-        vec3<f32>(0.0,   1.0, 0.0),
-        vec3<f32>(tc1.z, 0.0, tc1.w),
-    );
-    let spec_cc = ltc_integrate_quad(clearcoat_N, V, P, Minv_cc, corners);
+        // Sample LUTs for clearcoat layer
+        let cc_uv =
+            vec2<f32>(clearcoat_perceptual_roughness, sqrt(1.0 - clearcoat_NdotV)) * LUT_SCALE
+            + LUT_BIAS;
+        let tc1 = textureSampleLevel(
+                view_bindings::area_light_luts,
+                view_bindings::linear_sampler,
+                cc_uv,
+                0,
+                0.0,
+            );
+        let tc2 = textureSampleLevel(
+                view_bindings::area_light_luts,
+                view_bindings::linear_sampler,
+                cc_uv,
+                1,
+                0.0,
+            );
+        let Minv_cc = mat3x3<f32>(
+                vec3<f32>(tc1.x, 0.0, tc1.y),
+                vec3<f32>(0.0, 1.0, 0.0),
+                vec3<f32>(tc1.z, 0.0, tc1.w),
+            );
+        let spec_cc = ltc_integrate_quad(clearcoat_N, V, P, Minv_cc, corners);
 
-    // Clearcoat has F0=0.04
-    let spec_weight_cc = 0.04 * tc2.x + (1.0 - 0.04) * tc2.y;
-    let Fc = clearcoat_strength * spec_weight_cc;
-    let inv_Fc = 1.0 - Fc;
+        // Clearcoat has F0=0.04
+        let spec_weight_cc = 0.04 * tc2.x + (1.0 - 0.04) * tc2.y;
+        let Fc = clearcoat_strength * spec_weight_cc;
+        let inv_Fc = 1.0 - Fc;
 
-    return ((spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
-        + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb * range_falloff;
-} @else {
-    return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
-}
+        return ((spec_weight * spec * inv_Fc + diffuse_color * diff) * inv_Fc
+                + spec_weight_cc * spec_cc * clearcoat_strength) * (*light).color.rgb
+            * range_falloff;
+    } @else {
+        return (spec_weight * spec + diffuse_color * diff) * (*light).color.rgb * range_falloff;
+    }
 }

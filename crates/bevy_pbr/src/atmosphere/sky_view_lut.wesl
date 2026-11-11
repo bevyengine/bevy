@@ -2,23 +2,23 @@ import package::{
     atmosphere::{
         bindings::settings,
         functions::{
-            get_view_position, raymarch_atmosphere,
-            max_atmosphere_distance, direction_atmosphere_to_world,
-            sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
-        },
+            direction_atmosphere_to_world,
+            get_view_position,
+            max_atmosphere_distance,
+            raymarch_atmosphere,
+            sky_view_lut_uv_to_zenith_azimuth,
+            zenith_azimuth_to_ray_dir
+        }
     }
 };
 
-import bevy_render::{
-    view::View,
-    maths::HALF_PI,
-};
+import bevy_render::{maths::HALF_PI, view::View};
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@group(0) @binding(13) var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13)
+var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
 
-@compute
-@workgroup_size(16, 16, 1)
+@compute @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = vec2<f32>(idx.xy) / vec2<f32>(settings.sky_view_lut_size);
 
@@ -34,7 +34,14 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let mu = dot(ray_dir_ws, up);
     let t_max = max_atmosphere_distance(r, mu);
 
-    let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, settings.sky_view_lut_samples, uv, true);
+    let result = raymarch_atmosphere(
+            world_pos,
+            ray_dir_ws,
+            t_max,
+            settings.sky_view_lut_samples,
+            uv,
+            true,
+        );
 
     textureStore(sky_view_lut_out, idx.xy, vec4(result.inscattering, 1.0));
 }

@@ -9,5 +9,5 @@ struct Globals {
     frame_count: u32,
     @if(SIXTEEN_BYTE_ALIGNMENT)
     // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: f32
-};
+    _webgl2_padding: f32,
+}

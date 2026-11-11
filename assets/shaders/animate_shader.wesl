@@ -1,8 +1,5 @@
 // The time since startup data is in the globals binding which is part of the mesh_view_bindings import
-import bevy_pbr::render::{
-    mesh_view_bindings::globals,
-    forward_io::VertexOutput,
-};
+import bevy_pbr::render::{forward_io::VertexOutput, mesh_view_bindings::globals};
 
 fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
     let L = c.x;
@@ -18,10 +15,10 @@ fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
     let s = s_ * s_ * s_;
 
     return vec3<f32>(
-        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
-    );
+            4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+        );
 }
 
 @fragment

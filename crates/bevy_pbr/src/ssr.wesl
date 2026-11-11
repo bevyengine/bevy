@@ -2,19 +2,21 @@
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import package::{
+    deferred::{types as pbr_deferred_types, functions::pbr_input_from_deferred_gbuffer},
+    prepass::utils as prepass_utils,
     render::{
         clustered_forward,
-        pbr_lighting as lighting,
-        pbr_lighting::{LAYER_BASE, LAYER_CLEARCOAT},
-        mesh_view_bindings::{
-            view,
-            globals,
-            depth_prepass_texture,
-            deferred_prepass_texture,
-            ssr_settings
-        },
         pbr_functions,
+        pbr_lighting as lighting,
         utils,
+        mesh_view_bindings::{
+            deferred_prepass_texture,
+            depth_prepass_texture,
+            globals,
+            ssr_settings,
+            view
+        },
+        pbr_lighting::{LAYER_BASE, LAYER_CLEARCOAT},
         view_transformations::{
             depth_ndc_to_view_z,
             frag_coord_to_ndc,
@@ -22,44 +24,46 @@ import package::{
             ndc_to_uv,
             position_view_to_ndc,
             position_world_to_ndc,
-            position_world_to_view,
-        },
+            position_world_to_view
+        }
     },
-    deferred::{
-        functions::pbr_input_from_deferred_gbuffer,
-        types as pbr_deferred_types,
-    },
-    prepass::utils as prepass_utils,
     ssr::raymarch::{
         depth_ray_march_from_cs,
         depth_ray_march_march,
         depth_ray_march_new_from_depth,
-        depth_ray_march_to_ws_dir,
-    },
+        depth_ray_march_to_ws_dir
+    }
 };
-import bevy_render::{
-    view::View,
-    maths::orthonormalize,
-};
+import bevy_render::{maths::orthonormalize, view::View};
 
-@if(ENVIRONMENT_MAP) import package::light_probe::environment_map;
+@if(ENVIRONMENT_MAP)
+import package::light_probe::environment_map;
 
 /// The texture representing the color framebuffer.
-@group(2) @binding(0) var color_texture: texture_2d<f32>;
+@group(2) @binding(0)
+var color_texture: texture_2d<f32>;
 
 /// The sampler that lets us sample from the color framebuffer.
-@group(2) @binding(1) var color_sampler: sampler;
+@group(2) @binding(1)
+var color_sampler: sampler;
 
 // Group 1, bindings 2 and 3 are in `raymarch.wesl`.
 
-@group(2) @binding(4) var stbn_texture: texture_2d_array<f32>;
+@group(2) @binding(4)
+var stbn_texture: texture_2d_array<f32>;
 
 struct BrdfSample {
     wi: vec3<f32>,
     value_over_pdf: vec3<f32>,
 }
 
-fn sample_specular_brdf(wo: vec3<f32>, roughness: f32, F0: vec3<f32>, urand: vec2<f32>, N: vec3<f32>) -> BrdfSample {
+fn sample_specular_brdf(
+    wo: vec3<f32>,
+    roughness: f32,
+    F0: vec3<f32>,
+    urand: vec2<f32>,
+    N: vec3<f32>,
+) -> BrdfSample {
     var brdf_sample: BrdfSample;
 
     // Use VNDF sampling for the half-vector.
@@ -113,11 +117,11 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>, jitter: f32) -> vec4<f32
     raymarch.march_behind_surfaces = false;
 
     let raymarch_result = depth_ray_march_march(&raymarch);
-    if (raymarch_result.hit) {
+    if raymarch_result.hit {
         return vec4(
-            textureSampleLevel(color_texture, color_sampler, raymarch_result.hit_uv, 0.0).rgb,
-            0.0
-        );
+                textureSampleLevel(color_texture, color_sampler, raymarch_result.hit_uv, 0.0).rgb,
+                0.0,
+            );
     }
 
     return vec4(0.0, 0.0, 0.0, 1.0);
@@ -127,8 +131,8 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>, jitter: f32) -> vec4<f32
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Copy pixels outside this viewport because the texture swap replaces the full target.
     let fragment = textureLoad(color_texture, vec2<i32>(in.position.xy), 0);
-    if any(in.position.xy < view.main_pass_viewport.xy) ||
-        any(in.position.xy >= view.main_pass_viewport.xy + view.main_pass_viewport.zw) {
+    if any(in.position.xy < view.main_pass_viewport.xy)
+        || any(in.position.xy >= view.main_pass_viewport.xy + view.main_pass_viewport.zw) {
         return fragment;
     }
 
@@ -144,25 +148,26 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let perceptual_roughness = pbr_input.material.perceptual_roughness;
 
     var min_fade: f32;
-    if (ssr_settings.min_perceptual_roughness >= ssr_settings.min_perceptual_roughness_fully_active) {
+    if ssr_settings.min_perceptual_roughness >= ssr_settings.min_perceptual_roughness_fully_active {
         min_fade = step(ssr_settings.min_perceptual_roughness, perceptual_roughness);
     } else {
         min_fade = smoothstep(
-            ssr_settings.min_perceptual_roughness,
-            ssr_settings.min_perceptual_roughness_fully_active,
-            perceptual_roughness
-        );
+                ssr_settings.min_perceptual_roughness,
+                ssr_settings.min_perceptual_roughness_fully_active,
+                perceptual_roughness,
+            );
     }
 
     var max_fade: f32;
-    if (ssr_settings.max_perceptual_roughness_starts_to_fade >= ssr_settings.max_perceptual_roughness) {
+    if ssr_settings.max_perceptual_roughness_starts_to_fade
+        >= ssr_settings.max_perceptual_roughness {
         max_fade = step(perceptual_roughness, ssr_settings.max_perceptual_roughness);
     } else {
         max_fade = 1.0 - smoothstep(
-            ssr_settings.max_perceptual_roughness_starts_to_fade,
-            ssr_settings.max_perceptual_roughness,
-            perceptual_roughness
-        );
+                ssr_settings.max_perceptual_roughness_starts_to_fade,
+                ssr_settings.max_perceptual_roughness,
+                perceptual_roughness,
+            );
     }
 
     var fade = saturate(min_fade) * saturate(max_fade);
@@ -171,14 +176,14 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let uv = ndc_to_uv(ndc_position.xy);
     let dist = min(uv, vec2(1.0) - uv);
     var fade_xy: vec2<f32>;
-    if (ssr_settings.edge_fadeout_no_longer_active >= ssr_settings.edge_fadeout_fully_active) {
+    if ssr_settings.edge_fadeout_no_longer_active >= ssr_settings.edge_fadeout_fully_active {
         fade_xy = step(vec2(ssr_settings.edge_fadeout_no_longer_active), dist);
     } else {
         fade_xy = smoothstep(
-            vec2(ssr_settings.edge_fadeout_no_longer_active),
-            vec2(ssr_settings.edge_fadeout_fully_active),
-            dist
-        );
+                vec2(ssr_settings.edge_fadeout_no_longer_active),
+                vec2(ssr_settings.edge_fadeout_fully_active),
+                dist,
+            );
     }
     fade *= fade_xy.x * fade_xy.y;
 
@@ -192,7 +197,11 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let tangent_to_world = orthonormalize(N);
 
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let F0 = pbr_functions::calculate_F0(pbr_input.material.base_color.rgb, pbr_input.material.metallic, pbr_input.material.reflectance);
+    let F0 = pbr_functions::calculate_F0(
+            pbr_input.material.base_color.rgb,
+            pbr_input.material.metallic,
+            pbr_input.material.reflectance,
+        );
 
     // Get some random numbers. If the spatio-temporal blue noise (STBN) texture
     // is available (i.e. not the 1x1 placeholder), we use it. Otherwise, we
@@ -200,14 +209,14 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let stbn_dims = textureDimensions(stbn_texture);
     var urand: vec2<f32>;
     var raymarch_jitter: f32;
-    if (all(stbn_dims > vec2(1u))) {
+    if all(stbn_dims > vec2(1u)) {
         let stbn_layers = textureNumLayers(stbn_texture);
         let stbn_noise = textureLoad(
-            stbn_texture,
-            vec2<u32>(in.position.xy) % stbn_dims,
-            i32(globals.frame_count % u32(stbn_layers)),
-            0
-        );
+                stbn_texture,
+                vec2<u32>(in.position.xy) % stbn_dims,
+                i32(globals.frame_count % u32(stbn_layers)),
+                0,
+            );
         urand = stbn_noise.xy;
         // Use the third channel for jitter to avoid correlation with BRDF sampling.
         raymarch_jitter = stbn_noise.z;
@@ -216,9 +225,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         // We use a XOR-sum of products with large primes to decorrelate the
         // seed from the screen-space coordinates and frame count, avoiding
         // visible "crawling" artifacts.
-        var state = (u32(in.position.x) * 2131358057u) ^
-                    (u32(in.position.y) * 3416869721u) ^
-                    (globals.frame_count * 1199786941u);
+        var state = (u32(in.position.x) * 2131358057u) ^ (u32(in.position.y) * 3416869721u)
+            ^ (globals.frame_count * 1199786941u);
         urand = utils::rand_vec2f(&state);
         raymarch_jitter = utils::rand_f(&state);
     }
@@ -240,88 +248,97 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // This will take the specular part of the environment map into account.
     //
     // TODO: Merge this with the duplicated code in `apply_pbr_lighting`.
-@if(ENVIRONMENT_MAP) {
-    // Unpack values required for environment mapping.
-    let base_color = pbr_input.material.base_color.rgb;
-    let metallic = pbr_input.material.metallic;
-    let reflectance = pbr_input.material.reflectance;
-    let specular_transmission = pbr_input.material.specular_transmission;
-    let diffuse_transmission = pbr_input.material.diffuse_transmission;
+    @if(ENVIRONMENT_MAP) {
+        // Unpack values required for environment mapping.
+        let base_color = pbr_input.material.base_color.rgb;
+        let metallic = pbr_input.material.metallic;
+        let reflectance = pbr_input.material.reflectance;
+        let specular_transmission = pbr_input.material.specular_transmission;
+        let diffuse_transmission = pbr_input.material.diffuse_transmission;
 
-    // Do the above calculations again for the clearcoat layer. Remember that
-    // the clearcoat can have its own roughness and its own normal.
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat = pbr_input.material.clearcoat;
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_perceptual_roughness = pbr_input.material.clearcoat_perceptual_roughness;
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_roughness = lighting::perceptualRoughnessToRoughness(clearcoat_perceptual_roughness);
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_N = pbr_input.clearcoat_N;
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_NdotV = max(dot(clearcoat_N, pbr_input.V), 0.0001);
-    @if(STANDARD_MATERIAL_CLEARCOAT)
-    let clearcoat_R = reflect(-pbr_input.V, clearcoat_N);
+        // Do the above calculations again for the clearcoat layer. Remember that
+        // the clearcoat can have its own roughness and its own normal.
+        @if(STANDARD_MATERIAL_CLEARCOAT)
+        let clearcoat = pbr_input.material.clearcoat;
+        @if(STANDARD_MATERIAL_CLEARCOAT)
+        let clearcoat_perceptual_roughness = pbr_input.material.clearcoat_perceptual_roughness;
+        @if(STANDARD_MATERIAL_CLEARCOAT)
+        let clearcoat_roughness =
+            lighting::perceptualRoughnessToRoughness(clearcoat_perceptual_roughness);
+        @if(STANDARD_MATERIAL_CLEARCOAT)
+        let clearcoat_N = pbr_input.clearcoat_N;
+        @if(STANDARD_MATERIAL_CLEARCOAT)
+        let clearcoat_NdotV = max(dot(clearcoat_N, pbr_input.V), 0.0001);
+        @if(STANDARD_MATERIAL_CLEARCOAT)
+        let clearcoat_R = reflect(-pbr_input.V, clearcoat_N);
 
-    // Calculate various other values needed for environment mapping.
-    let env_roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
-    let diffuse_color = pbr_functions::calculate_diffuse_color(
-        base_color,
-        metallic,
-        specular_transmission,
-        diffuse_transmission
-    );
-    let NdotV = max(dot(N, V), 0.0001);
-    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
-    let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
+        // Calculate various other values needed for environment mapping.
+        let env_roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
+        let diffuse_color = pbr_functions::calculate_diffuse_color(
+                base_color,
+                metallic,
+                specular_transmission,
+                diffuse_transmission,
+            );
+        let NdotV = max(dot(N, V), 0.0001);
+        let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
+        let F0_dielectric = pbr_functions::calculate_F0_dielectric(reflectance);
 
-    // Don't add stochastic noise to hits that sample the prefiltered env map.
-    // The prefiltered env map already accounts for roughness.
-    let R = reflect(-V, N);
+        // Don't add stochastic noise to hits that sample the prefiltered env map.
+        // The prefiltered env map already accounts for roughness.
+        let R = reflect(-V, N);
 
-    // Pack all the values into a structure.
-    var lighting_input: lighting::LightingInput;
-    lighting_input.layers[LAYER_BASE].NdotV = NdotV;
-    lighting_input.layers[LAYER_BASE].N = N;
-    lighting_input.layers[LAYER_BASE].R = R;
-    lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
-    lighting_input.layers[LAYER_BASE].roughness = env_roughness;
-    lighting_input.P = world_position.xyz;
-    lighting_input.V = V;
-    lighting_input.diffuse_color = diffuse_color;
-    lighting_input.metallic = metallic;
-    lighting_input.F0_dielectric = F0_dielectric;
-    lighting_input.F0_metallic = base_color;
-    lighting_input.F_ab = F_ab;
-    @if(STANDARD_MATERIAL_CLEARCOAT) {
-    lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
-    lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
-    lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
-    lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness = clearcoat_perceptual_roughness;
-    lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
-    lighting_input.clearcoat_strength = clearcoat;
+        // Pack all the values into a structure.
+        var lighting_input: lighting::LightingInput;
+        lighting_input.layers[LAYER_BASE].NdotV = NdotV;
+        lighting_input.layers[LAYER_BASE].N = N;
+        lighting_input.layers[LAYER_BASE].R = R;
+        lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
+        lighting_input.layers[LAYER_BASE].roughness = env_roughness;
+        lighting_input.P = world_position.xyz;
+        lighting_input.V = V;
+        lighting_input.diffuse_color = diffuse_color;
+        lighting_input.metallic = metallic;
+        lighting_input.F0_dielectric = F0_dielectric;
+        lighting_input.F0_metallic = base_color;
+        lighting_input.F_ab = F_ab;
+        @if(STANDARD_MATERIAL_CLEARCOAT) {
+            lighting_input.layers[LAYER_CLEARCOAT].NdotV = clearcoat_NdotV;
+            lighting_input.layers[LAYER_CLEARCOAT].N = clearcoat_N;
+            lighting_input.layers[LAYER_CLEARCOAT].R = clearcoat_R;
+            lighting_input.layers[LAYER_CLEARCOAT].perceptual_roughness =
+                clearcoat_perceptual_roughness;
+            lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
+            lighting_input.clearcoat_strength = clearcoat;
+        }
+
+        // Determine which cluster we're in. We'll need this to find the right
+        // reflection probe.
+        let cluster_index = clustered_forward::view_fragment_cluster_index(
+                frag_coord.xy,
+                frag_coord.z,
+                false,
+            );
+        var clusterable_object_index_ranges =
+            clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
+
+        // Sample the environment map.
+        //
+        // We pass `true` for `found_diffuse_indirect` here because we only want
+        // the specular part; the diffuse part was already accumulated in the
+        // main PBR pass.
+        let environment_light = environment_map::environment_map_light(
+                &lighting_input,
+                &clusterable_object_index_ranges,
+                true,
+            );
+
+        // Accumulate the environment map light.
+        // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
+        // environment map if SSR hits.
+        indirect_light += (view.exposure * environment_light.specular * specular_occlusion)
+            * (1.0 - (1.0 - ssr_specular.a) * fade);
     }
-
-    // Determine which cluster we're in. We'll need this to find the right
-    // reflection probe.
-    let cluster_index = clustered_forward::view_fragment_cluster_index(
-        frag_coord.xy, frag_coord.z, false);
-    var clusterable_object_index_ranges =
-        clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
-
-    // Sample the environment map.
-    //
-    // We pass `true` for `found_diffuse_indirect` here because we only want
-    // the specular part; the diffuse part was already accumulated in the
-    // main PBR pass.
-    let environment_light = environment_map::environment_map_light(
-        &lighting_input, &clusterable_object_index_ranges, true);
-
-    // Accumulate the environment map light.
-    // Note that we multiply by (1.0 - ssr_specular.a * fade) to occlude the
-    // environment map if SSR hits.
-    indirect_light += (view.exposure * environment_light.specular * specular_occlusion) * (1.0 - (1.0 - ssr_specular.a) * fade);
-}
 
     // Write the results.
     return vec4(fragment.rgb + indirect_light, fragment.a);

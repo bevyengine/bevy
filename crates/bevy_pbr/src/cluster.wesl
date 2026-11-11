@@ -27,7 +27,7 @@ struct ClusterMetadata {
     index_list_size: u32,
 
     farthest_z: atomic<u32>,
-};
+}
 
 /// Indirect draw parameters in the format required by the WebGPU specification.
 struct ClusterRasterIndirectDrawParams {
@@ -46,7 +46,7 @@ struct ClusterableObjectZSlice {
     object_index: u32,
     object_type: u32,
     z_slice: u32,
-};
+}
 
 /// An axis-aligned bounding box.
 struct Aabb {
@@ -54,7 +54,7 @@ struct Aabb {
     min: vec3<f32>,
     /// The maximum extents of the box.
     max: vec3<f32>,
-};
+}
 
 /// An axis-aligned bounding box using unsigned integer coordinates.
 ///
@@ -77,7 +77,7 @@ fn cluster_space_object_aabb(
     radius: f32,
     view_from_world: mat4x4<f32>,
     clip_from_view: mat4x4<f32>,
-    view_from_world_scale: vec3<f32>
+    view_from_world_scale: vec3<f32>,
 ) -> Aabb {
     let position_view = (view_from_world * vec4(position, 1.0)).xyz;
     let half_extents = radius * abs(view_from_world_scale);
@@ -131,16 +131,16 @@ fn cluster_space_object_aabb(
 /// Computes the scale of the camera from the view matrix.
 fn compute_view_from_world_scale(world_from_view: mat4x4<f32>) -> vec3<f32> {
     let world_from_view_3x3 = mat3x3<f32>(
-        world_from_view[0].xyz,
-        world_from_view[1].xyz,
-        world_from_view[2].xyz
-    );
+            world_from_view[0].xyz,
+            world_from_view[1].xyz,
+            world_from_view[2].xyz,
+        );
     let det = determinant(world_from_view_3x3);
     let scale = vec3<f32>(
-        length(world_from_view_3x3[0]) * sign(det),
-        length(world_from_view_3x3[1]),
-        length(world_from_view_3x3[2])
-    );
+            length(world_from_view_3x3[0]) * sign(det),
+            length(world_from_view_3x3[1]),
+            length(world_from_view_3x3[2]),
+        );
     return vec3<f32>(1.0) / scale;
 }
 
@@ -152,7 +152,7 @@ fn ndc_position_to_cluster(
     cluster_factors: vec2<f32>,
     is_orthographic: bool,
     ndc_p: vec3<f32>,
-    view_z: f32
+    view_z: f32,
 ) -> vec3<u32> {
     let frag_coord = clamp(ndc_p.xy * vec2(0.5, -0.5) + vec2(0.5), vec2(0.0), vec2(1.0));
     let xy = vec2<u32>(floor(frag_coord * vec2<f32>(cluster_dimensions.xy)));
@@ -172,27 +172,27 @@ fn calculate_sphere_cluster_bounds(
     is_orthographic: bool,
 ) -> AabbU {
     let aabb_ndc = cluster_space_object_aabb(
-        position,
-        radius,
-        view_from_world,
-        clip_from_view,
-        view_from_world_scale
-    );
+            position,
+            radius,
+            view_from_world,
+            clip_from_view,
+            view_from_world_scale,
+        );
 
     let temp_min_cluster = ndc_position_to_cluster(
-        cluster_dimensions,
-        cluster_factors,
-        is_orthographic,
-        aabb_ndc.min,
-        aabb_ndc.min.z
-    );
+            cluster_dimensions,
+            cluster_factors,
+            is_orthographic,
+            aabb_ndc.min,
+            aabb_ndc.min.z,
+        );
     let temp_max_cluster = ndc_position_to_cluster(
-        cluster_dimensions,
-        cluster_factors,
-        is_orthographic,
-        aabb_ndc.max,
-        aabb_ndc.max.z
-    );
+            cluster_dimensions,
+            cluster_factors,
+            is_orthographic,
+            aabb_ndc.max,
+            aabb_ndc.max.z,
+        );
 
     let min_cluster = min(temp_min_cluster, temp_max_cluster);
     let max_cluster = max(temp_min_cluster, temp_max_cluster);

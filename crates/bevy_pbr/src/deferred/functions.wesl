@@ -1,21 +1,23 @@
 import package::{
+    deferred::types as deferred_types,
+    prepass::io::FragmentOutput,
     render::{
-        pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
         pbr_functions,
         rgb9e5,
         mesh_view_bindings::view,
-        view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
-    },
-    deferred::types as deferred_types,
-    prepass::io::FragmentOutput,
+        pbr_types::{PbrInput, STANDARD_MATERIAL_FLAGS_UNLIT_BIT, pbr_input_new},
+        view_transformations::{frag_coord_to_ndc, position_ndc_to_world}
+    }
 };
-import bevy_render::utils::{octahedral_encode, octahedral_decode};
+import bevy_render::utils::{octahedral_decode, octahedral_encode};
 
-@if(MESHLET_MESH_MATERIAL_PASS) import package::meshlet::visibility_buffer_resolve::VertexOutput;
-@else import package::prepass::io::VertexOutput;
+@if(MESHLET_MESH_MATERIAL_PASS)
+import package::meshlet::visibility_buffer_resolve::VertexOutput;
+@else
+import package::prepass::io::VertexOutput;
 
 @if(MOTION_VECTOR_PREPASS)
-    import package::render::pbr_prepass_functions::calculate_motion_vector;
+import package::render::pbr_prepass_functions::calculate_motion_vector;
 
 /// Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
@@ -28,12 +30,11 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     let diffuse_occlusion = dot(in.diffuse_occlusion, rec_709_coeffs);
     // Only monochrome specular supported.
     let reflectance = dot(in.material.reflectance, rec_709_coeffs);
-    @if(WEBGL2) // More crunched for webgl so we can also fit depth.
-    var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
-        reflectance,
-        in.material.metallic,
-        diffuse_occlusion,
-        in.frag_coord.z));
+    @if(WEBGL2)
+    // More crunched for webgl so we can also fit depth.
+    var props = deferred_types::pack_unorm3x4_plus_unorm_20_(
+            vec4(reflectance, in.material.metallic, diffuse_occlusion, in.frag_coord.z),
+        );
     @if(!WEBGL2)
     let clearcoat = u32(round(saturate(in.material.clearcoat) * 15.0));
     @if(!WEBGL2)
@@ -42,16 +43,22 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     @if(!WEBGL2)
     let clearcoat_props = f32(clearcoat | (clearcoat_perceptual_roughness << 4u)) / 255.0;
     @if(!WEBGL2)
-    var props = deferred_types::pack_unorm4x8_(vec4(
-        reflectance, // could be fewer bits
-        in.material.metallic, // could be fewer bits
-        diffuse_occlusion, // is this worth including?
-        clearcoat_props));
-    let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
+    var props = deferred_types::pack_unorm4x8_(
+            vec4(
+                reflectance, // could be fewer bits
+                in.material.metallic, // could be fewer bits
+                diffuse_occlusion, // is this worth including?
+                clearcoat_props,
+            ),
+        );
+    let flags = deferred_types::deferred_flags_from_mesh_material_flags(
+            in.flags,
+            in.material.flags,
+        );
     let octahedral_normal = octahedral_encode(normalize(in.N));
     var base_color_srgb = vec3(0.0);
     var emissive = in.material.emissive.rgb;
-    if ((in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+    if (in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u {
         // Material is unlit, use emissive component of gbuffer for color data.
         // Unlit materials are effectively emissive.
         emissive = in.material.base_color.rgb;
@@ -67,19 +74,19 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     let specular_transmission = in.material.specular_transmission;
     let diffuse_transmission = in.material.diffuse_transmission;
     let diffuse_color = pbr_functions::calculate_diffuse_color(
-        base_color,
-        metallic,
-        specular_transmission,
-        diffuse_transmission
-    );
+            base_color,
+            metallic,
+            specular_transmission,
+            diffuse_transmission,
+        );
     emissive += in.lightmap_light * diffuse_color * view.exposure;
 
     let deferred = vec4(
-        deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
-        rgb9e5::vec3_to_rgb9e5_(emissive),
-        props,
-        deferred_types::pack_24bit_normal_and_flags(octahedral_normal, flags),
-    );
+            deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
+            rgb9e5::vec3_to_rgb9e5_(emissive),
+            props,
+            deferred_types::pack_24bit_normal_and_flags(octahedral_normal, flags),
+        );
     return deferred;
 }
 
@@ -95,14 +102,15 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let base_rough = deferred_types::unpack_unorm4x8_(gbuffer.r);
     pbr.material.perceptual_roughness = base_rough.a;
     let emissive = rgb9e5::rgb9e5_to_vec3_(gbuffer.g);
-    if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+    if (pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u {
         pbr.material.base_color = vec4(emissive, 1.0);
         pbr.material.emissive = vec4(vec3(0.0), 0.0);
     } else {
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
         pbr.material.emissive = vec4(emissive, 0.0);
     }
-    @if(WEBGL2) // More crunched for webgl so we can also fit depth.
+    @if(WEBGL2)
+    // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
     @if(WEBGL2)
@@ -110,10 +118,10 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     @if(!WEBGL2)
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
     @if(!WEBGL2) {
-    let clearcoat_props = u32(round(props.a * 255.0));
-    pbr.material.reflectance = vec3(props.r);
-    pbr.material.clearcoat = f32(clearcoat_props & 0x0fu) / 15.0;
-    pbr.material.clearcoat_perceptual_roughness = f32(clearcoat_props >> 4u) / 30.0;
+        let clearcoat_props = u32(round(props.a * 255.0));
+        pbr.material.reflectance = vec3(props.r);
+        pbr.material.clearcoat = f32(clearcoat_props & 0x0fu) / 15.0;
+        pbr.material.clearcoat_perceptual_roughness = f32(clearcoat_props >> 4u) / 30.0;
     }
     pbr.material.metallic = props.g;
     pbr.diffuse_occlusion = vec3(props.b);

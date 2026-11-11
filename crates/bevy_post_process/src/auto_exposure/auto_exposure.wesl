@@ -43,23 +43,32 @@ struct CompensationCurve {
     compensation_range: f32,
 }
 
-@group(0) @binding(0) var<uniform> globals: Globals;
+@group(0) @binding(0)
+var<uniform> globals: Globals;
 
-@group(0) @binding(1) var<uniform> settings: AutoExposure;
+@group(0) @binding(1)
+var<uniform> settings: AutoExposure;
 
-@group(0) @binding(2) var tex_color: texture_2d<f32>;
+@group(0) @binding(2)
+var tex_color: texture_2d<f32>;
 
-@group(0) @binding(3) var tex_mask: texture_2d<f32>;
+@group(0) @binding(3)
+var tex_mask: texture_2d<f32>;
 
-@group(0) @binding(4) var tex_compensation: texture_1d<f32>;
+@group(0) @binding(4)
+var tex_compensation: texture_1d<f32>;
 
-@group(0) @binding(5) var<uniform> compensation_curve: CompensationCurve;
+@group(0) @binding(5)
+var<uniform> compensation_curve: CompensationCurve;
 
-@group(0) @binding(6) var<storage, read_write> histogram: array<atomic<u32>, 64>;
+@group(0) @binding(6)
+var<storage, read_write> histogram: array<atomic<u32>, 64>;
 
-@group(0) @binding(7) var<storage, read_write> exposure: f32;
+@group(0) @binding(7)
+var<storage, read_write> exposure: f32;
 
-@group(0) @binding(8) var<storage, read_write> view: View;
+@group(0) @binding(8)
+var<storage, read_write> view: View;
 
 var<workgroup> histogram_shared: array<atomic<u32>, 64>;
 
@@ -94,7 +103,7 @@ fn metering_weight(coords: vec2<f32>) -> u32 {
 @compute @workgroup_size(16, 16, 1)
 fn compute_histogram(
     @builtin(global_invocation_id) global_invocation_id: vec3<u32>,
-    @builtin(local_invocation_index) local_invocation_index: u32
+    @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
     // Clear the workgroup shared histogram
     if local_invocation_index < 64 {
@@ -134,7 +143,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     // Each bin in the cumulative histogram contains the sum of all bins up to that point.
     // This way we can quickly exclude the portion of lowest and highest samples as required by
     // the low_percent and high_percent settings.
-    for (var i=0u; i<64u; i+=1u) {
+    for(var i = 0u; i < 64u; i += 1u) {
         histogram_sum += atomicLoad(&histogram[i]);
         histogram_shared[i] = histogram_sum;
 
@@ -150,7 +159,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     // Include the lowest bin at the minimum luminance when averaging.
     // The cumulative histogram before this bin is zero, clamped to first_index.
     var previous = first_index;
-    for (var i=0u; i<64u; i+=1u) {
+    for(var i = 0u; i < 64u; i += 1u) {
         // The number of pixels in the bin. The histogram values are clamped to
         // first_index and last_index to exclude the lowest and highest samples.
         let cumulative = clamp(atomicLoad(&histogram_shared[i]), first_index, last_index);
@@ -165,9 +174,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
 
     if count > 0u {
         // The average luminance of the included histogram samples.
-        avg_lum = sum / (f32(count) * 63.0)
-            * settings.log_lum_range
-            + settings.min_log_lum;
+        avg_lum = sum / (f32(count) * 63.0) * settings.log_lum_range + settings.min_log_lum;
     }
 
     // The position in the compensation curve texture to sample for avg_lum.
@@ -176,10 +183,9 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     // The target exposure is the negative of the average log luminance.
     // The compensation value is added to the target exposure to adjust the exposure for
     // artistic purposes.
-    let target_exposure = textureLoad(tex_compensation, i32(saturate(u) * 255.0), 0).r
-        * compensation_curve.compensation_range
-        + compensation_curve.min_compensation
-        - avg_lum;
+    let target_exposure =
+        textureLoad(tex_compensation, i32(saturate(u) * 255.0), 0).r
+        * compensation_curve.compensation_range + compensation_curve.min_compensation - avg_lum;
 
     // Smoothly adjust the `exposure` towards the `target_exposure`
     let delta = target_exposure - exposure;

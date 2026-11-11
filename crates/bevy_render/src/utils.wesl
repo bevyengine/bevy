@@ -1,5 +1,8 @@
-
-fn decompress_vertex_position(compressed_position: vec4<f32>, aabb_center: vec3<f32>, aabb_half_extents: vec3<f32>) -> vec3<f32> {
+fn decompress_vertex_position(
+    compressed_position: vec4<f32>,
+    aabb_center: vec3<f32>,
+    aabb_half_extents: vec3<f32>,
+) -> vec3<f32> {
     return aabb_center + aabb_half_extents * compressed_position.xyz;
 }
 

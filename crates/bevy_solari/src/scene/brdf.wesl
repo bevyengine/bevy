@@ -3,8 +3,13 @@ import bevy_pbr::render::pbr_lighting::{D_GGX, V_SmithGGXCorrelated, specular_mu
 import bevy_pbr::render::pbr_functions::calculate_F0_dielectric;
 import bevy_pbr::render::utils::{rand_f, sample_cosine_hemisphere};
 import bevy_render::maths::{PI, orthonormalize};
-import package::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
-import package::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler};
+import package::scene::sampling::{ggx_vndf_pdf, ggx_vndf_sample_invalid, sample_ggx_vndf};
+import package::scene::bindings::{
+    MIRROR_ROUGHNESS_THRESHOLD,
+    ResolvedMaterial,
+    brdf_dfg_lut,
+    brdf_dfg_lut_sampler
+};
 
 enable wgpu_ray_query;
 
@@ -21,14 +26,21 @@ struct LobeReflectances {
 }
 
 /// Hemispherical reflectance of each lobe
-fn lobe_reflectances(F0_metal: vec3<f32>, F0_dielectric: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> LobeReflectances {
+fn lobe_reflectances(
+    F0_metal: vec3<f32>,
+    F0_dielectric: vec3<f32>,
+    material: ResolvedMaterial,
+    F_ab: vec2<f32>,
+) -> LobeReflectances {
     let multiscattering_factor = 1.0 / (F_ab.x + F_ab.y) - 1.0;
-    let rho_specular_metallic = (F0_metal * F_ab.x + F_ab.y) * (1.0 + F0_metal * multiscattering_factor);
-    let rho_specular_dielectric = (F0_dielectric * F_ab.x + F_ab.y) * (1.0 + F0_dielectric * multiscattering_factor);
+    let rho_specular_metallic = (F0_metal * F_ab.x + F_ab.y)
+        * (1.0 + F0_metal * multiscattering_factor);
+    let rho_specular_dielectric = (F0_dielectric * F_ab.x + F_ab.y)
+        * (1.0 + F0_dielectric * multiscattering_factor);
     return LobeReflectances(
-        mix(rho_specular_dielectric, rho_specular_metallic, material.metallic),
-        (1.0 - material.metallic) * (1.0 - rho_specular_dielectric) * material.base_color,
-    );
+            mix(rho_specular_dielectric, rho_specular_metallic, material.metallic),
+            (1.0 - material.metallic) * (1.0 - rho_specular_dielectric) * material.base_color,
+        );
 }
 
 fn specular_lobe_sampling_probability(rho: LobeReflectances, perceptual_roughness: f32) -> f32 {
@@ -49,7 +61,9 @@ fn evaluate_and_sample_brdf(
     rng: ptr<function, u32>,
 ) -> EvaluateAndSampleBrdfResult {
     let NdotV = dot(world_normal, wo);
-    if NdotV < 0.0001 { return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0, false); }
+    if NdotV < 0.0001 {
+        return EvaluateAndSampleBrdfResult(vec3(0.0), vec3(0.0), 0.0, false);
+    }
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
@@ -79,11 +93,11 @@ fn evaluate_and_sample_brdf(
         // Mirror specular is a delta function
         if material.roughness <= MIRROR_ROUGHNESS_THRESHOLD {
             return EvaluateAndSampleBrdfResult(
-                wi,
-                evaluate_specular_brdf(wo, wi, world_normal, material, F_ab) / specular_weight,
-                bitcast<f32>(0x7F800000u), // INF
-                false,
-            );
+                    wi,
+                    evaluate_specular_brdf(wo, wi, world_normal, material, F_ab) / specular_weight,
+                    bitcast<f32>(0x7F800000u), // INF
+                    false,
+                );
         }
     }
 
@@ -101,26 +115,43 @@ fn evaluate_brdf(
     material: ResolvedMaterial,
     F_ab: vec2<f32>,
 ) -> vec3<f32> {
-    return evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab) + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab);
+    return evaluate_diffuse_brdf(wo, wi, world_normal, material, F_ab)
+        + evaluate_specular_brdf(wo, wi, world_normal, material, F_ab);
 }
 
-fn evaluate_diffuse_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
+fn evaluate_diffuse_brdf(
+    wo: vec3<f32>,
+    wi: vec3<f32>,
+    world_normal: vec3<f32>,
+    material: ResolvedMaterial,
+    F_ab: vec2<f32>,
+) -> vec3<f32> {
     let NdotL = dot(world_normal, wi);
     let NdotV = dot(world_normal, wo);
-    if NdotL < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
+    if NdotL < 0.0001 || NdotV < 0.0001 {
+        return vec3(0.0);
+    }
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
     let rho = lobe_reflectances(F0_metal, F0_dielectric, material, F_ab);
     return rho.diffuse / PI * NdotL;
 }
 
-fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> vec3<f32> {
+fn evaluate_specular_brdf(
+    wo: vec3<f32>,
+    wi: vec3<f32>,
+    world_normal: vec3<f32>,
+    material: ResolvedMaterial,
+    F_ab: vec2<f32>,
+) -> vec3<f32> {
     let H = normalize(wi + wo);
     let NdotL = dot(world_normal, wi);
     let NdotH = min(dot(world_normal, H), 1.0);
     let LdotH = dot(wi, H);
     let NdotV = dot(world_normal, wo);
-    if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 { return vec3(0.0); }
+    if NdotL < 0.0001 || NdotH < 0.0001 || LdotH < 0.0001 || NdotV < 0.0001 {
+        return vec3(0.0);
+    }
 
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
@@ -140,12 +171,20 @@ fn evaluate_specular_brdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>,
     let Vs = V_SmithGGXCorrelated(material.roughness, NdotV, NdotL);
     let F_metal = fresnel(F0_metal, LdotH);
     let F_dielectric = fresnel(F0_dielectric, LdotH);
-    return mix(specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, F_ab, 1.0),
-               specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0),
-               material.metallic) * NdotL;
+    return mix(
+            specular_multiscatter(D, Vs, F_dielectric, F0_dielectric, F_ab, 1.0),
+            specular_multiscatter(D, Vs, F_metal, F0_metal, F_ab, 1.0),
+            material.metallic,
+        ) * NdotL;
 }
 
-fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> f32 {
+fn brdf_pdf(
+    wo: vec3<f32>,
+    wi: vec3<f32>,
+    world_normal: vec3<f32>,
+    material: ResolvedMaterial,
+    F_ab: vec2<f32>,
+) -> f32 {
     let NdotV = max(dot(world_normal, wo), 0.0001);
     let F0_metal = material.base_color;
     let F0_dielectric = calculate_F0_dielectric(vec3(material.reflectance));
@@ -172,5 +211,10 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
 
 /// Scale/bias approximation
 fn F_AB(perceptual_roughness: f32, NdotV: f32) -> vec2<f32> {
-    return textureSampleLevel(brdf_dfg_lut, brdf_dfg_lut_sampler, vec2<f32>(NdotV, perceptual_roughness), 0.0).rg;
+    return textureSampleLevel(
+            brdf_dfg_lut,
+            brdf_dfg_lut_sampler,
+            vec2<f32>(NdotV, perceptual_roughness),
+            0.0,
+        ).rg;
 }

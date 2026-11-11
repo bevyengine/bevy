@@ -1,15 +1,12 @@
-import super::{
-    bindings::{globals, TaskPayload},
-};
+import super::{bindings::{TaskPayload, globals}};
 enable wgpu_mesh_shader;
 
 var<task_payload> taskPayload: TaskPayload;
 
-@task
 @payload(taskPayload)
+@task
 @workgroup_size(1)
 fn task() -> @builtin(mesh_task_size) vec3<u32> {
-
     // This color is multiplied against the color of each cube.
     // Changing it modifies all cube colors.
     taskPayload.colorMask = vec4(1.0, 1.0, 1.0, 1.0);

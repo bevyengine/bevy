@@ -7,6 +7,7 @@ struct PreviousViewUniforms {
     view_from_clip: mat4x4<f32>,
 }
 
-@group(0) @binding(2) var<uniform> previous_view_uniforms: PreviousViewUniforms;
+@group(0) @binding(2)
+var<uniform> previous_view_uniforms: PreviousViewUniforms;
 
 // Material bindings will be in @group(2)

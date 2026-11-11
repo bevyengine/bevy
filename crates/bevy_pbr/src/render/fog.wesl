@@ -3,22 +3,16 @@
 //! https://catlikecoding.com/unity/tutorials/rendering/part-14/
 //! https://iquilezles.org/articles/fog/ (Atmospheric Fog and Scattering)
 
-import package::render::{
-    mesh_view_bindings::fog,
-    mesh_view_types::Fog,
-};
+import package::render::{mesh_view_bindings::fog, mesh_view_types::Fog};
 
-
-fn scattering_adjusted_fog_color(
-    fog_params: Fog,
-    scattering: vec3<f32>,
-) -> vec4<f32> {
-    if (fog_params.directional_light_color.a > 0.0) {
+fn scattering_adjusted_fog_color(fog_params: Fog, scattering: vec3<f32>) -> vec4<f32> {
+    if fog_params.directional_light_color.a > 0.0 {
         return vec4<f32>(
-            fog_params.base_color.rgb
-                + scattering * fog_params.directional_light_color.rgb * fog_params.directional_light_color.a,
-            fog_params.base_color.a,
-        );
+                fog_params.base_color.rgb
+                + scattering * fog_params.directional_light_color.rgb
+                * fog_params.directional_light_color.a,
+                fog_params.base_color.a,
+            );
     } else {
         return fog_params.base_color;
     }
@@ -71,8 +65,8 @@ fn atmospheric_fog(
     let extinction_factor = 1.0 - 1.0 / exp(distance * fog_params.be);
     let inscattering_factor = 1.0 - 1.0 / exp(distance * fog_params.bi);
     return vec4<f32>(
-        input_color.rgb * (1.0 - extinction_factor * fog_color.a)
+            input_color.rgb * (1.0 - extinction_factor * fog_color.a)
             + fog_color.rgb * inscattering_factor * fog_color.a,
-        input_color.a
-    );
+            input_color.a,
+        );
 }

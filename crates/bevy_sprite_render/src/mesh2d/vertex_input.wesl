@@ -12,7 +12,7 @@ struct UncompressedVertex {
     @location(3) tangent: vec4<f32>,
     @if(VERTEX_COLORS)
     @location(4) color: vec4<f32>,
-};
+}
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -34,7 +34,7 @@ struct Vertex {
     @location(3) tangent: vec4<f32>,
     @if(VERTEX_COLORS)
     @location(4) color: vec4<f32>,
-};
+}
 
 /// The instance_index parameter must match vertex_in.instance_index. This is a work around for a wgpu dx12 bug.
 /// See https://github.com/gfx-rs/naga/issues/2416
@@ -43,21 +43,30 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
     @if(VERTEX_POSITIONS_COMPRESSED)
-    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
+    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(
+            vertex_in.compressed_position,
+            mesh_metadata.aabb_center,
+            mesh_metadata.aabb_half_extents,
+        );
     @else
     uncompressed_vertex.position = vertex_in.position;
     @if(VERTEX_NORMALS && VERTEX_NORMALS_COMPRESSED)
-    uncompressed_vertex.normal = bevy_render::utils::decompress_vertex_normal(vertex_in.compressed_normal);
+    uncompressed_vertex.normal =
+        bevy_render::utils::decompress_vertex_normal(vertex_in.compressed_normal);
     @if(VERTEX_NORMALS && !VERTEX_NORMALS_COMPRESSED)
     uncompressed_vertex.normal = vertex_in.normal;
     @if(VERTEX_UVS && VERTEX_UVS_COMPRESSED)
     let uv_min_and_extents = mesh_metadata.uv_channels_min_and_extents[0];
     @if(VERTEX_UVS && VERTEX_UVS_COMPRESSED)
-    uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv, uv_min_and_extents);
+    uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(
+            vertex_in.compressed_uv,
+            uv_min_and_extents,
+        );
     @if(VERTEX_UVS && !VERTEX_UVS_COMPRESSED)
     uncompressed_vertex.uv = vertex_in.uv;
     @if(VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED)
-    uncompressed_vertex.tangent = bevy_render::utils::decompress_vertex_tangent(vertex_in.compressed_tangent);
+    uncompressed_vertex.tangent =
+        bevy_render::utils::decompress_vertex_tangent(vertex_in.compressed_tangent);
     @if(VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED)
     uncompressed_vertex.tangent = vertex_in.tangent;
     @if(VERTEX_COLORS)

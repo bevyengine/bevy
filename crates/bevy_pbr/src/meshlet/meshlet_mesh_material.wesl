@@ -1,11 +1,7 @@
 import package::{
     meshlet::visibility_buffer_resolve::resolve_vertex_output,
     prepass::io as prepass_io,
-    render::{
-        view_transformations::uv_to_ndc,
-        pbr_prepass_functions,
-        utils::rand_f,
-    },
+    render::{pbr_prepass_functions, utils::rand_f, view_transformations::uv_to_ndc}
 };
 
 @vertex
