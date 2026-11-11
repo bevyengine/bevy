@@ -97,7 +97,7 @@ where
         weight: f32,
         graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = curve_evaluator
+        let curve_evaluator = (curve_evaluator as &mut dyn Any)
             .downcast_mut::<WeightsCurveEvaluator>()
             .unwrap();
 

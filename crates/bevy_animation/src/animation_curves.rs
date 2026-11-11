@@ -103,7 +103,6 @@ use bevy_curve::{
 use bevy_ecs::component::{Component, Mutable};
 use bevy_platform::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
-use downcast_rs::{impl_downcast, Downcast};
 
 /// A trait for exposing a value in an entity so that it can be animated.
 ///
@@ -375,7 +374,7 @@ where
         weight: f32,
         graph_node: BlendNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = curve_evaluator
+        let curve_evaluator = (curve_evaluator as &mut dyn Any)
             .downcast_mut::<BlendableCurveEvaluator<P::Property>>()
             .unwrap();
         let value = self.curve.sample_clamped(t);
@@ -647,7 +646,7 @@ pub enum EvaluatorId<'a> {
 /// stores the result of a blend operation.
 ///
 /// [`Vec3`]: bevy_math::Vec3
-pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
+pub trait AnimationCurveEvaluator: Any + Send + Sync {
     /// Blends the top element of the stack with the blend register.
     ///
     /// The semantics of this method are as follows:
@@ -710,8 +709,6 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// the stack, not blended with it.
     fn commit(&mut self, entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
 }
-
-impl_downcast!(AnimationCurveEvaluator);
 
 /// A [curve] defined by keyframes with values in a [blendable] type.
 ///

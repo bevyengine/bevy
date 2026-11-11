@@ -1,6 +1,7 @@
+use core::any::Any;
+
 use ::alloc::boxed::Box;
 use bevy_reflect::TypeRegistration;
-use downcast_rs::{impl_downcast, Downcast};
 
 /// A trait for representing type metadata.
 ///
@@ -17,11 +18,10 @@ use downcast_rs::{impl_downcast, Downcast};
 /// [`TypeRegistry`]: crate::TypeRegistry
 /// [`TypeRegistration`]: crate::TypeRegistration
 /// [crate-level documentation]: crate
-pub trait TypeData: Downcast + Send + Sync {
+pub trait TypeData: Any + Send + Sync {
     /// Creates a type-erased clone of `self`.
     fn clone_type_data(&self) -> Box<dyn TypeData>;
 }
-impl_downcast!(TypeData);
 
 impl<T: 'static + Send + Sync> TypeData for T
 where

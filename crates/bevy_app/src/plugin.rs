@@ -1,6 +1,5 @@
 use crate::App;
 use core::any::Any;
-use downcast_rs::{impl_downcast, Downcast};
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -54,7 +53,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// }
 /// # fn damp_flickering() {}
 /// ```
-pub trait Plugin: Downcast + Any + Send + Sync {
+pub trait Plugin: Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
@@ -90,8 +89,6 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 }
-
-impl_downcast!(Plugin);
 
 impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     fn build(&self, app: &mut App) {

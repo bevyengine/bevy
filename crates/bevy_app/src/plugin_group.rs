@@ -638,9 +638,7 @@ mod tests {
     }
 
     fn get_plugin<T: Debug + 'static>(group: &PluginGroupBuilder, id: TypeId) -> &T {
-        group.plugins[&id]
-            .plugin
-            .as_any()
+        (&*group.plugins[&id].plugin as &dyn core::any::Any)
             .downcast_ref::<T>()
             .unwrap()
     }
