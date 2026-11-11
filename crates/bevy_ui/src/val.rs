@@ -893,6 +893,19 @@ impl ValUnit {
         Self::Rem,
     ];
 
+    pub(crate) fn with_value(self, value: f32) -> Val {
+        match self {
+            ValUnit::Percent => Val::Percent(value),
+            ValUnit::Px => Val::Px(value),
+            ValUnit::Vw => Val::Px(value),
+            ValUnit::Vh => Val::Px(value),
+            ValUnit::VMin => Val::Px(value),
+            ValUnit::VMax => Val::Px(value),
+            ValUnit::Em => Val::Px(value),
+            ValUnit::Rem => Val::Px(value),
+        }
+    }
+
     /// Resolve a `ValUnit` and `f32` length to physical coords except for percentage values.
     /// `Percentage` values depend on the size of the parent, and can't be resolved except during layout.
     #[inline]
