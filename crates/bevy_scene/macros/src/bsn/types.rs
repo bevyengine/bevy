@@ -1,4 +1,3 @@
-#![allow(missing_docs, reason = "TODO")]
 use proc_macro2::{Span, TokenStream};
 use syn::{Ident, Lit, LitStr, Member, Path};
 
