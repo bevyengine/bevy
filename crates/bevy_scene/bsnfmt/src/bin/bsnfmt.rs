@@ -29,110 +29,36 @@ struct Args {
     write: bool,
 }
 
-fn main() {
-    let args = Args::parse();
-    let is_stdin = args.file.is_none();
-
-    let src = if let Some(path) = &args.file {
-        fs::read_to_string(path).unwrap_or_else(|_| {
-            eprintln!("Failed to read file: {}", path.display());
-            process::exit(1);
-        })
-    } else {
-        let mut buffer = String::new();
-        io::stdin().read_to_string(&mut buffer).unwrap_or_else(|_| {
-            eprintln!("Failed to read from stdin");
-            process::exit(1);
-        });
-        buffer
-    };
-
-    let ast: File = syn::parse_file(&src).unwrap_or_else(|_| {
-        if is_stdin {
-            print!("{}", src);
-        } else {
-            eprintln!("Failed to parse Rust file: Invalid syntax.");
-        }
+fn stdin() {
+    let mut buffer = String::new();
+    io::stdin().read_to_string(&mut buffer).unwrap_or_else(|_| {
+        eprintln!("Failed to read from stdin");
         process::exit(1);
     });
 
-    let mut visitor = BsnVisitor {
-        source: &src,
-        edits: Vec::new(),
+    let Some((_, out)) = format(&buffer) else {
+        // No changes are needed
+        return;
     };
 
-    visitor.visit_file(&ast);
+    println!("{}", out.trim());
+}
 
-    if is_stdin {
-        let mut output = src.clone();
-        if !visitor.edits.is_empty() {
-            visitor
-                .edits
-                .sort_by_key(|b| std::cmp::Reverse(b.start_line));
+fn format_file(path: PathBuf, check: bool) {
+    let path = path.canonicalize().unwrap();
+    let src = fs::read_to_string(&path).unwrap_or_else(|_| {
+        eprintln!("Failed to read file: {}", path.display());
+        process::exit(1);
+    });
 
-            for edit in &visitor.edits {
-                let start_byte = col_to_offset(&output, edit.start_line, edit.start_col);
-                let end_byte = col_to_offset(&output, edit.end_line, edit.end_col);
-
-                output.replace_range(start_byte..end_byte, &edit.new_text);
-            }
-        }
-
-        print!("{}", output);
+    let Some((visitor, out)) = format(&src) else {
+        // No changes are needed
         return;
-    }
+    };
 
-    let path = args
-        .file
-        .expect("Should have a value if 'is_stdin' is false.");
-
-    if visitor.edits.is_empty() {
-        if !is_stdin && !args.write {
-            eprintln!(
-                "\x1b[1;32mNo formatting changes made in {}\x1b[0m",
-                path.display()
-            );
-        }
-
-        if is_stdin {
-            print!("{}", src);
-        }
-        return;
-    }
-
-    if args.write {
-        visitor
-            .edits
-            .sort_by_key(|b| std::cmp::Reverse(b.start_line));
-
-        let mut output = src.clone();
-        let edit_count = visitor.edits.len();
-        for edit in visitor.edits {
-            let start_byte = col_to_offset(&output, edit.start_line, edit.start_col);
-            let end_byte = col_to_offset(&output, edit.end_line, edit.end_col);
-
-            output.replace_range(start_byte..end_byte, &edit.new_text);
-        }
-
-        fs::write(&path, output).expect("Failed to write to file");
-        println!(
-            "\x1b[1;32mbsn! fmt: formatted {} block(s) in {}\x1b[0m",
-            edit_count,
-            path.display()
-        );
-    } else {
-        println!(
-            "bsn! fmt: found {} unformatted block(s) in {}\n",
-            visitor.edits.len(),
-            path.display()
-        );
-
+    if check {
+        println!("Diff in {}", path.display());
         for edit in &visitor.edits {
-            println!(
-                "\x1b[1;36m▶ Location: line {}, col {}\x1b[0m",
-                edit.start_line, edit.start_col
-            );
-
             let diff = TextDiff::from_lines(&edit.original_text, &edit.new_text);
             for change in diff
                 .grouped_ops(3)
@@ -146,7 +72,7 @@ fn main() {
                     ChangeTag::Equal => (" ", "\x1b[90m"),  // gark Gray
                 };
 
-                print!("{}{} ", color, sign);
+                print!("{}{}", color, sign);
 
                 for (emphasized, value) in change.iter_strings_lossy() {
                     if emphasized {
@@ -159,8 +85,51 @@ fn main() {
                 // reset color
                 print!("\x1b[0m");
             }
-            println!("\n");
         }
-        println!("\nRun with \x1b[1m--write\x1b[0m to apply changes.");
+    } else {
+        fs::write(path, out).expect("Failed to write to file");
     }
+}
+
+fn format(input: &str) -> Option<(BsnVisitor<'_>, String)> {
+    let ast: File = syn::parse_file(input).unwrap_or_else(|_| {
+        eprintln!("Failed to parse Rust file: Invalid syntax.");
+        process::exit(1);
+    });
+
+    let mut visitor = BsnVisitor {
+        source: input,
+        edits: Vec::new(),
+    };
+
+    visitor.visit_file(&ast);
+
+    if visitor.edits.is_empty() {
+        return None;
+    }
+
+    let mut out = input.to_owned();
+
+    visitor
+        .edits
+        .sort_by_key(|b| std::cmp::Reverse(b.start_line));
+
+    for edit in &visitor.edits {
+        let start_byte = col_to_offset(&out, edit.start_line, edit.start_col);
+        let end_byte = col_to_offset(&out, edit.end_line, edit.end_col);
+
+        out.replace_range(start_byte..end_byte, &edit.new_text);
+    }
+
+    Some((visitor, out))
+}
+
+fn main() {
+    let args = Args::parse();
+
+    let Some(file) = args.file else {
+        return stdin();
+    };
+
+    format_file(file, !args.write);
 }
