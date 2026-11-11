@@ -545,7 +545,7 @@ pub fn extract_gradients(
                     }) => {
                         let c = center.resolve(&context, uinode.size);
 
-                        let size = shape.resolve(c, &context, uinode.size);
+                        let size = shape.resolve(&context, uinode.size, c);
 
                         let length = size.x;
 
