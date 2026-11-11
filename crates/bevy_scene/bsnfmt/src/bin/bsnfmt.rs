@@ -21,7 +21,7 @@ use syn::{visit::Visit, File};
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The file to format. If omitted, reads from stdin and prints to stdout.
-    file: Option<PathBuf>,
+    files: Vec<PathBuf>,
 
     /// Write the formatted output back to the file.
     /// Ignored if reading from stdin.
@@ -44,50 +44,56 @@ fn stdin() {
     println!("{}", out.trim());
 }
 
-fn format_file(path: PathBuf, check: bool) {
-    let path = path.canonicalize().unwrap();
-    let src = fs::read_to_string(&path).unwrap_or_else(|_| {
-        eprintln!("Failed to read file: {}", path.display());
-        process::exit(1);
-    });
+fn format_files(files: Vec<PathBuf>, check: bool) {
+    fn inner_format(path: PathBuf, check: bool) {
+        let path = path.canonicalize().unwrap();
+        let src = fs::read_to_string(&path).unwrap_or_else(|_| {
+            eprintln!("Failed to read file: {}", path.display());
+            process::exit(1);
+        });
 
-    let Some((visitor, out)) = format(&src) else {
-        // No changes are needed
-        return;
-    };
+        let Some((visitor, out)) = format(&src) else {
+            // No changes are needed
+            return;
+        };
 
-    if check {
-        println!("Diff in {}", path.display());
-        for edit in &visitor.edits {
-            let diff = TextDiff::from_lines(&edit.original_text, &edit.new_text);
-            for change in diff
-                .grouped_ops(3)
-                .iter()
-                .flatten()
-                .flat_map(|op| diff.iter_inline_changes(op))
-            {
-                let (sign, color) = match change.tag() {
-                    ChangeTag::Delete => ("-", "\x1b[31m"), // red
-                    ChangeTag::Insert => ("+", "\x1b[32m"), // green
-                    ChangeTag::Equal => (" ", "\x1b[90m"),  // gark Gray
-                };
+        if check {
+            println!("Diff in {}", path.display());
+            for edit in &visitor.edits {
+                let diff = TextDiff::from_lines(&edit.original_text, &edit.new_text);
+                for change in diff
+                    .grouped_ops(3)
+                    .iter()
+                    .flatten()
+                    .flat_map(|op| diff.iter_inline_changes(op))
+                {
+                    let (sign, color) = match change.tag() {
+                        ChangeTag::Delete => ("-", "\x1b[31m"), // red
+                        ChangeTag::Insert => ("+", "\x1b[32m"), // green
+                        ChangeTag::Equal => (" ", "\x1b[90m"),  // gark Gray
+                    };
 
-                print!("{}{}", color, sign);
+                    print!("{}{}", color, sign);
 
-                for (emphasized, value) in change.iter_strings_lossy() {
-                    if emphasized {
-                        // bold intra-line changes
-                        print!("\x1b[1m{}\x1b[22m", value);
-                    } else {
-                        print!("{}", value);
+                    for (emphasized, value) in change.iter_strings_lossy() {
+                        if emphasized {
+                            // bold intra-line changes
+                            print!("\x1b[1m{}\x1b[22m", value);
+                        } else {
+                            print!("{}", value);
+                        }
                     }
+                    // reset color
+                    print!("\x1b[0m");
                 }
-                // reset color
-                print!("\x1b[0m");
             }
+        } else {
+            fs::write(path, out).expect("Failed to write to file");
         }
-    } else {
-        fs::write(path, out).expect("Failed to write to file");
+    }
+
+    for file in files {
+        inner_format(file, check);
     }
 }
 
@@ -127,9 +133,9 @@ fn format(input: &str) -> Option<(BsnVisitor<'_>, String)> {
 fn main() {
     let args = Args::parse();
 
-    let Some(file) = args.file else {
+    if args.files.is_empty() {
         return stdin();
-    };
+    }
 
-    format_file(file, !args.write);
+    format_files(args.files, !args.write);
 }
