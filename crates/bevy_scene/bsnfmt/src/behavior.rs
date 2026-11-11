@@ -1,9 +1,10 @@
 use super::{
+    format_tokens,
     traits::BsnFmt,
     types::{BsnVisitor, Edit},
     utils::*,
 };
-use crate::{_bsn::types::*, bsnfmt::format_tokens};
+use crate::_bsn::types::*;
 use syn::{
     spanned::Spanned,
     visit::{visit_macro, Visit},

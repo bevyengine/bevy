@@ -1,37 +1,9 @@
 #![allow(
-    unused,
-    reason = "Importing modules from bevy_scene_macros, but only using a few types and trait implementations"
-)]
-#![allow(
     clippy::print_stdout,
     clippy::print_stderr,
     reason = "Working with stdout and stderr is needed for better tooling & IDE integration"
 )]
 //! CLI BSN Formatter
-
-#[path = "../mod.rs"]
-mod bsnfmt;
-
-#[path = "../../codegen.rs"]
-mod bsn_codegen;
-#[path = "../../parse.rs"]
-mod bsn_parse;
-#[path = "../../types.rs"]
-mod bsn_types;
-
-mod _bsn {
-    pub mod types {
-        pub use crate::bsn_types::*;
-    }
-
-    pub mod parse {
-        pub use crate::bsn_parse::*;
-    }
-
-    pub mod codegen {
-        pub use crate::bsn_codegen::*;
-    }
-}
 
 use bsnfmt::{types::*, utils::col_to_offset};
 use clap::Parser;

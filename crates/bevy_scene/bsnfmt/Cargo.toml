@@ -1,0 +1,36 @@
+[package]
+name = "bsnfmt"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/mod.rs"
+
+[[bin]]
+name = "bsnfmt"
+path = "src/bin/bsnfmt.rs"
+
+[dependencies]
+bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.20.0-dev" }
+
+clap = { version = "4", features = ["derive"] }
+prettyplease = "0.3"
+similar = { version = "3.2.1", features = ["inline"] }
+proc-macro2 = { version =  "1.0", features = ["span-locations"] }
+quote = "1.0"
+syn = { version = "3", features = ["full", "extra-traits", "visit", "visit-mut"] }
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  "--generate-macro-expansion",
+]
+all-features = true

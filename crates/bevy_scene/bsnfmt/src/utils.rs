@@ -1,3 +1,4 @@
+#![allow(missing_docs, reason = "TODO")]
 // TODO encapsulate/clean these up where it makes sense.
 // Maybe use a config or rustfmt.toml
 

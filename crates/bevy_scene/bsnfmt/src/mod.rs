@@ -1,19 +1,46 @@
-#![allow(dead_code, reason = "test")]
+#![allow(
+    unused,
+    reason = "Importing modules from bevy_scene_macros, but only using a few types and trait implementations"
+)]
+//! BSN Formatter
+
+#[path = "../../macros/src/bsn/codegen.rs"]
+mod bsn_codegen;
+#[path = "../../macros/src/bsn/parse.rs"]
+mod bsn_parse;
+#[path = "../../macros/src/bsn/types.rs"]
+mod bsn_types;
+
+/// BSN internals
+mod _bsn {
+    #![allow(unused, reason = "Internal modules")]
+    pub mod codegen {
+        pub use crate::bsn_codegen::*;
+    }
+    pub mod parse {
+        pub use crate::bsn_parse::*;
+    }
+    pub mod types {
+        pub use crate::bsn_types::*;
+    }
+}
 
 mod behavior;
 mod traits;
 pub mod types;
 pub mod utils;
 
-use crate::bsnfmt::traits::BsnFmt;
+use crate::traits::BsnFmt;
 use proc_macro2::TokenStream;
 use std::{fmt::Display, str::FromStr};
 use syn::parse::Parse;
 
-// TODO: Use thiserror
+/// Errors that can occur when formatting BSN
 #[derive(Debug)]
 pub enum FormatterError {
+    /// Lexing error
     Lexing(proc_macro2::LexError),
+    /// Parsing error
     Parsing(String, syn::Error),
 }
 
@@ -30,7 +57,8 @@ impl Display for FormatterError {
     }
 }
 
-fn format_tokens<P: BsnFmt + Parse>(
+/// TODO
+pub fn format_tokens<P: BsnFmt + Parse>(
     input: TokenStream,
     base_indent: usize,
     level: usize,
@@ -40,7 +68,8 @@ fn format_tokens<P: BsnFmt + Parse>(
         .map(|ast| ast.fmt(base_indent, level))
 }
 
-fn format_str<P: BsnFmt + Parse>(
+/// TODO
+pub fn format_str<P: BsnFmt + Parse>(
     input: &str,
     base_indent: usize,
     level: usize,

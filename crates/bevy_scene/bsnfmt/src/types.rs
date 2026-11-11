@@ -1,3 +1,5 @@
+#![allow(missing_docs, reason = "TODO")]
+
 pub struct Edit {
     pub start_line: usize,
     pub start_col: usize,
