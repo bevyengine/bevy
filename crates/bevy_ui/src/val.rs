@@ -897,12 +897,12 @@ impl ValUnit {
         match self {
             ValUnit::Percent => Val::Percent(value),
             ValUnit::Px => Val::Px(value),
-            ValUnit::Vw => Val::Px(value),
-            ValUnit::Vh => Val::Px(value),
-            ValUnit::VMin => Val::Px(value),
-            ValUnit::VMax => Val::Px(value),
-            ValUnit::Em => Val::Px(value),
-            ValUnit::Rem => Val::Px(value),
+            ValUnit::Vw => Val::Vw(value),
+            ValUnit::Vh => Val::Vh(value),
+            ValUnit::VMin => Val::VMin(value),
+            ValUnit::VMax => Val::VMax(value),
+            ValUnit::Em => Val::Em(value),
+            ValUnit::Rem => Val::Rem(value),
         }
     }
 
