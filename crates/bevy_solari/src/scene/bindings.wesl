@@ -364,6 +364,5 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 /// the triangle faces the viewer, which renders as a black outline. Bend the normal just enough to face the viewer.
 fn bend_normal_towards_viewer(world_normal: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
     let NdotV = dot(world_normal, wo);
-    if NdotV >= MIN_SHADING_NDOTV { return world_normal; }
-    return normalize(world_normal + (MIN_SHADING_NDOTV - NdotV) * wo);
+    return normalize(world_normal + max(MIN_SHADING_NDOTV - NdotV, 0.0) * wo);
 }
