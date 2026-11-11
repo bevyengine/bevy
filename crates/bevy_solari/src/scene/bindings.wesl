@@ -65,6 +65,8 @@ const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y = 1u << 1u;
 
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
 
+const MIN_SHADING_NDOTV = 0.01f;
+
 struct LightSource {
     kind: u32, // LIGHT_SOURCE_KIND_BITS bits for kind, rest of the bits for extra data
     id: u32,
@@ -241,7 +243,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     return m;
 }
 
-fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
+fn resolve_ray_hit_full(ray_hit: RayIntersection, wo: vec3<f32>) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
     var resolved = resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
 
@@ -252,6 +254,11 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
 
         // Emissive surfaces only emit from their front side
         resolved.material.emissive = vec3(0.0);
+    }
+
+    // Only bend the normal when hitting the front of a triangle
+    if ray_hit.front_face || resolved.double_sided {
+        resolved.world_normal = bend_normal_towards_viewer(resolved.world_normal, wo);
     }
 
     return resolved;
@@ -350,4 +357,13 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         resolved_material,
         (material.flags & MATERIAL_FLAG_DOUBLE_SIDED) != 0u,
     );
+}
+
+/// The BRDF only reflects light toward viewers on the side the normal points to, and returns zero otherwise.
+/// At grazing angles, interpolated or normal-mapped normals can point away from the viewer even though
+/// the triangle faces the viewer, which renders as a black outline. Bend the normal just enough to face the viewer.
+fn bend_normal_towards_viewer(world_normal: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
+    let NdotV = dot(world_normal, wo);
+    if NdotV >= MIN_SHADING_NDOTV { return world_normal; }
+    return normalize(world_normal + (MIN_SHADING_NDOTV - NdotV) * wo);
 }
