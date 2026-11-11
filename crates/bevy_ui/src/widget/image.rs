@@ -1,6 +1,6 @@
 use crate::{
-    ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ResolvedAxis,
-    VisualBox,
+    layout_tree::resolve_calc, ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node,
+    NodeMeasure, ResolvedAxis, VisualBox,
 };
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
@@ -277,20 +277,19 @@ impl Measure for ImageMeasure {
         let mut width = measure_args.resolve_width();
         let mut height = measure_args.resolve_height();
 
-        let calc = |_, _| 0.;
         let padding = measure_args.style.padding.resolve_or_zero(
             taffy::Size {
                 width: width.effective,
                 height: height.effective,
             },
-            calc,
+            resolve_calc,
         );
         let border = measure_args.style.border.resolve_or_zero(
             taffy::Size {
                 width: width.effective,
                 height: height.effective,
             },
-            calc,
+            resolve_calc,
         );
         let content_inset = Vec2::new(
             padding.left + padding.right + border.left + border.right,
