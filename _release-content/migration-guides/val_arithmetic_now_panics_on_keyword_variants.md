@@ -1,6 +1,6 @@
 ---
 title: "`Val` arithmetic now panics on keyword variants"
-pull_requests: [_]
+pull_requests: [26487]
 ---
 
 `Val`'s impls for `Add`, `Sub`, `Mul`, `MulAssign`, `Div`, `DivAssign` and `Neg` now panic on keyword arguments, instead of failing silently.
