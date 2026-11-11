@@ -288,19 +288,19 @@ impl Val {
         })
     }
 
-    /// Construct a plain unit value.
-    pub(crate) const fn leaf(unit: ValUnit, value: f32) -> Self {
-        match unit {
-            ValUnit::Px => Self::Px(value),
-            ValUnit::Percent => Self::Percent(value),
-            ValUnit::Vw => Self::Vw(value),
-            ValUnit::Vh => Self::Vh(value),
-            ValUnit::VMin => Self::VMin(value),
-            ValUnit::VMax => Self::VMax(value),
-            ValUnit::Em => Self::Em(value),
-            ValUnit::Rem => Self::Rem(value),
-        }
-    }
+    // /// Construct a plain unit value.
+    // pub(crate) const fn leaf(unit: ValUnit, value: f32) -> Self {
+    //     match unit {
+    //         ValUnit::Px => Self::Px(value),
+    //         ValUnit::Percent => Self::Percent(value),
+    //         ValUnit::Vw => Self::Vw(value),
+    //         ValUnit::Vh => Self::Vh(value),
+    //         ValUnit::VMin => Self::VMin(value),
+    //         ValUnit::VMax => Self::VMax(value),
+    //         ValUnit::Em => Self::Em(value),
+    //         ValUnit::Rem => Self::Rem(value),
+    //     }
+    // }
 
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
@@ -462,10 +462,10 @@ impl Val {
             if lo.1 > hi.1 {
                 return min;
             }
-            if let Some(v) = term(&value)
-                && v.0 == lo.0
+            if let Some((unit, value)) = term(&value)
+                && unit == lo.0
             {
-                return Val::leaf(v.0, lo.1.max(v.1.min(hi.1)));
+                return unit.with_value(lo.1.max(value.min(hi.1)));
             }
         }
         CalcOp::Clamp(ClampOp { min, value, max }).into()
@@ -964,7 +964,7 @@ impl Val {
         let mut terms: CalcTerms = ValUnit::ALL
             .into_iter()
             .zip(leaves)
-            .filter_map(|(unit, value)| Some(Val::leaf(unit, value?)))
+            .filter_map(|(unit, value)| Some(unit.with_value(value?)))
             // Zero terms don't change a sum.
             .filter(|leaf| op != ReduceOp::Sum || leaf.inner() != Some(0.0))
             .collect();
