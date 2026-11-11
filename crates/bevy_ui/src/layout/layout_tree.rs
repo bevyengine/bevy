@@ -64,7 +64,7 @@ pub struct TaffyStyle {
 pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
     // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`
     let calc = unsafe { &*ptr.cast::<CalcOp>() };
-    calc.resolve(basis, &ValContext::default()).unwrap()
+    calc.resolve(&ValContext::default(), basis).unwrap()
 }
 
 impl TaffyStyle {

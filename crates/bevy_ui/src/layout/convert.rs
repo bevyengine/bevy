@@ -2,10 +2,10 @@ use taffy::{style_helpers, Dimension};
 
 use crate::{
     val::{CalcOp, ValContext},
-    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
-    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
-    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
-    RepeatedGridTrack, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, BoxSizing, ClampOp, Display, FlexDirection, FlexWrap,
+    GridAutoFlow, GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent,
+    JustifyItems, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis,
+    PositionType, RepeatedGridTrack, UiRect, Val,
 };
 
 use super::layout_tree::TaffyStyle;
@@ -26,7 +26,7 @@ impl Val {
                     CalcOp::Sum(terms) => terms.iter().map(physical).reduce(|a, b| a + b),
                     CalcOp::Min(terms) => terms.iter().map(physical).reduce(Val::min),
                     CalcOp::Max(terms) => terms.iter().map(physical).reduce(Val::max),
-                    CalcOp::Clamp(min, value, max) => {
+                    CalcOp::Clamp(ClampOp { min, value, max }) => {
                         Some(physical(value).clamp(physical(min), physical(max)))
                     }
                 }

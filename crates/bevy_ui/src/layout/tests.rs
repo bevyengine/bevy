@@ -133,7 +133,7 @@ fn calc_layout_resolves_percentages_and_updates_context() {
     let style = app.world().get::<TaffyStyle>(child).unwrap();
     assert_eq!(
         style.calcs[0]
-            .resolve(600.0, &ValContext::default())
+            .resolve(&ValContext::default(), 600.0,)
             .unwrap(),
         230.0
     );
@@ -176,7 +176,12 @@ fn calc_layout_handles_containers_and_parent_width_based_padding() {
     let child = app
         .world_mut()
         .spawn(Node {
-            width: CalcOp::Clamp(Val::Px(100.0), Val::Percent(80.0), Val::Px(300.0)).into(),
+            width: CalcOp::Clamp(ClampOp {
+                min: Val::Px(100.0),
+                value: Val::Percent(80.0),
+                max: Val::Px(300.0),
+            })
+            .into(),
             height: Val::Percent(50.0) - Val::Px(10.0),
             padding: UiRect::all(Val::Percent(5.0) + Val::Px(2.0)),
             ..default()

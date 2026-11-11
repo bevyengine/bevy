@@ -468,7 +468,7 @@ impl Val {
                 return Val::leaf(v.0, lo.1.max(v.1.min(hi.1)));
             }
         }
-        CalcOp::Clamp(min, value, max).into()
+        CalcOp::Clamp(ClampOp { min, value, max }).into()
     }
 
     /// `Auto` is zero in expressions.
@@ -593,7 +593,7 @@ impl Val {
             }
             Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
             Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
-            Val::Calc(op) => op.0.resolve(physical_base_value, context),
+            Val::Calc(op) => op.0.resolve(context, physical_base_value),
             _ => Err(ValArithmeticError::NonEvaluable),
         }
     }
@@ -727,6 +727,42 @@ pub struct Calc(pub(crate) Box<CalcOp>);
 /// matches `Clamp`.
 pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
 
+#[derive(Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+/// An operation clamping a `Val` between a minimum and maximum.
+pub struct ClampOp {
+    /// min
+    pub min: Val,
+    /// value
+    pub value: Val,
+    /// max
+    pub max: Val,
+}
+
+impl ClampOp {
+    pub fn resolve(
+        &self,
+        context: &ValContext,
+        percent_basis: f32,
+    ) -> Result<f32, ValArithmeticError> {
+        let min = self.min.resolve(context, percent_basis)?;
+        let value = self.value.resolve(context, percent_basis)?;
+        let max = self.max.resolve(context, percent_basis)?;
+        Ok(min.max(max.min(value)))
+    }
+}
+
+impl Into<CalcOp> for ClampOp {
+    fn into(self) -> CalcOp {
+        CalcOp::Clamp(self)
+    }
+}
+
 /// An operation performed on two or more `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
@@ -744,7 +780,7 @@ pub(crate) enum CalcOp {
     /// The largest of the terms.
     Max(CalcTerms),
     /// Clamp the second `Val` between the first and third.
-    Clamp(Val, Val, Val),
+    Clamp(ClampOp),
 }
 
 impl CalcOp {
@@ -759,12 +795,8 @@ impl CalcOp {
     }
 
     /// Resolve a `CalcOp` to a value in physical pixels.
-    pub fn resolve(
-        &self,
-        physical_base_value: f32,
-        context: &ValContext,
-    ) -> Result<f32, ValArithmeticError> {
-        let resolve = |val: &Val| val.resolve(context, physical_base_value);
+    pub fn resolve(&self, context: &ValContext, basis: f32) -> Result<f32, ValArithmeticError> {
+        let resolve = |val: &Val| val.resolve(context, basis);
         let reduce = |terms: &[Val], init: f32, op: fn(f32, f32) -> f32| {
             terms
                 .iter()
@@ -775,9 +807,7 @@ impl CalcOp {
             Self::Sum(terms) => reduce(terms, 0.0, |a, b| a + b),
             Self::Min(terms) => reduce(terms, f32::INFINITY, f32::min),
             Self::Max(terms) => reduce(terms, f32::NEG_INFINITY, f32::max),
-            Self::Clamp(min, value, max) => {
-                Ok(resolve(min)?.max(resolve(value)?.min(resolve(max)?)))
-            }
+            Self::Clamp(clamp) => clamp.resolve(context, basis),
         }
     }
 
@@ -792,7 +822,7 @@ impl CalcOp {
                     *term *= k;
                 }
             }
-            Self::Clamp(min, value, max) => {
+            Self::Clamp(ClampOp { min, value, max }) => {
                 *min *= k;
                 *value *= k;
                 *max *= k;
@@ -802,7 +832,7 @@ impl CalcOp {
             match self {
                 Self::Min(terms) => *self = Self::Max(take(terms)),
                 Self::Max(terms) => *self = Self::Min(take(terms)),
-                Self::Clamp(min, value, max) => {
+                Self::Clamp(ClampOp { min, value, max }) => {
                     match (min.unit(), min.inner(), max.unit(), max.inner()) {
                         (Some(a), Some(lo), Some(b), Some(hi)) if a == b && lo >= hi => {
                             core::mem::swap(min, max);
@@ -1307,11 +1337,25 @@ mod tests {
             Ok(400.0)
         );
         assert_eq!(
-            resolve(&CalcOp::Clamp(Val::Px(100.0), value.clone(), Val::Px(125.0)).into()),
+            resolve(
+                &CalcOp::Clamp(ClampOp {
+                    min: Val::Px(100.0),
+                    value: value.clone(),
+                    max: Val::Px(125.0)
+                })
+                .into()
+            ),
             Ok(250.0)
         );
         assert_eq!(
-            resolve(&CalcOp::Clamp(Val::Px(200.0), value.clone(), Val::Px(100.0)).into()),
+            resolve(
+                &CalcOp::Clamp(ClampOp {
+                    min: Val::Px(200.0),
+                    value: value.clone(),
+                    max: Val::Px(100.0)
+                })
+                .into()
+            ),
             Ok(400.0)
         );
         let mut scaled = value;
@@ -1340,15 +1384,19 @@ mod tests {
             Ok(-20.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOp::Clamp(
-                a.clone(),
-                Val::Px(15.0),
-                b.clone()
-            ))),
+            resolve(-Val::from(CalcOp::Clamp(ClampOp {
+                min: a.clone(),
+                value: Val::Px(15.0),
+                max: b.clone()
+            }))),
             Ok(-15.0)
         );
         assert_eq!(
-            resolve(-Val::from(CalcOp::Clamp(b, Val::Px(15.0), a))),
+            resolve(-Val::from(CalcOp::Clamp(ClampOp {
+                min: b,
+                value: Val::Px(15.0),
+                max: a
+            }))),
             Ok(-20.0)
         );
     }
@@ -1440,11 +1488,11 @@ mod tests {
 
     #[test]
     fn inverted_clamp_negates_its_resolved_value() {
-        let value = Val::from(CalcOp::Clamp(
-            Val::Px(100.0),
-            Val::Percent(50.0),
-            Val::Px(20.0),
-        ));
+        let value = Val::from(CalcOp::Clamp(ClampOp {
+            min: Val::Px(100.0),
+            value: Val::Percent(50.0),
+            max: Val::Px(20.0),
+        }));
         let resolve = |value: Val| {
             value
                 .resolve(
