@@ -17,9 +17,14 @@ bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.20.0-dev" }
 clap = { version = "4", features = ["derive"] }
 prettyplease = "0.3"
 similar = { version = "3.2.1", features = ["inline"] }
-proc-macro2 = { version =  "1.0", features = ["span-locations"] }
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
 quote = "1.0"
-syn = { version = "3", features = ["full", "extra-traits", "visit", "visit-mut"] }
+syn = { version = "3", features = [
+  "full",
+  "extra-traits",
+  "visit",
+  "visit-mut",
+] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
