@@ -2,10 +2,10 @@ use bevy_math::StableInterpolate;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
+use core::mem::take;
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
-use core::mem::take;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -359,6 +359,19 @@ impl Val {
         }
     }
 
+    /// Returns true if this `Val` is a non-numeric keyword value.
+    pub const fn is_keyword(&self) -> bool {
+        matches!(
+            self,
+            Val::Auto
+                | Val::MinContent
+                | Val::MaxContent
+                | Val::FitContent
+                | Val::Stretch
+                | Val::Content
+        )
+    }
+
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
     ///
@@ -509,30 +522,32 @@ impl Val {
 
     /// Creates an expression that returns `self` clamped between `min` and `max` when resolved.
     /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
+    /// Keyword `Val`s are replaced with `Val::ZERO`.
     pub fn clamp(self, min: Val, max: Val) -> Val {
-        let [min, value, max] = [min, self, max].map(Val::map_auto_to_zero);
-        let term = |val: &Val| Some((val.unit()?, val.value()?));
-        if let (Some(lo), Some(hi)) = (term(&min), term(&max))
-            && lo.0 == hi.0
+        let [min, value, max] = [min, self, max].map(Val::map_keyword_to_zero);
+
+        if let (Some((unit, lo)), Some((max_unit, hi))) = (min.unit_value(), max.unit_value())
+            && unit == max_unit
         {
             // Inverted bounds resolve to the minimum, whatever the value.
-            if lo.1 > hi.1 {
+            if hi < lo {
                 return min;
             }
-            if let Some((unit, value)) = term(&value)
-                && unit == lo.0
+            if let Some((u, v)) = value.unit_value()
+                && unit == u
             {
-                return unit.with_value(lo.1.max(value.min(hi.1)));
+                return unit.with_value(lo.max(hi.min(v)));
             }
         }
         CalcOp::Clamp(ClampOp { min, value, max }).into()
     }
 
-    /// `Auto` is zero in expressions.
-    fn map_auto_to_zero(self) -> Val {
-        match self {
-            Val::Auto => Val::ZERO,
-            val => val,
+    /// Keywords is zero in expressions.
+    fn map_keyword_to_zero(self) -> Val {
+        if self.is_keyword() {
+            Val::ZERO
+        } else {
+            self
         }
     }
 }
@@ -871,7 +886,7 @@ impl CalcOp {
     /// Multiply an operation by a scalar.
     /// If the scale is negative, the direction of the operation is changed.
     /// If min is greater than max, clamp always returns min and therefore negation always returns -min.
-    pub(crate) fn scale(&mut self, k: f32) {        
+    pub(crate) fn scale(&mut self, k: f32) {
         match self {
             Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
                 for term in terms {
@@ -977,7 +992,7 @@ impl Val {
         leaves: &mut [Option<f32>; ValUnit::ALL.len()],
         rest: &mut SmallVec<[Val; 3]>,
     ) {
-        match self.map_auto_to_zero() {
+        match self.map_keyword_to_zero() {
             Val::Calc(calc) if calc.0.op() == Some(op) => {
                 if let CalcOp::Sum(terms) | CalcOp::Min(terms) | CalcOp::Max(terms) = *calc.0 {
                     for term in terms {
