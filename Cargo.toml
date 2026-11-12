@@ -161,6 +161,7 @@ dev = [
   "bevy_dev_tools",
   "render_dev_tools",
   "file_watcher",
+  "inspector",
 ]
 
 # COLLECTION: Features used to build audio Bevy apps.
@@ -361,6 +362,9 @@ bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
 
+# Adds frame pacing diagnostics and logs
+framepace_debug = ["bevy_render", "bevy_internal/framepace_debug"]
+
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
@@ -439,6 +443,14 @@ bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Entity inspector built on bevy_ui and bevy_feathers.
 bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
+
+# Adds an entity inspector to `DefaultPlugins`, hidden until F12 is pressed.
+inspector = [
+  "bevy_internal/inspector",
+  "bevy_inspector",
+  "ui_bevy_render",
+  "picking",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -1800,13 +1812,13 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "animation_graph"
-path = "examples/animation/animation_graph.rs"
+name = "blend_graph"
+path = "examples/animation/blend_graph.rs"
 doc-scrape-examples = true
 required-features = ["bevy_feathers"]
 
-[package.metadata.example.animation_graph]
-name = "Animation Graph"
+[package.metadata.example.blend_graph]
+name = "Blend Graph"
 description = "Blends multiple animations together with a graph"
 category = "Animation"
 wasm = true
@@ -3113,6 +3125,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "annotations"
+path = "examples/reflection/annotations.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.annotations]
+name = "Annotations"
+description = "Annotating reflected types with tooltips, ranges and units for tools"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "dynamic_types"
 path = "examples/reflection/dynamic_types.rs"
 doc-scrape-examples = true
@@ -4037,17 +4060,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "relative_cursor_position"
-path = "examples/ui/relative_cursor_position.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.relative_cursor_position]
-name = "Relative Cursor Position"
-description = "Showcases the RelativeCursorPosition component"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "render_ui_to_texture"
 path = "examples/ui/render_ui_to_texture.rs"
 doc-scrape-examples = true
@@ -4391,6 +4403,18 @@ name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "framepace"
+path = "examples/window/framepace.rs"
+doc-scrape-examples = true
+required-features = ["framepace_debug"]
+
+[package.metadata.example.framepace]
+name = "Framepace"
+description = "Demonstrates frame pacing"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "low_power"
@@ -4782,13 +4806,13 @@ category = "glTF"
 wasm = true
 
 [[example]]
-name = "gltf_extension_animation_graph"
-path = "examples/gltf/gltf_extension_animation_graph.rs"
+name = "gltf_extension_blend_graph"
+path = "examples/gltf/gltf_extension_blend_graph.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.gltf_extension_animation_graph]
-name = "glTF extension AnimationGraph"
-description = "Uses glTF data to build an AnimationGraph via extension processing"
+[package.metadata.example.gltf_extension_blend_graph]
+name = "glTF extension BlendGraph"
+description = "Uses glTF data to build a BlendGraph via extension processing"
 category = "glTF"
 wasm = true
 
@@ -4834,6 +4858,18 @@ required-features = ["bevy_dev_tools", "render_dev_tools"]
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "diagnostics_overlay"
+path = "examples/dev_tools/diagnostics_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.diagnostics_overlay]
+name = "Diagnostics overlay"
+description = "Demonstrates diagnostics overlay"
 category = "Dev tools"
 wasm = true
 

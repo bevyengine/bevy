@@ -25,7 +25,10 @@ use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
 };
 use bevy_asset::embedded_asset;
-use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_ecs::{
+    query::With,
+    schedule::{IntoScheduleConfigs, SystemSet},
+};
 use bevy_input_focus::tab_navigation::TabNavigationPlugin;
 use bevy_picking::cursor::{CursorIconPlugin, DefaultCursor, EntityCursor};
 use bevy_text::{TextColor, TextFont};
@@ -51,11 +54,23 @@ pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
 
+/// Feathers widget styling systems in [`PostUpdate`], run in [`UiSystems::Content`].
+/// Each one only touches its own widget's entities, so they are ambiguous with each other.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FeathersSystems;
+
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersCorePlugin;
 
 impl Plugin for FeathersCorePlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut bevy_app::App) {
+        if app.is_plugin_added::<Self>() {
+            return;
+        }
         app.init_resource::<UiTheme>();
 
         // Embedded font
@@ -65,10 +80,12 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
         embedded_asset!(app, "assets/fonts/NotoSansSymbols2-U+1F7D5.ttf");
+        embedded_asset!(app, "assets/fonts/KeySymbols.ttf");
 
         // Embedded icons
         embedded_asset!(app, "assets/icons/chevron-down.png");
         embedded_asset!(app, "assets/icons/chevron-right.png");
+        embedded_asset!(app, "assets/icons/grip-vertical.png");
         embedded_asset!(app, "assets/icons/x.png");
 
         // Embedded shader
@@ -95,6 +112,13 @@ impl Plugin for FeathersCorePlugin {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<TextColor>::default().in_set(UiSystems::Propagate),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            FeathersSystems
+                .in_set(UiSystems::Content)
+                .ambiguous_with(FeathersSystems),
         );
 
         app.insert_resource(DefaultCursor(EntityCursor::System(
@@ -125,6 +149,7 @@ impl Plugin for FeathersCorePlugin {
         .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+        app.init_resource::<font_styles::FeathersFonts>();
     }
 }
 

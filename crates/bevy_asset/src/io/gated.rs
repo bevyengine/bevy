@@ -1,6 +1,7 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{boxed::Box, sync::Arc};
 use async_channel::{Receiver, Sender};
+use atomicow::CowArc;
 use bevy_platform::{collections::hash_map::EntryRef, collections::HashMap, sync::RwLock};
 use std::{path::Path, sync::PoisonError};
 
@@ -58,11 +59,16 @@ impl<R: AssetReader> GatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let receiver = {
             let mut gates = self.gates.write().unwrap_or_else(PoisonError::into_inner);
-            let gates = match gates.entry_ref(path) {
-                EntryRef::Vacant(e) => e.insert_with_key(path.into(), async_channel::unbounded()),
+            let gates = match gates.entry_ref(path.as_ref()) {
+                EntryRef::Vacant(e) => {
+                    e.insert_with_key(path.as_ref().into(), async_channel::unbounded())
+                }
                 EntryRef::Occupied(e) => e.into_mut(),
             };
             gates.1.clone()
@@ -72,7 +78,10 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         Ok(result)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         self.reader.read_meta(path).await
     }
 

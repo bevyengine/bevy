@@ -16,9 +16,9 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{FocusGained, FocusLost, Focusable, FocusedInput, InputFocusVisible};
 use bevy_picking::events::PointerClick;
 use bevy_reflect::Reflect;
-use bevy_ui::{InteractionDisabled, Selectable, Selected};
+use bevy_ui::{InteractionDisabled, ScrollIntoView, ScrollIntoViewContainer, Selectable, Selected};
 
-use crate::{ScrollIntoView, ValueChange};
+use crate::ValueChange;
 
 /// Headless widget implementation for a list box. This component contains multiple [`ListItem`]
 /// entities. It implements the tab navigation logic and keyboard shortcuts for list items.
@@ -197,7 +197,10 @@ fn listbox_on_key_input(
             }
 
             // Scroll active descendant into view
-            commands.trigger(ScrollIntoView { entity: next_id });
+            commands.trigger(ScrollIntoView {
+                entity: next_id,
+                container: ScrollIntoViewContainer::Nearest,
+            });
         }
     }
 }

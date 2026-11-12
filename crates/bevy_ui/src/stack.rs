@@ -1,6 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{GlobalZIndex, ZIndex};
+use crate::{GhostNode, GlobalZIndex, ZIndex};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -31,7 +31,8 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
-/// A `StackRoot` can be either a root UI node, or a parented UI node with a `GlobalZIndex` component.
+/// A `StackRoot` is a non-ghost UI node that is either parentless, has a `GlobalZIndex` component,
+/// or has only `GhostNode` ancestors.
 /// The stack root and its descendants, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
@@ -47,21 +48,44 @@ pub(crate) struct StackRoot {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each stack root,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
-    mut cache: Local<Vec<(Entity, i32)>>,
+    mut local_cache: Local<Vec<(Entity, i32, Option<&'static Children>)>>,
     mut stack_roots: Local<Vec<(Entity, StackRoot)>>,
     mut stack_root_order: Local<EntityHashMap<usize>>,
     mut visited_stack_roots: Local<EntityHashSet>,
     mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: Query<Entity, (With<ComputedStackIndex>, Without<ChildOf>)>,
+    ui_root_nodes: Query<
+        Entity,
+        (
+            With<ComputedStackIndex>,
+            Without<ChildOf>,
+            Without<GhostNode>,
+        ),
+    >,
+    ui_root_ghost_nodes: Query<
+        &Children,
+        (With<ComputedStackIndex>, Without<ChildOf>, With<GhostNode>),
+    >,
     root_node_query: Query<(Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>)>,
     zindex_global_node_query: Query<
         (Entity, Ref<GlobalZIndex>, Option<Ref<ZIndex>>),
+        (With<ComputedStackIndex>, Without<GhostNode>),
+    >,
+    ui_children: Query<
+        (
+            Option<&Children>,
+            Has<GhostNode>,
+            Has<GlobalZIndex>,
+            Option<&ZIndex>,
+        ),
         With<ComputedStackIndex>,
     >,
-    ui_children: Query<&Children, With<ComputedStackIndex>>,
-    zindex_query: Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedStackIndex>,
 ) {
+    let mut child_buffer = core::mem::take(&mut *local_cache)
+        .into_iter()
+        .map(|_| unreachable!())
+        .collect();
+
     stack_root_order.clear();
     for (order, partition) in ui_stack.partition.iter().enumerate() {
         stack_root_order.insert(ui_stack.uinodes[partition.start], order);
@@ -70,8 +94,23 @@ pub fn ui_stack_system(
     ui_stack.uinodes.clear();
     visited_stack_roots.clear();
 
-    for (id, maybe_global_zindex, maybe_zindex) in
-        root_node_query.iter_many(ui_root_nodes.iter()).matched()
+    for children in ui_root_ghost_nodes.iter() {
+        update_uistack_recursive(
+            &mut child_buffer,
+            children,
+            true,
+            &ui_children,
+            &mut ui_stack.uinodes,
+        );
+    }
+
+    for (id, maybe_global_zindex, maybe_zindex) in root_node_query
+        .iter_many(
+            ui_root_nodes
+                .iter()
+                .chain(child_buffer.iter().map(|&(entity, _, _)| entity)),
+        )
+        .matched()
     {
         let previous = stack_root_order.get(&id).copied();
         stack_roots.push((
@@ -87,6 +126,7 @@ pub fn ui_stack_system(
         ));
         visited_stack_roots.insert(id);
     }
+    child_buffer.clear();
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
         if visited_stack_roots.contains(&id) {
@@ -112,14 +152,20 @@ pub fn ui_stack_system(
     stack_roots.sort_unstable_by(|(_, a), (_, b)| a.cmp(b));
 
     for (root_entity, _) in stack_roots.drain(..) {
+        let Ok((children, _, _, _)) = ui_children.get(root_entity) else {
+            continue;
+        };
         let start = ui_stack.uinodes.len();
-        update_uistack_recursive(
-            &mut cache,
-            root_entity,
-            &ui_children,
-            &zindex_query,
-            &mut ui_stack.uinodes,
-        );
+        ui_stack.uinodes.push(root_entity);
+        if let Some(children) = children {
+            update_uistack_recursive(
+                &mut child_buffer,
+                children,
+                false,
+                &ui_children,
+                &mut ui_stack.uinodes,
+            );
+        }
         let end = ui_stack.uinodes.len();
         ui_stack.partition.push(start..end);
     }
@@ -129,43 +175,57 @@ pub fn ui_stack_system(
             stack_index.set_if_neq(ComputedStackIndex(i as u32));
         }
     }
+
+    child_buffer.clear();
+    *local_cache = child_buffer.into_iter().map(|_| unreachable!()).collect();
 }
 
-fn update_uistack_recursive(
-    child_buffer: &mut Vec<(Entity, i32)>,
-    node_entity: Entity,
-    ui_children: &Query<&Children, With<ComputedStackIndex>>,
-    zindex_query: &Query<Option<&ZIndex>, (With<ComputedStackIndex>, Without<GlobalZIndex>)>,
+fn update_uistack_recursive<'a>(
+    child_buffer: &mut Vec<(Entity, i32, Option<&'a Children>)>,
+    children: &'a Children,
+    is_ghost: bool,
+    ui_children: &'a Query<
+        (
+            Option<&Children>,
+            Has<GhostNode>,
+            Has<GlobalZIndex>,
+            Option<&ZIndex>,
+        ),
+        With<ComputedStackIndex>,
+    >,
     ui_stack: &mut Vec<Entity>,
 ) {
-    ui_stack.push(node_entity);
-
     let start = child_buffer.len();
-    child_buffer.extend(
-        ui_children
-            .get(node_entity)
-            .into_iter()
-            .flatten()
-            .filter_map(|&child_entity| {
-                zindex_query
-                    .get(child_entity)
-                    .ok()
-                    .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-            }),
-    );
+    for &child_entity in children {
+        let Ok((children, is_ghost, has_global_zindex, zindex)) = ui_children.get(child_entity)
+        else {
+            continue;
+        };
+        if is_ghost {
+            if let Some(children) = children {
+                update_uistack_recursive(child_buffer, children, true, ui_children, ui_stack);
+            }
+        } else if !has_global_zindex {
+            child_buffer.push((
+                child_entity,
+                zindex.map(|zindex| zindex.0).unwrap_or(0),
+                children,
+            ));
+        }
+    }
+    if is_ghost {
+        return;
+    }
     let end = child_buffer.len();
 
     child_buffer[start..end].sort_by_key(|child| child.1);
 
     for index in start..end {
-        let child_entity = child_buffer[index].0;
-        update_uistack_recursive(
-            child_buffer,
-            child_entity,
-            ui_children,
-            zindex_query,
-            ui_stack,
-        );
+        let (child_entity, _, maybe_children) = child_buffer[index];
+        ui_stack.push(child_entity);
+        if let Some(children) = maybe_children {
+            update_uistack_recursive(child_buffer, children, false, ui_children, ui_stack);
+        }
     }
 
     child_buffer.truncate(start);
@@ -174,6 +234,7 @@ fn update_uistack_recursive(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
+        children,
         component::Component,
         hierarchy::ChildOf,
         schedule::Schedule,
@@ -181,7 +242,7 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use crate::{GlobalZIndex, Node, UiStack, ZIndex};
+    use crate::{GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
@@ -465,5 +526,231 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(uinodes, world.resource::<UiStack>().uinodes);
+    }
+
+    #[test]
+    fn ghost_nodes_flatten_z_order() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((
+            Node::default(),
+            Label("root"),
+            children![
+                (Node::default(), Label("node")),
+                (
+                    GhostNode,
+                    Label("ghost"),
+                    children![(Node::default(), Label("ghost_child"), ZIndex(-1))]
+                )
+            ],
+        ));
+
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            result,
+            vec![Label("root"), Label("ghost_child"), Label("node")]
+        );
+    }
+
+    #[test]
+    fn ghost_nodes_are_not_added_to_uistack() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((Node::default(), Label("root")));
+
+        world.spawn((GhostNode, Label("ghost")));
+
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(result, vec![Label("root")]);
+        assert_eq!(world.resource::<UiStack>().partition, vec![0..1]);
+    }
+
+    #[test]
+    fn non_ghost_descendants_are_promoted_to_stack_roots() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((Node::default(), Label("n_Z_2"), ZIndex(2)));
+        world.spawn((Node::default(), Label("n_0")));
+        world.spawn((
+            GhostNode,
+            Label("ghost_0"),
+            children![(Node::default(), Label("g_Z_-1"), ZIndex(-1))],
+        ));
+        world.spawn((Node::default(), Label("n_G_-1"), GlobalZIndex(-1)));
+
+        world.spawn((
+            GhostNode,
+            Label("ghost_1"),
+            children![(Node::default(), Label("g_G_1"), GlobalZIndex(1))],
+        ));
+
+        world.spawn((
+            GhostNode,
+            Label("ghost_2"),
+            children![
+                (Node::default(), Label("g_Z_1"), ZIndex(1)),
+                (Node::default(), Label("g_Z_-2"), ZIndex(-2))
+            ],
+        ));
+
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            result,
+            vec![
+                Label("n_G_-1"),
+                Label("g_Z_-2"),
+                Label("g_Z_-1"),
+                Label("n_0"),
+                Label("g_Z_1"),
+                Label("n_Z_2"),
+                Label("g_G_1"),
+            ]
+        );
+    }
+
+    #[test]
+    fn descendants_of_nested_ghosts_are_stack_roots() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        world.spawn((
+            GhostNode,
+            Label("ghost_root"),
+            children![(
+                GhostNode,
+                Label("ghost_1"),
+                children![
+                    (Node::default(), Label("g1"), ZIndex(1)),
+                    (Node::default(), Label("g2"), ZIndex(2)),
+                    (
+                        GhostNode,
+                        Label("ghost_2"),
+                        children![
+                            (Node::default(), Label("g3"), ZIndex(3)),
+                            (Node::default(), Label("g4"), ZIndex(4)),
+                        ]
+                    ),
+                    (
+                        GhostNode,
+                        Label("ghost_3"),
+                        children![
+                            (
+                                GhostNode,
+                                Label("ghost_4"),
+                                children![(Node::default(), Label("g5"), ZIndex(5))]
+                            ),
+                            (Node::default(), Label("g6"), ZIndex(6)),
+                        ]
+                    ),
+                    (Node::default(), Label("g7"), ZIndex(7)),
+                ]
+            )],
+        ));
+
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let result = world
+            .resource::<UiStack>()
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            result,
+            vec![
+                Label("g1"),
+                Label("g2"),
+                Label("g3"),
+                Label("g4"),
+                Label("g5"),
+                Label("g6"),
+                Label("g7"),
+            ]
+        );
+        assert_eq!(
+            world.resource::<UiStack>().partition,
+            (0..7).map(|i| i..i + 1).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn nested_ghosts_preserve_stacking_contexts() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let root = world.spawn(Node::default()).id();
+        let before = world.spawn((Node::default(), ChildOf(root))).id();
+        let ghost = world
+            .spawn((GhostNode, ZIndex(10), GlobalZIndex(10), ChildOf(root)))
+            .id();
+        let nested_ghost = world.spawn((GhostNode, ChildOf(ghost))).id();
+        let child = world.spawn((Node::default(), ChildOf(nested_ghost))).id();
+        let grandchild = world
+            .spawn((Node::default(), ZIndex(-1), ChildOf(child)))
+            .id();
+        let global = world
+            .spawn((Node::default(), GlobalZIndex(1), ChildOf(nested_ghost)))
+            .id();
+        let global_child = world.spawn((Node::default(), ChildOf(global))).id();
+        let after = world.spawn((Node::default(), ChildOf(root))).id();
+
+        for _ in 0..2 {
+            schedule.run(&mut world);
+
+            let ui_stack = world.resource::<UiStack>();
+            assert_eq!(
+                ui_stack.uinodes,
+                vec![root, before, child, grandchild, after, global, global_child]
+            );
+            assert_eq!(ui_stack.partition, vec![0..5, 5..7]);
+        }
     }
 }

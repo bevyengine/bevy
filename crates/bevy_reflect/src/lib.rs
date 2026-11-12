@@ -620,6 +620,8 @@ mod type_registry;
 
 mod impls {
     mod alloc;
+    #[cfg(feature = "annotations")]
+    mod annotations;
     mod bevy_platform;
     mod core;
     mod foldhash;
