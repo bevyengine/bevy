@@ -26,8 +26,14 @@ impl Val {
                     CalcOp::Sum(terms) => terms.iter().map(physical).reduce(|a, b| a + b),
                     CalcOp::Min(terms) => terms.iter().map(physical).reduce(Val::min),
                     CalcOp::Max(terms) => terms.iter().map(physical).reduce(Val::max),
-                    CalcOp::Clamp(ClampOp { min, value, max }) => {
-                        Some(physical(value).clamp(physical(min), physical(max)))
+                    CalcOp::Clamp(ClampOp {
+                        min,
+                        value,
+                        max,
+                        negated,
+                    }) => {
+                        let clamped = physical(value).clamp(physical(min), physical(max));
+                        Some(if *negated { -clamped } else { clamped })
                     }
                 }
                 .unwrap_or(Val::ZERO)

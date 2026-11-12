@@ -4,7 +4,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::mem::take;
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -538,7 +538,7 @@ impl Val {
                 return unit.with_value(lo.max(hi.min(v)));
             }
         }
-        CalcOp::Clamp(ClampOp { min, value, max }).into()
+        CalcOp::Clamp(ClampOp::new(min, value, max)).into()
     }
 
     /// Keywords is zero in expressions.
@@ -813,9 +813,20 @@ pub struct ClampOp {
     pub value: Val,
     /// max
     pub max: Val,
+    /// negate the clamped result
+    pub negated: bool,
 }
 
 impl ClampOp {
+    pub fn new(min: Val, value: Val, max: Val) -> Self {
+        Self {
+            min,
+            value,
+            max,
+            negated: false,
+        }
+    }
+
     pub fn resolve(
         &self,
         context: &ValContext,
@@ -824,7 +835,8 @@ impl ClampOp {
         let min = self.min.resolve(context, percent_basis)?;
         let value = self.value.resolve(context, percent_basis)?;
         let max = self.max.resolve(context, percent_basis)?;
-        Ok(min.max(max.min(value)))
+        let clamped = min.max(max.min(value));
+        Ok(if self.negated { -clamped } else { clamped })
     }
 }
 
@@ -883,8 +895,7 @@ impl CalcOp {
     }
 
     /// Multiply an operation by a scalar.
-    /// If the scale is negative, the direction of the operation is changed.
-    /// If min is greater than max, clamp always returns min and therefore negation always returns -min.
+    /// If the scale is negative, the direction of a min or max is changed and a clamp's `negated` flag is flipped.
     pub(crate) fn scale(&mut self, k: f32) {
         match self {
             Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
@@ -892,30 +903,23 @@ impl CalcOp {
                     *term *= k;
                 }
             }
-            Self::Clamp(ClampOp { min, value, max }) => {
-                *min *= k;
-                *value *= k;
-                *max *= k;
+            Self::Clamp(ClampOp {
+                min,
+                value,
+                max,
+                negated,
+            }) => {
+                *min *= k.abs();
+                *value *= k.abs();
+                *max *= k.abs();
+                *negated ^= k < 0.0;
             }
         }
         if k < 0.0 {
             match self {
                 Self::Min(terms) => *self = Self::Max(take(terms)),
                 Self::Max(terms) => *self = Self::Min(take(terms)),
-                Self::Clamp(ClampOp { min, value, max }) => {
-                    match (min.unit_value(), max.unit_value()) {
-                        (Some((a, lo)), Some((b, hi))) if a == b && hi <= lo => {
-                            core::mem::swap(min, max);
-                        }
-                        _ => {
-                            *self = Self::Min(smallvec![
-                                take(min),
-                                Self::Max(smallvec![take(value), take(max)]).into(),
-                            ]);
-                        }
-                    }
-                }
-                Self::Sum(_) => {}
+                Self::Sum(_) | Self::Clamp(_) => {}
             }
         }
     }
@@ -1013,6 +1017,7 @@ impl Val {
 #[cfg(test)]
 mod tests {
     use bevy_math::vec2;
+    use smallvec::smallvec;
 
     use super::*;
 
@@ -1294,10 +1299,14 @@ mod tests {
         assert_eq!(resolve(&clamp, 250.0), Ok(200.0));
         assert_eq!(resolve(&clamp, 1000.0), Ok(300.0));
         assert_eq!(resolve(&-clamp.clone(), 250.0), Ok(-200.0));
-        // Same-unit bounds are swapped in place rather than rebuilt as `min`/`max`.
         assert_eq!(
             -clamp.clone(),
-            Val::Percent(-80.0).clamp(Val::Px(-300.0), Val::Px(-100.0))
+            Val::from(CalcOp::Clamp(ClampOp {
+                min: Val::Px(100.0),
+                value: Val::Percent(80.0),
+                max: Val::Px(300.0),
+                negated: true,
+            }))
         );
         assert_eq!(resolve(&(clamp.clone() * -2.0), 250.0), Ok(-400.0));
         assert_eq!(
@@ -1355,23 +1364,13 @@ mod tests {
         );
         assert_eq!(
             resolve(
-                &CalcOp::Clamp(ClampOp {
-                    min: Val::Px(100.0),
-                    value: value.clone(),
-                    max: Val::Px(125.0)
-                })
-                .into()
+                &CalcOp::Clamp(ClampOp::new(Val::Px(100.0), value.clone(), Val::Px(125.0),)).into()
             ),
             Ok(250.0)
         );
         assert_eq!(
             resolve(
-                &CalcOp::Clamp(ClampOp {
-                    min: Val::Px(200.0),
-                    value: value.clone(),
-                    max: Val::Px(100.0)
-                })
-                .into()
+                &CalcOp::Clamp(ClampOp::new(Val::Px(200.0), value.clone(), Val::Px(100.0),)).into()
             ),
             Ok(400.0)
         );
@@ -1404,7 +1403,8 @@ mod tests {
             resolve(-Val::from(CalcOp::Clamp(ClampOp {
                 min: a.clone(),
                 value: Val::Px(15.0),
-                max: b.clone()
+                max: b.clone(),
+                negated: false
             }))),
             Ok(-15.0)
         );
@@ -1412,7 +1412,8 @@ mod tests {
             resolve(-Val::from(CalcOp::Clamp(ClampOp {
                 min: b,
                 value: Val::Px(15.0),
-                max: a
+                max: a,
+                negated: false
             }))),
             Ok(-20.0)
         );
@@ -1509,6 +1510,7 @@ mod tests {
             min: Val::Px(100.0),
             value: Val::Percent(50.0),
             max: Val::Px(20.0),
+            negated: false,
         }));
         let resolve = |value: Val| {
             value
