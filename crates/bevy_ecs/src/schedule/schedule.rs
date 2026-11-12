@@ -596,7 +596,7 @@ impl Schedule {
         #[cfg(feature = "trace")]
         let _span = self.span.clone().entered();
 
-        world.check_change_ticks_with(|check| self.check_change_ticks(check));
+        world.check_change_ticks_with(Some(self.label), |check| self.check_change_ticks(check));
         self.initialize(world).unwrap_or_else(|e| {
             panic!(
                 "Error when initializing schedule {:?}: {}",

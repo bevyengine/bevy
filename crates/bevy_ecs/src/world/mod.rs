@@ -54,7 +54,7 @@ use crate::{
     query::{QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
-    schedule::{Schedule, ScheduleLabel, Schedules},
+    schedule::{InternedScheduleLabel, Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
     system::{Commands, SystemIdMarker},
     world::{
@@ -3395,12 +3395,13 @@ impl World {
     /// [`CHECK_TICK_THRESHOLD`] times since the previous pass. While a schedule or exclusive system
     /// is running, it only clamps old ticks, and only after twice as many.
     pub fn check_change_ticks(&mut self) -> bool {
-        self.check_change_ticks_with(|_| {})
+        self.check_change_ticks_with(None, |_| {})
     }
 
     /// Like [`World::check_change_ticks`], also passing each pass to `check_extra`.
     pub(crate) fn check_change_ticks_with(
         &mut self,
+        running: Option<InternedScheduleLabel>,
         mut check_extra: impl FnMut(&CheckChangeTicks),
     ) -> bool {
         let change_tick = self.change_tick();
@@ -3408,9 +3409,16 @@ impl World {
         // Running schedules and exclusive systems hold ticks outside the world, which compacting
         // would reorder.
         let blocked = self.tick_holders > 0
-            || self
-                .get_resource::<Schedules>()
-                .is_some_and(|schedules| !schedules.temporarily_removed.is_empty());
+            || match self.get_resource::<Schedules>() {
+                Some(schedules) => schedules
+                    .temporarily_removed
+                    .iter()
+                    .any(|&label| Some(label) != running),
+                None => self
+                    .component_id::<Schedules>()
+                    .and_then(|id| self.resource_entities.get(id))
+                    .is_some(),
+            };
         if since_check < CHECK_TICK_THRESHOLD || (blocked && since_check < 2 * CHECK_TICK_THRESHOLD)
         {
             return false;
@@ -3975,13 +3983,24 @@ impl World {
             return Err(TryRunScheduleError(label));
         };
 
-        let value = f(self, &mut schedule);
+        struct RemovedGuard<'w>(&'w mut World, InternedScheduleLabel);
+        impl Drop for RemovedGuard<'_> {
+            fn drop(&mut self) {
+                if let Some(mut schedules) = self.0.get_resource_mut::<Schedules>() {
+                    schedules.temporarily_removed.remove(&self.1);
+                }
+            }
+        }
+        let guard = RemovedGuard(self, label);
+        let world = &mut *guard.0;
 
-        let old = self.resource_mut::<Schedules>().reinsert(schedule);
+        let value = f(world, &mut schedule);
+
+        let old = world.resource_mut::<Schedules>().reinsert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
-        self.check_change_ticks();
+        world.check_change_ticks();
 
         Ok(value)
     }

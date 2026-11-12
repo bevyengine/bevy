@@ -1,8 +1,7 @@
 use crate::{
     change_detection::Mut,
-    change_detection::Tick,
     message::{MessageRegistry, ShouldUpdateMessages},
-    system::{Local, Res, ResMut},
+    system::{Res, ResMut},
     world::World,
 };
 use bevy_ecs_macros::SystemSet;
@@ -24,9 +23,10 @@ pub fn signal_message_update_system(signal: Option<ResMut<MessageRegistry>>) {
 }
 
 /// A system that calls [`Messages::update`](super::Messages::update) on all registered [`Messages`][super::Messages] in the world.
-pub fn message_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
+pub fn message_update_system(world: &mut World) {
+    let last_run = world.last_change_tick();
     world.try_resource_scope(|world, mut registry: Mut<MessageRegistry>| {
-        registry.run_updates(world, *last_change_tick);
+        registry.run_updates(world, last_run);
 
         registry.should_update = match registry.should_update {
             // If we're always updating, keep doing so.
@@ -37,7 +37,6 @@ pub fn message_update_system(world: &mut World, mut last_change_tick: Local<Tick
             }
         };
     });
-    *last_change_tick = world.change_tick();
 }
 
 /// A run condition for [`message_update_system`].

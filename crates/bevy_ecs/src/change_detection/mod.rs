@@ -41,6 +41,7 @@ mod tests {
         component::Component,
         entity::Entity,
         entity_disabling::Disabled,
+        message::{message_update_system, Message, MessageRegistry, Messages},
         observer::On,
         schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules},
         system::{IntoSystem, Query, Res, RunSystemOnce, Single, System},
@@ -234,12 +235,21 @@ mod tests {
         #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
         struct Outer;
 
+        #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
+        struct Inner;
+
         #[derive(Resource, Default)]
         struct Checks(u32);
 
         let mut world = World::new();
         world.init_resource::<Checks>();
-        world.add_schedule(Schedule::new(Outer));
+        world.add_schedule(Schedule::new(Inner));
+        let mut outer = Schedule::new(Outer);
+        outer.add_systems(|world: &mut World| {
+            *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
+            world.run_schedule(Inner);
+        });
+        world.add_schedule(outer);
         world.add_observer(
             |_: On<CheckChangeTicks>, schedules: Res<Schedules>, mut checks: ResMut<Checks>| {
                 assert!(schedules.contains(Outer));
@@ -247,7 +257,6 @@ mod tests {
             },
         );
 
-        *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
         world.run_schedule(Outer);
 
         // Once to collect, once to compact.
@@ -304,11 +313,15 @@ mod tests {
 
     #[test]
     fn ticks_are_checked_after_schedule_panics() {
+        #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
+        struct Panics;
+
         let mut world = World::new();
-        let mut schedule = Schedule::default();
+        let mut schedule = Schedule::new(Panics);
         schedule.add_systems(|| panic!());
+        world.add_schedule(schedule);
         let _ = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
-            schedule.run(&mut world);
+            world.run_schedule(Panics);
         }));
 
         *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
@@ -334,6 +347,77 @@ mod tests {
             }
         });
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn ticks_are_compacted_in_own_schedule_scope() {
+        #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
+        struct Loop;
+
+        #[derive(Resource)]
+        struct Detect(bool);
+
+        let mut world = World::new();
+        let entity = world.spawn(C).id();
+        world.insert_resource(Detect(true));
+        let mut schedule = Schedule::new(Loop);
+        schedule.add_systems(
+            (|c: Single<Ref<C>>| assert!(c.is_changed())).run_if(|d: Res<Detect>| d.0),
+        );
+        world.add_schedule(schedule);
+
+        world.schedule_scope(Loop, |world, schedule| {
+            schedule.run(world);
+            world.get_mut::<C>(entity).unwrap().set_changed();
+            world.resource_mut::<Detect>().0 = false;
+            for _ in 0..8 {
+                *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
+                schedule.run(world);
+            }
+            world.resource_mut::<Detect>().0 = true;
+            schedule.run(world);
+        });
+    }
+
+    #[test]
+    fn ticks_are_not_compacted_while_schedules_are_removed() {
+        #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
+        struct Stored;
+
+        let mut world = World::new();
+        let entity = world.spawn(C).id();
+        let mut schedule = Schedule::new(Stored);
+        schedule.add_systems(|c: Single<Ref<C>>| assert!(c.is_changed()));
+        world.add_schedule(schedule);
+        world.run_schedule(Stored);
+        world.get_mut::<C>(entity).unwrap().set_changed();
+
+        *world.change_tick.get_mut() += COMPACT_AGE + CHECK_TICK_THRESHOLD / 2;
+        world.resource_scope(|world, _: Mut<Schedules>| world.check_change_ticks());
+        world.run_schedule(Stored);
+    }
+
+    #[test]
+    fn messages_are_updated_after_compaction() {
+        #[derive(Message)]
+        struct M;
+
+        let mut world = World::new();
+        MessageRegistry::register_message::<M>(&mut world);
+        let system = world.register_system(message_update_system);
+        world.run_system(system).unwrap();
+        world.run_system(system).unwrap();
+        world.increment_change_tick();
+        world.write_message(M);
+
+        for _ in 0..4 {
+            *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
+            world.check_change_ticks();
+        }
+
+        world.run_system(system).unwrap();
+        let messages = world.resource::<Messages<M>>();
+        assert_eq!(messages.iter_current_update_messages().count(), 0);
     }
 
     #[test]
