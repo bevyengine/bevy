@@ -903,8 +903,8 @@ impl CalcOp {
                 Self::Min(terms) => *self = Self::Max(take(terms)),
                 Self::Max(terms) => *self = Self::Min(take(terms)),
                 Self::Clamp(ClampOp { min, value, max }) => {
-                    match (min.unit(), min.value(), max.unit(), max.value()) {
-                        (Some(a), Some(lo), Some(b), Some(hi)) if a == b && lo >= hi => {
+                    match (min.unit_value(), max.unit_value()) {
+                        (Some((a, lo)), Some((b, hi))) if a == b && hi <= lo => {
                             core::mem::swap(min, max);
                         }
                         _ => {
