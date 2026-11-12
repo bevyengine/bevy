@@ -989,8 +989,8 @@ pub struct Ready {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_scene, prelude::*, Ready, ResolvedSceneListRoot, ResolvedSceneRoot,
-        ScenePatch, ScenePlugin,
+        self as bevy_scene, prelude::*, Ready, ResolveSceneError, ResolvedSceneListRoot,
+        ResolvedSceneRoot, ScenePatch, ScenePlugin,
     };
     use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
@@ -1005,6 +1005,7 @@ mod tests {
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
+    use core::assert_matches;
     use std::any::TypeId;
     use std::ops::Range;
     use std::path::Path;
@@ -3900,5 +3901,59 @@ mod tests {
             })
             .unwrap()
             .id();
+    }
+
+    #[test]
+    fn late_resolved_cached_scene_is_an_error() {
+        #[derive(Clone, Copy, Component, Default)]
+        struct Position {
+            x: f32,
+            y: f32,
+        }
+
+        let (mut app, dir) = test_app_with_dir();
+
+        // Create a fake loader with an unused scene.
+        app.register_asset_loader(FakeSceneLoader::new(|| ()));
+        dir.insert_asset_text(Path::new("blah.bsn"), "");
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        let cached_scene = asset_server.load::<ScenePatch>("blah.bsn");
+        run_app_until(&mut app, || asset_server.is_loaded(&cached_scene));
+
+        // We now have a cached scene that will have been resolved by `resolve_scene_patches`. But
+        // a user could insert an asset directly, resulting in the scene no longer being resolved.
+        // TODO: Support using cached scenes in `bsn!` by handle instead of by path, so we don't
+        // have to do this insanity to demonstrate this issue.
+        app.world_mut()
+            .resource_mut::<Assets<ScenePatch>>()
+            .insert(
+                &cached_scene,
+                ScenePatch::load(
+                    &asset_server,
+                    bsn! {
+                        Position {
+                            x: 1.0,
+                            y: 2.0,
+                        }
+                    },
+                ),
+            )
+            .unwrap();
+
+        let mut scene_patch = ScenePatch::load(
+            app.world().resource::<AssetServer>(),
+            bsn! {
+                :"blah.bsn"
+                Position {
+                    x: 10.0
+                }
+            },
+        );
+
+        assert_matches!(
+            scene_patch.resolve(&asset_server, app.world().resource()),
+            Err(ResolveSceneError::MissingSceneDependency(_))
+        );
     }
 }
