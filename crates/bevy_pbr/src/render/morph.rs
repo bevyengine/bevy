@@ -11,7 +11,7 @@ use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::RenderMesh;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_resource::ShaderType;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
     batching::NoAutomaticBatching,
     render_resource::{BufferUsages, RawBufferVec},
@@ -60,6 +60,9 @@ pub enum MorphIndices {
         gpu_descriptor_indices: MainEntityHashMap<MorphDescriptorIndex>,
         /// Indices in the `morph_descriptors` buffer available for use.
         gpu_descriptor_free_list: Vec<MorphDescriptorIndex>,
+        /// Entities whose morph descriptor can't be created yet because their
+        /// mesh isn't ready.
+        pending_descriptors: MainEntityHashSet,
     },
 }
 
@@ -94,6 +97,7 @@ impl FromWorld for MorphIndices {
                 morph_weights_info: MainEntityHashMap::default(),
                 gpu_descriptor_indices: MainEntityHashMap::default(),
                 gpu_descriptor_free_list: vec![],
+                pending_descriptors: MainEntityHashSet::default(),
             }
         }
     }
@@ -170,6 +174,18 @@ impl MorphIndices {
                 ref gpu_descriptor_indices,
                 ..
             } => gpu_descriptor_indices.get(&main_entity).copied(),
+        }
+    }
+
+    /// Returns true if the [`GpuMorphDescriptor`] of the mesh instance can't
+    /// be created yet because its mesh isn't ready.
+    pub fn morph_descriptor_pending(&self, main_entity: MainEntity) -> bool {
+        match *self {
+            MorphIndices::Uniform { .. } => false,
+            MorphIndices::Storage {
+                ref pending_descriptors,
+                ..
+            } => pending_descriptors.contains(&main_entity),
         }
     }
 }
@@ -254,7 +270,7 @@ fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
 pub fn extract_morphs(
     morph_indices: ResMut<MorphIndices>,
     uniform: ResMut<MorphUniforms>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights, &Mesh3d)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights, Option<&Mesh3d>)>>,
     weights_query: Extract<Query<&MorphWeights>>,
     render_device: Res<RenderDevice>,
 ) {
@@ -333,6 +349,9 @@ pub fn extract_morphs(
                 morph_weights_info: ref mut morph_target_info,
                 ..
             } => {
+                let Some(mesh) = mesh else {
+                    continue;
+                };
                 morph_target_info.insert(
                     entity.into(),
                     MorphWeightsInfo {
@@ -365,6 +384,7 @@ pub fn prepare_morph_descriptors(
             morph_weights_info: ref morph_target_info,
             ref mut gpu_descriptor_indices,
             ref mut gpu_descriptor_free_list,
+            ref mut pending_descriptors,
         },
         &mut Some(ref mut descriptors_buffer),
     ) = (&mut *morph_indices, &mut morph_uniforms.descriptors_buffer)
@@ -372,12 +392,17 @@ pub fn prepare_morph_descriptors(
         return;
     };
 
+    pending_descriptors.clear();
     for (&morph_target_main_entity, morph_target_info) in morph_target_info {
         let mesh_id = morph_target_info.mesh_id;
         let Some(mesh) = meshes.get(mesh_id) else {
+            pending_descriptors.insert(morph_target_main_entity);
             continue;
         };
         let Some(morph_targets_slice) = mesh_allocator.mesh_morph_target_slice(&mesh_id) else {
+            if mesh.has_morph_targets() {
+                pending_descriptors.insert(morph_target_main_entity);
+            }
             continue;
         };
 
