@@ -5,6 +5,7 @@ use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use smallvec::{smallvec, SmallVec};
 use thiserror::Error;
+use core::mem::take;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -870,8 +871,7 @@ impl CalcOp {
     /// Multiply an operation by a scalar.
     /// If the scale is negative, the direction of the operation is changed.
     /// If min is greater than max, clamp always returns min and therefore negation always returns -min.
-    pub(crate) fn scale(&mut self, k: f32) {
-        use core::mem::take;
+    pub(crate) fn scale(&mut self, k: f32) {        
         match self {
             Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
                 for term in terms {
