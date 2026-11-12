@@ -104,7 +104,7 @@
 //! | `KHR_lights_punctual`             | ✅        |                                     |
 //! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
 //! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
-//! | `KHR_materials_dispersion`        | ❌        |                                     |
+//! | `KHR_materials_dispersion`        | ✅        |                                     |
 //! | `KHR_materials_emissive_strength` | ✅        |                                     |
 //! | `KHR_materials_ior`               | ✅        |                                     |
 //! | `KHR_materials_iridescence`       | ❌        |                                     |
@@ -122,7 +122,7 @@
 //! | `KHR_texture_basisu`              | ❌\*      |                                     |
 //! | `KHR_texture_transform`           | ✅\**     |                                     |
 //! | `KHR_xmp_json_ld`                 | ❌        |                                     |
-//! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
+//! | `EXT_mesh_gpu_instancing`         | ✅        |                                     |
 //! | `EXT_meshopt_compression`         | ✅        | `meshopt`                           |
 //! | `EXT_texture_webp`                | ❌\*      |                                     |
 //!

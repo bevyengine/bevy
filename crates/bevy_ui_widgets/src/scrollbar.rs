@@ -4,7 +4,6 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -23,8 +22,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
     prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ScrollPosition, UiGlobalTransform, UiRect,
+    UiScale, UiSystems, UiTransform, Val, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -42,15 +41,6 @@ pub enum ControlOrientation {
     /// Vertical orientation (stretching from top to bottom)
     #[default]
     Vertical,
-}
-
-/// An event which indicates that we want to scroll the specified item into view (adjusting
-/// the scroll position of it's parent).
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
-#[entity_event(propagate)]
-pub struct ScrollIntoView {
-    /// The activated entity.
-    pub entity: Entity,
 }
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.
@@ -103,7 +93,6 @@ pub struct Scrollbar {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy::Block,
     Visibility,
     ZIndex
 )]

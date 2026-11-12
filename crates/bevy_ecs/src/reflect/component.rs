@@ -143,7 +143,7 @@ impl ReflectComponentFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Component + FromReflect + TypePath>() -> Self {
+    pub fn new<T: Component + Reflect + FromReflect + TypePath>() -> Self {
         <ReflectComponent as CreateTypeData<T>>::create_type_data(()).0
     }
 }

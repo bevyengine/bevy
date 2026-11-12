@@ -105,12 +105,7 @@ impl Color {
     /// * `blue` - Blue channel. [0.0, 1.0]
     /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn srgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
-        Self::Srgba(Srgba {
-            red,
-            green,
-            blue,
-            alpha,
-        })
+        Self::Srgba(Srgba::new(red, green, blue, alpha))
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
@@ -120,26 +115,34 @@ impl Color {
     /// * `red` - Red channel. [0.0, 1.0]
     /// * `green` - Green channel. [0.0, 1.0]
     /// * `blue` - Blue channel. [0.0, 1.0]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba(1.,1.,1.,1.), Color::srgb(1.,1.,1.));
+    /// ```
     pub const fn srgb(red: f32, green: f32, blue: f32) -> Self {
-        Self::Srgba(Srgba {
-            red,
-            green,
-            blue,
-            alpha: 1.0,
-        })
+        Self::srgba(red, green, blue, 1.)
+    }
+
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color.
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0.0, 1.0]
+    pub const fn srgba_from_array(array: [f32; 4]) -> Self {
+        Self::srgba(array[0], array[1], array[2], array[3])
     }
 
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
     ///
     /// # Arguments
     /// * `array` - Red, Green and Blue channels. Each channel is in the range [0.0, 1.0]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba_from_array([1.,1.,1.,1.]), Color::srgb_from_array([1.,1.,1.]));
+    /// ```
     pub const fn srgb_from_array(array: [f32; 3]) -> Self {
-        Self::Srgba(Srgba {
-            red: array[0],
-            green: array[1],
-            blue: array[2],
-            alpha: 1.0,
-        })
+        Self::srgba(array[0], array[1], array[2], 1.)
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
@@ -151,67 +154,89 @@ impl Color {
     /// * `blue` - Blue channel. [0, 255]
     /// * `alpha` - Alpha channel. [0, 255]
     pub const fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
-        Self::Srgba(Srgba {
-            red: red as f32 / 255.0,
-            green: green as f32 / 255.0,
-            blue: blue as f32 / 255.0,
-            alpha: alpha as f32 / 255.0,
-        })
+        Self::Srgba(Srgba::rgba_u8(red, green, blue, alpha))
     }
 
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0 (255 in `u8` terms).
     ///
     /// # Arguments
     ///
     /// * `red` - Red channel. [0, 255]
     /// * `green` - Green channel. [0, 255]
     /// * `blue` - Blue channel. [0, 255]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba_u8(255,255,255,255), Color::srgb_u8(255,255,255));
+    /// assert_eq!(Color::srgba(1.,1.,1.,1.), Color::srgb_u8(255,255,255));
+    /// ```
     pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
-        Self::Srgba(Srgba {
-            red: red as f32 / 255.0,
-            green: green as f32 / 255.0,
-            blue: blue as f32 / 255.0,
-            alpha: 1.0,
-        })
+        Self::srgba_u8(red, green, blue, 255)
     }
 
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0.
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color.
     ///
-    /// For example, a value of `0x000000` results in black, and a value of `0xff0000` results in red.
+    /// # Arguments
+    /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0, 255]
+    pub const fn srgba_from_u8_array(array: [u8; 4]) -> Self {
+        Self::srgba_u8(array[0], array[1], array[2], array[3])
+    }
+
+    /// Reads an array of u8 to create a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0 (255 in `u8` terms).
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green, Blue and Alpha channels. Each channel is in the range [0, 255]
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// assert_eq!(Color::srgba_from_u8_array([255,255,255,255]), Color::srgb_from_u8_array([255,255,255]));
+    /// assert_eq!(Color::srgba_from_array([1.,1.,1.,1.]), Color::srgb_from_u8_array([255,255,255]));
+    /// ```
+    pub const fn srgb_from_u8_array(array: [u8; 3]) -> Self {
+        Self::srgba_u8(array[0], array[1], array[2], 255)
+    }
+
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0 (255 in `u8` terms).
+    ///
+    /// For example, a value of `0x000000` results in black, and a value of `0xFF0000` results in red.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_color::Color;
     /// let black = Color::srgb_u32(0x000000);
-    /// let red = Color::srgb_u32(0xff0000);
+    /// let red = Color::srgb_u32(0xFF0000);
+    ///
+    /// assert_eq!(Color::srgb_u8(0x12, 0x34, 0x56), Color::srgb_u32(0x123456));
     /// ```
     pub const fn srgb_u32(color: u32) -> Self {
-        Self::Srgba(Srgba::rgb(
-            ((color >> 16) & 0xff) as f32 / 255.,
-            ((color >> 8) & 0xff) as f32 / 255.,
-            (color & 0xff) as f32 / 255.,
-        ))
+        Self::srgb_u8(
+            ((color >> 16) & 0xFF) as u8,
+            ((color >> 8) & 0xFF) as u8,
+            (color & 0xFF) as u8,
+        )
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with the alpha value extracted from the input.
     ///
-    /// For example, a value of `0x000000ff` results in black with full opacity, and a value of `0xff000080` results in red with half opacity.
+    /// For example, a value of `0x000000FF` results in black with full opacity, and a value of `0xFF000080` results in red with half opacity.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_color::Color;
-    /// let black = Color::srgba_u32(0x000000ff);
-    /// let semi_transparent_red = Color::srgba_u32(0xff000080);
+    /// let black = Color::srgba_u32(0x000000FF);
+    /// let semi_transparent_red = Color::srgba_u32(0xFF000080);
+    ///
+    /// assert_eq!(Color::srgba_u8(0x12, 0x34, 0x56, 0x78), Color::srgba_u32(0x12345678));
     /// ```
     pub const fn srgba_u32(color: u32) -> Self {
-        Self::Srgba(Srgba::new(
-            ((color >> 24) & 0xff) as f32 / 255.,
-            ((color >> 16) & 0xff) as f32 / 255.,
-            ((color >> 8) & 0xff) as f32 / 255.,
-            (color & 0xff) as f32 / 255.,
-        ))
+        Self::srgba_u8(
+            ((color >> 24) & 0xFF) as u8,
+            ((color >> 16) & 0xFF) as u8,
+            ((color >> 8) & 0xFF) as u8,
+            (color & 0xFF) as u8,
+        )
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.

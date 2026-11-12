@@ -388,7 +388,6 @@ where
         }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         match &mut self.inner {
@@ -425,8 +424,16 @@ where
                 self.inner = BuilderSystemInner::Initialized { system };
                 access
             }
-            BuilderSystemInner::Uninitialized { builder, func, .. } => {
-                let mut system = builder.build_state(world).build_any_system(func);
+            BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                meta,
+            } => {
+                // The state is named after its params, so keep the function's name.
+                let mut system = builder
+                    .build_state(world)
+                    .build_any_system(func)
+                    .with_name(meta.name);
                 let access = system.initialize(world);
                 self.inner = BuilderSystemInner::Initialized { system };
                 access
@@ -1008,6 +1015,20 @@ mod tests {
 
         let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 1);
+    }
+
+    #[test]
+    fn builder_system_name() {
+        let mut world = World::new();
+
+        let name = IntoSystem::into_system(local_system).name();
+        let mut builder_system =
+            IntoSystem::into_system((LocalBuilder(10),).build_system(local_system));
+        assert_eq!(builder_system.name(), name);
+
+        // `initialize` builds the system from a `SystemState`, which is named after its params.
+        builder_system.initialize(&mut world);
+        assert_eq!(builder_system.name(), name);
     }
 
     #[test]

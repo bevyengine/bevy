@@ -89,8 +89,8 @@ use crate::resources::prepare_atmosphere_buffers;
 
 use self::resources::{
     prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-    AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereSampler, AtmosphereTextures,
-    AtmosphereTransformsOffset, RenderSkyPipelineId,
+    AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTextures, AtmosphereTransformsOffset,
+    RenderSkyPipelineId,
 };
 
 #[doc(hidden)]
@@ -161,7 +161,6 @@ impl Plugin for AtmospherePlugin {
         render_app
             .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_gpu_resource::<RenderSkyBindGroupLayouts>()
-            .init_gpu_resource::<AtmosphereSampler>()
             .init_gpu_resource::<AtmosphereLutPipelines>()
             .init_gpu_resource::<AtmosphereTransforms>()
             .init_gpu_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()

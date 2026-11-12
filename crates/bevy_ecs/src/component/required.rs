@@ -10,7 +10,6 @@ use crate::{
     change_detection::{MaybeLocation, Tick},
     component::{Component, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
-    query::DebugCheckedUnwrap as _,
     storage::{SparseSets, Table, TableRow},
 };
 
@@ -273,7 +272,7 @@ impl RequiredComponents {
         components: &Components,
     ) {
         // SAFETY: the caller guarantees that `required_id` is valid in `components`.
-        let info = unsafe { components.get_info(required_id).debug_checked_unwrap() };
+        let info = unsafe { components.get_info_unchecked(required_id) };
 
         // Now we need to "recursively" register the
         // Small optimization: if the current required component was already required recursively
@@ -329,7 +328,7 @@ impl Components {
     ) {
         for &required in required_components.all.keys() {
             // SAFETY: the caller guarantees that all components in `required_components` have been registered in `self`.
-            let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
+            let required_by = unsafe { self.get_required_by_mut(required).unwrap_unchecked() };
             // This preserves the invariant of `required_by` because:
             // - components requiring `required` and required by `requiree` are already initialized at this point
             //   and hence registered in `required_by` before `requiree`;
@@ -367,10 +366,8 @@ impl Components {
         // First step: validate inputs and return errors.
 
         // SAFETY: The caller ensures that the `required` is valid.
-        let required_required_components = unsafe {
-            self.get_required_components(required)
-                .debug_checked_unwrap()
-        };
+        let required_required_components =
+            unsafe { self.get_required_components(required).unwrap_unchecked() };
 
         // Cannot create cyclic requirements.
         if required_required_components.all.contains_key(&requiree) {
@@ -382,7 +379,7 @@ impl Components {
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
 
         // Cannot directly require the same component twice.
@@ -410,7 +407,7 @@ impl Components {
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         };
 
         // Optimization: get all the new required components, i.e. those that were appended.
@@ -425,7 +422,7 @@ impl Components {
 
         // Get all the new requiree components, i.e. `requiree` and all the components that `requiree` is required by.
         // SAFETY: The caller ensures that the `requiree` is valid.
-        let requiree_required_by = unsafe { self.get_required_by(requiree).debug_checked_unwrap() };
+        let requiree_required_by = unsafe { self.get_required_by(requiree).unwrap_unchecked() };
         let new_requiree_components = [requiree]
             .into_iter()
             .chain(requiree_required_by.iter().copied())
@@ -458,7 +455,7 @@ impl Components {
             // SAFETY: `indirect_required` comes from `self`, so it must be valid.
             let required_by = unsafe {
                 self.get_required_by_mut(indirect_required)
-                    .debug_checked_unwrap()
+                    .unwrap_unchecked()
             };
 
             // Remove and re-add all the components in `new_requiree_components`
@@ -496,7 +493,7 @@ impl Components {
                 let required_components = unsafe {
                     self.components
                         .get_required_components_mut(self.component_id)
-                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 debug_assert!(required_components.direct.is_empty());
@@ -511,7 +508,7 @@ impl Components {
             // SAFETY: The caller ensures that the `component_id` is valid.
             required_components: core::mem::take(unsafe {
                 self.get_required_components_mut(component_id)
-                    .debug_checked_unwrap()
+                    .unwrap_unchecked()
             }),
             components: self,
         };

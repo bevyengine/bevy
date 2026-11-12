@@ -25,7 +25,7 @@ import bevy_render::view::View;
 @workgroup_size(8, 8, 1)
 fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_coordinates = vec2<i32>(global_id.xy);
-    let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
+    let uv = vec2<f32>(pixel_coordinates) / view.main_pass_viewport.zw;
 
     let edges0 = textureGather(0, depth_differences, point_clamp_sampler, uv);
     let edges1 = textureGather(0, depth_differences, point_clamp_sampler, uv, vec2<i32>(2i, 0i));

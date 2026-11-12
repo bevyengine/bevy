@@ -18,7 +18,7 @@ use bevy::{
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
     picking::cursor::{EntityCursor, OverrideCursor},
     prelude::*,
-    text::{EditableText, TextEdit, TextEditChange},
+    text::{EditableText, FontSourceTemplate, TextEdit, TextEditChange},
     ui::{Checked, Expanded, InteractionDisabled, Selected},
     ui_widgets::{
         checkbox_self_update, listbox_update_selection,
@@ -450,7 +450,7 @@ fn demo_column_1() -> impl Scene {
                 })
                 --
                 @FeathersButton {
-                    @caption: bsn! { @caption("Quit\u{2026}") },
+                    @caption: bsn! { @caption("Quit\u{2026} \u{2318}Q") },
                 }
                 Node {
                     flex_grow: 1.0,
@@ -615,7 +615,7 @@ fn demo_column_1() -> impl Scene {
                         @max_characters: 9usize,
                     }
                     InheritableFont {
-                        font: fonts::MONO
+                        font: FontSourceTemplate::Handle(fonts::MONO)
                     }
                     HexColorInput
                     on(handle_hex_color_change)
@@ -1496,7 +1496,7 @@ fn handle_hex_color_change(
     mut colors: ResMut<DemoWidgetStates>,
 ) {
     let editable_text = *q_text_input;
-    if let Ok(color) = Srgba::hex(editable_text.value().to_string())
+    if let Ok(color) = Srgba::hex(editable_text.value())
         && color != colors.rgb_color
     {
         colors.rgb_color = color;

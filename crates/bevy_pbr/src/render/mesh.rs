@@ -98,7 +98,9 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_render::camera::{DirtySpecializations, ExtractedCamera, TemporalJitter};
+use bevy_render::camera::{
+    DirtySpecializations, DirtyWireframeSpecializations, ExtractedCamera, TemporalJitter,
+};
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{
@@ -192,6 +194,7 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_gpu_resource::<LinearSampler>()
                 .init_gpu_resource::<MeshCullingDataBuffer>()
                 .init_resource::<RenderMaterialInstances>()
                 .configure_sets(
@@ -360,6 +363,7 @@ pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut dirty_specializations: ResMut<DirtySpecializations>,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
     mut views: Query<(
         &ExtractedView,
         Option<&ExtractedCamera>,
@@ -506,6 +510,9 @@ pub fn check_views_need_specialization(
         {
             view_key_cache.insert(view.retained_view_entity, view_key);
             dirty_specializations
+                .views
+                .insert(view.retained_view_entity);
+            dirty_wireframe_specializations
                 .views
                 .insert(view.retained_view_entity);
         }

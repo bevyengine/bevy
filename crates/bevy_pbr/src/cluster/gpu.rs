@@ -316,6 +316,20 @@ impl ViewGpuClusteringBuffers {
             ),
         }
     }
+
+    pub(crate) fn update(
+        &mut self,
+        metadata: ClusterMetadata,
+        z_slice_list_capacity: usize,
+        cluster_count: usize,
+    ) {
+        *self.cluster_metadata_buffer.get_mut() = metadata;
+        self.z_slices_buffer.clear();
+        self.z_slices_buffer.add_multiple(z_slice_list_capacity);
+        self.scratchpad_offsets_and_counts_buffer.clear();
+        self.scratchpad_offsets_and_counts_buffer
+            .add_multiple(cluster_count);
+    }
 }
 
 /// Stores data associated with reading back clustering statistics from GPU to
@@ -1603,12 +1617,14 @@ pub fn extract_clusters_for_gpu_clustering(
 /// views.
 pub(crate) fn prepare_clusters_for_gpu_clustering(
     mut commands: Commands,
-    views_query: Query<(
+    mut views_query: Query<(
         Entity,
         &MainEntity,
         &ExtractedClusterConfig,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
+        Option<&mut ViewGpuClusteringBuffers>,
+        Option<&mut ViewClusterBindings>,
     )>,
     render_clustered_decals: Res<RenderClusteredDecals>,
     render_device: Res<RenderDevice>,
@@ -1634,16 +1650,13 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         extracted_cluster_config,
         maybe_environment_maps,
         maybe_irradiance_volumes,
-    ) in &views_query
+        maybe_existing_buffers,
+        maybe_existing_cluster_bindings,
+    ) in &mut views_query
     {
-        // Allocate the cluster array.
-        let mut view_clusters_bindings =
-            ViewClusterBindings::new(BufferBindingType::Storage { read_only: false });
-        view_clusters_bindings.clear();
         let cluster_count = extracted_cluster_config.dimensions.x as usize
             * extracted_cluster_config.dimensions.y as usize
             * extracted_cluster_config.dimensions.z as usize;
-        view_clusters_bindings.reserve_clusters(cluster_count);
 
         all_view_main_entities.insert(*view_main_entity);
 
@@ -1662,8 +1675,6 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             continue;
         };
 
-        let mut view_gpu_clustering_buffers = ViewGpuClusteringBuffers::new();
-
         // Count the number of each type of clusterable object that we have.
         let clustered_light_count = gpu_clustered_lights_storage.data.len() as u32;
         let reflection_probe_count = match maybe_environment_maps {
@@ -1677,10 +1688,7 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         // Light textures share the decal buffer but aren't clusterable objects.
         let decal_count = render_clustered_decals.clusterable_decal_count() as u32;
 
-        // Initialize the metadata.
-        *view_gpu_clustering_buffers
-            .cluster_metadata_buffer
-            .get_mut() = ClusterMetadata {
+        let new_metadata = ClusterMetadata {
             indirect_draw_params: ClusterRasterIndirectDrawParams {
                 index_count: 6,
                 // This will be filled in by the GPU.
@@ -1698,29 +1706,37 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             farthest_z: 0,
         };
 
-        // Allocate Z slices.
-        if view_gpu_clustering_buffers.z_slices_buffer.len()
-            < view_clustering_buffer_size_data.z_slice_list_capacity
-        {
-            view_gpu_clustering_buffers.z_slices_buffer.add_multiple(
-                view_clustering_buffer_size_data.z_slice_list_capacity
-                    - view_gpu_clustering_buffers.z_slices_buffer.len(),
-            );
+        let mut entity_commands = commands.entity(view_entity);
+
+        if let Some(mut bindings) = maybe_existing_cluster_bindings {
+            bindings.clear();
+            bindings.reserve_clusters(cluster_count);
+            bindings.reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
+            bindings.write_buffers(render_device, &render_queue);
+        } else {
+            let mut bindings =
+                ViewClusterBindings::new(BufferBindingType::Storage { read_only: false });
+            bindings.reserve_clusters(cluster_count);
+            bindings.reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
+            bindings.write_buffers(render_device, &render_queue);
+            entity_commands.insert(bindings);
         }
 
-        // Make room for the appropriate number of indices.
-        view_clusters_bindings
-            .reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
-        view_clusters_bindings.write_buffers(render_device, &render_queue);
-
-        // Allocate scratchpad offsets and counts.
-        view_gpu_clustering_buffers
-            .scratchpad_offsets_and_counts_buffer
-            .add_multiple(cluster_count);
-
-        commands
-            .entity(view_entity)
-            .insert((view_clusters_bindings, view_gpu_clustering_buffers));
+        if let Some(mut b) = maybe_existing_buffers {
+            b.update(
+                new_metadata,
+                view_clustering_buffer_size_data.z_slice_list_capacity,
+                cluster_count,
+            );
+        } else {
+            let mut b = ViewGpuClusteringBuffers::new();
+            b.update(
+                new_metadata,
+                view_clustering_buffer_size_data.z_slice_list_capacity,
+                cluster_count,
+            );
+            entity_commands.insert(b);
+        }
     }
 
     // Clear out clustering allocations corresponding to views that don't exist

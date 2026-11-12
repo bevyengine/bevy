@@ -28,7 +28,8 @@ const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     atomic_counter = 0u;
-    let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
+    let pixel = vec2<u32>(in.position.xy - view.main_pass_viewport.xy);
+    let screen_index = pixel.x + pixel.y * u32(view.main_pass_viewport.z);
 
     let head = heads[screen_index] - 1u;
     if head == LINKED_LIST_END_SENTINEL {

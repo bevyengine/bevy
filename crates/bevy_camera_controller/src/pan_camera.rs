@@ -32,10 +32,9 @@ impl Plugin for PanCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             RunFixedMainLoop,
-            (
-                run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
-                run_pan_to_cursor_on_zoom.after(run_pancamera_controller),
-            ),
+            (run_pancamera_controller, run_pan_to_cursor_on_zoom)
+                .chain()
+                .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         )
         .add_message::<ZoomEvent>()
         .add_observer(add_window_observer)

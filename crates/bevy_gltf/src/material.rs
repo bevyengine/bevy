@@ -95,6 +95,9 @@ pub struct GltfMaterial {
     /// The [index of refraction](https://en.wikipedia.org/wiki/Refractive_index) of the material.
     pub ior: f32,
 
+    /// The strength of chromatic dispersion. Corresponds to `KHR_materials_dispersion`.
+    pub dispersion: f32,
+
     /// How far, on average, light travels through the volume beneath the material's
     /// surface before being absorbed.
     pub attenuation_distance: f32,
@@ -221,6 +224,7 @@ impl Default for GltfMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
+            dispersion: 0.0,
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_channel: UvChannel::Uv0,

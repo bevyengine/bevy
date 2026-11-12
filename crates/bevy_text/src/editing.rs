@@ -77,13 +77,14 @@ use crate::{
     text_edit::{poll_and_apply_paste, reveal_cursor, TextEdit},
     FontCx, FontHinting, LayoutCx, LineHeight, TextBrush, TextColor, TextFont, TextLayout,
 };
+use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use bevy_clipboard::ClipboardRead;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
 use core::time::Duration;
-use parley::{FontContext, LayoutContext, PlainEditor, SplitString};
+use parley::{FontContext, LayoutContext, PlainEditor};
 
 /// A plain-text text input field.
 ///
@@ -196,11 +197,19 @@ impl EditableText {
         &mut self.editor
     }
 
-    /// Get the current text input as a [`SplitString`].
+    /// Get the current text input as a [`Cow<str>`].
     ///
-    /// A [`SplitString`] can be converted into a [`String`] using `to_string` if needed.
-    pub fn value(&self) -> SplitString<'_> {
-        self.editor.text()
+    /// Borrowed as default, owned copy returned when there is a split
+    /// (e.g. IME preedit).
+    pub fn value(&self) -> Cow<'_, str> {
+        let mut segments = self.editor.text().into_iter();
+        let first = segments.next().unwrap_or("");
+        let second = segments.next().unwrap_or("");
+        if second.is_empty() {
+            Cow::Borrowed(first)
+        } else {
+            Cow::Owned(alloc::format!("{first}{second}"))
+        }
     }
 
     /// Queue a [`TextEdit`] action to be applied later by the [`apply_text_edits`] system.
