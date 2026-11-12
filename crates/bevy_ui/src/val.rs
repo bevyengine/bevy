@@ -288,20 +288,6 @@ impl Val {
         })
     }
 
-    // /// Construct a plain unit value.
-    // pub(crate) const fn leaf(unit: ValUnit, value: f32) -> Self {
-    //     match unit {
-    //         ValUnit::Px => Self::Px(value),
-    //         ValUnit::Percent => Self::Percent(value),
-    //         ValUnit::Vw => Self::Vw(value),
-    //         ValUnit::Vh => Self::Vh(value),
-    //         ValUnit::VMin => Self::VMin(value),
-    //         ValUnit::VMax => Self::VMax(value),
-    //         ValUnit::Em => Self::Em(value),
-    //         ValUnit::Rem => Self::Rem(value),
-    //     }
-    // }
-
     /// Returns a [`UiRect`] with its `left` equal to this value,
     /// and all other fields set to `Val::ZERO`.
     ///
