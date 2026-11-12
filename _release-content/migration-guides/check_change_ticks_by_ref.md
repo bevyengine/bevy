@@ -21,4 +21,6 @@ world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSche
 
 `CheckChangeTicks` observers now run twice per check, and should call `check_tick` both times. `World::check_change_ticks` now returns `bool` instead of `Option<CheckChangeTicks>`, and does nothing while a schedule is running.
 
+`Tick`s you store yourself, like the last run of a `SystemState` you keep around, should be passed to `check_tick` by a `CheckChangeTicks` observer. Without one, they now compare wrongly once they're about 1.7 billion ticks old, instead of about 3.3 billion. If you clamped ticks yourself using `present_tick`, call `check_tick` instead.
+
 `RegisteredSystem<I, O>` now requires `I: SystemInput`.

@@ -42,7 +42,7 @@ mod tests {
         entity::Entity,
         entity_disabling::Disabled,
         observer::On,
-        schedule::{Schedule, ScheduleLabel, Schedules},
+        schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules},
         system::{IntoSystem, Query, Res, Single, System},
         world::World,
     };
@@ -250,6 +250,39 @@ mod tests {
 
         // Once to collect, once to compact.
         assert_eq!(world.resource::<Checks>().0, 2);
+    }
+
+    #[test]
+    fn ticks_are_not_checked_during_unstored_schedule() {
+        #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
+        struct Inner;
+
+        #[derive(Resource)]
+        struct Detect(bool);
+
+        let mut world = World::new();
+        world.add_schedule(Schedule::new(Inner));
+        world.insert_resource(Detect(true));
+        let entity = world.spawn(C).id();
+
+        // Not stored in `Schedules`.
+        let mut schedule = Schedule::default();
+        schedule.add_systems((
+            (|c: Single<Ref<C>>| assert!(c.is_changed())).run_if(|d: Res<Detect>| d.0),
+            (|world: &mut World| {
+                *world.change_tick.get_mut() += COMPACT_AGE;
+                // Would check ticks while `schedule` is running.
+                world.run_schedule(Inner);
+            })
+            .run_if(|d: Res<Detect>| !d.0),
+        ));
+
+        schedule.run(&mut world);
+        world.get_mut::<C>(entity).unwrap().set_changed();
+        world.resource_mut::<Detect>().0 = false;
+        schedule.run(&mut world);
+        world.resource_mut::<Detect>().0 = true;
+        schedule.run(&mut world);
     }
 
     #[test]

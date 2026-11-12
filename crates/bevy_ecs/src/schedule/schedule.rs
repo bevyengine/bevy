@@ -606,6 +606,7 @@ impl Schedule {
         });
 
         let error_handler = world.fallback_error_handler();
+        world.running_schedules += 1;
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -625,6 +626,8 @@ impl Schedule {
                 error_handler,
             );
         }
+
+        world.running_schedules -= 1;
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
