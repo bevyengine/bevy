@@ -93,6 +93,10 @@ offset-allocator = "0.2"
 arrayvec = { version = "0.7", default-features = false }
 indexmap = { version = "2" }
 wgpu-types = "30"
+wgpu = { version = "30", default-features = false }
+
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = "0.6.0"
 
 [dev-dependencies]
 wgpu = { version = "30", default-features = false, features = ["noop"] }
