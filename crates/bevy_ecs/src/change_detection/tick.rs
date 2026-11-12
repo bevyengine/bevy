@@ -82,10 +82,10 @@ impl Tick {
     }
 
     /// Compacts this tick if it is old, keeping its order relative to every tick
-    /// recorded by the [`CheckChangeTicks`] pass. Call it at most once per tick in each pass,
-    /// as compacting a tick twice breaks its order.
+    /// recorded by the [`CheckChangeTicks`] pass, or clamps it if the pass can't compact.
+    /// Call it at most once per tick in each pass, as compacting a tick twice breaks its order.
     ///
-    /// Returns `true` if the tick was compacted. Otherwise, returns `false`.
+    /// Returns `true` if the tick was compacted or clamped. Otherwise, returns `false`.
     #[inline]
     pub fn check_tick(&mut self, check: &CheckChangeTicks) -> bool {
         let age = check.present.relative_to(*self).get();
@@ -114,6 +114,7 @@ impl Tick {
             CheckPhase::Compact { ages, last } => {
                 // Each recorded age gets its own slot and each gap between them shares one,
                 // so comparisons against recorded ticks are unchanged.
+                let age = age.min(MAX_CHANGE_AGE);
                 let older = ages.partition_point(|&a| a > age);
                 let slot = 2 * older as u32 + u32::from(ages.get(older) == Some(&age));
                 let compacted = check.present.relative_to(Tick::new(COMPACT_START - slot));
@@ -122,6 +123,10 @@ impl Tick {
                     Ordering::Relaxed,
                 );
                 *self = compacted;
+                true
+            }
+            CheckPhase::Clamp => {
+                *self = check.present.relative_to(Tick::MAX);
                 true
             }
         }
@@ -187,7 +192,8 @@ impl Debug for AtomicTick {
 /// methods like [`Tick::is_newer_than`] reliable.
 ///
 /// It is triggered twice per check: first to record old ticks, then to compact them.
-/// Observers should pass it to [`Tick::check_tick`] both times.
+/// Observers should pass it to [`Tick::check_tick`] both times. If a schedule runs for too long,
+/// it is instead triggered once to clamp old ticks.
 ///
 /// # Example
 ///
@@ -228,6 +234,9 @@ enum CheckPhase {
         /// The last compacted tick, packed as `(old << 32) | new`.
         last: AtomicU64,
     },
+    /// Clamping old ticks to [`Tick::MAX`]. `is_newer_than` already treats older ticks the same,
+    /// so unlike compacting, this can't reorder ticks that weren't recorded.
+    Clamp,
 }
 
 impl CheckChangeTicks {
@@ -245,9 +254,10 @@ impl CheckChangeTicks {
         if let CheckPhase::Collect(ticks) = self.phase {
             let ticks = ticks.into_inner().unwrap();
             ages.extend(
+                // `is_newer_than` treats older ticks the same, which keeps clamped ticks in order.
                 ticks
                     .into_iter()
-                    .map(|tick| present.relative_to(tick).get()),
+                    .map(|tick| present.relative_to(tick).get().min(MAX_CHANGE_AGE)),
             );
         }
         ages.sort_unstable_by(|a, b| b.cmp(a));
@@ -263,6 +273,14 @@ impl CheckChangeTicks {
                 // `present` is never compacted, so this never matches.
                 last: AtomicU64::new(u64::from(present.tick) << 32),
             },
+        }
+    }
+
+    pub(crate) fn clamp(present: Tick) -> Self {
+        Self {
+            present,
+            cutoff: MAX_CHANGE_AGE,
+            phase: CheckPhase::Clamp,
         }
     }
 

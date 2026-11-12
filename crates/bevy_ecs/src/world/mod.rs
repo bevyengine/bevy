@@ -109,7 +109,7 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
-    /// The number of [`Schedule`]s currently running. Change ticks aren't checked while this is nonzero.
+    /// The number of [`Schedule`]s currently running. Change ticks are only clamped while this is nonzero.
     pub(crate) running_schedules: u32,
     pub(crate) last_trigger_id: u32,
     /// The byte index in [`Self::command_queue`] at which unapplied command start.
@@ -3388,8 +3388,9 @@ impl World {
     /// every tick they are compared against, like each system's last run.
     /// This also triggers [`CheckChangeTicks`] observers. Returns whether the ticks were checked.
     ///
-    /// **Note:** Does nothing while a schedule is running, or if the [`World`] counter
-    /// has not been incremented at least [`CHECK_TICK_THRESHOLD`] times since the previous pass.
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least
+    /// [`CHECK_TICK_THRESHOLD`] times since the previous pass. While a schedule is running,
+    /// it only clamps old ticks, and only after twice as many.
     pub fn check_change_ticks(&mut self) -> bool {
         self.check_change_ticks_with(|_| {})
     }
@@ -3400,18 +3401,25 @@ impl World {
         mut check_extra: impl FnMut(&CheckChangeTicks),
     ) -> bool {
         let change_tick = self.change_tick();
-        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD
-            || self.running_schedules > 0
+        let since_check = change_tick.relative_to(self.last_check_tick).get();
+        // Running schedules hold ticks outside the world, which compacting would reorder.
+        let blocked = self.running_schedules > 0
             || self
                 .get_resource::<Schedules>()
-                .is_some_and(|schedules| !schedules.temporarily_removed.is_empty())
+                .is_some_and(|schedules| !schedules.temporarily_removed.is_empty());
+        if since_check < CHECK_TICK_THRESHOLD || (blocked && since_check < 2 * CHECK_TICK_THRESHOLD)
         {
             return false;
         }
 
-        let mut check = CheckChangeTicks::collect(change_tick);
-        self.check_reference_ticks(&mut check, &mut check_extra);
-        let mut check = check.compact(self.change_tick());
+        let mut check = if blocked {
+            // Clamping can't reorder them, so fall back to it if they're held too long.
+            CheckChangeTicks::clamp(change_tick)
+        } else {
+            let mut check = CheckChangeTicks::collect(change_tick);
+            self.check_reference_ticks(&mut check, &mut check_extra);
+            check.compact(self.change_tick())
+        };
 
         let Storages {
             ref mut tables,
@@ -3428,7 +3436,12 @@ impl World {
         self.check_reference_ticks(&mut check, &mut check_extra);
         self.flush();
 
-        self.last_check_tick = check.present_tick();
+        self.last_check_tick = if blocked {
+            // Clamp again after another threshold, but compact as soon as nothing is held.
+            change_tick.relative_to(Tick::new(CHECK_TICK_THRESHOLD))
+        } else {
+            check.present_tick()
+        };
         true
     }
 

@@ -157,8 +157,10 @@ mod tests {
     fn compaction_preserves_order() {
         let present = Tick::new(0);
         let tick = |age: u32| present.relative_to(Tick::new(age));
-        let mut runs = [tick(MAX_CHANGE_AGE - 10), tick(MAX_CHANGE_AGE - 20)];
-        let mut changes = [5, 10, 15, 20, 25].map(|age| tick(MAX_CHANGE_AGE - age));
+        // Clamped ticks can be compared against older ones.
+        let age = |offset: i32| tick(MAX_CHANGE_AGE.wrapping_add_signed(offset));
+        let mut runs = [-10, -20, 20].map(age);
+        let mut changes = [10, -5, -10, -15, -20, -25].map(age);
         let is_newer = |changes: &[Tick], runs: &[Tick]| {
             changes
                 .iter()
@@ -253,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn ticks_are_not_checked_during_unstored_schedule() {
+    fn ticks_are_not_compacted_during_unstored_schedule() {
         #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
         struct Inner;
 
@@ -271,7 +273,7 @@ mod tests {
             (|c: Single<Ref<C>>| assert!(c.is_changed())).run_if(|d: Res<Detect>| d.0),
             (|world: &mut World| {
                 *world.change_tick.get_mut() += COMPACT_AGE;
-                // Would check ticks while `schedule` is running.
+                // Would compact ticks while `schedule` is running.
                 world.run_schedule(Inner);
             })
             .run_if(|d: Res<Detect>| !d.0),
@@ -296,6 +298,27 @@ mod tests {
 
         *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
         assert!(world.check_change_ticks());
+    }
+
+    #[test]
+    fn ticks_are_clamped_during_long_schedule() {
+        let mut world = World::new();
+        let entity = world.spawn(C).id();
+        let mut schedule = Schedule::default();
+        // Like a main loop that never returns.
+        schedule.add_systems(move |world: &mut World| {
+            for _ in 0..8 {
+                *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
+                world.check_change_ticks();
+                let changed = world
+                    .entity(entity)
+                    .get_change_ticks::<C>()
+                    .unwrap()
+                    .changed;
+                assert!(world.change_tick().relative_to(changed).get() <= MAX_CHANGE_AGE);
+            }
+        });
+        schedule.run(&mut world);
     }
 
     #[test]
