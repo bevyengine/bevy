@@ -64,7 +64,7 @@ impl Tick {
     #[inline]
     pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
         // This works even with wraparound because the world tick (`this_run`) is always "newer" than
-        // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
+        // `last_run` and `self.tick`, and we scan periodically to compact `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
@@ -82,7 +82,8 @@ impl Tick {
     }
 
     /// Compacts this tick if it is old, keeping its order relative to every tick
-    /// recorded by the [`CheckChangeTicks`] pass.
+    /// recorded by the [`CheckChangeTicks`] pass. Call it at most once per tick in each pass,
+    /// as compacting a tick twice breaks its order.
     ///
     /// Returns `true` if the tick was compacted. Otherwise, returns `false`.
     #[inline]
@@ -251,6 +252,8 @@ impl CheckChangeTicks {
         }
         ages.sort_unstable_by(|a, b| b.cmp(a));
         ages.dedup();
+        // Compacted ticks must stay older than every tick that isn't compacted.
+        debug_assert!(ages.len() < CHECK_TICK_THRESHOLD as usize / 2);
         Self {
             // Only compact ticks the collecting pass saw as old, so none are missed.
             cutoff: COMPACT_AGE + present.relative_to(self.present).get(),

@@ -3383,12 +3383,11 @@ impl World {
 
     /// Compacts all old change ticks so they can't overflow, while keeping their order relative to
     /// every tick they are compared against, like each system's last run.
-    /// This also triggers [`CheckChangeTicks`] observers and returns the same event here.
+    /// This also triggers [`CheckChangeTicks`] observers. Returns whether the ticks were checked.
     ///
-    /// **Note:** Does nothing and returns `None` while a schedule is running, or if the [`World`] counter
+    /// **Note:** Does nothing while a schedule is running, or if the [`World`] counter
     /// has not been incremented at least [`CHECK_TICK_THRESHOLD`] times since the previous pass.
-    // TODO: benchmark and optimize
-    pub fn check_change_ticks(&mut self) -> Option<CheckChangeTicks> {
+    pub fn check_change_ticks(&mut self) -> bool {
         self.check_change_ticks_with(|_| {})
     }
 
@@ -3396,14 +3395,14 @@ impl World {
     pub(crate) fn check_change_ticks_with(
         &mut self,
         mut check_extra: impl FnMut(&CheckChangeTicks),
-    ) -> Option<CheckChangeTicks> {
+    ) -> bool {
         let change_tick = self.change_tick();
         if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD
             || self
                 .get_resource::<Schedules>()
                 .is_some_and(|schedules| !schedules.temporarily_removed.is_empty())
         {
-            return None;
+            return false;
         }
 
         let mut check = CheckChangeTicks::collect(change_tick);
@@ -3426,8 +3425,7 @@ impl World {
         self.flush();
 
         self.last_check_tick = check.present_tick();
-
-        Some(check)
+        true
     }
 
     /// Checks the ticks that other ticks are compared against. Observers run last, since they

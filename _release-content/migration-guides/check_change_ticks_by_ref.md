@@ -19,6 +19,6 @@ world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSche
 });
 ```
 
-`CheckChangeTicks` observers now run twice per check, and should call `check_tick` both times. `World::check_change_ticks` now does nothing while a schedule is running.
+`CheckChangeTicks` observers now run twice per check, and should call `check_tick` both times. `World::check_change_ticks` now returns `bool` instead of `Option<CheckChangeTicks>`, and does nothing while a schedule is running.
 
 `RegisteredSystem<I, O>` now requires `I: SystemInput`.
