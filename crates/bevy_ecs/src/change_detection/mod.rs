@@ -40,13 +40,14 @@ mod tests {
         },
         component::Component,
         entity::Entity,
+        entity_disabling::Disabled,
         observer::On,
         schedule::{Schedule, ScheduleLabel, Schedules},
         system::{IntoSystem, Query, Res, Single, System},
         world::World,
     };
 
-    use super::{DetectChanges, DetectChangesMut, MutUntyped};
+    use super::{tick::COMPACT_AGE, DetectChanges, DetectChangesMut, MutUntyped};
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -191,11 +192,15 @@ mod tests {
         let mut world = World::new();
         world.spawn(C);
         let system = world.register_system(changed);
+        // `run_system` still runs disabled systems.
+        let disabled = world.register_system(changed);
+        world.entity_mut(disabled.entity()).insert(Disabled);
         world.run_system(system).unwrap();
+        world.run_system(disabled).unwrap();
         world.increment_change_tick();
         let changed_later = world.spawn(C).id();
 
-        // Leave the system unused for more than `u32::MAX` ticks.
+        // Leave the systems unused for more than `u32::MAX` ticks.
         for _ in 0..10 {
             let tick = world.change_tick.get_mut();
             *tick = tick.wrapping_add(CHECK_TICK_THRESHOLD);
@@ -203,6 +208,23 @@ mod tests {
         }
 
         assert_eq!(world.run_system(system).unwrap(), [changed_later]);
+        assert_eq!(world.run_system(disabled).unwrap(), [changed_later]);
+    }
+
+    #[test]
+    fn compaction_preserves_order_when_present_advances() {
+        let mut last_run = Tick::new(0).relative_to(Tick::new(COMPACT_AGE));
+        let mut changed = Tick::new(last_run.get() + 1);
+        let check = CheckChangeTicks::collect(Tick::new(0));
+        last_run.check_tick(&check);
+
+        // Observers advance the world tick between passes.
+        let present = Tick::new(2);
+        let check = check.compact(present);
+        last_run.check_tick(&check);
+        changed.check_tick(&check);
+
+        assert!(changed.is_newer_than(last_run, present));
     }
 
     #[test]

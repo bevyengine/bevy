@@ -28,7 +28,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
+    archetype::{ArchetypeCreated, ArchetypeEntity, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
         InsertMode, NoBundleEffect,
@@ -3442,11 +3442,25 @@ impl World {
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(check);
         }
-        for mut observer in self.query::<&mut Observer>().iter_mut(self) {
-            observer.bypass_change_detection().check_change_ticks(check);
+        for entity in self.entities_with::<Observer>() {
+            if let Some(mut observer) = self.get_mut::<Observer>(entity) {
+                observer.bypass_change_detection().check_change_ticks(check);
+            }
         }
         SystemIdMarker::check_change_ticks(self, check);
         self.trigger_ref(check);
+    }
+
+    /// Returns every entity with `T`, including ones hidden by [`DefaultQueryFilters`].
+    pub(crate) fn entities_with<T: Component>(&self) -> Vec<Entity> {
+        let Some(id) = self.component_id::<T>() else {
+            return Vec::new();
+        };
+        self.archetypes
+            .iter()
+            .filter(|archetype| archetype.contains(id))
+            .flat_map(|archetype| archetype.entities().iter().map(ArchetypeEntity::id))
+            .collect()
     }
 
     /// Clears all entities, resources, and non-send data.

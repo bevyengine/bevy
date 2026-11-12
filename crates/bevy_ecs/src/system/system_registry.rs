@@ -13,7 +13,7 @@ use crate::{
     template::TemplateContext,
     world::World,
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 use bevy_ecs_macros::Resource;
 use bevy_platform::sync::{Arc, Mutex};
 use bevy_utils::prelude::DebugName;
@@ -91,13 +91,12 @@ impl SystemIdMarker {
 
     /// Checks the ticks of all registered systems.
     pub(crate) fn check_change_ticks(world: &mut World, check: &CheckChangeTicks) {
-        let systems: Vec<_> = world
-            .query::<(Entity, &Self)>()
-            .iter(world)
-            .filter_map(|(entity, marker)| Some((entity, marker.check_change_tick?)))
-            .collect();
-        for (entity, check_change_tick) in systems {
-            check_change_tick(world, entity, check);
+        for entity in world.entities_with::<Self>() {
+            if let Some(check_change_tick) =
+                world.get::<Self>(entity).and_then(|m| m.check_change_tick)
+            {
+                check_change_tick(world, entity, check);
+            }
         }
     }
 }

@@ -13,7 +13,7 @@ use core::{
 use crate::change_detection::{MaybeLocation, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE};
 
 /// Ticks older than this are compacted by [`Tick::check_tick`].
-const COMPACT_AGE: u32 = MAX_CHANGE_AGE - 3 * CHECK_TICK_THRESHOLD;
+pub(super) const COMPACT_AGE: u32 = MAX_CHANGE_AGE - 3 * CHECK_TICK_THRESHOLD;
 
 /// The age of the oldest compacted tick. Compacted ticks can't age past [`Tick::MAX`]
 /// before the next scan, so systems that have never run stay older than every tick.
@@ -88,7 +88,7 @@ impl Tick {
     #[inline]
     pub fn check_tick(&mut self, check: &CheckChangeTicks) -> bool {
         let age = check.present.relative_to(*self).get();
-        if age <= COMPACT_AGE {
+        if age <= check.cutoff {
             return false;
         }
         if let CheckPhase::Compact { last, .. } = &check.phase {
@@ -212,6 +212,8 @@ impl Debug for AtomicTick {
 #[derive(Debug, Event)]
 pub struct CheckChangeTicks {
     present: Tick,
+    /// Ticks older than this are checked.
+    cutoff: u32,
     phase: CheckPhase,
 }
 
@@ -231,6 +233,7 @@ impl CheckChangeTicks {
     pub(crate) fn collect(present: Tick) -> Self {
         Self {
             present,
+            cutoff: COMPACT_AGE,
             phase: CheckPhase::Collect(Mutex::new(Vec::new())),
         }
     }
@@ -249,6 +252,8 @@ impl CheckChangeTicks {
         ages.sort_unstable_by(|a, b| b.cmp(a));
         ages.dedup();
         Self {
+            // Only compact ticks the collecting pass saw as old, so none are missed.
+            cutoff: COMPACT_AGE + present.relative_to(self.present).get(),
             present,
             phase: CheckPhase::Compact {
                 ages,
