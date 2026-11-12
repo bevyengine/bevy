@@ -1,6 +1,6 @@
 ---
 title: "`CheckChangeTicks` is passed by reference"
-pull_requests: [TODO]
+pull_requests: [26501]
 ---
 
 Old change ticks are now compacted instead of clamped, so systems that haven't run in a long time no longer miss changes (and no longer log a warning).
