@@ -32,7 +32,6 @@ fn layer_count(descriptor_index: u32) -> u32 {
     let dimensions = textureDimensions(morph_targets);
 @if(SKINS_USE_UNIFORM_BUFFERS)
     return u32(dimensions.z);
-    // Guard against `u32::MAX` (no descriptor) to avoid out-of-bounds reads.
 @if(!SKINS_USE_UNIFORM_BUFFERS)
     let descriptor_count = arrayLength(&morph_descriptors);
 @if(!SKINS_USE_UNIFORM_BUFFERS)

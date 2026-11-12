@@ -1514,8 +1514,7 @@ impl RenderMeshInstanceGpuBuilder {
             .map(|lightmap| lightmap.slab_index);
         self.shared.lightmap_slab_index = lightmap_slab_index.into();
 
-        // Likewise, wait for the morph descriptor if its mesh isn't ready yet,
-        // since `MeshInputUniform`s aren't rewritten once it is.
+        // Wait for the morph descriptor: `MeshInputUniform`s aren't rewritten once it's ready.
         if morph_indices.morph_descriptor_pending(entity) {
             return None;
         }
