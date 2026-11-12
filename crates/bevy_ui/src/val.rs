@@ -101,7 +101,7 @@ impl ValUnit {
     ];
 
     /// Constructs a numeric [`Val`] using this unit and the given value.
-    pub fn with_value(self, value: f32) -> Val {
+    pub const fn with_value(self, value: f32) -> Val {
         match self {
             ValUnit::Percent => Val::Percent(value),
             ValUnit::Px => Val::Px(value),
