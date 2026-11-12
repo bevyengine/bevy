@@ -286,6 +286,19 @@ mod tests {
     }
 
     #[test]
+    fn ticks_are_checked_after_schedule_panics() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|| panic!());
+        let _ = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
+            schedule.run(&mut world);
+        }));
+
+        *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
+        assert!(world.check_change_ticks());
+    }
+
+    #[test]
     fn mut_from_res_mut() {
         let mut component_ticks = ComponentTicks {
             added: Tick::new(1),

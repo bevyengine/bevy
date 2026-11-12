@@ -606,7 +606,17 @@ impl Schedule {
         });
 
         let error_handler = world.fallback_error_handler();
+
+        // Decrements even if a system panics.
+        struct RunningGuard<'w>(&'w mut World);
+        impl Drop for RunningGuard<'_> {
+            fn drop(&mut self) {
+                self.0.running_schedules -= 1;
+            }
+        }
         world.running_schedules += 1;
+        let guard = RunningGuard(world);
+        let world = &mut *guard.0;
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -626,8 +636,6 @@ impl Schedule {
                 error_handler,
             );
         }
-
-        world.running_schedules -= 1;
     }
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
