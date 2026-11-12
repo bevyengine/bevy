@@ -64,6 +64,75 @@ impl Default for ValContext {
     }
 }
 
+/// The unit of a numeric [`Val`].
+///
+/// The variants should match the numeric variants of `Val`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u8)]
+pub enum ValUnit {
+    /// Use `Val::Px` units.
+    Px = 0,
+    /// Use `Val::Percent` units.
+    Percent = 1,
+    /// Use `Val::Vw` units.
+    Vw = 2,
+    /// Use `Val::Vh` units.
+    Vh = 3,
+    /// Use `Val::VMin` units.
+    VMin = 4,
+    /// Use `Val::VMax` units.
+    VMax = 5,
+    /// Use `Val::Em` units.
+    Em = 6,
+    /// Use `Val::Rem` units.
+    Rem = 7,
+}
+
+impl ValUnit {
+    /// List of all the units in discriminant order.
+    pub const ALL: [Self; 8] = [
+        Self::Px,
+        Self::Percent,
+        Self::Vw,
+        Self::Vh,
+        Self::VMin,
+        Self::VMax,
+        Self::Em,
+        Self::Rem,
+    ];
+
+    /// Constructs a numeric [`Val`] using this unit and the given value.
+    pub const fn with_value(self, value: f32) -> Val {
+        match self {
+            ValUnit::Percent => Val::Percent(value),
+            ValUnit::Px => Val::Px(value),
+            ValUnit::Vw => Val::Vw(value),
+            ValUnit::Vh => Val::Vh(value),
+            ValUnit::VMin => Val::VMin(value),
+            ValUnit::VMax => Val::VMax(value),
+            ValUnit::Em => Val::Em(value),
+            ValUnit::Rem => Val::Rem(value),
+        }
+    }
+
+    /// Resolve a `ValUnit` and `f32` length to physical coords except for percentage values.
+    /// `Percentage` values depend on the size of the parent, and can't be resolved except during layout.
+    #[inline]
+    pub(crate) fn resolve_physical_except_percent(self, value: f32, context: &ValContext) -> Val {
+        match self {
+            ValUnit::Percent => Val::Percent(value),
+            ValUnit::Px => Val::Px(value * context.scale_factor),
+            ValUnit::Vw => Val::Px(context.physical_size.x * value / 100.0),
+            ValUnit::Vh => Val::Px(context.physical_size.y * value / 100.0),
+            ValUnit::VMin => Val::Px(context.physical_size.min_element() * value / 100.0),
+            ValUnit::VMax => Val::Px(context.physical_size.max_element() * value / 100.0),
+            ValUnit::Em => Val::Px(value * context.em_size * context.scale_factor),
+            ValUnit::Rem => Val::Px(value * context.rem_size * context.scale_factor),
+        }
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
@@ -236,7 +305,7 @@ impl PartialEq for Val {
             | (Self::Stretch, Self::Stretch)
             | (Self::Content, Self::Content) => true,
             (Self::Calc(a), Self::Calc(b)) => a == b,
-            _ => match (self.unit(), self.inner(), other.unit(), other.inner()) {
+            _ => match (self.unit(), self.value(), other.unit(), other.value()) {
                 (Some(unit), Some(a), Some(other_unit), Some(b)) if unit == other_unit => a == b,
                 // All zero-value variants are considered equal.
                 (Some(_), Some(0.), Some(_), Some(0.)) => true,
@@ -255,37 +324,38 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
-    ///
-    /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
-    /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    pub const fn inner(&self) -> Option<f32> {
+    /// Returns the unit and value of a numeric `Val`, or `None` otherwise.
+    pub const fn unit_value(&self) -> Option<(ValUnit, f32)> {
         match self {
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v)
-            | Self::Em(v)
-            | Self::Rem(v) => Some(*v),
+            Self::Px(v) => Some((ValUnit::Px, *v)),
+            Self::Percent(v) => Some((ValUnit::Percent, *v)),
+            Self::Vw(v) => Some((ValUnit::Vw, *v)),
+            Self::Vh(v) => Some((ValUnit::Vh, *v)),
+            Self::VMin(v) => Some((ValUnit::VMin, *v)),
+            Self::VMax(v) => Some((ValUnit::VMax, *v)),
+            Self::Em(v) => Some((ValUnit::Em, *v)),
+            Self::Rem(v) => Some((ValUnit::Rem, *v)),
             _ => None,
         }
     }
 
-    /// Returns a `Val`'s units if it isn't auto or an expression, otherwise `None`.
-    pub(crate) const fn unit(&self) -> Option<ValUnit> {
-        Some(match self {
-            Self::Px(_) => ValUnit::Px,
-            Self::Percent(_) => ValUnit::Percent,
-            Self::Vw(_) => ValUnit::Vw,
-            Self::Vh(_) => ValUnit::Vh,
-            Self::VMin(_) => ValUnit::VMin,
-            Self::VMax(_) => ValUnit::VMax,
-            Self::Em(_) => ValUnit::Em,
-            Self::Rem(_) => ValUnit::Rem,
-            _ => return None,
-        })
+    /// Returns the unit of this `Val` if it is a numeric variant, or `None` otherwise.
+    pub const fn unit(&self) -> Option<ValUnit> {
+        match self.unit_value() {
+            Some((unit, _)) => Some(unit),
+            None => None,
+        }
+    }
+
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
+    ///
+    /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
+    /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
+    pub const fn value(&self) -> Option<f32> {
+        match self.unit_value() {
+            Some((_, value)) => Some(value),
+            None => None,
+        }
     }
 
     /// Returns a [`UiRect`] with its `left` equal to this value,
@@ -440,7 +510,7 @@ impl Val {
     /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     pub fn clamp(self, min: Val, max: Val) -> Val {
         let [min, value, max] = [min, self, max].map(Val::map_auto_to_zero);
-        let term = |val: &Val| Some((val.unit()?, val.inner()?));
+        let term = |val: &Val| Some((val.unit()?, val.value()?));
         if let (Some(lo), Some(hi)) = (term(&min), term(&max))
             && lo.0 == hi.0
         {
@@ -819,7 +889,7 @@ impl CalcOp {
                 Self::Min(terms) => *self = Self::Max(take(terms)),
                 Self::Max(terms) => *self = Self::Min(take(terms)),
                 Self::Clamp(ClampOp { min, value, max }) => {
-                    match (min.unit(), min.inner(), max.unit(), max.inner()) {
+                    match (min.unit(), min.value(), max.unit(), max.value()) {
                         (Some(a), Some(lo), Some(b), Some(hi)) if a == b && lo >= hi => {
                             core::mem::swap(min, max);
                         }
@@ -840,72 +910,6 @@ impl CalcOp {
 impl From<CalcOp> for Val {
     fn from(op: CalcOp) -> Self {
         Self::Calc(Calc(Box::new(op)))
-    }
-}
-
-/// The unit of a numeric [`Val`].
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[repr(u8)]
-pub(crate) enum ValUnit {
-    /// Use `Val::Px` units.
-    Px,
-    /// Use `Val::Percent` units.
-    Percent,
-    /// Use `Val::Vw` units.
-    Vw,
-    /// Use `Val::Vh` units.
-    Vh,
-    /// Use `Val::VMin` units.
-    VMin,
-    /// Use `Val::VMax` units.
-    VMax,
-    /// Use `Val::Em` units.
-    Em,
-    /// Use `Val::Rem` units.
-    Rem,
-}
-
-impl ValUnit {
-    /// Every unit, in discriminant order.
-    pub const ALL: [Self; 8] = [
-        Self::Px,
-        Self::Percent,
-        Self::Vw,
-        Self::Vh,
-        Self::VMin,
-        Self::VMax,
-        Self::Em,
-        Self::Rem,
-    ];
-
-    pub(crate) fn with_value(self, value: f32) -> Val {
-        match self {
-            ValUnit::Percent => Val::Percent(value),
-            ValUnit::Px => Val::Px(value),
-            ValUnit::Vw => Val::Vw(value),
-            ValUnit::Vh => Val::Vh(value),
-            ValUnit::VMin => Val::VMin(value),
-            ValUnit::VMax => Val::VMax(value),
-            ValUnit::Em => Val::Em(value),
-            ValUnit::Rem => Val::Rem(value),
-        }
-    }
-
-    /// Resolve a `ValUnit` and `f32` length to physical coords except for percentage values.
-    /// `Percentage` values depend on the size of the parent, and can't be resolved except during layout.
-    #[inline]
-    pub(crate) fn resolve_physical_except_percent(self, value: f32, context: &ValContext) -> Val {
-        match self {
-            ValUnit::Percent => Val::Percent(value),
-            ValUnit::Px => Val::Px(value * context.scale_factor),
-            ValUnit::Vw => Val::Px(context.physical_size.x * value / 100.0),
-            ValUnit::Vh => Val::Px(context.physical_size.y * value / 100.0),
-            ValUnit::VMin => Val::Px(context.physical_size.min_element() * value / 100.0),
-            ValUnit::VMax => Val::Px(context.physical_size.max_element() * value / 100.0),
-            ValUnit::Em => Val::Px(value * context.em_size * context.scale_factor),
-            ValUnit::Rem => Val::Px(value * context.rem_size * context.scale_factor),
-        }
     }
 }
 
@@ -952,7 +956,7 @@ impl Val {
             .zip(leaves)
             .filter_map(|(unit, value)| Some(unit.with_value(value?)))
             // Zero terms don't change a sum.
-            .filter(|leaf| op != ReduceOp::Sum || leaf.inner() != Some(0.0))
+            .filter(|leaf| op != ReduceOp::Sum || leaf.value() != Some(0.0))
             .collect();
         terms.extend(rest);
         match terms.len() {
@@ -981,7 +985,7 @@ impl Val {
                     }
                 }
             }
-            val => match (val.unit(), val.inner()) {
+            val => match (val.unit(), val.value()) {
                 (Some(unit), Some(value)) => {
                     let leaf = &mut leaves[unit as usize];
                     *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
@@ -1530,5 +1534,29 @@ mod tests {
         // `-a + 2b`: `a` resolves to 50 and `b` to 100.
         assert_eq!(resolve(value.clone()), 150.0);
         assert_eq!(resolve(-value), -150.0);
+    }
+
+    #[test]
+    fn val_unit_all_matches_discriminants() {
+        for (i, u) in ValUnit::ALL.iter().enumerate() {
+            assert!(*u as usize == i);
+        }
+    }
+
+    #[test]
+    fn val_unit_value_round_trip() {
+        for val in [
+            Val::Px(3.5),
+            Val::Percent(3.5),
+            Val::Vw(3.5),
+            Val::Vh(3.5),
+            Val::VMin(3.5),
+            Val::VMax(3.5),
+            Val::Em(3.5),
+            Val::Rem(3.5),
+        ] {
+            let (unit, value) = val.unit_value().unwrap();
+            assert_eq!(unit.with_value(value), val);
+        }
     }
 }

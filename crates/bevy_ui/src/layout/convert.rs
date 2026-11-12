@@ -32,7 +32,7 @@ impl Val {
                 }
                 .unwrap_or(Val::ZERO)
             }
-            leaf => match (leaf.unit(), leaf.inner()) {
+            leaf => match (leaf.unit(), leaf.value()) {
                 (Some(unit), Some(value)) => unit.resolve_physical_except_percent(value, context),
                 _ => Val::Auto,
             },
