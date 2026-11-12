@@ -23,7 +23,7 @@ pub struct ValContext {
     /// `Val::Em` values are normalized, so `em(1)` is `em_size * scale_factor` in physical pixels.
     pub em_size: f32,
     /// The root font size in logical pixels.
-    /// `Val::Em` values are normalized, so `rem(1)` is `rem_size * scale_factor` in physical pixels.
+    /// `Val::Rem` values are normalized, so `rem(1)` is `rem_size * scale_factor` in physical pixels.
     pub rem_size: f32,
 }
 
