@@ -840,9 +840,9 @@ impl ClampOp {
     }
 }
 
-impl Into<CalcOp> for ClampOp {
-    fn into(self) -> CalcOp {
-        CalcOp::Clamp(self)
+impl From<ClampOp> for CalcOp {
+    fn from(value: ClampOp) -> Self {
+        CalcOp::Clamp(value)
     }
 }
 
