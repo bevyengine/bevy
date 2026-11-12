@@ -51,6 +51,10 @@ impl Val {
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &ValContext,
+        #[expect(
+            clippy::vec_box,
+            reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
+        )]
         calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::LengthPercentageAuto {
         match self.to_physical_except_percent(context) {
@@ -75,6 +79,10 @@ impl Val {
     pub(super) fn to_length_percentage(
         &self,
         context: &ValContext,
+        #[expect(
+            clippy::vec_box,
+            reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
+        )]
         calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::LengthPercentage {
         match self.to_physical_except_percent(context) {
@@ -102,6 +110,10 @@ impl Val {
     fn to_length_percentage_for_border(
         &self,
         context: &ValContext,
+        #[expect(
+            clippy::vec_box,
+            reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
+        )]
         calcs: &mut Vec<Box<CalcOp>>,
     ) -> taffy::style::LengthPercentage {
         let length = self.to_length_percentage(context, calcs);

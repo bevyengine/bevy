@@ -52,6 +52,10 @@ pub struct TaffyStyle {
     /// Owns the `CalcOp`s referenced by raw pointers in `style`.
     /// Boxing keeps their addresses stable when the vector reallocates.
     /// These `CalcOp`s are reduced to operations only using `Px` and `Percentage` before layout.
+    #[expect(
+        clippy::vec_box,
+        reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
+    )]
     pub(crate) calcs: Vec<Box<CalcOp>>,
 }
 
