@@ -525,7 +525,6 @@ impl Val {
     /// Keyword `Val`s are replaced with `Val::ZERO`.
     pub fn clamp(self, min: Val, max: Val) -> Val {
         let [min, value, max] = [min, self, max].map(Val::map_keyword_to_zero);
-
         if let (Some((unit, lo)), Some((max_unit, hi))) = (min.unit_value(), max.unit_value())
             && unit == max_unit
         {
@@ -1000,8 +999,8 @@ impl Val {
                     }
                 }
             }
-            val => match (val.unit(), val.value()) {
-                (Some(unit), Some(value)) => {
+            val => match val.unit_value() {
+                Some((unit, value)) => {
                     let leaf = &mut leaves[unit as usize];
                     *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
                 }
