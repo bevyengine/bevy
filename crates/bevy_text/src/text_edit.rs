@@ -4,6 +4,7 @@ use bevy_clipboard::ClipboardRead;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 use parley::{PlainEditorDriver, StyleProperty};
+use smallvec::SmallVec;
 use smol_str::SmolStr;
 use swash::FontRef;
 
@@ -32,7 +33,7 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to copy commands such as Ctrl + C or Cmd + C.
     Copy,
-    /// Copy the current selection into the clipboard, and the delete the selected text.
+    /// Copy the current selection into the clipboard, then delete the selected text.
     ///
     /// Typically generated in response to cut commands such as Ctrl + X or Cmd + X.
     Cut,
@@ -43,7 +44,7 @@ pub enum TextEdit {
     /// Insert a character or string at the cursor. If there is a selection, replaces the selection with the character instead.
     ///
     /// Ordinarily, this is derived from `bevy_input::keyboard::KeyboardInput::logical_key`,
-    /// which stores a [`SmolStr`] inside of the `Key::Character` variant, which may represent multiple bytes.
+    /// which stores a [`SmolStr`] inside the `Key::Character` variant, which may represent multiple bytes.
     Insert(SmolStr),
     /// Delete the character behind the cursor.
     /// If there is a selection, deletes the selection instead.
@@ -151,7 +152,7 @@ pub enum TextEdit {
     MoveToPoint(Vec2),
     /// Selects the word at the given point.
     ///
-    /// Typically generated in response to a double-click within the text area.
+    /// Typically generated in response to a double click within the text area.
     SelectWordAtPoint(Vec2),
     /// Selects the line at the given point.
     ///
@@ -173,7 +174,7 @@ pub enum TextEdit {
     ///
     /// Typically generated in response to shift-clicking within the text area.
     ShiftClickExtension(Vec2),
-    /// Set the IME preedit/composing text at the cursor, or clear it if `value` is empty.
+    /// Set the IME preedit/composing text at the cursor or clear it if `value` is empty.
     ///
     /// The preedit text is excluded from [`EditableText::value`](crate::EditableText::value).
     /// `cursor` describes the selection within the preedit text, or `None` to hide the cursor.
@@ -222,7 +223,7 @@ impl TextEdit {
         }
     }
 
-    /// Returns whether this actually affects the text, or is just cursor movement
+    /// Returns whether this actually affects the text or is just cursor movement
     pub fn is_destructive(&self) -> bool {
         match self {
             // Destructive actions
@@ -300,7 +301,7 @@ impl TextEdit {
                 reveal_cursor(driver, viewport, cursor_margin);
             }
             TextEdit::Paste => {
-                // It's nice to be able to provide apply as a public method, but Paste is a little buggy.
+                // It's nice to be able to provide `apply` as a public method, but Paste is a little buggy.
                 // We'll try our best since that works on native, but we should warn users away from doing so.
                 bevy_log::warn_once!("Directly applying a Paste edit is not recommended, as it cannot defer asynchronous clipboard reads.
                     For proper handling of async clipboard operations, use `EditableText::apply_pending_edits` instead.");
@@ -517,7 +518,12 @@ pub fn cursor_reveal_rect(driver: &mut PlainEditorDriver<'_, TextBrush>) -> Opti
                 .and_then(|font_ref| {
                     NonZeroU16::new(font_ref.charmap().map('0')).map(|glyph_id| {
                         font_ref
-                            .glyph_metrics(run.normalized_coords())
+                            .glyph_metrics(
+                                &run.normalized_coords()
+                                    .iter()
+                                    .map(|c| c.to_bits())
+                                    .collect::<SmallVec<[i16; 8]>>(),
+                            )
                             .scale(run.font_size())
                             .advance_width(glyph_id.get())
                     })

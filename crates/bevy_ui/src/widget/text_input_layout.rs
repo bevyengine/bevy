@@ -305,7 +305,7 @@ pub fn sync_editable_text_viewports(mut query: Query<(&mut EditableText, &Comput
 }
 
 /// Refreshes the [`EditableText`]'s layout if stale and then writes it
-/// it to [`TextLayoutInfo`] for rendering and picking.
+/// to [`TextLayoutInfo`] for rendering and picking.
 /// Adds required glyphs to the texture atlas
 pub fn update_editable_text_layout(
     mut font_cx: ResMut<FontCx>,
@@ -354,7 +354,7 @@ pub fn update_editable_text_layout(
         let viewport_before = editable_text.viewport;
 
         // Bypass change detection, we will mark editable_text as changed
-        // at the bottom if genuinely changed, however editor.driver requires
+        // at the bottom if genuinely changed, however, editor.driver requires
         // a mut ref.
         let inner = editable_text.bypass_change_detection();
         let (editor, viewport) = (&mut inner.editor, &mut inner.viewport);
@@ -399,7 +399,7 @@ pub fn update_editable_text_layout(
                                 &mut info.glyphs,
                             );
 
-                            let metrics = run.metrics();
+                            let metrics = run.font_metrics();
                             let underline_y = glyph_run.baseline() - metrics.underline_offset;
                             let underline_thickness = metrics.underline_size;
 
@@ -626,7 +626,7 @@ fn push_run_glyphs(
                 .builder_with_id(font_ref, font_id)
                 .size(font_size)
                 .hint(matches!(hinting, FontHinting::Enabled))
-                .normalized_coords(coords)
+                .normalized_coords(coords.iter().map(|c| c.to_bits()))
                 .build();
             add_glyph_to_atlas(
                 font_atlases,

@@ -22,7 +22,10 @@ use crate::{
     Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
     TextFont, TextLayout,
 };
-use crate::{RemSize, TextBrush};
+use crate::{InlineBoxKind, RemSize, TextBrush};
+
+// Special character used to indicate embedded objects.
+const OBJECT_REPLACEMENT_CHARACTER: char = '\u{FFFC}';
 
 struct TextSectionView<'a> {
     index: usize,
@@ -99,11 +102,14 @@ impl TextPipeline {
             .collect();
 
         let result = {
+            // Font, font size, and line height for root entity
+            let mut root_style: Option<(&TextFont, f32, LineHeight)> = None;
             for (index, (entity, depth, item)) in text_spans.enumerate() {
                 match item {
                     TextElement::Text {
                         text,
                         font: text_font,
+                        line_height,
                         ..
                     } => {
                         match text_font.font_size {
@@ -121,6 +127,14 @@ impl TextPipeline {
                             font_smoothing: text_font.font_smoothing,
                         });
 
+                        let logical_font_size = text_font
+                            .font_size
+                            .eval(logical_viewport_size, base_rem_size);
+
+                        if index == 0 {
+                            root_style = Some((text_font, logical_font_size, line_height));
+                        }
+
                         if text.is_empty() {
                             continue;
                         }
@@ -133,10 +147,6 @@ impl TextPipeline {
                         {
                             return Err(TextError::NoSuchFont);
                         }
-
-                        let logical_font_size = text_font
-                            .font_size
-                            .eval(logical_viewport_size, base_rem_size);
 
                         if logical_font_size <= 0.0 {
                             warn_once!(
@@ -186,7 +196,11 @@ impl TextPipeline {
                     TextElement::Text { text, .. } => {
                         self.text_buffer.push_str(text);
                     }
-                    TextElement::Box(_inline_box) => {}
+                    TextElement::Box(inline_box) => {
+                        if inline_box.kind == InlineBoxKind::InFlow {
+                            self.text_buffer.push(OBJECT_REPLACEMENT_CHARACTER);
+                        }
+                    }
                 }
             }
 
@@ -210,6 +224,28 @@ impl TextPipeline {
                 LineBreak::WordBoundary => {
                     builder.push_default(StyleProperty::WordBreak(WordBreak::Normal));
                 }
+            }
+
+            let root_family = root_style
+                .and_then(|(text_font, ..)| {
+                    text_font
+                        .font
+                        .resolve_font_family(fonts, default_font_source)
+                        .ok()
+                })
+                .or_else(|| {
+                    FontSource::Default
+                        .resolve_font_family(fonts, default_font_source)
+                        .ok()
+                });
+
+            if let Some(family) = root_family {
+                builder.push_default(StyleProperty::FontFamily(family));
+            }
+
+            if let Some((_, logical_font_size, line_height)) = root_style {
+                builder.push_default(StyleProperty::FontSize(logical_font_size));
+                builder.push_default(StyleProperty::LineHeight(line_height.eval()));
             }
 
             let mut start = 0;
@@ -280,7 +316,12 @@ impl TextPipeline {
                             index: start,
                             width: size.x,
                             height: size.y,
+                            baseline: None,
+                            vertical_align: Default::default(),
                         });
+                        if inline_box.kind == InlineBoxKind::InFlow {
+                            start += OBJECT_REPLACEMENT_CHARACTER.len_utf8();
+                        }
                     }
                 };
             }
@@ -416,7 +457,9 @@ impl TextPipeline {
                                                 .builder_with_id(font_ref, font_id)
                                                 .size(font_size)
                                                 .hint(hint)
-                                                .normalized_coords(coords)
+                                                .normalized_coords(
+                                                    coords.iter().map(|c| c.to_bits()),
+                                                )
                                                 .build(),
                                         );
                                     }
@@ -456,10 +499,10 @@ impl TextPipeline {
                                 line.metrics().block_max_coord,
                             ),
                             strikethrough_y: glyph_run.baseline()
-                                - run.metrics().strikethrough_offset,
-                            strikethrough_thickness: run.metrics().strikethrough_size,
-                            underline_y: glyph_run.baseline() - run.metrics().underline_offset,
-                            underline_thickness: run.metrics().underline_size,
+                                - run.font_metrics().strikethrough_offset,
+                            strikethrough_thickness: run.font_metrics().strikethrough_size,
+                            underline_y: glyph_run.baseline() - run.font_metrics().underline_offset,
+                            underline_thickness: run.font_metrics().underline_size,
                         });
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
@@ -502,7 +545,7 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The size of the text layout in physical pixels
     pub size: Vec2,
-    /// Cursor visibility, size and position for editing
+    /// Cursor visibility, size, and position for editing
     pub cursor: Option<(bool, Rect)>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
@@ -513,7 +556,7 @@ pub struct TextLayoutInfo {
     /// like [`glyphs`](Self::glyphs). Empty unless the placeholder is shown.
     pub placeholder_glyphs: Vec<PositionedGlyph>,
     /// inline boxes
-    pub inline_boxes: Vec<(Entity, crate::InlineBoxKind, Rect)>,
+    pub inline_boxes: Vec<(Entity, InlineBoxKind, Rect)>,
 }
 
 impl TextLayoutInfo {
@@ -618,15 +661,15 @@ impl TextMeasureInfo {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
         let layout = &mut computed.layout;
+        layout.set_alignment(Alignment::Start, AlignmentOptions::default());
         layout.break_all_lines(bounds.width);
-        layout.align(Alignment::Start, AlignmentOptions::default());
         buffer_dimensions(layout)
     }
 }
 
 fn layout_with_bounds(layout: &mut Layout<TextBrush>, bounds: TextBounds, justify: Justify) {
+    layout.set_alignment(justify.into(), AlignmentOptions::default());
     layout.break_all_lines(bounds.width);
-    layout.align(justify.into(), AlignmentOptions::default());
 }
 
 /// Calculate the size of the text area for the given buffer.
