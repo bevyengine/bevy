@@ -530,7 +530,7 @@ impl Table {
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         let len = self.entity_count() as usize;
         for col in self.columns.values_mut() {
             // SAFETY: `len` is the actual length of the column
@@ -705,7 +705,7 @@ impl Tables {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         for table in &mut self.tables {
             table.check_change_ticks(check);
         }

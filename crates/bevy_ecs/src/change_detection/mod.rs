@@ -22,11 +22,12 @@ pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 
 /// The maximum change tick difference that won't overflow before the next `check_tick` scan.
 ///
-/// Changes stop being detected once they become this old.
+/// Systems that have not run yet use a `last_run` this old, so they see every change.
 pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{CreateTypeData, ReflectFromPtr};
@@ -34,11 +35,14 @@ mod tests {
 
     use crate::{
         change_detection::{
-            AtomicTick, ComponentTicks, ComponentTicksMut, MaybeLocation, Mut, NonSendMut, Ref,
-            ResMut, Tick, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+            AtomicTick, CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, Mut,
+            NonSendMut, Ref, ResMut, Tick, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::Component,
-        system::{IntoSystem, Single, System},
+        entity::Entity,
+        observer::On,
+        schedule::{Schedule, ScheduleLabel, Schedules},
+        system::{IntoSystem, Query, Res, Single, System},
         world::World,
     };
 
@@ -137,15 +141,93 @@ mod tests {
             assert!(ticks_since_change > MAX_CHANGE_AGE);
         }
 
-        // scan change ticks and clamp those at risk of overflow
+        // scan change ticks and compact those at risk of overflow
         world.check_change_ticks();
 
         for tracker in query.iter(&world) {
             let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
             let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();
-            assert_eq!(ticks_since_insert, MAX_CHANGE_AGE);
-            assert_eq!(ticks_since_change, MAX_CHANGE_AGE);
+            assert!(ticks_since_insert < MAX_CHANGE_AGE);
+            assert!(ticks_since_change < MAX_CHANGE_AGE);
         }
+    }
+
+    #[test]
+    fn compaction_preserves_order() {
+        let present = Tick::new(0);
+        let tick = |age: u32| present.relative_to(Tick::new(age));
+        let mut runs = [tick(MAX_CHANGE_AGE - 10), tick(MAX_CHANGE_AGE - 20)];
+        let mut changes = [5, 10, 15, 20, 25].map(|age| tick(MAX_CHANGE_AGE - age));
+        let is_newer = |changes: &[Tick], runs: &[Tick]| {
+            changes
+                .iter()
+                .flat_map(|c| runs.iter().map(|r| c.is_newer_than(*r, present)))
+                .collect::<Vec<_>>()
+        };
+        let before = is_newer(&changes, &runs);
+
+        let check = CheckChangeTicks::collect(present);
+        for run in &mut runs {
+            run.check_tick(&check);
+        }
+        let check = check.compact(present);
+        for tick in runs.iter_mut().chain(&mut changes) {
+            assert!(tick.check_tick(&check));
+        }
+
+        assert_eq!(is_newer(&changes, &runs), before);
+    }
+
+    #[test]
+    fn unused_system_detects_old_changes() {
+        fn changed(query: Query<(Entity, Ref<C>)>) -> Vec<Entity> {
+            query
+                .iter()
+                .filter(|(_, c)| c.is_changed())
+                .map(|(e, _)| e)
+                .collect()
+        }
+
+        let mut world = World::new();
+        world.spawn(C);
+        let system = world.register_system(changed);
+        world.run_system(system).unwrap();
+        world.increment_change_tick();
+        let changed_later = world.spawn(C).id();
+
+        // Leave the system unused for more than `u32::MAX` ticks.
+        for _ in 0..10 {
+            let tick = world.change_tick.get_mut();
+            *tick = tick.wrapping_add(CHECK_TICK_THRESHOLD);
+            world.check_change_ticks();
+        }
+
+        assert_eq!(world.run_system(system).unwrap(), [changed_later]);
+    }
+
+    #[test]
+    fn ticks_are_checked_once_schedules_finish() {
+        #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone)]
+        struct Outer;
+
+        #[derive(Resource, Default)]
+        struct Checks(u32);
+
+        let mut world = World::new();
+        world.init_resource::<Checks>();
+        world.add_schedule(Schedule::new(Outer));
+        world.add_observer(
+            |_: On<CheckChangeTicks>, schedules: Res<Schedules>, mut checks: ResMut<Checks>| {
+                assert!(schedules.contains(Outer));
+                checks.0 += 1;
+            },
+        );
+
+        *world.change_tick.get_mut() += CHECK_TICK_THRESHOLD;
+        world.run_schedule(Outer);
+
+        // Once to collect, once to compact.
+        assert_eq!(world.resource::<Checks>().0, 2);
     }
 
     #[test]

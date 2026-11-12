@@ -314,7 +314,7 @@ impl Column {
     /// # Safety
     /// `len` is the actual length of this column
     #[inline]
-    pub(crate) unsafe fn check_change_ticks(&mut self, len: usize, check: CheckChangeTicks) {
+    pub(crate) unsafe fn check_change_ticks(&mut self, len: usize, check: &CheckChangeTicks) {
         for i in 0..len {
             // SAFETY:
             // - `i` < `len`

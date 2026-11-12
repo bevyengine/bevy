@@ -34,7 +34,8 @@ use crate::{
         InsertMode, NoBundleEffect,
     },
     change_detection::{
-        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
+        CheckChangeTicks, ComponentTicks, ComponentTicksMut, DetectChangesMut, MaybeLocation,
+        MutUntyped, Tick,
     },
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
@@ -49,13 +50,13 @@ use crate::{
         RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE,
     },
     message::{Message, MessageId, Messages, WriteBatchIds},
-    observer::Observers,
+    observer::{Observer, Observers},
     query::{QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
-    system::Commands,
+    system::{Commands, SystemIdMarker},
     world::{
         command_queue::CommandQueueRunner,
         error::{
@@ -3380,21 +3381,34 @@ impl World {
         f(guard.world)
     }
 
-    /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
+    /// Compacts all old change ticks so they can't overflow, while keeping their order relative to
+    /// every tick they are compared against, like each system's last run.
     /// This also triggers [`CheckChangeTicks`] observers and returns the same event here.
     ///
-    /// Calling this method prevents [`Tick`]s overflowing and thus prevents false positives when comparing them.
-    ///
-    /// **Note:** Does nothing and returns `None` if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
-    /// times since the previous pass.
+    /// **Note:** Does nothing and returns `None` while a schedule is running, or if the [`World`] counter
+    /// has not been incremented at least [`CHECK_TICK_THRESHOLD`] times since the previous pass.
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) -> Option<CheckChangeTicks> {
+        self.check_change_ticks_with(|_| {})
+    }
+
+    /// Like [`World::check_change_ticks`], also passing each pass to `check_extra`.
+    pub(crate) fn check_change_ticks_with(
+        &mut self,
+        mut check_extra: impl FnMut(&CheckChangeTicks),
+    ) -> Option<CheckChangeTicks> {
         let change_tick = self.change_tick();
-        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
+        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD
+            || self
+                .get_resource::<Schedules>()
+                .is_some_and(|schedules| !schedules.temporarily_removed.is_empty())
+        {
             return None;
         }
 
-        let check = CheckChangeTicks(change_tick);
+        let mut check = CheckChangeTicks::collect(change_tick);
+        self.check_reference_ticks(&mut check, &mut check_extra);
+        let mut check = check.compact(self.change_tick());
 
         let Storages {
             ref mut tables,
@@ -3404,21 +3418,35 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(check);
-        sparse_sets.check_change_ticks(check);
-        non_sends.check_change_ticks(check);
-        self.entities.check_change_ticks(check);
+        tables.check_change_ticks(&check);
+        sparse_sets.check_change_ticks(&check);
+        non_sends.check_change_ticks(&check);
+        self.entities.check_change_ticks(&check);
+        self.check_reference_ticks(&mut check, &mut check_extra);
+        self.flush();
 
+        self.last_check_tick = check.present_tick();
+
+        Some(check)
+    }
+
+    /// Checks the ticks that other ticks are compared against. Observers run last, since they
+    /// advance the world tick.
+    fn check_reference_ticks(
+        &mut self,
+        check: &mut CheckChangeTicks,
+        check_extra: &mut impl FnMut(&CheckChangeTicks),
+    ) {
+        check_extra(check);
+        self.last_change_tick.check_tick(check);
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(check);
         }
-
-        self.trigger(check);
-        self.flush();
-
-        self.last_check_tick = change_tick;
-
-        Some(check)
+        for mut observer in self.query::<&mut Observer>().iter_mut(self) {
+            observer.bypass_change_detection().check_change_ticks(check);
+        }
+        SystemIdMarker::check_change_ticks(self, check);
+        self.trigger_ref(check);
     }
 
     /// Clears all entities, resources, and non-send data.
@@ -3920,6 +3948,7 @@ impl World {
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
+        self.check_change_ticks();
 
         Ok(value)
     }

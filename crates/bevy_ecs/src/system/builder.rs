@@ -481,7 +481,7 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         match &mut self.inner {
             BuilderSystemInner::Initialized { system, .. } => system.check_change_tick(check),
             BuilderSystemInner::Uninitialized { .. } => {}

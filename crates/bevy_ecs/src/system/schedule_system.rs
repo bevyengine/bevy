@@ -86,7 +86,7 @@ where
         self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
 
@@ -179,7 +179,7 @@ where
         self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
 
