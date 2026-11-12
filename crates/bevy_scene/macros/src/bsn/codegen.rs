@@ -378,7 +378,11 @@ impl BsnEntry {
                 let (name, index) = ctx.fixed_entity_ref(&ident);
                 let invocation = ctx.invocation_index.clone();
                 EntryResult::CombinedSceneFunction(quote! {
-                    #bevy_scene::NameEntityReference { name: #bevy_ecs::name::Name(#name.into()), reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id,) }.resolve_inline(_context, _scene);
+                    #bevy_scene::NameEntityReference {
+                        name: #bevy_ecs::name::Name(#name.into()),
+                        reference: #bevy_ecs::template::SceneEntityReference::new(#invocation, #index, _call_id)
+                    }
+                    .resolve_inline(_context, _scene);
                 })
             }
             BsnEntry::TemplateValue(token_stream) => EntryResult::CombinedSceneFunction(quote! {
@@ -683,9 +687,14 @@ impl BsnType {
                     .map(|struct_update| quote! { #struct_update })
                     .unwrap_or_else(|| quote! {..#FQDefault::default()});
                 quote! {
-                    #template_path {
-                      #(#assigns)*
-                      #struct_update
+                    {
+                        // Needed because otherwise `..Default::default()` can emit a warning.
+                        #[allow(clippy::needless_update)]
+                        let value = #template_path {
+                            #(#assigns)*
+                            #struct_update
+                        };
+                        value
                     }
                 }
             }

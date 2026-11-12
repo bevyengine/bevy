@@ -14,13 +14,25 @@
 //
 // at your option.
 
-import package::render::mesh_view_bindings::depth_prepass_texture;
+import package::render::mesh_view_bindings::{depth_prepass_texture, view};
 import package::render::view_transformations::{
     direction_world_to_clip,
     ndc_to_uv,
     perspective_camera_near,
     position_world_to_ndc,
 };
+
+// The depth texture can be larger than the main pass viewport.
+fn ndc_to_depth_uv(ndc: vec2<f32>) -> vec2<f32> {
+    let pixel = ndc_to_uv(ndc) * view.main_pass_viewport.zw + view.main_pass_viewport.xy;
+    return pixel / vec2<f32>(textureDimensions(depth_prepass_texture));
+}
+
+fn clamp_depth_uv(uv: vec2<f32>, tex_size: vec2<f32>) -> vec2<f32> {
+    let min_pixel = view.main_pass_viewport.xy + vec2(0.5);
+    let max_pixel = view.main_pass_viewport.xy + view.main_pass_viewport.zw - vec2(0.5);
+    return clamp(uv, min_pixel / tex_size, max_pixel / tex_size);
+}
 
 /// Allows us to sample from the depth buffer with bilinear filtering.
 @if(USE_DEPTH_SAMPLERS) {
@@ -33,9 +45,10 @@ import package::render::view_transformations::{
 /// Manual depth fetch helpers used on WebGPU where depth + filtering sampler is invalid.
 @if(!USE_DEPTH_SAMPLERS)
 fn depth_texel_clamped(texel: vec2<i32>) -> f32 {
-    let dims = textureDimensions(depth_prepass_texture);
-    let max_coord = vec2<i32>(i32(dims.x) - 1, i32(dims.y) - 1);
-    let clamped = clamp(texel, vec2<i32>(0), max_coord);
+    // Only texels inside the main pass viewport hold this view's depth.
+    let min_coord = vec2<i32>(view.main_pass_viewport.xy);
+    let max_coord = min_coord + vec2<i32>(view.main_pass_viewport.zw) - vec2(1);
+    let clamped = clamp(texel, min_coord, max_coord);
     return textureLoad(depth_prepass_texture, clamped, 0);
 }
 
@@ -64,14 +77,14 @@ fn depth_sample_bilinear_clamped(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
 
 fn depth_sample_linear(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     @if(USE_DEPTH_SAMPLERS)
-    return textureSampleLevel(depth_prepass_texture, depth_linear_sampler, uv, 0u);
+    return textureSampleLevel(depth_prepass_texture, depth_linear_sampler, clamp_depth_uv(uv, tex_size), 0u);
     @else
     return depth_sample_bilinear_clamped(uv, tex_size);
 }
 
 fn depth_sample_nearest(uv: vec2<f32>, tex_size: vec2<f32>) -> f32 {
     @if(USE_DEPTH_SAMPLERS)
-    return textureSampleLevel(depth_prepass_texture, depth_nearest_sampler, uv, 0u);
+    return textureSampleLevel(depth_prepass_texture, depth_nearest_sampler, clamp_depth_uv(uv, tex_size), 0u);
     @else
     return depth_sample_nearest_clamped(uv, tex_size);
 }
@@ -261,7 +274,7 @@ fn depth_raymarch_distance_fn_evaluate(
     distance_fn: ptr<function, DepthRaymarchDistanceFn>,
     ray_point_cs: vec3<f32>,
 ) -> DistanceWithPenetration {
-    let interp_uv = ndc_to_uv(ray_point_cs.xy);
+    let interp_uv = ndc_to_depth_uv(ray_point_cs.xy);
 
     let ray_depth = 1.0 / ray_point_cs.z;
 
@@ -498,8 +511,8 @@ fn depth_ray_march_to_ws_dir(raymarch: ptr<function, DepthRayMarch>, dir: vec3<f
 fn depth_ray_march_march(raymarch: ptr<function, DepthRayMarch>) -> DepthRayMarchResult {
     var res = DepthRayMarchResult(false, 0.0, vec2(0.0), 0.0, 0.0);
 
-    let ray_start_uv = ndc_to_uv((*raymarch).ray_start_cs.xy);
-    let ray_end_uv = ndc_to_uv((*raymarch).ray_end_cs.xy);
+    let ray_start_uv = ndc_to_depth_uv((*raymarch).ray_start_cs.xy);
+    let ray_end_uv = ndc_to_depth_uv((*raymarch).ray_end_cs.xy);
 
     let ray_uv_delta = ray_end_uv - ray_start_uv;
     let ray_len_px = ray_uv_delta * (*raymarch).depth_tex_size;

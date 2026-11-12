@@ -3,6 +3,7 @@
 
 use crate::io::{get_meta_path, AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 use alloc::{borrow::ToOwned, boxed::Box, ffi::CString, vec::Vec};
+use atomicow::CowArc;
 use futures_lite::stream;
 use std::path::Path;
 
@@ -19,7 +20,10 @@ use std::path::Path;
 pub struct AndroidAssetReader;
 
 impl AssetReader for AndroidAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_manager = bevy_android::ANDROID_APP.read().asset_manager();
         let mut opened_asset = asset_manager
             .open(&CString::new(path.to_str().unwrap()).unwrap())
@@ -29,8 +33,11 @@ impl AssetReader for AndroidAssetReader {
         Ok(reader)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let meta_path = get_meta_path(path);
+    async fn read_meta<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
+        let meta_path = get_meta_path(&path);
         let asset_manager = bevy_android::ANDROID_APP.read().asset_manager();
         let mut opened_asset = asset_manager
             .open(&CString::new(meta_path.to_str().unwrap()).unwrap())

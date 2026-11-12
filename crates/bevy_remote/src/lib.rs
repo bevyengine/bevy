@@ -584,6 +584,71 @@
 //! Clients are expected to fetch this map once and cache it, which is why the server-side
 //! `inspect_cached` method has no remote counterpart.
 //!
+//! ### `input.click`
+//!
+//! Click on a UI node, or at a point in a window, with the same events a window backend sends for
+//! a real click. The cursor moves to the target, then the button is pressed and released, each on
+//! its own frame. If earlier input is still pending, the click is queued after it. A node hidden by
+//! a scrolled ancestor is scrolled into view first, and the cursor waits a frame for layout to move
+//! the node.
+//!
+//! `params`:
+//! - `entity`: The ID of a UI node to click. The click lands at the node's center. Give either
+//!   this, or `window` and `position`.
+//! - `window`: The ID of the window to click in, with `position`.
+//! - `position`: The point to click in `window`, as an array of two numbers, in physical pixels
+//!   from the window's top left.
+//! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
+//! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
+//!
+//! `result`: null, once the app has run the frame that receives the button's release.
+//!
+//! ### `input.key`
+//!
+//! Press a key and release it `hold` frames later, with the same events a window backend sends for
+//! a real key. Give `state` to send only the press or only the release, for example to hold a
+//! modifier down across other input. Each event arrives on its own frame, queued after any input
+//! that is still pending.
+//!
+//! `params`:
+//! - `key_code`: The physical key, as a `KeyCode` variant such as `"KeyA"` or `"Escape"`.
+//! - `logical_key` (optional): What the key means in the keyboard layout, as a `Key` such as
+//!   `{ "Character": "a" }` or `"Escape"`. If omitted, the logical key and text are taken from a US
+//!   layout, and a key that layout doesn't cover is an error.
+//! - `text` (optional): The text the key types, if any. This takes precedence over the US layout's
+//!   text.
+//! - `state` (optional): `"Pressed"` or `"Released"`, to send only that event.
+//! - `hold` (optional): How many frames the key stays pressed. Defaults to 1. Can't be combined
+//!   with `state`.
+//! - `window` (optional): The ID of the window to send the key to. Defaults to the primary window.
+//!
+//! `result`: null, once the app has run the frame that receives the last key event.
+//!
+//! To test with another keyboard layout, give `logical_key` and `text` as that layout produces
+//! them. On a Russian keyboard, for example, the WASD keys type `ц`, `ф`, `ы` and `в`. A game that
+//! binds movement to physical keys sees the same `key_code`, while anything that reads text or
+//! logical keys sees the Russian letter:
+//!
+//! ```json
+//! { "key_code": "KeyW", "logical_key": { "Character": "ц" }, "text": "ц" }
+//! ```
+//!
+//! `input.type` always types as a US keyboard would, so to type text in another layout, send each
+//! key with `input.key`.
+//!
+//! ### `input.type`
+//!
+//! Type text as a US keyboard would. Each character becomes a press and a release of its key,
+//! with Shift pressed around them when the character needs it. Every event arrives on its own
+//! frame. A character a US keyboard can't type is sent with an unidentified key code, and with the
+//! character itself as the logical key and text, so it still reaches text fields.
+//!
+//! `params`:
+//! - `text`: The text to type.
+//! - `window` (optional): The ID of the window to type in. Defaults to the primary window.
+//!
+//! `result`: null, once the app has run the frame that receives the last key event.
+//!
 //! ### `rpc.discover`
 //!
 //! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
@@ -640,16 +705,19 @@
 
 extern crate alloc;
 
+use alloc::sync::Arc;
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
+use bevy_dev_tools::synthetic_input::{write_due_input, InputQueue};
 use bevy_ecs::{
     entity::Entity,
+    message::Messages,
     observer::On,
     resource::Resource,
     schedule::{
-        InternedScheduleLabel, IntoScheduleConfigs, ScheduleBuildMetadata, ScheduleBuilt,
-        ScheduleLabel, SystemSet,
+        common_conditions::resource_exists, InternedScheduleLabel, IntoScheduleConfigs,
+        ScheduleBuildMetadata, ScheduleBuilt, ScheduleLabel, SystemSet,
     },
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
@@ -658,18 +726,19 @@ use bevy_platform::collections::HashMap;
 #[cfg(feature = "bevy_render")]
 use bevy_render::{Render, RenderApp, RenderScheduleOrder, RenderStartup};
 use bevy_utils::prelude::default;
+use bevy_window::WindowEvent;
 use serde::{ser::SerializeMap, Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 
 pub mod builtin_methods;
 #[cfg(all(feature = "client", not(target_family = "wasm")))]
 pub mod client;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod input_methods;
 pub mod inspection_methods;
 pub mod schemas;
-#[cfg(feature = "bevy_debug_stepping")]
 pub mod stepping_methods;
 
 const CHANNEL_SIZE: usize = 16;
@@ -720,22 +789,16 @@ impl RemotePlugin {
     /// Add a remote method to the plugin using the given `name` and `handler` to given app.
     #[must_use]
     fn with_method<M>(
-        mut self,
+        self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
         to_main: bool,
     ) -> Self {
-        (if to_main {
-            self.methods.get_mut()
-        } else {
-            self.render_methods.get_mut()
-        })
-        .unwrap()
-        .push((
-            name.into(),
+        self.with_handler(
+            name,
             RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
-        ));
-        self
+            to_main,
+        )
     }
 
     /// Add a remote method with a watching handler to the plugin using the given `name` to main app.
@@ -761,9 +824,65 @@ impl RemotePlugin {
     /// Add a remote method with a watching handler to the plugin using the given `name` to given app.
     #[must_use]
     fn with_watching_method<M>(
-        mut self,
+        self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+        to_main: bool,
+    ) -> Self {
+        self.with_handler(
+            name,
+            RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
+            to_main,
+        )
+    }
+
+    /// Add a remote method with a deferred handler to the plugin using the given `name` to main app.
+    ///
+    /// The handler answers through the [`BrpResponder`] it's given, on the frame it receives the
+    /// request or a later one.
+    #[inline]
+    pub fn with_deferred_method_main<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<(Option<Value>, BrpResponder)>, (), M>,
+    ) -> Self {
+        self.with_deferred_method(name, handler, true)
+    }
+
+    /// Add a remote method with a deferred handler to the plugin using the given `name` to render app.
+    ///
+    /// The handler answers through the [`BrpResponder`] it's given, on the frame it receives the
+    /// request or a later one.
+    #[inline]
+    pub fn with_deferred_method_render<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<(Option<Value>, BrpResponder)>, (), M>,
+    ) -> Self {
+        self.with_deferred_method(name, handler, false)
+    }
+
+    /// Add a remote method with a deferred handler to the plugin using the given `name` to given app.
+    #[must_use]
+    fn with_deferred_method<M>(
+        self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<(Option<Value>, BrpResponder)>, (), M>,
+        to_main: bool,
+    ) -> Self {
+        self.with_handler(
+            name,
+            RemoteMethodHandler::Deferred(Box::new(IntoSystem::into_system(handler))),
+            to_main,
+        )
+    }
+
+    /// Add a remote method with any kind of handler to the plugin using the given `name` to given app.
+    #[must_use]
+    fn with_handler(
+        mut self,
+        name: impl Into<String>,
+        handler: RemoteMethodHandler,
         to_main: bool,
     ) -> Self {
         (if to_main {
@@ -772,10 +891,7 @@ impl RemotePlugin {
             self.render_methods.get_mut()
         })
         .unwrap()
-        .push((
-            name.into(),
-            RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
-        ));
+        .push((name.into(), handler));
         self
     }
 
@@ -919,6 +1035,29 @@ impl RemotePlugin {
         )
         .add_stepping_methods(to_main)
         .add_inspection_methods(to_main)
+        .add_input_methods(to_main)
+    }
+
+    /// Add the `input.*` BRP methods, which act on the main world only.
+    fn add_input_methods(self, to_main: bool) -> Self {
+        if !to_main {
+            return self;
+        }
+        self.with_deferred_method(
+            input_methods::BRP_CLICK_METHOD,
+            input_methods::process_remote_click_request,
+            to_main,
+        )
+        .with_deferred_method(
+            input_methods::BRP_KEY_METHOD,
+            input_methods::process_remote_key_request,
+            to_main,
+        )
+        .with_deferred_method(
+            input_methods::BRP_TYPE_METHOD,
+            input_methods::process_remote_type_request,
+            to_main,
+        )
     }
 
     /// Add the inspection BRP methods.
@@ -1017,23 +1156,10 @@ impl Plugin for RemotePlugin {
 
         let plugin_methods = &mut *self.methods.write().unwrap();
         for (name, handler) in plugin_methods.drain(..) {
-            remote_methods.insert(
-                name.clone(),
-                match handler {
-                    RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
-                        app.main_mut().world_mut().register_boxed_system(system),
-                    ),
-                    RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
-                        app.main_mut().world_mut().register_boxed_system(system),
-                    ),
-                },
-            );
+            remote_methods.insert(name, handler.register(app.main_mut().world_mut()));
         }
 
-        if remote_methods
-            .0
-            .contains_key(builtin_methods::BRP_SCHEDULE_GRAPH)
-        {
+        if remote_methods.contains(builtin_methods::BRP_SCHEDULE_GRAPH) {
             app.init_resource::<PreviousScheduleBuildMetadata>()
                 .add_observer(cache_schedule_build_metadata);
         }
@@ -1062,6 +1188,27 @@ impl Plugin for RemotePlugin {
                 ),
             );
 
+        let methods = app.world().resource::<RemoteMethods>();
+        if [
+            input_methods::BRP_CLICK_METHOD,
+            input_methods::BRP_KEY_METHOD,
+            input_methods::BRP_TYPE_METHOD,
+        ]
+        .iter()
+        .any(|method| methods.contains(method))
+        {
+            // After requests, so what a request queues for this frame is written in time.
+            app.init_resource::<InputQueue>()
+                .init_resource::<input_methods::PendingInputResponses>()
+                .add_systems(
+                    RemoteLast,
+                    (input_methods::answer_received_input, write_due_input)
+                        .chain()
+                        .after(RemoteSystems::ProcessRequests)
+                        .run_if(resource_exists::<Messages<WindowEvent>>),
+                );
+        }
+
         #[cfg(feature = "bevy_render")]
         {
             use bevy_ecs::schedule::common_conditions::run_once;
@@ -1074,17 +1221,7 @@ impl Plugin for RemotePlugin {
 
             let render_plugin_methods = &mut *self.render_methods.write().unwrap();
             for (name, handler) in render_plugin_methods.drain(..) {
-                render_remote_methods.insert(
-                    name,
-                    match handler {
-                        RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
-                            render_app.world_mut().register_boxed_system(system),
-                        ),
-                        RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
-                            render_app.world_mut().register_boxed_system(system),
-                        ),
-                    },
-                );
+                render_remote_methods.insert(name, handler.register(render_app.world_mut()));
             }
 
             render_app
@@ -1137,6 +1274,52 @@ pub enum RemoteMethodHandler {
     Instant(Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>),
     /// A handler that watches for changes and response when a change is detected.
     Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
+    /// A handler that runs once and responds through a [`BrpResponder`], possibly on a later frame.
+    Deferred(Box<dyn System<In = In<(Option<Value>, BrpResponder)>, Out = ()>>),
+}
+
+impl RemoteMethodHandler {
+    /// Registers the handler in `world`, as a [`RemoteMethod`] to add to [`RemoteMethods`].
+    #[must_use]
+    pub fn register(self, world: &mut World) -> RemoteMethod {
+        match self {
+            Self::Instant(system) => {
+                let id = world.register_boxed_system(system);
+                RemoteMethod {
+                    system: world.register_system(
+                        move |In((params, responder)): In<(Option<Value>, BrpResponder)>,
+                              world: &mut World| {
+                            let result = world
+                                .run_system_with(id, params)
+                                .unwrap_or_else(|error| Err(handler_error(error)));
+                            responder.respond(result);
+                        },
+                    ),
+                    kind: RemoteMethodKind::Once,
+                }
+            }
+            Self::Watching(system) => {
+                let id = world.register_boxed_system(system);
+                RemoteMethod {
+                    system: world.register_system(
+                        move |In((params, responder)): In<(Option<Value>, BrpResponder)>,
+                              mut requests: ResMut<RemoteWatchingRequests>| {
+                            requests.0.push(WatchingRequest {
+                                params,
+                                responder,
+                                system: id,
+                            });
+                        },
+                    ),
+                    kind: RemoteMethodKind::Stream,
+                }
+            }
+            Self::Deferred(system) => RemoteMethod {
+                system: world.register_boxed_system(system),
+                kind: RemoteMethodKind::Once,
+            },
+        }
+    }
 }
 
 /// The [`SystemId`] of a function that implements a remote instant method (`world.get_components`, `world.query`, etc.)
@@ -1158,20 +1341,40 @@ pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
 /// handler is done in the [`RemotePlugin`].
 pub type RemoteWatchingMethodSystemId = SystemId<In<Option<Value>>, BrpResult<Option<Value>>>;
 
-/// The [`SystemId`] of a function that can be used as a remote method.
+/// The [`SystemId`] of a remote method's handler, as [`RemoteMethodHandler::register`] makes it.
+///
+/// The first parameter is the JSON value of the `params`, and the second the [`BrpResponder`] that
+/// answers the request. The handler can answer straight away, or keep the responder, for example in
+/// a resource, and answer on a later frame.
+pub type RemoteMethodSystemId = SystemId<In<(Option<Value>, BrpResponder)>>;
+
+/// Whether a remote method answers each request once, or streams answers.
+///
+/// Transports choose how to answer a request before it reaches the world, for example with a
+/// single HTTP response or with server-sent events, so they read this from a clone of
+/// [`RemoteMethods`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoteMethodKind {
+    /// The method answers each request once, on the frame that received it or a later one.
+    Once,
+    /// The method streams answers until the client stops listening.
+    Stream,
+}
+
+/// A remote method known to the server.
 #[derive(Debug, Clone, Copy)]
-pub enum RemoteMethodSystemId {
-    /// A handler that only runs once and returns one response.
-    Instant(RemoteInstantMethodSystemId),
-    /// A handler that watches for changes and response when a change is detected.
-    Watching(RemoteWatchingMethodSystemId),
+pub struct RemoteMethod {
+    /// The handler that answers the method's requests.
+    pub system: RemoteMethodSystemId,
+    /// Whether the handler answers once or streams answers.
+    pub kind: RemoteMethodKind,
 }
 
 /// Holds all implementations of methods known to the server.
 ///
 /// Custom methods can be added to this list using [`RemoteMethods::insert`].
-#[derive(Debug, Resource, Default)]
-pub struct RemoteMethods(HashMap<String, RemoteMethodSystemId>);
+#[derive(Debug, Resource, Default, Clone)]
+pub struct RemoteMethods(Arc<RwLock<HashMap<String, RemoteMethod>>>);
 
 impl RemoteMethods {
     /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
@@ -1181,29 +1384,41 @@ impl RemoteMethods {
 
     /// Adds a new method, replacing any existing method with that name.
     ///
-    /// If there was an existing method with that name, returns its handler.
+    /// If there was an existing method with that name, returns it.
     pub fn insert(
         &mut self,
         method_name: impl Into<String>,
-        handler: RemoteMethodSystemId,
-    ) -> Option<RemoteMethodSystemId> {
-        self.0.insert(method_name.into(), handler)
+        method: RemoteMethod,
+    ) -> Option<RemoteMethod> {
+        self.0.write().unwrap().insert(method_name.into(), method)
     }
 
-    /// Get a [`RemoteMethodSystemId`] with its method name.
-    pub fn get(&self, method: &str) -> Option<&RemoteMethodSystemId> {
-        self.0.get(method)
+    /// Get a [`RemoteMethod`] with its method name.
+    pub fn get(&self, method: &str) -> Option<RemoteMethod> {
+        self.0.read().unwrap().get(method).copied()
+    }
+
+    /// Whether there is a method with this name.
+    pub fn contains(&self, method: &str) -> bool {
+        self.0.read().unwrap().contains_key(method)
     }
 
     /// Get a [`Vec<String>`] with method names.
     pub fn methods(&self) -> Vec<String> {
-        self.0.keys().cloned().collect()
+        self.0.read().unwrap().keys().cloned().collect()
     }
 }
 
-/// Holds the [`BrpMessage`]'s of all ongoing watching requests along with their handlers.
+/// Holds the ongoing requests to watching methods, along with their handlers.
 #[derive(Debug, Resource, Default)]
-pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)>);
+pub struct RemoteWatchingRequests(Vec<WatchingRequest>);
+
+#[derive(Debug)]
+struct WatchingRequest {
+    params: Option<Value>,
+    responder: BrpResponder,
+    system: RemoteWatchingMethodSystemId,
+}
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -1668,6 +1883,83 @@ pub struct BrpMessage {
     pub sender: Sender<BrpResult>,
 }
 
+/// Answers a request to a remote method, on the frame that received it or a later one.
+///
+/// If dropped, the request gets an error response.
+///
+/// The client waits for as long as the responder is kept, so a method that waits for something
+/// that may never happen, or for frames while the app is paused, should answer with an error after
+/// a limit of its own.
+#[derive(Debug)]
+pub struct BrpResponder(Arc<Mutex<Answer>>);
+
+#[derive(Debug)]
+struct Answer {
+    sender: Option<Sender<BrpResult>>,
+    sent: bool,
+}
+
+impl BrpResponder {
+    /// Makes a responder that answers on `sender`, such as a [`BrpMessage`]'s.
+    pub fn new(sender: Sender<BrpResult>) -> Self {
+        Self(Arc::new(Mutex::new(Answer {
+            sender: Some(sender),
+            sent: false,
+        })))
+    }
+
+    /// Answers the request.
+    pub fn respond(self, result: BrpResult) {
+        if let Some(sender) = self.0.lock().unwrap().sender.take() {
+            let _ = sender.force_send(result);
+        }
+    }
+
+    /// Sends one answer of a stream, for a [`RemoteMethodKind::Stream`] method, and returns
+    /// whether it was sent.
+    ///
+    /// If the client has gone, or isn't reading the answers as fast as they're sent, the stream is
+    /// closed.
+    pub fn send(&mut self, result: BrpResult) -> bool {
+        let mut answer = self.0.lock().unwrap();
+        let Some(sender) = &answer.sender else {
+            return false;
+        };
+        let sent = sender.try_send(result).is_ok();
+        if !sent {
+            sender.close();
+        }
+        answer.sent = true;
+        sent
+    }
+
+    /// Whether the client has stopped waiting for answers, for example because it disconnected.
+    ///
+    /// A responder kept across frames can be dropped once this is true.
+    pub fn is_closed(&self) -> bool {
+        self.0
+            .lock()
+            .unwrap()
+            .sender
+            .as_ref()
+            .is_none_or(Sender::is_closed)
+    }
+}
+
+impl Drop for Answer {
+    fn drop(&mut self) {
+        if let Some(sender) = self.sender.take()
+            && !self.sent
+        {
+            let _ = sender.force_send(Err(BrpError {
+                code: error_codes::INTERNAL_ERROR,
+                message: "The request was dropped without a response".into(),
+                data: None,
+            }));
+        }
+    }
+}
+
 /// A resource holding the matching sender for the [`BrpReceiver`]'s receiver.
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpSender(Sender<BrpMessage>);
@@ -1699,37 +1991,21 @@ fn process_remote_requests(world: &mut World) {
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
         // Fetch the handler for the method. If there's no such handler
         // registered, return an error.
-        let Some(&handler) = world.resource::<RemoteMethods>().get(&message.method) else {
+        let Some(method) = world.resource::<RemoteMethods>().get(&message.method) else {
             let _ = message.sender.force_send(Err(BrpError {
                 code: error_codes::METHOD_NOT_FOUND,
                 message: format!("Method `{}` not found", message.method),
                 data: None,
             }));
-            return;
+            continue;
         };
 
-        match handler {
-            RemoteMethodSystemId::Instant(id) => {
-                let result = match world.run_system_with(id, message.params) {
-                    Ok(result) => result,
-                    Err(error) => {
-                        let _ = message.sender.force_send(Err(BrpError {
-                            code: error_codes::INTERNAL_ERROR,
-                            message: format!("Failed to run method handler: {error}"),
-                            data: None,
-                        }));
-                        continue;
-                    }
-                };
-
-                let _ = message.sender.force_send(result);
-            }
-            RemoteMethodSystemId::Watching(id) => {
-                world
-                    .resource_mut::<RemoteWatchingRequests>()
-                    .0
-                    .push((message, id));
-            }
+        let responder = BrpResponder::new(message.sender);
+        let answer = responder.0.clone();
+        if let Err(error) = world.run_system_with(method.system, (message.params, responder))
+            && let Some(sender) = answer.lock().unwrap().sender.take()
+        {
+            let _ = sender.force_send(Err(handler_error(error)));
         }
     }
 }
@@ -1737,46 +2013,28 @@ fn process_remote_requests(world: &mut World) {
 /// A system that checks all ongoing watching requests for changes that should be sent
 /// and handles it if so.
 fn process_ongoing_watching_requests(world: &mut World) {
-    world.resource_scope::<RemoteWatchingRequests, ()>(|world, requests| {
-        for (message, system_id) in requests.0.iter() {
-            let handler_result = process_single_ongoing_watching_request(world, message, system_id);
-            let sender_result = match handler_result {
-                Ok(Some(value)) => message.sender.try_send(Ok(value)),
-                Err(err) => message.sender.try_send(Err(err)),
-                Ok(None) => continue,
+    world.resource_scope::<RemoteWatchingRequests, ()>(|world, mut requests| {
+        for request in &mut requests.0 {
+            let result = match world.run_system_with(request.system, request.params.clone()) {
+                Ok(Ok(Some(value))) => Ok(value),
+                Ok(Ok(None)) => continue,
+                Ok(Err(error)) => Err(error),
+                Err(error) => Err(handler_error(error)),
             };
-
-            if sender_result.is_err() {
-                // The [`remove_closed_watching_requests`] system will clean this up.
-                message.sender.close();
-            }
+            request.responder.send(result);
         }
     });
 }
 
-fn process_single_ongoing_watching_request(
-    world: &mut World,
-    message: &BrpMessage,
-    system_id: &RemoteWatchingMethodSystemId,
-) -> BrpResult<Option<Value>> {
-    world
-        .run_system_with(*system_id, message.params.clone())
-        .map_err(|error| BrpError {
-            code: error_codes::INTERNAL_ERROR,
-            message: format!("Failed to run method handler: {error}"),
-            data: None,
-        })?
+fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
+    requests.0.retain(|request| !request.responder.is_closed());
 }
 
-fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
-    for i in (0..requests.0.len()).rev() {
-        let Some((message, _)) = requests.0.get(i) else {
-            unreachable!()
-        };
-
-        if message.sender.is_closed() {
-            requests.0.swap_remove(i);
-        }
+fn handler_error(error: impl core::fmt::Display) -> BrpError {
+    BrpError {
+        code: error_codes::INTERNAL_ERROR,
+        message: format!("Failed to run method handler: {error}"),
+        data: None,
     }
 }
 

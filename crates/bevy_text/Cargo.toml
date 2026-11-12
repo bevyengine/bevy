@@ -44,6 +44,9 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 parley = { version = "0.11.0", default-features = false, features = ["std"] }
 swash = { version = "0.2.6" }
 
+[dev-dependencies]
+bevy_scene = { path = "../bevy_scene", version = "0.20.0-dev" }
+
 [lints]
 workspace = true
 

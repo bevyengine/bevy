@@ -625,6 +625,10 @@ fn update_ime_position(
 /// changes. Because [`TextReadWriteMode`] is an optional component, such a change can happen when the
 /// component is overwritten, inserted, or removed; removal reverts the effective mode to the
 /// [`Editable`](TextReadWriteMode::Editable) default and is detected via [`RemovedComponents`].
+///
+/// IME is kept disabled while the focused field is [masked](EditableText::mask) to prevent the OS
+/// candidate window from showing the text (except on iOS and Android where disabling it would
+/// hide the soft keyboard).
 fn listen_for_ime_input_when_text_input_focused(
     input_focus: Res<InputFocus>,
     mut editable_text_query: Query<(&mut EditableText, Ref<TextReadWriteMode>), With<TextInput>>,
@@ -639,18 +643,20 @@ fn listen_for_ime_input_when_text_input_focused(
     // Fetch the focused editable text field (if any).
     let focused = focused_entity.and_then(|e| editable_text_query.get_mut(e).ok());
 
-    let editable_text_focused = focused.is_some_and(|(mut editable_text, rwmode)| {
+    let ime_wanted = focused.is_some_and(|(mut editable_text, rwmode)| {
         let rwmode_changed = rwmode.is_changed();
         if rwmode_changed && *rwmode != TextReadWriteMode::Editable {
             editable_text.queue_edit(TextEdit::clear_ime_compose());
         }
-        *rwmode == TextReadWriteMode::Editable
+        let concealed =
+            editable_text.mask.is_some() && !cfg!(any(target_os = "android", target_os = "ios"));
+        *rwmode == TextReadWriteMode::Editable && !concealed
     });
 
-    // The IME should be enabled whenever an EditableText is focused and editable,
+    // The IME should be enabled whenever an EditableText is focused, not masked and editable,
     // even if the IME isn't currently composing (i.e. there's no preedit text).
     // The field here is about "should" we accept IME input, not "are we currently" accepting IME input
-    window.ime_enabled = editable_text_focused;
+    window.ime_enabled = ime_wanted;
 }
 
 /// Observer that clears in-progress IME composition and
@@ -1096,6 +1102,42 @@ mod tests {
             repeat: false,
             window: World::default().spawn_empty().id(),
         }
+    }
+
+    #[test]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn ime_is_disabled_while_a_masked_field_is_focused() {
+        let mut app = App::new();
+        app.init_resource::<InputFocus>()
+            .add_systems(Update, listen_for_ime_input_when_text_input_focused);
+
+        let window = app
+            .world_mut()
+            .spawn((Window::default(), PrimaryWindow))
+            .id();
+        let editable_text = app
+            .world_mut()
+            .spawn((EditableText::default(), TextInput))
+            .id();
+        app.insert_resource(InputFocus::from_entity(editable_text));
+        let ime_enabled = |app: &App| app.world().get::<Window>(window).unwrap().ime_enabled;
+        let set_mask = |app: &mut App, mask| {
+            app.world_mut()
+                .get_mut::<EditableText>(editable_text)
+                .unwrap()
+                .mask = mask;
+            app.update();
+        };
+
+        app.update();
+        assert!(ime_enabled(&app));
+
+        set_mask(&mut app, Some('*'));
+        assert!(!ime_enabled(&app));
+
+        // Revealing the text while the field stays focused brings IME back.
+        set_mask(&mut app, None);
+        assert!(ime_enabled(&app));
     }
 
     #[test]
