@@ -242,6 +242,7 @@ mod tests {
     use super::*;
     use crate::{enums::VariantInfo, info::Typed, TypeInfo};
     use alloc::{format, string::String};
+    use bevy_reflect_derive::impl_reflect_opaque;
     use core::ops::RangeInclusive;
 
     #[derive(Reflect, PartialEq, Debug)]
@@ -404,6 +405,37 @@ mod tests {
 
         let tooltip = field.get_attribute::<Tooltip>().unwrap();
         assert_eq!(&Tooltip::new("Range: 0.0 to 1.0"), tooltip);
+    }
+
+    #[test]
+    fn should_derive_custom_attributes_on_opaque_type() {
+        #[derive(Reflect, Clone)]
+        #[reflect(opaque, @Tooltip::new("My awesome custom attribute!"))]
+        struct Slider;
+
+        let TypeInfo::Opaque(info) = Slider::type_info() else {
+            panic!("expected opaque info");
+        };
+
+        let tooltip = info.get_attribute::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
+    }
+
+    #[test]
+    fn should_derive_custom_attributes_with_impl_reflect_opaque() {
+        #[derive(Clone)]
+        struct Foreign;
+
+        impl_reflect_opaque!((in bevy_reflect::attributes::tests) Foreign(
+            @Tooltip::new("My awesome custom attribute!")
+        ));
+
+        let TypeInfo::Opaque(info) = Foreign::type_info() else {
+            panic!("expected opaque info");
+        };
+
+        let tooltip = info.get_attribute::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
     #[test]

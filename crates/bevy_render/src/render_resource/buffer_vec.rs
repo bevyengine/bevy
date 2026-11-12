@@ -693,7 +693,6 @@ where
     buffer: Option<Buffer>,
     len: usize,
     capacity: usize,
-    item_size: usize,
     buffer_usage: BufferUsages,
     label: Option<String>,
     label_changed: bool,
@@ -710,7 +709,6 @@ where
             len: 0,
             buffer: None,
             capacity: 0,
-            item_size: size_of::<T>(),
             buffer_usage,
             label: None,
             label_changed: false,
@@ -795,7 +793,7 @@ where
         }
 
         self.capacity = capacity;
-        let size = self.item_size * capacity;
+        let size = T::SHADER_SIZE.get() as usize * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
             label: make_buffer_label::<Self>(&self.label),
             size: size as BufferAddress,

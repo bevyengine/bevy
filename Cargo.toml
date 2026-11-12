@@ -161,6 +161,7 @@ dev = [
   "bevy_dev_tools",
   "render_dev_tools",
   "file_watcher",
+  "inspector",
 ]
 
 # COLLECTION: Features used to build audio Bevy apps.
@@ -337,6 +338,9 @@ bevy_world_serialization = ["bevy_internal/bevy_world_serialization"]
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene"]
 
+# Provides BSN AST / parsing functionality
+bevy_bsn = ["bevy_internal/bevy_bsn"]
+
 # Provides raytraced lighting (experimental)
 bevy_solari = ["bevy_internal/bevy_solari"]
 
@@ -357,6 +361,9 @@ bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
+
+# Adds frame pacing diagnostics and logs
+framepace_debug = ["bevy_render", "bevy_internal/framepace_debug"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -436,6 +443,14 @@ bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Entity inspector built on bevy_ui and bevy_feathers.
 bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
+
+# Adds an entity inspector to `DefaultPlugins`, hidden until F12 is pressed.
+inspector = [
+  "bevy_internal/inspector",
+  "bevy_inspector",
+  "ui_bevy_render",
+  "picking",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -592,6 +607,9 @@ render_dev_tools = ["bevy_internal/render_dev_tools"]
 # Enable glTF animation loading
 gltf_animation = ["bevy_internal/gltf_animation"]
 
+# Enables loading glTF files that use KHR_meshopt_compression or EXT_meshopt_compression
+gltf_meshopt = ["bevy_internal/gltf_meshopt"]
+
 # Enables support for morph target weights in bevy_mesh
 morph = ["bevy_internal/morph"]
 
@@ -728,9 +746,6 @@ reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
-
-# Experimental support for nodes that are ignored for UI layouting
-ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 # Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
@@ -1797,13 +1812,13 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "animation_graph"
-path = "examples/animation/animation_graph.rs"
+name = "blend_graph"
+path = "examples/animation/blend_graph.rs"
 doc-scrape-examples = true
 required-features = ["bevy_feathers"]
 
-[package.metadata.example.animation_graph]
-name = "Animation Graph"
+[package.metadata.example.blend_graph]
+name = "Blend Graph"
 description = "Blends multiple animations together with a graph"
 category = "Animation"
 wasm = true
@@ -3110,6 +3125,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "annotations"
+path = "examples/reflection/annotations.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.annotations]
+name = "Annotations"
+description = "Annotating reflected types with tooltips, ranges and units for tools"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "dynamic_types"
 path = "examples/reflection/dynamic_types.rs"
 doc-scrape-examples = true
@@ -4034,17 +4060,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "relative_cursor_position"
-path = "examples/ui/relative_cursor_position.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.relative_cursor_position]
-name = "Relative Cursor Position"
-description = "Showcases the RelativeCursorPosition component"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "render_ui_to_texture"
 path = "examples/ui/render_ui_to_texture.rs"
 doc-scrape-examples = true
@@ -4170,7 +4185,6 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/layout/ghost_nodes.rs"
 doc-scrape-examples = true
-required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -4389,6 +4403,18 @@ name = "Custom Cursor Image"
 description = "Demonstrates creating an animated custom cursor from an image"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "framepace"
+path = "examples/window/framepace.rs"
+doc-scrape-examples = true
+required-features = ["framepace_debug"]
+
+[package.metadata.example.framepace]
+name = "Framepace"
+description = "Demonstrates frame pacing"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "low_power"
@@ -4780,13 +4806,13 @@ category = "glTF"
 wasm = true
 
 [[example]]
-name = "gltf_extension_animation_graph"
-path = "examples/gltf/gltf_extension_animation_graph.rs"
+name = "gltf_extension_blend_graph"
+path = "examples/gltf/gltf_extension_blend_graph.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.gltf_extension_animation_graph]
-name = "glTF extension AnimationGraph"
-description = "Uses glTF data to build an AnimationGraph via extension processing"
+[package.metadata.example.gltf_extension_blend_graph]
+name = "glTF extension BlendGraph"
+description = "Uses glTF data to build a BlendGraph via extension processing"
 category = "glTF"
 wasm = true
 
@@ -4832,6 +4858,18 @@ required-features = ["bevy_dev_tools", "render_dev_tools"]
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "diagnostics_overlay"
+path = "examples/dev_tools/diagnostics_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools", "render_dev_tools"]
+
+[package.metadata.example.diagnostics_overlay]
+name = "Diagnostics overlay"
+description = "Demonstrates diagnostics overlay"
 category = "Dev tools"
 wasm = true
 
@@ -4882,6 +4920,18 @@ name = "Local Inspector"
 description = "Inspects the app's own world with the bevy_inspector entity tree panel"
 category = "Dev tools"
 wasm = true
+
+[[example]]
+name = "remote_inspector"
+path = "examples/inspector/remote_inspector.rs"
+doc-scrape-examples = true
+required-features = ["bevy_inspector", "bevy_remote_client"]
+
+[package.metadata.example.remote_inspector]
+name = "Remote Inspector"
+description = "Inspects a separate running app with the bevy_inspector panels over the Bevy Remote Protocol"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "2d_top_down_camera"

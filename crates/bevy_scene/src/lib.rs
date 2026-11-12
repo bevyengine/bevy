@@ -154,12 +154,15 @@
 //! ## Named Entity References
 //!
 //! The `#Name` syntax assigns a [`Name`] to an entity and registers it for cross-referencing within the same macro invocation.
-//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`] which ultimately resolves to an [`Entity`]:
+//! Within the same bsn! invocation / scope, it is possible to reference an entity by its `#Name`, generating an [`EntityTemplate`],
+//! which is a [`Template`] that resolves to an [`Entity`].
+//!
+//! Note that a "child entity" can reference its ancestors using the #Name declared in the "root entity".
 //!
 //! ```ignore
 //! bsn! {
 //!     #Name
-//!     my_scene(#Name)
+//!     @my_scene(#Name)
 //!     ComponentA(#Name)
 //!     ComponentB { entity: #Name }
 //!     Children [
@@ -168,20 +171,49 @@
 //! }
 //! ```
 //!
-//! Notice that the "child entity" was able to access the parent entity via `#Name`. It is also possible for ancestors to access
-//! their descendants:
+//! It is also possible for ancestors to access their descendants:
 //!
 //! ```ignore
 //! bsn! {
-//!     #Root
+//!     Reference(#Child)
 //!     Children [
-//!         Reference(#Root)
+//!         #Child
 //!     ]
 //! }
 //! ```
 //!
-//! Using `#Name` as a value in [`bsn!`] will result in an [`EntityTemplate`], which is a [`Template`] that resolves to an [`Entity`]
 //! [`Component`]s with [`Entity`] fields should generally derive [`FromTemplate`], because [`Entity`] uses [`FromTemplate`] to map to [`EntityTemplate`].
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(FromTemplate, Component)]
+//! struct Reference(Entity);
+//! ```
+//!
+//! You can pass it to functions by accepting a [`EntityTemplate`] argument:
+//!
+//! ```rust
+//! # use bevy_scene::prelude::*;
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_ecs::template::EntityTemplate;
+//! #[derive(FromTemplate, Component)]
+//! # struct Reference(Entity);
+//! fn outer_scene() -> impl Scene {
+//!     bsn! {
+//!         #Outer
+//!         @inner_scene(#Outer)
+//!     }
+//!
+//! }
+//! fn inner_scene(entity: EntityTemplate) -> impl Scene {
+//!     bsn! {
+//!         #Inner
+//!         Reference(entity)
+//!     }
+//!
+//! }
+//! ```
+//!
 //!
 //! ### Scope rules
 //!
@@ -887,11 +919,10 @@
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(deprecated, reason = "easier migrations")]
     pub use crate::{
-        bsn, bsn_list, on, template_value, CommandsSceneExt, EntityCommandsSceneExt,
-        EntityWorldMutSceneExt, PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList,
-        ScenePatchInstance, SpawnListSystem, SpawnSystem, WorldSceneExt,
+        bsn, bsn_list, on, CommandsSceneExt, EntityCommandsSceneExt, EntityWorldMutSceneExt,
+        PatchFromTemplate, PatchTemplate, Scene, SceneComponent, SceneList, ScenePatchInstance,
+        SpawnListSystem, SpawnSystem, WorldSceneExt,
     };
 }
 
@@ -957,8 +988,10 @@ pub struct Ready {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_scene, Ready, ScenePlugin};
-    use crate::{prelude::*, ScenePatch};
+    use crate::{
+        self as bevy_scene, prelude::*, Ready, ResolvedSceneListRoot, ResolvedSceneRoot,
+        ScenePatch, ScenePlugin,
+    };
     use alloc::sync::Arc;
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::io::memory::{Dir, MemoryAssetReader};
@@ -972,6 +1005,7 @@ mod tests {
     use bevy_ecs::world::DeferredWorld;
     use bevy_reflect::TypePath;
     use bevy_scene_macros::SceneComponent;
+    use std::any::TypeId;
     use std::ops::Range;
     use std::path::Path;
     use std::sync::Mutex;
@@ -1375,6 +1409,7 @@ mod tests {
                 .0
         );
     }
+
     #[test]
     fn bsn_reverse_reference() {
         let mut app = test_app();
@@ -1937,6 +1972,7 @@ mod tests {
         };
         world.spawn_scene(scene).unwrap();
     }
+
     #[test]
     fn children_list_expr() {
         fn container(items: impl SceneList) -> impl Scene {
@@ -1966,6 +2002,7 @@ mod tests {
             .collect();
         assert_eq!(&names, &["First", "Second", "Third", "Last"]);
     }
+
     #[test]
     fn children_single_expr() {
         fn container(item: impl Scene) -> impl Scene {
@@ -1993,6 +2030,7 @@ mod tests {
             .collect();
         assert_eq!(&names, &["First", "Second", "Last"]);
     }
+
     #[test]
     fn conditional_scene() {
         #[derive(Component, Clone, Default)]
@@ -2036,6 +2074,7 @@ mod tests {
             .collect();
         assert_eq!(&names, &[9, 9]);
     }
+
     #[test]
     fn partial_tuple_struct() {
         // Tests that only part of a tuple struct can be patched,
@@ -3021,6 +3060,7 @@ mod tests {
 
         func();
     }
+
     #[test]
     fn macro_doc_test() {
         #![allow(unused, reason = "test")]
@@ -3388,6 +3428,188 @@ mod tests {
         assert_eq!(expected_id, actual_id);
     }
 
+    #[derive(Default)]
+    pub struct ContainerProps {
+        pub content: Option<Box<dyn SceneList>>,
+    }
+
+    #[derive(SceneComponent, Clone, Default)]
+    #[scene(ContainerProps)]
+    pub struct Container;
+
+    impl Container {
+        fn scene(props: ContainerProps) -> impl Scene {
+            bsn! {
+                Children [
+                    { props.content }
+                ]
+            }
+        }
+    }
+
+    #[track_caller]
+    fn split_entity_ref_display(s: &str) -> (&str, &str) {
+        if let Some((loc, _)) = s.split_once(' ')
+            && let Some((path, line_col)) = loc.split_once(':')
+        {
+            return (path, line_col);
+        }
+        panic!("unexpected entity ref display: {s}");
+    }
+
+    #[test]
+    fn nested_scene_entity_ref_resolves_correct_call_site() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let assets = world.resource::<AssetServer>();
+        let patches = world.resource::<Assets<ScenePatch>>();
+
+        let scene = bsn! {
+            #E1
+            @Container {
+                @content: bsn! { #E2 }
+            }
+        };
+
+        let resolved = &ResolvedSceneRoot::resolve(Box::new(scene), assets, patches)
+            .unwrap()
+            .scene;
+
+        let parent_ref = resolved
+            .entity_references
+            .first()
+            .expect("missing parent entity ref")
+            .to_string();
+
+        let related_child_scenes = &resolved
+            .related
+            .get(&TypeId::of::<ChildOf>())
+            .expect("missing related scenes for ChildOf (from Container)");
+
+        let child_scene = related_child_scenes
+            .scenes
+            .first()
+            .expect("missing related child scene (from Container.@content)");
+
+        let child_ref = child_scene
+            .entity_references
+            .first()
+            .expect("missing child entity ref")
+            .to_string();
+
+        let (parent_ref_path, parent_ref_line_col) = split_entity_ref_display(&parent_ref);
+        let (child_ref_path, child_ref_line_col) = split_entity_ref_display(&child_ref);
+
+        assert_eq!(parent_ref_path, child_ref_path);
+        assert_ne!(
+            parent_ref_line_col, child_ref_line_col,
+            "expected parsing to preserve call site of nested macro"
+        );
+    }
+
+    #[test]
+    fn nested_scene_list_entity_ref_resolves_correct_call_site() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let assets = world.resource::<AssetServer>();
+        let patches = world.resource::<Assets<ScenePatch>>();
+
+        let scene = bsn_list! {
+            #E1
+            @Container {
+                @content: bsn_list! { #E2 }
+            }
+        };
+
+        let resolved = &ResolvedSceneListRoot::resolve(Box::new(scene), assets, patches)
+            .unwrap()
+            .scenes[0];
+
+        let parent_ref = resolved
+            .entity_references
+            .first()
+            .expect("missing parent entity ref")
+            .to_string();
+
+        let related_child_scenes = &resolved
+            .related
+            .get(&TypeId::of::<ChildOf>())
+            .expect("missing related scenes for ChildOf (from Container)");
+
+        let child_scene = related_child_scenes
+            .scenes
+            .first()
+            .expect("missing related child scene (from Container.@content)");
+
+        let child_ref = child_scene
+            .entity_references
+            .first()
+            .expect("missing child entity ref")
+            .to_string();
+
+        let (parent_ref_path, parent_ref_line_col) = split_entity_ref_display(&parent_ref);
+        let (child_ref_path, child_ref_line_col) = split_entity_ref_display(&child_ref);
+
+        assert_eq!(parent_ref_path, child_ref_path);
+        assert_ne!(
+            parent_ref_line_col, child_ref_line_col,
+            "expected parsing to preserve call site of nested macro"
+        );
+    }
+
+    #[test]
+    fn scene_spawns_with_projected_name() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let scene = bsn! {
+            #E1
+            @Container {
+                @content: bsn! { #E2 }
+            }
+        };
+
+        let e1 = world.spawn_scene(scene).unwrap();
+
+        assert_eq!(e1.get::<Name>(), Some(&Name::new("E1")));
+
+        let Some(&e1_child) = e1.get::<Children>().and_then(|c| c.first()) else {
+            panic!("scene should have a child");
+        };
+
+        let e2 = world.entity(e1_child);
+
+        assert_eq!(e2.get::<Name>(), Some(&Name::new("E2")));
+    }
+
+    #[test]
+    fn scene_list_spawns_with_projected_name() {
+        let mut app = test_app();
+        let world = app.world_mut();
+
+        let scene = bsn_list! {
+            #E1
+            @Container {
+                @content: bsn_list! { #E2 }
+            }
+        };
+
+        let entities = world.spawn_scene_list(scene).unwrap();
+        let e1 = world.entity(entities[0]);
+
+        assert_eq!(e1.get::<Name>(), Some(&Name::new("E1")));
+
+        let Some(&e1_child) = e1.get::<Children>().and_then(|c| c.first()) else {
+            panic!("scene should have a child");
+        };
+
+        let e2 = world.entity(e1_child);
+
+        assert_eq!(e2.get::<Name>(), Some(&Name::new("E2")));
+    }
+
     #[test]
     fn ready_event() {
         #[derive(Component, FromTemplate)]
@@ -3533,5 +3755,166 @@ mod tests {
         ) -> Result<Self::Asset, Self::Error> {
             Ok(ScenePatch::load_with(load_context, (self.0)()))
         }
+    }
+
+    #[test]
+    fn arrays_in_bsn() {
+        #[derive(Component)]
+        struct Foo(Vec<Entity>);
+
+        impl FromTemplate for Foo {
+            type Template = FooTemplate;
+        }
+
+        struct FooTemplate(Vec<bevy_ecs::template::EntityTemplate>);
+
+        impl Template for FooTemplate {
+            type Output = Foo;
+
+            fn build_template(
+                &self,
+                context: &mut bevy_ecs::template::TemplateContext,
+            ) -> Result<Self::Output> {
+                self.0
+                    .iter()
+                    .map(|template| template.build_template(context))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Foo)
+            }
+
+            fn clone_template(&self) -> Self {
+                FooTemplate(self.0.clone())
+            }
+        }
+
+        impl FooTemplate {
+            fn new<const N: usize>(
+                entities: [bevy_ecs::template::EntityTemplate; N],
+            ) -> FooTemplate {
+                FooTemplate(entities.to_vec())
+            }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entities = world
+            .spawn_scene_list(bsn_list! {
+                Foo::new([#A, #B])
+                --
+                #A
+                --
+                #B
+            })
+            .unwrap();
+        let foo = world.entity(entities[0]).get::<Foo>().unwrap();
+        assert_eq!(foo.0, entities[1..]);
+    }
+
+    #[test]
+    fn array_argument_allows_trailing_tokens() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(usize);
+
+        fn count_scene(len: usize) -> impl Scene {
+            bsn! { Marker({ len }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @count_scene([1, 2, 3].len()) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn array_argument_preserves_plain_rust_struct_literal() {
+        #[derive(Component, Default, Clone)]
+        struct Marker(u32);
+
+        #[derive(Clone, Copy)]
+        struct Pair {
+            a: u32,
+            b: u32,
+        }
+
+        fn pair_scene(pairs: [Pair; 1]) -> impl Scene {
+            bsn! { Marker({ pairs[0].a + pairs[0].b }) }
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! { @pair_scene([Pair { a: 7, b: 8 }]) })
+            .unwrap()
+            .id();
+        assert_eq!(world.entity(entity).get::<Marker>().unwrap().0, 15);
+    }
+
+    // Tests the usage of `..Default::default()` in bsn.
+    #[test]
+    fn struct_default_construction() {
+        #[derive(Clone, Copy, Component, Default)]
+        struct Sprite {
+            color: Color,
+        }
+
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        enum Color {
+            Rgba(Rgba),
+        }
+
+        impl Default for Color {
+            fn default() -> Self {
+                Color::Rgba(Rgba::default())
+            }
+        }
+
+        #[derive(Debug, Clone, Copy, Default, PartialEq)]
+        struct Rgba {
+            r: u32,
+            g: u32,
+            b: u32,
+            a: u32,
+        }
+
+        let mut app = test_app();
+        let world = app.world_mut();
+        let entity = world
+            .spawn_scene(bsn! {
+                Sprite {
+                    color: Color::Rgba(Rgba { r: 1, g: 241, b: 49, a: 255 })
+                }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world.entity(entity).get::<Sprite>().unwrap().color,
+            Color::Rgba(Rgba {
+                r: 1,
+                g: 241,
+                b: 49,
+                a: 255
+            })
+        );
+
+        #[derive(Clone, Copy, Component, Default)]
+        struct Outer {
+            inner: Inner,
+        }
+
+        #[derive(Clone, Copy, Debug, Default, PartialEq)]
+        struct Inner {
+            a: u32,
+        }
+
+        // validates a niche interaction
+        let _entity2 = world
+            .spawn_scene(bsn! {
+                Outer { inner: Inner { a: 2, ..Inner { a: 1 } } }
+            })
+            .unwrap()
+            .id();
     }
 }

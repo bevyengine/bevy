@@ -61,7 +61,7 @@ impl FeathersTextInputContainer {
             ThemeBackgroundColor(tokens::TEXT_INPUT_BG)
             InheritableThemeTextColor(tokens::TEXT_INPUT_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::COMPACT_FONT,
                 weight: FontWeight::NORMAL,
             }
@@ -118,7 +118,7 @@ impl FeathersTextInput {
                 linebreak: LineBreak::NoWrap,
             }
             TextFont {
-                font: FontSourceTemplate::Handle(fonts::REGULAR),
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::COMPACT_FONT,
                 weight: FontWeight::NORMAL,
             }
@@ -142,6 +142,21 @@ fn update_text_cursor_color(
             cursor_style.unfocused_selection_color =
                 theme.context_color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED, context);
         }
+    }
+}
+fn update_text_cursor_color_spawned(
+    mut q_text_input: Query<
+        (&mut TextCursorStyle, Option<&ThemeContext>),
+        Added<FeathersTextInput>,
+    >,
+    theme: Res<UiTheme>,
+) {
+    for (mut cursor_style, theme_context) in q_text_input.iter_mut() {
+        let context = theme_context.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
+        cursor_style.color = theme.context_color(&tokens::TEXT_INPUT_CURSOR, context);
+        cursor_style.selection_color = theme.context_color(&tokens::TEXT_INPUT_SELECTION, context);
+        cursor_style.unfocused_selection_color =
+            theme.context_color(&tokens::TEXT_INPUT_SELECTION_UNFOCUSED, context);
     }
 }
 
@@ -218,6 +233,7 @@ impl Plugin for TextInputPlugin {
                 update_text_cursor_color,
                 update_text_input_styles,
                 update_text_input_styles_remove,
+                update_text_cursor_color_spawned,
             )
                 .in_set(PickingSystems::Last),
         );

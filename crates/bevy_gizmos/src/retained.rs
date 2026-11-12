@@ -3,6 +3,7 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
+use bevy_camera::visibility::Visibility;
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
@@ -63,7 +64,7 @@ impl DerefMut for GizmoAsset {
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect, FromTemplate)]
 #[reflect(Component, Clone, Default)]
-#[require(Transform)]
+#[require(Transform, Visibility)]
 pub struct Gizmo {
     /// The handle to the gizmo to draw.
     pub handle: Handle<GizmoAsset>,

@@ -30,6 +30,9 @@ debug_stack = ["std"]
 
 # Integrations
 
+## Adds reflection support to `bevy_annotations` types and `CustomAttributes::value_range`.
+annotations = ["dep:bevy_annotations"]
+
 ## Adds reflection support to `glam` types.
 glam = ["dep:glam"]
 
@@ -93,6 +96,7 @@ web = ["bevy_platform/web", "uuid?/js"]
 
 [dependencies]
 # bevy
+bevy_annotations = { path = "../bevy_annotations", version = "0.20.0-dev", optional = true }
 bevy_reflect_derive = { path = "derive", version = "0.20.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", default-features = false }
 bevy_ptr = { path = "../bevy_ptr", version = "0.20.0-dev" }
@@ -116,7 +120,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.33.9", default-features = false, features = [
+glam = { version = "0.34.2", default-features = false, features = [
   "serde",
   "float-types",
   "integer-types",

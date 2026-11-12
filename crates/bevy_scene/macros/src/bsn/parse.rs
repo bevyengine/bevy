@@ -567,13 +567,6 @@ fn braced_tokens(input: &ParseBuffer) -> Result<TokenStream> {
     content.parse::<TokenStream>()
 }
 
-// Used to parse parenthesized tokens "loosely" without caring about the content in `(...)`. This ensures autocomplete works.
-fn parenthesized_tokens(input: &ParseBuffer) -> Result<TokenStream> {
-    let content;
-    parenthesized!(content in input);
-    content.parse::<TokenStream>()
-}
-
 fn group_tokens(input: &ParseBuffer, delimiter: Delimiter) -> Result<TokenStream> {
     let tree = input.parse::<TokenTree>()?;
     if let TokenTree::Group(group) = &tree
@@ -583,13 +576,6 @@ fn group_tokens(input: &ParseBuffer, delimiter: Delimiter) -> Result<TokenStream
     } else {
         Err(input.error(format!("Expected {:?}", delimiter)))
     }
-}
-
-// Used to parse bracketed tokens "loosely" without caring about the content in `[...]`. This ensures autocomplete works.
-fn bracketed_tokens(input: &ParseBuffer) -> Result<TokenStream> {
-    let content;
-    bracketed!(content in input);
-    content.parse::<TokenStream>()
 }
 
 fn tokens_between(begin: Cursor, end: Cursor) -> TokenStream {
@@ -631,17 +617,11 @@ impl Parse for BsnValue {
                 PathType::TypeFunction | PathType::Function => {
                     input.parse::<Path>()?;
                     let maybe_macro = input.parse::<Token![!]>().ok();
-                    if input.peek(Paren) {
-                        let token_stream = parenthesized_tokens(input)?;
-                        BsnValue::Expr(quote! { #path #maybe_macro (#token_stream) })
-                    } else if input.peek(Bracket) {
-                        let token_stream = bracketed_tokens(input)?;
-                        BsnValue::Expr(quote! { #path #maybe_macro [#token_stream] })
-                    } else if input.peek(Brace) {
-                        let token_stream = braced_tokens(input)?;
-                        BsnValue::Expr(quote! { #path #maybe_macro { #token_stream } })
-                    } else {
-                        return Err(input.error("Unexpected input after function name"));
+                    match input.parse::<TokenTree>()? {
+                        TokenTree::Group(group) if group.delimiter() != Delimiter::None => {
+                            BsnValue::Expr(quote! { #path #maybe_macro #group })
+                        }
+                        _ => return Err(input.error("Unexpected input after function name")),
                     }
                 }
                 PathType::Const => {
@@ -703,6 +683,31 @@ impl Parse for BsnFnArg {
             } else {
                 BsnFnArg::Tokens(input.parse::<TokenStream>()?)
             }
+        } else if input.peek(Bracket) {
+            let forked = input.fork();
+            let content;
+            bracketed!(content in forked);
+            let parse_punctuated_bsn_values = || -> Result<Vec<BsnValue>> {
+                let mut values = Vec::new();
+                parse_punctuated_vec_autocomplete_friendly!(values, content, BsnValue, Comma);
+                Ok(values)
+            };
+            let values = match parse_punctuated_bsn_values() {
+                Ok(values)
+                // For now, we're only considering arrays that consist entirely of entity names.
+                // Everything else is passed through unchanged.
+                if forked.is_empty()
+                    && values.iter()
+                    .all(|value| matches!(value, BsnValue::Name(_))) =>
+                {
+                    values
+                }
+                _ => {
+                    return input.parse().map(BsnFnArg::Tokens);
+                }
+            };
+            input.advance_to(&forked);
+            BsnFnArg::Array(values)
         } else {
             BsnFnArg::Tokens(input.parse::<TokenStream>()?)
         })

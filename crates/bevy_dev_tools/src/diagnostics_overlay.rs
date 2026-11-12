@@ -278,7 +278,7 @@ fn build_plane(mut commands: Commands) {
         },
         Pickable {
             should_block_lower: false,
-            ..Default::default()
+            is_hoverable: false,
         },
         INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX,
     ));
