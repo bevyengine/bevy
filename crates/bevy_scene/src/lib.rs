@@ -1010,14 +1010,32 @@ mod tests {
     use std::path::Path;
     use std::sync::Mutex;
 
-    fn test_app() -> App {
+    fn test_app_with_dir() -> (App, Dir) {
         let mut app = App::new();
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+        );
         app.add_plugins((
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(false),
+                use_asset_processor_override: Some(false),
+                ..Default::default()
+            },
             ScenePlugin,
         ));
-        app
+        (app, dir)
+    }
+
+    fn test_app() -> App {
+        test_app_with_dir().0
     }
 
     #[test]
@@ -1143,25 +1161,8 @@ mod tests {
             value: usize,
         }
 
-        let mut app = App::new();
-        let dir = Dir::default();
-        let dir_clone = dir.clone();
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                Box::new(MemoryAssetReader {
-                    root: dir_clone.clone(),
-                })
-            }),
-        );
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            AssetPlugin::default(),
-            ScenePlugin,
-        ));
+        let (mut app, dir) = test_app_with_dir();
 
-        app.finish();
-        app.cleanup();
         // Create a fake loader to act as a ScenePatch loaded from a file.
         app.register_asset_loader(FakeSceneLoader::new(a));
 
@@ -3633,22 +3634,7 @@ mod tests {
         #[scene(root)]
         struct AWidget;
 
-        let mut app = App::new();
-        let dir = Dir::default();
-        let dir_clone = dir.clone();
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                Box::new(MemoryAssetReader {
-                    root: dir_clone.clone(),
-                })
-            }),
-        );
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            AssetPlugin::default(),
-            ScenePlugin,
-        ));
+        let (mut app, dir) = test_app_with_dir();
 
         let ready_tracker = Arc::new(Mutex::new(Vec::new()));
         let cloned_tracker = ready_tracker.clone();
@@ -3657,8 +3643,6 @@ mod tests {
             cloned_tracker.lock().unwrap().push(ready.entity);
         });
 
-        app.finish();
-        app.cleanup();
         // Create a fake loader to act as a ScenePatch loaded from a file.
         app.register_asset_loader(FakeSceneLoader::new(child));
 
