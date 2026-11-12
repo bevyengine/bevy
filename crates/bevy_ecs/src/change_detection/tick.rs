@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use bevy_ecs_macros::Event;
-use bevy_platform::sync::Mutex;
+use bevy_platform::sync::{atomic::AtomicU64, Mutex};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::{
@@ -91,17 +91,36 @@ impl Tick {
         if age <= COMPACT_AGE {
             return false;
         }
+        if let CheckPhase::Compact { last, .. } = &check.phase {
+            // Neighboring ticks are often equal, so reuse the last result.
+            let cached = last.load(Ordering::Relaxed);
+            if (cached >> 32) as u32 == self.tick {
+                self.tick = cached as u32;
+                return true;
+            }
+        }
+        self.check_old_tick(check, age)
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn check_old_tick(&mut self, check: &CheckChangeTicks, age: u32) -> bool {
         match &check.phase {
             CheckPhase::Collect(ticks) => {
                 ticks.lock().unwrap().push(*self);
                 false
             }
-            CheckPhase::Compact(ages) => {
+            CheckPhase::Compact { ages, last } => {
                 // Each recorded age gets its own slot and each gap between them shares one,
                 // so comparisons against recorded ticks are unchanged.
                 let older = ages.partition_point(|&a| a > age);
                 let slot = 2 * older as u32 + u32::from(ages.get(older) == Some(&age));
-                *self = check.present.relative_to(Tick::new(COMPACT_START - slot));
+                let compacted = check.present.relative_to(Tick::new(COMPACT_START - slot));
+                last.store(
+                    (u64::from(self.tick) << 32) | u64::from(compacted.tick),
+                    Ordering::Relaxed,
+                );
+                *self = compacted;
                 true
             }
         }
@@ -201,7 +220,11 @@ enum CheckPhase {
     /// Recording old ticks that are compared against, like a system's `last_run`.
     Collect(Mutex<Vec<Tick>>),
     /// Compacting old ticks around the recorded ages, sorted oldest first.
-    Compact(Vec<u32>),
+    Compact {
+        ages: Vec<u32>,
+        /// The last compacted tick, packed as `(old << 32) | new`.
+        last: AtomicU64,
+    },
 }
 
 impl CheckChangeTicks {
@@ -227,7 +250,11 @@ impl CheckChangeTicks {
         ages.dedup();
         Self {
             present,
-            phase: CheckPhase::Compact(ages),
+            phase: CheckPhase::Compact {
+                ages,
+                // `present` is never compacted, so this never matches.
+                last: AtomicU64::new(u64::from(present.tick) << 32),
+            },
         }
     }
 
