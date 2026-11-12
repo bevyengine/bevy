@@ -29,7 +29,7 @@ use taffy::{
 
 #[expect(
     unsafe_code,
-    reason = "`TaffyStyle`' uses raw pointers to its `CalcOp` values."
+    reason = "`TaffyStyle` uses raw pointers to its `CalcOp` values."
 )]
 // SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
