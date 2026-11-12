@@ -611,10 +611,10 @@ impl Schedule {
         struct RunningGuard<'w>(&'w mut World);
         impl Drop for RunningGuard<'_> {
             fn drop(&mut self) {
-                self.0.running_schedules -= 1;
+                self.0.tick_holders -= 1;
             }
         }
-        world.running_schedules += 1;
+        world.tick_holders += 1;
         let guard = RunningGuard(world);
         let world = &mut *guard.0;
 

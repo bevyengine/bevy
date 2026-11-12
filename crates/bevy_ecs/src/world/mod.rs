@@ -109,8 +109,9 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
-    /// The number of [`Schedule`]s currently running. Change ticks are only clamped while this is nonzero.
-    pub(crate) running_schedules: u32,
+    /// The number of running [`Schedule`]s and exclusive systems, which hold ticks outside the world.
+    /// Change ticks are only clamped while this is nonzero.
+    pub(crate) tick_holders: u32,
     pub(crate) last_trigger_id: u32,
     /// The byte index in [`Self::command_queue`] at which unapplied command start.
     ///
@@ -145,7 +146,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-            running_schedules: 0,
+            tick_holders: 0,
             last_trigger_id: 0,
             command_queue_start: 0,
             command_queue: SyncUnsafeCell::new(CommandQueue::silent()),
@@ -3371,9 +3372,11 @@ impl World {
         impl Drop for LastTickGuard<'_> {
             fn drop(&mut self) {
                 self.world.last_change_tick = self.last_tick;
+                self.world.tick_holders -= 1;
             }
         }
 
+        self.tick_holders += 1;
         let guard = LastTickGuard {
             last_tick: self.last_change_tick,
             world: self,
@@ -3389,8 +3392,8 @@ impl World {
     /// This also triggers [`CheckChangeTicks`] observers. Returns whether the ticks were checked.
     ///
     /// **Note:** Does nothing if the [`World`] counter has not been incremented at least
-    /// [`CHECK_TICK_THRESHOLD`] times since the previous pass. While a schedule is running,
-    /// it only clamps old ticks, and only after twice as many.
+    /// [`CHECK_TICK_THRESHOLD`] times since the previous pass. While a schedule or exclusive system
+    /// is running, it only clamps old ticks, and only after twice as many.
     pub fn check_change_ticks(&mut self) -> bool {
         self.check_change_ticks_with(|_| {})
     }
@@ -3402,8 +3405,9 @@ impl World {
     ) -> bool {
         let change_tick = self.change_tick();
         let since_check = change_tick.relative_to(self.last_check_tick).get();
-        // Running schedules hold ticks outside the world, which compacting would reorder.
-        let blocked = self.running_schedules > 0
+        // Running schedules and exclusive systems hold ticks outside the world, which compacting
+        // would reorder.
+        let blocked = self.tick_holders > 0
             || self
                 .get_resource::<Schedules>()
                 .is_some_and(|schedules| !schedules.temporarily_removed.is_empty());

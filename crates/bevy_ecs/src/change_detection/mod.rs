@@ -43,7 +43,7 @@ mod tests {
         entity_disabling::Disabled,
         observer::On,
         schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules},
-        system::{IntoSystem, Query, Res, Single, System},
+        system::{IntoSystem, Query, Res, RunSystemOnce, Single, System},
         world::World,
     };
 
@@ -285,6 +285,21 @@ mod tests {
         schedule.run(&mut world);
         world.resource_mut::<Detect>().0 = true;
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn ticks_are_not_compacted_during_exclusive_system() {
+        let mut world = World::new();
+        let entity = world.spawn(C).id();
+        world.clear_trackers();
+        world.get_mut::<C>(entity).unwrap().set_changed();
+        *world.change_tick.get_mut() += COMPACT_AGE + CHECK_TICK_THRESHOLD / 2;
+
+        // Holds the world's last change tick while running.
+        world
+            .run_system_once(|world: &mut World| world.check_change_ticks())
+            .unwrap();
+        assert!(world.entity(entity).get_ref::<C>().unwrap().is_changed());
     }
 
     #[test]

@@ -806,6 +806,7 @@ where
                 // when this drop occurs.
                 let world = unsafe { self.world.world_mut() };
                 world.last_change_tick = self.last_tick;
+                world.tick_holders -= 1;
             }
         }
 
@@ -823,6 +824,7 @@ where
             let change_tick = exclusive_world.change_tick();
             let previous_tick = exclusive_world.last_change_tick();
             exclusive_world.last_change_tick = self.system_meta.last_run;
+            exclusive_world.tick_holders += 1;
 
             (
                 change_tick,
