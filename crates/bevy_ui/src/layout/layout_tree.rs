@@ -63,10 +63,10 @@ pub struct TaffyStyle {
 /// percentage `basis`.
 #[expect(
     unsafe_code,
-    reason = "Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`"
+    reason = "Taffy hands back the pointer it was given, which points into a `Box<CalcOp>` owned by the same `TaffyStyle`"
 )]
 pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
-    // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<PercentageCalc>` owned by the same `TaffyStyle`
+    // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<CalcOp>` owned by the same `TaffyStyle`
     let calc = unsafe { &*ptr.cast::<CalcOp>() };
     calc.resolve(&ValContext::default(), basis).unwrap()
 }
