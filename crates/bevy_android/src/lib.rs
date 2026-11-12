@@ -42,7 +42,8 @@ impl AndroidAppStorage {
     ///
     /// # Panics
     ///
-    /// Panics if the internal lock is poisoned or if the Android app has not been initialized yet.
+    /// Panics if the internal lock is poisoned or the returned guard is dereferenced and the
+    /// Android app has not been initialized yet.
     pub fn read(&self) -> AndroidAppReadGuard<'_> {
         let guard = self.app.read().unwrap();
         AndroidAppReadGuard { guard }
