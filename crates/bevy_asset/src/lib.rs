@@ -1042,6 +1042,92 @@ mod tests {
             .unwrap_or_default()
     }
 
+    #[test]
+    fn preregistered_loader_notification_releases_lock() {
+        let (mut app, _) = create_app();
+        app.preregister_asset_loader::<CoolTextLoader>(&["cool.ron"]);
+        let server = app.world().resource::<AssetServer>().clone();
+        let (waiting_sender, waiting_receiver) = std::sync::mpsc::channel();
+        let (result_sender, result_receiver) = std::sync::mpsc::channel();
+        let mut tasks = Vec::new();
+
+        for _ in 0..2 {
+            let server = server.clone();
+            let waiting_sender = waiting_sender.clone();
+            let result_sender = result_sender.clone();
+            tasks.push(bevy_tasks::IoTaskPool::get().spawn(async move {
+                let mut loader =
+                    Box::pin(server.get_asset_loader_with_type_name(CoolTextLoader::type_path()));
+                // Poll first so registration cannot race ahead of the pending lookup.
+                assert!(check_ready(&mut loader).is_none());
+                waiting_sender.send(()).unwrap();
+                loader.await.unwrap();
+                // A blocking read here would deadlock instead of reporting the regression.
+                result_sender
+                    .send(server.data.loaders.try_read().is_ok())
+                    .unwrap();
+            }));
+        }
+
+        for _ in 0..2 {
+            waiting_receiver
+                .recv_timeout(Duration::from_secs(10))
+                .unwrap();
+        }
+        app.register_asset_loader(CoolTextLoader);
+        for _ in 0..2 {
+            assert!(
+                result_receiver
+                    .recv_timeout(Duration::from_secs(10))
+                    .unwrap(),
+                "loader notification resumed a task while the loaders lock was held"
+            );
+        }
+        for task in tasks {
+            block_on(task);
+        }
+    }
+
+    #[test]
+    fn preregistered_loader_loads_dependencies() {
+        let (mut app, dir) = create_app();
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .preregister_asset_loader::<CoolTextLoader>(&["cool.ron"]);
+        dir.insert_asset_text(
+            Path::new("parent.cool.ron"),
+            r#"(
+                text: "parent",
+                dependencies: ["child.cool.ron"],
+                embedded_dependencies: [],
+                sub_texts: [],
+            )"#,
+        );
+        dir.insert_asset_text(
+            Path::new("child.cool.ron"),
+            r#"(
+                text: "child",
+                dependencies: [],
+                embedded_dependencies: [],
+                sub_texts: [],
+            )"#,
+        );
+        let server = app.world().resource::<AssetServer>().clone();
+        let parent: Handle<CoolText> = server.load("parent.cool.ron");
+        assert!(!server.is_loaded(&parent));
+
+        app.register_asset_loader(CoolTextLoader);
+        run_app_until(&mut app, |_| {
+            server.is_loaded_with_dependencies(&parent).then_some(())
+        });
+        let assets = app.world().resource::<Assets<CoolText>>();
+        let parent = assets.get(&parent).unwrap();
+        assert_eq!(parent.text, "parent");
+        assert_eq!(parent.dependencies.len(), 1);
+        let child = assets.get(&parent.dependencies[0]).unwrap();
+        assert_eq!(child.text, "child");
+    }
+
     #[derive(Resource, Default)]
     struct StoredEvents(Vec<AssetEvent<CoolText>>);
 

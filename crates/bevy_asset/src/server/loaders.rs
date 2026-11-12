@@ -5,7 +5,6 @@ use crate::{
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
 use bevy_platform::collections::HashMap;
-use bevy_tasks::IoTaskPool;
 use bevy_utils::TypeIdHashMap;
 use core::any::TypeId;
 use thiserror::Error;
@@ -27,7 +26,12 @@ impl AssetLoaders {
     }
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
-    pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
+    ///
+    /// The returned future notifies pending loads and must be spawned after releasing the loaders lock.
+    pub(crate) fn push<L: AssetLoader>(
+        &mut self,
+        loader: L,
+    ) -> Option<impl Future<Output = ()> + Send + 'static> {
         let type_path = L::type_path();
         // TODO: Allow using the short path of loaders.
         let loader_asset_type = TypeId::of::<L::Asset>();
@@ -75,6 +79,7 @@ impl AssetLoaders {
                 .push(loader_index);
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
+            None
         } else {
             let maybe_loader = core::mem::replace(
                 self.loaders.get_mut(loader_index).unwrap(),
@@ -82,13 +87,9 @@ impl AssetLoaders {
             );
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
-                MaybeAssetLoader::Pending { sender, .. } => {
-                    IoTaskPool::get()
-                        .spawn(async move {
-                            let _ = sender.broadcast(loader).await;
-                        })
-                        .detach();
-                }
+                MaybeAssetLoader::Pending { sender, .. } => Some(async move {
+                    let _ = sender.broadcast(loader).await;
+                }),
             }
         }
     }
@@ -376,7 +377,7 @@ mod tests {
 
         assert!(rx.try_recv().is_err());
 
-        loaders.push(loader);
+        assert!(loaders.push(loader).is_none());
 
         assert!(rx.try_recv().is_ok());
         assert!(rx.try_recv().is_err());
@@ -404,9 +405,9 @@ mod tests {
         let (loader_b1, rx_b1) = Loader::<B, 1, 0>::new();
         let (loader_c1, rx_c1) = Loader::<C, 1, 0>::new();
 
-        loaders.push(loader_a1);
-        loaders.push(loader_b1);
-        loaders.push(loader_c1);
+        assert!(loaders.push(loader_a1).is_none());
+        assert!(loaders.push(loader_b1).is_none());
+        assert!(loaders.push(loader_c1).is_none());
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_b1.try_recv().is_ok());
@@ -446,9 +447,9 @@ mod tests {
         let (loader_a2, rx_a2) = Loader::<A, 2, 0>::new();
         let (loader_a3, rx_a3) = Loader::<A, 3, 0>::new();
 
-        loaders.push(loader_a1);
-        loaders.push(loader_a2);
-        loaders.push(loader_a3);
+        assert!(loaders.push(loader_a1).is_none());
+        assert!(loaders.push(loader_a2).is_none());
+        assert!(loaders.push(loader_a3).is_none());
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_a2.try_recv().is_ok());
@@ -472,9 +473,9 @@ mod tests {
         let (loader_b1, rx_b1) = Loader::<A, 1, 2>::new();
         let (loader_c1, rx_c1) = Loader::<A, 1, 3>::new();
 
-        loaders.push(loader_a1);
-        loaders.push(loader_b1);
-        loaders.push(loader_c1);
+        assert!(loaders.push(loader_a1).is_none());
+        assert!(loaders.push(loader_b1).is_none());
+        assert!(loaders.push(loader_c1).is_none());
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_b1.try_recv().is_ok());
@@ -514,9 +515,9 @@ mod tests {
         let (loader_b1, rx_b1) = Loader::<A, 1, 2>::new();
         let (loader_c1, rx_c1) = Loader::<A, 1, 3>::new();
 
-        loaders.push(loader_a1);
-        loaders.push(loader_b1);
-        loaders.push(loader_c1);
+        assert!(loaders.push(loader_a1).is_none());
+        assert!(loaders.push(loader_b1).is_none());
+        assert!(loaders.push(loader_c1).is_none());
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_b1.try_recv().is_ok());
@@ -566,11 +567,11 @@ mod tests {
         let (loader_c1_b, rx_c1_b) = Loader::<C, 1, 2>::new();
         let (loader_c1_c, rx_c1_c) = Loader::<C, 1, 3>::new();
 
-        loaders.push(loader_a1_a);
-        loaders.push(loader_b1_b);
-        loaders.push(loader_c1_a);
-        loaders.push(loader_c1_b);
-        loaders.push(loader_c1_c);
+        assert!(loaders.push(loader_a1_a).is_none());
+        assert!(loaders.push(loader_b1_b).is_none());
+        assert!(loaders.push(loader_c1_a).is_none());
+        assert!(loaders.push(loader_c1_b).is_none());
+        assert!(loaders.push(loader_c1_c).is_none());
 
         assert!(rx_a1_a.try_recv().is_ok());
         assert!(rx_b1_b.try_recv().is_ok());
@@ -727,9 +728,9 @@ mod tests {
         let (loader_a2_a, rx_a2_a) = Loader::<A, 2, 1>::new();
         let (loader_a3_a, rx_a3_a) = Loader::<A, 3, 1>::new();
 
-        loaders.push(loader_a1_a);
-        loaders.push(loader_a2_a);
-        loaders.push(loader_a3_a);
+        assert!(loaders.push(loader_a1_a).is_none());
+        assert!(loaders.push(loader_a2_a).is_none());
+        assert!(loaders.push(loader_a3_a).is_none());
 
         assert!(rx_a1_a.try_recv().is_ok());
         assert!(rx_a2_a.try_recv().is_ok());
