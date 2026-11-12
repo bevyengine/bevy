@@ -415,8 +415,7 @@ pub fn text_system(
                 TextBounds::UNBOUNDED
             } else {
                 let content_box_size = node.content_box().size();
-                // The text was measured against the unrounded layout. Wrap it at the same width,
-                // or rounding can take away the room for a line the measure found to fit.
+                // Use unrounded dimensions for TextBounds to match TextMeasure
                 let width = layout
                     .get_layout(false)
                     .map_or(content_box_size.x, |(unrounded, _)| {
