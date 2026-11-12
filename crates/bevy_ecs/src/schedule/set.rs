@@ -158,6 +158,14 @@ define_label!(
         fn is_anonymous(&self) -> bool {
             false
         }
+
+        /// Returns the [type name](core::any::type_name) of the concrete type of this system set.
+        ///
+        /// This is used to produce readable names for system sets in diagnostics,
+        /// since the derived [`Debug`] output of an enum only contains the variant name.
+        fn set_type_name(&self) -> &'static str {
+            core::any::type_name::<Self>()
+        }
     },
     extra_methods_impl: {
         fn system_type(&self) -> Option<TypeId> {
@@ -166,6 +174,10 @@ define_label!(
 
         fn is_anonymous(&self) -> bool {
             (**self).is_anonymous()
+        }
+
+        fn set_type_name(&self) -> &'static str {
+            (**self).set_type_name()
         }
     }
 );

@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::default;
+use bevy_utils::{default, prelude::ShortName};
 use core::{
     any::TypeId,
     fmt::{Debug, Write},
@@ -1832,9 +1832,37 @@ impl ScheduleGraph {
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
-                    format!("{set:?}")
+                    self.named_set_name(set)
                 }
             }
+        }
+    }
+
+    /// Returns the name of a non-anonymous system set.
+    ///
+    /// The derived [`Debug`] output of an enum only contains the variant name (e.g. `Variant`),
+    /// so the type name is prepended when the [`Debug`] output does not already start with it
+    /// (e.g. `MySet::Variant`). Structs keep their [`Debug`] output as is.
+    fn named_set_name(&self, set: &dyn SystemSet) -> String {
+        let debug = format!("{set:?}");
+        let type_name = if self.settings.use_shortnames {
+            ShortName(set.set_type_name()).to_string()
+        } else {
+            set.set_type_name().to_string()
+        };
+        // Compare against the bare type name, without module path or generics.
+        let without_generics = type_name.split('<').next().unwrap_or(&type_name);
+        let bare_name = without_generics
+            .rsplit("::")
+            .next()
+            .unwrap_or(without_generics);
+        let starts_with_type_name = debug
+            .strip_prefix(bare_name)
+            .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'));
+        if starts_with_type_name {
+            debug
+        } else {
+            format!("{type_name}::{debug}")
         }
     }
 
