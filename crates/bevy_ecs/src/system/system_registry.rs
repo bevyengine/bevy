@@ -63,7 +63,7 @@ impl Default for TypeIdAndName {
     }
 }
 
-/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
+/// Marker [`Component`] for identifying [`SystemId`] [`Entity`]s.
 #[derive(Debug, Default, Clone, Component)]
 pub struct SystemIdMarker {
     input_type_id: TypeIdAndName,
