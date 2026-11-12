@@ -1023,4 +1023,21 @@ mod tests {
             assert!(*u as usize == i);
         }
     }
+
+    #[test]
+    fn val_unit_value_round_trip() {
+        for val in [
+            Val::Px(3.5),
+            Val::Percent(3.5),
+            Val::Vw(3.5),
+            Val::Vh(3.5),
+            Val::VMin(3.5),
+            Val::VMax(3.5),
+            Val::Em(3.5),
+            Val::Rem(3.5),
+        ] {
+            let (unit, value) = val.unit_value().unwrap();
+            assert_eq!(unit.with_value(value), val);
+        }
+    }
 }
