@@ -1,4 +1,7 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+// Work around wgpu 30's deep auto-trait proofs; see #26199.
+// Recheck after updating wgpu. This limit does not apply to downstream crates.
+#![recursion_limit = "256"]
 
 //! Provides raytraced lighting.
 //!
