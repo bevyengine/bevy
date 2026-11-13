@@ -22,3 +22,5 @@ argh = "0.1.12"
 # is off by default because a build with it needs the DLSS SDK.
 dlss = ["bevy/dlss"]
 force_disable_dlss = ["bevy/force_disable_dlss"]
+
+[lints]
