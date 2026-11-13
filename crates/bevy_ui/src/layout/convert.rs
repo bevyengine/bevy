@@ -19,12 +19,12 @@ pub(crate) struct CalcOps(
         clippy::vec_box,
         reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
     )]
-    Vec<Box<CalcOp>>,
+    pub(crate) Vec<Box<CalcOp>>,
 );
 
 impl CalcOps {
     /// Store a `Box<CalcOp>` and return a raw pointer to its inner value.
-    pub(crate) fn store(&mut self, calc_op: Box<CalcOp>) -> *const () {
+    fn store(&mut self, calc_op: Box<CalcOp>) -> *const () {
         // To respect Rust's aliasing rules we need to push onto the vec before getting the raw pointer.
         self.0.push(calc_op);
         core::ptr::from_ref(&**self.0.last().unwrap()).cast()
@@ -32,7 +32,7 @@ impl CalcOps {
 
     /// Invalidates all the pointers returned by `Store`.
     /// Every field of the corresponding `Style` must be overwitten or dropped.
-    pub(crate) fn clear(&mut self) {
+    fn clear(&mut self) {
         self.0.clear()
     }
 }
