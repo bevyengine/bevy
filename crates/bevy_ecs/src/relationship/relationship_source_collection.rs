@@ -10,9 +10,39 @@ use alloc::vec::Vec;
 use indexmap::IndexSet;
 use smallvec::SmallVec;
 
+/// The cardinality option for a [`RelationshipSourceCollection`]. This can either be:
+/// * [`One`]: A collection that always contains exactly one entity.
+/// * [`Many`]: A collection that contains any number of entities.
+pub trait CollectionCardinality {
+    /// Boolean that indicates if the collection is a single entity or not.
+    const SINGLE: bool;
+}
+
+/// Parameter indicating a [`RelationshipSourceCollection`] contains exactly one entity.
+///
+/// See [`CollectionCardinality`] for details.
+pub struct One;
+
+impl CollectionCardinality for One {
+    const SINGLE: bool = true;
+}
+
+/// Parameter indicating a [`RelationshipSourceCollection`] contains any number of entities.
+///
+/// See [`CollectionCardinality`] for details.
+pub struct Many;
+
+impl CollectionCardinality for Many {
+    const SINGLE: bool = false;
+}
+
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipSourceCollection {
+    /// Cardinality for the collection used in the relationship:
+    /// * [`One`]: A collection that always contains exactly one entity.
+    /// * [`Many`]: A collection that contains any number of entities.
+    type Cardinality: CollectionCardinality;
     /// The type of iterator returned by the `iter` method.
     ///
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
@@ -135,6 +165,7 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
 }
 
 impl RelationshipSourceCollection for Vec<Entity> {
+    type Cardinality = Many;
     type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -238,6 +269,7 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
+    type Cardinality = Many;
     type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -282,6 +314,7 @@ impl RelationshipSourceCollection for EntityHashSet {
 }
 
 impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
+    type Cardinality = Many;
     type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -333,6 +366,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 }
 
 impl RelationshipSourceCollection for Entity {
+    type Cardinality = One;
     type SourceIter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
@@ -447,6 +481,7 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
 }
 
 impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity, S> {
+    type Cardinality = Many;
     type SourceIter<'a>
         = core::iter::Copied<indexmap::set::Iter<'a, Entity>>
     where
@@ -494,6 +529,7 @@ impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity,
 }
 
 impl RelationshipSourceCollection for EntityIndexSet {
+    type Cardinality = Many;
     type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -538,6 +574,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
 }
 
 impl RelationshipSourceCollection for BTreeSet<Entity> {
+    type Cardinality = Many;
     type SourceIter<'a> = core::iter::Copied<btree_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
