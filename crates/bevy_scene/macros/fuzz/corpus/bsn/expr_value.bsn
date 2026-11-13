@@ -1,0 +1,3 @@
+#Player
+Health { current: {hp}, max: {hp} }
+Sprite { image: {sprite_path} }

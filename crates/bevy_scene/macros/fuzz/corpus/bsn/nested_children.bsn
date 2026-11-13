@@ -1,0 +1,12 @@
+#Town
+Children [
+    #Tavern
+    Children [
+        #Innkeeper
+        --
+        #Barkeep
+    ]
+    --
+    #Blacksmith
+    Children [ #Anvil ]
+]

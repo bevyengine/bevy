@@ -1,0 +1,13 @@
+Values {
+    uint: 1,
+    int: -1,
+    float: -0.1,
+    float2: 1.,
+    flag: true,
+    text: "somename",
+    path: std::f32::consts::PI,
+    constant: GREEN,
+    call: some_function(1),
+    expr: { vec![true, false] },
+    scene: { bsn! { Text("foo") Style } },
+}
