@@ -639,7 +639,7 @@ fn entity_row(label: String, expandable: bool) -> impl Scene {
     }
 }
 
-fn row_label(text: String) -> impl Scene {
+pub(crate) fn row_label(text: String) -> impl Scene {
     bsn! {
         InspectorRowLabel
         @caption(text)

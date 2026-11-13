@@ -29,7 +29,7 @@ use bevy_ecs::{
     observer::On,
     query::{Changed, With},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    resource::Resource,
+    resource::{IsResource, Resource},
     system::{Commands, Query, ResMut},
     world::World,
 };
@@ -1460,6 +1460,10 @@ pub(crate) fn inspect_components(
     if let Some(record) = world.component_id::<crate::remote::RemoteComponents>() {
         let record = ComponentKey::of(world, record);
         components.retain(|component| component.key != record);
+    }
+    if let Some(marker) = world.component_id::<IsResource>() {
+        let marker = ComponentKey::of(world, marker);
+        components.retain(|component| component.key != marker);
     }
     components.sort_by(|left, right| (&left.name, &left.key).cmp(&(&right.name, &right.key)));
     components
