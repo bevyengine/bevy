@@ -28,6 +28,7 @@ fn setup(mut commands: Commands) {
             border_radius: BorderRadius::all(px(16.0)),
             ..default()
         },
+        // Optional: add a translucent background color to tint the blurred region
         BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.1)),
     ));
 }
