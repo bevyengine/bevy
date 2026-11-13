@@ -444,7 +444,7 @@ fn toggle_irradiance_volumes(
 
 fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
     if keyboard.just_pressed(KeyCode::Enter) {
-        app_status.rotating = !app_status.rotating;
+        app_status.rotating.toggle();
     }
 }
 
@@ -614,7 +614,7 @@ fn toggle_voxel_visibility(
         return;
     }
 
-    app_status.voxels_visible = !app_status.voxels_visible;
+    app_status.voxels_visible.toggle();
 
     for mut visibility in voxel_cube_parent_query.iter_mut() {
         *visibility = if app_status.voxels_visible {

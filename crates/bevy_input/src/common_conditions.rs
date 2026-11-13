@@ -41,7 +41,7 @@ use core::hash::Hash;
 /// }
 ///
 /// fn toggle_pause_state(mut paused: ResMut<Paused>) {
-///     paused.0 = !paused.0;
+///     paused.0.toggle();
 /// }
 ///
 /// fn pause_menu() {
