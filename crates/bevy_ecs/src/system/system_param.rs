@@ -22,7 +22,6 @@ use crate::{
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
-use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::prelude::DebugName;
 use core::{
     any::Any,
@@ -906,9 +905,11 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
-                added: ticks.added.deref(),
-                changed: ticks.changed.deref(),
-                changed_by: ticks.changed_by.map(|changed_by| changed_by.deref()),
+                added: ticks.added.as_ref_unchecked(),
+                changed: ticks.changed.as_ref_unchecked(),
+                changed_by: ticks
+                    .changed_by
+                    .map(|changed_by| changed_by.as_ref_unchecked()),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
