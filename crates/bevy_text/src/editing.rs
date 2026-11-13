@@ -440,8 +440,15 @@ impl Placeholder {
 /// is drawn in the field's [`TextColor`], with its alpha scaled by
 /// [`PlaceholderColor::DEFAULT_ALPHA`].
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq, Clone)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct PlaceholderColor(pub Color);
+
+impl Default for PlaceholderColor {
+    /// The default [`TextColor`] with its alpha scaled by [`Self::DEFAULT_ALPHA`].
+    fn default() -> Self {
+        Self(Self::resolve(None, TextColor::default().0))
+    }
+}
 
 impl PlaceholderColor {
     /// Alpha multiplier on the field's [`TextColor`] when there is no

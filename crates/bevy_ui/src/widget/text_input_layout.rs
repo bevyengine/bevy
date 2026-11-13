@@ -781,6 +781,15 @@ mod tests {
             PlaceholderColor::resolve(Some(&explicit), field),
             bevy_color::Color::BLACK
         );
+        // The default looks like having no `PlaceholderColor` at all.
+        assert_eq!(
+            PlaceholderColor::default().0,
+            PlaceholderColor::resolve(None, TextColor::default().0)
+        );
+        assert_eq!(
+            bevy_color::Alpha::alpha(&PlaceholderColor::default().0),
+            PlaceholderColor::DEFAULT_ALPHA
+        );
     }
 
     #[test]
