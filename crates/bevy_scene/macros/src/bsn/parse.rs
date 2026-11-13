@@ -494,7 +494,7 @@ fn parse_tuple_loose(input: &ParseBuffer) -> Result<Vec<TokenStream>> {
                     args.push(TokenStream::from_iter(current_tokens.drain(..)));
                 }
                 '|' => {
-                    in_closure_args = !in_closure_args;
+                    in_closure_args.toggle();
                     current_tokens.push(tt);
                 }
                 '<' => {
