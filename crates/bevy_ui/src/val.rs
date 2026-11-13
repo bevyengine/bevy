@@ -662,6 +662,15 @@ impl Mul<f32> for Val {
     }
 }
 
+impl Mul<Val> for f32 {
+    type Output = Val;
+
+    fn mul(self, mut rhs: Val) -> Self::Output {
+        rhs *= self;
+        rhs
+    }
+}
+
 impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {

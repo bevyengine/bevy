@@ -1,5 +1,5 @@
 use crate::{
-    error::BevyError, never::Never, system::entity_command::EntityCommandError,
+    error::BevyError, system::entity_command::EntityCommandError,
     world::error::EntityMutableFetchError,
 };
 use core::fmt::{Debug, Display};
@@ -10,7 +10,7 @@ use core::fmt::{Debug, Display};
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Command` output type",
     label = "invalid `Command` output type",
-    note = "the output type of a `Command` should be `()`, `Never`, or a `Result` where the error type can be converted into `BevyError`"
+    note = "the output type of a `Command` should be `()`, `!`, or a `Result` where the error type can be converted into `BevyError`"
 )]
 pub trait CommandOutput: Sized {
     /// Converts the output into an optional [`BevyError`].
@@ -27,7 +27,7 @@ where
     }
 }
 
-impl CommandOutput for Never {
+impl CommandOutput for ! {
     #[inline]
     fn to_err(self) -> Option<BevyError> {
         None

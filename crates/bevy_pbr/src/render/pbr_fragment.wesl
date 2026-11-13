@@ -103,7 +103,7 @@ fn pbr_input_from_standard_material(
     let is_logically_front = pbr_functions::winding_corrected_front_facing(pbr_input.flags, is_front);
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
+    let NdotV = clamp(dot(pbr_input.N, pbr_input.V), 0.0001, 1.0);
 
     // Fill in the sample bias so we can sample from textures.
     var bias: SampleBias;
