@@ -1,16 +1,19 @@
 use super::{prepare::PathtracerAccumulationTexture, Pathtracer};
-use crate::scene::RaytracingSceneBindings;
+use crate::scene::{AtmosphereBindings, RaytracingSceneBindings};
 use bevy_asset::{load_embedded_asset, AssetServer};
 use bevy_ecs::{prelude::*, resource::Resource, system::Commands};
+use bevy_pbr::resources::{AtmosphereTextures, GpuAtmosphere};
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
-        binding_types::{texture_storage_2d, uniform_buffer},
+        binding_types::{sampler, texture_2d, texture_storage_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        ImageSubresourceRange, PipelineCache, ShaderStages, StorageTextureAccess, TextureFormat,
+        ImageSubresourceRange, PipelineCache, SamplerBindingType, ShaderStages,
+        StorageTextureAccess, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
+    uniform::DynamicUniformIndex,
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_utils::default;
@@ -31,12 +34,24 @@ pub fn init_pathtracer_pipelines(
 ) {
     let bind_group_layout = BindGroupLayoutDescriptor::new(
         "pathtracer_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
+        &BindGroupLayoutEntries::with_indices(
             ShaderStages::COMPUTE,
             (
-                texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
-                texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
-                uniform_buffer::<ViewUniform>(true),
+                (
+                    0,
+                    texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadWrite),
+                ),
+                (
+                    1,
+                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                ),
+                (2, uniform_buffer::<ViewUniform>(true)),
+                (
+                    10,
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                ),
+                (11, sampler(SamplerBindingType::Filtering)),
+                (12, uniform_buffer::<GpuAtmosphere>(true)),
             ),
         ),
     );
@@ -64,16 +79,26 @@ pub fn pathtracer(
         &ExtractedCamera,
         &ViewTarget,
         &ViewUniformOffset,
+        Option<&AtmosphereTextures>,
+        Option<&DynamicUniformIndex<GpuAtmosphere>>,
     )>,
     pathtracer_pipelines: Option<Res<PathtracerPipelines>>,
     pipeline_cache: Res<PipelineCache>,
     scene_bindings: Res<RaytracingSceneBindings>,
     view_uniforms: Res<ViewUniforms>,
+    atmosphere_bindings: AtmosphereBindings,
     render_device: Res<RenderDevice>,
     mut ctx: RenderContext,
 ) {
-    let (pathtracer_settings, accumulation_texture, camera, view_target, view_uniform_offset) =
-        view.into_inner();
+    let (
+        pathtracer_settings,
+        accumulation_texture,
+        camera,
+        view_target,
+        view_uniform_offset,
+        atmosphere_textures,
+        atmosphere_uniform_index,
+    ) = view.into_inner();
 
     let Some(pathtracer_pipelines) = pathtracer_pipelines else {
         return;
@@ -88,13 +113,18 @@ pub fn pathtracer(
         return;
     };
 
+    let atmosphere = atmosphere_bindings.view(atmosphere_textures, atmosphere_uniform_index);
+
     let bind_group = render_device.create_bind_group(
         "pathtracer_bind_group",
         &pipeline_cache.get_bind_group_layout(&pathtracer_pipelines.bind_group_layout),
-        &BindGroupEntries::sequential((
-            &accumulation_texture.0.default_view,
-            view_target.get_unsampled_color_attachment().view,
-            view_uniforms_binding,
+        &BindGroupEntries::with_indices((
+            (0, &accumulation_texture.0.default_view),
+            (1, view_target.get_unsampled_color_attachment().view),
+            (2, view_uniforms_binding),
+            (10, atmosphere.transmittance_lut),
+            (11, atmosphere.sampler),
+            (12, atmosphere.uniform),
         )),
     );
 
@@ -113,6 +143,10 @@ pub fn pathtracer(
     });
     pass.set_pipeline(pipeline);
     pass.set_bind_group(0, scene_bind_group, &[]);
-    pass.set_bind_group(1, &bind_group, &[view_uniform_offset.offset]);
+    pass.set_bind_group(
+        1,
+        &bind_group,
+        &[view_uniform_offset.offset, atmosphere.offset],
+    );
     pass.dispatch_workgroups(viewport.x.div_ceil(8), viewport.y.div_ceil(8), 1);
 }
