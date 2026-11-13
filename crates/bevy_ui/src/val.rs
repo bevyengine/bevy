@@ -806,15 +806,20 @@ pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
     reflect(Serialize, Deserialize)
 )]
 /// An operation clamping a `Val` between a minimum and maximum.
-pub struct ClampOp {
+pub(crate) struct ClampOp {
     /// min
-    pub min: Val,
+    pub(crate) min: Val,
     /// value
-    pub value: Val,
+    pub(crate) value: Val,
     /// max
-    pub max: Val,
+    pub(crate) max: Val,
     /// negate the clamped result
-    pub negated: bool,
+    ///
+    /// This is needed for the reduction of expressions multiplying a negative scalar and a `ClampOp`.
+    /// Unlike with min and max, we can't just negate the inner `Val`s as the bounds may cross over.
+    /// Instead, without the `negate` flag, we would have to expand the clamp operation into a
+    /// composition of min and max operations.
+    pub(crate) negate: bool,
 }
 
 impl ClampOp {
@@ -823,7 +828,7 @@ impl ClampOp {
             min,
             value,
             max,
-            negated: false,
+            negate: false,
         }
     }
 
@@ -836,7 +841,7 @@ impl ClampOp {
         let value = self.value.resolve(context, percent_basis)?;
         let max = self.max.resolve(context, percent_basis)?;
         let clamped = min.max(max.min(value));
-        Ok(if self.negated { -clamped } else { clamped })
+        Ok(if self.negate { -clamped } else { clamped })
     }
 }
 
@@ -907,7 +912,7 @@ impl CalcOp {
                 min,
                 value,
                 max,
-                negated,
+                negate: negated,
             }) => {
                 *min *= k.abs();
                 *value *= k.abs();
@@ -1305,7 +1310,7 @@ mod tests {
                 min: Val::Px(100.0),
                 value: Val::Percent(80.0),
                 max: Val::Px(300.0),
-                negated: true,
+                negate: true,
             }))
         );
         assert_eq!(resolve(&(clamp.clone() * -2.0), 250.0), Ok(-400.0));
@@ -1404,7 +1409,7 @@ mod tests {
                 min: a.clone(),
                 value: Val::Px(15.0),
                 max: b.clone(),
-                negated: false
+                negate: false
             }))),
             Ok(-15.0)
         );
@@ -1413,7 +1418,7 @@ mod tests {
                 min: b,
                 value: Val::Px(15.0),
                 max: a,
-                negated: false
+                negate: false
             }))),
             Ok(-20.0)
         );
@@ -1510,7 +1515,7 @@ mod tests {
             min: Val::Px(100.0),
             value: Val::Percent(50.0),
             max: Val::Px(20.0),
-            negated: false,
+            negate: false,
         }));
         let resolve = |value: Val| {
             value

@@ -180,7 +180,7 @@ fn calc_layout_handles_containers_and_parent_width_based_padding() {
                 min: Val::Px(100.0),
                 value: Val::Percent(80.0),
                 max: Val::Px(300.0),
-                negated: false,
+                negate: false,
             })
             .into(),
             height: Val::Percent(50.0) - Val::Px(10.0),

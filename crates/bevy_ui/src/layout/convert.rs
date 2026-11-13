@@ -57,7 +57,7 @@ impl Val {
                         min,
                         value,
                         max,
-                        negated,
+                        negate: negated,
                     }) => {
                         let clamped = physical(value).clamp(physical(min), physical(max));
                         Some(if *negated { -clamped } else { clamped })
