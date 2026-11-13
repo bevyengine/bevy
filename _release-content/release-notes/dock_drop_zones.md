@@ -1,7 +1,7 @@
 ---
 title: Dock drop zones
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [26527]
 ---
 
 Tabs in a dock can now be dropped on the content of a group as well as on its tab list. Dropping near an edge of a group moves the tab into a new group on that side, splitting the space, and dropping in the middle moves it into the group.
