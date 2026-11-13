@@ -2882,14 +2882,6 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
             })
             .or_default();
 
-        // Clear out the list of jobs.
-        view_phase_bin_unpacking_buffers
-            .indexed_unpacking_jobs
-            .clear();
-        view_phase_bin_unpacking_buffers
-            .non_indexed_unpacking_jobs
-            .clear();
-
         // Our goal is to extract the output work item location and indirect
         // parameters info from the flat `batch_sets` list and to use it to
         // build each batch set's `GpuBinUnpackingMetadata`. To do that, we
@@ -3066,6 +3058,13 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
 pub fn clear_scene_unpacking_buffers(mut scene_unpacking_buffers: ResMut<SceneUnpackingBuffers>) {
     scene_unpacking_buffers.bin_unpacking_metadata.clear();
     scene_unpacking_buffers.uniform_allocation_metadata.clear();
+
+    // Clear out the jobs for every view, including views that we won't see this
+    // frame, since they refer to the metadata above.
+    for view_phase_buffers in scene_unpacking_buffers.view_phase_buffers.values_mut() {
+        view_phase_buffers.indexed_unpacking_jobs.clear();
+        view_phase_buffers.non_indexed_unpacking_jobs.clear();
+    }
 }
 
 /// CPU-side metadata needed to drive the uniform allocation and bin unpacking
