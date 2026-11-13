@@ -680,14 +680,6 @@ macro_rules! uuid_handle {
     }};
 }
 
-#[deprecated = "Use uuid_handle! instead"]
-#[macro_export]
-macro_rules! weak_handle {
-    ($uuid:expr) => {
-        $crate::uuid_handle!($uuid)
-    };
-}
-
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
 #[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]

@@ -12,13 +12,6 @@ pub use bevy_platform::collections::hash_map::Entry as TypeIdHashMapEntry;
 /// The [`Entry`][indexmap::map::Entry] type for [`TypeIdIndexMap`].
 pub use indexmap::map::Entry as TypeIdIndexMapEntry;
 
-/// Deprecated compatibility alias for [`TypeIdIndexMapEntry`].
-#[deprecated(
-    since = "0.20.0",
-    note = "use `TypeIdHashMapEntry` or `TypeIdIndexMapEntry` instead"
-)]
-pub use indexmap::map::Entry as TypeIdMapEntry;
-
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
 /// Iteration order only depends on the order of insertions and deletions.
 pub type PreHashMap<K, V> = HashMap<Hashed<K>, V, PassHash>;
@@ -54,13 +47,6 @@ pub type TypeIdHashMap<V> = HashMap<TypeId, V, NoOpHash>;
 /// A specialized index map type with a key of [`TypeId`].
 /// Iteration order only depends on the order of insertions and deletions.
 pub type TypeIdIndexMap<V> = IndexMap<TypeId, V, NoOpHash>;
-
-/// Deprecated compatibility alias for [`TypeIdIndexMap`].
-#[deprecated(
-    since = "0.20.0",
-    note = "use `TypeIdHashMap` or `TypeIdIndexMap` instead"
-)]
-pub type TypeIdMap<V> = TypeIdIndexMap<V>;
 
 /// Extension trait to make use of [`TypeIdIndexMap`] more ergonomic.
 ///

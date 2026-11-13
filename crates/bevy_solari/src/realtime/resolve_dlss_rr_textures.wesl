@@ -34,11 +34,13 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
 
     textureStore(dlss_rr_depth, pixel_id, vec4(depth));
 
+    // The DLSS-RR integration guide's sky defaults: diffuse albedo 0.5, and specular albedo,
+    // normal and roughness 0.
     if depth == 0.0 {
         textureStore(specular_motion_vectors, pixel_id, vec4(surface_motion_vector, vec2(0.0)));
-        textureStore(diffuse_albedo, pixel_id, vec4(0.0));
-        textureStore(specular_albedo, pixel_id, vec4(0.5));
-        textureStore(normal_roughness, pixel_id, vec4(0.0, 0.0, 1.0, 0.0));
+        textureStore(diffuse_albedo, pixel_id, vec4(0.5));
+        textureStore(specular_albedo, pixel_id, vec4(0.0));
+        textureStore(normal_roughness, pixel_id, vec4(0.0));
         return;
     }
 

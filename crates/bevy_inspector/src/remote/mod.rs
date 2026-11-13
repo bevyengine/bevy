@@ -18,13 +18,14 @@
 //! [`World`]: bevy_ecs::world::World
 
 mod source;
+pub mod stepping;
 pub mod world;
 
-pub(crate) use source::is_remote;
 #[cfg(test)]
 pub(crate) use source::tests;
+
 pub use source::{
-    poll_remote_connection, sync_remote_source, sync_remote_world, RemoteConnection,
-    RemoteConnectionState, RemoteSnapshot, RemoteSource,
+    poll_remote_connections, sync_remote_sources, sync_remote_worlds, RemoteConnection,
+    RemoteConnectionState, RemoteConnections, RemoteSnapshot, RemoteSnapshots, RemoteSource,
 };
-pub use world::{RemoteComponents, RemoteWorld};
+pub use world::{RemoteComponents, RemoteWorld, RemoteWorlds};

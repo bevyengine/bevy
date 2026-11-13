@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{Commands, ParamSet, Query, Res, ResMut},
     world::Ref,
 };
-use bevy_feathers::{theme::ThemeBackgroundColor, tokens};
+use bevy_feathers::{theme::ThemeBackgroundColor, tokens, FeathersSystems};
 use bevy_picking::{
     cursor::EntityCursor,
     events::{PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart},
@@ -374,7 +374,9 @@ impl Plugin for ColumnSplitPlugin {
             .add_observer(column_split_on_cancel)
             .add_systems(
                 PostUpdate,
-                (update_column_splits, update_handle_styles).in_set(UiSystems::Content),
+                (update_column_splits, update_handle_styles)
+                    .in_set(UiSystems::Content)
+                    .ambiguous_with(FeathersSystems),
             );
     }
 }

@@ -34,8 +34,9 @@ pub fn extract_raytracing_scene_structural(
                 &MeshMaterial3d<StandardMaterial>,
                 &GlobalTransform,
                 Option<&PreviousGlobalTransform>,
+                Option<&InheritedVisibility>,
             ),
-            Added<RaytracingMesh3d>,
+            Or<(Added<RaytracingMesh3d>, Changed<InheritedVisibility>)>,
         >,
     >,
     mut removed_raytracing_meshes: Extract<RemovedComponents<RaytracingMesh3d>>,
@@ -49,7 +50,22 @@ pub fn extract_raytracing_scene_structural(
         }
     }
 
-    for (render_entity, mesh, material, transform, previous_frame_transform) in &new_instances {
+    for (
+        render_entity,
+        mesh,
+        material,
+        transform,
+        previous_frame_transform,
+        inherited_visibility,
+    ) in &new_instances
+    {
+        if let Some(visibility) = inherited_visibility
+            && !visibility.get()
+        {
+            commands.entity(render_entity).remove::<RaytracingMesh3d>();
+            continue;
+        }
+
         commands.entity(render_entity).insert((
             mesh.clone(),
             material.clone(),

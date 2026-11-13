@@ -103,7 +103,7 @@ fn pbr_input_from_standard_material(
     let is_logically_front = pbr_functions::winding_corrected_front_facing(pbr_input.flags, is_front);
 
     // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
+    let NdotV = clamp(dot(pbr_input.N, pbr_input.V), 0.0001, 1.0);
 
     // Fill in the sample bias so we can sample from textures.
     var bias: SampleBias;
@@ -235,6 +235,8 @@ pbr_input.material.uv_transform = uv_transform;
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 @if(BINDLESS) {
         pbr_input.material.ior = pbr_bindings::material_array[material_indices[slot].material].ior;
+        pbr_input.material.dispersion =
+                pbr_bindings::material_array[material_indices[slot].material].dispersion;
         pbr_input.material.attenuation_color =
                 pbr_bindings::material_array[material_indices[slot].material].attenuation_color;
         pbr_input.material.attenuation_distance =
@@ -242,6 +244,7 @@ pbr_input.material.uv_transform = uv_transform;
 }
 @else {
         pbr_input.material.ior = pbr_bindings::material.ior;
+        pbr_input.material.dispersion = pbr_bindings::material.dispersion;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
 }

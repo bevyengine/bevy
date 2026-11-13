@@ -4,7 +4,6 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -23,8 +22,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_ui::{
     prelude::BorderRect, BackgroundColor, BorderColor, BorderRadius, ComputedNode,
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy, ScrollPosition,
-    UiGlobalTransform, UiRect, UiScale, UiSystems, UiTransform, Val, ZIndex,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ScrollPosition, UiGlobalTransform, UiRect,
+    UiScale, UiSystems, UiTransform, Val, ValContext, ZIndex,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -42,15 +41,6 @@ pub enum ControlOrientation {
     /// Vertical orientation (stretching from top to bottom)
     #[default]
     Vertical,
-}
-
-/// An event which indicates that we want to scroll the specified item into view (adjusting
-/// the scroll position of it's parent).
-#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
-#[entity_event(propagate)]
-pub struct ScrollIntoView {
-    /// The activated entity.
-    pub entity: Entity,
 }
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.
@@ -103,7 +93,6 @@ pub struct Scrollbar {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy::Block,
     Visibility,
     ZIndex
 )]
@@ -412,27 +401,19 @@ pub(crate) fn update_scrollbar_thumb(
                 thumb_node.inverse_scale_factor = inverse_scale_factor;
             }
 
-            let border_radius = thumb.border_radius.resolve(
+            let context = ValContext::new(
                 target_info.scale_factor(),
-                thumb_physical_size,
                 target_info.physical_size().as_vec2(),
                 thumb_node.em_size,
                 thumb_node.rem_size,
             );
+            let border_radius = thumb.border_radius.resolve(&context, thumb_physical_size);
             if thumb_node.border_radius != border_radius {
                 thumb_node.border_radius = border_radius;
             }
 
-            let resolve_border_val = |val: Val| {
-                val.resolve(
-                    target_info.scale_factor(),
-                    thumb_physical_size.x,
-                    target_info.physical_size().as_vec2(),
-                    thumb_node.em_size,
-                    thumb_node.rem_size,
-                )
-                .unwrap_or(0.)
-            };
+            let resolve_border_val =
+                |val: Val| val.resolve(&context, thumb_physical_size.x).unwrap_or(0.);
 
             let mut resolved_border = BorderRect {
                 min_inset: Vec2::new(
@@ -462,13 +443,7 @@ pub(crate) fn update_scrollbar_thumb(
             thumb_node.bypass_change_detection().border = resolved_border;
 
             let new_transform = scrollbar_transform.affine()
-                * thumb_transform.compute_affine(
-                    target_info.scale_factor(),
-                    thumb_physical_size,
-                    target_info.physical_size().as_vec2(),
-                    thumb_node.em_size,
-                    thumb_node.rem_size,
-                )
+                * thumb_transform.compute_affine(&context, thumb_physical_size)
                 * Affine2::from_translation(thumb_center * target_info.scale_factor());
 
             if thumb_global_transform.affine() != new_transform {

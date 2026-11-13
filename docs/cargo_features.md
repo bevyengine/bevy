@@ -36,7 +36,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 
 |Collection|Description|
 |-|-|
-|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `render_dev_tools`, `file_watcher`.|
+|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps! **Feature set:** `debug`, `bevy_dev_tools`, `render_dev_tools`, `file_watcher`, `inspector`.|
 |audio|Features used to build audio Bevy apps. **Feature set:** `bevy_audio`, `vorbis`.|
 |audio-all-formats|Enables audio features and all supported formats. **Feature set:** `bevy_audio`, `aac`, `flac`, `mp3`, `mp4`, `vorbis`, `wav`.|
 |scene|Features used to compose Bevy scenes. **Feature set:** `bevy_world_serialization`, `bevy_scene`.|
@@ -140,6 +140,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support (through `claxon`)|
 |force_disable_dlss|Forcibly disable DLSS so that `cargo build --all-features` works without the DLSS SDK being installed. Not meant for users.|
+|framepace_debug|Adds frame pacing diagnostics and logs|
 |free_camera|Enables the free cam from bevy_camera_controller|
 |gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
 |gestures|Gestures support. Automatically enabled by `bevy_window`.|
@@ -152,6 +153,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |http|Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
+|inspector|Adds an entity inspector to `DefaultPlugins`, hidden until F12 is pressed.|
 |jpeg|JPEG image format support|
 |keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |ktx2|KTX2 compressed texture support|

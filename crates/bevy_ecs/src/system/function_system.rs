@@ -1,7 +1,6 @@
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
-    never::Never,
     prelude::FromWorld,
     schedule::{InternedSystemSet, SystemSet},
     system::{
@@ -542,6 +541,20 @@ where
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_utils::DebugName;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::{RunSystemOnce, SystemName};
+    /// # let mut world = World::new();
+    /// let function = |name: SystemName| {
+    ///     assert_eq!(name.name(), DebugName::borrowed("system name"));
+    /// };
+    /// let system = IntoSystem::into_system(function).with_name("system name");
+    /// let name = world.run_system_once(system).unwrap();
+    /// ```
     pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
         self.system_meta.set_name(new_name.into());
         self
@@ -726,13 +739,13 @@ impl<T> IntoResult<T> for Result<T, BevyError> {
 // `impl<T> IntoResult<T> for T` when `T` = `!`.
 // Use explicit impls for `()` and `bool` so diverging functions
 // can be used for systems and conditions.
-impl IntoResult<()> for Never {
+impl IntoResult<()> for ! {
     fn into_result(self) -> Result<(), RunSystemError> {
         self
     }
 }
 
-impl IntoResult<bool> for Never {
+impl IntoResult<bool> for ! {
     fn into_result(self) -> Result<bool, RunSystemError> {
         self
     }

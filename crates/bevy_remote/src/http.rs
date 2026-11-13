@@ -14,6 +14,7 @@
 use crate::setup_mailbox_channel;
 use crate::{
     error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender,
+    RemoteMethodKind, RemoteMethods,
 };
 use anyhow::Result as AnyhowResult;
 use async_channel::{Receiver, Sender};
@@ -238,6 +239,7 @@ struct HostHeaders(pub Headers);
 /// A system that starts up the Bevy Remote Protocol HTTP server.
 fn start_http_server(
     request_sender: Res<BrpSender>,
+    methods: Res<RemoteMethods>,
     address: Res<HostAddress>,
     remote_port: Res<HostPort>,
     headers: Res<HostHeaders>,
@@ -247,6 +249,7 @@ fn start_http_server(
             address.0,
             remote_port.0,
             request_sender.clone(),
+            methods.clone(),
             headers.0.clone(),
         ))
         .detach();
@@ -257,11 +260,13 @@ async fn server_main(
     address: IpAddr,
     port: u16,
     request_sender: Sender<BrpMessage>,
+    methods: RemoteMethods,
     headers: Headers,
 ) -> AnyhowResult<()> {
     listen(
         Async::<TcpListener>::bind((address, port))?,
         &request_sender,
+        &methods,
         &headers,
     )
     .await
@@ -270,16 +275,18 @@ async fn server_main(
 async fn listen(
     listener: Async<TcpListener>,
     request_sender: &Sender<BrpMessage>,
+    methods: &RemoteMethods,
     headers: &Headers,
 ) -> AnyhowResult<()> {
     loop {
         let (client, _) = listener.accept().await?;
 
         let request_sender = request_sender.clone();
+        let methods = methods.clone();
         let headers = headers.clone();
         IoTaskPool::get()
             .spawn(async move {
-                let _ = handle_client(client, request_sender, headers).await;
+                let _ = handle_client(client, request_sender, methods, headers).await;
             })
             .detach();
     }
@@ -288,6 +295,7 @@ async fn listen(
 async fn handle_client(
     client: Async<TcpStream>,
     request_sender: Sender<BrpMessage>,
+    methods: RemoteMethods,
     headers: Headers,
 ) -> AnyhowResult<()> {
     http1::Builder::new()
@@ -295,7 +303,7 @@ async fn handle_client(
         .serve_connection(
             FuturesIo::new(client),
             service::service_fn(|request| {
-                process_request_batch(request, &request_sender, &headers)
+                process_request_batch(request, &request_sender, &methods, &headers)
             }),
         )
         .await?;
@@ -308,6 +316,7 @@ async fn handle_client(
 async fn process_request_batch(
     request: Request<Incoming>,
     request_sender: &Sender<BrpMessage>,
+    methods: &RemoteMethods,
     headers: &Headers,
 ) -> AnyhowResult<Response<BrpHttpBody>> {
     let batch_bytes = request.into_body().collect().await?.to_bytes();
@@ -315,7 +324,7 @@ async fn process_request_batch(
 
     let result = match batch {
         Ok(BrpBatch::Single(request)) => {
-            let response = process_single_request(request, request_sender).await?;
+            let response = process_single_request(request, request_sender, methods).await?;
             match response {
                 BrpHttpResponse::Complete(res) => {
                     BrpHttpResponse::Complete(serde_json::to_string(&res)?)
@@ -327,7 +336,7 @@ async fn process_request_batch(
             let mut responses = Vec::new();
 
             for request in requests {
-                let response = process_single_request(request, request_sender).await?;
+                let response = process_single_request(request, request_sender, methods).await?;
                 match response {
                     BrpHttpResponse::Complete(res) => responses.push(res),
                     BrpHttpResponse::Stream(BrpStream { id, .. }) => {
@@ -390,6 +399,7 @@ async fn process_request_batch(
 async fn process_single_request(
     request: Value,
     request_sender: &Sender<BrpMessage>,
+    methods: &RemoteMethods,
 ) -> AnyhowResult<BrpHttpResponse<BrpResponse, BrpStream>> {
     // Reach in and get the request ID early so that we can report it even when parsing fails.
     let id = request.as_object().and_then(|map| map.get("id")).cloned();
@@ -408,7 +418,9 @@ async fn process_single_request(
         }
     };
 
-    let watch = request.method.contains("+watch");
+    let watch = methods
+        .get(&request.method)
+        .is_some_and(|method| method.kind == RemoteMethodKind::Stream);
     let size = if watch { 8 } else { 1 };
     let (result_sender, result_receiver) = async_channel::bounded(size);
 

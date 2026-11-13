@@ -9,6 +9,7 @@ use alloc::{
     vec::Vec,
 };
 
+use bevy_annotations::{DisplayName, ReadOnly, Step, Unit, ValueRange};
 use bevy_color::{
     Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba,
     Oklaba, Oklcha, Srgba, Xyza,
@@ -37,7 +38,8 @@ use bevy_feathers::{
     controls::{
         list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
         FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, OptionIndex, ScrollbarGutter,
+        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputSnapToStep,
+        NumberInputStep, OptionIndex, ScrollbarGutter,
     },
     display::caption,
     theme::ThemedText,
@@ -53,11 +55,13 @@ use bevy_platform::{
     sync::Arc,
 };
 use bevy_reflect::{
+    attributes::CustomAttributes,
     enums::{DynamicEnum, DynamicVariant, VariantInfo, VariantType},
     prelude::ReflectDefault,
     structs::DynamicStruct,
     tuple::DynamicTuple,
-    GetPath, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo, TypeRegistry,
+    GetPath, NamedField, PartialReflect, Reflect, ReflectFromReflect, ReflectRef, TypeInfo,
+    TypeRegistry, UnnamedField,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
 use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
@@ -72,7 +76,7 @@ use bevy_utils::prelude::{DebugName, ShortName};
 use crate::{
     column_split::{ColumnSplit, ColumnSplitLeading},
     entity_tree::InspectorUi,
-    InspectorSelection, InspectorSource,
+    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources,
 };
 
 /// The deepest nesting level whose fields are rendered.
@@ -213,6 +217,8 @@ pub struct FieldEdit {
     /// The inspected entity holding the component.
     #[event_target]
     pub entity: Entity,
+    /// Whether the inspected entity is from.
+    pub source: InspectorSource,
     /// The full type path of the component.
     pub component: String,
     /// The path of the field within the component, in [`bevy_reflect::GetPath`] syntax.
@@ -244,8 +250,135 @@ pub struct FieldEntry {
     pub depth: usize,
     /// The value of the field.
     pub value: FieldValue,
-    /// The range of an integer field whose type is narrower than its number input.
+    /// The range a number input is limited to: that of an integer type narrower than the input,
+    /// narrowed to the [`ValueRange`] annotation of the field.
     pub limit: Option<NumericRange>,
+    /// The annotations of the field.
+    pub annotations: FieldAnnotations,
+}
+
+impl FieldEntry {
+    /// This entry in its read-only caption form, with the unit of a number appended and the
+    /// display name of a variant.
+    fn into_read_only(self) -> Self {
+        let value = match (self.value, self.annotations.unit) {
+            (FieldValue::Number(number), Some(unit)) => {
+                FieldValue::Label(format!("{number} {unit}"))
+            }
+            (FieldValue::Variant { variants, selected }, _) => FieldValue::Label(
+                variants
+                    .get(selected)
+                    .map(|name| self.annotations.variant_label(name).to_string())
+                    .unwrap_or_default(),
+            ),
+            (value, _) => read_only(value),
+        };
+        Self {
+            value,
+            limit: None,
+            annotations: FieldAnnotations {
+                read_only: true,
+                ..self.annotations
+            },
+            ..self
+        }
+    }
+}
+
+/// The [`bevy_annotations`] of a field or type that the details panel honors.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FieldAnnotations {
+    /// The label shown in place of the field or type name.
+    pub display_name: Option<&'static str>,
+    /// Whether the value is shown without an editable widget, also set on the fields of a
+    /// read-only value.
+    pub read_only: bool,
+    /// The range a number is limited to.
+    pub range: Option<ValueRange>,
+    /// The increment of a number input.
+    pub step: Option<f64>,
+    /// The unit shown with a number.
+    pub unit: Option<&'static str>,
+    /// The display names of the variants of an enum, as pairs of variant and display name.
+    pub variant_names: Vec<(&'static str, &'static str)>,
+}
+
+impl FieldAnnotations {
+    /// Reads the annotations from the custom attributes of a field or type.
+    pub fn from_attributes(attributes: &CustomAttributes) -> Self {
+        Self {
+            display_name: attributes.get::<DisplayName>().map(|name| name.0),
+            read_only: attributes.contains::<ReadOnly>(),
+            range: attributes.value_range(),
+            step: attributes.get::<Step>().map(|step| step.0),
+            unit: attributes.get::<Unit>().map(|unit| unit.0),
+            variant_names: Vec::new(),
+        }
+    }
+
+    /// Reads the annotations of a struct, tuple struct or enum type, and of the variants of an
+    /// enum.
+    fn of_type(info: Option<&TypeInfo>) -> Self {
+        match info {
+            Some(TypeInfo::Struct(info)) => Self::from_attributes(info.custom_attributes()),
+            Some(TypeInfo::TupleStruct(info)) => Self::from_attributes(info.custom_attributes()),
+            Some(TypeInfo::Enum(info)) => Self {
+                variant_names: info
+                    .iter()
+                    .filter_map(|variant| {
+                        let name = variant.get_attribute::<DisplayName>()?;
+                        Some((variant.name(), name.0))
+                    })
+                    .collect(),
+                ..Self::from_attributes(info.custom_attributes())
+            },
+            _ => Self::default(),
+        }
+    }
+
+    /// Reads the annotations a field inherits from its type, which are those of the type except
+    /// its display name.
+    fn of_field_type(info: Option<&TypeInfo>) -> Self {
+        Self {
+            display_name: None,
+            ..Self::of_type(info)
+        }
+    }
+
+    /// The annotations that also constrain the items of a list, array, map or set, and the
+    /// payload of an `Option`: the range, step and unit.
+    fn value_constraints(&self) -> Self {
+        Self {
+            range: self.range.clone(),
+            step: self.step,
+            unit: self.unit,
+            ..Self::default()
+        }
+    }
+
+    /// The name shown for the enum variant `name`.
+    fn variant_label<'a>(&self, name: &'a str) -> &'a str {
+        self.variant_names
+            .iter()
+            .find(|(variant, _)| *variant == name)
+            .map_or(name, |(_, label)| label)
+    }
+
+    /// Fills the annotations missing from `self` with those of `other`.
+    fn or(self, other: Self) -> Self {
+        Self {
+            display_name: self.display_name.or(other.display_name),
+            read_only: self.read_only || other.read_only,
+            range: self.range.or(other.range),
+            step: self.step.or(other.step),
+            unit: self.unit.or(other.unit),
+            variant_names: if self.variant_names.is_empty() {
+                other.variant_names
+            } else {
+                self.variant_names
+            },
+        }
+    }
 }
 
 /// The widgets rendering one field, and the value they were last given.
@@ -283,6 +416,7 @@ struct RowLayout {
     depth: usize,
     kind: FieldKind,
     limit: Option<NumericRange>,
+    annotations: FieldAnnotations,
 }
 
 impl RowLayout {
@@ -293,6 +427,7 @@ impl RowLayout {
             depth: entry.depth,
             kind: entry.value.kind(),
             limit: entry.limit.clone(),
+            annotations: entry.annotations.clone(),
         }
     }
 
@@ -302,6 +437,7 @@ impl RowLayout {
             && self.depth == entry.depth
             && self.kind == entry.value.kind()
             && self.limit == entry.limit
+            && self.annotations == entry.annotations
     }
 }
 
@@ -329,7 +465,7 @@ pub struct DetailsIndex {
     fields: HashMap<(ComponentKey, String), FieldWidget>,
     groups: HashMap<ComponentKey, GroupWidget>,
     body: Option<Entity>,
-    selection: Option<Entity>,
+    selection: Option<InspectableEntity>,
     empty: Option<EmptyState>,
 }
 
@@ -358,10 +494,22 @@ impl DetailsIndex {
     }
 }
 
-/// The components whose field lists are collapsed.
-#[derive(Resource, Debug, Default, Reflect)]
+/// Which components have their field lists collapsed.
+#[derive(Resource, Clone, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
-pub struct DetailsCollapsed(pub HashSet<ComponentKey>);
+pub struct DetailsCollapsed {
+    /// Whether a component starts collapsed.
+    pub by_default: bool,
+    /// The components toggled away from [`by_default`](Self::by_default).
+    pub toggled: HashSet<ComponentKey>,
+}
+
+impl DetailsCollapsed {
+    /// Returns `true` if the field list of the component is collapsed.
+    pub fn is_collapsed(&self, key: &ComponentKey) -> bool {
+        self.by_default != self.toggled.contains(key)
+    }
+}
 
 /// The [`ColumnSplit::fraction`] of each component's field rows, kept while groups respawn.
 #[derive(Resource, Debug, Default, Reflect)]
@@ -414,42 +562,49 @@ pub fn details_panel() -> impl Scene {
                 @caption("Details")
             ]
             --
-            @subpane_body()
+            @details_body()
+        ]
+    }
+}
+
+/// The scrolling contents of [`details_panel`], without its header.
+pub fn details_body() -> impl Scene {
+    bsn! {
+        @subpane_body()
+        Node {
+            padding: UiRect {
+                top: px(6),
+                left: px(6),
+                right: px(14),
+                bottom: px(6),
+            },
+            min_height: px(0),
+        }
+        ScrollbarGutter(px(14))
+        Children [
+            #inner
+            InspectorDetailsBody
+            ThemedText
             Node {
-                padding: UiRect {
-                    top: px(6),
-                    left: px(6),
-                    right: px(14),
-                    bottom: px(6),
-                },
-                min_height: px(0),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                row_gap: px(6),
+                overflow: Overflow::scroll_y(),
             }
-            ScrollbarGutter(px(14))
-            Children [
-                #inner
-                InspectorDetailsBody
-                ThemedText
-                Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Stretch,
-                    row_gap: px(6),
-                    overflow: Overflow::scroll_y(),
-                }
-                ScrollArea
-                --
-                @FeathersScrollbar {
-                    @target: #inner,
-                    @orientation: {ControlOrientation::Vertical}
-                }
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: px(4),
-                    top: px(0),
-                    bottom: px(0),
-                    width: px(6),
-                }
-            ]
+            ScrollArea
+            --
+            @FeathersScrollbar {
+                @target: #inner,
+                @orientation: {ControlOrientation::Vertical}
+            }
+            Node {
+                position_type: PositionType::Absolute,
+                right: px(4),
+                top: px(0),
+                bottom: px(0),
+                width: px(6),
+            }
         ]
     }
 }
@@ -464,10 +619,10 @@ pub fn inspector_details_toggled(
     let Ok(component) = toggles.get(change.source) else {
         return;
     };
-    if change.value {
-        collapsed.0.remove(&component.0);
+    if change.value == collapsed.by_default {
+        collapsed.toggled.insert(component.0.clone());
     } else {
-        collapsed.0.insert(component.0.clone());
+        collapsed.toggled.remove(&component.0);
     }
     sync.set_dirty();
 }
@@ -488,7 +643,7 @@ fn emit_field_edit(
     let Ok(field) = fields.get(widget) else {
         return;
     };
-    let Some(entity) = index.selection else {
+    let Some(selection) = index.selection.clone() else {
         return;
     };
     let Some(stored) = index
@@ -505,7 +660,8 @@ fn emit_field_edit(
     let displayed = stored.clone();
     commands.queue(move |world: &mut World| apply_value(world, &displayed, &displayed.value));
     commands.trigger(FieldEdit {
-        entity,
+        entity: selection.entity,
+        source: selection.source,
         component: field.component.0.to_string(),
         path: field.path.clone(),
         value,
@@ -741,7 +897,13 @@ pub(crate) fn apply_field_edit(edit: On<FieldEdit>, mut commands: Commands) {
 /// The details panel is refreshed on the next tick whenever the field does not end up holding the
 /// edited value, so that its widget is reverted.
 fn write_field_edit(world: &mut World, edit: &FieldEdit) {
-    if world.get_resource::<InspectorSource>() != Some(&InspectorSource::Local) {
+    let Some(inspector_sources) = world.get_resource::<InspectorSources>() else {
+        return;
+    };
+    if !inspector_sources.sources.contains(&edit.source) {
+        return;
+    }
+    if edit.source != InspectorSource::Local {
         return;
     }
     let Some(registry) = world.get_resource::<AppTypeRegistry>().cloned() else {
@@ -776,6 +938,17 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
         return;
     };
 
+    let annotations = walk_entries(component.as_partial_reflect(), &registry, Some(&edit.path))
+        .into_iter()
+        .find(|entry| entry.path == edit.path)
+        .map(|entry| entry.annotations)
+        .unwrap_or_default();
+    if annotations.read_only {
+        warn!("`{}` at `{}` is read-only", edit.component, edit.path);
+        return;
+    }
+    let value = clamp_to_range(&edit.value, annotations.range.as_ref());
+
     let target = component.bypass_change_detection();
     let field = if edit.path.is_empty() {
         Ok(target.as_partial_reflect_mut())
@@ -784,7 +957,7 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     };
     let (write, held, typing_a_char) = match field {
         Ok(field) => {
-            let write = write_field_value(field, &edit.value, &registry);
+            let write = write_field_value(field, &value, &registry);
             let held = write != FieldWrite::Rejected && holds_value(field, &edit.value);
             let typing_a_char = matches!(edit.value, FieldValue::Text(_))
                 && field.try_downcast_ref::<char>().is_some();
@@ -803,6 +976,70 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     }
     if !held {
         refresh_details_panel(world);
+    }
+}
+
+/// Clamps a number to `range`, leaving other values and empty ranges untouched.
+fn clamp_to_range(value: &FieldValue, range: Option<&ValueRange>) -> FieldValue {
+    match (value, range) {
+        (FieldValue::Number(number), Some(range)) => match numeric_range(range, *number) {
+            Some(range) => FieldValue::Number(range.clamp(*number)),
+            None => value.clone(),
+        },
+        _ => value.clone(),
+    }
+}
+
+/// `range` in the format of `number`, rounded inward for integers, or `None` if it is empty.
+fn numeric_range(range: &ValueRange, number: NumericValue) -> Option<NumericRange> {
+    let (min, max) = (range.min(), range.max());
+    if min.is_nan() || max.is_nan() || min > max {
+        return None;
+    }
+    let (min, max) = match number {
+        NumericValue::F32(_) => return Some(NumericRange::F32(min as f32..=max as f32)),
+        NumericValue::F64(_) => return Some(NumericRange::F64(min..=max)),
+        _ => (min.ceil(), max.floor()),
+    };
+    if min > max {
+        return None;
+    }
+    Some(match number {
+        NumericValue::I32(_) => NumericRange::I32(min as i32..=max as i32),
+        _ => NumericRange::I64(min as i64..=max as i64),
+    })
+}
+
+/// The range a number input showing `value` is limited to: `limit`, the range of the field type,
+/// narrowed to the annotated `range` where they overlap.
+fn narrowed_limit(
+    limit: Option<NumericRange>,
+    range: Option<&ValueRange>,
+    value: NumericValue,
+) -> Option<NumericRange> {
+    let Some(range) = range.and_then(|range| numeric_range(range, value)) else {
+        return limit;
+    };
+    match (limit, range) {
+        (Some(NumericRange::I32(limit)), NumericRange::I32(range)) => {
+            let start = *limit.start().max(range.start());
+            let end = *limit.end().min(range.end());
+            Some(NumericRange::I32(if start <= end {
+                start..=end
+            } else {
+                limit
+            }))
+        }
+        (Some(NumericRange::I64(limit)), NumericRange::I64(range)) => {
+            let start = *limit.start().max(range.start());
+            let end = *limit.end().min(range.end());
+            Some(NumericRange::I64(if start <= end {
+                start..=end
+            } else {
+                limit
+            }))
+        }
+        (_, range) => Some(range),
     }
 }
 
@@ -1113,8 +1350,8 @@ pub fn sync_details_panel(world: &mut World) {
         .tick(delta)
         .just_finished();
 
-    let selection = world.resource::<InspectorSelection>().0;
-    let selection_changed = world.resource::<DetailsIndex>().selection != selection;
+    let selection = world.resource::<InspectorSelection>().0.clone();
+    let selection_changed = world.resource::<DetailsIndex>().selection.clone() != selection;
     if !run && !selection_changed {
         return;
     }
@@ -1123,13 +1360,27 @@ pub fn sync_details_panel(world: &mut World) {
         return;
     };
 
-    let inspected = crate::world_to_inspect(world);
-    let components = inspect_components(inspected, selection);
-    let empty = empty_state(inspected, selection, &components);
+    let maybe_selected = selection.clone().map(|s| s.entity);
+
+    let inspector_source = selection.clone().map(|s| s.source);
+    let Some(inspector_source) = inspector_source else {
+        reset_body(
+            world,
+            body,
+            selection.clone(),
+            Some(EmptyState::NoSelection),
+        );
+        return;
+    };
+    let local = inspector_source == InspectorSource::Local;
+
+    let inspected = crate::world_to_inspect(world, &inspector_source);
+    let components = inspect_components(inspected, selection.clone(), local);
+    let empty = empty_state(inspected, maybe_selected, &components);
 
     let index = world.resource::<DetailsIndex>();
     if selection_changed || index.body != Some(body) || index.empty != empty {
-        reset_body(world, body, selection, empty);
+        reset_body(world, body, selection.clone(), empty);
     }
     if empty.is_none() {
         sync_groups(world, body, &components);
@@ -1147,9 +1398,10 @@ fn find_body(world: &mut World) -> Option<Entity> {
 /// The component groups of `selection` in the inspected `world`, sorted in display order.
 pub(crate) fn inspect_components(
     world: &World,
-    selection: Option<Entity>,
+    selection: Option<InspectableEntity>,
+    local: bool,
 ) -> Vec<ComponentDetails> {
-    let Some(entity) = selection else {
+    let Some(selection) = selection else {
         return Vec::new();
     };
 
@@ -1162,14 +1414,13 @@ pub(crate) fn inspect_components(
         },
     };
 
-    let Ok(inspection) = world.inspect(entity, settings) else {
+    let Ok(inspection) = world.inspect(selection.entity, settings) else {
         return Vec::new();
     };
     let Some(registry) = world.get_resource::<AppTypeRegistry>() else {
         return Vec::new();
     };
     let registry = registry.read();
-    let local = world.get_resource::<InspectorSource>() == Some(&InspectorSource::Local);
 
     let mut components: Vec<ComponentDetails> = inspection
         .components
@@ -1186,18 +1437,20 @@ pub(crate) fn inspect_components(
                 .get_info(component.component_id)
                 .is_some_and(ComponentInfo::mutable);
             if !(local && mutable) {
-                fields = fields
-                    .into_iter()
-                    .map(|entry| FieldEntry {
-                        value: read_only(entry.value),
-                        limit: None,
-                        ..entry
-                    })
-                    .collect();
+                fields = fields.into_iter().map(FieldEntry::into_read_only).collect();
             }
+            let display_name = FieldAnnotations::of_type(
+                component
+                    .reflected_value
+                    .as_deref()
+                    .and_then(PartialReflect::get_represented_type_info),
+            )
+            .display_name;
             ComponentDetails {
                 key: ComponentKey::of(world, component.component_id),
-                name: crate::component_short_name(world, component.component_id),
+                name: display_name
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| crate::component_short_name(world, component.component_id)),
                 memory: component.memory_size.to_string(),
                 fields,
             }
@@ -1230,7 +1483,7 @@ fn empty_state(
 fn reset_body(
     world: &mut World,
     body: Entity,
-    selection: Option<Entity>,
+    selection: Option<InspectableEntity>,
     empty: Option<EmptyState>,
 ) {
     let children: Vec<Entity> = world
@@ -1260,14 +1513,16 @@ fn reset_body(
 /// Groups of removed components, and groups whose collapsed state or field layout changed, are
 /// respawned or despawned. The remaining groups have their widget values updated in place.
 fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
-    let collapsed = world.resource::<DetailsCollapsed>().0.clone();
+    let collapsed = world.resource::<DetailsCollapsed>().clone();
     let present: HashSet<&ComponentKey> =
         components.iter().map(|component| &component.key).collect();
     let stale: Vec<ComponentKey> = world
         .resource::<DetailsIndex>()
         .groups
         .iter()
-        .filter(|(key, group)| !present.contains(key) || group.expanded == collapsed.contains(*key))
+        .filter(|(key, group)| {
+            !present.contains(key) || group.expanded == collapsed.is_collapsed(key)
+        })
         .map(|(key, _)| key.clone())
         .collect();
 
@@ -1287,7 +1542,7 @@ fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails])
             }
             despawn_group(world, &component.key);
         }
-        let expanded = !collapsed.contains(&component.key);
+        let expanded = !collapsed.is_collapsed(&component.key);
         spawn_group(world, body, component, expanded);
         reordered = true;
     }
@@ -1396,13 +1651,16 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
         }
     }
 
-    if !expanded {
-        return;
-    }
-
     let Some(container) = descendant_with::<InspectorDetailsFields>(world, group) else {
         return;
     };
+    if !expanded {
+        if let Some(mut node) = world.get_mut::<Node>(container) {
+            node.display = Display::None;
+        }
+        return;
+    }
+
     if !component.fields.is_empty() {
         let mut split = ColumnSplit::default();
         if let Some(&fraction) = world
@@ -1436,9 +1694,28 @@ fn component_group(name: String, memory: String) -> impl Scene {
                 @FeathersDisclosureToggle
                 on(inspector_details_toggled)
                 --
-                @caption(name)
+                ThemedText
+                Node {
+                    min_width: px(0),
+                    overflow: Overflow::clip(),
+                }
+                Children [
+                    @caption(name)
+                    Node {
+                        flex_shrink: 0.0,
+                    }
+                    TextLayout {
+                        linebreak: LineBreak::NoWrap,
+                    }
+                ]
                 --
                 @caption(memory)
+                Node {
+                    flex_shrink: 0.0,
+                }
+                TextLayout {
+                    linebreak: LineBreak::NoWrap,
+                }
             ]
             --
             @group_body()
@@ -1536,12 +1813,15 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             }
         }
         FieldValue::Number(_) => {
+            let unit = entry.annotations.unit;
             let entity = spawn_child_scene(
                 world,
                 row,
                 bsn! {
                     InspectorUi
-                    @FeathersNumberInput
+                    @FeathersNumberInput {
+                        @interior_label_text: {unit},
+                    }
                     on(inspector_field_f32_changed)
                     on(inspector_field_f64_changed)
                     on(inspector_field_i32_changed)
@@ -1554,6 +1834,11 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             )?;
             if let Some(limit) = &entry.limit {
                 world.entity_mut(entity).insert(HardLimit(limit.clone()));
+            }
+            if let Some(step) = entry.annotations.step {
+                world
+                    .entity_mut(entity)
+                    .insert((NumberInputStep(step), NumberInputSnapToStep));
             }
             FieldWidget {
                 entity,
@@ -1609,7 +1894,11 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             variants,
             selected: index,
         } => {
-            let options = list_rows_from_strings(variants.clone(), Some(*index));
+            let labels: Vec<String> = variants
+                .iter()
+                .map(|name| entry.annotations.variant_label(name).to_string())
+                .collect();
+            let options = list_rows_from_strings(labels, Some(*index));
             let entity = spawn_child_scene(
                 world,
                 row,
@@ -1787,6 +2076,16 @@ fn descendant_with<C: Component>(world: &World, root: Entity) -> Option<Entity> 
 ///
 /// `registry` decides which enum variants can be built from defaults and so offered for switching.
 pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec<FieldEntry> {
+    walk_entries(value, registry, None)
+}
+
+/// Flattens `value` into rows like [`field_entries`], skipping the rows that are not on the way
+/// to the `target` path, if any.
+fn walk_entries(
+    value: &dyn PartialReflect,
+    registry: &TypeRegistry,
+    target: Option<&str>,
+) -> Vec<FieldEntry> {
     let concrete = value
         .try_as_reflect()
         .is_none()
@@ -1803,6 +2102,7 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
         .unwrap_or(value);
     let mut walk = Walk {
         registry,
+        target,
         entries: Vec::new(),
     };
     if let Some(name) = value.try_downcast_ref::<Name>() {
@@ -1811,33 +2111,45 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
             "value".to_string(),
             0,
             FieldValue::Label(name.as_str().to_string()),
+            &FieldAnnotations::default(),
         );
         return walk.entries;
     }
-    let (value, path) = flatten_newtypes(value, String::new());
-    if let Some(label) = asset_handle_label(value) {
-        walk.push(path, "value".to_string(), 0, FieldValue::Label(label));
+    let root = FieldAnnotations::of_field_type(value.get_represented_type_info());
+    let (value, path, annotations) = flatten_newtypes(value, String::new(), root);
+    let label = |name: &str| annotations.display_name.unwrap_or(name).to_string();
+    let editable = !annotations.read_only;
+    if let Some(caption) = asset_handle_label(value) {
+        walk.push(
+            path,
+            label("value"),
+            0,
+            FieldValue::Label(caption),
+            &annotations,
+        );
     } else if let Some(scalar) = scalar_value(value) {
-        walk.push_scalar(path, "value".to_string(), 0, value, scalar);
+        walk.push_scalar(path, label("value"), 0, value, scalar, &annotations);
     } else if let Some(variant) = variant_value(value, registry) {
-        walk.push(path.clone(), "variant".to_string(), 0, variant);
-        walk.children(value, &path, 0, true);
+        walk.push(path.clone(), label("variant"), 0, variant, &annotations);
+        walk.children(value, &path, 0, editable, &annotations);
     } else if let Some(summary) = summary(value) {
         if !summary.is_empty() {
             walk.push(
                 path.clone(),
-                "value".to_string(),
+                label("value"),
                 0,
                 FieldValue::Label(summary),
+                &annotations,
             );
         }
-        walk.children(value, &path, 0, true);
+        walk.children(value, &path, 0, editable, &annotations);
     } else {
         walk.push(
             path,
-            "value".to_string(),
+            label("value"),
             0,
             FieldValue::Label(format_fallback(value)),
+            &annotations,
         );
     }
     walk.entries
@@ -1846,21 +2158,30 @@ pub fn field_entries(value: &dyn PartialReflect, registry: &TypeRegistry) -> Vec
 /// The state of a walk over a reflected value.
 struct Walk<'a> {
     registry: &'a TypeRegistry,
+    target: Option<&'a str>,
     entries: Vec<FieldEntry>,
 }
 
 impl Walk<'_> {
-    fn push(&mut self, path: String, label: String, depth: usize, value: FieldValue) {
-        self.entries.push(FieldEntry {
+    fn push(
+        &mut self,
+        path: String,
+        label: String,
+        depth: usize,
+        value: FieldValue,
+        annotations: &FieldAnnotations,
+    ) {
+        self.push_entry(FieldEntry {
             path,
             label,
             depth,
             value,
             limit: None,
+            annotations: annotations.clone(),
         });
     }
 
-    /// Adds the row of `scalar`, the value read from `value`, keeping the range of an integer.
+    /// Adds the row of `scalar`, the value read from `value`, keeping the range of a number.
     fn push_scalar(
         &mut self,
         path: String,
@@ -1868,17 +2189,29 @@ impl Walk<'_> {
         depth: usize,
         value: &dyn PartialReflect,
         scalar: FieldValue,
+        annotations: &FieldAnnotations,
     ) {
         let limit = match scalar {
-            FieldValue::Number(_) => integer_limit(value),
+            FieldValue::Number(number) => {
+                narrowed_limit(integer_limit(value), annotations.range.as_ref(), number)
+            }
             _ => None,
         };
-        self.entries.push(FieldEntry {
+        self.push_entry(FieldEntry {
             path,
             label,
             depth,
             value: scalar,
             limit,
+            annotations: annotations.clone(),
+        });
+    }
+
+    fn push_entry(&mut self, entry: FieldEntry) {
+        self.entries.push(if entry.annotations.read_only {
+            entry.into_read_only()
+        } else {
+            entry
         });
     }
 
@@ -1890,48 +2223,73 @@ impl Walk<'_> {
         label: String,
         depth: usize,
         editable: bool,
+        annotations: FieldAnnotations,
     ) {
-        let (value, path) = flatten_newtypes(value, path);
-        let lock = |value| if editable { value } else { read_only(value) };
+        let on_target = self.target.is_none_or(|target| {
+            target
+                .strip_prefix(path.as_str())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(['.', '[']))
+        });
+        if !on_target {
+            return;
+        }
+        let annotations = annotations.or(FieldAnnotations::of_field_type(
+            value.get_represented_type_info(),
+        ));
+        let (value, path, mut annotations) = flatten_newtypes(value, path, annotations);
+        annotations.read_only |= !editable;
+        let editable = !annotations.read_only;
+        let label = annotations
+            .display_name
+            .map(ToString::to_string)
+            .unwrap_or(label);
 
         if depth >= MAX_DEPTH {
-            self.push(path, label, depth, FieldValue::Label("...".to_string()));
+            let value = FieldValue::Label("...".to_string());
+            self.push(path, label, depth, value, &annotations);
             return;
         }
 
         if let Some(caption) = asset_handle_label(value) {
-            self.push(path, label, depth, FieldValue::Label(caption));
+            self.push(path, label, depth, FieldValue::Label(caption), &annotations);
             return;
         }
 
         if let Some(scalar) = scalar_value(value) {
-            self.push_scalar(path, label, depth, value, lock(scalar));
+            self.push_scalar(path, label, depth, value, scalar, &annotations);
             return;
         }
 
         if let Some(variant) = variant_value(value, self.registry) {
-            self.push(path.clone(), label, depth, lock(variant));
-            self.children(value, &path, depth + 1, editable);
+            self.push(path.clone(), label, depth, variant, &annotations);
+            self.children(value, &path, depth + 1, editable, &annotations);
             return;
         }
 
         let Some(summary) = summary(value) else {
-            self.push(
-                path,
-                label,
-                depth,
-                FieldValue::Label(format_fallback(value)),
-            );
+            let value = FieldValue::Label(format_fallback(value));
+            self.push(path, label, depth, value, &annotations);
             return;
         };
 
-        self.push(path.clone(), label, depth, FieldValue::Label(summary));
-        self.children(value, &path, depth + 1, editable);
+        let summary = FieldValue::Label(summary);
+        self.push(path.clone(), label, depth, summary, &annotations);
+        self.children(value, &path, depth + 1, editable, &annotations);
     }
 
-    fn children(&mut self, value: &dyn PartialReflect, prefix: &str, depth: usize, editable: bool) {
+    /// Adds the rows of the fields or items of `value`, whose own annotations are `annotations`.
+    fn children(
+        &mut self,
+        value: &dyn PartialReflect,
+        prefix: &str,
+        depth: usize,
+        editable: bool,
+        annotations: &FieldAnnotations,
+    ) {
+        let constraints = annotations.value_constraints();
         match value.reflect_ref() {
             ReflectRef::Struct(value) => {
+                let info = value.get_represented_struct_info();
                 for index in 0..value.field_len() {
                     let Some(field) = value.field_at(index) else {
                         continue;
@@ -1940,47 +2298,88 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(
+                        info.and_then(|info| info.field_at(index))
+                            .map(NamedField::custom_attributes),
+                    );
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::TupleStruct(value) => {
+                let info = value.get_represented_tuple_struct_info();
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = annotations_of(
+                        info.and_then(|info| info.field_at(index))
+                            .map(UnnamedField::custom_attributes),
+                    );
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::Tuple(value) => {
                 for (index, field) in value.iter_fields().enumerate() {
                     let name = index.to_string();
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let annotations = FieldAnnotations::default();
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             ReflectRef::List(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    let annotations = constraints.clone();
+                    self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Array(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = format!("{prefix}[{index}]");
-                    self.field(item, path, index.to_string(), depth, editable);
+                    let annotations = constraints.clone();
+                    self.field(item, path, index.to_string(), depth, editable, annotations);
                 }
             }
             ReflectRef::Map(value) => {
                 for (index, (key, item)) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, key, index);
                     let editable = editable && key_access(key).is_some();
-                    self.field(item, path, display_value(key), depth, editable);
+                    let annotations = constraints.clone();
+                    self.field(item, path, display_value(key), depth, editable, annotations);
                 }
             }
             ReflectRef::Set(value) => {
                 for (index, item) in value.iter().take(MAX_ITEMS).enumerate() {
                     let path = entry_path(prefix, item, index);
-                    self.field(item, path, index.to_string(), depth, false);
+                    let annotations = constraints.clone();
+                    self.field(item, path, index.to_string(), depth, false, annotations);
                 }
             }
             ReflectRef::Enum(value) => {
+                let is_option = value
+                    .get_represented_type_info()
+                    .is_some_and(|info| info.type_path().starts_with(OPTION_PREFIX));
+                let variant = value
+                    .get_represented_enum_info()
+                    .and_then(|info| info.variant(value.variant_name()));
                 for index in 0..value.field_len() {
                     let Some(field) = value.field_at(index) else {
                         continue;
@@ -1989,7 +2388,26 @@ impl Walk<'_> {
                         .name_at(index)
                         .map(ToString::to_string)
                         .unwrap_or_else(|| index.to_string());
-                    self.field(field, join(prefix, &name), name, depth, editable);
+                    let mut annotations = annotations_of(match variant {
+                        Some(VariantInfo::Struct(info)) => {
+                            info.field_at(index).map(NamedField::custom_attributes)
+                        }
+                        Some(VariantInfo::Tuple(info)) => {
+                            info.field_at(index).map(UnnamedField::custom_attributes)
+                        }
+                        _ => None,
+                    });
+                    if is_option {
+                        annotations = annotations.or(constraints.clone());
+                    }
+                    self.field(
+                        field,
+                        join(prefix, &name),
+                        name,
+                        depth,
+                        editable,
+                        annotations,
+                    );
                 }
             }
             _ => {}
@@ -2009,6 +2427,9 @@ fn asset_handle_label(value: &dyn PartialReflect) -> Option<String> {
 
 const ASSET_HANDLE_PREFIX: &str = "bevy_asset::handle::Handle<";
 
+/// The type path prefix of `Option`, whose `Some` payload takes the constraints of its field.
+const OPTION_PREFIX: &str = "core::option::Option<";
+
 /// The read-only caption form of a field value.
 pub(crate) fn read_only(value: FieldValue) -> FieldValue {
     FieldValue::Label(match value {
@@ -2025,10 +2446,22 @@ pub(crate) fn read_only(value: FieldValue) -> FieldValue {
     })
 }
 
-/// Follows single-field tuple structs down to their inner value, returning it and its path.
+/// The annotations read from `attributes`, or none if there are no attributes.
+fn annotations_of(attributes: Option<&CustomAttributes>) -> FieldAnnotations {
+    attributes
+        .map(FieldAnnotations::from_attributes)
+        .unwrap_or_default()
+}
+
+/// Follows single-field tuple structs down to their inner value, returning it, its path, and
+/// `annotations` filled with those of the inner fields and their types.
 ///
 /// This keeps newtypes from adding a nesting level of their own.
-fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn PartialReflect, String) {
+fn flatten_newtypes(
+    value: &dyn PartialReflect,
+    mut path: String,
+    mut annotations: FieldAnnotations,
+) -> (&dyn PartialReflect, String, FieldAnnotations) {
     let mut value = value;
     while let ReflectRef::TupleStruct(tuple) = value.reflect_ref() {
         if tuple.field_len() != 1 {
@@ -2037,10 +2470,19 @@ fn flatten_newtypes(value: &dyn PartialReflect, mut path: String) -> (&dyn Parti
         let Some(field) = tuple.field(0) else {
             break;
         };
+        let inner = tuple
+            .get_represented_tuple_struct_info()
+            .and_then(|info| info.field_at(0))
+            .map(UnnamedField::custom_attributes);
+        annotations = annotations
+            .or(annotations_of(inner))
+            .or(FieldAnnotations::of_field_type(
+                field.get_represented_type_info(),
+            ));
         path = join(&path, "0");
         value = field;
     }
-    (value, path)
+    (value, path, annotations)
 }
 
 /// The caption shown on the row of a container value, or `None` if the value has no fields.
@@ -2279,6 +2721,8 @@ mod tests {
     use bevy_platform::sync::Arc;
     use bevy_reflect::TypePath;
     use core::time::Duration;
+    // #[cfg(feature = "remote")]
+    // use bevy_remote::http::DEFAULT_PORT;
 
     #[derive(Reflect, Debug, Default)]
     struct Nested {
@@ -2407,6 +2851,7 @@ mod tests {
     fn edit_component<C: TypePath>(app: &mut App, entity: Entity, path: &str, value: FieldValue) {
         app.world_mut().trigger(FieldEdit {
             entity,
+            source: InspectorSource::Local,
             component: C::type_path().to_string(),
             path: path.to_string(),
             value,
@@ -2623,7 +3068,8 @@ mod tests {
             })
             .id();
 
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
         assert_eq!(app.world().resource::<EditCount>().0, 0);
 
@@ -2669,7 +3115,8 @@ mod tests {
             })
             .id();
 
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
 
         fn captions(app: &App) -> Vec<(String, String)> {
@@ -2722,7 +3169,8 @@ mod tests {
             .collect();
 
         for subject in subjects {
-            app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+            app.world_mut().resource_mut::<InspectorSelection>().0 =
+                Some(InspectableEntity::new(subject, InspectorSource::Local));
             for _ in 0..5 {
                 app.update();
             }
@@ -2768,7 +3216,8 @@ mod tests {
             Some(1)
         );
 
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
 
         let component = Subject::type_path();
@@ -2868,7 +3317,8 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Holder(Arc::new(StrongHandle))).id();
 
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
 
         let index = app.world().resource::<DetailsIndex>();
@@ -2916,6 +3366,55 @@ mod tests {
     }
 
     #[test]
+    fn groups_start_collapsed_when_configured_and_expand_when_toggled() {
+        let mut app = test_app();
+        app.world_mut()
+            .resource_mut::<DetailsCollapsed>()
+            .by_default = true;
+        inspect(&mut app, Subject::default());
+        let subject = Subject::type_path();
+        let index = app.world().resource::<DetailsIndex>();
+        assert!(index.group(subject).is_some());
+        assert!(index.widget(subject, "scale").is_none());
+        let fields = fields_container(&app, subject);
+        assert_eq!(
+            app.world().get::<Node>(fields).unwrap().display,
+            Display::None
+        );
+
+        let toggle = app
+            .world_mut()
+            .spawn(InspectorDetailsComponent(subject.into()))
+            .observe(inspector_details_toggled)
+            .id();
+        app.world_mut().trigger(ValueChange {
+            source: toggle,
+            value: true,
+            is_final: true,
+        });
+        app.world_mut().flush();
+        refresh(&mut app);
+        assert!(app
+            .world()
+            .resource::<DetailsIndex>()
+            .widget(subject, "scale")
+            .is_some());
+
+        app.world_mut().trigger(ValueChange {
+            source: toggle,
+            value: false,
+            is_final: true,
+        });
+        app.world_mut().flush();
+        refresh(&mut app);
+        assert!(app
+            .world()
+            .resource::<DetailsIndex>()
+            .widget(subject, "scale")
+            .is_none());
+    }
+
+    #[test]
     fn keeps_each_group_column_split_across_respawns() {
         let mut app = test_app();
         app.register_type::<Wrapper>();
@@ -2932,12 +3431,12 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(subject.into());
         refresh(&mut app);
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .remove(subject);
         refresh(&mut app);
 
@@ -2964,7 +3463,7 @@ mod tests {
         app.update();
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(subject.into());
         refresh(&mut app);
 
@@ -2972,7 +3471,10 @@ mod tests {
             .world_mut()
             .spawn((Subject::default(), Wrapper::default()))
             .id();
-        select(&mut app, Some(other));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(other, InspectorSource::Local)),
+        );
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.group(subject).is_some());
@@ -3067,12 +3569,13 @@ mod tests {
     fn inspect<B: bevy_ecs::bundle::Bundle>(app: &mut App, bundle: B) -> Entity {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let entity = app.world_mut().spawn(bundle).id();
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         app.update();
         entity
     }
 
-    fn select(app: &mut App, entity: Option<Entity>) {
+    fn select(app: &mut App, entity: Option<InspectableEntity>) {
         app.world_mut().resource_mut::<InspectorSelection>().0 = entity;
         app.update();
     }
@@ -3431,7 +3934,10 @@ mod tests {
             )
         );
 
-        select(&mut app, Some(subject));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
 
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.widget(first, "first").is_some());
@@ -3441,7 +3947,7 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
-            .0
+            .toggled
             .insert(first.into());
         refresh(&mut app);
 
@@ -3806,7 +4312,8 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         app.world_mut().get_mut::<Kinds>(entity).unwrap().color = Color::hsla(0.0, 0.5, 0.5, 1.0);
 
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         for _ in 0..3 {
             app.world_mut()
                 .resource_mut::<DetailsPanelSync>()
@@ -3843,7 +4350,9 @@ mod tests {
                 ..Default::default()
             })
             .id();
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.insert_resource(InspectorSources::local());
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
         (app, subject)
     }
@@ -3899,7 +4408,10 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn_empty().id();
 
-        select(&mut app, Some(subject));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
 
         assert_eq!(
             body_message(&mut app).as_deref(),
@@ -3912,7 +4424,10 @@ mod tests {
         let mut app = test_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
-        select(&mut app, Some(subject));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
         assert_eq!(body_message(&mut app), None);
 
         app.world_mut().entity_mut(subject).despawn();
@@ -3932,7 +4447,10 @@ mod tests {
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
         let subject = app.world_mut().spawn(Subject::default()).id();
         let subject_id = Subject::type_path();
-        select(&mut app, Some(subject));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(subject, InspectorSource::Local)),
+        );
         let group = app
             .world()
             .resource::<DetailsIndex>()
@@ -4011,7 +4529,8 @@ mod tests {
                 [("a \"b\"".to_string(), 1.0)].into_iter().collect(),
             ))
             .id();
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(subject);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
         app.update();
         let input = field_widget(&mut app, "0[\"a \\\"b\\\"\"]");
 
@@ -4204,7 +4723,8 @@ mod tests {
             })
             .id();
 
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(second);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(second, InspectorSource::Local));
         trigger_change(&mut app, input, 3.0_f32);
 
         assert_eq!(app.world().get::<Subject>(first).unwrap().scale, 3.0);
@@ -4308,7 +4828,10 @@ mod tests {
     fn dragging_an_integer_to_the_same_value_does_not_mark_it_changed() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(entity));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
         let input = field_widget(&mut app, "byte");
         let changed = |app: &App| {
             app.world()
@@ -4376,7 +4899,10 @@ mod tests {
 
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(entity));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
 
         assert_eq!(limit(&mut app, "byte"), Some(NumericRange::I32(0..=255)));
         assert_eq!(limit(&mut app, "tiny"), Some(NumericRange::I32(-128..=127)));
@@ -4397,7 +4923,10 @@ mod tests {
     fn reverts_the_widget_after_a_rejected_edit() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        select(&mut app, Some(entity));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
         let byte = field_widget(&mut app, "byte");
 
         trigger_change(&mut app, byte, 300_i32);
@@ -4496,10 +5025,12 @@ mod tests {
         assert!(index.widget(component, "0[\"b\"]").is_some());
     }
 
+    #[cfg(feature = "remote")]
     #[test]
     fn ignores_edits_outside_local_mode() {
         let mut app = test_app();
-        app.world_mut().remove_resource::<InspectorSource>();
+        app.world_mut()
+            .insert_resource(InspectorSources::remote_main("localhost", 1));
         let subject = inspect(
             &mut app,
             Subject {
@@ -4524,7 +5055,8 @@ mod tests {
     fn picking_a_color_edits_the_field() {
         let (mut app, entity) = kinds_app();
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         app.update();
         let mut pickers = app
             .world_mut()
@@ -4563,7 +5095,8 @@ mod tests {
             .init_resource::<bevy_clipboard::Clipboard>()
             .add_systems(bevy_app::Update, bevy_text::apply_text_edits);
         app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
-        app.world_mut().resource_mut::<InspectorSelection>().0 = Some(entity);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(entity, InspectorSource::Local));
         app.update();
         let mut inputs = app
             .world_mut()
@@ -4623,5 +5156,373 @@ mod tests {
         assert!(!is_out_of_range(Color::hsla(0.0, 0.5, 0.5, 1.0)));
         assert!(is_out_of_range(Color::linear_rgb(2.0, 1.0, 1.0)));
         assert!(is_out_of_range(Color::srgb(-0.5, 0.0, 0.0)));
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    struct Meters(#[reflect(@Unit("m"))] f32);
+
+    #[derive(Reflect, Debug, Default)]
+    struct Span(#[reflect(@DisplayName("Left"))] f32, f32);
+
+    #[derive(Reflect, Debug, Default)]
+    enum Gait {
+        #[default]
+        Still,
+        Walk {
+            #[reflect(@ValueRange(0.0..=1.0))]
+            pace: f32,
+        },
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    #[reflect(@DisplayName("Limits"), @ReadOnly)]
+    struct Caps {
+        max: f32,
+    }
+
+    #[derive(Reflect, Debug, Default)]
+    #[reflect(@DisplayName("Tuning"))]
+    struct Tuning {
+        gain: f32,
+    }
+
+    #[derive(Reflect, Debug, Default, PartialEq)]
+    enum Stance {
+        #[default]
+        #[reflect(@DisplayName("Standing Still"))]
+        Idle,
+        Crouched,
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default, @DisplayName("Movement Settings"))]
+    struct Annotated {
+        #[reflect(@ValueRange(0.0..=10.0), @Step(0.5), @Unit("m/s"))]
+        speed: f32,
+        #[reflect(@DisplayName("Jump Height"))]
+        jump: f32,
+        #[reflect(@ReadOnly)]
+        grounded: bool,
+        #[reflect(@ValueRange(-5.0..=500.0))]
+        level: u8,
+        #[reflect(@1_u32..=10_u32)]
+        count: u32,
+        #[reflect(@ReadOnly, @Unit("kg"))]
+        mass: f32,
+        #[reflect(@ReadOnly)]
+        nested: Nested,
+        height: Meters,
+        span: Span,
+        gait: Gait,
+        caps: Caps,
+        #[reflect(@DisplayName("Custom Tuning"))]
+        tuning: Tuning,
+        stance: Stance,
+    }
+
+    fn has_text(world: &World, entity: Entity, expected: &str) -> bool {
+        world
+            .get::<Text>(entity)
+            .is_some_and(|text| text.0 == expected)
+            || world.get::<Children>(entity).is_some_and(|children| {
+                children
+                    .iter()
+                    .any(|&child| has_text(world, child, expected))
+            })
+    }
+
+    fn annotated() -> Annotated {
+        Annotated {
+            count: 1,
+            mass: 2.5,
+            gait: Gait::Walk { pace: 0.5 },
+            ..Default::default()
+        }
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default, @ReadOnly)]
+    struct Sealed {
+        value: f32,
+    }
+
+    #[test]
+    fn reads_annotations_into_field_entries() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let speed = entry(&entries, "speed");
+        assert_eq!(speed.limit, Some(NumericRange::F32(0.0..=10.0)));
+        assert_eq!(speed.annotations.step, Some(0.5));
+        assert_eq!(speed.annotations.unit, Some("m/s"));
+        assert_eq!(entry(&entries, "jump").label, "Jump Height");
+        assert_eq!(entry(&entries, "span.0").label, "Left");
+        assert_eq!(entry(&entries, "span.1").label, "1");
+        assert_eq!(
+            entry(&entries, "level").limit,
+            Some(NumericRange::I32(0..=255))
+        );
+        assert_eq!(
+            entry(&entries, "count").limit,
+            Some(NumericRange::I64(1..=10))
+        );
+        assert_eq!(entry(&entries, "height.0").annotations.unit, Some("m"));
+        assert_eq!(
+            entry(&entries, "gait.pace").limit,
+            Some(NumericRange::F32(0.0..=1.0))
+        );
+    }
+
+    #[test]
+    fn shows_annotated_fields_read_only() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let grounded = entry(&entries, "grounded");
+        assert_eq!(grounded.value, FieldValue::Label("false".to_string()));
+        assert!(grounded.annotations.read_only);
+        assert_eq!(
+            entry(&entries, "mass").value,
+            FieldValue::Label("2.5 kg".to_string())
+        );
+        assert_eq!(
+            entry(&entries, "nested.depth").value,
+            FieldValue::Label("0".to_string())
+        );
+        assert_eq!(entry(&entries, "jump").value.kind(), FieldKind::Number);
+    }
+
+    #[test]
+    fn rejects_edits_to_read_only_fields() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+
+        edit_component::<Annotated>(&mut app, entity, "grounded", FieldValue::Bool(true));
+        edit_component::<Annotated>(&mut app, entity, "nested.depth", int(4));
+        edit_component::<Annotated>(&mut app, entity, "jump", float(1.5));
+
+        let annotated = app.world().get::<Annotated>(entity).unwrap();
+        assert!(!annotated.grounded);
+        assert_eq!(annotated.nested.depth, 0);
+        assert_eq!(annotated.jump, 1.5);
+    }
+
+    fn float(value: f32) -> FieldValue {
+        FieldValue::Number(NumericValue::F32(value))
+    }
+
+    #[test]
+    fn clamps_edits_to_the_annotated_range() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+
+        edit_component::<Annotated>(&mut app, entity, "speed", float(25.0));
+        edit_component::<Annotated>(&mut app, entity, "count", int(50));
+        edit_component::<Annotated>(&mut app, entity, "gait.pace", float(-3.0));
+        edit_component::<Annotated>(&mut app, entity, "height.0", float(-3.0));
+
+        let annotated = app.world().get::<Annotated>(entity).unwrap();
+        assert_eq!(annotated.speed, 10.0);
+        assert_eq!(annotated.count, 10);
+        assert!(matches!(annotated.gait, Gait::Walk { pace: 0.0 }));
+        assert_eq!(annotated.height.0, -3.0);
+
+        edit_component::<Annotated>(&mut app, entity, "speed", float(-1.0));
+        assert_eq!(app.world().get::<Annotated>(entity).unwrap().speed, 0.0);
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Wrapped {
+        #[reflect(@ValueRange(0.0..=2.0), @Step(0.25), @Unit("m"), @DisplayName("Reach"))]
+        reach: Option<f32>,
+        #[reflect(@ValueRange(0.0..=1.0))]
+        samples: Vec<f32>,
+    }
+
+    fn wrapped() -> Wrapped {
+        Wrapped {
+            reach: Some(1.0),
+            samples: vec![0.5],
+        }
+    }
+
+    #[test]
+    fn constrains_wrapped_values_with_their_field_annotations() {
+        let entries = field_entries(&wrapped(), &TypeRegistry::new());
+
+        let reach = entry(&entries, "reach.0");
+        assert_eq!(reach.limit, Some(NumericRange::F32(0.0..=2.0)));
+        assert_eq!(reach.annotations.step, Some(0.25));
+        assert_eq!(reach.annotations.unit, Some("m"));
+        assert_eq!(reach.label, "0");
+        assert_eq!(entry(&entries, "reach").label, "Reach");
+        assert_eq!(
+            entry(&entries, "samples[0]").limit,
+            Some(NumericRange::F32(0.0..=1.0))
+        );
+    }
+
+    #[test]
+    fn clamps_edits_to_wrapped_values() {
+        let mut app = test_app();
+        app.register_type::<Wrapped>();
+        let entity = app.world_mut().spawn(wrapped()).id();
+
+        edit_component::<Wrapped>(&mut app, entity, "reach.0", float(5.0));
+        edit_component::<Wrapped>(&mut app, entity, "samples[0]", float(-1.0));
+
+        let wrapped = app.world().get::<Wrapped>(entity).unwrap();
+        assert_eq!(wrapped.reach, Some(2.0));
+        assert_eq!(wrapped.samples, vec![0.0]);
+    }
+
+    #[test]
+    fn configures_number_inputs_from_annotations() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        inspect(&mut app, annotated());
+
+        let speed = field_widget(&mut app, "speed");
+        let world = app.world();
+        assert_eq!(
+            world.get::<HardLimit>(speed).map(|limit| limit.0.clone()),
+            Some(NumericRange::F32(0.0..=10.0))
+        );
+        assert_eq!(
+            world.get::<NumberInputStep>(speed).map(|step| step.0),
+            Some(0.5)
+        );
+        assert!(world.get::<NumberInputSnapToStep>(speed).is_some());
+        assert!(has_text(world, speed, "m/s"));
+
+        let jump = widget_at(&app, "jump").unwrap();
+        assert!(world.get::<NumberInputStep>(jump).is_none());
+        assert!(world.get::<NumberInputSnapToStep>(jump).is_none());
+        assert!(!has_text(world, jump, "m/s"));
+        assert!(row_labels(&app).contains(&"Jump Height".to_string()));
+        assert!(matches!(
+            world
+                .resource::<DetailsIndex>()
+                .fields
+                .iter()
+                .find(|((_, path), _)| path == "grounded"),
+            Some((
+                _,
+                FieldWidget {
+                    value: FieldValue::Label(_),
+                    ..
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn honors_component_annotations() {
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        app.register_type::<Sealed>();
+        let entity = inspect(&mut app, (annotated(), Sealed { value: 1.0 }));
+
+        let names: Vec<String> = inspect_components(
+            app.world(),
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+            true,
+        )
+        .into_iter()
+        .map(|component| component.name)
+        .collect();
+        assert!(
+            names.contains(&"Movement Settings".to_string()),
+            "{names:?}"
+        );
+        assert!(names.contains(&"Sealed".to_string()), "{names:?}");
+
+        let value = widget_at(&app, "value").unwrap();
+        assert!(app.world().get::<InspectorField>(value).is_none());
+        edit_component::<Sealed>(&mut app, entity, "value", float(2.0));
+        assert_eq!(app.world().get::<Sealed>(entity).unwrap().value, 1.0);
+    }
+
+    #[test]
+    fn honors_type_annotations_on_fields() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+
+        let caps = entry(&entries, "caps");
+        assert_eq!(caps.label, "caps");
+        assert!(caps.annotations.read_only);
+        assert_eq!(
+            entry(&entries, "caps.max").value,
+            FieldValue::Label("0".to_string())
+        );
+        assert_eq!(entry(&entries, "tuning").label, "Custom Tuning");
+        assert_eq!(
+            entry(&entries, "tuning.gain").value.kind(),
+            FieldKind::Number
+        );
+
+        let mut app = test_app();
+        app.register_type::<Annotated>();
+        let entity = app.world_mut().spawn(annotated()).id();
+        edit_component::<Annotated>(&mut app, entity, "caps.max", float(4.0));
+        assert_eq!(app.world().get::<Annotated>(entity).unwrap().caps.max, 0.0);
+        assert!(inspect_components(
+            app.world(),
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+            true
+        )
+        .iter()
+        .any(|component| component.name == "Movement Settings"));
+    }
+
+    #[test]
+    fn shows_variant_display_names() {
+        let entries = field_entries(&annotated(), &TypeRegistry::new());
+        let stance = entry(&entries, "stance");
+        assert_eq!(stance.value, variant(&["Idle", "Crouched"], 0));
+        assert_eq!(stance.annotations.variant_label("Idle"), "Standing Still");
+        assert_eq!(
+            stance.clone().into_read_only().value,
+            FieldValue::Label("Standing Still".to_string())
+        );
+
+        let mut app = test_app();
+        app.add_plugins(bevy_text::TextPlugin);
+        app.register_type::<Annotated>();
+        let entity = inspect(
+            &mut app,
+            Annotated {
+                stance: Stance::Crouched,
+                ..annotated()
+            },
+        );
+        let select = field_widget(&mut app, "stance");
+        assert!(has_text(app.world(), select, "Standing Still"));
+        assert!(!has_text(app.world(), select, "Idle"));
+
+        let listbox = descendant_with::<bevy_ui_widgets::ListBox>(app.world(), select).unwrap();
+        let idle = option_rows(&app, select)[0].0;
+        app.world_mut().trigger(ValueChange {
+            source: listbox,
+            value: idle,
+            is_final: true,
+        });
+        app.update();
+        assert_eq!(
+            app.world().get::<Annotated>(entity).unwrap().stance,
+            Stance::Idle
+        );
+    }
+
+    #[test]
+    fn resolves_edit_annotations_like_the_panel() {
+        let value = annotated();
+        let registry = TypeRegistry::new();
+        for full in field_entries(&value, &registry) {
+            let targeted = walk_entries(&value, &registry, Some(&full.path));
+            let found = entry(&targeted, &full.path);
+            assert_eq!(found.annotations, full.annotations, "{}", full.path);
+            assert!(targeted.len() < 10, "{}: {targeted:?}", full.path);
+        }
     }
 }
