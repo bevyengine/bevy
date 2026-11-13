@@ -55,7 +55,7 @@ impl MeasureArgs<'_> {
     /// pixels or percentages. Calc expressions that can't be reduced to a single physical
     /// or percentage length are left unresolved.
     pub fn style(&self) -> &taffy::Style {
-        &self.style
+        self.style
     }
 
     /// Resolve the node's padding against the given size.
