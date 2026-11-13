@@ -163,8 +163,16 @@ define_label!(
         ///
         /// This is used to produce readable names for system sets in diagnostics,
         /// since the derived [`Debug`] output of an enum only contains the variant name.
-        fn set_type_name(&self) -> &'static str {
-            core::any::type_name::<Self>()
+        ///
+        /// Like system names, the name is only available when the `debug` feature is enabled.
+        fn set_type_name(&self) -> DebugName {
+            // `DebugName::type_name` requires `Sized`, which `dyn SystemSet` isn't,
+            // so check the feature here to keep type names out of non-`debug` builds.
+            #[cfg(feature = "debug")]
+            let name = core::any::type_name::<Self>();
+            #[cfg(not(feature = "debug"))]
+            let name = "";
+            DebugName::borrowed(name)
         }
     },
     extra_methods_impl: {
@@ -176,7 +184,7 @@ define_label!(
             (**self).is_anonymous()
         }
 
-        fn set_type_name(&self) -> &'static str {
+        fn set_type_name(&self) -> DebugName {
             (**self).set_type_name()
         }
     }

@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::{default, prelude::ShortName};
+use bevy_utils::{default, prelude::DebugName};
 use core::{
     any::TypeId,
     fmt::{Debug, Write},
@@ -1843,12 +1843,18 @@ impl ScheduleGraph {
     /// The derived [`Debug`] output of an enum only contains the variant name (e.g. `Variant`),
     /// so the type name is prepended when the [`Debug`] output does not already start with it
     /// (e.g. `MySet::Variant`). Structs keep their [`Debug`] output as is.
+    ///
+    /// Without the `debug` feature, type names are not available, so only the [`Debug`] output is used.
     fn named_set_name(&self, set: &dyn SystemSet) -> String {
         let debug = format!("{set:?}");
+        if !DebugName::ENABLED {
+            return debug;
+        }
+        let set_type_name = set.set_type_name();
         let type_name = if self.settings.use_shortnames {
-            ShortName(set.set_type_name()).to_string()
+            set_type_name.shortname().to_string()
         } else {
-            set.set_type_name().to_string()
+            set_type_name.to_string()
         };
         // Compare against the bare type name, without module path or generics.
         let without_generics = type_name.split('<').next().unwrap_or(&type_name);
