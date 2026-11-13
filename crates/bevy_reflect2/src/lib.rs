@@ -38,6 +38,7 @@ pub mod prelude {
     pub use crate::Reflect;
 }
 
+pub mod attributes;
 #[cfg(feature = "auto_register")]
 mod auto_register;
 pub mod builtin;
@@ -1776,5 +1777,81 @@ mod tests {
         let enum_ref = (&foo as &dyn Reflect).enum_ref().unwrap();
         assert_eq!(enum_ref.field(0).unwrap().downcast_ref::<u32>(), Some(&1));
         assert_eq!(enum_ref.field(1).unwrap().downcast_ref::<u64>(), Some(&2));
+    }
+    #[test]
+    fn custom_attributes() {
+        use core::marker::PhantomData;
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Tooltip(&'static str);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Debug)]
+        struct Range(f32, f32);
+
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("type"), @3u8)]
+        struct Foo {
+            #[reflect(@Tooltip("field"), @Range(0.0, 1.0))]
+            value: f32,
+            other: u32,
+        }
+
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("generic"))]
+        struct Generic<T>(
+            #[reflect(@(size_of::<T>() as u32))] u8,
+            #[reflect(ignore)] PhantomData<T>,
+        );
+
+        #[derive(Reflect)]
+        enum Bar {
+            #[reflect(@Tooltip("variant"))]
+            A(#[reflect(@Tooltip("enum field"))] u32),
+            B,
+        }
+
+        let ty = Foo::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("type")));
+        assert_eq!(ty.get_attribute::<u8>(), Some(&3));
+        assert!(ty.has_attribute_by_id(TypeId::of::<u8>()));
+        assert!(!ty.has_attribute::<u32>());
+        assert_eq!(ty.custom_attributes().len(), 2);
+        let Kind::Struct(struct_type) = ty.kind() else {
+            panic!("expected struct");
+        };
+        let field = &struct_type.fields()[0];
+        assert_eq!(field.get_attribute::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_attribute::<Range>(), Some(&Range(0.0, 1.0)));
+        assert!(struct_type.fields()[1].custom_attributes.is_empty());
+        assert_eq!(
+            format!("{:?}", field.custom_attributes),
+            "[Tooltip(\"field\"), Range(0.0, 1.0)]"
+        );
+
+        let ty = Generic::<u32>::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("generic")));
+        let Kind::Struct(struct_type) = ty.kind() else {
+            panic!("expected struct");
+        };
+        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&4));
+        let Kind::Struct(struct_type) = Generic::<u8>::TYPE.kind() else {
+            panic!("expected struct");
+        };
+        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&1));
+
+        let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
+            panic!("expected enum");
+        };
+        let variant = &enum_type.variants()[0];
+        assert_eq!(
+            variant.get_attribute::<Tooltip>(),
+            Some(&Tooltip("variant"))
+        );
+        assert_eq!(
+            variant.fields[0].get_attribute::<Tooltip>(),
+            Some(&Tooltip("enum field"))
+        );
+        assert!(enum_type.variants()[1].custom_attributes.is_empty());
     }
 }

@@ -16,6 +16,8 @@ pub(crate) struct ContainerAttributes {
     pub(crate) hash: TraitImpl,
     pub(crate) partial_eq: TraitImpl,
     pub(crate) partial_ord: TraitImpl,
+    /// Custom attributes (`#[reflect(@expr)]`).
+    pub(crate) custom_attributes: CustomAttributes,
     pub(crate) type_data: Vec<TypeDataRegistration>,
     pub(crate) no_auto_register: bool,
     /// Reflects the type as a `Kind::Primitive` with this `Primitive` variant, without reflecting
@@ -55,6 +57,9 @@ impl ContainerAttributes {
         }
         if input.peek(Token![where]) {
             return self.parse_where(input);
+        }
+        if input.peek(Token![@]) {
+            return self.custom_attributes.parse_custom_attribute(input);
         }
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::Default) {
@@ -347,6 +352,42 @@ impl ContainerAttributes {
                 partial_eq: #partial_eq,
                 partial_cmp: #partial_cmp,
             }
+        }
+    }
+}
+
+/// Custom attributes, registered with `#[reflect(@expr)]` on types, fields, and variants.
+///
+/// Examples:
+/// - `#[reflect(@Tooltip("hello"))]`
+/// - `#[reflect(@0.0..=1.0, @Step(0.5))]`
+#[derive(Default)]
+pub(crate) struct CustomAttributes {
+    attributes: Vec<Expr>,
+}
+
+impl CustomAttributes {
+    pub(crate) fn parse_custom_attribute(&mut self, input: ParseStream) -> Result<()> {
+        input.parse::<Token![@]>()?;
+        self.attributes.push(input.parse::<Expr>()?);
+        Ok(())
+    }
+
+    pub(crate) fn first(&self) -> Option<&Expr> {
+        self.attributes.first()
+    }
+
+    pub(crate) fn to_tokens(&self, bevy_reflect: &Path) -> TokenStream {
+        if self.attributes.is_empty() {
+            return quote! { #bevy_reflect::attributes::CustomAttributes::EMPTY };
+        }
+        let attributes = self.attributes.iter().map(|expr| {
+            quote_spanned! {expr.span()=>
+                &(#expr) as #bevy_reflect::attributes::CustomAttribute
+            }
+        });
+        quote! {
+            #bevy_reflect::attributes::CustomAttributes::new(&[#(#attributes),*])
         }
     }
 }
