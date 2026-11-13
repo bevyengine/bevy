@@ -666,7 +666,7 @@ mod tests {
     use super::*;
     use alloc::borrow::Cow;
     use bevy_app::{App, Update};
-    use bevy_text::{PlaceholderMode, TextColor};
+    use bevy_text::{PlaceholderColor, PlaceholderMode, TextColor};
 
     fn app_with_field(placeholder: Placeholder) -> (App, Entity) {
         let mut app = App::new();
@@ -771,15 +771,44 @@ mod tests {
     #[test]
     fn placeholder_color() {
         let field = TextColor(bevy_color::Color::srgba(1., 1., 1., 0.5)).0;
-        let derived = Placeholder::new("x").resolve_color(field);
+        let derived = PlaceholderColor::resolve(None, field);
         assert_eq!(
             bevy_color::Alpha::alpha(&derived),
-            0.5 * Placeholder::DEFAULT_ALPHA
+            0.5 * PlaceholderColor::DEFAULT_ALPHA
         );
-        let explicit = Placeholder {
-            color: Some(bevy_color::Color::BLACK),
-            ..Placeholder::new("x")
-        };
-        assert_eq!(explicit.resolve_color(field), bevy_color::Color::BLACK);
+        let explicit = PlaceholderColor(bevy_color::Color::BLACK);
+        assert_eq!(
+            PlaceholderColor::resolve(Some(&explicit), field),
+            bevy_color::Color::BLACK
+        );
+    }
+
+    #[test]
+    fn changing_the_color_keeps_the_layout() {
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        // A truncated hint stays truncated until it is laid out again.
+        app.world_mut()
+            .get_mut::<TextLayoutInfo>(entity)
+            .unwrap()
+            .placeholder_glyphs
+            .truncate(1);
+
+        let mut field = app.world_mut().entity_mut(entity);
+        field.insert(PlaceholderColor(bevy_color::Color::BLACK));
+        app.update();
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+
+        app.world_mut()
+            .get_mut::<PlaceholderColor>(entity)
+            .unwrap()
+            .0 = bevy_color::Color::WHITE;
+        app.update();
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<PlaceholderColor>();
+        app.update();
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
     }
 }

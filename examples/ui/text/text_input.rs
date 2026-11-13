@@ -22,10 +22,10 @@
 //! To enable this feature in your own project, add the `system_clipboard` feature to your list of enabled features for `bevy` in your `Cargo.toml`.
 //!
 //! The right input demonstrates password-style character masking via [`EditableText::mask`].
-//! The left input demonstrates optional placeholder hint text via the [`Placeholder`] component.
+//! Both inputs show optional placeholder hint text via the [`Placeholder`] component, the left one in a custom color via [`PlaceholderColor`].
 //!
 //! See the module documentation for [`editable_text`](bevy::ui_widgets::editable_text) for more details.
-use bevy::color::palettes::css::DARK_GREY;
+use bevy::color::palettes::css::{DARK_GREY, GOLD};
 use bevy::color::palettes::tailwind::SLATE_300;
 use bevy::input_focus::AutoFocus;
 use bevy::input_focus::{
@@ -33,7 +33,7 @@ use bevy::input_focus::{
     InputFocus,
 };
 use bevy::prelude::*;
-use bevy::text::{EditableText, Placeholder, TextCursorStyle};
+use bevy::text::{EditableText, Placeholder, PlaceholderColor, TextCursorStyle};
 use bevy::ui_widgets::TextInput;
 
 fn main() {
@@ -74,10 +74,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     let text_input_left = build_input_text(&mut commands, true, 24.0);
-    commands
-        .entity(text_input_left)
-        .insert(Placeholder::new("Type something..."));
+    commands.entity(text_input_left).insert((
+        Placeholder::new("Type something..."),
+        PlaceholderColor(GOLD.into()),
+    ));
     let text_input_right = build_input_text(&mut commands, false, 24.0);
+    commands
+        .entity(text_input_right)
+        .insert(Placeholder::new("Password"));
 
     let input_container = commands
         .spawn((
