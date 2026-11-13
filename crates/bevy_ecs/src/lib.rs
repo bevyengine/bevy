@@ -41,7 +41,6 @@ pub mod label;
 pub mod lifecycle;
 pub mod message;
 pub mod name;
-pub mod never;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
