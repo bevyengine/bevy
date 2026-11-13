@@ -1,7 +1,8 @@
 use crate::{
-    layout::UiTreeDirty, val::CalcOp, ContentSize, FixedNode, GhostNode, IgnoreScroll,
-    LayoutConfig, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip,
-    ScrollPosition, UiTransform, ValContext,
+    layout::{convert::CalcOps, UiTreeDirty},
+    val::CalcOp,
+    ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure,
+    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform, ValContext,
 };
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -52,11 +53,7 @@ pub struct TaffyStyle {
     /// Owns the `CalcOp`s referenced by raw pointers in `style`.
     /// Boxing keeps their addresses stable when the vector reallocates.
     /// These `CalcOp`s are reduced to operations only using `Px` and `Percentage` before layout.
-    #[expect(
-        clippy::vec_box,
-        reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
-    )]
-    pub(crate) calcs: Vec<Box<CalcOp>>,
+    pub(crate) calcs: CalcOps,
 }
 
 /// Resolves a calc pointer that taffy read back out of a [`TaffyStyle`] against the
@@ -134,7 +131,7 @@ static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyS
             end: taffy::GridPlacement::Auto,
         },
     },
-    calcs: vec![],
+    calcs: CalcOps::default(),
 });
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.

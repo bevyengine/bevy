@@ -10,6 +10,33 @@ use crate::{
 
 use super::layout_tree::TaffyStyle;
 
+/// Owns the `CalcOp`s referenced by raw pointers in `style`.
+/// Boxing keeps their addresses stable when the vector reallocates.
+/// These `CalcOp`s are already reduced to operations only using `Px` and `Percentage` before layout.
+#[derive(Default)]
+pub(crate) struct CalcOps(
+    #[expect(
+        clippy::vec_box,
+        reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
+    )]
+    Vec<Box<CalcOp>>,
+);
+
+impl CalcOps {
+    /// Store a `Box<CalcOp>` and return a raw pointer to its inner value.
+    pub(crate) fn store(&mut self, calc_op: Box<CalcOp>) -> *const () {
+        // To respect Rust's aliasing rules we need to push onto the vec before getting the raw pointer.
+        self.0.push(calc_op);
+        core::ptr::from_ref(&**self.0.last().unwrap()).cast()
+    }
+
+    /// Invalidates all the pointers returned by `Store`.
+    /// Every field of the corresponding `Style` must be overwitten or dropped.
+    pub(crate) fn clear(&mut self) {
+        self.0.clear()
+    }
+}
+
 impl Val {
     /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels
     /// before handing them over to Taffy for layout, which provides the percentage basis to finish
@@ -51,23 +78,13 @@ impl Val {
     pub(super) fn to_length_percentage_auto(
         &self,
         context: &ValContext,
-        #[expect(
-            clippy::vec_box,
-            reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
-        )]
-        calcs: &mut Vec<Box<CalcOp>>,
-    ) -> taffy::style::LengthPercentageAuto {
+        calcs: &mut CalcOps,
+    ) -> taffy::LengthPercentageAuto {
         match self.to_physical_except_percent(context) {
             Val::Auto => style_helpers::auto(),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
-            Val::Calc(calc) => {
-                let calc = calc.0;
-                let value =
-                    taffy::style::LengthPercentageAuto::calc(core::ptr::from_ref(&*calc).cast());
-                calcs.push(calc);
-                value
-            }
+            Val::Calc(calc) => taffy::LengthPercentageAuto::calc(calcs.store(calc.0)),
             val => panic!("Expected a physical `Val` after conversion, got {val:?}."),
         }
     }
@@ -79,23 +96,13 @@ impl Val {
     pub(super) fn to_length_percentage(
         &self,
         context: &ValContext,
-        #[expect(
-            clippy::vec_box,
-            reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
-        )]
-        calcs: &mut Vec<Box<CalcOp>>,
-    ) -> taffy::style::LengthPercentage {
+        calcs: &mut CalcOps,
+    ) -> taffy::LengthPercentage {
         match self.to_physical_except_percent(context) {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
-            Val::Calc(calc) => {
-                let calc = calc.0;
-                let value =
-                    taffy::style::LengthPercentage::calc(core::ptr::from_ref(&*calc).cast());
-                calcs.push(calc);
-                value
-            }
+            Val::Calc(calc) => taffy::LengthPercentage::calc(calcs.store(calc.0)),
             val => panic!("Expected a physical `Val` after conversion, got {val:?}."),
         }
     }
@@ -110,17 +117,13 @@ impl Val {
     fn to_length_percentage_for_border(
         &self,
         context: &ValContext,
-        #[expect(
-            clippy::vec_box,
-            reason = "`CompactLength`s hold raw pointers to the `CalcOp`s, boxing keeps their addresses stable if the `Vec` reallocates"
-        )]
-        calcs: &mut Vec<Box<CalcOp>>,
-    ) -> taffy::style::LengthPercentage {
+        calcs: &mut CalcOps,
+    ) -> taffy::LengthPercentage {
         let length = self.to_length_percentage(context, calcs);
         let raw = length.into_raw();
         // we're only snapping if sized in non-zero px
         if raw.tag() == taffy::style::CompactLength::LENGTH_TAG && raw.value() > 0.0 {
-            taffy::style::LengthPercentage::length(raw.value().floor().max(1.0))
+            taffy::LengthPercentage::length(raw.value().floor().max(1.0))
         } else {
             length
         }
@@ -128,7 +131,7 @@ impl Val {
 
     /// Convert a `Val` to Taffy's packed `Dimension`.
     /// `Dimension` is a superset of `LengthPercentageAuto`, it also supports "min-content", "max-content", "fit-content", "stretch" and "content" values.
-    fn to_dimension(&self, context: &ValContext, calcs: &mut Vec<Box<CalcOp>>) -> Dimension {
+    fn to_dimension(&self, context: &ValContext, calcs: &mut CalcOps) -> Dimension {
         match self {
             Val::Auto => style_helpers::auto(),
             Val::MinContent => Dimension::min_content(),
@@ -470,16 +473,16 @@ impl MinTrackSizingFunction {
     fn into_taffy(self, context: &ValContext) -> taffy::style::MinTrackSizingFunction {
         match self {
             MinTrackSizingFunction::Px(val) => Val::Px(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::Percent(val) => Val::Percent(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::Em(val) => Val::Em(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::Rem(val) => Val::Rem(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::auto(),
             MinTrackSizingFunction::MinContent => {
@@ -489,16 +492,16 @@ impl MinTrackSizingFunction {
                 taffy::style::MinTrackSizingFunction::max_content()
             }
             MinTrackSizingFunction::VMin(val) => Val::VMin(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::VMax(val) => Val::VMax(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::Vh(val) => Val::Vh(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MinTrackSizingFunction::Vw(val) => Val::Vw(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
         }
     }
@@ -508,16 +511,16 @@ impl MaxTrackSizingFunction {
     fn into_taffy(self, context: &ValContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
             MaxTrackSizingFunction::Px(val) => Val::Px(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::Percent(val) => Val::Percent(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::Em(val) => Val::Em(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::Rem(val) => Val::Rem(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::auto(),
             MaxTrackSizingFunction::MinContent => {
@@ -529,7 +532,7 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::FitContentPx(val) => {
                 taffy::style::MaxTrackSizingFunction::fit_content_px(
                     Val::Px(val)
-                        .to_length_percentage(context, &mut Vec::new())
+                        .to_length_percentage(context, &mut CalcOps::default())
                         .into_raw()
                         .value(),
                 )
@@ -537,7 +540,7 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::FitContentPercent(val) => {
                 taffy::style::MaxTrackSizingFunction::fit_content_percent(
                     Val::Percent(val)
-                        .to_length_percentage(context, &mut Vec::new())
+                        .to_length_percentage(context, &mut CalcOps::default())
                         .into_raw()
                         .value(),
                 )
@@ -546,16 +549,16 @@ impl MaxTrackSizingFunction {
                 taffy::style::MaxTrackSizingFunction::fr(fraction)
             }
             MaxTrackSizingFunction::VMin(val) => Val::VMin(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::VMax(val) => Val::VMax(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::Vh(val) => Val::Vh(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
             MaxTrackSizingFunction::Vw(val) => Val::Vw(val)
-                .to_length_percentage(context, &mut Vec::new())
+                .to_length_percentage(context, &mut CalcOps::default())
                 .into(),
         }
     }
@@ -897,7 +900,7 @@ mod tests {
         for (val, length) in cases {
             assert!({
                 let lhs = val
-                    .to_length_percentage(&context, &mut Vec::new())
+                    .to_length_percentage(&context, &mut CalcOps::default())
                     .into_raw()
                     .value();
                 let rhs = length.into_raw().value();
