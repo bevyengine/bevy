@@ -1,4 +1,4 @@
-//! A tab strip switching between the entity tree and the resource list.
+//! Tabs for the inspector's world views.
 
 use bevy_ecs::{
     component::Component,
@@ -41,7 +41,7 @@ pub struct InspectorPageTab(pub InspectorPage);
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorPageBody(pub InspectorPage);
 
-/// A tab strip switching between the entity tree and the resource list.
+/// A tab strip with one page per [`InspectorPage`].
 pub fn world_tabs() -> impl Scene {
     bsn! {
         Node {

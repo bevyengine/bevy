@@ -1,40 +1,56 @@
 //! A panel listing the resources of the local world, and the systems that keep it in sync.
 
-use alloc::{string::String, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 
+use bevy_app::PropagateOver;
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::With,
-    reflect::ReflectComponent,
-    resource::Resource,
+    reflect::{AppTypeRegistry, ReflectComponent},
     system::{Query, ResMut},
     world::World,
 };
 use bevy_feathers::{
+    constants::{fonts, size},
     containers::subpane_body,
     controls::{FeathersTreeItem, FeathersTreeView},
+    theme::ThemeTextColor,
+    tokens,
 };
 use bevy_log::warn;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
-use bevy_text::{LineBreak, TextLayout};
-use bevy_time::{Time, Timer, TimerMode};
-use bevy_ui::{px, Node, Overflow, OverflowAxis};
+use bevy_text::{FontSize, FontSourceTemplate, FontWeight, LineBreak, TextFont, TextLayout};
+use bevy_ui::{px, widget::Text, AlignItems, Node, Overflow, OverflowAxis, UiRect};
 use bevy_ui_widgets::{tree_view_self_update, ValueChange};
 
 use crate::{
     entity_tree::row_label, InspectableEntity, InspectorSelection, InspectorSource,
-    InspectorSources,
+    InspectorSources, PanelSync,
 };
 
-/// Marker for the tree view that holds the resource list rows.
-#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+/// The default number of rows a resource list shows before summarizing the rest in one row.
+pub const MAX_RESOURCE_ROWS: usize = 200;
+
+/// The tree view that holds the resource list rows.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
-pub struct InspectorResourceList;
+pub struct InspectorResourceList {
+    /// The number of resource rows shown. Further resources are counted in a final row.
+    pub max_rows: usize,
+}
+
+impl Default for InspectorResourceList {
+    fn default() -> Self {
+        Self {
+            max_rows: MAX_RESOURCE_ROWS,
+        }
+    }
+}
 
 /// A row of the resource list, and the resource entity it displays.
 #[derive(Component, Debug, Clone, Reflect)]
@@ -44,29 +60,25 @@ pub struct InspectorResourceRow {
     pub inspected: Entity,
 }
 
+/// The final row of a resource list, counting the resources beyond its row limit.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct InspectorResourceOverflow;
+
+/// The resources and row limit a resource list last displayed.
+#[derive(Component, Default)]
+struct ListedResources {
+    resources: HashSet<Entity>,
+    max_rows: usize,
+}
+
 /// Pacing of the resource list synchronization pass.
-#[derive(Resource, Debug)]
-pub struct ResourceListSync {
-    /// Time between synchronization passes.
-    pub timer: Timer,
-}
-
-impl Default for ResourceListSync {
-    fn default() -> Self {
-        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
-        timer.set_elapsed(timer.duration());
-        Self { timer }
-    }
-}
-
-impl ResourceListSync {
-    /// Forces a synchronization pass on the next tick.
-    pub fn set_dirty(&mut self) {
-        self.timer.almost_finish();
-    }
-}
+pub type ResourceListSync = PanelSync<InspectorResourceList>;
 
 /// The scrolling list of the local world's resources, one row per resource.
+///
+/// Resources whose type is registered with [`ReflectComponent`] come first. The others follow
+/// with dimmed labels, since the details panel cannot show their fields.
 pub fn resource_list_body() -> impl Scene {
     bsn! {
         @subpane_body()
@@ -104,26 +116,18 @@ pub fn inspector_resource_selected(
 
 /// Adds and removes resource list rows so that they match the resources of the local world.
 ///
-/// The list stays empty unless [`InspectorSources`] includes [`InspectorSource::Local`].
+/// The list stays empty unless [`InspectorSources`] includes [`InspectorSource::Local`]. Rows are
+/// only rebuilt when the set of resources or the row limit changes.
 pub fn sync_resource_list(world: &mut World) {
-    let delta = world
-        .get_resource::<Time>()
-        .map(Time::delta)
-        .unwrap_or_default();
-
-    if !world
-        .resource_mut::<ResourceListSync>()
-        .timer
-        .tick(delta)
-        .just_finished()
-    {
+    if !ResourceListSync::tick(world) {
         return;
     }
 
-    let Some(list) = world
-        .query_filtered::<Entity, With<InspectorResourceList>>()
+    let Some((list, max_rows)) = world
+        .query::<(Entity, &InspectorResourceList)>()
         .iter(world)
         .next()
+        .map(|(list, settings)| (list, settings.max_rows))
     else {
         return;
     };
@@ -132,7 +136,7 @@ pub fn sync_resource_list(world: &mut World) {
         .resource::<InspectorSources>()
         .sources
         .contains(&InspectorSource::Local);
-    let expected: HashMap<Entity, ComponentId> = if local {
+    let resources: HashMap<Entity, ComponentId> = if local {
         world
             .resource_entities()
             .iter()
@@ -147,6 +151,40 @@ pub fn sync_resource_list(world: &mut World) {
         HashMap::default()
     };
 
+    if world.get::<ListedResources>(list).is_some_and(|listed| {
+        listed.max_rows == max_rows
+            && listed.resources.len() == resources.len()
+            && resources
+                .keys()
+                .all(|entity| listed.resources.contains(entity))
+    }) {
+        return;
+    }
+
+    let mut entries: Vec<(bool, String, Entity)> = {
+        let registry = world.get_resource::<AppTypeRegistry>().map(|r| r.read());
+        resources
+            .iter()
+            .map(|(entity, id)| {
+                let reflected = world
+                    .components()
+                    .get_info(*id)
+                    .and_then(ComponentInfo::type_id)
+                    .and_then(|type_id| registry.as_ref()?.get(type_id))
+                    .is_some_and(|registration| registration.data::<ReflectComponent>().is_some());
+                (!reflected, crate::component_short_name(world, *id), *entity)
+            })
+            .collect()
+    };
+    entries.sort();
+    let hidden = entries.len().saturating_sub(max_rows);
+    entries.truncate(max_rows);
+
+    let shown: HashMap<Entity, usize> = entries
+        .iter()
+        .enumerate()
+        .map(|(position, (.., entity))| (*entity, position))
+        .collect();
     let existing: Vec<(Entity, Entity)> = world
         .get::<Children>(list)
         .map(|children| {
@@ -157,35 +195,22 @@ pub fn sync_resource_list(world: &mut World) {
                 .collect()
         })
         .unwrap_or_default();
-    let shown: HashSet<Entity> = existing.iter().map(|(_, inspected)| *inspected).collect();
+    let existing_inspected: HashSet<Entity> =
+        existing.iter().map(|(_, inspected)| *inspected).collect();
 
-    let stale: Vec<Entity> = existing
-        .iter()
-        .filter(|(_, inspected)| !expected.contains_key(inspected))
-        .map(|(row, _)| *row)
-        .collect();
-    let missing: Vec<Entity> = expected
-        .keys()
-        .copied()
-        .filter(|inspected| !shown.contains(inspected))
-        .collect();
-    if stale.is_empty() && missing.is_empty() {
-        return;
-    }
-
-    for row in stale {
-        if let Ok(row) = world.get_entity_mut(row) {
+    for (row, inspected) in &existing {
+        if !shown.contains_key(inspected)
+            && let Ok(row) = world.get_entity_mut(*row)
+        {
             row.despawn();
         }
     }
 
-    let labels: HashMap<Entity, String> = expected
-        .iter()
-        .map(|(entity, id)| (*entity, crate::component_short_name(world, *id)))
-        .collect();
-
-    for inspected in missing {
-        match world.spawn_scene(resource_row(labels[&inspected].clone())) {
+    for (unreflected, label, inspected) in entries {
+        if existing_inspected.contains(&inspected) {
+            continue;
+        }
+        match world.spawn_scene(resource_row(label, !unreflected)) {
             Ok(mut row) => {
                 row.insert((InspectorResourceRow { inspected }, ChildOf(list)));
             }
@@ -193,7 +218,9 @@ pub fn sync_resource_list(world: &mut World) {
         }
     }
 
-    let keys: HashMap<Entity, (&str, Entity)> = world
+    sync_overflow_row(world, list, hidden);
+
+    let positions: HashMap<Entity, usize> = world
         .get::<Children>(list)
         .map(|children| {
             children
@@ -201,21 +228,64 @@ pub fn sync_resource_list(world: &mut World) {
                 .copied()
                 .filter_map(|row| {
                     let inspected = world.get::<InspectorResourceRow>(row)?.inspected;
-                    Some((row, (labels.get(&inspected)?.as_str(), inspected)))
+                    Some((row, *shown.get(&inspected)?))
                 })
                 .collect()
         })
         .unwrap_or_default();
     if let Some(mut children) = world.get_mut::<Children>(list) {
-        children.sort_by_key(|row| keys.get(row).copied());
+        children.sort_by_key(|row| positions.get(row).copied().unwrap_or(usize::MAX));
+    }
+
+    world.entity_mut(list).insert(ListedResources {
+        resources: resources.into_keys().collect(),
+        max_rows,
+    });
+}
+
+/// Spawns, updates or despawns the row counting the `hidden` resources beyond the row limit.
+fn sync_overflow_row(world: &mut World, list: Entity, hidden: usize) {
+    let existing = world.get::<Children>(list).and_then(|children| {
+        children
+            .iter()
+            .copied()
+            .find(|child| world.get::<InspectorResourceOverflow>(*child).is_some())
+    });
+    let text = format!("{hidden} more");
+    match (existing, hidden) {
+        (Some(row), 0) => {
+            if let Ok(row) = world.get_entity_mut(row) {
+                row.despawn();
+            }
+        }
+        (Some(row), _) => {
+            if let Some(mut label) = world.get_mut::<Text>(row)
+                && label.0 != text
+            {
+                label.0 = text;
+            }
+        }
+        (None, 0) => {}
+        (None, _) => match world.spawn_scene(overflow_row(text)) {
+            Ok(mut row) => {
+                row.insert(ChildOf(list));
+            }
+            Err(error) => warn!("failed to spawn an inspector resource row: {error}"),
+        },
     }
 }
 
-fn resource_row(label: String) -> impl Scene {
+fn resource_row(label: String, reflected: bool) -> impl Scene {
+    let color = if reflected {
+        tokens::LISTROW_TEXT
+    } else {
+        tokens::LISTROW_TEXT_DISABLED
+    };
     bsn! {
         @FeathersTreeItem {
             @label: bsn_list! {
                 @row_label(label)
+                ThemeTextColor({color.clone()})
                 Node {
                     min_width: px(0),
                     flex_basis: px(0),
@@ -225,6 +295,28 @@ fn resource_row(label: String) -> impl Scene {
                     linebreak: LineBreak::NoWrap,
                 }
             },
+        }
+    }
+}
+
+fn overflow_row(text: String) -> impl Scene {
+    bsn! {
+        InspectorResourceOverflow
+        Text(text)
+        TextFont {
+            font: FontSourceTemplate::Families(fonts::SANS),
+            font_size: FontSize::Px(14.0),
+            weight: FontWeight::NORMAL,
+        }
+        PropagateOver<TextFont>
+        ThemeTextColor(tokens::LISTROW_TEXT_DISABLED)
+        Node {
+            min_height: size::ROW_HEIGHT,
+            align_items: AlignItems::Center,
+            padding: UiRect::left(px(24)),
+        }
+        TextLayout {
+            linebreak: LineBreak::NoWrap,
         }
     }
 }
@@ -239,7 +331,10 @@ mod tests {
     };
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin};
-    use bevy_ecs::{reflect::ReflectResource, resource::IsResource};
+    use bevy_ecs::{
+        reflect::ReflectResource,
+        resource::{IsResource, Resource},
+    };
     use bevy_reflect::TypePath;
 
     #[derive(Resource, Reflect, Default)]
@@ -267,12 +362,26 @@ mod tests {
         app
     }
 
+    #[derive(Resource)]
+    struct AaaUnreflected;
+
     fn spawn_list(app: &mut App) -> Entity {
+        spawn_capped_list(app, MAX_RESOURCE_ROWS)
+    }
+
+    fn spawn_capped_list(app: &mut App, max_rows: usize) -> Entity {
         let panel = app.world_mut().spawn(InspectorUi).id();
         app.world_mut()
-            .spawn((InspectorResourceList, ChildOf(panel)))
+            .spawn((InspectorResourceList { max_rows }, ChildOf(panel)))
             .observe(inspector_resource_selected)
             .id()
+    }
+
+    fn overflow_text(app: &App, list: Entity) -> Option<String> {
+        let children = app.world().get::<Children>(list)?;
+        let last = *children.last()?;
+        app.world().get::<InspectorResourceOverflow>(last)?;
+        Some(app.world().get::<Text>(last)?.0.clone())
     }
 
     fn sync(app: &mut App) {
@@ -331,6 +440,59 @@ mod tests {
         sync(&mut app);
         assert!(row_of(&app, list, zeta).is_none());
         assert!(row_of(&app, list, alpha).is_some());
+    }
+
+    #[test]
+    fn resources_without_reflection_sort_after_reflected_ones() {
+        let mut app = test_app();
+        let list = spawn_list(&mut app);
+        app.insert_resource(AaaUnreflected).insert_resource(Zeta);
+        app.update();
+        sync(&mut app);
+
+        let shown: Vec<Entity> = rows(&app, list).into_iter().map(|(_, e)| e).collect();
+        let zeta_at = shown
+            .iter()
+            .position(|e| *e == resource_entity::<Zeta>(&app))
+            .unwrap();
+        let unreflected_at = shown
+            .iter()
+            .position(|e| *e == resource_entity::<AaaUnreflected>(&app))
+            .unwrap();
+        assert!(zeta_at < unreflected_at);
+    }
+
+    #[test]
+    fn rows_beyond_the_limit_are_counted_in_a_final_row() {
+        let mut app = test_app();
+        let list = spawn_capped_list(&mut app, 3);
+        app.update();
+        sync(&mut app);
+
+        assert_eq!(rows(&app, list).len(), 3);
+        let hidden: usize = overflow_text(&app, list)
+            .unwrap()
+            .strip_suffix(" more")
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(hidden > 0);
+
+        app.insert_resource(Zeta);
+        sync(&mut app);
+        assert_eq!(rows(&app, list).len(), 3);
+        assert_eq!(
+            overflow_text(&app, list),
+            Some(alloc::format!("{} more", hidden + 1))
+        );
+
+        app.world_mut()
+            .get_mut::<InspectorResourceList>(list)
+            .unwrap()
+            .max_rows = usize::MAX;
+        sync(&mut app);
+        assert_eq!(overflow_text(&app, list), None);
+        assert_eq!(rows(&app, list).len(), hidden + 4);
     }
 
     #[test]

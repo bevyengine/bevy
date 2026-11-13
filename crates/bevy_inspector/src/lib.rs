@@ -27,7 +27,7 @@ pub mod resource_list;
 pub mod world_tabs;
 
 use alloc::string::{String, ToString};
-use core::fmt::Display;
+use core::{fmt::Display, marker::PhantomData};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_camera::visibility::Visibility;
@@ -48,6 +48,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
 use bevy_ui_widgets::SelectedTreeItem;
 
@@ -215,6 +216,67 @@ pub(crate) fn component_short_name(world: &World, component_id: ComponentId) -> 
         .unwrap_or_else(|| ComponentInfo::name(info).shortname().to_string())
 }
 
+/// Pacing of the synchronization passes of the panels marked with `M`.
+///
+/// The first pass runs on the first tick, and a pass also runs on the tick a panel is shown again.
+#[derive(Resource)]
+pub struct PanelSync<M: Component> {
+    /// Time between synchronization passes.
+    pub timer: Timer,
+    marker: PhantomData<fn() -> M>,
+}
+
+impl<M: Component> Default for PanelSync<M> {
+    fn default() -> Self {
+        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
+        timer.set_elapsed(timer.duration());
+        Self {
+            timer,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<M: Component> core::fmt::Debug for PanelSync<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PanelSync")
+            .field("timer", &self.timer)
+            .finish()
+    }
+}
+
+impl<M: Component> PanelSync<M> {
+    /// Forces a synchronization pass on the next tick.
+    pub fn set_dirty(&mut self) {
+        self.timer.almost_finish();
+    }
+
+    /// Advances the timer by the frame's [`Time`] delta, returning `true` if a pass is due.
+    pub(crate) fn tick(world: &mut World) -> bool {
+        let delta = world
+            .get_resource::<Time>()
+            .map(Time::delta)
+            .unwrap_or_default();
+        world
+            .resource_mut::<Self>()
+            .timer
+            .tick(delta)
+            .just_finished()
+    }
+}
+
+fn sync_when_shown<M: Component>(
+    In(visible): In<bool>,
+    mut was_visible: Local<bool>,
+    mut sync: ResMut<PanelSync<M>>,
+) {
+    if visible && !*was_visible {
+        let duration = sync.timer.duration();
+        sync.timer.set_elapsed(duration);
+    }
+    *was_visible = visible;
+}
+
 /// Returns `true` if an entity with the marker `M` exists with no [`Visibility::Hidden`] or
 /// [`Display::None`](NodeDisplay::None) on itself or its ancestors.
 fn panel_visible<M: Component>(
@@ -265,30 +327,6 @@ pub fn details_panel_visible(
     panel_visible(panels, visibilities, nodes, parents)
 }
 
-fn sync_tree_when_shown(
-    In(visible): In<bool>,
-    mut was_visible: Local<bool>,
-    mut sync: ResMut<EntityTreeSync>,
-) {
-    if visible && !*was_visible {
-        let duration = sync.timer.duration();
-        sync.timer.set_elapsed(duration);
-    }
-    *was_visible = visible;
-}
-
-fn sync_resources_when_shown(
-    In(visible): In<bool>,
-    mut was_visible: Local<bool>,
-    mut sync: ResMut<ResourceListSync>,
-) {
-    if visible && !*was_visible {
-        let duration = sync.timer.duration();
-        sync.timer.set_elapsed(duration);
-    }
-    *was_visible = visible;
-}
-
 fn show_selection_in_lists(
     selection: Res<InspectorSelection>,
     index: Res<TreeRowIndex>,
@@ -330,18 +368,6 @@ fn show_selection_in_lists(
     }
 }
 
-fn sync_details_when_shown(
-    In(visible): In<bool>,
-    mut was_visible: Local<bool>,
-    mut sync: ResMut<DetailsPanelSync>,
-) {
-    if visible && !*was_visible {
-        let duration = sync.timer.duration();
-        sync.timer.set_elapsed(duration);
-    }
-    *was_visible = visible;
-}
-
 /// Plugin which registers the inspector resources and the entity tree synchronization systems.
 ///
 /// This plugin does not add the widget plugins the inspector renders with; the app is expected to
@@ -381,12 +407,12 @@ impl Plugin for InspectorPlugin {
                 PostUpdate,
                 (
                     (
-                        entity_tree_visible.pipe(sync_tree_when_shown),
+                        entity_tree_visible.pipe(sync_when_shown::<InspectorTreeView>),
                         sync_entity_tree.run_if(entity_tree_visible),
                     )
                         .chain(),
                     (
-                        resource_list_visible.pipe(sync_resources_when_shown),
+                        resource_list_visible.pipe(sync_when_shown::<InspectorResourceList>),
                         sync_resource_list.run_if(resource_list_visible),
                     )
                         .chain(),
@@ -396,7 +422,7 @@ impl Plugin for InspectorPlugin {
                             .or_eager(any_match_filter::<Added<InspectorEntityRow>>),
                     ),
                     (
-                        details_panel_visible.pipe(sync_details_when_shown),
+                        details_panel_visible.pipe(sync_when_shown::<InspectorDetailsBody>),
                         store_column_splits,
                         sync_details_panel.run_if(details_panel_visible),
                     )

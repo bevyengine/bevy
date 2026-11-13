@@ -65,7 +65,6 @@ use bevy_reflect::{
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
 use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
-use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px, widget::Text, AlignItems, Checked, Display, FlexDirection, Node, Overflow,
     PositionType, UiRect, Val,
@@ -527,26 +526,7 @@ pub fn store_column_splits(
 }
 
 /// Pacing of the details panel synchronization pass.
-#[derive(Resource, Debug)]
-pub struct DetailsPanelSync {
-    /// Time between synchronization passes.
-    pub timer: Timer,
-}
-
-impl Default for DetailsPanelSync {
-    fn default() -> Self {
-        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
-        timer.set_elapsed(timer.duration());
-        Self { timer }
-    }
-}
-
-impl DetailsPanelSync {
-    /// Forces a synchronization pass on the next tick.
-    pub fn set_dirty(&mut self) {
-        self.timer.almost_finish();
-    }
-}
+pub type DetailsPanelSync = crate::PanelSync<InspectorDetailsBody>;
 
 /// A panel showing the components of the selected entity, rendered from reflection.
 pub fn details_panel() -> impl Scene {
@@ -1339,16 +1319,7 @@ fn has_defaults(variant: &VariantInfo, registry: &TypeRegistry) -> bool {
 /// Only the groups of components that were added, removed, collapsed or expanded are respawned.
 /// The whole panel is rebuilt when the selection changes.
 pub fn sync_details_panel(world: &mut World) {
-    let delta = world
-        .get_resource::<Time>()
-        .map(Time::delta)
-        .unwrap_or_default();
-
-    let run = world
-        .resource_mut::<DetailsPanelSync>()
-        .timer
-        .tick(delta)
-        .just_finished();
+    let run = DetailsPanelSync::tick(world);
 
     let selection = world.resource::<InspectorSelection>().0.clone();
     let selection_changed = world.resource::<DetailsIndex>().selection.clone() != selection;

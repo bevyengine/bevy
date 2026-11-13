@@ -50,7 +50,7 @@ use crate::{
 /// Adds the inspector to an app as an overlay, hidden until [`toggle_key`](Self::toggle_key) is
 /// pressed.
 ///
-/// The inspector only walks the world while the entity tree or resource list is showing.
+/// The inspector only walks the world while a view of it is showing.
 pub struct InspectorOverlayPlugin {
     /// The key that shows and hides the overlay.
     pub toggle_key: KeyCode,
@@ -91,9 +91,9 @@ pub struct InspectorOverlay;
 /// A panel of the inspector overlay, shown and hidden independently from the toolbar.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InspectorOverlayPanel {
-    /// The entity tree and resource list.
+    /// The tabbed views of the inspected world.
     #[default]
-    Tree,
+    Overview,
     /// The details of the selected entity.
     Details,
 }
@@ -183,9 +183,9 @@ fn overlay_scene() -> impl Scene {
             @toolbar()
             --
             @panel_window(px(12), px(220))
-            InspectorOverlayPanel::Tree
+            InspectorOverlayPanel::Overview
             Children [
-                @panel_header("World")
+                @panel_header("Overview")
                 --
                 @world_tabs()
             ]
@@ -220,10 +220,10 @@ fn toolbar() -> impl Scene {
         InheritableThemeTextColor(tokens::DIALOG_TEXT)
         Children [
             @FeathersToolButton {
-                @caption: bsn! { @caption("World") },
+                @caption: bsn! { @caption("Overview") },
                 @variant: {ButtonVariant::Primary},
             }
-            PanelToggle(InspectorOverlayPanel::Tree)
+            PanelToggle(InspectorOverlayPanel::Overview)
             on(on_panel_toggle)
             --
             @FeathersToolButton {
@@ -450,9 +450,9 @@ mod tests {
     fn toolbar_toggles_each_panel_independently() {
         let mut app = test_app();
         press(&mut app);
-        let tree = panel(&mut app, InspectorOverlayPanel::Tree);
+        let tree = panel(&mut app, InspectorOverlayPanel::Overview);
         let details = panel(&mut app, InspectorOverlayPanel::Details);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         assert_eq!(
             app.world().get::<ButtonVariant>(button),
             Some(&ButtonVariant::Primary)
@@ -495,8 +495,8 @@ mod tests {
     fn closing_a_panel_keeps_it_and_the_toolbar_reopens_it() {
         let mut app = test_app();
         press(&mut app);
-        let tree = panel(&mut app, InspectorOverlayPanel::Tree);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let tree = panel(&mut app, InspectorOverlayPanel::Overview);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         app.world_mut().trigger(RequestClose { source: tree });
         app.update();
         assert_eq!(
@@ -519,7 +519,7 @@ mod tests {
     fn hiding_the_overlay_keeps_closed_panels_closed() {
         let mut app = test_app();
         press(&mut app);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         click(&mut app, button);
         press(&mut app);
         press(&mut app);
@@ -537,7 +537,7 @@ mod tests {
     fn closing_the_tree_stops_it_syncing_and_reopening_catches_up() {
         let mut app = test_app();
         press(&mut app);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         click(&mut app, button);
         let subject = app.world_mut().spawn(Name::new("Late")).id();
         app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
@@ -607,6 +607,7 @@ mod tests {
     fn selecting_a_resource_clears_the_entity_tree_highlight() {
         let mut app = test_app();
         let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        app.insert_resource(Marker);
         press(&mut app);
         app.world_mut().resource_mut::<InspectorSelection>().0 =
             Some(InspectableEntity::new(subject, InspectorSource::Local));
@@ -624,22 +625,9 @@ mod tests {
             .is_some());
 
         select_page(&mut app, InspectorPage::Resources);
-        let world = app.world_mut();
-        let list = world
-            .query_filtered::<Entity, With<InspectorResourceList>>()
-            .single(world)
-            .unwrap();
-        let row = world
-            .query_filtered::<Entity, With<InspectorResourceRow>>()
-            .iter(world)
-            .next()
-            .unwrap();
-        world.trigger(ValueChange {
-            source: list,
-            value: Some(row),
-            is_final: true,
-        });
-        app.update();
+        let list = single::<With<InspectorResourceList>>(&mut app);
+        let row = resource_row(&mut app).unwrap();
+        select_row(&mut app, list, row);
         assert_eq!(app.world().get::<SelectedTreeItem>(tree).unwrap().0, None);
         assert_eq!(
             app.world().get::<SelectedTreeItem>(list).unwrap().0,
