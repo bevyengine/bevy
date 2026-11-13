@@ -12,11 +12,13 @@ use core::{
 
 use crate::change_detection::{MaybeLocation, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE};
 
-/// Ticks older than this are compacted by [`Tick::check_tick`].
+/// Ticks older than this are compacted by [`Tick::check_tick`]. The `CHECK_TICK_THRESHOLD` gap
+/// below [`COMPACT_START`] keeps compacted ticks older than every tick left alone.
 pub(super) const COMPACT_AGE: u32 = MAX_CHANGE_AGE - 3 * CHECK_TICK_THRESHOLD;
 
-/// The age of the oldest compacted tick. Compacted ticks can't age past [`Tick::MAX`]
-/// before the next scan, so systems that have never run stay older than every tick.
+/// The age of the oldest compacted tick. Scans run at most `2 * CHECK_TICK_THRESHOLD` apart,
+/// so compacted ticks can't age past [`Tick::MAX`] before the next scan, and systems that have
+/// never run stay older than every tick.
 const COMPACT_START: u32 = MAX_CHANGE_AGE - 2 * CHECK_TICK_THRESHOLD;
 
 /// A value that tracks when a system ran relative to other systems.
