@@ -3066,6 +3066,10 @@ pub fn write_binned_instance_buffers<BPI, GFBD>(
 pub fn clear_scene_unpacking_buffers(mut scene_unpacking_buffers: ResMut<SceneUnpackingBuffers>) {
     scene_unpacking_buffers.bin_unpacking_metadata.clear();
     scene_unpacking_buffers.uniform_allocation_metadata.clear();
+    for buffers in scene_unpacking_buffers.view_phase_buffers.values_mut() {
+        buffers.indexed_unpacking_jobs.clear();
+        buffers.non_indexed_unpacking_jobs.clear();
+    }
 }
 
 /// CPU-side metadata needed to drive the uniform allocation and bin unpacking
