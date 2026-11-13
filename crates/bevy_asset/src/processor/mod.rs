@@ -133,13 +133,16 @@ pub(crate) struct ProcessingState {
 
 #[derive(Default)]
 struct Processors {
+    /// Maps a name to a processor instance.
+    name_to_processor: HashMap<Arc<str>, Arc<dyn ErasedProcessor>>,
+    /// Maps the file extension of an asset to the processor we should use to process it by default.
+    file_extension_to_default_processor: HashMap<Box<str>, Arc<str>>,
     /// Maps the type path of the processor to its instance.
+    #[deprecated(note = "Remove in 0.22")]
     type_path_to_processor: HashMap<&'static str, Arc<dyn ErasedProcessor>>,
     /// Maps the short type path of the processor to its instance.
+    #[deprecated(note = "Remove in 0.22")]
     short_type_path_to_processor: HashMap<&'static str, ShortTypeProcessorEntry>,
-    /// Maps the file extension of an asset to the type path of the processor we should use to
-    /// process it by default.
-    file_extension_to_default_processor: HashMap<Box<str>, &'static str>,
 }
 
 enum ShortTypeProcessorEntry {
@@ -436,7 +439,7 @@ impl AssetProcessor {
         path: impl Into<AssetPath<'_>>,
     ) -> Result<(), WriteDefaultMetaError> {
         let path = path.into();
-        let Some(processor) = path
+        let Some((name, processor)) = path
             .get_full_extension()
             .and_then(|extension| self.get_default_processor(extension))
         else {
@@ -446,16 +449,7 @@ impl AssetProcessor {
                 .await;
         };
 
-        let short_type_path = processor.short_type_path();
-        // Try to get the processor using the short type - if it fails, that must mean that the
-        // short type path is insufficient, so we'll have to fall back to the long path.
-        let processor_path_kind = if self.get_processor(short_type_path).is_ok() {
-            MetaTypePathKind::Short
-        } else {
-            MetaTypePathKind::Long
-        };
-
-        let meta = processor.default_meta(processor_path_kind);
+        let meta = processor.default_meta(&name);
         let serialized_meta = meta.serialize();
 
         let source = self.get_source(path.source())?;
@@ -745,7 +739,15 @@ impl AssetProcessor {
     }
 
     /// Register a new asset processor.
-    pub fn register_processor<P: Process>(&self, processor: P) {
+    pub fn register_processor(&self, name: &str, processor: impl Process) {
+        // Avoid requiring <P: Process> on register_processor, while still extracting the type
+        // paths.
+        fn type_paths<P: Process>(_: &P) -> (&'static str, &'static str) {
+            (P::type_path(), P::short_type_path())
+        }
+
+        let (type_path, short_type_path) = type_paths(&processor);
+
         let mut processors = self
             .data
             .processors
@@ -753,45 +755,63 @@ impl AssetProcessor {
             .unwrap_or_else(PoisonError::into_inner);
         let processor = Arc::new(processor);
         processors
+            .name_to_processor
+            .insert(name.into(), processor.clone());
+        #[expect(deprecated, reason = "will be removed in 0.22")]
+        processors
             .type_path_to_processor
-            .insert(P::type_path(), processor.clone());
+            .insert(type_path, processor.clone());
+        #[expect(deprecated, reason = "will be removed in 0.22")]
         match processors
             .short_type_path_to_processor
-            .entry(P::short_type_path())
+            .entry(short_type_path)
         {
             Entry::Vacant(entry) => {
                 entry.insert(ShortTypeProcessorEntry::Unique {
-                    type_path: P::type_path(),
+                    type_path,
                     processor,
                 });
             }
             Entry::Occupied(mut entry) => match entry.get_mut() {
-                ShortTypeProcessorEntry::Unique { type_path, .. } => {
-                    let type_path = *type_path;
+                ShortTypeProcessorEntry::Unique {
+                    type_path: other_type_path,
+                    ..
+                } => {
                     *entry.get_mut() =
-                        ShortTypeProcessorEntry::Ambiguous(vec![type_path, P::type_path()]);
+                        ShortTypeProcessorEntry::Ambiguous(vec![other_type_path, type_path]);
                 }
                 ShortTypeProcessorEntry::Ambiguous(type_paths) => {
-                    type_paths.push(P::type_path());
+                    type_paths.push(type_path);
                 }
             },
         }
     }
 
-    /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
-    pub fn set_default_processor<P: Process>(&self, extension: &str) {
+    /// Set the default processor for the given `extension` to `processor_name`. Make sure `processor_name` is registered with [`AssetProcessor::register_processor`].
+    pub fn set_default_processor(&self, extension: &str, processor_name: &str) {
         let mut processors = self
             .data
             .processors
             .write()
             .unwrap_or_else(PoisonError::into_inner);
+        let processor_name = if let Some((key, _)) =
+            processors.name_to_processor.get_key_value(processor_name)
+        {
+            key.clone()
+        } else {
+            warn!("Attempted to set the default processor of extension \"{extension}\" to \"{processor_name}\", but no such processor exists");
+            Arc::from(processor_name)
+        };
         processors
             .file_extension_to_default_processor
-            .insert(extension.into(), P::type_path());
+            .insert(extension.into(), processor_name);
     }
 
-    /// Returns the default processor for the given `extension`, if it exists.
-    pub fn get_default_processor(&self, extension: &str) -> Option<Arc<dyn ErasedProcessor>> {
+    /// Returns the default processor (and its name) for the given `extension`, if it exists.
+    pub fn get_default_processor(
+        &self,
+        extension: &str,
+    ) -> Option<(Arc<str>, Arc<dyn ErasedProcessor>)> {
         let processors = self
             .data
             .processors
@@ -800,36 +820,57 @@ impl AssetProcessor {
         let key = processors
             .file_extension_to_default_processor
             .get(extension)?;
-        processors.type_path_to_processor.get(key).cloned()
+        processors
+            .name_to_processor
+            .get_key_value(key)
+            .map(|(k, v)| (k.clone(), v.clone()))
     }
 
     /// Returns the processor with the given `processor_type_name`, if it exists.
     pub fn get_processor(
         &self,
-        processor_type_name: &str,
+        processor_name: &str,
     ) -> Result<Arc<dyn ErasedProcessor>, GetProcessorError> {
         let processors = self
             .data
             .processors
             .read()
             .unwrap_or_else(PoisonError::into_inner);
-        if let Some(short_type_processor) = processors
-            .short_type_path_to_processor
-            .get(processor_type_name)
+        if let Some(processor) = processors.name_to_processor.get(processor_name).cloned() {
+            return Ok(processor);
+        }
+
+        #[expect(deprecated, reason = "will be removed in 0.22")]
+        if let Some(short_type_processor) =
+            processors.short_type_path_to_processor.get(processor_name)
         {
+            warn!(
+                "A processor was found by its short type name, but this behavior is deprecated. \
+                Use the processor's explicit name instead (used to register the processor)."
+            );
             return match short_type_processor {
                 ShortTypeProcessorEntry::Unique { processor, .. } => Ok(processor.clone()),
                 ShortTypeProcessorEntry::Ambiguous(examples) => Err(GetProcessorError::Ambiguous {
-                    processor_short_name: processor_type_name.to_owned(),
+                    processor_short_name: processor_name.to_owned(),
                     ambiguous_processor_names: examples.clone(),
                 }),
             };
         }
-        processors
+
+        #[expect(deprecated, reason = "will be removed in 0.22")]
+        if let Some(processor) = processors
             .type_path_to_processor
-            .get(processor_type_name)
+            .get(processor_name)
             .cloned()
-            .ok_or_else(|| GetProcessorError::Missing(processor_type_name.to_owned()))
+        {
+            warn!(
+                "A processor was found by its long type name, but this behavior is deprecated. Use \
+                the processor's explicit name instead (used to register the processor)."
+            );
+            return Ok(processor);
+        }
+
+        Err(GetProcessorError::Missing(processor_name.to_owned()))
     }
 
     /// Populates the initial view of each asset by scanning the unprocessed and processed asset folders.
@@ -1072,14 +1113,11 @@ impl AssetProcessor {
                 (meta, meta_bytes, processor)
             }
             Err(AssetReaderError::NotFound(_path)) => {
-                let (meta, processor) = if let Some(processor) = asset_path
+                let (meta, processor) = if let Some((name, processor)) = asset_path
                     .get_full_extension()
                     .and_then(|ext| self.get_default_processor(ext))
                 {
-                    // Note: It doesn't matter whether we use the Long or Short kind, since we're
-                    // returning the processor here anyway, and we're only using this meta to pass
-                    // along the processor settings.
-                    let meta = processor.default_meta(MetaTypePathKind::Long);
+                    let meta = processor.default_meta(&name);
                     (meta, Some(processor))
                 } else {
                     match server.get_path_asset_loader(asset_path.clone()).await {

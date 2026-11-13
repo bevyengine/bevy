@@ -59,9 +59,10 @@ impl Plugin for TextPlugin {
             .init_asset::<Text>()
             .register_asset_loader(TextLoader)
             .register_asset_processor(
-                LoadTransformAndSave::new(CoolTextLoader, CoolTextTransformer, CoolTextSaver)
+                "TransformCoolText",
+                LoadTransformAndSave::new(CoolTextLoader, CoolTextTransformer, CoolTextSaver),
             )
-            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
+            .set_default_asset_processor("cool.ron", "TransformCoolText");
     }
 }
 
