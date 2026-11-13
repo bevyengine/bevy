@@ -290,7 +290,7 @@ fn split_pane_on_cancel(
     });
 }
 
-fn update_split_pane_layout(
+pub(crate) fn update_split_pane_layout(
     q_changed_split: Query<Entity, (With<SplitPane>, Or<(Changed<SplitPane>, Changed<Children>)>)>,
     q_changed_pane: Query<&ChildOf, Changed<Pane>>,
     q_split: Query<(&SplitPane, &Children)>,
