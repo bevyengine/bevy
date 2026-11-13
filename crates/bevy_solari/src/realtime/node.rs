@@ -9,6 +9,7 @@ use crate::scene::RaytracingSceneBindings;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_core_pipeline::deferred::DEFERRED_SPECULAR_TINT_FORMAT;
 use bevy_core_pipeline::prepass::{
     PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
     MOTION_VECTOR_PREPASS_FORMAT,
@@ -27,11 +28,12 @@ use bevy_render::{
         },
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, Buffer,
         BufferInitDescriptor, BufferUsages, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, LoadOp, PipelineCache, RenderPassDescriptor, SamplerBindingType,
-        ShaderStages, ShaderType, StorageTextureAccess, TextureFormat, TextureFormatFeatureFlags,
-        TextureSampleType,
+        ComputePipelineDescriptor, Extent3d, LoadOp, PipelineCache, RenderPassDescriptor,
+        SamplerBindingType, ShaderStages, ShaderType, StorageTextureAccess, TextureDataOrder,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureFormatFeatureFlags,
+        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
     },
-    renderer::{RenderAdapter, RenderContext, RenderDevice, ViewQuery},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue, ViewQuery},
     texture::FallbackImage,
     uniform::{ComponentUniforms, DynamicUniformIndex},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -110,6 +112,7 @@ pub fn solari_lighting(
     scene_bindings: Res<RaytracingSceneBindings>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
+    specular_tint_fallback: Res<SpecularTintFallback>,
     atmosphere_uniforms: Option<Res<ComponentUniforms<GpuAtmosphere>>>,
     linear_sampler: Res<LinearSampler>,
     fallback_image: Res<FallbackImage>,
@@ -144,6 +147,13 @@ pub fn solari_lighting(
     let Some(pipelines) = solari_pipelines else {
         return;
     };
+
+    let gbuffer_specular_tint = view_prepass_textures
+        .deferred_specular_tint_view()
+        .unwrap_or(&specular_tint_fallback.0);
+    let previous_gbuffer_specular_tint = view_prepass_textures
+        .previous_deferred_specular_tint_view()
+        .unwrap_or(&specular_tint_fallback.0);
 
     let (sample_di_for_world_cache_pipeline_id, sample_gi_for_world_cache_pipeline_id) =
         if solari_lighting.world_cache_force_opaque {
@@ -284,6 +294,7 @@ pub fn solari_lighting(
             atmosphere_transmittance_lut,
             &linear_sampler.0,
             atmosphere.clone(),
+            gbuffer_specular_tint,
         )),
     );
 
@@ -306,7 +317,9 @@ pub fn solari_lighting(
                     atmosphere_transmittance_lut,
                     &linear_sampler.0,
                     atmosphere,
+                    gbuffer_specular_tint,
                     previous_gbuffer,
+                    previous_gbuffer_specular_tint,
                     previous_depth_buffer,
                     reservoirs.a.as_entire_binding(),
                     reservoirs.b.as_entire_binding(),
@@ -464,6 +477,39 @@ pub fn solari_lighting(
     );
 }
 
+/// A 1x1 white specular tint texture, bound when the view has no deferred specular tint texture.
+#[derive(Resource)]
+pub(crate) struct SpecularTintFallback(TextureView);
+
+pub(crate) fn init_specular_tint_fallback(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let texture = render_device.create_texture_with_data(
+        &render_queue,
+        &TextureDescriptor {
+            label: Some("solari_specular_tint_fallback"),
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: DEFERRED_SPECULAR_TINT_FORMAT,
+            usage: TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        },
+        TextureDataOrder::default(),
+        &[0; 4],
+    );
+    commands.insert_resource(SpecularTintFallback(
+        texture.create_view(&TextureViewDescriptor::default()),
+    ));
+}
+
 /// Initializes the Solari lighting pipelines at render startup.
 pub fn init_solari_lighting_pipelines(
     mut commands: Commands,
@@ -501,6 +547,7 @@ pub fn init_solari_lighting_pipelines(
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 sampler(SamplerBindingType::Filtering),
                 uniform_buffer::<GpuAtmosphere>(true),
+                texture_2d(TextureSampleType::Uint),
             ),
         ),
     );
@@ -523,6 +570,8 @@ pub fn init_solari_lighting_pipelines(
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 sampler(SamplerBindingType::Filtering),
                 uniform_buffer::<GpuAtmosphere>(true),
+                texture_2d(TextureSampleType::Uint),
+                texture_2d(TextureSampleType::Uint),
                 texture_2d(TextureSampleType::Uint),
                 texture_depth_2d(),
                 storage_buffer_sized(false, None),

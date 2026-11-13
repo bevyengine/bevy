@@ -26,6 +26,11 @@ mod theme;
 const ROTATION_SPEED: f32 = 0.005;
 /// The rate at which the specular tint hue changes in degrees per frame.
 const HUE_SHIFT_SPEED: f32 = 0.2;
+/// The specular weight of the sphere.
+///
+/// With the default IOR of 1.5, the reflectance at normal incidence is 0.04.
+/// A weight of 4.0 raises it to 0.16, which makes the tint easier to see.
+const SPECULAR_WEIGHT: f32 = 4.0;
 
 /// The current settings the user has chosen.
 #[derive(Resource, Default)]
@@ -133,7 +138,7 @@ fn setup(
             // We want only reflected specular light here, so we set the base
             // color as black.
             base_color: Color::BLACK,
-            reflectance: 1.0,
+            specular_weight: SPECULAR_WEIGHT,
             specular_tint: Color::hsva(app_status.hue, 1.0, 1.0, 1.0),
             // The object must not be metallic, or else the reflectance is
             // ignored per the Filament spec:
@@ -219,13 +224,9 @@ fn toggle_specular_map(
         // Adjust the tint type.
         match app_status.tint_type {
             TintType::Solid => {
-                material.reflectance = 1.0;
                 material.specular_tint_texture = None;
             }
             TintType::Map => {
-                // Set reflectance to 2.0 to spread out the map's reflectance
-                // range from the default [0.0, 0.5] to [0.0, 1.0].
-                material.reflectance = 2.0;
                 // As the tint map is multiplied by the tint color, we set the
                 // latter to white so that only the map has an effect.
                 material.specular_tint = WHITE.into();
