@@ -510,12 +510,14 @@ impl Val {
 
     /// Creates an expression that returns the minimum of two `Val`s when resolved.
     /// If both `Val`s have the same units, their minimum is returned immediately.
+    /// Keyword `Val`s are replaced with `Val::ZERO`.
     pub fn min(self, other: Val) -> Val {
         self.combine(other, ReduceOp::Min)
     }
 
     /// Creates an expression that returns the maximum of two `Val`s when resolved.
     /// If both `Val`s have the same units, their maximum is returned immediately.
+    /// Keyword `Val`s are replaced with `Val::ZERO`.
     pub fn max(self, other: Val) -> Val {
         self.combine(other, ReduceOp::Max)
     }
