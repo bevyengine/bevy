@@ -22,7 +22,6 @@ use bevy_ecs::{
     entity::EntityHashSet,
     prelude::*,
     query::{QueryData, ROQueryItem},
-    relationship::RelationshipSourceCollection,
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::TextureFormatPixelInfo;
