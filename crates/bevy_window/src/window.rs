@@ -497,7 +497,7 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
-            fit_canvas_to_parent: false,
+            fit_canvas_to_parent: true,
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
