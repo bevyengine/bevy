@@ -1,4 +1,6 @@
+use alloc::vec::Vec;
 use bevy_ecs_macros::Event;
+use bevy_platform::sync::{atomic::AtomicU64, Mutex};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::{
@@ -8,7 +10,16 @@ use core::{
     sync::atomic::{AtomicU32, Ordering},
 };
 
-use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
+use crate::change_detection::{MaybeLocation, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE};
+
+/// Ticks older than this are compacted by [`Tick::check_tick`]. The `CHECK_TICK_THRESHOLD` gap
+/// below [`COMPACT_START`] keeps compacted ticks older than every tick left alone.
+pub(super) const COMPACT_AGE: u32 = MAX_CHANGE_AGE - 3 * CHECK_TICK_THRESHOLD;
+
+/// The age of the oldest compacted tick. Scans run at most `2 * CHECK_TICK_THRESHOLD` apart,
+/// so compacted ticks can't age past [`Tick::MAX`] before the next scan, and systems that have
+/// never run stay older than every tick.
+const COMPACT_START: u32 = MAX_CHANGE_AGE - 2 * CHECK_TICK_THRESHOLD;
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
@@ -28,8 +39,7 @@ impl Tick {
     /// The maximum relative age for a change tick.
     /// The value of this is equal to [`MAX_CHANGE_AGE`].
     ///
-    /// Since change detection will not work for any ticks older than this,
-    /// ticks are periodically scanned to ensure their relative values are below this.
+    /// Ticks are periodically scanned to ensure their relative values are below this.
     pub const MAX: Self = Self::new(MAX_CHANGE_AGE);
 
     /// Creates a new [`Tick`] wrapping the given value.
@@ -56,7 +66,7 @@ impl Tick {
     #[inline]
     pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
         // This works even with wraparound because the world tick (`this_run`) is always "newer" than
-        // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
+        // `last_run` and `self.tick`, and we scan periodically to compact `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
@@ -73,19 +83,54 @@ impl Tick {
         Self { tick }
     }
 
-    /// Wraps this change tick's value if it exceeds [`Tick::MAX`].
+    /// Compacts this tick if it is old, keeping its order relative to every tick
+    /// recorded by the [`CheckChangeTicks`] pass, or clamps it if the pass can't compact.
+    /// Call it at most once per tick in each pass, as compacting a tick twice breaks its order.
     ///
-    /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
+    /// Returns `true` if the tick was compacted or clamped. Otherwise, returns `false`.
     #[inline]
-    pub fn check_tick(&mut self, check: CheckChangeTicks) -> bool {
-        let age = check.present_tick().relative_to(*self);
-        // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-        // so long as this check always runs before that can happen.
-        if age.get() > Self::MAX.get() {
-            *self = check.present_tick().relative_to(Self::MAX);
-            true
-        } else {
-            false
+    pub fn check_tick(&mut self, check: &CheckChangeTicks) -> bool {
+        let age = check.present.relative_to(*self).get();
+        if age <= check.cutoff {
+            return false;
+        }
+        if let CheckPhase::Compact { last, .. } = &check.phase {
+            // Neighboring ticks are often equal, so reuse the last result.
+            let cached = last.load(Ordering::Relaxed);
+            if (cached >> 32) as u32 == self.tick {
+                self.tick = cached as u32;
+                return true;
+            }
+        }
+        self.check_old_tick(check, age)
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn check_old_tick(&mut self, check: &CheckChangeTicks, age: u32) -> bool {
+        match &check.phase {
+            CheckPhase::Collect(ticks) => {
+                ticks.lock().unwrap().push(*self);
+                false
+            }
+            CheckPhase::Compact { ages, last } => {
+                // Each recorded age gets its own slot and each gap between them shares one,
+                // so comparisons against recorded ticks are unchanged.
+                let age = age.min(MAX_CHANGE_AGE);
+                let older = ages.partition_point(|&a| a > age);
+                let slot = 2 * older as u32 + u32::from(ages.get(older) == Some(&age));
+                let compacted = check.present.relative_to(Tick::new(COMPACT_START - slot));
+                last.store(
+                    (u64::from(self.tick) << 32) | u64::from(compacted.tick),
+                    Ordering::Relaxed,
+                );
+                *self = compacted;
+                true
+            }
+            CheckPhase::Clamp => {
+                *self = check.present.relative_to(Tick::MAX);
+                true
+            }
         }
     }
 }
@@ -145,8 +190,12 @@ impl Debug for AtomicTick {
 }
 
 /// An [`Event`] that can be used to maintain [`Tick`]s in custom data structures, enabling to make
-/// use of bevy's periodic checks that clamps ticks to a certain range, preventing overflows and thus
-/// keeping methods like [`Tick::is_newer_than`] reliably return `false` for ticks that got too old.
+/// use of bevy's periodic checks that compact old ticks, preventing overflows while keeping
+/// methods like [`Tick::is_newer_than`] reliable.
+///
+/// It is triggered twice per check: first to record old ticks, then to compact them.
+/// Observers should pass it to [`Tick::check_tick`] both times. If a schedule runs for too long,
+/// it is instead triggered once to clamp old ticks.
 ///
 /// # Example
 ///
@@ -166,16 +215,80 @@ impl Debug for AtomicTick {
 ///
 /// # let mut world = World::new();
 /// world.add_observer(|check: On<CheckChangeTicks>, mut schedule: ResMut<CustomSchedule>| {
-///     schedule.0.check_change_ticks(*check);
+///     schedule.0.check_change_ticks(&check);
 /// });
 /// ```
-#[derive(Debug, Clone, Copy, Event)]
-pub struct CheckChangeTicks(pub(crate) Tick);
+#[derive(Debug, Event)]
+pub struct CheckChangeTicks {
+    present: Tick,
+    /// Ticks older than this are checked.
+    cutoff: u32,
+    phase: CheckPhase,
+}
+
+#[derive(Debug)]
+enum CheckPhase {
+    /// Recording old ticks that are compared against, like a system's `last_run`.
+    Collect(Mutex<Vec<Tick>>),
+    /// Compacting old ticks around the recorded ages, sorted oldest first.
+    Compact {
+        ages: Vec<u32>,
+        /// The last compacted tick, packed as `(old << 32) | new`.
+        last: AtomicU64,
+    },
+    /// Clamping old ticks to [`Tick::MAX`]. `is_newer_than` already treats older ticks the same,
+    /// so unlike compacting, this can't reorder ticks that weren't recorded.
+    Clamp,
+}
 
 impl CheckChangeTicks {
+    pub(crate) fn collect(present: Tick) -> Self {
+        Self {
+            present,
+            cutoff: COMPACT_AGE,
+            phase: CheckPhase::Collect(Mutex::new(Vec::new())),
+        }
+    }
+
+    /// `present` may be newer than the collecting pass, as observers advance the world tick.
+    pub(crate) fn compact(self, present: Tick) -> Self {
+        let mut ages = Vec::new();
+        if let CheckPhase::Collect(ticks) = self.phase {
+            let ticks = ticks.into_inner().unwrap();
+            ages.extend(
+                // `is_newer_than` treats older ticks the same, which keeps clamped ticks in order.
+                ticks
+                    .into_iter()
+                    .map(|tick| present.relative_to(tick).get().min(MAX_CHANGE_AGE)),
+            );
+        }
+        ages.sort_unstable_by(|a, b| b.cmp(a));
+        ages.dedup();
+        // Compacted ticks must stay older than every tick that isn't compacted.
+        debug_assert!(ages.len() < CHECK_TICK_THRESHOLD as usize / 2);
+        Self {
+            // Only compact ticks the collecting pass saw as old, so none are missed.
+            cutoff: COMPACT_AGE + present.relative_to(self.present).get(),
+            present,
+            phase: CheckPhase::Compact {
+                ages,
+                // `present` is never compacted, so this never matches.
+                last: AtomicU64::new(u64::from(present.tick) << 32),
+            },
+        }
+    }
+
+    pub(crate) fn clamp(present: Tick) -> Self {
+        Self {
+            present,
+            cutoff: MAX_CHANGE_AGE,
+            phase: CheckPhase::Clamp,
+        }
+    }
+
     /// Get the present `Tick` that other ticks get compared to.
-    pub fn present_tick(self) -> Tick {
-        self.0
+    pub fn present_tick(&self) -> Tick {
+        self.present
     }
 }
 

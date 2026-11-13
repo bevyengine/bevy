@@ -165,7 +165,7 @@ where
         self.system.initialize(world)
     }
 
-    fn check_change_tick(&mut self, check: crate::change_detection::CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &crate::change_detection::CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
 

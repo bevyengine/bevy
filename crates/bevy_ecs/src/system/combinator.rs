@@ -244,7 +244,7 @@ where
         a_access
     }
 
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         self.a.check_change_tick(check);
         self.b.check_change_tick(check);
     }
@@ -539,7 +539,7 @@ where
         a_access
     }
 
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         self.a.check_change_tick(check);
         self.b.check_change_tick(check);
     }

@@ -28,13 +28,14 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
+    archetype::{ArchetypeCreated, ArchetypeEntity, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
         InsertMode, NoBundleEffect,
     },
     change_detection::{
-        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
+        CheckChangeTicks, ComponentTicks, ComponentTicksMut, DetectChangesMut, MaybeLocation,
+        MutUntyped, Tick,
     },
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
@@ -49,13 +50,13 @@ use crate::{
         RemovedComponentMessages, ADD, DESPAWN, DISCARD, INSERT, REMOVE,
     },
     message::{Message, MessageId, Messages, WriteBatchIds},
-    observer::Observers,
+    observer::{Observer, Observers},
     query::{QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
-    schedule::{Schedule, ScheduleLabel, Schedules},
+    schedule::{InternedScheduleLabel, Schedule, ScheduleLabel, Schedules},
     storage::{NonSendData, Storages},
-    system::Commands,
+    system::{Commands, SystemIdMarker},
     world::{
         command_queue::CommandQueueRunner,
         error::{
@@ -108,6 +109,9 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    /// The number of running [`Schedule`]s and exclusive systems, which hold ticks outside the world.
+    /// Change ticks are only clamped while this is nonzero.
+    pub(crate) tick_holders: u32,
     pub(crate) last_trigger_id: u32,
     /// The byte index in [`Self::command_queue`] at which unapplied command start.
     ///
@@ -142,6 +146,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            tick_holders: 0,
             last_trigger_id: 0,
             command_queue_start: 0,
             command_queue: SyncUnsafeCell::new(CommandQueue::silent()),
@@ -3367,9 +3372,11 @@ impl World {
         impl Drop for LastTickGuard<'_> {
             fn drop(&mut self) {
                 self.world.last_change_tick = self.last_tick;
+                self.world.tick_holders -= 1;
             }
         }
 
+        self.tick_holders += 1;
         let guard = LastTickGuard {
             last_tick: self.last_change_tick,
             world: self,
@@ -3380,21 +3387,51 @@ impl World {
         f(guard.world)
     }
 
-    /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
-    /// This also triggers [`CheckChangeTicks`] observers and returns the same event here.
+    /// Compacts all old change ticks so they can't overflow, while keeping their order relative to
+    /// every tick they are compared against, like each system's last run.
+    /// This also triggers [`CheckChangeTicks`] observers. Returns whether the ticks were checked.
     ///
-    /// Calling this method prevents [`Tick`]s overflowing and thus prevents false positives when comparing them.
-    ///
-    /// **Note:** Does nothing and returns `None` if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
-    /// times since the previous pass.
-    // TODO: benchmark and optimize
-    pub fn check_change_ticks(&mut self) -> Option<CheckChangeTicks> {
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least
+    /// [`CHECK_TICK_THRESHOLD`] times since the previous pass. While a schedule or exclusive system
+    /// is running, it only clamps old ticks, and only after twice as many.
+    pub fn check_change_ticks(&mut self) -> bool {
+        self.check_change_ticks_with(None, |_| {})
+    }
+
+    /// Like [`World::check_change_ticks`], also passing each pass to `check_extra`.
+    pub(crate) fn check_change_ticks_with(
+        &mut self,
+        running: Option<InternedScheduleLabel>,
+        mut check_extra: impl FnMut(&CheckChangeTicks),
+    ) -> bool {
         let change_tick = self.change_tick();
-        if change_tick.relative_to(self.last_check_tick).get() < CHECK_TICK_THRESHOLD {
-            return None;
+        let since_check = change_tick.relative_to(self.last_check_tick).get();
+        // Running schedules and exclusive systems hold ticks outside the world, which compacting
+        // would reorder.
+        let blocked = self.tick_holders > 0
+            || match self.get_resource::<Schedules>() {
+                Some(schedules) => schedules
+                    .temporarily_removed
+                    .iter()
+                    .any(|&label| Some(label) != running),
+                None => self
+                    .component_id::<Schedules>()
+                    .and_then(|id| self.resource_entities.get(id))
+                    .is_some(),
+            };
+        if since_check < CHECK_TICK_THRESHOLD || (blocked && since_check < 2 * CHECK_TICK_THRESHOLD)
+        {
+            return false;
         }
 
-        let check = CheckChangeTicks(change_tick);
+        let mut check = if blocked {
+            // Clamping can't reorder them, so fall back to it if they're held too long.
+            CheckChangeTicks::clamp(change_tick)
+        } else {
+            let mut check = CheckChangeTicks::collect(change_tick);
+            self.check_reference_ticks(&mut check, &mut check_extra);
+            check.compact(self.change_tick())
+        };
 
         let Storages {
             ref mut tables,
@@ -3404,21 +3441,53 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(check);
-        sparse_sets.check_change_ticks(check);
-        non_sends.check_change_ticks(check);
-        self.entities.check_change_ticks(check);
+        tables.check_change_ticks(&check);
+        sparse_sets.check_change_ticks(&check);
+        non_sends.check_change_ticks(&check);
+        self.entities.check_change_ticks(&check);
+        self.check_reference_ticks(&mut check, &mut check_extra);
+        self.flush();
 
+        self.last_check_tick = if blocked {
+            // Clamp again after another threshold, but compact as soon as nothing is held.
+            change_tick.relative_to(Tick::new(CHECK_TICK_THRESHOLD))
+        } else {
+            check.present_tick()
+        };
+        true
+    }
+
+    /// Checks the ticks that other ticks are compared against. Observers run last, since they
+    /// advance the world tick.
+    fn check_reference_ticks(
+        &mut self,
+        check: &mut CheckChangeTicks,
+        check_extra: &mut impl FnMut(&CheckChangeTicks),
+    ) {
+        check_extra(check);
+        self.last_change_tick.check_tick(check);
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
             schedules.check_change_ticks(check);
         }
+        for entity in self.entities_with::<Observer>() {
+            if let Some(mut observer) = self.get_mut::<Observer>(entity) {
+                observer.bypass_change_detection().check_change_ticks(check);
+            }
+        }
+        SystemIdMarker::check_change_ticks(self, check);
+        self.trigger_ref(check);
+    }
 
-        self.trigger(check);
-        self.flush();
-
-        self.last_check_tick = change_tick;
-
-        Some(check)
+    /// Returns every entity with `T`, including ones hidden by [`DefaultQueryFilters`].
+    pub(crate) fn entities_with<T: Component>(&self) -> Vec<Entity> {
+        let Some(id) = self.component_id::<T>() else {
+            return Vec::new();
+        };
+        self.archetypes
+            .iter()
+            .filter(|archetype| archetype.contains(id))
+            .flat_map(|archetype| archetype.entities().iter().map(ArchetypeEntity::id))
+            .collect()
     }
 
     /// Clears all entities, resources, and non-send data.
@@ -3914,12 +3983,24 @@ impl World {
             return Err(TryRunScheduleError(label));
         };
 
-        let value = f(self, &mut schedule);
+        struct RemovedGuard<'w>(&'w mut World, InternedScheduleLabel);
+        impl Drop for RemovedGuard<'_> {
+            fn drop(&mut self) {
+                if let Some(mut schedules) = self.0.get_resource_mut::<Schedules>() {
+                    schedules.temporarily_removed.remove(&self.1);
+                }
+            }
+        }
+        let guard = RemovedGuard(self, label);
+        let world = &mut *guard.0;
 
-        let old = self.resource_mut::<Schedules>().reinsert(schedule);
+        let value = f(world, &mut schedule);
+
+        let old = world.resource_mut::<Schedules>().reinsert(schedule);
         if old.is_some() {
             warn!("Schedule `{label:?}` was inserted during a call to `World::schedule_scope`: its value has been overwritten");
         }
+        world.check_change_ticks();
 
         Ok(value)
     }

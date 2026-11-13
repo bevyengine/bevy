@@ -114,7 +114,7 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
 
@@ -204,7 +204,7 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
         self.condition.check_change_tick(check);
     }
 

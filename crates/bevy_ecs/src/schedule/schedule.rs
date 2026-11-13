@@ -53,7 +53,7 @@ pub struct Schedules {
     /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
     /// Set of schedule labels that have been removed to execute in [`World::try_schedule_scope`].
-    temporarily_removed: HashSet<InternedScheduleLabel>,
+    pub(crate) temporarily_removed: HashSet<InternedScheduleLabel>,
     /// Set of schedule labels that have attempted to be read in [`World::try_schedule_scope`],
     /// but have no associated [`Schedule`] in `inner`
     empty_labels: HashSet<InternedScheduleLabel>,
@@ -157,10 +157,9 @@ impl Schedules {
             .map(|(label, schedule)| (&**label, schedule))
     }
 
-    /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
-    /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
-    /// This prevents overflow and thus prevents false positives.
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    /// Checks the change ticks of all systems in all stored schedules with
+    /// [`Tick::check_tick`](crate::change_detection::Tick::check_tick).
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
         #[cfg_attr(
@@ -597,7 +596,7 @@ impl Schedule {
         #[cfg(feature = "trace")]
         let _span = self.span.clone().entered();
 
-        world.check_change_ticks();
+        world.check_change_ticks_with(Some(self.label), |check| self.check_change_ticks(check));
         self.initialize(world).unwrap_or_else(|e| {
             panic!(
                 "Error when initializing schedule {:?}: {}",
@@ -607,6 +606,17 @@ impl Schedule {
         });
 
         let error_handler = world.fallback_error_handler();
+
+        // Decrements even if a system panics.
+        struct RunningGuard<'w>(&'w mut World);
+        impl Drop for RunningGuard<'_> {
+            fn drop(&mut self) {
+                self.0.tick_holders -= 1;
+            }
+        }
+        world.tick_holders += 1;
+        let guard = RunningGuard(world);
+        let world = &mut *guard.0;
 
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
@@ -688,10 +698,9 @@ impl Schedule {
         &self.executable
     }
 
-    /// Iterates the change ticks of all systems in the schedule and clamps any older than
-    /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
-    /// This prevents overflow and thus prevents false positives.
-    pub fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    /// Checks the change ticks of all systems in the schedule with
+    /// [`Tick::check_tick`](crate::change_detection::Tick::check_tick).
+    pub fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         for system in &mut self.executable.systems {
             if !is_apply_deferred(system) {
                 system.check_change_tick(check);

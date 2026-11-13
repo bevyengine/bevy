@@ -1,7 +1,8 @@
 #[cfg(feature = "hotpatching")]
 use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
-    change_detection::Mut,
+    change_detection::{CheckChangeTicks, DetectChangesMut, Mut},
+    component::{Component, Mutable},
     entity::Entity,
     error::BevyError,
     prelude::{FromTemplate, Template},
@@ -13,7 +14,7 @@ use crate::{
     world::World,
 };
 use alloc::boxed::Box;
-use bevy_ecs_macros::{Component, Resource};
+use bevy_ecs_macros::Resource;
 use bevy_platform::sync::{Arc, Mutex};
 use bevy_utils::prelude::DebugName;
 use concurrent_queue::ConcurrentQueue;
@@ -23,12 +24,12 @@ use thiserror::Error;
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 #[require(SystemIdMarker = SystemIdMarker::typed_system_id_marker::<I, O>())]
-pub struct RegisteredSystem<I, O> {
+pub struct RegisteredSystem<I: SystemInput, O> {
     initialized: bool,
     system: Option<BoxedSystem<I, O>>,
 }
 
-impl<I, O> RegisteredSystem<I, O> {
+impl<I: SystemInput, O> RegisteredSystem<I, O> {
     /// Create an uninitialized [`RegisteredSystem`] component with the provided boxed system
     pub fn new(system: BoxedSystem<I, O>) -> Self {
         RegisteredSystem {
@@ -62,18 +63,40 @@ impl Default for TypeIdAndName {
     }
 }
 
-/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
+/// Marker [`Component`] for identifying [`SystemId`] [`Entity`]s.
 #[derive(Debug, Default, Clone, Component)]
 pub struct SystemIdMarker {
     input_type_id: TypeIdAndName,
     output_type_id: TypeIdAndName,
+    check_change_tick: Option<fn(&mut World, Entity, &CheckChangeTicks)>,
 }
 
 impl SystemIdMarker {
-    fn typed_system_id_marker<I: 'static, O: 'static>() -> Self {
+    fn typed_system_id_marker<I: SystemInput + 'static, O: 'static>() -> Self
+    where
+        RegisteredSystem<I, O>: Component<Mutability = Mutable>,
+    {
         Self {
             input_type_id: TypeIdAndName::new::<I>(),
             output_type_id: TypeIdAndName::new::<O>(),
+            check_change_tick: Some(|world, entity, check| {
+                if let Some(mut registered) = world.get_mut::<RegisteredSystem<I, O>>(entity)
+                    && let Some(system) = &mut registered.bypass_change_detection().system
+                {
+                    system.check_change_tick(check);
+                }
+            }),
+        }
+    }
+
+    /// Checks the ticks of all registered systems.
+    pub(crate) fn check_change_ticks(world: &mut World, check: &CheckChangeTicks) {
+        for entity in world.entities_with::<Self>() {
+            if let Some(check_change_tick) =
+                world.get::<Self>(entity).and_then(|m| m.check_change_tick)
+            {
+                check_change_tick(world, entity, check);
+            }
         }
     }
 }

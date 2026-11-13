@@ -1139,7 +1139,7 @@ impl Entities {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         for meta in &mut self.meta {
             meta.spawned_or_despawned.tick.check_tick(check);
         }
