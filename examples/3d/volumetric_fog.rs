@@ -231,12 +231,12 @@ fn adjust_app_settings(
 
     // If the user pressed P, toggle volumetric state of the point light.
     if keyboard_input.just_pressed(KeyCode::KeyP) {
-        app_settings.volumetric_pointlight = !app_settings.volumetric_pointlight;
+        app_settings.volumetric_pointlight.toggle();
         any_changes = true;
     }
     // If the user pressed L, toggle volumetric state of the spot light.
     if keyboard_input.just_pressed(KeyCode::KeyL) {
-        app_settings.volumetric_spotlight = !app_settings.volumetric_spotlight;
+        app_settings.volumetric_spotlight.toggle();
         any_changes = true;
     }
 
