@@ -20,9 +20,9 @@ use bevy_ui::{
 };
 
 use crate::{
-    ControlOrientation, DockError, DockLeaf, DockNode, DockNodeId, DockPanelKey, DockSplit,
-    DockTab, DockTabId, DockTree, Pane, SelectedTab, SplitPane, SplitPaneHandle, Tab, TabDragMode,
-    TabList, TabMoved, ValueChange,
+    ControlOrientation, DockDropArea, DockDropPlugin, DockEdge, DockError, DockLeaf, DockNode,
+    DockNodeId, DockPanelKey, DockSplit, DockTab, DockTabId, DockTree, Pane, SelectedTab,
+    SplitPane, SplitPaneHandle, Tab, TabDragMode, TabList, TabMoved, ValueChange,
 };
 
 /// Builds and maintains UI for every entity with a [`DockTree`].
@@ -38,6 +38,7 @@ impl Plugin for DockPlugin {
         app.add_observer(forward_split_change)
             .add_observer(forward_tab_change)
             .add_observer(forward_tab_move)
+            .add_plugins(DockDropPlugin)
             .configure_sets(
                 PostUpdate,
                 (
@@ -61,7 +62,8 @@ impl Plugin for DockPlugin {
 /// before the UI is laid out.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DockSystems {
-    /// Builds the UI for changed [`DockTree`]s.
+    /// Builds the UI for changed [`DockTree`]s and marks the [`DockDropArea`] under a dragged
+    /// tab.
     Structure,
     /// The stage apps fill [`DockPanelContent`] entities in.
     ///
@@ -210,6 +212,15 @@ pub enum DockEdit {
         /// The insertion index, or `None` for the end.
         index: Option<usize>,
     },
+    /// A tab was dropped at an edge of a node, as taken by [`DockTree::move_tab_to_edge`].
+    MoveToEdge {
+        /// The dragged tab.
+        tab: DockTabId,
+        /// The node it was dropped on.
+        target: DockNodeId,
+        /// The edge where its new leaf goes.
+        edge: DockEdge,
+    },
 }
 
 impl DockEdit {
@@ -223,6 +234,9 @@ impl DockEdit {
                 to_leaf,
                 index,
             } => tree.move_tab(*tab, *to_leaf, *index),
+            DockEdit::MoveToEdge { tab, target, edge } => {
+                tree.move_tab_to_edge(*tab, *target, *edge).map(|_| ())
+            }
         }
     }
 }
@@ -308,13 +322,13 @@ fn forward_tab_move(
 }
 
 #[derive(Component, Default)]
-struct DockUi {
+pub(crate) struct DockUi {
     root: Option<Entity>,
-    nodes: HashMap<DockNodeId, NodeUi>,
+    pub(crate) nodes: HashMap<DockNodeId, NodeUi>,
     tabs: HashMap<DockTabId, TabUi>,
 }
 
-enum NodeUi {
+pub(crate) enum NodeUi {
     Split {
         entity: Entity,
         orientation: ControlOrientation,
@@ -363,6 +377,7 @@ struct DockBuilder<'w, 's> {
     panes: Query<'w, 's, &'static Pane>,
     selected: Query<'w, 's, &'static SelectedTab>,
     nodes: Query<'w, 's, &'static mut Node>,
+    drop_areas: Query<'w, 's, (), With<DockDropArea>>,
 }
 
 fn build_dock_ui(
@@ -643,7 +658,15 @@ impl DockBuilder<'_, '_> {
             self.commands.entity(tab_list).insert(selected_tab);
         }
         self.set_children(tab_list, &headers);
-        let active: Vec<Entity> = selected.map(|(_, content)| content).into_iter().collect();
+        let mut active: Vec<Entity> = selected.map(|(_, content)| content).into_iter().collect();
+        if let Ok(children) = self.children.get(area) {
+            active.extend(
+                children
+                    .iter()
+                    .copied()
+                    .filter(|child| self.drop_areas.contains(*child)),
+            );
+        }
         self.set_children(area, &active);
         self.set_children(hidden, &inactive);
     }
@@ -757,7 +780,6 @@ fn sync_dock_titles(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DockEdge;
     use alloc::vec;
     use bevy_ecs::{query::Added, resource::Resource, system::ResMut, world::World};
 

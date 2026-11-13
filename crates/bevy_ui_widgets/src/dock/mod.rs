@@ -78,7 +78,10 @@
 //! [`Added<DockPanelContent>`](bevy_ecs::query::Added).
 //!
 //! Tab lists use [`TabDragMode::External`], so tabs can be dragged within a group and between
-//! groups of the same dock. Drops on lists outside the dock are ignored.
+//! groups of the same dock. Drops on lists outside the dock are ignored. While a tab is
+//! dragged, each group's content area gets a [`DockDropArea`]. Dropping there moves the tab to
+//! the group, or into a new group at one of its edges, as chosen by [`DockDropZone::at`]. The
+//! hovered area has a [`DockDropTarget`] that styling can use to preview the drop.
 //!
 //! The UI is controlled. Selecting a tab, dragging a tab or dragging a splitter sends a
 //! [`DockChange`] to the dock entity instead of changing the tree. Add [`dock_self_update`] as
@@ -93,8 +96,10 @@
 //! [`TabDragMode::External`]: crate::TabDragMode::External
 //! [`Pane::size`]: crate::Pane::size
 
+mod drop;
 mod tree;
 mod ui;
 
+pub use drop::*;
 pub use tree::*;
 pub use ui::*;
