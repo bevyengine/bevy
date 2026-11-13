@@ -1832,9 +1832,44 @@ impl ScheduleGraph {
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
-                    format!("{set:?}")
+                    self.named_set_name(set)
                 }
             }
+        }
+    }
+
+    /// Returns the name of a non-anonymous system set.
+    ///
+    /// The derived [`Debug`] output of an enum only contains the variant name (e.g. `Variant`),
+    /// so the type name is prepended when the [`Debug`] output does not already start with it
+    /// (e.g. `MySet::Variant`). Structs keep their [`Debug`] output as is.
+    ///
+    /// Without the `debug` feature, type names are not available, so only the [`Debug`] output is used.
+    fn named_set_name(&self, set: &dyn SystemSet) -> String {
+        let debug = format!("{set:?}");
+        // Use this crate's `debug` feature, which is what `set_type_name` checks.
+        if !cfg!(feature = "debug") {
+            return debug;
+        }
+        let set_type_name = set.set_type_name();
+        let type_name = if self.settings.use_shortnames {
+            set_type_name.shortname().to_string()
+        } else {
+            set_type_name.to_string()
+        };
+        // Compare against the bare type name, without module path or generics.
+        let without_generics = type_name.split('<').next().unwrap_or(&type_name);
+        let bare_name = without_generics
+            .rsplit("::")
+            .next()
+            .unwrap_or(without_generics);
+        let starts_with_type_name = debug
+            .strip_prefix(bare_name)
+            .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'));
+        if starts_with_type_name {
+            debug
+        } else {
+            format!("{type_name}::{debug}")
         }
     }
 

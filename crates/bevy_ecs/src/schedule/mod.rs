@@ -1316,6 +1316,50 @@ mod tests {
             );
         }
 
+        // Test that enum set names keep the enum name, and struct set names are unchanged
+        // Related issue https://github.com/bevyengine/bevy/issues/23908
+        #[test]
+        #[cfg(all(feature = "trace", feature = "debug"))]
+        fn enum_set_name() {
+            #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+            enum EnumSet {
+                Variant,
+            }
+
+            #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+            struct StructSet;
+
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.add_systems((
+                resmut_system.in_set(EnumSet::Variant),
+                resmut_system.in_set(StructSet),
+            ));
+
+            let mut world = World::new();
+            schedule.graph_mut().initialize(&mut world);
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
+
+            let ambiguities: Vec<_> = schedule
+                .graph()
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
+                .map(|item| (item.0, item.1))
+                .collect();
+
+            // Only check the set part of each name, since the order of the pair isn't stable.
+            let enum_set = " (in set EnumSet::Variant)";
+            let struct_set = " (in set StructSet)";
+            assert_eq!(ambiguities.len(), 1);
+            let (first, second) = &ambiguities[0];
+            assert!(
+                (first.ends_with(enum_set) && second.ends_with(struct_set))
+                    || (first.ends_with(struct_set) && second.ends_with(enum_set)),
+                "unexpected ambiguity names: {first:?}, {second:?}",
+            );
+        }
+
         #[test]
         fn ignore_component_resource_ambiguities() {
             let mut world = World::new();

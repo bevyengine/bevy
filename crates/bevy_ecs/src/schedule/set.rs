@@ -158,6 +158,22 @@ define_label!(
         fn is_anonymous(&self) -> bool {
             false
         }
+
+        /// Returns the [type name](core::any::type_name) of the concrete type of this system set.
+        ///
+        /// This is used to produce readable names for system sets in diagnostics,
+        /// since the derived [`Debug`] output of an enum only contains the variant name.
+        ///
+        /// Like system names, the name is only available when the `debug` feature is enabled.
+        fn set_type_name(&self) -> DebugName {
+            // `DebugName::type_name` requires `Self: Sized`, which isn't the case here,
+            // so check the `debug` feature manually to keep type names out of non-`debug` builds.
+            #[cfg(feature = "debug")]
+            let name = core::any::type_name::<Self>();
+            #[cfg(not(feature = "debug"))]
+            let name = "";
+            DebugName::borrowed(name)
+        }
     },
     extra_methods_impl: {
         fn system_type(&self) -> Option<TypeId> {
@@ -166,6 +182,10 @@ define_label!(
 
         fn is_anonymous(&self) -> bool {
             (**self).is_anonymous()
+        }
+
+        fn set_type_name(&self) -> DebugName {
+            (**self).set_type_name()
         }
     }
 );
