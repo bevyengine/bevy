@@ -956,6 +956,9 @@ impl CalcOp {
     /// Multiply an operation by a scalar.
     /// If the scale is negative, the direction of a min or max is changed and a clamp's `negated` flag is flipped.
     pub(crate) fn scale(&mut self, k: f32) {
+        if k == 1. {
+            return;
+        }
         match self {
             Self::Sum(terms) | Self::Min(terms) | Self::Max(terms) => {
                 for term in terms {
@@ -966,12 +969,15 @@ impl CalcOp {
                 min,
                 value,
                 max,
-                negate: negated,
+                negate,
             }) => {
-                *min *= k.abs();
-                *value *= k.abs();
-                *max *= k.abs();
-                *negated ^= k < 0.0;
+                let magnitude = k.abs();
+                if magnitude != 1. {
+                    *min *= magnitude;
+                    *value *= magnitude;
+                    *max *= magnitude;
+                }
+                *negate ^= k < 0.0;
             }
         }
         if k < 0.0 {
