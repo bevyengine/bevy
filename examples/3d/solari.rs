@@ -474,7 +474,7 @@ fn toggle_restir(
     mut solari_lighting: Single<&mut SolariLighting>,
 ) {
     if key_input.just_pressed(KeyCode::KeyR) {
-        solari_lighting.restir = !solari_lighting.restir;
+        solari_lighting.restir.toggle();
     }
 }
 
