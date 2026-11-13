@@ -549,6 +549,84 @@ impl Val {
             self
         }
     }
+
+    /// Resolves this [`Val`] to a value in physical pixels from the given `physical_base_value` and `context`.
+    ///
+    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
+    pub fn resolve(
+        &self,
+        context: &ValContext,
+        physical_base_value: f32,
+    ) -> Result<f32, ValArithmeticError> {
+        match self {
+            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
+            Val::Px(value) => Ok(value * context.scale_factor),
+            Val::Vw(value) => Ok(context.physical_size.x * value / 100.0),
+            Val::Vh(value) => Ok(context.physical_size.y * value / 100.0),
+            Val::VMin(value) => {
+                Ok(context.physical_size.x.min(context.physical_size.y) * value / 100.0)
+            }
+            Val::VMax(value) => {
+                Ok(context.physical_size.x.max(context.physical_size.y) * value / 100.0)
+            }
+            Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
+            Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
+            Val::Calc(op) => op.0.resolve(context, physical_base_value),
+            _ => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+
+    /// Combines two `Val`s with an operation. Terms with the same unit are folded together and
+    /// nested expressions with the same operation are flattened, so the result is a unit value
+    /// when it can be, and otherwise a [`Calc`] with the unit terms first.
+    fn combine(self, rhs: Val, op: ReduceOp) -> Val {
+        let mut leaves = [None; ValUnit::ALL.len()];
+        let mut rest: SmallVec<[Val; 3]> = SmallVec::new();
+        self.push_terms(op, &mut leaves, &mut rest);
+        rhs.push_terms(op, &mut leaves, &mut rest);
+        let mut terms: CalcTerms = ValUnit::ALL
+            .into_iter()
+            .zip(leaves)
+            .filter_map(|(unit, value)| Some(unit.with_value(value?)))
+            // Zero terms don't change a sum.
+            .filter(|leaf| op != ReduceOp::Sum || leaf.value() != Some(0.0))
+            .collect();
+        terms.extend(rest);
+        match terms.len() {
+            // All terms eliminated, return 0
+            0 => Val::ZERO,
+            // There is only one `Val` term in the list, so remove it from the list and return it
+            1 => terms.remove(0),
+            // Return a `Val` wrapping the remaining terms in a `CalcOp`
+            _ => op.calc(terms),
+        }
+    }
+
+    /// Folds the unit terms of `self` under `op` into `leaves`, indexed by unit, and appends any
+    /// other terms to `rest`.
+    fn push_terms(
+        self,
+        op: ReduceOp,
+        leaves: &mut [Option<f32>; ValUnit::ALL.len()],
+        rest: &mut SmallVec<[Val; 3]>,
+    ) {
+        match self.map_keyword_to_zero() {
+            Val::Calc(calc) if calc.0.op() == Some(op) => {
+                if let CalcOp::Sum(terms) | CalcOp::Min(terms) | CalcOp::Max(terms) = *calc.0 {
+                    for term in terms {
+                        term.push_terms(op, leaves, rest);
+                    }
+                }
+            }
+            val => match val.unit_value() {
+                Some((unit, value)) => {
+                    let leaf = &mut leaves[unit as usize];
+                    *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
+                }
+                _ => rest.push(val),
+            },
+        }
+    }
 }
 
 impl Default for Val {
@@ -640,34 +718,6 @@ pub enum ValArithmeticError {
     NonEvaluable,
     #[error("the given variants of Val have incompatible units")]
     IncompatibleUnits,
-}
-
-impl Val {
-    /// Resolves this [`Val`] to a value in physical pixels from the given `physical_base_value` and `context`.
-    ///
-    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
-    pub fn resolve(
-        &self,
-        context: &ValContext,
-        physical_base_value: f32,
-    ) -> Result<f32, ValArithmeticError> {
-        match self {
-            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
-            Val::Px(value) => Ok(value * context.scale_factor),
-            Val::Vw(value) => Ok(context.physical_size.x * value / 100.0),
-            Val::Vh(value) => Ok(context.physical_size.y * value / 100.0),
-            Val::VMin(value) => {
-                Ok(context.physical_size.x.min(context.physical_size.y) * value / 100.0)
-            }
-            Val::VMax(value) => {
-                Ok(context.physical_size.x.max(context.physical_size.y) * value / 100.0)
-            }
-            Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
-            Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
-            Val::Calc(op) => op.0.resolve(context, physical_base_value),
-            _ => Err(ValArithmeticError::NonEvaluable),
-        }
-    }
 }
 
 impl TryFrom<Val> for FontSize {
@@ -823,7 +873,7 @@ pub(crate) struct ClampOp {
 }
 
 impl ClampOp {
-    pub fn new(min: Val, value: Val, max: Val) -> Self {
+    pub(crate) fn new(min: Val, value: Val, max: Val) -> Self {
         Self {
             min,
             value,
@@ -832,7 +882,7 @@ impl ClampOp {
         }
     }
 
-    pub fn resolve(
+    pub(crate) fn resolve(
         &self,
         context: &ValContext,
         percent_basis: f32,
@@ -883,7 +933,11 @@ impl CalcOp {
     }
 
     /// Resolve a `CalcOp` to a value in physical pixels.
-    pub fn resolve(&self, context: &ValContext, basis: f32) -> Result<f32, ValArithmeticError> {
+    pub(crate) fn resolve(
+        &self,
+        context: &ValContext,
+        basis: f32,
+    ) -> Result<f32, ValArithmeticError> {
         let resolve = |val: &Val| val.resolve(context, basis);
         let reduce = |terms: &[Val], init: f32, op: fn(f32, f32) -> f32| {
             terms
@@ -938,7 +992,7 @@ impl From<CalcOp> for Val {
 
 /// The operation a [`CalcOp::Sum`], [`CalcOp::Min`] or [`CalcOp::Max`] applies to its terms.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ReduceOp {
+enum ReduceOp {
     Sum,
     Min,
     Max,
@@ -946,7 +1000,7 @@ pub(crate) enum ReduceOp {
 
 impl ReduceOp {
     /// Apply the operation to unitless values
-    pub(crate) fn apply(self) -> fn(f32, f32) -> f32 {
+    fn apply(self) -> fn(f32, f32) -> f32 {
         match self {
             Self::Sum => |a, b| a + b,
             Self::Min => f32::min,
@@ -962,60 +1016,6 @@ impl ReduceOp {
             Self::Max => CalcOp::Max(terms),
         }
         .into()
-    }
-}
-
-impl Val {
-    /// Combines two `Val`s with an operation. Terms with the same unit are folded together and
-    /// nested expressions with the same operation are flattened, so the result is a unit value
-    /// when it can be, and otherwise a [`Calc`] with the unit terms first.
-    pub(crate) fn combine(self, rhs: Val, op: ReduceOp) -> Val {
-        let mut leaves = [None; ValUnit::ALL.len()];
-        let mut rest: SmallVec<[Val; 3]> = SmallVec::new();
-        self.push_terms(op, &mut leaves, &mut rest);
-        rhs.push_terms(op, &mut leaves, &mut rest);
-        let mut terms: CalcTerms = ValUnit::ALL
-            .into_iter()
-            .zip(leaves)
-            .filter_map(|(unit, value)| Some(unit.with_value(value?)))
-            // Zero terms don't change a sum.
-            .filter(|leaf| op != ReduceOp::Sum || leaf.value() != Some(0.0))
-            .collect();
-        terms.extend(rest);
-        match terms.len() {
-            // All terms eliminated, return 0
-            0 => Val::ZERO,
-            // There is only one `Val` term in the list, so remove it from the list and return it
-            1 => terms.remove(0),
-            // Return a `Val` wrapping the remaining terms in a `CalcOp`
-            _ => op.calc(terms),
-        }
-    }
-
-    /// Folds the unit terms of `self` under `op` into `leaves`, indexed by unit, and appends any
-    /// other terms to `rest`.
-    fn push_terms(
-        self,
-        op: ReduceOp,
-        leaves: &mut [Option<f32>; ValUnit::ALL.len()],
-        rest: &mut SmallVec<[Val; 3]>,
-    ) {
-        match self.map_keyword_to_zero() {
-            Val::Calc(calc) if calc.0.op() == Some(op) => {
-                if let CalcOp::Sum(terms) | CalcOp::Min(terms) | CalcOp::Max(terms) = *calc.0 {
-                    for term in terms {
-                        term.push_terms(op, leaves, rest);
-                    }
-                }
-            }
-            val => match val.unit_value() {
-                Some((unit, value)) => {
-                    let leaf = &mut leaves[unit as usize];
-                    *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
-                }
-                _ => rest.push(val),
-            },
-        }
     }
 }
 
