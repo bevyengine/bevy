@@ -6,10 +6,7 @@
 //! [`MeshInputUniform`]s instead and use the GPU to calculate the remaining
 //! derived fields in [`MeshUniform`].
 
-use core::{
-    cell::RefCell,
-    num::{NonZero, NonZeroU64},
-};
+use core::num::{NonZero, NonZeroU64};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
@@ -56,12 +53,12 @@ use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntries, BindingResource, Buffer, BufferBinding, BufferId, BufferVec,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PartialBufferVec, PipelineCache, RawBufferVec, ShaderStages,
-        ShaderType, SparseBufferUpdateBindGroups, SparseBufferUpdateJobs,
-        SparseBufferUpdatePipelines, SpecializedComputePipeline, SpecializedComputePipelines,
-        TextureSampleType, UninitBufferVec,
+        BindGroupLayoutEntries, BindGroupLayoutId, BindingResource, Buffer, BufferBinding,
+        BufferId, BufferVec, CachedComputePipelineId, ComputePassDescriptor,
+        ComputePipelineDescriptor, DynamicBindGroupLayoutEntries, PartialBufferVec, PipelineCache,
+        RawBufferVec, ShaderStages, ShaderType, SparseBufferUpdateBindGroups,
+        SparseBufferUpdateJobs, SparseBufferUpdatePipelines, SpecializedComputePipeline,
+        SpecializedComputePipelines, TextureSampleType, TextureViewId, UninitBufferVec,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
     settings::WgpuFeatures,
@@ -626,7 +623,7 @@ mod scene_unpacking_cache_tests {
     #[test]
     fn preprocess_cache_tracks_layout_resources_and_buffer_ranges() {
         let device = device();
-        let cache = PreprocessBindGroupCache::default();
+        let mut cache = PreprocessBindGroupCache::default();
         let layout_entries = BindGroupLayoutEntries::single(
             ShaderStages::COMPUTE,
             storage_buffer_read_only::<u32>(false),
@@ -645,11 +642,16 @@ mod scene_unpacking_cache_tests {
             usage: wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
-        let get = |layout: &BindGroupLayout, buffer: &Buffer, offset, size| {
+        let get = |cache: &mut PreprocessBindGroupCache,
+                   layout: &BindGroupLayout,
+                   buffer: &Buffer,
+                   offset,
+                   size| {
             cache.get_or_create(
                 &device,
                 "buffer cache test",
                 layout,
+                &[PreprocessResourceId::Buffer(buffer.id())],
                 &BindGroupEntries::single(BufferBinding {
                     buffer,
                     offset,
@@ -657,14 +659,29 @@ mod scene_unpacking_cache_tests {
                 }),
             )
         };
-        let first = get(&layout, &buffer, 0, NonZeroU64::new(16));
-        let second = get(&layout, &other_buffer, 0, NonZeroU64::new(16));
-        assert_eq!(first, get(&layout, &buffer.clone(), 0, NonZeroU64::new(16)));
-        assert_ne!(first, get(&layout, &other_buffer, 0, NonZeroU64::new(16)));
-        assert_ne!(first, get(&layout, &buffer, 256, NonZeroU64::new(16)));
-        assert_ne!(first, get(&layout, &buffer, 0, NonZeroU64::new(32)));
-        assert_ne!(first, get(&layout, &buffer, 0, None));
-        assert_ne!(first, get(&other_layout, &buffer, 0, NonZeroU64::new(16)));
+        let first = get(&mut cache, &layout, &buffer, 0, NonZeroU64::new(16));
+        let second = get(&mut cache, &layout, &other_buffer, 0, NonZeroU64::new(16));
+        assert_eq!(
+            first,
+            get(&mut cache, &layout, &buffer.clone(), 0, NonZeroU64::new(16))
+        );
+        assert_ne!(
+            first,
+            get(&mut cache, &layout, &other_buffer, 0, NonZeroU64::new(16))
+        );
+        assert_ne!(
+            first,
+            get(&mut cache, &layout, &buffer, 256, NonZeroU64::new(16))
+        );
+        assert_ne!(
+            first,
+            get(&mut cache, &layout, &buffer, 0, NonZeroU64::new(32))
+        );
+        assert_ne!(first, get(&mut cache, &layout, &buffer, 0, None));
+        assert_ne!(
+            first,
+            get(&mut cache, &other_layout, &buffer, 0, NonZeroU64::new(16))
+        );
 
         // Simulate alternating phase allocations. Both entries must remain reusable.
         for (buffer, expected) in [
@@ -674,23 +691,23 @@ mod scene_unpacking_cache_tests {
             (&other_buffer, &second),
         ] {
             cache.begin_frame();
-            let group = get(&layout, buffer, 0, NonZeroU64::new(16));
+            let group = get(&mut cache, &layout, buffer, 0, NonZeroU64::new(16));
             assert_eq!(&group, expected);
             cache.finish_frame();
         }
-        assert_eq!(cache.entries.borrow().len(), 2);
+        assert_eq!(cache.entries.len(), 2);
         cache.begin_frame();
         cache.finish_frame();
-        assert_eq!(cache.entries.borrow().len(), 1);
+        assert_eq!(cache.entries.len(), 1);
         cache.begin_frame();
         cache.finish_frame();
-        assert!(cache.entries.borrow().is_empty());
+        assert!(cache.entries.is_empty());
     }
 
     #[test]
     fn preprocess_cache_tracks_texture_view_identity() {
         let device = device();
-        let cache = PreprocessBindGroupCache::default();
+        let mut cache = PreprocessBindGroupCache::default();
         let layout = device.create_bind_group_layout(
             "texture cache test",
             &BindGroupLayoutEntries::single(
@@ -714,17 +731,19 @@ mod scene_unpacking_cache_tests {
         });
         let view = texture.create_view(&default());
         let other_view = texture.create_view(&default());
-        let get = |view: &bevy_render::render_resource::TextureView| {
+        let get = |cache: &mut PreprocessBindGroupCache,
+                   view: &bevy_render::render_resource::TextureView| {
             cache.get_or_create(
                 &device,
                 "texture cache test",
                 &layout,
+                &[PreprocessResourceId::TextureView(view.id())],
                 &BindGroupEntries::single(view),
             )
         };
-        let first = get(&view);
-        assert_eq!(first, get(&view.clone()));
-        assert_ne!(first, get(&other_view));
+        let first = get(&mut cache, &view);
+        assert_eq!(first, get(&mut cache, &view.clone()));
+        assert_ne!(first, get(&mut cache, &other_view));
     }
 
     #[test]
@@ -2489,87 +2508,77 @@ impl UniformAllocationPipelines {
     }
 }
 
-/// Bindings are keyed by layout and resource identity, including buffer ranges.
-/// Owning the handles prevents identity reuse while a group is cached.
-#[derive(PartialEq, Eq, Hash)]
-enum PreprocessBinding {
-    Buffer(wgpu::Buffer, u64, Option<NonZeroU64>),
-    TextureView(wgpu::TextureView),
-    Sampler(wgpu::Sampler),
+/// Bevy resource IDs are globally unique and do not require owning raw GPU handles.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum PreprocessResourceId {
+    Buffer(BufferId),
+    TextureView(TextureViewId),
 }
 
 #[derive(PartialEq, Eq, Hash)]
 struct PreprocessBindGroupKey {
-    layout: BindGroupLayout,
-    entries: SmallVec<[(u32, PreprocessBinding); 16]>,
+    layout: BindGroupLayoutId,
+    entries: SmallVec<[(u32, PreprocessResourceId, u64, Option<NonZeroU64>); 16]>,
 }
 
 /// Caches mesh preprocessing and indirect-parameter bind groups between frames.
+///
+/// Cached groups keep their bound GPU resources alive. Replaced resources can
+/// therefore remain alive until eviction after two unused frames.
+#[derive(Default)]
 pub struct PreprocessBindGroupCache {
-    #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-    entries: send_wrapper::SendWrapper<RefCell<HashMap<PreprocessBindGroupKey, (BindGroup, u8)>>>,
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    entries: RefCell<HashMap<PreprocessBindGroupKey, (BindGroup, u8)>>,
-}
-
-impl Default for PreprocessBindGroupCache {
-    fn default() -> Self {
-        let entries = RefCell::new(HashMap::default());
-        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
-        let entries = send_wrapper::SendWrapper::new(entries);
-        Self { entries }
-    }
+    entries: HashMap<PreprocessBindGroupKey, (BindGroup, u8)>,
 }
 
 impl PreprocessBindGroupCache {
-    fn begin_frame(&self) {
-        for (_, age) in self.entries.borrow_mut().values_mut() {
+    fn begin_frame(&mut self) {
+        for (_, age) in self.entries.values_mut() {
             *age = age.saturating_add(1);
         }
     }
 
-    fn finish_frame(&self) {
+    fn finish_frame(&mut self) {
         // Phase buffers alternate, so retain groups through one unused frame.
-        self.entries.borrow_mut().retain(|_, (_, age)| *age < 2);
+        self.entries.retain(|_, (_, age)| *age < 2);
     }
 
     fn get_or_create(
-        &self,
+        &mut self,
         device: &RenderDevice,
         label: &str,
         layout: &BindGroupLayout,
+        resource_ids: &[PreprocessResourceId],
         entries: &[BindGroupEntry<'_>],
     ) -> BindGroup {
+        // IDs are gathered alongside the entries, before Bevy handles are
+        // converted to wgpu bindings. Ranges still come from the actual entries.
+        assert_eq!(resource_ids.len(), entries.len());
         let bindings = entries
             .iter()
-            .map(|entry| {
-                let resource = match &entry.resource {
-                    BindingResource::Buffer(binding) => PreprocessBinding::Buffer(
-                        binding.buffer.clone(),
-                        binding.offset,
-                        binding.size,
-                    ),
-                    BindingResource::TextureView(view) => {
-                        PreprocessBinding::TextureView((*view).clone())
+            .zip(resource_ids)
+            .map(|(entry, &id)| {
+                let (offset, size) = match (&entry.resource, id) {
+                    (BindingResource::Buffer(binding), PreprocessResourceId::Buffer(_)) => {
+                        (binding.offset, binding.size)
                     }
-                    BindingResource::Sampler(sampler) => {
-                        PreprocessBinding::Sampler((*sampler).clone())
+                    (BindingResource::TextureView(_), PreprocessResourceId::TextureView(_)) => {
+                        (0, None)
                     }
                     // Other resource types are not used by these pipelines.
                     _ => return None,
                 };
-                Some((entry.binding, resource))
+                Some((entry.binding, id, offset, size))
             })
             .collect::<Option<SmallVec<[_; 16]>>>();
         let Some(entries_key) = bindings else {
             return device.create_bind_group(label, layout, entries);
         };
         let key = PreprocessBindGroupKey {
-            layout: layout.clone(),
+            layout: layout.id(),
             entries: entries_key,
         };
-        let mut cache = self.entries.borrow_mut();
-        let (group, age) = cache
+        let (group, age) = self
+            .entries
             .entry(key)
             .or_insert_with(|| (device.create_bind_group(label, layout, entries), 0));
         *age = 0;
@@ -2587,7 +2596,7 @@ pub fn prepare_preprocess_bind_groups(
     mut commands: Commands,
     views: Query<(Entity, &ExtractedView)>,
     view_depth_pyramids: Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
-    (render_device, cache): (Res<RenderDevice>, Local<PreprocessBindGroupCache>),
+    (render_device, mut cache): (Res<RenderDevice>, Local<PreprocessBindGroupCache>),
     pipeline_cache: Res<PipelineCache>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
@@ -2626,7 +2635,7 @@ pub fn prepare_preprocess_bind_groups(
         current_input_buffer_vec.buffer().buffer(),
         previous_input_buffer_vec.buffer(),
     ) else {
-        cache.entries.borrow_mut().clear();
+        cache.entries.clear();
         bin_unpacking_bind_groups.clear();
         uniform_allocation_bind_groups.clear();
         return;
@@ -2665,9 +2674,9 @@ pub fn prepare_preprocess_bind_groups(
             };
 
             // Create the `PreprocessBindGroupBuilder`.
-            let preprocess_bind_group_builder = PreprocessBindGroupBuilder {
+            let mut preprocess_bind_group_builder = PreprocessBindGroupBuilder {
                 view: view_entity,
-                cache: &cache,
+                cache: &mut cache,
                 late_indexed_indirect_parameters_buffer,
                 late_non_indexed_indirect_parameters_buffer,
                 render_device: &render_device,
@@ -2739,7 +2748,7 @@ pub fn prepare_preprocess_bind_groups(
     if any_indirect {
         create_build_indirect_parameters_bind_groups(
             &mut commands,
-            &cache,
+            &mut cache,
             &render_device,
             &pipeline_cache,
             &pipelines,
@@ -2788,7 +2797,7 @@ pub fn prepare_preprocess_bind_groups(
 /// A temporary structure that stores all the information needed to construct
 /// bind groups for the mesh preprocessing shader.
 struct PreprocessBindGroupBuilder<'a> {
-    cache: &'a PreprocessBindGroupCache,
+    cache: &'a mut PreprocessBindGroupCache,
     /// The render-world entity corresponding to the current view.
     view: Entity,
     /// The indirect compute dispatch parameters buffer for indexed meshes in
@@ -2834,7 +2843,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind groups for mesh preprocessing when GPU frustum culling
     /// and GPU occlusion culling are both disabled.
     fn create_direct_preprocess_bind_groups(
-        &self,
+        &mut self,
         work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<PhasePreprocessBindGroups> {
         // Don't use `as_entire_binding()` here; the shader reads the array
@@ -2852,6 +2861,13 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 &self
                     .pipeline_cache
                     .get_bind_group_layout(&self.pipelines.direct_preprocess.bind_group_layout),
+                &[
+                    PreprocessResourceId::Buffer(self.view_uniforms.uniforms.buffer()?.id()),
+                    PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                    PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                    PreprocessResourceId::Buffer(work_item_buffer.buffer()?.id()),
+                    PreprocessResourceId::Buffer(self.data_buffer.id()),
+                ],
                 &BindGroupEntries::with_indices((
                     (0, self.view_uniforms.uniforms.binding()?),
                     (3, self.current_input_buffer.as_entire_binding()),
@@ -2873,7 +2889,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind groups for mesh preprocessing when GPU occlusion
     /// culling is enabled.
     fn create_indirect_occlusion_culling_preprocess_bind_groups(
-        &self,
+        &mut self,
         view_depth_pyramids: &Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
         indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
         non_indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
@@ -2920,7 +2936,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind group for the first phase of mesh preprocessing of
     /// indexed meshes when GPU occlusion culling is enabled.
     fn create_indirect_occlusion_culling_early_indexed_bind_group(
-        &self,
+        &mut self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
@@ -2964,6 +2980,26 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .early_gpu_occlusion_culling_preprocess
                                 .bind_group_layout,
                         ),
+                        &[
+                            PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                            PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                            PreprocessResourceId::Buffer(indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(self.data_buffer.id()),
+                            PreprocessResourceId::Buffer(indexed_metadata_buffer.id()),
+                            PreprocessResourceId::Buffer(mesh_culling_data_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                self.visibility_range_data_buffer.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::Buffer(
+                                self.view_uniforms.uniforms.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::TextureView(view_depth_pyramid.all_mips.id()),
+                            PreprocessResourceId::Buffer(previous_view_buffer.id()),
+                            PreprocessResourceId::Buffer(late_indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                late_indexed_indirect_parameters_buffer.id(),
+                            ),
+                        ],
                         &BindGroupEntries::with_indices((
                             // @group(0) @binding(3) var<storage> current_input:
                             // array<MeshInput>;
@@ -3044,7 +3080,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind group for the first phase of mesh preprocessing of
     /// non-indexed meshes when GPU occlusion culling is enabled.
     fn create_indirect_occlusion_culling_early_non_indexed_bind_group(
-        &self,
+        &mut self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         non_indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
@@ -3088,6 +3124,26 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .early_gpu_occlusion_culling_preprocess
                                 .bind_group_layout,
                         ),
+                        &[
+                            PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                            PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                            PreprocessResourceId::Buffer(non_indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(self.data_buffer.id()),
+                            PreprocessResourceId::Buffer(non_indexed_metadata_buffer.id()),
+                            PreprocessResourceId::Buffer(mesh_culling_data_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                self.visibility_range_data_buffer.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::Buffer(
+                                self.view_uniforms.uniforms.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::TextureView(view_depth_pyramid.all_mips.id()),
+                            PreprocessResourceId::Buffer(previous_view_buffer.id()),
+                            PreprocessResourceId::Buffer(late_non_indexed_work_item_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                late_non_indexed_indirect_parameters_buffer.id(),
+                            ),
+                        ],
                         &BindGroupEntries::with_indices((
                             // @group(0) @binding(3) var<storage> current_input:
                             // array<MeshInput>;
@@ -3166,7 +3222,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind group for the second phase of mesh preprocessing of
     /// indexed meshes when GPU occlusion culling is enabled.
     fn create_indirect_occlusion_culling_late_indexed_bind_group(
-        &self,
+        &mut self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
@@ -3207,6 +3263,25 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .late_gpu_occlusion_culling_preprocess
                                 .bind_group_layout,
                         ),
+                        &[
+                            PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                            PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                            PreprocessResourceId::Buffer(late_indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(self.data_buffer.id()),
+                            PreprocessResourceId::Buffer(indexed_metadata_buffer.id()),
+                            PreprocessResourceId::Buffer(mesh_culling_data_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                self.visibility_range_data_buffer.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::Buffer(
+                                self.view_uniforms.uniforms.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::TextureView(view_depth_pyramid.all_mips.id()),
+                            PreprocessResourceId::Buffer(previous_view_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                late_indexed_indirect_parameters_buffer.id(),
+                            ),
+                        ],
                         &BindGroupEntries::with_indices((
                             // @group(0) @binding(3) var<storage> current_input:
                             // array<MeshInput>;
@@ -3276,7 +3351,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind group for the second phase of mesh preprocessing of
     /// non-indexed meshes when GPU occlusion culling is enabled.
     fn create_indirect_occlusion_culling_late_non_indexed_bind_group(
-        &self,
+        &mut self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
@@ -3317,6 +3392,25 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .late_gpu_occlusion_culling_preprocess
                                 .bind_group_layout,
                         ),
+                        &[
+                            PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                            PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                            PreprocessResourceId::Buffer(non_indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(self.data_buffer.id()),
+                            PreprocessResourceId::Buffer(non_indexed_metadata_buffer.id()),
+                            PreprocessResourceId::Buffer(mesh_culling_data_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                self.visibility_range_data_buffer.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::Buffer(
+                                self.view_uniforms.uniforms.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::TextureView(view_depth_pyramid.all_mips.id()),
+                            PreprocessResourceId::Buffer(previous_view_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                late_non_indexed_indirect_parameters_buffer.id(),
+                            ),
+                        ],
                         &BindGroupEntries::with_indices((
                             // @group(0) @binding(3) var<storage> current_input:
                             // array<MeshInput>;
@@ -3386,7 +3480,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind groups for mesh preprocessing when GPU frustum culling
     /// is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_preprocess_bind_groups(
-        &self,
+        &mut self,
         indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
         non_indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
     ) -> Option<PhasePreprocessBindGroups> {
@@ -3402,7 +3496,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind group for mesh preprocessing of indexed meshes when GPU
     /// frustum culling is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_indexed_bind_group(
-        &self,
+        &mut self,
         indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
@@ -3435,6 +3529,20 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .gpu_frustum_culling_preprocess
                                 .bind_group_layout,
                         ),
+                        &[
+                            PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                            PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                            PreprocessResourceId::Buffer(indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(self.data_buffer.id()),
+                            PreprocessResourceId::Buffer(indexed_metadata_buffer.id()),
+                            PreprocessResourceId::Buffer(mesh_culling_data_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                self.visibility_range_data_buffer.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::Buffer(
+                                self.view_uniforms.uniforms.buffer()?.id(),
+                            ),
+                        ],
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -3462,7 +3570,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// Creates the bind group for mesh preprocessing of non-indexed meshes when
     /// GPU frustum culling is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_non_indexed_bind_group(
-        &self,
+        &mut self,
         non_indexed_work_item_buffer: &PartialBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
@@ -3495,6 +3603,20 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 .gpu_frustum_culling_preprocess
                                 .bind_group_layout,
                         ),
+                        &[
+                            PreprocessResourceId::Buffer(self.current_input_buffer.id()),
+                            PreprocessResourceId::Buffer(self.previous_input_buffer.id()),
+                            PreprocessResourceId::Buffer(non_indexed_work_item_gpu_buffer.id()),
+                            PreprocessResourceId::Buffer(self.data_buffer.id()),
+                            PreprocessResourceId::Buffer(non_indexed_metadata_buffer.id()),
+                            PreprocessResourceId::Buffer(mesh_culling_data_buffer.id()),
+                            PreprocessResourceId::Buffer(
+                                self.visibility_range_data_buffer.buffer()?.id(),
+                            ),
+                            PreprocessResourceId::Buffer(
+                                self.view_uniforms.uniforms.buffer()?.id(),
+                            ),
+                        ],
                         &BindGroupEntries::with_indices((
                             // @group(0) @binding(3) var<storage> current_input:
                             // array<MeshInput>;
@@ -3541,7 +3663,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 /// parameter building shader.
 fn create_build_indirect_parameters_bind_groups(
     commands: &mut Commands,
-    cache: &PreprocessBindGroupCache,
+    cache: &mut PreprocessBindGroupCache,
     render_device: &RenderDevice,
     pipeline_cache: &PipelineCache,
     pipelines: &PreprocessPipelines,
@@ -3570,6 +3692,7 @@ fn create_build_indirect_parameters_bind_groups(
                                     .reset_indirect_batch_sets
                                     .bind_group_layout,
                             ),
+                            &[PreprocessResourceId::Buffer(indexed_batch_sets_buffer.id())],
                             &BindGroupEntries::sequential((
                                 indexed_batch_sets_buffer.as_entire_binding(),
                             )),
@@ -3591,6 +3714,9 @@ fn create_build_indirect_parameters_bind_groups(
                                     .reset_indirect_batch_sets
                                     .bind_group_layout,
                             ),
+                            &[PreprocessResourceId::Buffer(
+                                non_indexed_batch_sets_buffer.id(),
+                            )],
                             &BindGroupEntries::sequential((
                                 non_indexed_batch_sets_buffer.as_entire_binding(),
                             )),
@@ -3619,6 +3745,19 @@ fn create_build_indirect_parameters_bind_groups(
                                     .gpu_frustum_culling_build_indexed_indirect_params
                                     .bind_group_layout,
                             ),
+                            &[
+                                PreprocessResourceId::Buffer(current_input_buffer.id()),
+                                PreprocessResourceId::Buffer(
+                                    indexed_indirect_parameters_metadata_buffer.id(),
+                                ),
+                                PreprocessResourceId::Buffer(indexed_batch_sets_buffer.id()),
+                                PreprocessResourceId::Buffer(
+                                    indirect_parameters_build_job_buffer.id(),
+                                ),
+                                PreprocessResourceId::Buffer(
+                                    indexed_indirect_parameters_data_buffer.id(),
+                                ),
+                            ],
                             &BindGroupEntries::with_indices((
                                 // @group(0) @binding(0) var<storage>
                                 // current_input: array<MeshInput>;
@@ -3686,6 +3825,19 @@ fn create_build_indirect_parameters_bind_groups(
                                     .gpu_frustum_culling_build_non_indexed_indirect_params
                                     .bind_group_layout,
                             ),
+                            &[
+                                PreprocessResourceId::Buffer(current_input_buffer.id()),
+                                PreprocessResourceId::Buffer(
+                                    non_indexed_indirect_parameters_metadata_buffer.id(),
+                                ),
+                                PreprocessResourceId::Buffer(non_indexed_batch_sets_buffer.id()),
+                                PreprocessResourceId::Buffer(
+                                    indirect_parameters_build_job_buffer.id(),
+                                ),
+                                PreprocessResourceId::Buffer(
+                                    non_indexed_indirect_parameters_data_buffer.id(),
+                                ),
+                            ],
                             &BindGroupEntries::with_indices((
                                 // @group(0) @binding(0) var<storage>
                                 // current_input: array<MeshInput>;
