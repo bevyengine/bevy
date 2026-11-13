@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::{default, prelude::DebugName};
+use bevy_utils::default;
 use core::{
     any::TypeId,
     fmt::{Debug, Write},
@@ -1847,7 +1847,8 @@ impl ScheduleGraph {
     /// Without the `debug` feature, type names are not available, so only the [`Debug`] output is used.
     fn named_set_name(&self, set: &dyn SystemSet) -> String {
         let debug = format!("{set:?}");
-        if !DebugName::ENABLED {
+        // Use this crate's `debug` feature, which is what `set_type_name` checks.
+        if !cfg!(feature = "debug") {
             return debug;
         }
         let set_type_name = set.set_type_name();

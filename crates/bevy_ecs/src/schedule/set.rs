@@ -166,8 +166,8 @@ define_label!(
         ///
         /// Like system names, the name is only available when the `debug` feature is enabled.
         fn set_type_name(&self) -> DebugName {
-            // `DebugName::type_name` requires `Sized`, which `dyn SystemSet` isn't,
-            // so check the feature here to keep type names out of non-`debug` builds.
+            // `DebugName::type_name` requires `Self: Sized`, which isn't the case here,
+            // so check the `debug` feature manually to keep type names out of non-`debug` builds.
             #[cfg(feature = "debug")]
             let name = core::any::type_name::<Self>();
             #[cfg(not(feature = "debug"))]

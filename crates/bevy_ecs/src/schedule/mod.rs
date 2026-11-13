@@ -1348,7 +1348,7 @@ mod tests {
                 .map(|item| (item.0, item.1))
                 .collect();
 
-            // Only check the set part of the name.
+            // Only check the set part of each name, since the order of the pair isn't stable.
             let enum_set = " (in set EnumSet::Variant)";
             let struct_set = " (in set StructSet)";
             assert_eq!(ambiguities.len(), 1);
