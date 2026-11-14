@@ -407,9 +407,6 @@ pub struct MaskState(pub(crate) Option<crate::masking::Masked>);
 pub struct Placeholder {
     /// The hint text.
     pub text: String,
-    /// `None` draws the hint in the field's [`TextColor`], with its alpha
-    /// scaled by [`Placeholder::DEFAULT_ALPHA`].
-    pub color: Option<Color>,
     /// Overrides the field's [`TextFont::style`], e.g. italic hints.
     /// Like any text, this needs a font with that face.
     pub font_style: Option<FontStyle>,
@@ -420,15 +417,11 @@ pub struct Placeholder {
 }
 
 impl Placeholder {
-    /// Alpha multiplier on the field's [`TextColor`] when
-    /// [`color`](Self::color) is `None`.
-    pub const DEFAULT_ALPHA: f32 = 0.4;
-
-    /// A placeholder in the default color and [`PlaceholderMode`].
+    /// A placeholder in the field's own font style and weight, and the
+    /// default [`PlaceholderMode`].
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
-            color: None,
             font_style: None,
             font_weight: None,
             mode: PlaceholderMode::default(),
@@ -441,11 +434,39 @@ impl Placeholder {
         editable_text.editor.raw_text().is_empty()
             && !(self.mode == PlaceholderMode::UnlessFocused && focused)
     }
+}
 
-    /// The color the hint is drawn in, for a field drawn in `text_color`.
-    pub fn resolve_color(&self, text_color: Color) -> Color {
-        self.color
-            .unwrap_or_else(|| text_color.with_alpha(text_color.alpha() * Self::DEFAULT_ALPHA))
+/// Color for a [`Placeholder`]. If this component is not present, the hint
+/// is drawn in the field's [`TextColor`], with its alpha scaled by
+/// [`PlaceholderColor::DEFAULT_ALPHA`].
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct PlaceholderColor(pub Color);
+
+impl Default for PlaceholderColor {
+    /// The default [`TextColor`] with its alpha scaled by [`Self::DEFAULT_ALPHA`].
+    fn default() -> Self {
+        Self(Self::resolve(None, TextColor::default().0))
+    }
+}
+
+impl PlaceholderColor {
+    /// Alpha multiplier on the field's [`TextColor`] when there is no
+    /// [`PlaceholderColor`].
+    pub const DEFAULT_ALPHA: f32 = 0.4;
+
+    /// The color a hint is drawn in, for a field drawn in `text_color`.
+    pub fn resolve(color: Option<&Self>, text_color: Color) -> Color {
+        color.map_or_else(
+            || text_color.with_alpha(text_color.alpha() * Self::DEFAULT_ALPHA),
+            |color| color.0,
+        )
+    }
+}
+
+impl<T: Into<Color>> From<T> for PlaceholderColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 

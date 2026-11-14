@@ -7,7 +7,8 @@ use bevy_math::{Affine2, Rect, Vec2};
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_text::{
-    EditableText, Placeholder, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode,
+    EditableText, Placeholder, PlaceholderColor, TextColor, TextCursorStyle, TextLayoutInfo,
+    TextReadWriteMode,
 };
 use bevy_ui::{
     CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, ResolvedBorderRadius,
@@ -324,19 +325,22 @@ pub fn extract_text_placeholder(
     mut commands: Commands,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     text_node_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &ComputedStackIndex,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
-            &TextColor,
-            &TextLayoutInfo,
-            &EditableText,
-            &Placeholder,
-        )>,
+        Query<
+            (
+                Entity,
+                &ComputedNode,
+                &ComputedStackIndex,
+                &UiGlobalTransform,
+                &InheritedVisibility,
+                Option<&CalculatedClip>,
+                &ComputedUiTargetCamera,
+                &TextColor,
+                &TextLayoutInfo,
+                &EditableText,
+                Option<&PlaceholderColor>,
+            ),
+            With<Placeholder>,
+        >,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
@@ -356,7 +360,7 @@ pub fn extract_text_placeholder(
         text_color,
         text_layout_info,
         editable_text,
-        placeholder,
+        placeholder_color,
     ) in extracted_uinodes
         .changed
         .iter()
@@ -377,7 +381,7 @@ pub fn extract_text_placeholder(
         let clip =
             calculate_text_scroll_clip(Some(editable_text), maybe_clip, uinode, global_transform);
 
-        let color = placeholder.resolve_color(text_color.0).to_linear();
+        let color = PlaceholderColor::resolve(placeholder_color, text_color.0).to_linear();
         // color glyphs (emoji) keep their colors but share the hint's alpha
         let color_glyph = LinearRgba::WHITE.with_alpha(color.alpha);
 
