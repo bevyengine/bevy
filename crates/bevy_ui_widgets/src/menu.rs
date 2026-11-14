@@ -58,7 +58,9 @@ use bevy_picking::events::{
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
 
-use crate::{text_input::text_input_autoscroll_system, Activate, ActivateOnPress, Button};
+use crate::{
+    text_input::text_input_autoscroll_system, Activate, ActivateInput, ActivateOnPress, Button,
+};
 
 /// Action type for [`MenuEvent`].
 #[derive(Clone, Copy, Debug, Reflect)]
@@ -341,8 +343,12 @@ fn menu_on_key_event(
 fn menu_item_on_pointer_click(
     mut ev: On<PointerClick>,
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(ev.button) {
+        return;
+    }
     if let Ok((pressed, disabled)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
         if pressed && !disabled {
@@ -365,8 +371,12 @@ fn menu_item_on_pointer_click(
 fn menu_item_on_pointer_down(
     mut ev: On<PointerPress>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(ev.button) {
+        return;
+    }
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
         if !disabled && !pressed {
@@ -378,8 +388,12 @@ fn menu_item_on_pointer_down(
 fn menu_item_on_pointer_up(
     mut ev: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(ev.button) {
+        return;
+    }
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
         if !disabled && pressed {
