@@ -605,7 +605,7 @@ const fn far_side2(p: Vec2, h: Vec2) -> f32 {
 
 impl RadialGradientShape {
     /// Resolve the physical dimensions of the end shape of the radial gradient
-    pub fn resolve(self, position: Vec2, context: &ValContext, physical_size: Vec2) -> Vec2 {
+    pub fn resolve(self, context: &ValContext, physical_size: Vec2, position: Vec2) -> Vec2 {
         let half_size = 0.5 * physical_size;
         match self {
             RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),
