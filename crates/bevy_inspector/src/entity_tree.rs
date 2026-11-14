@@ -31,14 +31,13 @@ use bevy_log::warn;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
-use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{percent, px, widget::Text, Node, Overflow};
 use bevy_ui_widgets::{
     tree_view_expand_self_update, tree_view_self_update, TreeItem, TreeItemExpandChange,
     ValueChange,
 };
 
-use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
+use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, PanelSync};
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
 /// hidden from the entity tree, but the marked entity itself still shows as a single,
@@ -116,26 +115,7 @@ impl TreeRowIndex {
 }
 
 /// Pacing of the entity tree synchronization pass.
-#[derive(Resource, Debug)]
-pub struct EntityTreeSync {
-    /// Time between synchronization passes.
-    pub timer: Timer,
-}
-
-impl Default for EntityTreeSync {
-    fn default() -> Self {
-        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
-        timer.set_elapsed(timer.duration());
-        Self { timer }
-    }
-}
-
-impl EntityTreeSync {
-    /// Forces a synchronization pass on the next tick.
-    pub fn set_dirty(&mut self) {
-        self.timer.almost_finish();
-    }
-}
+pub type EntityTreeSync = PanelSync<InspectorTreeView>;
 
 /// A panel listing the entities of the inspected world as an expandable tree.
 pub fn entity_tree_panel() -> impl Scene {
@@ -207,17 +187,7 @@ pub fn inspector_tree_expanded(
 
 /// Adds, removes and relabels tree rows so that they match the inspected world.
 pub fn sync_entity_tree(world: &mut World) {
-    let delta = world
-        .get_resource::<Time>()
-        .map(Time::delta)
-        .unwrap_or_default();
-
-    if !world
-        .resource_mut::<EntityTreeSync>()
-        .timer
-        .tick(delta)
-        .just_finished()
-    {
+    if !EntityTreeSync::tick(world) {
         return;
     }
 
@@ -639,7 +609,7 @@ fn entity_row(label: String, expandable: bool) -> impl Scene {
     }
 }
 
-fn row_label(text: String) -> impl Scene {
+pub(crate) fn row_label(text: String) -> impl Scene {
     bsn! {
         InspectorRowLabel
         @caption(text)
