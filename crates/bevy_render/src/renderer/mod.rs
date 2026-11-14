@@ -24,6 +24,7 @@ use bevy_log::info_span;
 use bevy_log::{debug, info, warn};
 use bevy_render::camera::ExtractedCamera;
 use bevy_window::RawHandleWrapperHolder;
+use bevy_winit::DisplayHandleWrapper;
 use wgpu::{
     Adapter, AdapterInfo, Backends, DeviceType, ForceShaderModelToken, Instance, Queue,
     RequestAdapterOptions, Trace,
@@ -199,6 +200,7 @@ async fn find_adapter_by_name(
 pub async fn initialize_renderer(
     backends: Backends,
     primary_window: Option<RawHandleWrapperHolder>,
+    display: DisplayHandleWrapper,
     options: &WgpuSettings,
     #[cfg(feature = "raw_vulkan_init")]
     raw_vulkan_init_settings: raw_vulkan_init::RawVulkanInitSettings,
@@ -207,7 +209,7 @@ pub async fn initialize_renderer(
         backends,
         flags: options.instance_flags,
         memory_budget_thresholds: options.instance_memory_budget_thresholds,
-        display: None,
+        display: Some(Box::new(display.0)),
         backend_options: wgpu::BackendOptions {
             gl: wgpu::GlBackendOptions {
                 gles_minor_version: options.gles3_minor_version,
