@@ -59,7 +59,7 @@ fn rasterize_cluster(
             let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
             let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
             let ndc_position = clip_position.xyz / clip_position.w;
-            let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
+            let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.main_pass_viewport.zw + view.main_pass_viewport.xy;
 
             // Write vertex to workgroup shared memory
             viewport_vertices[vertex_id] = vec3(viewport_position_xy, ndc_position.z);
@@ -93,10 +93,10 @@ fn rasterize_cluster(
     var min_y = floor(min3(vertex_0.y, vertex_1.y, vertex_2.y));
     var max_x = ceil(max3(vertex_0.x, vertex_1.x, vertex_2.x));
     var max_y = ceil(max3(vertex_0.y, vertex_1.y, vertex_2.y));
-    min_x = max(min_x, 0.0);
-    min_y = max(min_y, 0.0);
-    max_x = min(max_x, view.viewport.z - 1.0);
-    max_y = min(max_y, view.viewport.w - 1.0);
+    min_x = max(min_x, view.main_pass_viewport.x);
+    min_y = max(min_y, view.main_pass_viewport.y);
+    max_x = min(max_x, view.main_pass_viewport.x + view.main_pass_viewport.z - 1.0);
+    max_y = min(max_y, view.main_pass_viewport.y + view.main_pass_viewport.w - 1.0);
 
     // Setup initial triangle equations
     let starting_pixel = vec2(min_x, min_y) + 0.5;

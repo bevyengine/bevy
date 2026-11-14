@@ -2,7 +2,8 @@
 //! Based on FidelityFX SPD v2.1 https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/sdk/include/FidelityFX/gpu/spd/ffx_spd.h#L528
 //!
 //! `mip_0` may be of any size, but `mip_1` and down must have side lengths that
-//! are powers of two.
+//! are powers of two. Only the `source_origin`/`source_size` region of `mip_0`
+//! is read.
 
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
 @group(0) @binding(0) var mip_0: texture_storage_2d<r64uint, read>;
@@ -25,7 +26,11 @@
 @group(0) @binding(11) var mip_11: texture_storage_2d<r32float, write>;
 @group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
 @group(0) @binding(13) var samplr: sampler;
-struct Constants { max_mip_level: u32 }
+struct Constants {
+    source_origin: vec2<u32>,
+    source_size: vec2<u32>,
+    max_mip_level: u32,
+}
 var<immediate> constants: Constants;
 
 // TODO:
@@ -311,50 +316,51 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
 /// buffer with side lengths rounded up to the next power of two, without
 /// actually constructing such a depth buffer.
 ///
-/// See the comments in `ViewDepthPyramid::downsample_depth` for more
+/// See the comments in `ViewDepthPyramid::downsample_depth_with_ctx` for more
 /// information.
 fn load_mip_0(x: u32, y: u32) -> f32 {
-    let actual_size = textureDimensions(mip_0).xy;
+    let source_origin = vec2<f32>(constants.source_origin);
+    let source_size = constants.source_size;
     let virtual_size = vec2<u32>(
-        next_power_of_two(actual_size.x),
-        next_power_of_two(actual_size.y)
+        next_power_of_two(source_size.x),
+        next_power_of_two(source_size.y)
     );
     let virtual_uv = (vec2<f32>(f32(x), f32(y)) + 0.5) / vec2<f32>(virtual_size);
+    // Keep the 2×2 texels around `st` inside the source region.
+    let st = clamp(
+        source_origin + virtual_uv * vec2<f32>(source_size),
+        source_origin + 1.0,
+        source_origin + vec2<f32>(source_size) - 1.0,
+    );
     @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT) {
-    let virtual_st = virtual_uv * vec2<f32>(actual_size);
-    let visibility = load_mip_0_meshlet(virtual_st, 32u);
+    let visibility = load_mip_0_meshlet(st, 32u);
     return reduce_4(visibility);
     } @elif(MESHLET) {
-    let virtual_st = virtual_uv * vec2<f32>(actual_size);
-    let visibility = load_mip_0_meshlet(virtual_st, 0u);
+    let visibility = load_mip_0_meshlet(st, 0u);
     return reduce_4(visibility);
     } @elif(MULTISAMPLE) {
     // Downsample the top level.
     // The top level is multisampled, so we need to loop over all the samples
     // and reduce them to 1.
-    let virtual_st = virtual_uv * vec2<f32>(actual_size);
-    var result = load_mip_0_single_sample(virtual_st, 0);
+    var result = load_mip_0_single_sample(st, 0);
     let sample_count = i32(textureNumSamples(mip_0));
     for (var sample = 1; sample < sample_count; sample += 1) {
-        result = min(result, load_mip_0_single_sample(virtual_st, sample));
+        result = min(result, load_mip_0_single_sample(st, sample));
     }
     return result;
     } @else {
-    return reduce_4(textureGather(mip_0, samplr, virtual_uv));
+    return reduce_4(textureGather(mip_0, samplr, st / vec2<f32>(textureDimensions(mip_0))));
     }
 }
 
 /// Loads a single 2×2 square of texels at the given position from the source
 /// image and returns all four (like `textureGather` does).
 ///
-/// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
-/// `uv * textureDimensions(mip_0).xy`.
+/// `st` should be in texels, not in the [0, 1] range like UVs.
 @if(MESHLET)
 fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
-    let max_st = vec2<f32>(textureDimensions(mip_0) - 1u);
-    let st0_f = floor(st - 0.5);
-    let st0 = vec2<u32>(clamp(st0_f, vec2(0.0), max_st));
-    let st1 = vec2<u32>(clamp(st0_f + 1.0, vec2(0.0), max_st));
+    let st0 = vec2<u32>(floor(st - 0.5));
+    let st1 = st0 + 1u;
     return vec4<f32>(
         bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st0.x, st0.y)).r) >> shift),
         bitcast<f32>(u32(textureLoad(mip_0, vec2<u32>(st0.x, st1.y)).r) >> shift),
@@ -366,14 +372,11 @@ fn load_mip_0_meshlet(st: vec2<f32>, shift: u32) -> vec4<f32> {
 /// Loads a single 2×2 square of texels at the given position from the source
 /// image, reduces them, and returns the result.
 ///
-/// `st` should be in texels, not in the [0, 1] range like UVs. That is, `st` is
-/// `uv * textureDimensions(mip_0).xy`.
+/// `st` should be in texels, not in the [0, 1] range like UVs.
 @if(MULTISAMPLE)
 fn load_mip_0_single_sample(st: vec2<f32>, sample: i32) -> f32 {
-    let max_st = vec2<f32>(textureDimensions(mip_0) - 1u);
-    let st0_f = floor(st - 0.5);
-    let st0 = vec2<u32>(clamp(st0_f, vec2(0.0), max_st));
-    let st1 = vec2<u32>(clamp(st0_f + 1.0, vec2(0.0), max_st));
+    let st0 = vec2<u32>(floor(st - 0.5));
+    let st1 = st0 + 1u;
     let v = vec4<f32>(
         textureLoad(mip_0, vec2<u32>(st0.x, st0.y), sample),
         textureLoad(mip_0, vec2<u32>(st0.x, st1.y), sample),

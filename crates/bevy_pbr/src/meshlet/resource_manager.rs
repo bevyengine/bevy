@@ -1,6 +1,6 @@
 use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMeshManager};
 use crate::ShadowView;
-use bevy_camera::{visibility::RenderLayers, Camera3d};
+use bevy_camera::{visibility::RenderLayers, Camera3d, MainPassResolutionOverride};
 use bevy_core_pipeline::{
     mip_generation::experimental::depth::{self, ViewDepthPyramid},
     prepass::{PreviousViewData, PreviousViewUniforms},
@@ -13,8 +13,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::ToExtents;
-use bevy_math::{UVec2, Vec4Swizzles};
+use bevy_math::{URect, UVec2, Vec4Swizzles};
 use bevy_render::{
+    camera::ExtractedCamera,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
@@ -511,6 +512,8 @@ pub fn prepare_meshlet_per_frame_resources(
     views: Query<(
         Entity,
         &ExtractedView,
+        Option<&MainPassResolutionOverride>,
+        Option<&ExtractedCamera>,
         Option<&RenderLayers>,
         AnyOf<(&Camera3d, &ShadowView)>,
     )>,
@@ -554,7 +557,12 @@ pub fn prepare_meshlet_per_frame_resources(
         }
     };
 
-    for (view_entity, view, render_layers, (_, shadow_view)) in &views {
+    for (view_entity, view, resolution_override, camera, render_layers, (_, shadow_view)) in &views
+    {
+        // The visibility buffer spans the target from (0, 0) to the far corner of
+        // the main pass viewport, so pixel coordinates match the depth texture.
+        let main_pass_viewport = view.main_pass_viewport(resolution_override);
+        let raster_size = main_pass_viewport.xy() + main_pass_viewport.zw();
         let not_shadow_view = shadow_view.is_none();
 
         let instance_visibility = instance_manager
@@ -592,7 +600,7 @@ pub fn prepare_meshlet_per_frame_resources(
             &render_device,
             TextureDescriptor {
                 label: Some("meshlet_dummy_render_target"),
-                size: view.viewport.zw().to_extents(),
+                size: raster_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -606,7 +614,7 @@ pub fn prepare_meshlet_per_frame_resources(
             &render_device,
             TextureDescriptor {
                 label: Some("meshlet_visibility_buffer"),
-                size: view.viewport.zw().to_extents(),
+                size: raster_size.to_extents(),
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -730,7 +738,7 @@ pub fn prepare_meshlet_per_frame_resources(
             &render_device,
             &mut texture_cache,
             &resource_manager.depth_pyramid_dummy_texture,
-            view.viewport.zw(),
+            URect::from_corners(main_pass_viewport.xy(), raster_size),
             "meshlet_depth_pyramid",
             "meshlet_depth_pyramid_texture_view",
         );
@@ -746,7 +754,10 @@ pub fn prepare_meshlet_per_frame_resources(
 
         let material_depth = TextureDescriptor {
             label: Some("meshlet_material_depth"),
-            size: view.viewport.zw().to_extents(),
+            size: camera
+                .and_then(|camera| camera.physical_target_size)
+                .unwrap_or(view.viewport.zw())
+                .to_extents(),
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
@@ -786,7 +797,7 @@ pub fn prepare_meshlet_per_frame_resources(
             previous_depth_pyramid,
             material_depth: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth)),
-            view_size: view.viewport.zw(),
+            view_size: raster_size,
             not_shadow_view,
         });
     }
@@ -852,7 +863,7 @@ pub fn prepare_meshlet_view_bind_groups(
             &pipeline_cache
                 .get_bind_group_layout(&resource_manager.second_instance_cull_bind_group_layout),
             &BindGroupEntries::sequential((
-                &view_resources.previous_depth_pyramid,
+                &view_resources.depth_pyramid.all_mips,
                 view_uniforms.clone(),
                 previous_view_uniforms.clone(),
                 instance_manager.instance_uniforms.binding().unwrap(),
@@ -950,7 +961,7 @@ pub fn prepare_meshlet_view_bind_groups(
             &pipeline_cache
                 .get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
-                &view_resources.previous_depth_pyramid,
+                &view_resources.depth_pyramid.all_mips,
                 view_uniforms.clone(),
                 previous_view_uniforms.clone(),
                 meshlet_mesh_manager.bvh_nodes.binding(),
@@ -982,7 +993,7 @@ pub fn prepare_meshlet_view_bind_groups(
             &pipeline_cache
                 .get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
-                &view_resources.previous_depth_pyramid,
+                &view_resources.depth_pyramid.all_mips,
                 view_uniforms.clone(),
                 previous_view_uniforms.clone(),
                 meshlet_mesh_manager.bvh_nodes.binding(),
@@ -1045,7 +1056,7 @@ pub fn prepare_meshlet_view_bind_groups(
             &pipeline_cache
                 .get_bind_group_layout(&resource_manager.second_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
-                &view_resources.previous_depth_pyramid,
+                &view_resources.depth_pyramid.all_mips,
                 view_uniforms.clone(),
                 previous_view_uniforms.clone(),
                 meshlet_mesh_manager.meshlet_cull_data.binding(),
