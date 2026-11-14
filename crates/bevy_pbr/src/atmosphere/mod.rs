@@ -272,8 +272,10 @@ pub struct ExtractedAtmosphere {
     pub world_to_atmosphere: Mat4,
 }
 
-/// This component controls the resolution of the atmosphere LUTs, and
-/// how many samples are used when computing them.
+/// This component controls the [`AtmosphereMode`], the resolution of the atmosphere LUTs, and how
+/// many samples are used when computing them.
+///
+/// This component must be attached to a [`Camera3d`] to render the nearest [`Atmosphere`] entity.
 ///
 /// The transmittance LUT stores the transmittance from a point in the
 /// atmosphere to the outer edge of the atmosphere in any direction,
