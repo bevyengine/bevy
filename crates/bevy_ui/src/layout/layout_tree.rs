@@ -1,9 +1,9 @@
 use crate::{
-    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
-    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform,
+    layout::{convert::CalcOps, UiTreeDirty},
+    val::CalcOp,
+    ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure,
+    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform, ValContext,
 };
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -30,20 +30,43 @@ use taffy::{
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "`TaffyStyle` uses raw pointers to its `CalcOp` values."
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "`TaffyStyle` owns the `CalcOp`s that its `Style` points to."
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
 unsafe impl Sync for TaffyStyle {}
 
-#[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(pub Style);
+/// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
+/// `Style` references `CalcOp`s using percentages that can't be resolved until layout using raw pointers.
+/// The `Vec` is used to keep the percentages alive because Taffy's `CompactLength` pointers are non-owning.
+
+#[derive(Default, Component)]
+pub struct TaffyStyle {
+    /// Taffy `Style` converted from a `Node`.
+    pub(crate) style: Style,
+    /// Owns the `CalcOp`s referenced by raw pointers in `style`.
+    /// Boxing keeps their addresses stable when the vector reallocates.
+    /// These `CalcOp`s are reduced to operations only using `Px` and `Percentage` before layout.
+    pub(crate) calcs: CalcOps,
+}
+
+/// Resolves a calc pointer that taffy read back out of a [`TaffyStyle`] against the
+/// percentage `basis`.
+#[expect(
+    unsafe_code,
+    reason = "Taffy hands back the pointer it was given, which points into a `Box<CalcOp>` owned by the same `TaffyStyle`"
+)]
+pub(crate) fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
+    // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<CalcOp>` owned by the same `TaffyStyle`
+    let calc = unsafe { &*ptr.cast::<CalcOp>() };
+    calc.resolve(&ValContext::default(), basis).unwrap()
+}
 
 impl TaffyStyle {
     pub fn viewport_node() -> &'static TaffyStyle {
@@ -51,8 +74,8 @@ impl TaffyStyle {
     }
 }
 
-static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
-    TaffyStyle(Style {
+static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyStyle {
+    style: Style {
         dummy: core::marker::PhantomData,
         display: Display::Grid,
         item_is_table: false,
@@ -107,7 +130,8 @@ static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
             start: taffy::GridPlacement::Span(1),
             end: taffy::GridPlacement::Auto,
         },
-    })
+    },
+    calcs: CalcOps::default(),
 });
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
@@ -633,10 +657,12 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(TaffyStyle::viewport_node(), |entity| {
-            self.style_query
+        entity_from_node_id(node_id).map_or(&TaffyStyle::viewport_node().style, |entity| {
+            &self
+                .style_query
                 .get(entity)
                 .expect("Missing TaffyStyle on UI node.")
+                .style
         })
     }
 
@@ -669,7 +695,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                 (_, false) => compute_leaf_layout(
                     inputs,
                     style,
-                    |_, _| 0.0,
+                    resolve_calc,
                     |known_dimensions, available_space| {
                         (tree.measure_function)(
                             known_dimensions,
@@ -713,6 +739,10 @@ impl TraversePartialTree for UiLayoutTree<'_, '_, '_> {
 impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
 impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
+    fn resolve_calc_value(&self, val: *const (), basis: f32) -> f32 {
+        resolve_calc(val, basis)
+    }
+
     type CoreContainerStyle<'a>
         = &'a Style
     where

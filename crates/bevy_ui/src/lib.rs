@@ -22,6 +22,7 @@ pub mod gradients;
 #[cfg(feature = "bevy_picking")]
 pub mod picking_backend;
 pub mod ui_transform;
+pub mod val;
 
 use bevy_derive::{Deref, DerefMut};
 #[cfg(feature = "bevy_picking")]
@@ -34,7 +35,6 @@ mod layout;
 mod scroll_into_view;
 mod stack;
 mod ui_node;
-mod val;
 
 use bevy_text::{detect_text_needs_rerender, EditableTextSystems};
 pub use geometry::*;

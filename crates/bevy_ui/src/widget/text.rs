@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, Measure, MeasureArgs,
-    Node, NodeMeasure,
+    layout_tree::resolve_calc, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure,
+    Measure, MeasureArgs, Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -218,9 +218,8 @@ impl Measure for TextMeasure {
                 width: width.effective,
                 height: height.effective,
             };
-            let calc = |_, _| 0.;
-            let padding = style.padding.resolve_or_zero(context, calc);
-            let border = style.border.resolve_or_zero(context, calc);
+            let padding = style.padding.resolve_or_zero(context, resolve_calc);
+            let border = style.border.resolve_or_zero(context, resolve_calc);
             let total_x_inset = padding.left + padding.right + border.left + border.right;
             width.min = width.min.map(|min| (min - total_x_inset).max(0.));
             width.max = width.max.map(|max| (max - total_x_inset).max(0.));

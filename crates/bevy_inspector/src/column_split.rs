@@ -149,8 +149,8 @@ fn border_box(entity: Entity, nodes: &Query<Geometry>, scale: f32) -> Option<[f3
     let [left, right] = inner_box(parent?.parent(), nodes, scale, true)?;
     let margin = &node.margin;
     Some([
-        left + px_value(margin.left) * scale,
-        right - px_value(margin.right) * scale,
+        left + px_value(margin.left.clone()) * scale,
+        right - px_value(margin.right.clone()) * scale,
     ])
 }
 
@@ -171,8 +171,8 @@ fn inner_box(
     };
     let [inset_left, inset_right] = match computed.is_added() {
         true => [
-            side(node.border.left, node.padding.left),
-            side(node.border.right, node.padding.right),
+            side(node.border.left.clone(), node.padding.left.clone()),
+            side(node.border.right.clone(), node.padding.right.clone()),
         ],
         false => [inset.min_inset.x, inset.max_inset.x],
     };
@@ -237,7 +237,7 @@ fn update_column_splits(
         if is_handle && node.left != value {
             node.left = value;
         } else if !is_handle && node.width != value {
-            node.width = value;
+            node.width = value.clone();
             node.min_width = value;
         }
     }
@@ -511,7 +511,7 @@ mod tests {
         assert_eq!(app.world().get::<Children>(split).unwrap().len(), 1);
         let node = app.world().get::<Node>(handle).unwrap();
         assert_eq!(node.position_type, PositionType::Absolute);
-        assert_eq!((node.top, node.bottom), (px(0), px(0)));
+        assert_eq!((node.top.clone(), node.bottom.clone()), (px(0), px(0)));
         assert_eq!(
             app.world().get::<EntityCursor>(handle),
             Some(&EntityCursor::System(SystemCursorIcon::ColResize))
@@ -703,7 +703,7 @@ mod tests {
     fn widths(app: &App, nodes: &[Entity]) -> Vec<Val> {
         nodes
             .iter()
-            .map(|&entity| app.world().get::<Node>(entity).unwrap().width)
+            .map(|&entity| app.world().get::<Node>(entity).unwrap().width.clone())
             .collect()
     }
 

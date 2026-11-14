@@ -526,12 +526,12 @@ fn arrange_tab_lists(
             if let Ok(mut node) = start.get_mut(child)
                 && node.margin != start_margin
             {
-                node.margin = start_margin;
+                node.margin = start_margin.clone();
             }
             if let Ok(mut node) = end.get_mut(child)
                 && node.margin != end_margin
             {
-                node.margin = end_margin;
+                node.margin = end_margin.clone();
             }
         }
         let rank = |child: &Entity| {
@@ -684,8 +684,8 @@ fn fillet_node(visible: bool, edge: PhysicalEdge) -> Node {
             true => Display::Flex,
             false => Display::None,
         },
-        width: size,
-        height: size,
+        width: size.clone(),
+        height: size.clone(),
         ..Default::default()
     };
     match edge {
@@ -942,8 +942,8 @@ fn spawn_tab_drag_proxy(
             align_items: AlignItems::Center,
             padding: UiRect::horizontal(px(TAB_PADDING)),
             column_gap: px(TAB_GAP),
-            border: tab_node.border,
-            border_radius: tab_node.border_radius,
+            border: tab_node.border.clone(),
+            border_radius: tab_node.border_radius.clone(),
             ..Default::default()
         },
         GlobalZIndex(DRAG_PROXY_Z),
@@ -1323,7 +1323,7 @@ mod tests {
         assert_eq!(drag_proxy.pointer_id, PointerId::Touch(4));
         let ghost = app.world().entity(proxy);
         assert_eq!(
-            ghost.get::<Outline>().map(|outline| outline.width),
+            ghost.get::<Outline>().map(|outline| outline.width.clone()),
             Some(px(1))
         );
         assert!(ghost.contains::<BoxShadow>());
@@ -1777,7 +1777,9 @@ mod tests {
         let world = app.world();
         let list = world.entity(list).get::<Node>().unwrap();
         let tab = world.entity(tab).get::<Node>().unwrap();
-        let (Val::Px(tab_height), Val::Px(min_height)) = (tab.min_height, list.min_height) else {
+        let (Val::Px(tab_height), Val::Px(min_height)) =
+            (tab.min_height.clone(), list.min_height.clone())
+        else {
             panic!("expected pixel heights");
         };
         let Val::Px(top) = list.padding.top else {

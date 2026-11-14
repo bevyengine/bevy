@@ -48,7 +48,7 @@ use bevy_utils::default;
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -67,9 +67,9 @@ pub struct UiRect {
 }
 
 impl UiRect {
-    pub const DEFAULT: Self = Self::all(Val::ZERO);
-    pub const ZERO: Self = Self::all(Val::ZERO);
-    pub const AUTO: Self = Self::all(Val::Auto);
+    pub const DEFAULT: Self = Self::ZERO;
+    pub const ZERO: Self = Self::new(Val::ZERO, Val::ZERO, Val::ZERO, Val::ZERO);
+    pub const AUTO: Self = Self::new(Val::Auto, Val::Auto, Val::Auto, Val::Auto);
 
     /// Creates a new [`UiRect`] from the values specified.
     ///
@@ -113,11 +113,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn all(value: Val) -> Self {
+    pub fn all(value: Val) -> Self {
         UiRect {
-            left: value,
-            right: value,
-            top: value,
+            left: value.clone(),
+            right: value.clone(),
+            top: value.clone(),
             bottom: value,
         }
     }
@@ -185,9 +185,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub const fn horizontal(value: Val) -> Self {
+    pub fn horizontal(value: Val) -> Self {
         Self {
-            left: value,
+            left: value.clone(),
             right: value,
             ..Self::DEFAULT
         }
@@ -208,9 +208,9 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub const fn vertical(value: Val) -> Self {
+    pub fn vertical(value: Val) -> Self {
         Self {
-            top: value,
+            top: value.clone(),
             bottom: value,
             ..Self::DEFAULT
         }
@@ -230,11 +230,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Percent(15.0));
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
-    pub const fn axes(horizontal: Val, vertical: Val) -> Self {
+    pub fn axes(horizontal: Val, vertical: Val) -> Self {
         Self {
-            left: horizontal,
+            left: horizontal.clone(),
             right: horizontal,
-            top: vertical,
+            top: vertical.clone(),
             bottom: vertical,
         }
     }
@@ -257,7 +257,9 @@ impl UiRect {
     pub const fn left(left: Val) -> Self {
         Self {
             left,
-            ..Self::DEFAULT
+            right: Val::ZERO,
+            top: Val::ZERO,
+            bottom: Val::ZERO,
         }
     }
 
@@ -278,8 +280,10 @@ impl UiRect {
     /// ```
     pub const fn right(right: Val) -> Self {
         Self {
+            left: Val::ZERO,
             right,
-            ..Self::DEFAULT
+            top: Val::ZERO,
+            bottom: Val::ZERO,
         }
     }
 
@@ -300,8 +304,10 @@ impl UiRect {
     /// ```
     pub const fn top(top: Val) -> Self {
         Self {
+            left: Val::ZERO,
+            right: Val::ZERO,
             top,
-            ..Self::DEFAULT
+            bottom: Val::ZERO,
         }
     }
 
@@ -322,8 +328,10 @@ impl UiRect {
     /// ```
     pub const fn bottom(bottom: Val) -> Self {
         Self {
+            left: Val::ZERO,
+            right: Val::ZERO,
+            top: Val::ZERO,
             bottom,
-            ..Self::DEFAULT
         }
     }
 
@@ -341,7 +349,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_left(mut self, left: Val) -> Self {
+    pub fn with_left(mut self, left: Val) -> Self {
         self.left = left;
         self
     }
@@ -360,7 +368,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_right(mut self, right: Val) -> Self {
+    pub fn with_right(mut self, right: Val) -> Self {
         self.right = right;
         self
     }
@@ -379,7 +387,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub const fn with_top(mut self, top: Val) -> Self {
+    pub fn with_top(mut self, top: Val) -> Self {
         self.top = top;
         self
     }
@@ -398,7 +406,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     #[inline]
-    pub const fn with_bottom(mut self, bottom: Val) -> Self {
+    pub fn with_bottom(mut self, bottom: Val) -> Self {
         self.bottom = bottom;
         self
     }
@@ -416,7 +424,7 @@ impl From<Val> for UiRect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -482,82 +490,82 @@ impl UiPosition {
     }
 
     /// Creates a position from self with the given `x` and `y` coordinates
-    pub const fn at(self, x: Val, y: Val) -> Self {
+    pub fn at(self, x: Val, y: Val) -> Self {
         Self { x, y, ..self }
     }
 
     /// Creates a position from self with the given `x` coordinate
-    pub const fn at_x(self, x: Val) -> Self {
+    pub fn at_x(self, x: Val) -> Self {
         Self { x, ..self }
     }
 
     /// Creates a position from self with the given `y` coordinate
-    pub const fn at_y(self, y: Val) -> Self {
+    pub fn at_y(self, y: Val) -> Self {
         Self { y, ..self }
     }
 
     /// Creates a position in logical pixels from self with the given `x` and `y` coordinates
-    pub const fn at_px(self, x: f32, y: f32) -> Self {
+    pub fn at_px(self, x: f32, y: f32) -> Self {
         self.at(Val::Px(x), Val::Px(y))
     }
 
     /// Creates a percentage position from self with the given `x` and `y` coordinates
-    pub const fn at_percent(self, x: f32, y: f32) -> Self {
+    pub fn at_percent(self, x: f32, y: f32) -> Self {
         self.at(Val::Percent(x), Val::Percent(y))
     }
 
     /// Creates a position from self with the given `anchor` point
-    pub const fn with_anchor(self, anchor: Vec2) -> Self {
+    pub fn with_anchor(self, anchor: Vec2) -> Self {
         Self { anchor, ..self }
     }
 
     /// Position relative to the top-left corner
-    pub const fn top_left(x: Val, y: Val) -> Self {
+    pub fn top_left(x: Val, y: Val) -> Self {
         Self::TOP_LEFT.at(x, y)
     }
 
     /// Position relative to the left edge
-    pub const fn left(x: Val, y: Val) -> Self {
+    pub fn left(x: Val, y: Val) -> Self {
         Self::LEFT.at(x, y)
     }
 
     /// Position relative to the bottom-left corner
-    pub const fn bottom_left(x: Val, y: Val) -> Self {
+    pub fn bottom_left(x: Val, y: Val) -> Self {
         Self::BOTTOM_LEFT.at(x, y)
     }
 
     /// Position relative to the top edge
-    pub const fn top(x: Val, y: Val) -> Self {
+    pub fn top(x: Val, y: Val) -> Self {
         Self::TOP.at(x, y)
     }
 
     /// Position relative to the center
-    pub const fn center(x: Val, y: Val) -> Self {
+    pub fn center(x: Val, y: Val) -> Self {
         Self::CENTER.at(x, y)
     }
 
     /// Position relative to the bottom edge
-    pub const fn bottom(x: Val, y: Val) -> Self {
+    pub fn bottom(x: Val, y: Val) -> Self {
         Self::BOTTOM.at(x, y)
     }
 
     /// Position relative to the top-right corner
-    pub const fn top_right(x: Val, y: Val) -> Self {
+    pub fn top_right(x: Val, y: Val) -> Self {
         Self::TOP_RIGHT.at(x, y)
     }
 
     /// Position relative to the right edge
-    pub const fn right(x: Val, y: Val) -> Self {
+    pub fn right(x: Val, y: Val) -> Self {
         Self::RIGHT.at(x, y)
     }
 
     /// Position relative to the bottom-right corner
-    pub const fn bottom_right(x: Val, y: Val) -> Self {
+    pub fn bottom_right(x: Val, y: Val) -> Self {
         Self::BOTTOM_RIGHT.at(x, y)
     }
 
     /// Resolves the `UiPosition` into physical coordinates.
-    pub fn resolve(self, context: &ValContext, physical_size: Vec2) -> Vec2 {
+    pub fn resolve(&self, context: &ValContext, physical_size: Vec2) -> Vec2 {
         let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
         physical_size * self.anchor
@@ -598,7 +606,7 @@ impl From<(Val, Val)> for UiPosition {
 /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
 ///
 /// let c1 = CornerRadius {
-///     x: radius,
+///     x: radius.clone(),
 ///     y: Val::ZERO,
 /// };
 /// let c2 = CornerRadius {
@@ -615,7 +623,7 @@ impl From<(Val, Val)> for UiPosition {
 ///     Vec2::new(10.0, 0.0),
 /// );
 /// ```
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -663,7 +671,7 @@ impl CornerRadius {
     /// let rem_size = RemSize(20.0);
     /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
     ///
-    /// let c1 = CornerRadius::circular(radius);
+    /// let c1 = CornerRadius::circular(radius.clone());
     /// let c2 = CornerRadius {
     ///     x: Val::Auto,
     ///     y: radius,
@@ -704,9 +712,9 @@ impl CornerRadius {
     /// let rem_size = RemSize(20.0);
     /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
     ///
-    /// let c1 = CornerRadius::all(radius);
+    /// let c1 = CornerRadius::all(radius.clone());
     /// let c2 = CornerRadius {
-    ///     x: radius,
+    ///     x: radius.clone(),
     ///     y: radius,
     /// };
     ///
@@ -721,9 +729,9 @@ impl CornerRadius {
     /// );
     /// ```
     #[inline]
-    pub const fn all(radius: Val) -> Self {
+    pub fn all(radius: Val) -> Self {
         Self {
-            x: radius,
+            x: radius.clone(),
             y: radius,
         }
     }
@@ -735,7 +743,7 @@ impl CornerRadius {
     }
 
     /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
-    pub fn resolve(self, context: &ValContext, size: Vec2) -> Vec2 {
+    pub fn resolve(&self, context: &ValContext, size: Vec2) -> Vec2 {
         match self {
             Self {
                 x: Val::Auto,
@@ -855,7 +863,7 @@ mod tests {
     fn test_uirect_axes() {
         let x = Val::Px(1.);
         let y = Val::Vw(4.);
-        let r = UiRect::axes(x, y);
+        let r = UiRect::axes(x.clone(), y.clone());
         let h = UiRect::horizontal(x);
         let v = UiRect::vertical(y);
 
@@ -881,17 +889,6 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
-    }
-
-    #[test]
-    fn val_constructor_fns_return_correct_val_variant() {
-        assert_eq!(auto(), Val::Auto);
-        assert_eq!(px(0.0), Val::Px(0.0));
-        assert_eq!(percent(0.0), Val::Percent(0.0));
-        assert_eq!(vw(0.0), Val::Vw(0.0));
-        assert_eq!(vh(0.0), Val::Vh(0.0));
-        assert_eq!(vmin(0.0), Val::VMin(0.0));
-        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 
     #[test]

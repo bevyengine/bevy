@@ -2644,7 +2644,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Component, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2934,7 +2934,7 @@ impl<T: Into<Color>> From<T> for OuterColor {
 /// ```
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -2990,9 +2990,9 @@ impl BorderRadius {
     pub fn all(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_left: radius,
-            top_right: radius,
-            bottom_left: radius,
+            top_left: radius.clone(),
+            top_right: radius.clone(),
+            bottom_left: radius.clone(),
             bottom_right: radius,
         }
     }
@@ -3085,7 +3085,7 @@ impl BorderRadius {
     pub fn left(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_left: radius,
+            top_left: radius.clone(),
             bottom_left: radius,
             ..Self::DEFAULT
         }
@@ -3097,7 +3097,7 @@ impl BorderRadius {
     pub fn right(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_right: radius,
+            top_right: radius.clone(),
             bottom_right: radius,
             ..Self::DEFAULT
         }
@@ -3109,7 +3109,7 @@ impl BorderRadius {
     pub fn top(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            top_left: radius,
+            top_left: radius.clone(),
             top_right: radius,
             ..Self::DEFAULT
         }
@@ -3121,7 +3121,7 @@ impl BorderRadius {
     pub fn bottom(radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
         Self {
-            bottom_left: radius,
+            bottom_left: radius.clone(),
             bottom_right: radius,
             ..Self::DEFAULT
         }
@@ -3159,7 +3159,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_left(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.top_left = radius;
+        self.top_left = radius.clone();
         self.bottom_left = radius;
         self
     }
@@ -3168,7 +3168,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_right(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.top_right = radius;
+        self.top_right = radius.clone();
         self.bottom_right = radius;
         self
     }
@@ -3177,7 +3177,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_top(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.top_left = radius;
+        self.top_left = radius.clone();
         self.top_right = radius;
         self
     }
@@ -3186,7 +3186,7 @@ impl BorderRadius {
     #[inline]
     pub fn with_bottom(mut self, radius: impl Into<CornerRadius>) -> Self {
         let radius = radius.into();
-        self.bottom_left = radius;
+        self.bottom_left = radius.clone();
         self.bottom_right = radius;
         self
     }
@@ -3316,7 +3316,7 @@ impl From<ShadowStyle> for BoxShadow {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Default, Clone)]
 #[cfg_attr(
     feature = "serialize",

@@ -7,7 +7,7 @@ use bevy_utils::default;
 use core::{f32, f32::consts::TAU};
 
 /// A color stop for a gradient
-#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
@@ -443,7 +443,7 @@ impl ConicGradient {
     }
 
     /// Sets the position of the gradient
-    pub const fn with_position(mut self, position: UiPosition) -> Self {
+    pub fn with_position(mut self, position: UiPosition) -> Self {
         self.position = position;
         self
     }
@@ -564,7 +564,7 @@ impl<T: Into<Gradient>> From<T> for BorderGradient {
     }
 }
 
-#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Default, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -605,7 +605,7 @@ const fn far_side2(p: Vec2, h: Vec2) -> f32 {
 
 impl RadialGradientShape {
     /// Resolve the physical dimensions of the end shape of the radial gradient
-    pub fn resolve(self, position: Vec2, context: &ValContext, physical_size: Vec2) -> Vec2 {
+    pub fn resolve(&self, context: &ValContext, physical_size: Vec2, position: Vec2) -> Vec2 {
         let half_size = 0.5 * physical_size;
         match self {
             RadialGradientShape::ClosestSide => Vec2::splat(close_side2(position, half_size)),

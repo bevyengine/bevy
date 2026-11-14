@@ -119,7 +119,7 @@ fn label(text: &str) -> impl Scene {
         Text(text)
         TextFont {
             font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
-            font_size: px(33.0),
+            font_size: FontSize::Px(33.0),
         }
         TextColor(Color::srgb(0.9, 0.9, 0.9))
     }
