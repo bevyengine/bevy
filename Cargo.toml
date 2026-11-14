@@ -5391,6 +5391,14 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
+name = "test_mesh_reinsert"
+path = "tests/3d/test_mesh_reinsert.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.test_mesh_reinsert]
+hidden = true
+
+[[example]]
 name = "test_skinned_mesh_bounds"
 path = "tests/3d/test_skinned_mesh_bounds.rs"
 doc-scrape-examples = true
