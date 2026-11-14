@@ -193,6 +193,20 @@ pub trait GetFullBatchData: GetBatchData {
         indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     );
+
+    /// Returns the input range for a GPU-authored instance batch, or `None`
+    /// for entities handled by ordinary batching or a custom draw command.
+    /// An empty range identifies a GPU batch whose inputs are unavailable;
+    /// it must not draw or allocate work items this frame.
+    ///
+    /// Sorted phases treat each batch as one item, and GPU compaction does not
+    /// preserve instance order.
+    fn get_instance_batch(
+        _param: &SystemParamItem<Self::Param>,
+        _query_item: MainEntity,
+    ) -> Option<core::ops::Range<u32>> {
+        None
+    }
 }
 
 /// Sorts a render phase that uses bins.
@@ -236,6 +250,7 @@ fn batch_and_prepare_sorted_render_phase<I, GBD>(
     items.reduce(|(start_range, prev_batch_meta), (range, batch_meta)| {
         if batch_meta.is_some() && prev_batch_meta == batch_meta {
             start_range.end = range.end;
+            *range = range.end..range.end;
             (start_range, prev_batch_meta)
         } else {
             (range, batch_meta)
