@@ -73,7 +73,7 @@ impl DockDropZone {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Component, Clone, Debug, PartialEq)]
 pub struct DockDropArea {
-    /// The entity holding the [`DockTree`](crate::DockTree).
+    /// The entity holding the [`DockTree`].
     pub dock: Entity,
     /// The dock tree leaf this area covers.
     pub leaf: DockNodeId,
