@@ -288,9 +288,10 @@ fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) ->
 @if(CONTACT_SHADOWS && DEPTH_PREPASS)
 fn calculate_contact_shadow(
     world_position: vec3<f32>,
+    world_normal: vec3<f32>,
     frag_coord: vec2<f32>,
     light_dir: vec3<f32>,
-    contact_shadow_steps: u32,
+    contact_shadow_steps: u32
 ) -> f32 {
     @if(BLUE_NOISE_TEXTURE)
     let noise_size = textureDimensions(view_bindings::blue_noise_texture, 0);
@@ -306,10 +307,30 @@ fn calculate_contact_shadow(
     @else
     let noise = utils::interleaved_gradient_noise(frag_coord, view_bindings::globals.frame_count);
 
+    let NdotL = dot(world_normal, light_dir);
+
+    // Early exit: no shadow for surfaces facing away from the light
+    // this surface is self-occluding by definition and will be targeted by the shadow maps
+    if NdotL < 0.0 { return 1.0; } 
+    
+    // ray bending & fading (to handle grazing angle artifacts)    
+    // until 0.25 point the light dir away from the surface by ray_bias_degrees to reduce self occlusion (0.25 is roughly 75.5°)
+    // then smoothly return the light dir back to normal between 0.25 and 0.45
+    let angle_fade = 1.0 - smoothstep(0.25, 0.45, NdotL);
+    let max_bend_radians = 0.0174533 * view_bindings::contact_shadows_settings.ray_bias_degrees; // rad * ray_bias_degrees
+    let theta = max_bend_radians * angle_fade;
+    
+    // Construct orthonormal basis and rotate light_dir
+    let T = normalize(world_normal - light_dir * NdotL);
+    let bent_light_dir = light_dir * cos(theta) + T * sin(theta); // bend the light away from the surface by just a little bit (if needed)
+       
+    var ray_length = view_bindings::contact_shadows_settings.length;
+    
+    // ray march
     let depth_size = vec2<f32>(textureDimensions(view_bindings::depth_prepass_texture));
     var rm = raymarch::depth_ray_march_new_from_depth(depth_size);
     raymarch::depth_ray_march_from_cs(&rm, position_world_to_ndc(world_position));
-    raymarch::depth_ray_march_to_ws(&rm, world_position + light_dir * view_bindings::contact_shadows_settings.length);
+    raymarch::depth_ray_march_to_ws(&rm, world_position + bent_light_dir * ray_length);
     rm.linear_steps = contact_shadow_steps;
     rm.depth_thickness_linear_z = view_bindings::contact_shadows_settings.thickness;
     rm.march_behind_surfaces = true;
@@ -485,7 +506,7 @@ fn apply_pbr_lighting(
                 (view_bindings::clustered_lights.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
             let L = normalize(view_bindings::clustered_lights.data[light_id].position_radius.xyz - in.world_position.xyz);
-            shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
+            shadow *= calculate_contact_shadow(in.world_position.xyz, in.world_normal.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 
         let light_contrib = lighting::point_light(light_id, &lighting_input, enable_diffuse, true);
@@ -546,7 +567,7 @@ fn apply_pbr_lighting(
                 (view_bindings::clustered_lights.data[light_id].flags &
                     mesh_view_types::POINT_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
             let L = normalize(view_bindings::clustered_lights.data[light_id].position_radius.xyz - in.world_position.xyz);
-            shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
+            shadow *= calculate_contact_shadow(in.world_position.xyz, in.world_normal.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 
         let light_contrib = lighting::spot_light(light_id, &lighting_input, enable_diffuse);
@@ -609,7 +630,7 @@ fn apply_pbr_lighting(
                 (view_bindings::lights.directional_lights[i].flags &
                     mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_CONTACT_SHADOWS_ENABLED_BIT) != 0u {
             let L = view_bindings::lights.directional_lights[i].direction_to_light;
-            shadow *= calculate_contact_shadow(in.world_position.xyz, in.frag_coord.xy, L, contact_shadow_steps);
+            shadow *= calculate_contact_shadow(in.world_position.xyz, in.world_normal.xyz, in.frag_coord.xy, L, contact_shadow_steps);
         }
 
         var light_contrib = lighting::directional_light(i, &lighting_input, enable_diffuse);
