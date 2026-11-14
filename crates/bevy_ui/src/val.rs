@@ -62,6 +62,59 @@ impl Default for ValContext {
     }
 }
 
+/// The unit of a numeric [`Val`].
+///
+/// The variants should match the numeric variants of `Val`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u8)]
+pub enum ValUnit {
+    /// Use `Val::Px` units.
+    Px = 0,
+    /// Use `Val::Percent` units.
+    Percent = 1,
+    /// Use `Val::Vw` units.
+    Vw = 2,
+    /// Use `Val::Vh` units.
+    Vh = 3,
+    /// Use `Val::VMin` units.
+    VMin = 4,
+    /// Use `Val::VMax` units.
+    VMax = 5,
+    /// Use `Val::Em` units.
+    Em = 6,
+    /// Use `Val::Rem` units.
+    Rem = 7,
+}
+
+impl ValUnit {
+    /// List of all the units in discriminant order.
+    pub const ALL: [Self; 8] = [
+        Self::Px,
+        Self::Percent,
+        Self::Vw,
+        Self::Vh,
+        Self::VMin,
+        Self::VMax,
+        Self::Em,
+        Self::Rem,
+    ];
+
+    /// Constructs a numeric [`Val`] using this unit and the given value.
+    pub const fn with_value(self, value: f32) -> Val {
+        match self {
+            ValUnit::Percent => Val::Percent(value),
+            ValUnit::Px => Val::Px(value),
+            ValUnit::Vw => Val::Vw(value),
+            ValUnit::Vh => Val::Vh(value),
+            ValUnit::VMin => Val::VMin(value),
+            ValUnit::VMax => Val::VMax(value),
+            ValUnit::Em => Val::Em(value),
+            ValUnit::Rem => Val::Rem(value),
+        }
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
@@ -242,8 +295,8 @@ impl PartialEq for Val {
 
         // as long as the units are the same comparing `inner`
         // is valid.
-        let left = self.inner();
-        let right = other.inner();
+        let left = self.value();
+        let right = other.value();
 
         match (same_unit, left, right) {
             (true, a, b) => a == b,
@@ -263,21 +316,37 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
+    /// Returns the unit and value of a numeric `Val`, or `None` otherwise.
+    pub const fn unit_value(self) -> Option<(ValUnit, f32)> {
+        match self {
+            Self::Px(v) => Some((ValUnit::Px, v)),
+            Self::Percent(v) => Some((ValUnit::Percent, v)),
+            Self::Vw(v) => Some((ValUnit::Vw, v)),
+            Self::Vh(v) => Some((ValUnit::Vh, v)),
+            Self::VMin(v) => Some((ValUnit::VMin, v)),
+            Self::VMax(v) => Some((ValUnit::VMax, v)),
+            Self::Em(v) => Some((ValUnit::Em, v)),
+            Self::Rem(v) => Some((ValUnit::Rem, v)),
+            _ => None,
+        }
+    }
+
+    /// Returns the unit of this `Val` if it is a numeric variant, or `None` otherwise.
+    pub const fn unit(self) -> Option<ValUnit> {
+        match self.unit_value() {
+            Some((unit, _)) => Some(unit),
+            None => None,
+        }
+    }
+
     /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    const fn inner(self) -> Option<f32> {
-        match self {
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v)
-            | Self::Em(v)
-            | Self::Rem(v) => Some(v),
-            _ => None,
+    pub const fn value(self) -> Option<f32> {
+        match self.unit_value() {
+            Some((_, value)) => Some(value),
+            None => None,
         }
     }
 
@@ -954,5 +1023,29 @@ mod tests {
     #[test]
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn val_unit_all_matches_discriminants() {
+        for (i, u) in ValUnit::ALL.iter().enumerate() {
+            assert!(*u as usize == i);
+        }
+    }
+
+    #[test]
+    fn val_unit_value_round_trip() {
+        for val in [
+            Val::Px(3.5),
+            Val::Percent(3.5),
+            Val::Vw(3.5),
+            Val::Vh(3.5),
+            Val::VMin(3.5),
+            Val::VMax(3.5),
+            Val::Em(3.5),
+            Val::Rem(3.5),
+        ] {
+            let (unit, value) = val.unit_value().unwrap();
+            assert_eq!(unit.with_value(value), val);
+        }
     }
 }
