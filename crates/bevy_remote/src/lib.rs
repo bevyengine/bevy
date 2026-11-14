@@ -611,9 +611,10 @@
 //!
 //! Move the mouse cursor to a UI node, or to a point in a window, without pressing anything, so
 //! that hover effects and tooltips respond. The app receives one cursor position per frame for
-//! `frames` frames. The cursor starts where earlier `input.*` requests left it, and ends on the
-//! target. If no earlier request put the cursor in the target's window, it is at the target on
-//! every frame. A node hidden by a scrolled ancestor is scrolled into view first.
+//! `frames` frames. The cursor starts where earlier `input.*` requests left it, or where the
+//! window reports the cursor to be if they did not leave it in the target's window, and ends on
+//! the target. If the cursor's position in that window is unknown, it is at the target on every
+//! frame. A node hidden by a scrolled ancestor is scrolled into view first.
 //!
 //! `params`:
 //! - `entity`, or `window` and `position`: Where to move the mouse cursor to, as for

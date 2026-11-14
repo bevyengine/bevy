@@ -200,8 +200,9 @@ pub fn click(
 /// so that hover effects and tooltips respond.
 ///
 /// The move is one [`WindowEvent`] per frame, after any input already queued. The cursor starts
-/// where the input queued or written before this left it, and `ease` sets how far along the
-/// straight line to the target it is on each frame. If no earlier input put the cursor in the
+/// where the input queued or written before this left it, or where the window reports the cursor
+/// to be if that input did not leave it in the target's window, and `ease` sets how far along the
+/// straight line to the target it is on each frame. If neither knows where the cursor is in the
 /// target's window, every event is at the target. A node hidden by a scrolled ancestor is scrolled
 /// into view first, as for [`click`]. The steps on the way head for where the node was when the
 /// move was queued, and only the last one follows the node if layout moves it.
