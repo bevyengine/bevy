@@ -122,8 +122,12 @@ fn compute_histogram(
     // Accumulate the workgroup histogram into the global histogram.
     // Note that the global histogram was not cleared at the beginning,
     // as it will be cleared in compute_average.
-    var histogram_value = atomicLoad(&histogram_shared[local_invocation_index]);
-    atomicAdd(&histogram[local_invocation_index], histogram_value);
+    // The workgroup has 256 invocations but the histograms have 64 bins,
+    // so only the first 64 invocations have a bin to copy.
+    if local_invocation_index < 64 {
+        let histogram_value = atomicLoad(&histogram_shared[local_invocation_index]);
+        atomicAdd(&histogram[local_invocation_index], histogram_value);
+    }
 }
 
 @compute @workgroup_size(1, 1, 1)
