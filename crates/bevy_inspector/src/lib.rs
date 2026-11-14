@@ -27,7 +27,7 @@ use alloc::string::{String, ToString};
 use core::fmt::Display;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_camera::visibility::Visibility;
+use bevy_camera::visibility::{Visibility, VisibilitySystems};
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
     component::{Component, ComponentId, ComponentInfo},
@@ -310,7 +310,8 @@ impl Plugin for InspectorPlugin {
                     .chain()
                     .ambiguous_with_all()
                     .before(UiSystems::Prepare)
-                    .before(UiSystems::Stack),
+                    .before(UiSystems::Stack)
+                    .before(VisibilitySystems::VisibilityPropagate),
             );
 
         #[cfg(feature = "remote")]

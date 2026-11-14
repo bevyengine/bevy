@@ -1366,12 +1366,10 @@ pub fn sync_details_panel(world: &mut World) {
 
     let inspector_source = selection.clone().map(|s| s.source);
     let Some(inspector_source) = inspector_source else {
-        reset_body(
-            world,
-            body,
-            selection.clone(),
-            Some(EmptyState::NoSelection),
-        );
+        let index = world.resource::<DetailsIndex>();
+        if index.body != Some(body) || index.empty != Some(EmptyState::NoSelection) {
+            reset_body(world, body, None, Some(EmptyState::NoSelection));
+        }
         return;
     };
     let local = inspector_source == InspectorSource::Local;
@@ -3982,6 +3980,67 @@ mod tests {
         assert!(index.widget(first, "first").is_none());
         assert!(index.widget(second, "second").is_some());
         assert_eq!(body_children(&mut app).len(), 2);
+    }
+
+    #[test]
+    fn keeps_the_empty_state_caption_across_sync_ticks() {
+        let mut app = test_app();
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        app.update();
+        let caption = body_children(&mut app);
+        assert_eq!(caption.len(), 1);
+
+        for _ in 0..3 {
+            refresh(&mut app);
+        }
+
+        assert_eq!(body_children(&mut app), caption);
+        assert_eq!(
+            body_message(&mut app).as_deref(),
+            Some("No entity selected")
+        );
+    }
+
+    #[derive(Resource, Default)]
+    struct MessageAtVisibility(Option<String>);
+
+    fn record_message(
+        bodies: Query<&Children, With<InspectorDetailsBody>>,
+        texts: Query<&Text>,
+        mut seen: ResMut<MessageAtVisibility>,
+    ) {
+        seen.0 = bodies
+            .iter()
+            .flat_map(|children| children.iter())
+            .find_map(|child| texts.get(*child).ok())
+            .map(|text| text.0.clone());
+    }
+
+    #[test]
+    fn empty_state_is_present_on_the_first_frame_the_panel_is_shown() {
+        use bevy_camera::visibility::{Visibility, VisibilitySystems};
+        use bevy_ecs::schedule::IntoScheduleConfigs;
+
+        let mut app = test_app();
+        app.init_resource::<MessageAtVisibility>().add_systems(
+            bevy_app::PostUpdate,
+            record_message.in_set(VisibilitySystems::VisibilityPropagate),
+        );
+        let panel = app.world_mut().spawn(Visibility::Hidden).id();
+        app.world_mut()
+            .spawn((InspectorUi, InspectorDetailsBody, ChildOf(panel)));
+        app.update();
+        assert!(body_children(&mut app).is_empty());
+
+        app.world_mut()
+            .entity_mut(panel)
+            .insert(Visibility::Inherited);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<MessageAtVisibility>().0.as_deref(),
+            Some("No entity selected")
+        );
     }
 
     #[test]
