@@ -109,7 +109,7 @@ fn toggle_projection(
     mut toggled: Local<bool>,
 ) {
     if keys.just_pressed(KeyCode::KeyP) {
-        *toggled = !*toggled;
+        toggled.toggle();
         let target_projection = if *toggled {
             Projection::Orthographic(OrthographicProjection::default_3d())
         } else {
@@ -136,7 +136,7 @@ fn toggle_zoom(
 ) {
     if keys.just_pressed(KeyCode::KeyZ) {
         let mut editor = cam.single_mut().unwrap();
-        editor.zoom_limits.zoom_through_objects = !editor.zoom_limits.zoom_through_objects;
+        editor.zoom_limits.zoom_through_objects.toggle();
         text.single_mut().unwrap().0 = zoom_status(editor.zoom_limits.zoom_through_objects);
     }
 }
@@ -237,7 +237,7 @@ fn toggle_camera_enabled(
 ) {
     if keys.just_pressed(KeyCode::KeyB) {
         let mut camera = cam.single_mut().unwrap();
-        camera.enabled = !camera.enabled;
+        camera.enabled.toggle();
         text.single_mut().unwrap().0 = camera_enabled_status(camera.enabled);
     }
 }

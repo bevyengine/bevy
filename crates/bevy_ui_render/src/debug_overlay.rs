@@ -63,7 +63,7 @@ pub struct UiDebugOptions {
 
 impl UiDebugOptions {
     pub fn toggle(&mut self) {
-        self.enabled = !self.enabled;
+        self.enabled.toggle();
     }
 }
 
@@ -131,7 +131,7 @@ pub struct GlobalUiDebugOptions {
 
 impl GlobalUiDebugOptions {
     pub fn toggle(&mut self) {
-        self.enabled = !self.enabled;
+        self.enabled.toggle();
     }
 }
 

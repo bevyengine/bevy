@@ -611,7 +611,7 @@ fn threshold_tick(roughness: f32) -> impl Bundle {
 
 fn pause_scene(key_input: Res<ButtonInput<KeyCode>>, mut state: ResMut<DemoState>) {
     if key_input.just_pressed(KeyCode::Space) {
-        state.paused = !state.paused;
+        state.paused.toggle();
     }
 }
 
@@ -631,7 +631,7 @@ fn toggle_metallic(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if key_input.just_pressed(KeyCode::Digit1) {
-        state.metallic = !state.metallic;
+        state.metallic.toggle();
         set_metallic(
             &mut materials.get_mut(&test_material.0).unwrap(),
             state.metallic,
@@ -641,10 +641,10 @@ fn toggle_metallic(
 
 fn toggle_mirror_motion(key_input: Res<ButtonInput<KeyCode>>, mut state: ResMut<DemoState>) {
     if key_input.just_pressed(KeyCode::Digit8) {
-        state.pan_mirror = !state.pan_mirror;
+        state.pan_mirror.toggle();
     }
     if key_input.just_pressed(KeyCode::Digit9) {
-        state.slide_mirror = !state.slide_mirror;
+        state.slide_mirror.toggle();
     }
 }
 
