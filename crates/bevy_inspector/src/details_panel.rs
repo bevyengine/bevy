@@ -1741,7 +1741,7 @@ fn component_group(name: String, memory: String) -> impl Scene {
                 padding: UiRect::horizontal(px(8)),
             }
             ThemeBackgroundColor(tokens::SUBPANE_HEADER_BG)
-            InheritableThemeTextColor(tokens::SUBPANE_HEADER_TEXT)
+            InheritableThemeTextColor(tokens::LISTROW_TEXT)
             InheritableFont {
                 font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::SMALL_FONT,
