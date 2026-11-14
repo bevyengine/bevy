@@ -36,7 +36,7 @@ where
 {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        BatchedInstanceBuffer(GpuArrayBuffer::new(&render_device.limits()))
+        BatchedInstanceBuffer(GpuArrayBuffer::new(render_device.limits()))
     }
 }
 
