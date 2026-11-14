@@ -409,8 +409,9 @@ pub struct ReadyFlag(pub bool);
 /// A marker to indicate that an entity is a dependency that may load eventually.
 ///
 /// This entity is considered "loaded" once the [`LoadFinished`] component is inserted onto it.
+/// Entities with this marker can be used as dependencies for [`AwaitLoads`].
 ///
-/// This marker is most often used indirectly through [`AwaitLoads`].
+/// This marker is most often used indirectly through [`AwaitLoads`] or [`AwaitDependencies`].
 #[derive(Component, Default)]
 pub struct LoadableDependency;
 
@@ -421,6 +422,8 @@ pub struct LoadFinished;
 
 /// A marker component indicating that dependencies of an [`AwaitDependencies`] are all loaded.
 ///
+/// This component is only inserted if [`InsertDependenciesFinished`] is attached to an
+/// [`AwaitDependencies`] entity (and will prevent the insertion of [`LoadFinished`] automatically).
 /// This allows you to add behavior that happens after all dependencies have loaded, but before this
 /// [`LoadableDependency`] has finished loading. For example, you could wait on all dependencies to
 /// load, then start polling for some other condition, after which you manually insert the
