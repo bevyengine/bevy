@@ -207,8 +207,8 @@ pub struct InspectorSelection(pub Option<InspectableEntity>);
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub enum InspectorMode {
-    /// Clicks in the app select the entity under the cursor and do not reach the app. The
-    /// selected entity is outlined.
+    /// Clicks in the app select the entity under the cursor, or clear the selection when nothing
+    /// is under it, and do not reach the app. The selected entity is outlined.
     #[default]
     Edit,
     /// Clicks reach the app, nothing is picked and the selection is not outlined.

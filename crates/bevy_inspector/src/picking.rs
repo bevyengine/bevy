@@ -4,6 +4,7 @@ use bevy_camera::{
 };
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
@@ -216,10 +217,18 @@ pub(crate) struct PickTargets<'w, 's> {
     blockers: Query<'w, 's, (), With<InspectorPickBlocker>>,
 }
 
+/// What a press or release of the primary button landed on.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Pick {
+    Entity(Entity),
+    Blocked,
+    Nothing,
+}
+
 impl PickTargets<'_, '_> {
-    fn topmost(&self, hits: &[(f32, f32, Entity)], location: &Location) -> Option<Option<Entity>> {
+    fn topmost(&self, hits: &[(f32, f32, Entity)], location: &Location) -> Option<Pick> {
         if self.panels.under(location) {
-            return Some(None);
+            return Some(Pick::Blocked);
         }
         for (.., entity) in hits {
             if self.windows.contains(*entity) || self.blockers.contains(*entity) {
@@ -228,15 +237,15 @@ impl PickTargets<'_, '_> {
             let pickable = self.pickables.get(*entity).copied().unwrap_or_default();
             if self.panels.contains(*entity) {
                 if pickable.is_hoverable || pickable.should_block_lower {
-                    return Some(None);
+                    return Some(Pick::Blocked);
                 }
                 continue;
             }
             if pickable.is_hoverable {
-                return Some(Some(*entity));
+                return Some(Pick::Entity(*entity));
             }
             if pickable.should_block_lower {
-                return Some(None);
+                return Some(Pick::Blocked);
             }
         }
         None
@@ -249,7 +258,7 @@ pub(crate) fn select_clicked_entity(
     sources: Res<InspectorSources>,
     mut pointer_hits: MessageReader<PointerHits>,
     mut inputs: MessageReader<PointerInput>,
-    mut pressed: Local<Option<Entity>>,
+    mut pressed: Local<Option<Pick>>,
     targets: PickTargets,
     mut meshes: MeshFallback,
     mut selection: ResMut<InspectorSelection>,
@@ -294,27 +303,34 @@ pub(crate) fn select_clicked_entity(
         *picked.get_or_insert_with(|| {
             targets
                 .topmost(&hits, location)
-                .unwrap_or_else(|| meshes.nearest())
+                .unwrap_or_else(|| meshes.nearest().map_or(Pick::Nothing, Pick::Entity))
         })
     };
     for (action, location) in clicks {
         match action {
-            PointerAction::Press(_) => *pressed = pick(&location),
+            PointerAction::Press(_) => *pressed = Some(pick(&location)),
             _ => {
-                if let Some(entity) = pressed.take()
-                    && pick(&location) == Some(entity)
-                {
-                    select(entity, &mut selection, &mut reveal);
-                    entities_page.show();
+                let Some(pressed) = pressed.take() else {
+                    continue;
+                };
+                if pick(&location) != pressed {
+                    continue;
+                }
+                match pressed {
+                    Pick::Entity(entity) => {
+                        selection.0 = Some(InspectableEntity::new(entity, InspectorSource::Local));
+                        reveal.0 = Some(entity);
+                        entities_page.show();
+                    }
+                    Pick::Nothing => {
+                        selection.set_if_neq(InspectorSelection(None));
+                        reveal.0 = None;
+                    }
+                    Pick::Blocked => {}
                 }
             }
         }
     }
-}
-
-fn select(entity: Entity, selection: &mut InspectorSelection, reveal: &mut TreeReveal) {
-    selection.0 = Some(InspectableEntity::new(entity, InspectorSource::Local));
-    reveal.0 = Some(entity);
 }
 
 #[cfg(test)]
@@ -498,6 +514,52 @@ mod tests {
     }
 
     #[test]
+    fn a_click_on_empty_space_clears_the_selection() {
+        let mut app = test_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        click(&mut app, &[(subject, 1.0)]);
+        assert_eq!(selected(&app), Some(subject));
+
+        click(&mut app, &[]);
+        assert_eq!(selected(&app), None);
+        assert!(app.world().resource::<TreeReveal>().0.is_none());
+        let tree = tree(&mut app);
+        assert_eq!(app.world().get::<SelectedTreeItem>(tree).unwrap().0, None);
+
+        click(&mut app, &[(subject, 1.0)]);
+        let window = app.world_mut().spawn(Window::default()).id();
+        let blocker = blocker(&mut app);
+        click(&mut app, &[(blocker, 0.0), (window, 9.0)]);
+        assert_eq!(selected(&app), None);
+    }
+
+    #[test]
+    fn a_drag_between_an_entity_and_empty_space_keeps_the_selection() {
+        let mut app = test_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        let other = app.world_mut().spawn(Name::new("Other")).id();
+        click(&mut app, &[(subject, 1.0)]);
+
+        drag(&mut app, &[(other, 1.0)], &[]);
+        assert_eq!(selected(&app), Some(subject));
+        drag(&mut app, &[], &[(other, 1.0)]);
+        assert_eq!(selected(&app), Some(subject));
+    }
+
+    #[test]
+    fn a_click_on_empty_space_keeps_the_selection_in_preview() {
+        let mut app = test_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        click(&mut app, &[(subject, 1.0)]);
+        set_mode(&mut app, InspectorMode::Preview);
+        click(&mut app, &[]);
+        assert_eq!(selected(&app), Some(subject));
+    }
+
+    #[test]
     fn clicking_a_deep_child_expands_its_ancestors_and_highlights_its_row() {
         let mut app = test_app();
         let root = app.world_mut().spawn(Name::new("Root")).id();
@@ -586,6 +648,19 @@ mod tests {
         let subject = app.world_mut().spawn(Name::new("Subject")).id();
         click(&mut app, &[(subject, 1.0)]);
         assert_eq!(selected(&app), None);
+
+        let source = app
+            .world()
+            .resource::<InspectorSources>()
+            .sources
+            .iter()
+            .next()
+            .cloned()
+            .unwrap();
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, source));
+        click(&mut app, &[]);
+        assert_eq!(selected(&app), Some(subject));
     }
 
     fn ray_cast_app() -> App {
@@ -654,6 +729,19 @@ mod tests {
 
         app.world_mut().entity_mut(behind).insert(Pickable::IGNORE);
         app.world_mut().resource_mut::<InspectorSelection>().0 = None;
+        click(&mut app, &[]);
+        assert_eq!(selected(&app), None);
+    }
+
+    #[test]
+    fn a_click_that_misses_every_mesh_clears_the_selection() {
+        let mut app = ray_cast_app();
+        spawn_panel(&mut app);
+        let mesh = spawn_mesh(&mut app, 4.0);
+        click(&mut app, &[]);
+        assert_eq!(selected(&app), Some(mesh));
+
+        aim(&mut app, Dir3::Z);
         click(&mut app, &[]);
         assert_eq!(selected(&app), None);
     }
