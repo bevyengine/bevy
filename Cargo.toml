@@ -1450,6 +1450,18 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "billboard"
+path = "examples/3d/billboard.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers", "pan_orbit_camera"]
+
+[package.metadata.example.billboard]
+name = "Billboard"
+description = "Meshes that always face the camera"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "decal"
 path = "examples/3d/decal.rs"
 doc-scrape-examples = true
