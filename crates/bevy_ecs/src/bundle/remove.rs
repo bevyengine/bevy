@@ -3,7 +3,10 @@ use bevy_ptr::ConstNonNull;
 use core::ptr::NonNull;
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
+    archetype::{
+        Archetype, ArchetypeAfterBundleRemove, ArchetypeCreated, ArchetypeId, Archetypes,
+        ARCHETYPE_CREATED,
+    },
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::{MaybeLocation, Tick},
     component::{ComponentId, Components, StorageType},
@@ -22,6 +25,8 @@ use crate::{
 pub(crate) struct BundleRemover<'w> {
     world: UnsafeWorldCell<'w>,
     bundle_info: ConstNonNull<BundleInfo>,
+    /// The explicit components of the bundle that `old_archetype` contains but `new_archetype` does not, cached in its edges.
+    removed: ConstNonNull<[ComponentId]>,
     old_and_new_table: Option<(TableId, TableId)>,
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
@@ -72,7 +77,11 @@ impl<'w> BundleRemover<'w> {
         // SAFETY: Bundle exists per precondition
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         // SAFETY: Caller ensures archetype and bundle ids are correct.
-        let (new_archetype_id, is_new_created) = unsafe {
+        let BundleRemoval {
+            archetype_id: new_archetype_id,
+            removed,
+            is_new_created,
+        } = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 &mut world.storages,
@@ -81,8 +90,7 @@ impl<'w> BundleRemover<'w> {
                 archetype_id,
                 !require_all,
             )
-        };
-        let new_archetype_id = new_archetype_id?;
+        }?;
 
         // SAFETY:
         // - The caller ensures `archetype_id` is valid.
@@ -99,6 +107,7 @@ impl<'w> BundleRemover<'w> {
 
         let remover = Self {
             bundle_info: bundle_info.into(),
+            removed,
             new_archetype: new_archetype.into(),
             old_archetype: old_archetype.into(),
             old_and_new_table: tables,
@@ -107,9 +116,6 @@ impl<'w> BundleRemover<'w> {
             change_tick,
         };
         if is_new_created {
-            // SAFETY:
-            // - we have exclusive ownership of the world and hold no references to command queue or component data
-            // - as this goes through `DeferredWorld`, our pointers will not be invalidated
             // SAFETY:
             // - we have exclusive ownership of the world and hold no references to command queue or component data
             // - as this goes through `DeferredWorld`, our pointers will not be invalidated
@@ -158,57 +164,72 @@ impl<'w> BundleRemover<'w> {
         ) -> (bool, T),
     ) -> (EntityLocation, T) {
         // Hooks
-        // SAFETY: all bundle components exist in World
-        unsafe {
+        {
             // SAFETY: We only keep access to archetype/bundle data.
-            let mut deferred_world = self.world.into_deferred();
-            let bundle_components_in_archetype = || {
-                self.bundle_info
-                    .as_ref()
-                    .iter_explicit_components()
-                    .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
+            let mut deferred_world = unsafe { self.world.into_deferred() };
+            // SAFETY:
+            // - `removed` points into the edges of `old_archetype`, see `BundleRemoval::removed`.
+            // - `old_archetype` and `new_archetype` are valid for 'w.
+            // - A `DeferredWorld` cannot make structural changes, so hooks and observers
+            //   cannot invalidate these references, which are only live for this block.
+            let (removed, old_archetype, new_archetype) = unsafe {
+                (
+                    self.removed.as_ref(),
+                    self.old_archetype.as_ref(),
+                    self.new_archetype.as_ref(),
+                )
             };
-            if self.old_archetype.as_ref().has_discard_observer() {
-                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+            if old_archetype.has_discard_observer() {
                 // SAFETY: the DISCARD event_key corresponds to the Discard event's type
-                deferred_world.trigger_raw(
-                    DISCARD,
-                    &mut DiscardEvent { entity },
-                    &mut EntityComponentsTrigger {
-                        components: &components,
-                        old_archetype: Some(self.old_archetype.as_ref()),
-                        new_archetype: Some(self.new_archetype.as_ref()),
-                    },
+                unsafe {
+                    deferred_world.trigger_raw(
+                        DISCARD,
+                        &mut DiscardEvent { entity },
+                        &mut EntityComponentsTrigger {
+                            components: removed,
+                            old_archetype: Some(old_archetype),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+            }
+            // SAFETY: `removed` only holds components that `old_archetype` contains,
+            // so they exist in the world.
+            unsafe {
+                deferred_world.trigger_on_discard(
+                    old_archetype,
+                    entity,
+                    removed.iter().copied(),
                     caller,
+                    self.relationship_hook_mode,
                 );
             }
-            deferred_world.trigger_on_discard(
-                self.old_archetype.as_ref(),
-                entity,
-                bundle_components_in_archetype(),
-                caller,
-                self.relationship_hook_mode,
-            );
-            if self.old_archetype.as_ref().has_remove_observer() {
-                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+            if old_archetype.has_remove_observer() {
                 // SAFETY: the REMOVE event_key corresponds to the Remove event's type
-                deferred_world.trigger_raw(
-                    REMOVE,
-                    &mut RemoveEvent { entity },
-                    &mut EntityComponentsTrigger {
-                        components: &components,
-                        old_archetype: Some(self.old_archetype.as_ref()),
-                        new_archetype: Some(self.new_archetype.as_ref()),
-                    },
+                unsafe {
+                    deferred_world.trigger_raw(
+                        REMOVE,
+                        &mut RemoveEvent { entity },
+                        &mut EntityComponentsTrigger {
+                            components: removed,
+                            old_archetype: Some(old_archetype),
+                            new_archetype: Some(new_archetype),
+                        },
+                        caller,
+                    );
+                }
+            }
+            // SAFETY: `removed` only holds components that `old_archetype` contains,
+            // so they exist in the world.
+            unsafe {
+                deferred_world.trigger_on_remove(
+                    old_archetype,
+                    entity,
+                    removed.iter().copied(),
                     caller,
                 );
             }
-            deferred_world.trigger_on_remove(
-                self.old_archetype.as_ref(),
-                entity,
-                bundle_components_in_archetype(),
-                caller,
-            );
         }
 
         // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
@@ -230,26 +251,23 @@ impl<'w> BundleRemover<'w> {
 
         // Handle sparse set removes
         // SAFETY:
-        // bundle_info valid for 'w, returned reference is only live for the loop
-        for component_id in unsafe { self.bundle_info.as_ref() }.iter_explicit_components() {
-            // SAFETY:
-            // old_archetype valid for 'w, returned reference is only live for the loop
-            let old_archetype = unsafe { self.old_archetype.as_ref() };
-            if old_archetype.contains(component_id) {
-                world.removed_components.write(component_id, entity);
+        // removed and old_archetype valid for 'w, returned references are only live for the loop
+        let (removed, old_archetype) =
+            unsafe { (self.removed.as_ref(), self.old_archetype.as_ref()) };
+        for &component_id in removed {
+            world.removed_components.write(component_id, entity);
 
-                // Make sure to drop components stored in sparse sets.
-                // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
-                    world
-                        .storages
-                        .sparse_sets
-                        .get_mut(component_id)
-                        // Set exists because the component existed on the entity
-                        .unwrap()
-                        // If it was already forgotten, it would not be in the set.
-                        .remove(entity);
-                }
+            // Make sure to drop components stored in sparse sets.
+            // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
+            if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                world
+                    .storages
+                    .sparse_sets
+                    .get_mut(component_id)
+                    // Set exists because the component existed on the entity
+                    .unwrap()
+                    // If it was already forgotten, it would not be in the set.
+                    .remove(entity);
             }
         }
 
@@ -362,11 +380,32 @@ impl<'w> BundleRemover<'w> {
     }
 }
 
+/// The result of a valid [`BundleInfo::remove_bundle_from_archetype`].
+pub(crate) struct BundleRemoval {
+    /// The target archetype. This could be the source archetype, in the event that removing the
+    /// bundle does not result in an [`Archetype`] change.
+    archetype_id: ArchetypeId,
+    /// The [`ArchetypeAfterBundleRemove::removed`] cached in the source archetype's edges.
+    /// It stays valid as long as the [`Archetypes`]: archetypes are never removed, an edge is
+    /// never replaced once cached, and the boxed slice does not move when the edges grow.
+    removed: ConstNonNull<[ComponentId]>,
+    /// Whether the target archetype was created by this removal.
+    is_new_created: bool,
+}
+
+impl BundleRemoval {
+    fn new(after_remove: &ArchetypeAfterBundleRemove, is_new_created: bool) -> Self {
+        Self {
+            archetype_id: after_remove.archetype_id,
+            removed: (&*after_remove.removed).into(),
+            is_new_created,
+        }
+    }
+}
+
 impl BundleInfo {
-    /// Removes a bundle from the given archetype and returns the resulting archetype and whether a new archetype was created.
+    /// Removes a bundle from the given archetype and returns the resulting [`BundleRemoval`]
     /// (or `None` if the removal was invalid).
-    /// This could be the same [`ArchetypeId`], in the event that removing the given bundle
-    /// does not result in an [`Archetype`] change.
     ///
     /// Results are cached in the [`Archetype`] graph to avoid redundant work.
     ///
@@ -386,98 +425,97 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
         intersection: bool,
-    ) -> (Option<ArchetypeId>, bool) {
+    ) -> Option<BundleRemoval> {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
-        let archetype_after_remove_result = {
-            let edges = archetypes[archetype_id].edges();
-            if intersection {
-                edges.get_archetype_after_bundle_remove(self.id())
-            } else {
-                edges.get_archetype_after_bundle_take(self.id())
-            }
-        };
-        let (result, is_new_created) = if let Some(result) = archetype_after_remove_result {
-            // This bundle removal result is cached. Just return that!
-            (result, false)
+        let edges = archetypes[archetype_id].edges();
+        let cached = if intersection {
+            edges.get_archetype_after_bundle_remove_internal(self.id())
         } else {
-            let mut next_table_components;
-            let mut next_sparse_set_components;
-            let next_table_id;
-            {
-                let current_archetype = &mut archetypes[archetype_id];
-                let mut removed_table_components = Vec::new();
-                let mut removed_sparse_set_components = Vec::new();
-                for component_id in self.iter_explicit_components() {
-                    if current_archetype.contains(component_id) {
-                        // SAFETY: bundle components were already initialized by bundles.get_info
-                        let component_info = unsafe { components.get_info_unchecked(component_id) };
-                        match component_info.storage_type() {
-                            StorageType::Table => removed_table_components.push(component_id),
-                            StorageType::SparseSet => {
-                                removed_sparse_set_components.push(component_id);
-                            }
-                        }
-                    } else if !intersection {
-                        // A component in the bundle was not present in the entity's archetype, so this
-                        // removal is invalid. Cache the result in the archetype graph.
-                        current_archetype
-                            .edges_mut()
-                            .cache_archetype_after_bundle_take(self.id(), None);
-                        return (None, false);
-                    }
-                }
-
-                // Sort removed components so we can do an efficient "sorted remove".
-                // Archetype components are already sorted.
-                removed_table_components.sort_unstable();
-                removed_sparse_set_components.sort_unstable();
-                next_table_components = current_archetype.table_components().collect();
-                next_sparse_set_components = current_archetype.sparse_set_components().collect();
-                sorted_remove(&mut next_table_components, &removed_table_components);
-                sorted_remove(
-                    &mut next_sparse_set_components,
-                    &removed_sparse_set_components,
-                );
-
-                next_table_id = if removed_table_components.is_empty() {
-                    current_archetype.table_id()
-                } else {
-                    // SAFETY: all components in next_table_components exist
-                    unsafe {
-                        storages
-                            .tables
-                            .get_id_or_insert(&next_table_components, components)
-                    }
-                };
-            }
-
-            // SAFETY:
-            // - table id was created if it doesn't exist
-            // - components exists as they are already part of the old archetype
-            let (new_archetype_id, is_new_created) = unsafe {
-                archetypes.get_id_or_insert(
-                    components,
-                    observers,
-                    next_table_id,
-                    next_table_components,
-                    next_sparse_set_components,
-                )
-            };
-            (Some(new_archetype_id), is_new_created)
+            edges.get_archetype_after_bundle_take_internal(self.id())
         };
-        let current_archetype = &mut archetypes[archetype_id];
-        // Cache the result in an edge.
-        if intersection {
-            current_archetype
-                .edges_mut()
-                .cache_archetype_after_bundle_remove(self.id(), result);
-        } else {
-            current_archetype
-                .edges_mut()
-                .cache_archetype_after_bundle_take(self.id(), result);
+        match cached {
+            None => {}
+            Some(None) => return None,
+            Some(Some(after_remove)) => return Some(BundleRemoval::new(after_remove, false)),
         }
-        (result, is_new_created)
+        let mut removed = Vec::new();
+        let mut next_table_components;
+        let mut next_sparse_set_components;
+        let next_table_id;
+        {
+            let current_archetype = &mut archetypes[archetype_id];
+            let mut removed_table_components = Vec::new();
+            let mut removed_sparse_set_components = Vec::new();
+            for component_id in self.iter_explicit_components() {
+                if current_archetype.contains(component_id) {
+                    removed.push(component_id);
+                    // SAFETY: bundle components were already initialized by bundles.get_info
+                    let component_info = unsafe { components.get_info_unchecked(component_id) };
+                    match component_info.storage_type() {
+                        StorageType::Table => removed_table_components.push(component_id),
+                        StorageType::SparseSet => {
+                            removed_sparse_set_components.push(component_id);
+                        }
+                    }
+                } else if !intersection {
+                    // A component in the bundle was not present in the entity's archetype, so this
+                    // removal is invalid. Cache the result in the archetype graph.
+                    current_archetype
+                        .edges_mut()
+                        .cache_archetype_after_bundle_take(self.id(), None);
+                    return None;
+                }
+            }
+
+            // Sort removed components so we can do an efficient "sorted remove".
+            // Archetype components are already sorted.
+            removed_table_components.sort_unstable();
+            removed_sparse_set_components.sort_unstable();
+            next_table_components = current_archetype.table_components().collect();
+            next_sparse_set_components = current_archetype.sparse_set_components().collect();
+            sorted_remove(&mut next_table_components, &removed_table_components);
+            sorted_remove(
+                &mut next_sparse_set_components,
+                &removed_sparse_set_components,
+            );
+
+            next_table_id = if removed_table_components.is_empty() {
+                current_archetype.table_id()
+            } else {
+                // SAFETY: all components in next_table_components exist
+                unsafe {
+                    storages
+                        .tables
+                        .get_id_or_insert(&next_table_components, components)
+                }
+            };
+        }
+
+        // SAFETY:
+        // - table id was created if it doesn't exist
+        // - components exists as they are already part of the old archetype
+        let (new_archetype_id, is_new_created) = unsafe {
+            archetypes.get_id_or_insert(
+                components,
+                observers,
+                next_table_id,
+                next_table_components,
+                next_sparse_set_components,
+            )
+        };
+        let after_remove = ArchetypeAfterBundleRemove {
+            archetype_id: new_archetype_id,
+            removed: removed.into(),
+        };
+        let edges = archetypes[archetype_id].edges_mut();
+        // Cache the result in an edge.
+        let after_remove = if intersection {
+            edges.cache_archetype_after_bundle_remove(self.id(), Some(after_remove))
+        } else {
+            edges.cache_archetype_after_bundle_take(self.id(), Some(after_remove))
+        };
+        after_remove.map(|after_remove| BundleRemoval::new(after_remove, is_new_created))
     }
 }
 
