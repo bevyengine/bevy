@@ -29,3 +29,5 @@ This note will be completed once the rest of the series lands.
 - Added stepping controls to the `bevy_inspector` remote source
 - The `bevy_inspector` details panel now honors `bevy_annotations` on fields and component types: display names, read-only values, value ranges, steps and units. Ranges, steps and units also apply to the items of a collection and to the payload of an `Option`. Number inputs with a step snap to multiples of it when dragged
 - Added main and render subapp compatibility via `InspectorSources`
+- Added a Resources tab beside the `bevy_inspector` entity tree, listing the local world's resources so they can be viewed and edited in the details panel
+- Clicking an entity in the app selects it while the `bevy_inspector` panels are shown, expanding the tree down to its row. Meshes can be clicked without `MeshPickingPlugin`, and apps that add it keep using their own mesh picking backend. In Edit mode the selected entity is outlined with a gizmo box around its bounds, clicking empty space clears the selection, and the overlay keeps those clicks from the app. Preview mode leaves clicks to the app and hides the outline

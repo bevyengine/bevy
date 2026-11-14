@@ -1,8 +1,9 @@
 //! An entity inspector built on `bevy_ui` and `bevy_feathers`.
 //!
 //! The inspector presents the data gathered by [`bevy_dev_tools::inspection`] as interactive
-//! widgets. This crate provides an entity tree panel, see [`entity_tree`], and a details panel
-//! for the selected entity, see [`details_panel`].
+//! widgets. This crate provides an entity tree panel, see [`entity_tree`], a list of the local
+//! world's resources, see [`resource_list`], and a details panel for the selected entity, see
+//! [`details_panel`].
 //!
 //! With the `remote` feature the same panels can inspect a separate running app over the Bevy
 //! Remote Protocol, see the `remote` module.
@@ -11,6 +12,12 @@
 //! [`InspectorPlugin`]. The `inspector` cargo feature of `bevy` instead adds the
 //! [`InspectorOverlayPlugin`](overlay::InspectorOverlayPlugin) to `DefaultPlugins`, so that any
 //! app can open the inspector with a key.
+//!
+//! While the inspector is shown in [`InspectorMode::Edit`], clicking an entity in the app selects
+//! it, and with the overlay the app does not receive those clicks. Hits come from the app's own
+//! picking backends. Meshes can be clicked without `MeshPickingPlugin`, and when it is added its
+//! settings and filters apply instead. In Edit mode the selected entity is also outlined with a
+//! gizmo box. [`InspectorMode::Preview`] leaves clicks to the app and draws no outline.
 
 extern crate alloc;
 
@@ -19,37 +26,55 @@ pub mod column_split;
 pub mod connection_panel;
 pub mod details_panel;
 pub mod entity_tree;
+mod outline;
 pub mod overlay;
+mod picking;
 #[cfg(feature = "remote")]
 pub mod remote;
+pub mod resource_list;
+pub mod world_tabs;
 
 use alloc::string::{String, ToString};
-use core::fmt::Display;
+use core::{fmt::Display, marker::PhantomData};
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
     component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
     hierarchy::ChildOf,
-    query::With,
+    query::{Added, Has, Or, With},
     reflect::{AppTypeRegistry, ReflectResource},
     resource::Resource,
-    schedule::IntoScheduleConfigs,
-    system::{In, IntoSystem, Local, Query, ResMut},
+    schedule::{
+        common_conditions::{any_match_filter, resource_changed},
+        IntoScheduleConfigs, SystemCondition,
+    },
+    system::{In, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
+use bevy_picking::{backend::PointerHits, pointer::PointerInput, PickingSystems};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::UiSystems;
+use bevy_time::{Time, Timer, TimerMode};
+use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
+use bevy_ui_widgets::SelectedTreeItem;
 
 use crate::column_split::ColumnSplitPlugin;
 use crate::details_panel::{
     apply_field_edit, store_column_splits, sync_details_panel, DetailsCollapsed,
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync, InspectorDetailsBody,
 };
-use crate::entity_tree::{sync_entity_tree, EntityTreeSync, InspectorTreeView, TreeRowIndex};
+use crate::entity_tree::{
+    reveal_in_tree, sync_entity_tree, EntityTreeSync, InspectorEntityRow, InspectorHeaderRow,
+    InspectorTreeView, TreeReveal, TreeRowIndex,
+};
+use crate::overlay::InspectorOverlay;
+use crate::picking::select_clicked_entity;
+use crate::resource_list::{
+    sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
+};
 
 /// Where the inspector reads its data from.
 #[derive(Resource, Debug, Clone, PartialEq, Eq, Reflect)]
@@ -176,6 +201,20 @@ impl InspectableEntity {
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub struct InspectorSelection(pub Option<InspectableEntity>);
 
+/// Whether clicks in the app pick entities for the inspector or reach the app.
+///
+/// Only the overlay keeps clicks from the app, for its window and the UI below it.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Resource, Debug, Default, Clone, PartialEq)]
+pub enum InspectorMode {
+    /// Clicks in the app select the entity under the cursor, or clear the selection when nothing
+    /// is under it, and do not reach the app. The selected entity is outlined.
+    #[default]
+    Edit,
+    /// Clicks reach the app, nothing is picked and the selection is not outlined.
+    Preview,
+}
+
 /// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///
 /// [`ComponentInfo::name`] is only populated when the `debug` feature of `bevy_utils` is enabled,
@@ -202,60 +241,187 @@ pub(crate) fn component_short_name(world: &World, component_id: ComponentId) -> 
         .unwrap_or_else(|| ComponentInfo::name(info).shortname().to_string())
 }
 
-/// Returns `true` if an entity with the marker `M` exists with no [`Visibility::Hidden`] on itself
-/// or its ancestors.
+/// Pacing of the synchronization passes of the panels marked with `M`.
+///
+/// The first pass runs on the first tick, and a pass also runs on the tick a panel is shown again.
+#[derive(Resource)]
+pub struct PanelSync<M: Component> {
+    /// Time between synchronization passes.
+    pub timer: Timer,
+    marker: PhantomData<fn() -> M>,
+}
+
+impl<M: Component> Default for PanelSync<M> {
+    fn default() -> Self {
+        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
+        timer.set_elapsed(timer.duration());
+        Self {
+            timer,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<M: Component> core::fmt::Debug for PanelSync<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PanelSync")
+            .field("timer", &self.timer)
+            .finish()
+    }
+}
+
+impl<M: Component> PanelSync<M> {
+    /// Forces a synchronization pass on the next tick.
+    pub fn set_dirty(&mut self) {
+        self.timer.almost_finish();
+    }
+
+    /// Advances the timer by the frame's [`Time`] delta, returning `true` if a pass is due.
+    pub(crate) fn tick(world: &mut World) -> bool {
+        let delta = world
+            .get_resource::<Time>()
+            .map(Time::delta)
+            .unwrap_or_default();
+        world
+            .resource_mut::<Self>()
+            .timer
+            .tick(delta)
+            .just_finished()
+    }
+}
+
+fn sync_when_shown<M: Component>(
+    In(visible): In<bool>,
+    mut was_visible: Local<bool>,
+    mut sync: ResMut<PanelSync<M>>,
+) {
+    if visible && !*was_visible {
+        let duration = sync.timer.duration();
+        sync.timer.set_elapsed(duration);
+    }
+    *was_visible = visible;
+}
+
+/// Returns `true` if an entity with the marker `M` exists with no [`Visibility::Hidden`] or
+/// [`Display::None`](NodeDisplay::None) on itself or its ancestors.
 fn panel_visible<M: Component>(
     panels: Query<Entity, With<M>>,
     visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
     parents: Query<&ChildOf>,
 ) -> bool {
-    panels.iter().any(|panel| {
-        core::iter::once(panel)
-            .chain(parents.iter_ancestors(panel))
-            .all(|entity| visibilities.get(entity) != Ok(&Visibility::Hidden))
-    })
+    panels
+        .iter()
+        .any(|panel| shown(panel, &visibilities, &nodes, &parents))
+}
+
+pub(crate) fn shown(
+    entity: Entity,
+    visibilities: &Query<&Visibility>,
+    nodes: &Query<&Node>,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    core::iter::once(entity)
+        .chain(parents.iter_ancestors(entity))
+        .all(|entity| {
+            visibilities.get(entity) != Ok(&Visibility::Hidden)
+                && !nodes
+                    .get(entity)
+                    .is_ok_and(|node| node.display == NodeDisplay::None)
+        })
+}
+
+pub(crate) fn inspector_shown(
+    overlays: Query<Entity, With<InspectorOverlay>>,
+    panels: Query<
+        Entity,
+        Or<(
+            With<InspectorTreeView>,
+            With<InspectorResourceList>,
+            With<InspectorDetailsBody>,
+        )>,
+    >,
+    visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    let is_shown = |root: Entity| shown(root, &visibilities, &nodes, &parents);
+    if overlays.is_empty() {
+        panels.iter().any(is_shown)
+    } else {
+        overlays.iter().any(is_shown)
+    }
 }
 
 /// Returns `true` if an entity tree panel is showing.
 pub fn entity_tree_visible(
     panels: Query<Entity, With<InspectorTreeView>>,
     visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
     parents: Query<&ChildOf>,
 ) -> bool {
-    panel_visible(panels, visibilities, parents)
+    panel_visible(panels, visibilities, nodes, parents)
+}
+
+/// Returns `true` if a resource list is showing.
+pub fn resource_list_visible(
+    panels: Query<Entity, With<InspectorResourceList>>,
+    visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    panel_visible(panels, visibilities, nodes, parents)
 }
 
 /// Returns `true` if a details panel is showing.
 pub fn details_panel_visible(
     panels: Query<Entity, With<InspectorDetailsBody>>,
     visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
     parents: Query<&ChildOf>,
 ) -> bool {
-    panel_visible(panels, visibilities, parents)
+    panel_visible(panels, visibilities, nodes, parents)
 }
 
-fn sync_tree_when_shown(
-    In(visible): In<bool>,
-    mut was_visible: Local<bool>,
-    mut sync: ResMut<EntityTreeSync>,
+fn show_selection_in_lists(
+    selection: Res<InspectorSelection>,
+    index: Res<TreeRowIndex>,
+    mut lists: Query<
+        (Entity, &mut SelectedTreeItem, Has<InspectorResourceList>),
+        Or<(With<InspectorTreeView>, With<InspectorResourceList>)>,
+    >,
+    resource_rows: Query<(Entity, &InspectorResourceRow, &ChildOf)>,
+    header_rows: Query<(), With<InspectorHeaderRow>>,
+    parents: Query<&ChildOf>,
 ) {
-    if visible && !*was_visible {
-        let duration = sync.timer.duration();
-        sync.timer.set_elapsed(duration);
+    let selection = selection.0.as_ref();
+    for (list, mut selected, is_resource_list) in &mut lists {
+        let row = if is_resource_list {
+            selection
+                .filter(|selection| selection.source == InspectorSource::Local)
+                .and_then(|selection| {
+                    resource_rows
+                        .iter()
+                        .find(|(_, row, parent)| {
+                            parent.parent() == list && row.inspected == selection.entity
+                        })
+                        .map(|(row, ..)| row)
+                })
+        } else if selection.is_none() && selected.0.is_some_and(|row| header_rows.contains(row)) {
+            continue;
+        } else {
+            selection
+                .and_then(|selection| index.row(selection.entity, selection.source))
+                .filter(|row| {
+                    parents
+                        .iter_ancestors(*row)
+                        .any(|ancestor| ancestor == list)
+                })
+        };
+        if selected.0 != row {
+            selected.0 = row;
+        }
     }
-    *was_visible = visible;
-}
-
-fn sync_details_when_shown(
-    In(visible): In<bool>,
-    mut was_visible: Local<bool>,
-    mut sync: ResMut<DetailsPanelSync>,
-) {
-    if visible && !*was_visible {
-        let duration = sync.timer.duration();
-        sync.timer.set_elapsed(duration);
-    }
-    *was_visible = visible;
 }
 
 /// Plugin which registers the inspector resources and the entity tree synchronization systems.
@@ -263,13 +429,17 @@ fn sync_details_when_shown(
 /// This plugin does not add the widget plugins the inspector renders with; the app is expected to
 /// add `bevy_feathers::FeathersPlugins` as well. Adding this plugin again has no effect.
 ///
-/// The local tree and details synchronization systems only run while [`entity_tree_visible`] and
-/// [`details_panel_visible`] are `true`.
+/// The local tree, resource list and details synchronization systems only run while
+/// [`entity_tree_visible`], [`resource_list_visible`] and [`details_panel_visible`] are `true`.
 pub struct InspectorPlugin;
 
 impl Plugin for InspectorPlugin {
     fn is_unique(&self) -> bool {
         false
+    }
+
+    fn finish(&self, app: &mut App) {
+        outline::add_outline(app);
     }
 
     fn build(&self, app: &mut App) {
@@ -285,23 +455,47 @@ impl Plugin for InspectorPlugin {
 
         app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
+            .init_resource::<InspectorMode>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
+            .init_resource::<TreeReveal>()
+            .init_resource::<ResourceListSync>()
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsColumnSplits>()
             .init_resource::<DetailsPanelSync>()
+            .add_message::<PointerHits>()
+            .add_message::<PointerInput>()
             .add_observer(apply_field_edit)
+            .add_systems(
+                PreUpdate,
+                inspector_shown
+                    .pipe(select_clicked_entity)
+                    .ambiguous_with_all()
+                    .in_set(PickingSystems::Last),
+            )
             .add_systems(
                 PostUpdate,
                 (
                     (
-                        entity_tree_visible.pipe(sync_tree_when_shown),
-                        sync_entity_tree.run_if(entity_tree_visible),
+                        entity_tree_visible.pipe(sync_when_shown::<InspectorTreeView>),
+                        (sync_entity_tree, reveal_in_tree)
+                            .chain()
+                            .run_if(entity_tree_visible),
                     )
                         .chain(),
                     (
-                        details_panel_visible.pipe(sync_details_when_shown),
+                        resource_list_visible.pipe(sync_when_shown::<InspectorResourceList>),
+                        sync_resource_list.run_if(resource_list_visible),
+                    )
+                        .chain(),
+                    show_selection_in_lists.run_if(
+                        resource_changed::<InspectorSelection>
+                            .or_eager(any_match_filter::<Added<InspectorResourceRow>>)
+                            .or_eager(any_match_filter::<Added<InspectorEntityRow>>),
+                    ),
+                    (
+                        details_panel_visible.pipe(sync_when_shown::<InspectorDetailsBody>),
                         store_column_splits,
                         sync_details_panel.run_if(details_panel_visible),
                     )

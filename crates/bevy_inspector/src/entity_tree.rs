@@ -31,18 +31,20 @@ use bevy_log::warn;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
-use bevy_time::{Time, Timer, TimerMode};
-use bevy_ui::{percent, px, widget::Text, Node, Overflow};
+use bevy_ui::{percent, px, widget::Text, ComputedNode, Expanded, Node, Overflow, ScrollIntoView};
 use bevy_ui_widgets::{
     tree_view_expand_self_update, tree_view_self_update, TreeItem, TreeItemExpandChange,
     ValueChange,
 };
 
-use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
+use crate::{
+    picking::InspectorPickBlocker, InspectableEntity, InspectorSelection, InspectorSource,
+    InspectorSources, PanelSync,
+};
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
 /// hidden from the entity tree, but the marked entity itself still shows as a single,
-/// non-expandable row.
+/// non-expandable row. Clicks on it or its descendants do not select entities.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorUi;
@@ -116,26 +118,10 @@ impl TreeRowIndex {
 }
 
 /// Pacing of the entity tree synchronization pass.
-#[derive(Resource, Debug)]
-pub struct EntityTreeSync {
-    /// Time between synchronization passes.
-    pub timer: Timer,
-}
+pub type EntityTreeSync = PanelSync<InspectorTreeView>;
 
-impl Default for EntityTreeSync {
-    fn default() -> Self {
-        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
-        timer.set_elapsed(timer.duration());
-        Self { timer }
-    }
-}
-
-impl EntityTreeSync {
-    /// Forces a synchronization pass on the next tick.
-    pub fn set_dirty(&mut self) {
-        self.timer.almost_finish();
-    }
-}
+#[derive(Resource, Debug, Default)]
+pub(crate) struct TreeReveal(pub(crate) Option<Entity>);
 
 /// A panel listing the entities of the inspected world as an expandable tree.
 pub fn entity_tree_panel() -> impl Scene {
@@ -207,20 +193,13 @@ pub fn inspector_tree_expanded(
 
 /// Adds, removes and relabels tree rows so that they match the inspected world.
 pub fn sync_entity_tree(world: &mut World) {
-    let delta = world
-        .get_resource::<Time>()
-        .map(Time::delta)
-        .unwrap_or_default();
-
-    if !world
-        .resource_mut::<EntityTreeSync>()
-        .timer
-        .tick(delta)
-        .just_finished()
-    {
+    if !EntityTreeSync::tick(world) {
         return;
     }
+    sync_rows(world);
+}
 
+fn sync_rows(world: &mut World) {
     let plan = plan_sync(world);
     let headers_spawned = !plan.header_spawn.is_empty();
     apply_sync(world, plan);
@@ -231,6 +210,87 @@ pub fn sync_entity_tree(world: &mut World) {
         apply_sync(world, plan);
         rebuild_index(world);
     }
+}
+
+pub(crate) fn reveal_in_tree(world: &mut World) {
+    let Some(target) = world.resource::<TreeReveal>().0 else {
+        return;
+    };
+    let selected = world.resource::<InspectorSelection>().0
+        == Some(InspectableEntity::new(target, InspectorSource::Local));
+    if !selected || world.get_entity(target).is_err() {
+        world.resource_mut::<TreeReveal>().0 = None;
+        return;
+    }
+
+    let mut ancestors = Vec::new();
+    let mut current = target;
+    while let Some(child_of) = world.get::<ChildOf>(current) {
+        current = child_of.parent();
+        ancestors.push(current);
+    }
+    ancestors.reverse();
+
+    let mut expanded = false;
+    for _ in 0..=ancestors.len() {
+        let index = world.resource::<TreeRowIndex>();
+        let collapsed: Vec<(Entity, Entity)> = ancestors
+            .iter()
+            .map_while(|ancestor| index.row(*ancestor, InspectorSource::Local))
+            .filter(|row| {
+                world
+                    .get_entity(*row)
+                    .is_ok_and(|row| !row.contains::<Expanded>())
+            })
+            .filter_map(|row| Some((owning_tree(world, row)?, row)))
+            .collect();
+        if collapsed.is_empty() {
+            break;
+        }
+        for (tree, item) in collapsed {
+            world.trigger(TreeItemExpandChange {
+                tree,
+                item,
+                expanded: true,
+            });
+        }
+        world.flush();
+        sync_rows(world);
+        expanded = true;
+    }
+    if expanded {
+        return;
+    }
+
+    let Some(row) = world
+        .resource::<TreeRowIndex>()
+        .row(target, InspectorSource::Local)
+    else {
+        return;
+    };
+    let header = child_with::<FeathersTreeItemHeader>(world, row).unwrap_or(row);
+    if world
+        .get::<ComputedNode>(header)
+        .is_some_and(ComputedNode::is_empty)
+    {
+        return;
+    }
+    world.resource_mut::<TreeReveal>().0 = None;
+    world.trigger(ScrollIntoView::new(header));
+}
+
+fn owning_tree(world: &World, row: Entity) -> Option<Entity> {
+    let mut current = row;
+    while let Some(child_of) = world.get::<ChildOf>(current) {
+        current = child_of.parent();
+        if world
+            .get_entity(current)
+            .is_ok_and(|entity| entity.contains::<InspectorTreeView>())
+        {
+            return Some(current);
+        }
+    }
+    None
 }
 
 struct HeaderSpawn {
@@ -639,7 +699,7 @@ fn entity_row(label: String, expandable: bool) -> impl Scene {
     }
 }
 
-fn row_label(text: String) -> impl Scene {
+pub(crate) fn row_label(text: String) -> impl Scene {
     bsn! {
         InspectorRowLabel
         @caption(text)
@@ -653,6 +713,7 @@ fn is_excluded(world: &World, entity: Entity) -> bool {
     if entity_ref.contains::<IsResource>()
         || entity_ref.contains::<SystemIdMarker>()
         || entity_ref.contains::<Observer>()
+        || entity_ref.contains::<InspectorPickBlocker>()
     {
         return true;
     }
