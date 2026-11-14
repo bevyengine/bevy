@@ -313,7 +313,7 @@ fn set_header_styles(
     commands: &mut Commands,
 ) {
     let bg_token = match (disabled, selected, hovered) {
-        (false, true, _) => tokens::LISTROW_BG_SELECTED,
+        (false, true, _) => tokens::TREE_ROW_BG_SELECTED,
         (false, false, true) => tokens::LISTROW_BG_HOVER,
         _ => tokens::LISTROW_BG,
     };
