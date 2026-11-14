@@ -5,6 +5,13 @@ use crate::{
 
 use bevy_ecs::{prelude::*, query::QueryFilter};
 
+/// Set enum for the systems relating to transform propagation
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum TransformSystems {
+    /// Propagates changes in transform to children's [`GlobalTransform`]
+    Propagate,
+}
+
 /// Generic system that propagates transforms,
 /// using [`TransformHelper`] for any entity matching the filter `F`.
 /// Useful for moving and rendering in the same frame.

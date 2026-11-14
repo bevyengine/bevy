@@ -2,7 +2,7 @@ use super::GlobalTransform;
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
 
-#[cfg(feature = "bevy-support")]
+#[cfg(feature = "bevy_ecs")]
 use bevy_ecs::component::Component;
 
 #[cfg(feature = "bevy_reflect")]
@@ -70,7 +70,7 @@ fn assert_is_normalized(message: &str, length_squared: f32) {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serialize", serde(default))]
 #[cfg_attr(
-    feature = "bevy-support",
+    feature = "bevy_ecs",
     derive(Component),
     require(GlobalTransform, TransformTreeChanged)
 )]
@@ -692,7 +692,7 @@ impl Mul<Vec3> for Transform {
 /// `Transform`. If this component is *not* marked `is_changed()`, propagation will halt.
 #[derive(Clone, Copy, Default, PartialEq, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy-support", derive(Component))]
+#[cfg_attr(feature = "bevy_ecs", derive(Component))]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

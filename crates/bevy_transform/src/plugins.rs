@@ -6,14 +6,11 @@ use crate::{
     },
 };
 use bevy_app::{App, Plugin, PostStartup, PostUpdate, ValidateParentHasComponentPlugin};
-use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
+use bevy_ecs::schedule::IntoScheduleConfigs;
 
-/// Set enum for the systems relating to transform propagation
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum TransformSystems {
-    /// Propagates changes in transform to children's [`GlobalTransform`]
-    Propagate,
-}
+// This does not make much sense to be inside plugins module, but keeping it around here dont break existing code relying on this module path
+#[doc(hidden)]
+pub use crate::systems::TransformSystems;
 
 /// The base plugin for handling [`Transform`](crate::components::Transform) components
 #[derive(Default)]
