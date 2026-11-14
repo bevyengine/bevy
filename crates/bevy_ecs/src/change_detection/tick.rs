@@ -94,11 +94,18 @@ impl Tick {
         if age <= check.cutoff {
             return false;
         }
-        if let CheckPhase::Compact { last, .. } = &check.phase {
-            // Neighboring ticks are often equal, so reuse the last result.
+        if let CheckPhase::Compact { ages, last, .. } = &check.phase {
+            // Neighboring ticks are often equal or share a slot, so reuse the last result.
             let cached = last.load(Ordering::Relaxed);
-            if (cached >> 32) as u32 == self.tick {
-                self.tick = cached as u32;
+            let compacted = Tick::new(cached as u32);
+            if (cached >> 32) as u32 == self.tick
+                || slot_contains(
+                    ages,
+                    COMPACT_START - check.present.relative_to(compacted).get(),
+                    age.min(MAX_CHANGE_AGE),
+                )
+            {
+                *self = compacted;
                 return true;
             }
         }
@@ -113,11 +120,24 @@ impl Tick {
                 ticks.lock().unwrap().push(*self);
                 false
             }
-            CheckPhase::Compact { ages, last } => {
+            CheckPhase::Compact {
+                ages,
+                buckets,
+                shift,
+                last,
+            } => {
                 // Each recorded age gets its own slot and each gap between them shares one,
                 // so comparisons against recorded ticks are unchanged.
                 let age = age.min(MAX_CHANGE_AGE);
-                let older = ages.partition_point(|&a| a > age);
+                let older = match (ages.first(), ages.last()) {
+                    (Some(&oldest), Some(&youngest)) if (youngest..=oldest).contains(&age) => {
+                        let bucket = ((age - youngest) >> shift) as usize;
+                        let (lo, hi) = (buckets[bucket + 1] as usize, buckets[bucket] as usize);
+                        lo + ages[lo..hi].partition_point(|&a| a > age)
+                    }
+                    (Some(&oldest), _) if age > oldest => 0,
+                    _ => ages.len(),
+                };
                 let slot = 2 * older as u32 + u32::from(ages.get(older) == Some(&age));
                 let compacted = check.present.relative_to(Tick::new(COMPACT_START - slot));
                 last.store(
@@ -133,6 +153,15 @@ impl Tick {
             }
         }
     }
+}
+
+#[inline]
+fn slot_contains(ages: &[u32], slot: u32, age: u32) -> bool {
+    let older = (slot / 2) as usize;
+    if slot % 2 == 1 {
+        return ages.get(older) == Some(&age);
+    }
+    older.checked_sub(1).is_none_or(|i| ages[i] > age) && ages.get(older).is_none_or(|&a| a < age)
 }
 
 /// A tick that can be updated from multiple threads.
@@ -233,6 +262,8 @@ enum CheckPhase {
     /// Compacting old ticks around the recorded ages, sorted oldest first.
     Compact {
         ages: Vec<u32>,
+        buckets: Vec<u32>,
+        shift: u32,
         /// The last compacted tick, packed as `(old << 32) | new`.
         last: AtomicU64,
     },
@@ -266,14 +297,36 @@ impl CheckChangeTicks {
         ages.dedup();
         // Compacted ticks must stay older than every tick that isn't compacted.
         debug_assert!(ages.len() < CHECK_TICK_THRESHOLD as usize / 2);
+        let (shift, buckets) = match (ages.first(), ages.last()) {
+            (Some(&oldest), Some(&youngest)) => {
+                let span = oldest - youngest;
+                let mut shift = 0;
+                while (span >> shift) as usize >= 4 * ages.len() {
+                    shift += 1;
+                }
+                let buckets = (0..=u64::from(span >> shift) + 1)
+                    .map(|k| {
+                        let bound = u64::from(youngest) + (k << shift);
+                        ages.partition_point(|&a| u64::from(a) >= bound) as u32
+                    })
+                    .collect();
+                (shift, buckets)
+            }
+            _ => (0, Vec::new()),
+        };
         Self {
             // Only compact ticks the collecting pass saw as old, so none are missed.
             cutoff: COMPACT_AGE + present.relative_to(self.present).get(),
             present,
             phase: CheckPhase::Compact {
                 ages,
+                buckets,
+                shift,
                 // `present` is never compacted, so this never matches.
-                last: AtomicU64::new(u64::from(present.tick) << 32),
+                last: AtomicU64::new(
+                    (u64::from(present.tick) << 32)
+                        | u64::from(present.relative_to(Tick::new(COMPACT_START)).tick),
+                ),
             },
         }
     }
