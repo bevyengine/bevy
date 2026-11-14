@@ -7,7 +7,203 @@
 //! character needs to squeeze through to enter the next area, and the animation speed may be tied
 //! to the progress of loading. While this isn't a traditional loading screen, we still don't want
 //! our game to progress any further until those assets are loaded.
-
+//!
+//! # Architecture
+//!
+//! Entities that are considered "loadable" are those with the [`LoadableDependency`] and an entity
+//! is considered loaded if it has the [`LoadFinished`] component. In fact, the only notification
+//! given to users that an entity is loaded is by the insertion of the [`LoadFinished`] component.
+//! You can use observers to react to [`LoadFinished`] insertion.
+//!
+//! Users will primarily interact with higher-level components like [`AwaitLoads`] and
+//! [`AwaitDependencies`] (as opposed to interacting with [`LoadableDependency`]). These components
+//! include [`LoadableDependency`] automatically as a required component.
+//!
+//! [`AwaitLoads`] allows you to wait on a set of asset handles. [`AwaitDependencies`] allows you to
+//! wait on a set of [`LoadableDependency`] entities (which includes both [`AwaitLoads`] and
+//! [`AwaitDependencies`] entities).
+//!
+//! You may also create your own higher-level components by manually inserting
+//! [`LoadableDependency`] and [`LoadFinished`] as appropriate.
+//!
+//! # Patterns
+//!
+//! The architecture is very flexible, allowing for all sorts of ways to use the API. Provided are
+//! some ideas on how to use this API in an ergonomic way for some use cases:
+//!
+//! ## Load and spawn a level
+//!
+//! The most common situation is loading all assets for a level, and then spawning that level. There
+//! are many ways to achieve this. One that seems to work well is to create an
+//! [`AwaitLoadsBuilder`] and load all the handles you need, then in the same system, spawn the
+//! built [`AwaitLoads`] with an observer moving those handles into itself.
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::{prelude::*, await_loads::*};
+//! # #[derive(Component)]
+//! # struct WorldAssetRoot(Handle<()>);
+//! # #[derive(Component)]
+//! # struct Transform;
+//! # impl Transform { fn from_xyz(x: f32, y: f32, z: f32) -> Self { Self } }
+//! fn my_startup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     let mut load_builder = AwaitLoadsBuilder::from(asset_server);
+//!
+//!     let house_world_asset = load_builder.load("house.gltf#Scene0");
+//!     let tree_world_asset = load_builder.load("tree.gltf#Scene0");
+//!     let player_world_asset = load_builder.load("player.gltf#Scene0");
+//!
+//!     commands.spawn(load_builder.build()).observe(
+//!         move |event: On<Insert<LoadFinished>>, mut commands: Commands| {
+//!             commands.spawn((
+//!                 WorldAssetRoot(house_world_asset.clone()),
+//!                 Transform::from_xyz(0.0, 0.0, 10.0),
+//!             ));
+//!
+//!             commands.spawn((
+//!                 WorldAssetRoot(tree_world_asset.clone()),
+//!                 Transform::from_xyz(3.0, 0.0, 3.0),
+//!             ));
+//!
+//!             commands.spawn(WorldAssetRoot(player_world_asset.clone()));
+//!
+//!             // This isn't necessary, but despawning prevents these loader entities from piling
+//!             // up if you use this pattern many times.
+//!             commands.entity(event.entity).despawn();
+//!         }
+//!     );
+//! }
+//! ```
+//!
+//! This allows type-inference to determine the correct type for the handles, and allows you to
+//! spawn fairly normally (at the cost of some indentation).
+//!
+//! ## Global loader and wait for all assets
+//!
+//! When starting a game, you may not want to have such fine-grained loading and spawning; you may
+//! instead prefer to load assets from many systems, and then wait for all of them to load. This can
+//! be achieved by sharing an [`AwaitLoadsBuilder`]. Here is an example of such an approach:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_app::prelude::*;
+//! # use bevy_asset::{prelude::*, await_loads::*};
+//! #[derive(Resource)]
+//! struct InitialLoadAssets(AwaitLoadsBuilder);
+//!
+//! impl FromWorld for InitialLoadAssets {
+//!     fn from_world(world: &mut World) -> Self {
+//!         Self(AwaitLoadsBuilder::new(world.resource::<AssetServer>().clone()))
+//!     }
+//! }
+//!
+//! fn system_1(mut initial_loads: Res<InitialLoadAssets>) { /*Do something here*/ }
+//! fn system_2(mut initial_loads: Res<InitialLoadAssets>) { /*Do something here*/ }
+//!
+//! fn spawn_await_loads(world: &mut World) {
+//!     let await_loads = world.remove_resource::<InitialLoadAssets>().unwrap().0.build();
+//!     world.spawn(await_loads).observe(|_: On<Insert<LoadFinished>>, mut commands: Commands| {
+//!         // We can signal this by setting a state...
+//!         //   commands.set_state(MyState::Loaded);
+//!         // Or maybe running a schedule...
+//!         //   commands.run_schedule(GameLoaded);
+//!         // Or whatever else!
+//!     });
+//! }
+//!
+//! fn my_plugin(app: &mut App) {
+//!     app
+//!         .init_resource::<InitialLoadAssets>()
+//!         .add_systems(Startup, (system_1, system_2))
+//!         // After all the handles have been registered, spawn the `AwaitLoads` so we wait for
+//!         // those assets.
+//!         .add_systems(PostStartup, spawn_await_loads);
+//! }
+//! ```
+//!
+//! This creates an `InitialLoadAssets` resource that we then share across all our systems. Later,
+//! we consume it from the world to create our actual loader. This gives an API similar to the
+//! regular [`AssetServer`] API.
+//!
+//! One disadvantage of this approach is that you now need to somehow get the same asset handles
+//! from `system_1` and `system_2` into the code that runs the observer (or you need to reload the
+//! exact same asset path and type in the observer code).
+//!
+//! ## Awaiting several dependencies
+//!
+//! In some cases, you may want to split assets up into chunks, and then wait for all those chunks
+//! to be loaded. For this, you can use [`AwaitDependencies`] like so:
+//!
+//! ```rust
+//! # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+//! # use bevy_app::prelude::*;
+//! # use bevy_asset::{prelude::*, await_loads::*};
+//! # type Mesh = ();
+//! # type Shader = ();
+//! #[derive(Component)]
+//! struct PlayerAssets {
+//!     collider: Handle<Mesh>,
+//!     body: Handle<Mesh>,
+//!     sword: Handle<Mesh>,
+//! }
+//!
+//! #[derive(Component)]
+//! struct Shaders {
+//!     pbr: Handle<Shader>,
+//!     tonemapping: Handle<Shader>,
+//! }
+//!
+//! fn load_player_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     let mut load_builder = AwaitLoadsBuilder::from(asset_server);
+//!
+//!     let player_assets = PlayerAssets {
+//!         collider: load_builder.load("collider.obj"),
+//!         body: load_builder.load("body.obj"),
+//!         sword: load_builder.load("sword.obj"),
+//!     };
+//!
+//!     // We can store the PlayerAssets right on the loader, making it easy to find the
+//!     // `AwaitLoads`, and easy to use the assets!
+//!     commands.spawn((player_assets, load_builder.build()));
+//! }
+//!
+//! fn load_shaders(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     let mut load_builder = AwaitLoadsBuilder::from(asset_server);
+//!
+//!     let shaders = Shaders {
+//!         pbr: load_builder.load("pbr.wesl"),
+//!         tonemapping: load_builder.load("tony_mc_mapface.wesl"),
+//!     };
+//!
+//!     commands.spawn((shaders, load_builder.build()));
+//! }
+//!
+//! fn spawn_loader(
+//!     mut commands: Commands,
+//!     player_assets: Single<Entity, With<PlayerAssets>>,
+//!     shaders: Single<Entity, With<Shaders>>
+//! ) {
+//!     commands.spawn(AwaitDependencies(
+//!         EntityHashSet::from([
+//!             player_assets.into_inner(),
+//!             shaders.into_inner(),
+//!         ]),
+//!     )).observe(|_: On<Insert<LoadFinished>>| {
+//!         // Do something here!!
+//!     });
+//! }
+//!
+//! fn plugin(app: &mut App) {
+//!     app.add_systems(Startup, (load_player_assets, load_shaders, spawn_loader).chain());
+//! }
+//! ```
+//!
+//! Here each of our little "asset collections" are independent, and are loaded independently. We
+//! can also look them up independently using for example `Single<&PlayerAssets>`. However, using
+//! [`AwaitDependencies`], we can still wait on all these assets together, and most importantly, we
+//! can share these dependencies. So for example, we can have one [`AwaitDependencies`] for the
+//! level load, which waits on the player assets and the level geometry, and another for the
+//! character customization screen, which waits on the player assets and the customization assets.
 use core::any::TypeId;
 
 use bevy_app::{App, Plugin, PreUpdate};
