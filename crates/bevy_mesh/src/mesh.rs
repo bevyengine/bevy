@@ -1396,25 +1396,47 @@ impl Mesh {
     pub fn write_packed_vertex_buffer_data(&self, mut slice: WriteOnly<'_, [u8]>) {
         let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
+        fn write_strided<const N: usize>(dst: &mut [u8], src: &[u8], count: usize, stride: usize) {
+            for (index, element) in src.as_chunks::<N>().0.iter().take(count).enumerate() {
+                dst[index * stride..][..N].copy_from_slice(element);
+            }
+        }
+
+        fn write_strided_dyn(dst: &mut [u8], src: &[u8], size: usize, count: usize, stride: usize) {
+            for (index, element) in src.chunks_exact(size).take(count).enumerate() {
+                dst[index * stride..][..size].copy_from_slice(element);
+            }
+        }
+
+        const BLOCK_VERTICES: usize = 256;
+
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
+        let mut block = vec![0; BLOCK_VERTICES.min(vertex_count) * vertex_size];
         // bundle into interleaved buffers
-        let mut attribute_offset = 0;
-        for attribute_data in mesh_attributes.values() {
-            let attribute_size = attribute_data.attribute.format.size() as usize;
-            let attributes_bytes = attribute_data.values.get_bytes();
-            for (vertex_index, attribute_bytes) in attributes_bytes
-                .chunks_exact(attribute_size)
-                .take(vertex_count)
-                .enumerate()
-            {
-                let offset = vertex_index * vertex_size + attribute_offset;
-                slice
-                    .slice(offset..offset + attribute_size)
-                    .copy_from_slice(attribute_bytes);
+        for block_start in (0..vertex_count).step_by(BLOCK_VERTICES) {
+            let count = BLOCK_VERTICES.min(vertex_count - block_start);
+            let mut offset = 0;
+            for attribute_data in mesh_attributes.values() {
+                let attribute_size = attribute_data.attribute.format.size() as usize;
+                let src = &attribute_data.values.get_bytes()[block_start * attribute_size..];
+                let dst = &mut block[offset..];
+                match attribute_size {
+                    4 => write_strided::<4>(dst, src, count, vertex_size),
+                    8 => write_strided::<8>(dst, src, count, vertex_size),
+                    12 => write_strided::<12>(dst, src, count, vertex_size),
+                    16 => write_strided::<16>(dst, src, count, vertex_size),
+                    size => write_strided_dyn(dst, src, size, count, vertex_size),
+                }
+
+                offset += attribute_size;
             }
 
-            attribute_offset += attribute_size;
+            let block_bytes = count * vertex_size;
+            let start = block_start * vertex_size;
+            slice
+                .slice(start..start + block_bytes)
+                .copy_from_slice(&block[..block_bytes]);
         }
     }
 
@@ -4149,5 +4171,79 @@ mod tests {
             assert!(uv1.is_none());
             assert_eq!(pos.unwrap().0, &Mesh::ATTRIBUTE_POSITION);
         }
+    }
+
+    #[test]
+    fn packed_vertex_buffer_data_is_interleaved() {
+        use wgpu_types::VertexFormat;
+
+        const ATTRIBUTE_UNORM8X4: MeshVertexAttribute =
+            MeshVertexAttribute::new("Unorm8x4", 1_000, VertexFormat::Unorm8x4);
+        const ATTRIBUTE_UINT8X2: MeshVertexAttribute =
+            MeshVertexAttribute::new("Uint8x2", 1_001, VertexFormat::Uint8x2);
+        const ATTRIBUTE_FLOAT64X3: MeshVertexAttribute =
+            MeshVertexAttribute::new("Float64x3", 1_002, VertexFormat::Float64x3);
+
+        let vertex_count = 1000;
+        let f = |i: usize| i as f32;
+        let byte = |i: usize| (i % 251) as u8;
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            (0..vertex_count)
+                .map(|i| [f(i), f(i) + 0.25, f(i) + 0.5])
+                .collect::<Vec<_>>(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            (0..vertex_count + 3)
+                .map(|i| [-f(i), f(i) * 2.0])
+                .collect::<Vec<_>>(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_COLOR,
+            (0..vertex_count)
+                .map(|i| [f(i), 1.0, 2.0, 3.0])
+                .collect::<Vec<_>>(),
+        )
+        .with_inserted_attribute(
+            ATTRIBUTE_UNORM8X4,
+            VertexAttributeValues::Unorm8x4(
+                (0..vertex_count)
+                    .map(|i| [byte(i), byte(i + 1), byte(i + 2), byte(i + 3)])
+                    .collect(),
+            ),
+        )
+        .with_inserted_attribute(
+            ATTRIBUTE_UINT8X2,
+            VertexAttributeValues::Uint8x2(
+                (0..vertex_count).map(|i| [byte(i), !byte(i)]).collect(),
+            ),
+        )
+        .with_inserted_attribute(
+            ATTRIBUTE_FLOAT64X3,
+            VertexAttributeValues::Float64x3(
+                (0..vertex_count)
+                    .map(|i| [i as f64, -(i as f64), 0.5])
+                    .collect(),
+            ),
+        );
+
+        assert_eq!(mesh.count_vertices(), vertex_count);
+        assert_eq!(mesh.get_vertex_size(), 12 + 8 + 16 + 4 + 2 + 24);
+
+        let mut expected = Vec::new();
+        for vertex in 0..vertex_count {
+            for (attribute, values) in mesh.attributes() {
+                let size = attribute.format.size() as usize;
+                expected.extend_from_slice(&values.get_bytes()[vertex * size..][..size]);
+            }
+        }
+
+        assert_eq!(expected.len(), mesh.get_vertex_buffer_size());
+        assert_eq!(mesh.create_packed_vertex_buffer_data(), expected);
     }
 }
