@@ -81,12 +81,6 @@ pub struct OcclusionCulling;
 pub struct OcclusionCullingSubview {
     /// A texture view of the Z-buffer.
     pub depth_texture_view: TextureView,
-    /// The size of the texture along both dimensions.
-    ///
-    /// Because [`OcclusionCullingSubview`] is only currently used for shadow
-    /// maps, they're guaranteed to have sizes equal to a power of two, so we
-    /// don't have to store the two dimensions individually here.
-    pub depth_texture_size: u32,
 }
 
 /// A render-world component placed on each camera that stores references to all
