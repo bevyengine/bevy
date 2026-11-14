@@ -3441,8 +3441,10 @@ impl World {
 
         #[cfg(feature = "trace")]
         let _span = tracing::info_span!("check component ticks").entered();
-        tables.check_change_ticks(&check);
-        sparse_sets.check_change_ticks(&check);
+        let mut ticks = Vec::new();
+        tables.check_change_ticks(&check, &mut ticks);
+        sparse_sets.check_change_ticks(&check, &mut ticks);
+        check.check_all(ticks);
         non_sends.check_change_ticks(&check);
         self.entities.check_change_ticks(&check);
         self.check_reference_ticks(&mut check, &mut check_extra);

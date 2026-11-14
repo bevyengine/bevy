@@ -530,11 +530,15 @@ impl Table {
     }
 
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
-    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
+    pub(crate) fn check_change_ticks<'a>(
+        &'a mut self,
+        check: &CheckChangeTicks,
+        ticks: &mut Vec<&'a mut [UnsafeCell<Tick>]>,
+    ) {
         let len = self.entity_count() as usize;
         for col in self.columns.values_mut() {
             // SAFETY: `len` is the actual length of the column
-            unsafe { col.check_change_ticks(len, check) };
+            unsafe { col.check_change_ticks(len, check, ticks) };
         }
     }
 
@@ -705,9 +709,13 @@ impl Tables {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
+    pub(crate) fn check_change_ticks<'a>(
+        &'a mut self,
+        check: &CheckChangeTicks,
+        ticks: &mut Vec<&'a mut [UnsafeCell<Tick>]>,
+    ) {
         for table in &mut self.tables {
-            table.check_change_ticks(check);
+            table.check_change_ticks(check, ticks);
         }
     }
 

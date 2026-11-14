@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use bevy_ecs_macros::Event;
-use bevy_platform::sync::{atomic::AtomicU64, Mutex};
+use bevy_platform::sync::{atomic::AtomicU64, Arc, Mutex};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::{
@@ -261,8 +261,8 @@ enum CheckPhase {
     Collect(Mutex<Vec<Tick>>),
     /// Compacting old ticks around the recorded ages, sorted oldest first.
     Compact {
-        ages: Vec<u32>,
-        buckets: Vec<u32>,
+        ages: Arc<[u32]>,
+        buckets: Arc<[u32]>,
         shift: u32,
         /// The last compacted tick, packed as `(old << 32) | new`.
         last: AtomicU64,
@@ -312,14 +312,14 @@ impl CheckChangeTicks {
                     .collect();
                 (shift, buckets)
             }
-            _ => (0, Vec::new()),
+            _ => (0, Arc::default()),
         };
         Self {
             // Only compact ticks the collecting pass saw as old, so none are missed.
             cutoff: COMPACT_AGE + present.relative_to(self.present).get(),
             present,
             phase: CheckPhase::Compact {
-                ages,
+                ages: ages.into(),
                 buckets,
                 shift,
                 // `present` is never compacted, so this never matches.
@@ -328,6 +328,67 @@ impl CheckChangeTicks {
                         | u64::from(present.relative_to(Tick::new(COMPACT_START)).tick),
                 ),
             },
+        }
+    }
+
+    #[cfg(feature = "multi_threaded")]
+    fn fork(&self) -> Self {
+        let phase = match &self.phase {
+            CheckPhase::Compact {
+                ages,
+                buckets,
+                shift,
+                last,
+            } => CheckPhase::Compact {
+                ages: ages.clone(),
+                buckets: buckets.clone(),
+                shift: *shift,
+                last: AtomicU64::new(last.load(Ordering::Relaxed)),
+            },
+            CheckPhase::Clamp => CheckPhase::Clamp,
+            CheckPhase::Collect(_) => unreachable!(),
+        };
+        Self {
+            present: self.present,
+            cutoff: self.cutoff,
+            phase,
+        }
+    }
+
+    pub(crate) fn check_all<'a>(
+        &self,
+        ticks: impl IntoIterator<Item = &'a mut [UnsafeCell<Tick>]>,
+    ) {
+        #[cfg(feature = "multi_threaded")]
+        if let Some(pool) = bevy_tasks::ComputeTaskPool::try_get()
+            && pool.thread_num() > 1
+        {
+            const BATCH: usize = 1 << 16;
+            pool.scope(|scope| {
+                let (mut batch, mut len) = (Vec::new(), 0);
+                for chunk in ticks.into_iter().flat_map(|t| t.chunks_mut(BATCH)) {
+                    len += chunk.len();
+                    batch.push(chunk);
+                    if len >= BATCH {
+                        let batch = core::mem::take(&mut batch);
+                        len = 0;
+                        scope.spawn(async move { self.fork().check_all_serial(batch) });
+                    }
+                }
+                if !batch.is_empty() {
+                    scope.spawn(async move { self.fork().check_all_serial(batch) });
+                }
+            });
+            return;
+        }
+        self.check_all_serial(ticks);
+    }
+
+    fn check_all_serial<'a>(&self, ticks: impl IntoIterator<Item = &'a mut [UnsafeCell<Tick>]>) {
+        for slice in ticks {
+            for tick in slice {
+                tick.get_mut().check_tick(self);
+            }
         }
     }
 
