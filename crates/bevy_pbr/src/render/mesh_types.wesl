@@ -24,6 +24,8 @@ struct Mesh {
     morph_descriptor_index: u32,
     /// The index of the mesh metadata buffer.
     metadata_index: u32,
+    /// See `MeshUniform::instance_seed`.
+    instance_seed: u32,
 };
 
 @if(SKINNED)

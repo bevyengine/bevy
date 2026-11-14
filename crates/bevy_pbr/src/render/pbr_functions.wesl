@@ -61,6 +61,33 @@ const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
     0x050d070f
 );
 
+/// Returns whether the fragment at `frag_coord` is kept by the ordered
+/// dithering pattern at the given `dither` level.
+///
+/// The `dither` value ranges from [-16, 16]:
+/// - 0 keeps every fragment;
+/// - -16 and 16 keep none;
+/// - Positive value `d` keeps `16 - d` out of every 16 fragments;
+/// - Negative value `-d` keeps the complementary `16 - d` fragments
+// 
+/// (Pattern at `d` and one at `d - 16` together cover every fragment exactly once)
+fn dither_keep(frag_coord: vec2<f32>, dither: i32) -> bool {
+    // If `dither` is 0, every fragment is kept.
+    if (dither == 0) {
+        return true;
+    }
+
+    // If `dither` is less than -15 or greater than 15, no fragment is kept.
+    if (dither <= -16 || dither >= 16) {
+        return false;
+    }
+
+    // Otherwise, check the dither pattern.
+    let coords = vec2<u32>(floor(frag_coord)) % 4u;
+    let threshold = i32((DITHER_THRESHOLD_MAP[coords.y] >> (coords.x * 8)) & 0xff);
+    return !((dither >= 0 && dither + threshold >= 16) || (dither < 0 && 1 + dither + threshold <= 0));
+}
+
 /// Processes a visibility range dither value and discards the fragment if
 /// needed.
 ///
@@ -75,24 +102,24 @@ const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
 /// visible, and then counts up to 16 while the object is fading out.
 /// Distinguishing between negative and positive values allows the dither
 /// patterns for different LOD levels of a single mesh to mesh together properly.
+// 
+/// See [`dither_keep`].
 @if(VISIBILITY_RANGE_DITHER)
 fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
-    // If `dither` is 0, the object is visible.
-    if (dither == 0) {
-        return;
-    }
-
-    // If `dither` is less than -15 or greater than 15, the object is culled.
-    if (dither <= -16 || dither >= 16) {
+    if !dither_keep(frag_coord.xy, dither) {
         discard;
     }
+}
 
-    // Otherwise, check the dither pattern.
-    let coords = vec2<u32>(floor(frag_coord.xy)) % 4u;
-    let threshold = i32((DITHER_THRESHOLD_MAP[coords.y] >> (coords.x * 8)) & 0xff);
-    if ((dither >= 0 && dither + threshold >= 16) || (dither < 0 && 1 + dither + threshold <= 0)) {
-        discard;
-    }
+/// Resolves the alpha of a dithered fragment to either 1.0 (keep) or 0.0 (discard),
+/// using the visibility range dithering pattern.
+///
+/// `seed` offsets the pattern nn screen space, so that overlapping dithered objects
+///  don't discard the same fragments.
+fn dither_mask(alpha: f32, frag_coord: vec2<f32>, seed: u32) -> f32 {
+    let offset = vec2(f32(seed & 3u), f32((seed >> 2u) & 3u));
+    let dither = 16 - i32(round(saturate(alpha) * 16.0));
+    return select(0.0, 1.0, dither_keep(frag_coord + offset, dither));
 }
 
 fn alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) -> vec4<f32> {
@@ -109,7 +136,8 @@ fn alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>
         // alpha mask.
         @if(MAY_DISCARD)
         if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK ||
-                alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
+                alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE ||
+                alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_DITHER {
             if color.a >= alpha_cutoff {
                 // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
                 color.a = 1.0;
