@@ -1,7 +1,7 @@
 //! This example shows off the various Bevy Feathers widgets.
 
 use bevy::{
-    color::palettes,
+    color::{palettes, Luminance},
     ecs::template::OptionTemplate,
     feathers::{
         constants::{fonts, icons},
@@ -12,7 +12,7 @@ use bevy::{
         font_styles::InheritableFont,
         palette,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
+        theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeProps, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::{tab_navigation::TabGroup, AutoFocus, InputFocus},
@@ -471,6 +471,30 @@ fn demo_column_1() -> impl Scene {
                 @FeathersToggleSwitch
                 DemoDialogToggle
                 on(toggle_demo_dialog)
+            ]
+            --
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Start,
+                column_gap: px(8),
+            }
+            Children [
+                @label("Dark mode:")
+                --
+                @FeathersToggleSwitch
+                DemoDialogToggle
+                Checked
+                on(|change: On<ValueChange<bool>>, mut commands: Commands| {
+                    if change.value {
+                        commands.entity(change.source).insert(Checked);
+                        commands.insert_resource(UiTheme(create_dark_theme()));
+                    }else {
+                        commands.entity(change.source).remove::<Checked>();
+                        commands.insert_resource(UiTheme(create_light_theme()));
+                    }
+                })
             ]
             --
             @FeathersCheckbox {
@@ -1577,4 +1601,19 @@ fn toggle_demo_dialog(
             commands.entity(dialog).despawn();
         }
     }
+}
+
+fn create_light_theme() -> ThemeProps {
+    let mut theme = create_dark_theme();
+    for v in theme.semantic_base.values_mut() {
+        let lum = 1. - v.luminance();
+        *v = v.with_luminance(lum);
+    }
+    for map in theme.semantic_overrides.values_mut() {
+        for v in map.values_mut() {
+            let lum = 1. - v.luminance();
+            *v = v.with_luminance(lum);
+        }
+    }
+    theme
 }
