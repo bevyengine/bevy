@@ -724,7 +724,7 @@ impl EntityCloner {
                             .or_else(|| {
                                 // SAFETY: table_row is within this table because we just got it from entity's current location
                                 table.as_mut().and_then(|table| unsafe {
-                                    table.get_component(component_id, table_row)
+                                    table.get_component_untyped(component_id, table_row)
                                 })
                             })
                         else {
