@@ -25,6 +25,6 @@ fn main() {
 fn toggle(mut store: ResMut<DiagnosticsStore>) {
     for diag in store.iter_mut() {
         info!("toggling diagnostic {}", diag.path());
-        diag.is_enabled = !diag.is_enabled;
+        diag.is_enabled.toggle();
     }
 }

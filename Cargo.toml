@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.97.1"
+rust-version = "1.100.0"
 
 [workspace]
 resolver = "3"
@@ -5644,6 +5644,17 @@ doc-scrape-examples = true
 [package.metadata.example.headless_tabs]
 name = "Headless Tabs"
 description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "dock"
+path = "examples/ui/widgets/dock.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dock]
+name = "Dock"
+description = "Builds split panes and tab groups from a dock tree and edits the tree at runtime"
 category = "UI (User Interface)"
 wasm = true
 

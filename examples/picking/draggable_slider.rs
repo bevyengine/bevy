@@ -349,7 +349,7 @@ fn on_toggle_click(
     mut label: Single<&mut Text, With<ToggleLabel>>,
     mut toggle_bg: Single<&mut BackgroundColor, With<ToggleButton>>,
 ) {
-    capture_enabled.0 = !capture_enabled.0;
+    capture_enabled.0.toggle();
     if capture_enabled.0 {
         label.0 = "Capture: ON  (click to toggle)".into();
         toggle_bg.0 = COLOR_TOGGLE_ON;

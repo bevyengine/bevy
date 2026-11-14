@@ -174,7 +174,7 @@ fn update_config(
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::KeyA) {
-        config.enabled ^= true;
+        config.enabled.toggle();
     }
     if keyboard.just_pressed(KeyCode::KeyC) {
         light_config.color = match light_config.color {
