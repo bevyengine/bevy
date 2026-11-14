@@ -33,18 +33,10 @@ pub struct EntityHasher {
     hash: u64,
 }
 
-impl Hasher for EntityHasher {
+impl EntityHasher {
+    /// Hashes the bits of an [`Entity`](super::Entity) for a 64-bit target.
     #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
-    }
-
-    fn write(&mut self, _bytes: &[u8]) {
-        panic!("EntityHasher can only hash u64 fields.");
-    }
-
-    #[inline]
-    fn write_u64(&mut self, bits: u64) {
+    pub(crate) const fn hash_for_64_bit(bits: u64) -> u64 {
         // SwissTable (and thus `hashbrown`) cares about two things from the hash:
         // - H1: low bits (masked by `2ⁿ-1`) to pick the slot in which to store the item
         // - H2: high 7 bits are used to SIMD optimize hash collision probing
@@ -73,6 +65,42 @@ impl Hasher for EntityHasher {
         const UPPER_PHI: u64 = 0x9e37_79b9_0000_0001;
 
         // This is `(MAGIC * index + generation) << 32 + index`, in a single instruction.
-        self.hash = bits.wrapping_mul(UPPER_PHI);
+        bits.wrapping_mul(UPPER_PHI)
+    }
+
+    /// Hashes the bits of an [`Entity`](super::Entity) for a 32-bit target,
+    /// where `hashbrown` truncates the hash to the low 32 bits.
+    #[inline]
+    pub(crate) const fn hash_for_32_bit(bits: u64) -> u64 {
+        let hash = Self::hash_for_64_bit(bits);
+
+        // Here H2 is bits 25..32: the top of the inverted index, which is all ones
+        // for every index below 2²⁵. Without mixing, every entity shares one H2 and
+        // probing compares every key it passes. Mix in bits 18..25 of the upper
+        // half, which (unlike its top bits) can't cancel out index bits 25..32.
+        // The upper half is unchanged, so this remains a bijection.
+        const H2_32_BIT: u64 = 0xFE00_0000;
+        hash ^ ((hash >> 25) & H2_32_BIT)
+    }
+}
+
+impl Hasher for EntityHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        panic!("EntityHasher can only hash u64 fields.");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, bits: u64) {
+        // 64-bit targets take H2 from the upper half, so skip the extra mixing.
+        self.hash = if cfg!(target_pointer_width = "64") {
+            Self::hash_for_64_bit(bits)
+        } else {
+            Self::hash_for_32_bit(bits)
+        };
     }
 }

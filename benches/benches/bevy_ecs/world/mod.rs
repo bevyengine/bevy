@@ -46,6 +46,7 @@ criterion_group!(
     query_get_components_mut_10,
     query_get_components_mut_32,
     entity_set_build_and_lookup,
+    entity_set_contiguous,
     entity_allocator_benches,
     get_entity_mut_slice
 );
