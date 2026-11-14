@@ -48,7 +48,7 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonState,
 };
-use bevy_input_focus::{FocusLost, FocusedInput};
+use bevy_input_focus::{FocusLost, FocusedInput, InputFocus};
 use bevy_log::{warn, warn_once};
 use bevy_platform::{
     collections::{HashMap, HashSet},
@@ -1052,22 +1052,24 @@ fn refresh_details_panel(world: &mut World) {
 
 /// Whether `field` holds `value`, so that a widget showing `value` is up to date.
 fn holds_value(field: &dyn PartialReflect, value: &FieldValue) -> bool {
-    scalar_value(field).is_some_and(|current| same_value(&current, value))
+    scalar_value(field).is_some_and(|current| same_value(value, &current))
 }
 
-/// Whether two field values are equal, comparing floats bit for bit so that a NaN equals itself,
-/// and colors by the hexadecimal code they show.
-fn same_value(left: &FieldValue, right: &FieldValue) -> bool {
+/// Whether a widget showing `shown` is up to date with a field holding `held`.
+///
+/// Floats are compared bit for bit so that a NaN equals itself. Colors are compared channel by
+/// channel after converting `shown` into the color space of `held`.
+fn same_value(shown: &FieldValue, held: &FieldValue) -> bool {
     use FieldValue::{Color, Number};
-    match (left, right) {
-        (Color(left), Color(right)) => color_to_hex(*left) == color_to_hex(*right),
-        (Number(NumericValue::F32(left)), Number(NumericValue::F32(right))) => {
-            left.to_bits() == right.to_bits()
+    match (shown, held) {
+        (Color(shown), Color(held)) => in_color_space(*shown, *held) == *held,
+        (Number(NumericValue::F32(shown)), Number(NumericValue::F32(held))) => {
+            shown.to_bits() == held.to_bits()
         }
-        (Number(NumericValue::F64(left)), Number(NumericValue::F64(right))) => {
-            left.to_bits() == right.to_bits()
+        (Number(NumericValue::F64(shown)), Number(NumericValue::F64(held))) => {
+            shown.to_bits() == held.to_bits()
         }
-        _ => left == right,
+        _ => shown == held,
     }
 }
 
@@ -1337,7 +1339,7 @@ fn has_defaults(variant: &VariantInfo, registry: &TypeRegistry) -> bool {
 /// Rebuilds or refreshes the details panel so that it matches the selected entity.
 ///
 /// Only the groups of components that were added, removed, collapsed or expanded are respawned.
-/// The whole panel is rebuilt when the selection changes.
+/// Groups of components the new selection shares with the old one are kept.
 pub fn sync_details_panel(world: &mut World) {
     let delta = world
         .get_resource::<Time>()
@@ -1379,11 +1381,39 @@ pub fn sync_details_panel(world: &mut World) {
     let empty = empty_state(inspected, maybe_selected, &components);
 
     let index = world.resource::<DetailsIndex>();
-    if selection_changed || index.body != Some(body) || index.empty != empty {
+    if index.body != Some(body) || index.empty != empty {
         reset_body(world, body, selection.clone(), empty);
+    } else if selection_changed {
+        discard_focused_group(world);
+        world.resource_mut::<DetailsIndex>().selection = selection.clone();
     }
     if empty.is_none() {
         sync_groups(world, body, &components);
+    }
+}
+
+/// Despawns the group holding the focused widget and clears the focus, discarding any value typed
+/// into it before the selection changed.
+fn discard_focused_group(world: &mut World) {
+    let Some(mut entity) = world.get_resource::<InputFocus>().and_then(InputFocus::get) else {
+        return;
+    };
+    loop {
+        let group = world
+            .resource::<DetailsIndex>()
+            .groups
+            .iter()
+            .find(|(_, group)| group.entity == entity)
+            .map(|(key, _)| key.clone());
+        if let Some(key) = group {
+            despawn_group(world, &key);
+            world.resource_mut::<InputFocus>().clear();
+            return;
+        }
+        let Some(&ChildOf(parent)) = world.get::<ChildOf>(entity) else {
+            return;
+        };
+        entity = parent;
     }
 }
 
@@ -2940,7 +2970,7 @@ mod tests {
         app.insert_resource(bevy_feathers::theme::UiTheme(
             bevy_feathers::dark_theme::create_dark_theme(),
         ));
-        app.init_resource::<bevy_input_focus::InputFocus>();
+        app.init_resource::<InputFocus>();
         app.init_asset::<bevy_image::Image>();
         app.init_asset::<bevy_text::Font>();
         app.register_type::<Subject>();
@@ -3479,12 +3509,9 @@ mod tests {
         let index = app.world().resource::<DetailsIndex>();
         assert!(index.group(subject).is_some());
         assert!(index.widget(subject, "scale").is_none());
-        let respawned = fields_container(&app, wrapper);
-        assert_ne!(respawned, container);
-        assert_eq!(
-            app.world().get::<ColumnSplit>(respawned).unwrap().fraction,
-            0.7
-        );
+        let kept = fields_container(&app, wrapper);
+        assert_eq!(kept, container);
+        assert_eq!(app.world().get::<ColumnSplit>(kept).unwrap().fraction, 0.7);
     }
 
     #[test]
@@ -4399,6 +4426,226 @@ mod tests {
         assert_eq!(
             app.world().get::<NumericValue>(input),
             Some(&NumericValue::F32(2.5))
+        );
+    }
+
+    #[test]
+    fn shared_component_groups_keep_their_widgets_across_a_selection_change() {
+        let (mut app, first) = widget_app();
+        app.register_type::<Wrapper>();
+        app.world_mut().entity_mut(first).insert(Wrapper::default());
+        settle(&mut app);
+        let subject = Subject::type_path();
+        let index = app.world().resource::<DetailsIndex>();
+        let group = index.group(subject).unwrap();
+        let input = index.widget(subject, "scale").unwrap();
+        assert!(index.group(Wrapper::type_path()).is_some());
+
+        let second = app
+            .world_mut()
+            .spawn(Subject {
+                scale: 3.0,
+                ..Default::default()
+            })
+            .id();
+        select(
+            &mut app,
+            Some(InspectableEntity::new(second, InspectorSource::Local)),
+        );
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert_eq!(index.group(subject), Some(group));
+        assert_eq!(index.widget(subject, "scale"), Some(input));
+        assert!(index.group(Wrapper::type_path()).is_none());
+        assert_eq!(
+            app.world().get::<NumericValue>(input),
+            Some(&NumericValue::F32(3.0))
+        );
+    }
+
+    #[derive(Resource, Default)]
+    struct GroupsAtStack(bool);
+
+    fn record_groups(index: bevy_ecs::system::Res<DetailsIndex>, mut seen: ResMut<GroupsAtStack>) {
+        seen.0 = index.group(Subject::type_path()).is_some();
+    }
+
+    #[test]
+    fn groups_are_spawned_before_the_ui_stack_is_built() {
+        use bevy_ecs::schedule::IntoScheduleConfigs;
+
+        let mut app = test_app();
+        app.init_resource::<GroupsAtStack>().add_systems(
+            bevy_app::PostUpdate,
+            record_groups.in_set(bevy_ui::UiSystems::Stack),
+        );
+        inspect(&mut app, Subject::default());
+        assert!(app.world().resource::<GroupsAtStack>().0);
+    }
+
+    #[test]
+    fn a_kept_widget_edits_the_new_selection() {
+        let (mut app, first) = widget_app();
+        let input = field_widget(&mut app, "scale");
+        let second = app.world_mut().spawn(Subject::default()).id();
+        select(
+            &mut app,
+            Some(InspectableEntity::new(second, InspectorSource::Local)),
+        );
+        assert_eq!(field_widget(&mut app, "scale"), input);
+
+        app.world_mut().trigger(ValueChange {
+            source: input,
+            value: 5.0_f32,
+            is_final: true,
+        });
+        app.update();
+        assert_eq!(app.world().get::<Subject>(second).unwrap().scale, 5.0);
+        assert_eq!(app.world().get::<Subject>(first).unwrap().scale, 1.0);
+    }
+
+    fn select_subject(app: &mut App, subject: Subject) -> Entity {
+        let entity = app
+            .world_mut()
+            .spawn(Subject {
+                scale: 1.0,
+                name: "start".to_string(),
+                ..subject
+            })
+            .id();
+        select(
+            app,
+            Some(InspectableEntity::new(entity, InspectorSource::Local)),
+        );
+        entity
+    }
+
+    #[test]
+    fn a_variant_that_differs_from_the_previous_selection_respawns_the_group() {
+        let (mut app, _) = widget_app();
+        let group = app
+            .world()
+            .resource::<DetailsIndex>()
+            .group(Subject::type_path());
+
+        select_subject(
+            &mut app,
+            Subject {
+                mode: Mode::Running,
+                ..Default::default()
+            },
+        );
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert_ne!(index.group(Subject::type_path()), group);
+        let mode = index
+            .fields
+            .get(&(ComponentKey::from(Subject::type_path()), "mode".to_string()))
+            .unwrap();
+        assert_eq!(mode.value, variant(&["Idle", "Running"], 1));
+    }
+
+    #[test]
+    fn a_collection_longer_than_in_the_previous_selection_respawns_the_group() {
+        let (mut app, _) = widget_app();
+        let group = app
+            .world()
+            .resource::<DetailsIndex>()
+            .group(Subject::type_path());
+        assert!(widget_at(&app, "values[1]").is_none());
+
+        select_subject(
+            &mut app,
+            Subject {
+                values: alloc::vec![4, 5],
+                ..Default::default()
+            },
+        );
+
+        let index = app.world().resource::<DetailsIndex>();
+        assert_ne!(index.group(Subject::type_path()), group);
+        let item = widget_at(&app, "values[1]").unwrap();
+        assert_eq!(
+            app.world().get::<NumericValue>(item),
+            Some(&NumericValue::I64(5))
+        );
+    }
+
+    #[test]
+    fn a_draft_in_a_focused_input_is_discarded_when_the_selection_changes() {
+        let (mut app, first) = kinds_app();
+        app.add_plugins(bevy_input_focus::InputFocusPlugin);
+        let input = hex_input(&mut app, first);
+        let before = app.world().get::<Kinds>(first).unwrap().color;
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(input, bevy_input_focus::FocusCause::Navigated);
+        type_text(&mut app, input, "#00FF00");
+
+        let second = app.world_mut().spawn(Kinds::default()).id();
+        select(
+            &mut app,
+            Some(InspectableEntity::new(second, InspectorSource::Local)),
+        );
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
+        assert!(app.world().get_entity(input).is_err());
+        assert_eq!(app.world().get::<Kinds>(first).unwrap().color, before);
+        assert_eq!(app.world().get::<Kinds>(second).unwrap().color, before);
+        let shown = color_text_input(&mut app);
+        assert_eq!(input_text(&app, shown), color_to_hex(before));
+    }
+
+    fn color_text_input(app: &mut App) -> Entity {
+        let mut inputs = app
+            .world_mut()
+            .query_filtered::<(Entity, &InspectorField), With<EditableText>>();
+        inputs
+            .iter(app.world())
+            .find(|(_, field)| field.path == "color")
+            .map(|(input, _)| input)
+            .unwrap()
+    }
+
+    #[test]
+    fn a_color_with_the_same_hex_code_as_the_previous_selection_is_shown_exactly() {
+        let (mut app, first) = kinds_app();
+        app.world_mut().get_mut::<Kinds>(first).unwrap().linear = LinearRgba::rgb(2.0, 0.0, 0.0);
+        app.world_mut().spawn((InspectorUi, InspectorDetailsBody));
+        select(
+            &mut app,
+            Some(InspectableEntity::new(first, InspectorSource::Local)),
+        );
+        let picker = app
+            .world()
+            .resource::<DetailsIndex>()
+            .widget(Kinds::type_path(), "linear")
+            .unwrap();
+
+        let second = app
+            .world_mut()
+            .spawn(Kinds {
+                linear: LinearRgba::RED,
+                ..Default::default()
+            })
+            .id();
+        select(
+            &mut app,
+            Some(InspectableEntity::new(second, InspectorSource::Local)),
+        );
+
+        assert_eq!(
+            app.world()
+                .resource::<DetailsIndex>()
+                .widget(Kinds::type_path(), "linear"),
+            Some(picker)
+        );
+        assert_eq!(
+            app.world()
+                .get::<ColorInputValue>(picker)
+                .map(|input| input.0),
+            Some(Color::LinearRgba(LinearRgba::RED))
         );
     }
 

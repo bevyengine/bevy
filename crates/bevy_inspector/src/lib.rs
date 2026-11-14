@@ -309,7 +309,8 @@ impl Plugin for InspectorPlugin {
                 )
                     .chain()
                     .ambiguous_with_all()
-                    .before(UiSystems::Prepare),
+                    .before(UiSystems::Prepare)
+                    .before(UiSystems::Stack),
             );
 
         #[cfg(feature = "remote")]
