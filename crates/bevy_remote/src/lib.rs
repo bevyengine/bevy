@@ -599,9 +599,55 @@
 //! - `position`: The point to click in `window`, as an array of two numbers, in physical pixels
 //!   from the window's top left.
 //! - `button` (optional): The mouse button, such as `"Left"` or `"Right"`. Defaults to `"Left"`.
-//! - `hold` (optional): How many frames the button stays pressed. Defaults to 1.
+//! - `state` (optional): `"Pressed"` or `"Released"`, to send only the press or only the release,
+//!   for example to hold the button through a drag. When omitted, the button is pressed and
+//!   released.
+//! - `hold` (optional): How many frames the button stays pressed, when it is pressed and released.
+//!   Defaults to 1. Can't be combined with `state`.
 //!
-//! `result`: null, once the app has run the frame that receives the button's release.
+//! `result`: null, once the app has run the frame that receives the button's last event.
+//!
+//! ### `input.move_cursor`
+//!
+//! Move the mouse cursor to a UI node, or to a point in a window, without pressing anything, so
+//! that hover effects and tooltips respond. The app receives one cursor position per frame for
+//! `frames` frames. The cursor starts where earlier `input.*` requests left it, or where the
+//! window reports the cursor to be if they did not leave it in the target's window, and ends on
+//! the target. If the cursor's position in that window is unknown, it is at the target on every
+//! frame. A node hidden by a scrolled ancestor is scrolled into view first.
+//!
+//! `params`:
+//! - `entity`, or `window` and `position`: Where to move the mouse cursor to, as for
+//!   `input.click`.
+//! - `frames` (optional): How many frames the move is spread over, from 1 to 255. Defaults to 1,
+//!   which jumps straight to the target.
+//! - `ease` (optional): How far along the straight line to the target the cursor is on each frame,
+//!   as an [`EaseFunction`](bevy_curve::EaseFunction). `"Linear"` takes steps of the same length,
+//!   and `"QuadraticInOut"` starts slowly, speeds up, and slows down again before the target.
+//!   Defaults to `"Linear"`.
+//!
+//! `result`: null, once the app has run the frame that receives the cursor's last move.
+//!
+//! To drag, chain calls: `input.click` with `state` `"Pressed"` where the drag starts, one or more
+//! `input.move_cursor`s, and `input.click` with `state` `"Released"` where it ends. Picking sends
+//! its drag events on the moves, and drops on what is under the cursor at the release. To cancel a
+//! drag partway, send `input.key` with `"Escape"` before the release, if the app cancels on Escape.
+//!
+//! ### `input.scroll`
+//!
+//! Turn the mouse wheel over a UI node, or over a point in a window. The mouse cursor moves to the
+//! target, and the wheel turns on the next frame, so that picking scrolls what is under the cursor.
+//! A node hidden by a scrolled ancestor is scrolled into view first.
+//!
+//! `params`:
+//! - `entity`, or `window` and `position`: Where to scroll, as for `input.click`.
+//! - `delta`: How far the wheel turns, as an array of two numbers, horizontal then vertical. As
+//!   with a real wheel, a positive vertical value scrolls up, and a positive horizontal value
+//!   scrolls right.
+//! - `unit` (optional): The scroll units used by `delta`: `"Line"` or `"Pixel"`. Defaults to
+//!   `"Line"`.
+//!
+//! `result`: null, once the app has run the frame that receives the wheel's turn.
 //!
 //! ### `input.key`
 //!
@@ -1049,6 +1095,16 @@ impl RemotePlugin {
             to_main,
         )
         .with_deferred_method(
+            input_methods::BRP_MOVE_CURSOR_METHOD,
+            input_methods::process_remote_move_cursor_request,
+            to_main,
+        )
+        .with_deferred_method(
+            input_methods::BRP_SCROLL_METHOD,
+            input_methods::process_remote_scroll_request,
+            to_main,
+        )
+        .with_deferred_method(
             input_methods::BRP_KEY_METHOD,
             input_methods::process_remote_key_request,
             to_main,
@@ -1191,6 +1247,8 @@ impl Plugin for RemotePlugin {
         let methods = app.world().resource::<RemoteMethods>();
         if [
             input_methods::BRP_CLICK_METHOD,
+            input_methods::BRP_MOVE_CURSOR_METHOD,
+            input_methods::BRP_SCROLL_METHOD,
             input_methods::BRP_KEY_METHOD,
             input_methods::BRP_TYPE_METHOD,
         ]

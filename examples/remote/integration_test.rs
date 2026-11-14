@@ -246,7 +246,8 @@ fn click(client: &BrpClient, node: Entity) -> AnyhowResult<()> {
             window: None,
             position: None,
             button: MouseButton::Left,
-            hold: 1,
+            state: None,
+            hold: None,
         },
     )?;
     Ok(())
