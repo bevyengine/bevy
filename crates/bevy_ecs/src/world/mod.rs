@@ -618,6 +618,33 @@ impl World {
             .register_component_with_descriptor(descriptor)
     }
 
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// advanced use cases.
+    ///
+    /// # Note
+    ///
+    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_resource_by_id`].
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        let requiree = self.register_component_with_descriptor(descriptor);
+        let required = self.register_component::<IsResource>();
+
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe {
+            self.components
+                .register_required_components::<IsResource>(requiree, required, move || {
+                    IsResource::new(requiree)
+                })
+                .unwrap();
+        }
+        requiree
+    }
+
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
     ///
     /// The returned `ComponentId` is specific to the `World` instance
@@ -3071,6 +3098,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
+    /// # Panics
+    ///
+    /// In debug builds, panics if the component does not require [`IsResource`].
+    ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
@@ -3081,6 +3112,11 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
+        debug_assert!(
+            self.get_required_components_by_id(component_id)
+                .is_some_and(|required| required.all.contains_key(&IS_RESOURCE)),
+            "Resources must require IsResource. Use World::register_resource_with_descriptor before inserting a dynamically registered resource."
+        );
         // if the resource already exists, we replace it on the same entity
         let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
             self.get_entity_mut(entity)
@@ -4084,7 +4120,7 @@ impl<T: Default> FromWorld for T {
 #[cfg(test)]
 #[expect(clippy::print_stdout, reason = "Allowed in tests.")]
 mod tests {
-    use super::{FromWorld, World};
+    use super::{FromWorld, World, IS_RESOURCE};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
         component::{
@@ -4094,7 +4130,7 @@ mod tests {
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{DetectChanges, Event, Mut, On, Res},
         ptr::OwningPtr,
-        resource::Resource,
+        resource::{IsResource, Resource},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -4251,6 +4287,211 @@ mod tests {
         let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 42);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "Resources must require IsResource")]
+    fn insert_resource_by_id_requires_is_resource() {
+        #[derive(Component)]
+        struct NotAResource;
+
+        let mut world = World::new();
+        let id = world.register_component::<NotAResource>();
+        OwningPtr::make(NotAResource, |ptr| {
+            // SAFETY: id was registered for NotAResource in this world.
+            unsafe { world.insert_resource_by_id(id, ptr, MaybeLocation::caller()) };
+        });
+    }
+
+    #[test]
+    fn dynamic_resource_by_id() {
+        for (storage_type, insert_through_entity) in [
+            (StorageType::Table, false),
+            (StorageType::Table, true),
+            (StorageType::SparseSet, false),
+            (StorageType::SparseSet, true),
+        ] {
+            let mut world = World::new();
+            let initial_entity_count = world.entities().count_spawned();
+            // SAFETY: u64 is Send + Sync and does not require a drop function.
+            let descriptor = unsafe {
+                ComponentDescriptor::new_with_layout(
+                    "DynamicResource",
+                    storage_type,
+                    core::alloc::Layout::new::<u64>(),
+                    None,
+                    true,
+                    false,
+                    ComponentCloneBehavior::Default,
+                    None,
+                )
+            };
+            let component_id = world.register_resource_with_descriptor(descriptor);
+            assert_eq!(world.entities().count_spawned(), initial_entity_count);
+            assert!(world.get_resource_by_id(component_id).is_none());
+            assert!(world
+                .get_required_components_by_id(component_id)
+                .unwrap()
+                .all
+                .contains_key(&IS_RESOURCE));
+
+            // Required components must also work when inserted through the entity API.
+            let resource_entity = OwningPtr::make(41_u64, |ptr| {
+                // SAFETY: the descriptor was registered with the layout of u64.
+                unsafe {
+                    if insert_through_entity {
+                        world.spawn_empty().insert_by_id(component_id, ptr).id()
+                    } else {
+                        world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+                        world.resource_entities().get(component_id).unwrap()
+                    }
+                }
+            });
+            assert_eq!(
+                world.resource_entities().get(component_id),
+                Some(resource_entity)
+            );
+            assert_eq!(
+                world
+                    .get::<IsResource>(resource_entity)
+                    .unwrap()
+                    .resource_component_id(),
+                component_id
+            );
+            let resource = world.get_resource_by_id(component_id).unwrap();
+            // SAFETY: the resource was inserted as a u64.
+            assert_eq!(unsafe { *resource.deref::<u64>() }, 41);
+
+            for value in [42_u64, 43] {
+                OwningPtr::make(value, |ptr| {
+                    // SAFETY: the descriptor was registered with the layout of u64.
+                    unsafe {
+                        world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+                    }
+                });
+
+                let resource = world.get_resource_by_id(component_id).unwrap();
+                // SAFETY: the resource was inserted as a u64.
+                assert_eq!(unsafe { *resource.deref::<u64>() }, value);
+                assert_eq!(world.entities().count_spawned(), initial_entity_count + 1);
+            }
+
+            {
+                let mut resource = world.get_resource_mut_by_id(component_id).unwrap();
+                // SAFETY: the resource was inserted as a u64.
+                unsafe { *resource.as_mut().deref_mut::<u64>() = 44 };
+            }
+            let resource = world.get_resource_by_id(component_id).unwrap();
+            // SAFETY: the resource was inserted as a u64.
+            assert_eq!(unsafe { *resource.deref::<u64>() }, 44);
+
+            assert!(world.remove_resource_by_id(component_id));
+            assert!(world.get_resource_by_id(component_id).is_none());
+            assert_eq!(
+                world.resource_entities().get(component_id),
+                Some(resource_entity)
+            );
+
+            OwningPtr::make(45_u64, |ptr| {
+                // SAFETY: the descriptor was registered with the layout of u64.
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+                }
+            });
+            let resource = world.get_resource_by_id(component_id).unwrap();
+            // SAFETY: the resource was inserted as a u64.
+            assert_eq!(unsafe { *resource.deref::<u64>() }, 45);
+            assert_eq!(
+                world.resource_entities().get(component_id),
+                Some(resource_entity)
+            );
+            assert_eq!(world.entities().count_spawned(), initial_entity_count + 1);
+        }
+    }
+
+    #[test]
+    fn dynamic_resources_with_same_type_and_drop() {
+        #[derive(Resource)]
+        struct Tracked(Arc<AtomicU32>);
+
+        impl Drop for Tracked {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        for storage_type in [StorageType::Table, StorageType::SparseSet] {
+            let descriptor = || match storage_type {
+                StorageType::Table => ComponentDescriptor::new::<Tracked>(),
+                StorageType::SparseSet => {
+                    // SAFETY: `Tracked` is Send + Sync and the drop function matches its layout.
+                    unsafe {
+                        ComponentDescriptor::new_with_layout(
+                            "Tracked",
+                            storage_type,
+                            core::alloc::Layout::new::<Tracked>(),
+                            Some(|ptr| {
+                                // SAFETY: `Tracked` is the correct resource type.
+                                ptr.drop_as::<Tracked>();
+                            }),
+                            true,
+                            false,
+                            ComponentCloneBehavior::Default,
+                            None,
+                        )
+                    }
+                }
+            };
+            let drops = Arc::new(AtomicU32::new(0));
+            let mut world = World::new();
+            let first = world.register_resource_with_descriptor(descriptor());
+            let second = world.register_resource_with_descriptor(descriptor());
+            assert_ne!(first, second);
+            assert!(world.component_id::<Tracked>().is_none());
+
+            for id in [first, second] {
+                OwningPtr::make(Tracked(Arc::clone(&drops)), |ptr| {
+                    // SAFETY: `Tracked` is the correct resource type.
+                    unsafe { world.insert_resource_by_id(id, ptr, MaybeLocation::caller()) };
+                });
+                let entity = world.resource_entities().get(id).unwrap();
+                assert_eq!(
+                    world
+                        .get::<IsResource>(entity)
+                        .unwrap()
+                        .resource_component_id(),
+                    id
+                );
+            }
+
+            world.insert_resource(Tracked(Arc::clone(&drops)));
+            let typed = world.component_id::<Tracked>().unwrap();
+            assert_ne!(first, typed);
+            assert_ne!(second, typed);
+            assert!(world.get_resource_by_id(first).is_some());
+            assert!(world.get_resource_by_id(second).is_some());
+            assert!(world.get_resource::<Tracked>().is_some());
+
+            OwningPtr::make(Tracked(Arc::clone(&drops)), |ptr| {
+                // SAFETY: `Tracked` is the correct resource type.
+                unsafe { world.insert_resource_by_id(first, ptr, MaybeLocation::caller()) };
+            });
+            assert_eq!(drops.load(Ordering::Relaxed), 1);
+            assert!(world.remove_resource_by_id(first));
+            assert_eq!(drops.load(Ordering::Relaxed), 2);
+
+            OwningPtr::make(Tracked(Arc::clone(&drops)), |ptr| {
+                // SAFETY: `Tracked` is the correct resource type.
+                unsafe { world.insert_resource_by_id(first, ptr, MaybeLocation::caller()) };
+            });
+            assert!(world.remove_resource_by_id(second));
+            assert!(world.get_resource_by_id(second).is_none());
+            assert_eq!(drops.load(Ordering::Relaxed), 3);
+
+            drop(world);
+            assert_eq!(drops.load(Ordering::Relaxed), 5);
+        }
     }
 
     #[test]
