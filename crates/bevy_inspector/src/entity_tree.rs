@@ -1726,17 +1726,17 @@ mod tests {
     fn filter_matches_fuzzily_and_highlights_the_label() {
         let mut app = test_app();
         let (_, tree) = spawn_tree(&mut app);
-        let light = app.world_mut().spawn(Name::new("PointLight")).id();
+        let light = app.world_mut().spawn(Name::new("SpotLight")).id();
         app.world_mut().spawn(Name::new("Camera"));
 
-        set_filter(&mut app, "plt");
+        set_filter(&mut app, "slt");
         assert_eq!(local_rows(&app, tree), [light]);
-        assert_eq!(label_of(&app, light).matched, [0, 5, 9]);
+        assert_eq!(label_of(&app, light).matched, [0, 4, 8]);
         assert_eq!(
             label_spans(&app, light),
             [
-                ("P".to_string(), true),
-                ("oint".to_string(), false),
+                ("S".to_string(), true),
+                ("pot".to_string(), false),
                 ("L".to_string(), true),
                 ("igh".to_string(), false),
                 ("t".to_string(), true),
@@ -1747,7 +1747,7 @@ mod tests {
         set_filter(&mut app, "");
         assert_eq!(label_of(&app, light).matched, Vec::<usize>::new());
         assert!(label_spans(&app, light).is_empty());
-        assert_eq!(label_text(&app, light), "PointLight");
+        assert_eq!(label_text(&app, light), "SpotLight");
     }
 
     #[test]
