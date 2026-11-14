@@ -82,9 +82,9 @@ The owned `downcast::<T>()` helper is replaced similarly (coercing to `Any` firs
 ```rust
 let bx: Box<dyn Trait> = Box::new(Foo);
 
-// old: note                 vvvvvvvvvvvvvvv
+// old                  note vvvvvvvvvvvvvvv
 let result: Result<Box<Foo>, Box<dyn Trait>> = bx.downcast::<Foo>();
-// new, note                 vvvvvvvvvvvvv
+// new                  note vvvvvvvvvvvvv
 let result: Result<Box<Foo>, Box<dyn Any>> = (bx as Box<dyn Any>).downcast::<Foo>();
 ```
 
