@@ -647,6 +647,8 @@ mod impls {
     mod wgpu_types;
 }
 
+#[cfg(feature = "annotations")]
+pub use bevy_annotations as annotations;
 pub mod attributes;
 pub mod convert;
 pub mod enums;
