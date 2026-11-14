@@ -204,6 +204,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
+//! The type that these dynamic types represent is known as its "runtime type."
 //! The [`PartialReflect::to_dynamic`] method will return a dynamic type for all non-opaque types,
 //! allowing all types to essentially be "cloned" into a dynamic type.
 //! And since dynamic types themselves implement [`PartialReflect`],
@@ -236,6 +237,19 @@
 //! value.apply(&patch);
 //! assert_eq!(None, value);
 //! ```
+//!
+//! ## Comptime vs Runtime Types
+//!
+//! All Rust types know their type at compile time, and we refer to this specifically as a type's "comptime type".
+//! `bevy_reflect` provides access to this comptime type dynamically via [`PartialReflect::comptime_type`].
+//!
+//! In addition to a comptime type, reflected types also have a "runtime type"
+//! accessible via [`PartialReflect::runtime_type`].
+//! In most cases, this ends up being the exact same as the comptime type.
+//! However, because dynamic types may proxy another type,
+//! they may present an entirely different runtime type—or none at all if they're not actively proxying any other type.
+//!
+//! Generally, you will want to query for a type's _runtime_ type so that you also account for these dynamic proxies.
 //!
 //! ## `FromReflect`
 //!
@@ -560,6 +574,8 @@
 //! [`DynamicTupleStruct`]: crate::tuple_struct::DynamicTupleStruct
 //! [`DynamicEnum`]: crate::enums::DynamicEnum
 //! [derive macro documentation]: derive@crate::Reflect
+//! [`Type`]: crate::ty::Type
+//! [`TypeId`]: core::any::TypeId
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
 //! [`ReflectDefault`]: std_traits::ReflectDefault
@@ -2634,7 +2650,7 @@ mod tests {
 
         // TypeInfo (instance)
         let value: &dyn Reflect = &123_i32;
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<i32>());
 
         // Struct
@@ -2655,7 +2671,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
@@ -2677,7 +2693,7 @@ mod tests {
             foo: String::from("Hello!"),
             bar: 321,
         };
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyGenericStruct<String>>());
 
         // Struct (dynamic field)
@@ -2707,7 +2723,7 @@ mod tests {
             foo: DynamicStruct::default(),
             bar: 321,
         };
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyDynamicStruct>());
 
         // Tuple Struct
@@ -2733,7 +2749,7 @@ mod tests {
         assert!(info.field_at(1).unwrap().type_info().unwrap().is::<f32>());
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyTuple>());
 
         // List
@@ -2748,7 +2764,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.item_ty().path());
 
         let value: &dyn Reflect = &vec![123_usize];
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
@@ -2765,7 +2781,7 @@ mod tests {
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
-            let info = value.reflect_type_info();
+            let info = value.comptime_type_info();
             assert!(info.is::<MySmallVec>());
         }
 
@@ -2781,7 +2797,7 @@ mod tests {
         assert_eq!(3, info.capacity());
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyArray>());
 
         // Cow<'static, str>
@@ -2793,7 +2809,7 @@ mod tests {
         assert_eq!("alloc::borrow::Cow<str>", info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyCowStr>());
 
         // Cow<'static, [u8]>
@@ -2808,7 +2824,7 @@ mod tests {
         assert_eq!("u8", info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyCowSlice>());
 
         // Map
@@ -2826,7 +2842,7 @@ mod tests {
         assert_eq!(f32::type_path(), info.value_ty().path());
 
         let value: &dyn Reflect = &MyMap::default();
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyMap>());
 
         // Map (IndexMap)
@@ -2850,7 +2866,7 @@ mod tests {
 
             let value: MyIndexMap = MyIndexMap::with_capacity_and_hasher(10, RandomState::new());
             let value: &dyn Reflect = &value;
-            let info = value.reflect_type_info();
+            let info = value.comptime_type_info();
             assert!(info.is::<MyIndexMap>());
         }
 
@@ -2863,12 +2879,12 @@ mod tests {
         assert_eq!(MyValue::type_path(), info.type_path());
 
         let value: &dyn Reflect = &String::from("Hello!");
-        let info = value.reflect_type_info();
+        let info = value.comptime_type_info();
         assert!(info.is::<MyValue>());
     }
 
     #[test]
-    fn get_represented_kind_info() {
+    fn runtime_kind_info() {
         #[derive(Reflect)]
         struct SomeStruct;
 
@@ -2882,24 +2898,24 @@ mod tests {
         }
 
         let dyn_struct: &dyn Struct = &SomeStruct;
-        let _: &StructInfo = dyn_struct.get_represented_struct_info().unwrap();
+        let _: &StructInfo = dyn_struct.runtime_struct_info().unwrap();
 
         let dyn_map: &dyn Map = &HashMap::<(), ()>::default();
-        let _: &MapInfo = dyn_map.get_represented_map_info().unwrap();
+        let _: &MapInfo = dyn_map.runtime_map_info().unwrap();
 
         let dyn_array: &dyn Array = &[1, 2, 3];
-        let _: &ArrayInfo = dyn_array.get_represented_array_info().unwrap();
+        let _: &ArrayInfo = dyn_array.runtime_array_info().unwrap();
 
         let dyn_list: &dyn List = &vec![1, 2, 3];
-        let _: &ListInfo = dyn_list.get_represented_list_info().unwrap();
+        let _: &ListInfo = dyn_list.runtime_list_info().unwrap();
 
         let dyn_tuple_struct: &dyn TupleStruct = &SomeTupleStruct(5.0);
         let _: &TupleStructInfo = dyn_tuple_struct
-            .get_represented_tuple_struct_info()
+            .runtime_tuple_struct_info()
             .unwrap();
 
         let dyn_enum: &dyn Enum = &SomeEnum::Foo;
-        let _: &EnumInfo = dyn_enum.get_represented_enum_info().unwrap();
+        let _: &EnumInfo = dyn_enum.runtime_enum_info().unwrap();
     }
 
     #[test]
@@ -2924,18 +2940,18 @@ mod tests {
     }
 
     #[test]
-    fn should_permit_valid_represented_type_for_dynamic() {
+    fn should_permit_valid_runtime_type_for_dynamic() {
         let type_info = <[i32; 2] as Typed>::type_info();
         let mut dynamic_array = [123; 2].to_dynamic_array().unwrap();
-        dynamic_array.set_represented_type(Some(type_info));
+        dynamic_array.set_runtime_type(Some(type_info));
     }
 
     #[test]
     #[should_panic(expected = "expected TypeInfo::Array but received")]
-    fn should_prohibit_invalid_represented_type_for_dynamic() {
+    fn should_prohibit_invalid_runtime_type_for_dynamic() {
         let type_info = <(i32, i32) as Typed>::type_info();
         let mut dynamic_array = [123; 2].to_dynamic_array().unwrap();
-        dynamic_array.set_represented_type(Some(type_info));
+        dynamic_array.set_runtime_type(Some(type_info));
     }
 
     #[cfg(feature = "reflect_documentation")]
@@ -3570,7 +3586,7 @@ bevy_reflect::tests::Test {
         }
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(MyType::type_info()));
+        patch.set_runtime_type(Some(MyType::type_info()));
         patch.insert("value", "Goodbye".to_string());
 
         let mut data = MyType(external_crate::TheirType {
@@ -3590,7 +3606,7 @@ bevy_reflect::tests::Test {
         }
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(ContainerStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerStruct::type_info()));
         patch.insert(
             "their_type",
             MyType(external_crate::TheirType {
@@ -3613,7 +3629,7 @@ bevy_reflect::tests::Test {
         struct ContainerTupleStruct(#[reflect(remote = MyType)] external_crate::TheirType);
 
         let mut patch = DynamicTupleStruct::default();
-        patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerTupleStruct::type_info()));
         patch.insert(MyType(external_crate::TheirType {
             value: "Goodbye".to_string(),
         }));
@@ -3714,7 +3730,7 @@ bevy_reflect::tests::Test {
         }
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(ContainerStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerStruct::type_info()));
         patch.insert(
             "their_type",
             MyType(external_crate::TheirType {
@@ -3737,7 +3753,7 @@ bevy_reflect::tests::Test {
         struct ContainerTupleStruct(#[reflect(remote = MyType)] external_crate::TheirType);
 
         let mut patch = DynamicTupleStruct::default();
-        patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
+        patch.set_runtime_type(Some(ContainerTupleStruct::type_info()));
         patch.insert(MyType(external_crate::TheirType {
             value: "Goodbye".to_string(),
         }));
@@ -3886,7 +3902,7 @@ bevy_reflect::tests::Test {
         struct MyInner<T: FromReflect>(pub T);
 
         let mut patch = DynamicStruct::default();
-        patch.set_represented_type(Some(MyOuter::<i32>::type_info()));
+        patch.set_runtime_type(Some(MyOuter::<i32>::type_info()));
         patch.insert("a", MyInner(external_crate::TheirInner(321_i32)));
         patch.insert("b", MyInner(external_crate::TheirInner(true)));
 
@@ -4096,6 +4112,49 @@ bevy_reflect::tests::Test {
         let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let point = <Point as FromReflect>::from_reflect(&*deserialized).unwrap();
         assert_eq!(point, Point(external_crate::Vector2([1, 2])));
+    }
+
+    #[test]
+    fn should_return_remote_type_info() {
+        mod external_crate {
+            use alloc::string::String;
+
+            #[derive(Debug, Default)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let info = MyType::type_info();
+        assert!(info.is::<MyType>());
+
+        let data: Box<dyn Reflect> = Box::new(MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        }));
+        assert_eq!(data.comptime_type(), Type::of::<MyType>());
+        assert_eq!(data.runtime_type(), Some(Type::of::<MyType>()));
+
+        // === Struct Container === //
+        #[derive(Reflect, Debug)]
+        #[reflect(from_reflect = false)]
+        struct ContainerStruct {
+            #[reflect(remote = MyType)]
+            their_type: external_crate::TheirType,
+        }
+
+        let info = ContainerStruct::type_info();
+        assert!(info.is::<ContainerStruct>());
+
+        let field = info.as_struct().unwrap().field("their_type").unwrap();
+        assert!(field.type_info().unwrap().is::<MyType>());
     }
 
     #[test]
