@@ -486,6 +486,21 @@ impl ExtractedView {
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
         ViewRangefinder3d::from_world_from_view(&self.world_from_view.affine())
     }
+
+    /// Returns the viewport the main pass renders to, as
+    /// `uvec4(origin.x, origin.y, width, height)`.
+    ///
+    /// This is [`ExtractedView::viewport`] with its size replaced by the
+    /// [`MainPassResolutionOverride`], if there is one.
+    pub fn main_pass_viewport(
+        &self,
+        resolution_override: Option<&MainPassResolutionOverride>,
+    ) -> UVec4 {
+        match resolution_override {
+            Some(size) => self.viewport.xy().extend(size.x).extend(size.y),
+            None => self.viewport,
+        }
+    }
 }
 
 /// Configures filmic color grading parameters to adjust the image appearance.
@@ -1214,11 +1229,9 @@ pub fn prepare_view_uniforms(
     ) in &views
     {
         let viewport = extracted_view.viewport.as_vec4();
-        let mut main_pass_viewport = viewport;
-        if let Some(resolution_override) = resolution_override {
-            main_pass_viewport.z = resolution_override.0.x as f32;
-            main_pass_viewport.w = resolution_override.0.y as f32;
-        }
+        let main_pass_viewport = extracted_view
+            .main_pass_viewport(resolution_override)
+            .as_vec4();
 
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
