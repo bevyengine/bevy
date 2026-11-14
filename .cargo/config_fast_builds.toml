@@ -113,9 +113,9 @@ rustflags = [
   #
   # You may need to install it:
   #
-  # Brew: `brew install llvm`
+  # Brew: `brew install lld`
   # Manually: <https://lld.llvm.org/MachO/index.html>
-  # "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
+  # "-Clink-arg=-fuse-ld=/usr/local/opt/lld/bin/ld64.lld",
 
   # Nightly
   # "-Zshare-generics=y",
@@ -131,9 +131,9 @@ rustflags = [
   #
   # You may need to install it:
   #
-  # Brew: `brew install llvm`
+  # Brew: `brew install lld`
   # Manually: <https://lld.llvm.org/MachO/index.html>
-  # "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
+  # "-Clink-arg=-fuse-ld=/opt/homebrew/opt/lld/bin/ld64.lld",
 
   # Nightly
   # "-Zshare-generics=y",
