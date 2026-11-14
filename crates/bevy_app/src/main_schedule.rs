@@ -34,6 +34,7 @@ use bevy_ecs::{
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
 /// * [`SpawnScene`]
+/// * [`AnimationUpdate`]
 /// * [`PostUpdate`]
 /// * [`Last`]
 ///
@@ -178,6 +179,12 @@ pub struct Update;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
+/// The schedule that contains animation systems.
+///
+/// This runs after [`SpawnScene`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct AnimationUpdate;
+
 /// The schedule that contains logic that must run after [`Update`]. For example, synchronizing "local transforms" in a hierarchy
 /// to "global" absolute transforms. This enables the [`PostUpdate`] transform-sync system to react to "local transform" changes in
 /// [`Update`] without the [`Update`] systems needing to know about (or add scheduler dependencies for) the "global transform sync system".
@@ -194,10 +201,6 @@ pub struct PostUpdate;
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Last;
-
-/// Animation system set. This exists in [`PostUpdate`].
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct AnimationSystems;
 
 /// Set enum for the systems relating to scene spawning.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -227,6 +230,7 @@ impl Default for MainScheduleOrder {
                 RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
+                AnimationUpdate.intern(),
                 PostUpdate.intern(),
                 Last.intern(),
             ],

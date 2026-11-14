@@ -37,14 +37,13 @@ use crate::{
     prelude::{BlendableProperty, EvaluatorId},
 };
 
-use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
+use bevy_app::{AnimationUpdate, App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::TransformSystems;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdHashMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -58,7 +57,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         animation_curves::*, blendable::*, graph::*, transition::*, AnimationClip, AnimationPlayer,
-        AnimationPlugin, VariableCurve,
+        AnimationPlugin, AnimationSystems, VariableCurve,
     };
 }
 
@@ -1301,6 +1300,10 @@ pub fn animate_targets(
         });
 }
 
+/// Animation system set.
+#[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AnimationSystems;
+
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
@@ -1314,24 +1317,17 @@ impl Plugin for AnimationPlugin {
             .register_asset_reflect::<BlendGraph>()
             .init_resource::<ThreadedBlendGraphs>()
             .add_systems(
-                PostUpdate,
+                AnimationUpdate,
                 (
                     graph::thread_blend_graphs.before(AssetEventSystems),
                     advance_transitions,
                     advance_animations,
-                    // TODO: `animate_targets` can animate anything, so
-                    // ambiguity testing currently considers it ambiguous with
-                    // every other system in `PostUpdate`. We may want to move
-                    // it to its own system set after `Update` but before
-                    // `PostUpdate`. For now, we just disable ambiguity testing
-                    // for this system.
-                    animate_targets.ambiguous_with_all(),
+                    animate_targets,
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
                     .chain()
-                    .in_set(AnimationSystems)
-                    .before(TransformSystems::Propagate),
+                    .in_set(AnimationSystems),
             );
     }
 }
