@@ -14,6 +14,7 @@ use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::ConditionalSendFuture;
 use core::{
+    any::Any,
     borrow::Borrow,
     convert::Infallible,
     hash::Hash,
@@ -118,7 +119,7 @@ impl<A: Asset> TransformedAsset<A> {
     {
         let index = self.label_to_asset_index.get(label)?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
@@ -148,7 +149,7 @@ impl<A: Asset> TransformedAsset<A> {
     ) -> Option<TransformedSubAsset<'_, B>> {
         let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
@@ -260,7 +261,7 @@ impl<'a, A: Asset> DerefMut for TransformedSubAsset<'a, A> {
 impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     /// Creates a new [`TransformedSubAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: &'a mut ErasedLoadedAsset) -> Option<Self> {
-        let value = asset.value.downcast_mut::<A>()?;
+        let value = (&mut *asset.value as &mut dyn Any).downcast_mut::<A>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut asset.labeled_assets,
@@ -289,7 +290,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     {
         let index = self.label_to_asset_index.get(label)?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
@@ -319,7 +320,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     ) -> Option<TransformedSubAsset<'_, B>> {
         let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,

@@ -32,7 +32,6 @@ bevy_window = { path = "../bevy_window", version = "0.20.0-dev" }
 wgpu-types = { version = "30", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
-downcast-rs = { version = "2", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false, features = ["const_new"] }
 

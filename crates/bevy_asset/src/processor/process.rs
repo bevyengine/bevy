@@ -285,7 +285,9 @@ impl<P: Process> ErasedProcessor for P {
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
         Box::pin(async move {
-            let settings = settings.downcast_ref().ok_or(ProcessError::WrongMetaType)?;
+            let settings = (settings as &dyn core::any::Any)
+                .downcast_ref()
+                .ok_or(ProcessError::WrongMetaType)?;
             let loader_settings = <P as Process>::process(self, context, settings, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {

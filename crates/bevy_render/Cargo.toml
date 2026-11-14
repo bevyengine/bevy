@@ -97,7 +97,6 @@ wgpu = { version = "30", default-features = false, features = [
 ] }
 wgpu-types = { version = "30", default-features = false }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
-downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.13"
