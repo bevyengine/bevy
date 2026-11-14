@@ -275,7 +275,9 @@ mod tests {
             crate::InspectorPlugin,
         ));
         app.init_asset::<bevy_image::Image>()
-            .init_asset::<bevy_text::Font>();
+            .init_asset::<bevy_text::Font>()
+            .init_asset::<bevy_mesh::Mesh>()
+            .init_asset::<bevy_mesh::skinning::SkinnedMeshInverseBindposes>();
         if gizmos {
             app.add_plugins(GizmoPlugin);
         }
