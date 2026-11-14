@@ -64,6 +64,7 @@ fn main() {
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(OnEnter(Scene::Block), block::setup)
     .add_systems(OnEnter(Scene::InlineImage), inline_image::scene.spawn())
+    .add_systems(OnEnter(Scene::ValKeywords), val_keywords::setup)
     .add_systems(
         OnEnter(Scene::FontRelativeUnits),
         font_relative_units::setup,
@@ -123,6 +124,7 @@ enum Scene {
     ChangeDetection,
     Block,
     InlineImage,
+    ValKeywords,
 }
 
 impl Scene {
@@ -155,6 +157,7 @@ impl Scene {
         Scene::ChangeDetection,
         Scene::Block,
         Scene::InlineImage,
+        Scene::ValKeywords,
     ];
 }
 
@@ -4178,5 +4181,105 @@ mod inline_image {
                 TextSpan::new(" after image")
             ]
         }
+    }
+}
+
+mod val_keywords {
+    use bevy::{color::palettes::css::*, prelude::*};
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::ValKeywords)));
+        commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    flex_direction: FlexDirection::Column,
+                    padding: px(20).all(),
+                    row_gap: px(10),
+                    ..default()
+                },
+                BackgroundColor(DARK_GRAY.into()),
+                DespawnOnExit(super::Scene::ValKeywords),
+            ))
+            .with_children(|parent| {
+                for (keyword, description) in [
+                    (percent(100), "overflows margin"),
+                    (Val::Auto, "flex basis uses width"),
+                    (Val::MinContent, "wraps text at every space"),
+                    (Val::MaxContent, "keeps text on one line"),
+                    (Val::FitContent, "clamps to content size"),
+                    (Val::Stretch, "fills space minus margins"),
+                    (Val::Content, "flex basis ignores width"),
+                ] {
+                    parent
+                        .spawn(Node {
+                            height: px(80),
+                            flex_shrink: 0.,
+                            column_gap: px(20),
+                            ..default()
+                        })
+                        .with_children(|row| {
+                            row.spawn((
+                                Node {
+                                    flex_direction: FlexDirection::Column,
+                                    width: px(280),
+                                    flex_shrink: 0.,
+                                    ..default()
+                                },
+                                children![
+                                    (
+                                        Text::new(format!("{keyword:?}")),
+                                        TextFont::from_font_size(18.),
+                                    ),
+                                    (
+                                        Text::new(format!(" {description}")),
+                                        TextFont::from_font_size(12.),
+                                    )
+                                ],
+                            ));
+                            for width in [Val::MinContent, px(180), px(300)] {
+                                row.spawn(Node {
+                                    width: px(300),
+                                    flex_shrink: 0.,
+                                    ..default()
+                                })
+                                .with_children(|slot| {
+                                    slot.spawn((
+                                        Node {
+                                            width,
+                                            height: percent(100),
+                                            align_items: AlignItems::Start,
+                                            ..default()
+                                        },
+                                        BackgroundColor(BLACK.into()),
+                                    ))
+                                    .with_children(
+                                        |container| {
+                                            container.spawn((
+                                                Node {
+                                                    display: Display::Block,
+                                                    width: px(50),
+                                                    min_width: px(0),
+                                                    flex_basis: keyword,
+                                                    flex_shrink: 0.,
+                                                    margin: UiRect::horizontal(px(10)),
+                                                    ..default()
+                                                },
+                                                BackgroundColor(SLATE_GREY.into()),
+                                                children![(
+                                                    Text::new("small medium longest"),
+                                                    TextFont::from_font_size(20.),
+                                                    TextLayout::linebreak(LineBreak::WordBoundary),
+                                                    TextColor(YELLOW.into()),
+                                                )],
+                                            ));
+                                        },
+                                    );
+                                });
+                            }
+                        });
+                }
+            });
     }
 }
