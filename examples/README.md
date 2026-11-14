@@ -226,6 +226,7 @@ Example | Description
 [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
 [Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
+[Transition Flows](../examples/animation/transition_flows.rs) | Crossfades animations of different body parts independently
 
 ### Application
 
