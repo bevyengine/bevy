@@ -33,10 +33,7 @@ use bevy::{
         },
         client::BrpClient,
         http::{DEFAULT_ADDR, DEFAULT_PORT},
-        input_methods::{
-            BrpClickParams, BrpClickResponse, BrpKeyParams, BrpKeyResponse, BRP_CLICK_METHOD,
-            BRP_KEY_METHOD,
-        },
+        input_methods::{BrpClickParams, BrpKeyParams, BRP_CLICK_METHOD, BRP_KEY_METHOD},
         BrpRequest,
     },
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
@@ -128,8 +125,8 @@ fn main() -> AnyhowResult<()> {
     for attempt in 1..=CLICK_TRIES {
         // The button moves, but the app finds its center when the cursor moves, so the click
         // follows it.
-        let frame = click(&client, button_entity)?;
-        println!("Click {attempt}/{CLICK_TRIES}, released on frame {frame}");
+        click(&client, button_entity)?;
+        println!("Click {attempt}/{CLICK_TRIES}");
 
         match activations.recv_timeout(CLICK_TIMEOUT) {
             Ok(_) => {
@@ -152,8 +149,8 @@ fn main() -> AnyhowResult<()> {
     while activations.try_recv().is_ok() {}
     println!("Pressing Tab, then Space...");
     key(&client, KeyCode::Tab)?;
-    let frame = key(&client, KeyCode::Space)?;
-    println!("Space released on frame {frame}");
+    key(&client, KeyCode::Space)?;
+    println!("Space released");
     match activations.recv_timeout(CLICK_TIMEOUT) {
         Ok(_) => println!("Button activated from the keyboard!"),
         Err(RecvTimeoutError::Timeout) => {
@@ -235,12 +232,13 @@ fn find_button(client: &BrpClient) -> AnyhowResult<Entity> {
     Ok(serde_json::from_value(button_result[0]["entity"].clone())?)
 }
 
-/// Clicks on a UI node with the left mouse button, and returns the frame that reads the release.
+/// Clicks on a UI node with the left mouse button, once the app has run the frame that reads the
+/// release.
 ///
 /// The app moves the cursor to the node's center, then presses and releases the button, each on
 /// its own frame, as a window backend would report a real click.
-fn click(client: &BrpClient, node: Entity) -> AnyhowResult<u32> {
-    let response = brp_request(
+fn click(client: &BrpClient, node: Entity) -> AnyhowResult<()> {
+    brp_request(
         client,
         BRP_CLICK_METHOD,
         &BrpClickParams {
@@ -252,16 +250,15 @@ fn click(client: &BrpClient, node: Entity) -> AnyhowResult<u32> {
             hold: None,
         },
     )?;
-    let response: BrpClickResponse = serde_json::from_value(response)?;
-    Ok(response.frame)
+    Ok(())
 }
 
-/// Presses and releases a key in the primary window, and returns the frame that receives the
-/// release.
+/// Presses and releases a key in the primary window, once the app has run the frame that receives
+/// the release.
 ///
 /// The app fills in the key's logical key and text from a US keyboard layout.
-fn key(client: &BrpClient, key_code: KeyCode) -> AnyhowResult<u32> {
-    let response = brp_request(
+fn key(client: &BrpClient, key_code: KeyCode) -> AnyhowResult<()> {
+    brp_request(
         client,
         BRP_KEY_METHOD,
         &BrpKeyParams {
@@ -273,8 +270,7 @@ fn key(client: &BrpClient, key_code: KeyCode) -> AnyhowResult<u32> {
             window: None,
         },
     )?;
-    let response: BrpKeyResponse = serde_json::from_value(response)?;
-    Ok(response.frame)
+    Ok(())
 }
 
 /// Starts watching for an event, and returns a channel receiving the events for each frame they

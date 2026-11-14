@@ -209,7 +209,7 @@ fn update_animation(
     let delta = time.elapsed_secs();
 
     if keys.just_pressed(KeyCode::Space) {
-        animation.playing = !animation.playing;
+        animation.playing.toggle();
 
         if !animation.playing {
             animation.paused_at = delta;

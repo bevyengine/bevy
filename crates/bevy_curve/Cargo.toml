@@ -15,7 +15,7 @@ bevy_math = { path = "../bevy_math", version = "0.20.0-dev", default-features = 
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", default-features = false, optional = true }
 
-itertools = { version = "0.14.0", default-features = false }
+itertools = { version = "0.15.0", default-features = false }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",

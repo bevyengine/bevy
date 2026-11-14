@@ -1,5 +1,6 @@
 //! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
-//! Editing the showcase tint and shape updates the object in the scene.
+//! Editing the showcase tint and shape updates the object in the scene. Some showcase fields use
+//! `bevy_annotations` to set their label, range, step, unit, or make them read-only.
 //!
 //! Run with the `bevy_inspector` feature enabled, and `debug` for readable names of unregistered types:
 //! ```bash
@@ -7,6 +8,7 @@
 //! ```
 
 use bevy::{
+    annotations::{DisplayName, ReadOnly, Step, Unit, ValueRange},
     feathers::{
         controls::{FeathersPane, FeathersSplitPane, FeathersSplitPaneHandle},
         dark_theme::create_dark_theme,
@@ -16,7 +18,7 @@ use bevy::{
     inspector::{
         details_panel::details_panel,
         entity_tree::{entity_tree_panel, InspectorUi},
-        InspectorPlugin, InspectorSelection,
+        InspectableEntity, InspectorPlugin, InspectorSelection,
     },
     prelude::*,
     ui_widgets::split_pane_self_update,
@@ -36,12 +38,16 @@ fn main() {
 #[reflect(Component, Default)]
 struct Showcase {
     enabled: bool,
+    #[reflect(@ValueRange(0.0..=100.0), @Step(0.5), @Unit("hp"))]
     health: f32,
+    #[reflect(@DisplayName("Blend Ratio"), @ValueRange(0.0..=1.0), @Step(0.05))]
     ratio: f64,
+    #[reflect(@ValueRange(1.0..=99.0))]
     level: u8,
     count: u32,
     offset: i16,
     score: i64,
+    #[reflect(@ReadOnly)]
     seed: u64,
     initial: char,
     label: String,
@@ -62,6 +68,7 @@ enum Mode {
     #[default]
     Idle,
     Walking,
+    #[reflect(@DisplayName("Sprinting"))]
     Running,
 }
 
@@ -238,8 +245,9 @@ fn log_selection(selection: Res<InspectorSelection>, names: Query<&Name>) {
         return;
     }
     match selection.0 {
-        Some(entity) => info!(
-            "selected {entity}: {}",
+        Some(InspectableEntity { entity, source }) => info!(
+            "selected {entity} {:?}: {}",
+            source,
             names
                 .get(entity)
                 .map(Name::as_str)

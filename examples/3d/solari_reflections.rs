@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore},
     image::{ImageAddressMode, ImageLoaderSettings},
     math::ops,
-    mesh::{Indices, VertexAttributeValues},
+    mesh::VertexAttributeValues,
     prelude::*,
     render::{diagnostic::RenderDiagnosticsPlugin, render_resource::TextureUsages},
     solari::{
@@ -284,11 +284,6 @@ fn add_raytracing_meshes_on_scene_load(
             }
             if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
                 mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
-            }
-            if let Some(indices) = mesh.indices_mut()
-                && let Indices::U16(_) = indices
-            {
-                *indices = Indices::U32(indices.iter().map(|i| i as u32).collect());
             }
         }
     }
@@ -616,7 +611,7 @@ fn threshold_tick(roughness: f32) -> impl Bundle {
 
 fn pause_scene(key_input: Res<ButtonInput<KeyCode>>, mut state: ResMut<DemoState>) {
     if key_input.just_pressed(KeyCode::Space) {
-        state.paused = !state.paused;
+        state.paused.toggle();
     }
 }
 
@@ -636,7 +631,7 @@ fn toggle_metallic(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if key_input.just_pressed(KeyCode::Digit1) {
-        state.metallic = !state.metallic;
+        state.metallic.toggle();
         set_metallic(
             &mut materials.get_mut(&test_material.0).unwrap(),
             state.metallic,
@@ -646,10 +641,10 @@ fn toggle_metallic(
 
 fn toggle_mirror_motion(key_input: Res<ButtonInput<KeyCode>>, mut state: ResMut<DemoState>) {
     if key_input.just_pressed(KeyCode::Digit8) {
-        state.pan_mirror = !state.pan_mirror;
+        state.pan_mirror.toggle();
     }
     if key_input.just_pressed(KeyCode::Digit9) {
-        state.slide_mirror = !state.slide_mirror;
+        state.slide_mirror.toggle();
     }
 }
 

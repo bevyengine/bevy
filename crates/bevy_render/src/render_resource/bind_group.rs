@@ -414,8 +414,8 @@ impl Deref for BindGroup {
 ///   state changes. By grouping resources together into binding arrays, Bevy
 ///   doesn't have to modify GPU state as often, decreasing API and driver
 ///   overhead.
-/// * See the `shaders/shader_material_bindless` example for an example of how
-///   to use bindless mode. See the `shaders/extended_material_bindless` example
+/// * See the [`shader_material_bindless` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader/shader_material_bindless.rs) for an example of how
+///   to use bindless mode. See the [`extended_material_bindless` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader/extended_material_bindless.rs)
 ///   for a more exotic example of bindless mode that demonstrates the
 ///   `index_table` attribute.
 /// * The following diagram illustrates how bindless mode works using a subset

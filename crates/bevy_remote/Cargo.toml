@@ -52,7 +52,9 @@ bevy_input = { path = "../bevy_input", version = "0.20.0-dev", features = [
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev", features = [
   "serialize",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", features = [
+  "annotations",
+] }
 bevy_render = { path = "../bevy_render", version = "0.20.0-dev", optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev", features = [

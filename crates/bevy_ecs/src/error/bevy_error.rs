@@ -754,7 +754,7 @@ mod tests {
 
         let expected_lines = alloc::vec![
             "<bevy_ecs::error::bevy_error::BevyError as core::convert::From<core::num::error::ParseIntError>>::from",
-            "<core::result::Result<(), bevy_ecs::error::bevy_error::BevyError> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible, core::num::error::ParseIntError>>>::from_residual",
+            "<core::result::Result<(), bevy_ecs::error::bevy_error::BevyError> as core::ops::try_trait::FromResidual<core::result::Result<!, core::num::error::ParseIntError>>>::from_residual",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::i_fail",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test",
             "bevy_ecs::error::bevy_error::tests::filtered_backtrace_test::{closure#0}",

@@ -130,7 +130,7 @@ fn filters_inputs(
 
     let enabled = *status == LogDiagnosticsStatus::Enabled;
     if keys.just_pressed(KeyCode::Digit1) {
-        filters.frame_time = !filters.frame_time;
+        filters.frame_time.toggle();
         if enabled {
             if filters.frame_time {
                 enable_filters(&mut log_state, FRAME_TIME_DIAGNOSTICS);
@@ -140,7 +140,7 @@ fn filters_inputs(
         }
     }
     if keys.just_pressed(KeyCode::Digit2) {
-        filters.entity_count = !filters.entity_count;
+        filters.entity_count.toggle();
         if enabled {
             if filters.entity_count {
                 enable_filters(&mut log_state, ENTITY_COUNT_DIAGNOSTICS);
@@ -150,7 +150,7 @@ fn filters_inputs(
         }
     }
     if keys.just_pressed(KeyCode::Digit3) {
-        filters.system_info = !filters.system_info;
+        filters.system_info.toggle();
         if enabled {
             if filters.system_info {
                 enable_filters(&mut log_state, SYSTEM_INFO_DIAGNOSTICS);

@@ -328,7 +328,7 @@ fn toggle_transparency(
     mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
     // Toggle the window transparency resource
-    window_transparency.0 = !window_transparency.0;
+    window_transparency.0.toggle();
 
     // Show or hide the instructions text
     for mut visibility in &mut q_instructions_text {
