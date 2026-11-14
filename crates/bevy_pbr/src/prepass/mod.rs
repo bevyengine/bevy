@@ -1434,10 +1434,13 @@ pub fn queue_prepass_material_meshes(
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
 
+            // Views without a `DeferredPrepass` have no deferred phases. Deferred materials were
+            // specialized for the regular prepass on those views, so they are queued there too.
             match material.properties.render_phase_type {
                 RenderPhaseType::Opaque => {
-                    if deferred {
-                        opaque_deferred_phase.as_mut().unwrap().add(
+                    if deferred && let Some(opaque_deferred_phase) = opaque_deferred_phase.as_mut()
+                    {
+                        opaque_deferred_phase.add(
                             OpaqueNoLightmap3dBatchSetKey {
                                 draw_function,
                                 pipeline: pipeline_id,
@@ -1484,8 +1487,10 @@ pub fn queue_prepass_material_meshes(
                     }
                 }
                 RenderPhaseType::AlphaMask => {
-                    if deferred {
-                        alpha_mask_deferred_phase.as_mut().unwrap().add(
+                    if deferred
+                        && let Some(alpha_mask_deferred_phase) = alpha_mask_deferred_phase.as_mut()
+                    {
+                        alpha_mask_deferred_phase.add(
                             OpaqueNoLightmap3dBatchSetKey {
                                 draw_function,
                                 pipeline: pipeline_id,
