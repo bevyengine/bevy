@@ -175,13 +175,17 @@ pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
-/// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
+/// This runs after [`Update`] and before [`PostUpdate`].
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
 /// The schedule that contains animation systems.
 ///
-/// This runs after [`SpawnScene`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
+/// This runs after [`SpawnScene`] and before [`PostUpdate`].
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct AnimationUpdate;
 
