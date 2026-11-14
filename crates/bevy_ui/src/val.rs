@@ -1,4 +1,4 @@
-use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use bevy_math::{StableInterpolate, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
@@ -263,7 +263,7 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
+    /// Returns the number this `Val` wraps, whatever its unit, or `None` for keyword variants.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
@@ -279,6 +279,19 @@ impl Val {
             | Self::Rem(v) => Some(v),
             _ => None,
         }
+    }
+
+    /// Returns true if this `Val` is a non-numeric keyword value.
+    pub const fn is_keyword(self) -> bool {
+        matches!(
+            self,
+            Val::Auto
+                | Val::MinContent
+                | Val::MaxContent
+                | Val::FitContent
+                | Val::Stretch
+                | Val::Content
+        )
     }
 
     /// Returns a [`UiRect`] with its `left` equal to this value,
@@ -419,7 +432,8 @@ impl Val {
 
     /// Try to add two `Val`s.
     ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ and [`ValArithmeticError::NonEvaluable`] if
+    /// either `Val` is a keyword.
     ///
     /// ```
     /// # use bevy_ui::{Val, ValArithmeticError};
@@ -439,13 +453,15 @@ impl Val {
             (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
             (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u + v)),
             (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u + v)),
+            (a, b) if a.is_keyword() || b.is_keyword() => Err(ValArithmeticError::NonEvaluable),
             _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
 
     /// Try to subtract one `Val` from another.
     ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
+    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ and [`ValArithmeticError::NonEvaluable`] if
+    /// either `Val` is a keyword.
     ///
     /// ```
     /// # use bevy_ui::{Val, ValArithmeticError};
@@ -465,7 +481,54 @@ impl Val {
             (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
             (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u - v)),
             (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u - v)),
+            (a, b) if a.is_keyword() || b.is_keyword() => Err(ValArithmeticError::NonEvaluable),
             _ => Err(ValArithmeticError::IncompatibleUnits),
+        }
+    }
+
+    /// Try to multiply a `Val` by a scalar.
+    ///
+    /// Returns [`ValArithmeticError::NonEvaluable`] if the `Val` is a keyword.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(3.).try_mul(2.), Ok(Val::Px(6.)));
+    /// assert_eq!(Val::Auto.try_mul(2.), Err(ValArithmeticError::NonEvaluable));
+    /// ```
+    pub const fn try_mul(self, scalar: f32) -> Result<Val, ValArithmeticError> {
+        match self {
+            Val::Px(value) => Ok(Val::Px(value * scalar)),
+            Val::Percent(value) => Ok(Val::Percent(value * scalar)),
+            Val::Vw(value) => Ok(Val::Vw(value * scalar)),
+            Val::Vh(value) => Ok(Val::Vh(value * scalar)),
+            Val::VMin(value) => Ok(Val::VMin(value * scalar)),
+            Val::VMax(value) => Ok(Val::VMax(value * scalar)),
+            Val::Em(value) => Ok(Val::Em(value * scalar)),
+            Val::Rem(value) => Ok(Val::Rem(value * scalar)),
+            _ => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+
+    /// Try to divide a `Val` by a scalar.
+    ///
+    /// Returns [`ValArithmeticError::NonEvaluable`] if the `Val` is a keyword.
+    ///
+    /// ```
+    /// # use bevy_ui::{Val, ValArithmeticError};
+    /// assert_eq!(Val::Px(6.).try_div(2.), Ok(Val::Px(3.)));
+    /// assert_eq!(Val::Auto.try_div(2.), Err(ValArithmeticError::NonEvaluable));
+    /// ```
+    pub const fn try_div(self, scalar: f32) -> Result<Val, ValArithmeticError> {
+        match self {
+            Val::Px(value) => Ok(Val::Px(value / scalar)),
+            Val::Percent(value) => Ok(Val::Percent(value / scalar)),
+            Val::Vw(value) => Ok(Val::Vw(value / scalar)),
+            Val::Vh(value) => Ok(Val::Vh(value / scalar)),
+            Val::VMin(value) => Ok(Val::VMin(value / scalar)),
+            Val::VMax(value) => Ok(Val::VMax(value / scalar)),
+            Val::Em(value) => Ok(Val::Em(value / scalar)),
+            Val::Rem(value) => Ok(Val::Rem(value / scalar)),
+            _ => Err(ValArithmeticError::NonEvaluable),
         }
     }
 }
@@ -489,7 +552,9 @@ impl Mul<f32> for Val {
             Val::VMax(value) => Val::VMax(value * rhs),
             Val::Em(value) => Val::Em(value * rhs),
             Val::Rem(value) => Val::Rem(value * rhs),
-            non_numeric => non_numeric,
+            keyword => {
+                panic!("attempt to multiply non-numeric `Val::Val::{keyword:?}` by a scalar")
+            }
         }
     }
 }
@@ -513,7 +578,9 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
-            _non_numeric => {}
+            keyword => {
+                panic!("attempt to multiply keyword `Val::{keyword:?}` by a scalar")
+            }
         }
     }
 }
@@ -523,7 +590,6 @@ impl Div<f32> for Val {
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Auto => Val::Auto,
             Val::Px(value) => Val::Px(value / rhs),
             Val::Percent(value) => Val::Percent(value / rhs),
             Val::Vw(value) => Val::Vw(value / rhs),
@@ -532,7 +598,9 @@ impl Div<f32> for Val {
             Val::VMax(value) => Val::VMax(value / rhs),
             Val::Em(value) => Val::Em(value / rhs),
             Val::Rem(value) => Val::Rem(value / rhs),
-            non_numeric => non_numeric,
+            keyword => {
+                panic!("attempt to divide keyword `Val::{keyword:?}` by a scalar")
+            }
         }
     }
 }
@@ -548,7 +616,9 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
-            _non_numeric => {}
+            keyword => {
+                panic!("attempt to divide keyword `Val::{keyword:?}` by a scalar")
+            }
         }
     }
 }
@@ -566,14 +636,14 @@ impl Neg for Val {
             Val::VMax(value) => Val::VMax(-value),
             Val::Em(value) => Val::Em(-value),
             Val::Rem(value) => Val::Rem(-value),
-            non_numeric => non_numeric,
+            keyword => panic!("attempt to negate keyword `Val::{keyword:?}`"),
         }
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum ValArithmeticError {
-    #[error("the given variant of Val is not evaluable (non-numeric)")]
+    #[error("the given variant of Val is not evaluable (a keyword)")]
     NonEvaluable,
     #[error("the given variants of Val have incompatible units")]
     IncompatibleUnits,
@@ -628,7 +698,7 @@ impl From<Val> for FontSize {
 }
 
 impl TryStableInterpolate for Val {
-    type Error = MismatchedUnitsError;
+    type Error = ValArithmeticError;
 
     /// # Example
     ///
@@ -647,8 +717,8 @@ impl TryStableInterpolate for Val {
             (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
             (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
             (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
-            (a, b) if a == b => Ok(*a),
-            _ => Err(MismatchedUnitsError),
+            (a, b) if a.is_keyword() | b.is_keyword() => Err(ValArithmeticError::NonEvaluable),
+            _ => Err(ValArithmeticError::IncompatibleUnits),
         }
     }
 }
@@ -852,16 +922,24 @@ mod tests {
     #[test]
     fn val_try_add_incompatible_variants() {
         assert_eq!(
-            Val::Auto.try_add(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
             Val::Px(1.).try_add(Val::Percent(2.)),
             Err(ValArithmeticError::IncompatibleUnits)
         );
+    }
+
+    #[test]
+    fn val_try_add_keyword_is_non_evaluable() {
+        assert_eq!(
+            Val::Auto.try_add(Val::Auto),
+            Err(ValArithmeticError::NonEvaluable)
+        );
         assert_eq!(
             Val::Auto.try_add(Val::Px(1.)),
-            Err(ValArithmeticError::IncompatibleUnits)
+            Err(ValArithmeticError::NonEvaluable)
+        );
+        assert_eq!(
+            Val::Px(1.).try_add(Val::MinContent),
+            Err(ValArithmeticError::NonEvaluable)
         );
     }
 
@@ -881,16 +959,138 @@ mod tests {
     #[test]
     fn val_try_sub_incompatible_variants() {
         assert_eq!(
-            Val::Auto.try_sub(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
             Val::Px(1.).try_sub(Val::Percent(2.)),
             Err(ValArithmeticError::IncompatibleUnits)
         );
+    }
+
+    #[test]
+    fn val_try_sub_keyword_is_non_evaluable() {
+        assert_eq!(
+            Val::Auto.try_sub(Val::Auto),
+            Err(ValArithmeticError::NonEvaluable)
+        );
         assert_eq!(
             Val::Auto.try_sub(Val::Px(1.)),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+        assert_eq!(
+            Val::Px(1.).try_sub(Val::MinContent),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn val_try_mul() {
+        assert_eq!(Val::Px(3.).try_mul(2.), Ok(Val::Px(6.)));
+        assert_eq!(Val::Percent(3.).try_mul(2.), Ok(Val::Percent(6.)));
+        assert_eq!(Val::Rem(3.).try_mul(-1.), Ok(Val::Rem(-3.)));
+        assert_eq!(Val::Auto.try_mul(2.), Err(ValArithmeticError::NonEvaluable));
+        assert_eq!(
+            Val::Stretch.try_mul(2.),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn val_try_div() {
+        assert_eq!(Val::Px(6.).try_div(2.), Ok(Val::Px(3.)));
+        assert_eq!(Val::Percent(6.).try_div(2.), Ok(Val::Percent(3.)));
+        assert_eq!(Val::Em(6.).try_div(-2.), Ok(Val::Em(-3.)));
+        assert_eq!(Val::Auto.try_div(2.), Err(ValArithmeticError::NonEvaluable));
+        assert_eq!(
+            Val::FitContent.try_div(2.),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+    }
+
+    #[test]
+    fn val_is_keyword() {
+        for keyword in [
+            Val::Auto,
+            Val::MinContent,
+            Val::MaxContent,
+            Val::FitContent,
+            Val::Stretch,
+            Val::Content,
+        ] {
+            assert!(keyword.is_keyword());
+        }
+        for numeric in [
+            Val::Px(1.),
+            Val::Percent(1.),
+            Val::Vw(1.),
+            Val::Vh(1.),
+            Val::VMin(1.),
+            Val::VMax(1.),
+            Val::Em(1.),
+            Val::Rem(1.),
+        ] {
+            assert!(!numeric.is_keyword());
+        }
+    }
+
+    #[test]
+    fn val_numeric_operators() {
+        assert_eq!(Val::Px(3.) * 2., Val::Px(6.));
+        assert_eq!(Val::Px(6.) / 2., Val::Px(3.));
+        assert_eq!(-Val::Px(3.), Val::Px(-3.));
+        let mut val = Val::Percent(3.);
+        val *= 2.;
+        assert_eq!(val, Val::Percent(6.));
+        val /= 3.;
+        assert_eq!(val, Val::Percent(2.));
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_mul_keyword_panics() {
+        let _ = Val::Auto * 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_mul_assign_keyword_panics() {
+        let mut val = Val::Auto;
+        val *= 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_div_keyword_panics() {
+        let _ = Val::Auto / 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_div_assign_keyword_panics() {
+        let mut val = Val::Auto;
+        val /= 2.;
+    }
+
+    #[test]
+    #[should_panic]
+    fn val_neg_keyword_panics() {
+        let _ = -Val::Auto;
+    }
+
+    #[test]
+    fn val_try_interpolate_stable() {
+        assert_eq!(
+            Val::Px(0.).try_interpolate_stable(&Val::Px(10.), 0.5),
+            Ok(Val::Px(5.))
+        );
+        assert_eq!(
+            Val::Px(0.).try_interpolate_stable(&Val::Percent(10.), 0.5),
             Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            Val::Auto.try_interpolate_stable(&Val::Px(10.), 0.5),
+            Err(ValArithmeticError::NonEvaluable)
+        );
+        assert_eq!(
+            Val::Auto.try_interpolate_stable(&Val::Auto, 0.5),
+            Err(ValArithmeticError::NonEvaluable)
         );
     }
 
