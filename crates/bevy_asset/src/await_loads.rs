@@ -15,7 +15,7 @@ use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashSet},
     lifecycle::HookContext,
-    query::{Has, With},
+    query::{Has, With, Without},
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Populated, Query, Res},
     world::{DeferredWorld, FromWorld, World},
@@ -35,7 +35,11 @@ impl Plugin for AwaitLoadsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            (poll_pending_loads, poll_pending_dependencies)
+            (
+                poll_pending_loads,
+                poll_pending_dependencies,
+                count_ready_frames,
+            )
                 .chain()
                 .in_set(AwaitLoadsSystems),
         )
@@ -176,6 +180,36 @@ pub struct AwaitDependencies(
 #[derive(Component, Default)]
 pub struct InsertDependenciesFinished;
 
+/// A component that waits for [`ReadyFlag`] to be true for some number of frames after all
+/// dependencies have loaded.
+///
+/// For some assets, being loaded doesn't mean that the asset is ready to use. There may be some
+/// other processing the asset needs to go through before it's ready to be used. This component
+/// allows you to 1) wait for the dependencies to be loaded (e.g., an asset load), then 2) wait for
+/// the [`ReadyFlag`] to be `true` for some number of frames. If the [`ReadyFlag`] is set to
+/// `false`, the frame counter resets -- this allows for cases where there is some delay between
+/// the dependencies being loaded and the signal that this entity **shouldn't** be ready.
+///
+/// Once all dependencies are loaded, **and** the [`ReadyFlag`] is set to true for the requested
+/// number of frames (consecutively), this entity is considered loaded. If the [`ReadyFlag`] then
+/// becomes false, this entity will **not** "unload" (the loaded state becomes "locked in").
+#[derive(Component, Clone, Debug)]
+#[component(immutable, on_remove=on_remove_await_ready_frames)]
+#[require(
+    LoadableDependency,
+    AwaitDependencies,
+    InsertDependenciesFinished,
+    CurrentReadyFrameCount
+)]
+pub struct AwaitReadyFrames(pub u32);
+
+/// Component indicating that the entity is ready, for the purposes of [`AwaitReadyFrames`].
+///
+/// It is up to the user to set this to `true` to indicate that their entity is ready.
+#[derive(Component, Default)]
+#[component(on_remove=on_remove_ready_flag)]
+pub struct ReadyFlag(pub bool);
+
 /// A marker to indicate that an entity is a dependency that may load eventually.
 ///
 /// This entity is considered "loaded" once the [`LoadFinished`] component is inserted onto it.
@@ -238,6 +272,25 @@ fn on_discard_await_dependencies(
         .try_remove::<(PendingDependencies, LoadFinished, LoadableDependency)>();
 }
 
+/// Hook to clear related components to [`AwaitReadyFrames`].
+fn on_remove_await_ready_frames(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    world
+        .commands()
+        .entity(entity)
+        .try_remove::<CurrentReadyFrameCount>();
+}
+
+/// Hook to clear the current frame count if you remove the [`ReadyFlag`] component.
+fn on_remove_ready_flag(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
+        return;
+    };
+    let Some(mut current_frame_count) = entity.get_mut::<CurrentReadyFrameCount>() else {
+        return;
+    };
+    current_frame_count.0 = 0;
+}
+
 /// Component tracking the outstanding asset handles for an [`AwaitLoads`] component.
 #[derive(Component)]
 struct PendingLoads(
@@ -251,6 +304,10 @@ struct PendingDependencies(
     /// The dependencies that still haven't loaded.
     EntityHashSet,
 );
+
+/// Component counting the number of frames that [`ReadyFlag`] was true (consecutively).
+#[derive(Component, Default)]
+struct CurrentReadyFrameCount(u32);
 
 /// A system for polling whether an [`AwaitLoads`] component is finished loading.
 fn poll_pending_loads(
@@ -310,6 +367,41 @@ fn poll_pending_dependencies(
     }
 }
 
+/// System for updating the [`CurrentReadyFrameCount`] based on the [`ReadyFlag`].
+// NOTE: Technically, if someone removes the `DependenciesFinished` component, the ready frame count
+// gets "stuck" as opposed to resetting. This is not worth fixing though.
+fn count_ready_frames(
+    mut counting: Populated<
+        (
+            Entity,
+            &AwaitReadyFrames,
+            Option<&ReadyFlag>,
+            &mut CurrentReadyFrameCount,
+        ),
+        (With<DependenciesFinished>, Without<LoadFinished>),
+    >,
+    mut commands: Commands,
+) {
+    for (entity, await_frames, ready_flag, mut frame_count) in counting.iter_mut() {
+        // If the `ReadyFlag` component is missing, we consider it `false`.
+        let ready_flag = ready_flag.map_or_default(|flag| flag.0);
+        if !ready_flag {
+            // We're not ready. Clear the current frame count.
+            frame_count.0 = 0;
+            continue;
+        }
+
+        frame_count.0 += 1;
+        if frame_count.0 >= await_frames.0 {
+            // This isn't strictly necessary, but it means if someone removes the `LoadFinished`
+            // component manually, the frame count is already reset (rather than instantly becoming
+            // loaded again the next frame).
+            frame_count.0 = 0;
+            commands.entity(entity).insert(LoadFinished);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -322,11 +414,11 @@ mod tests {
 
     use crate::{
         await_loads::{
-            AwaitDependencies, AwaitLoadsBuilder, DependenciesFinished, InsertDependenciesFinished,
-            LoadFinished,
+            AwaitDependencies, AwaitLoadsBuilder, AwaitReadyFrames, DependenciesFinished,
+            InsertDependenciesFinished, LoadFinished, LoadableDependency, ReadyFlag,
         },
         io::memory::Dir,
-        tests::{create_app_with_gate, run_app_until, TestAsset, TrivialLoader},
+        tests::{create_app, create_app_with_gate, run_app_until, TestAsset, TrivialLoader},
         AssetApp, AssetServer,
     };
 
@@ -492,5 +584,84 @@ mod tests {
         assert!(is_load_finished(&app, bottom));
         assert!(is_load_finished(&app, middle));
         assert!(is_load_finished(&app, top));
+    }
+
+    #[test]
+    fn counts_ready_frames_after_dependencies_loaded() {
+        let mut app = create_app().0;
+
+        // This entity is a manual dependency. We can insert the LoadFinished whenever we want.
+        let child = app.world_mut().spawn(LoadableDependency).id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                AwaitDependencies(EntityHashSet::from([child])),
+                AwaitReadyFrames(3),
+            ))
+            .id();
+
+        app.update();
+        app.update();
+        app.update();
+        app.update();
+        app.update();
+
+        // We've waited more than 3 ready frames, but we're still not loaded because our dependency
+        // is not loaded.
+        assert!(!is_load_finished(&app, parent));
+
+        app.world_mut().entity_mut(child).insert(LoadFinished);
+        app.update();
+
+        // The child is loaded now, so the parent should be marked that its dependencies finished.
+        assert!(app
+            .world()
+            .entity(parent)
+            .contains::<DependenciesFinished>());
+        assert!(!is_load_finished(&app, parent));
+
+        app.update();
+        app.update();
+        app.update();
+        app.update();
+        app.update();
+
+        // The parent still isn't loaded because we haven't marked the entity as ready.
+        assert!(!is_load_finished(&app, parent));
+
+        app.world_mut().entity_mut(parent).insert(ReadyFlag(true));
+
+        app.update();
+        app.update();
+
+        // Reset the ready flag. This should reset the current ready frame count.
+        app.world_mut()
+            .entity_mut(parent)
+            .get_mut::<ReadyFlag>()
+            .unwrap()
+            .0 = false;
+
+        app.update();
+        app.update();
+        app.update();
+        app.update();
+        app.update();
+
+        assert!(!is_load_finished(&app, parent));
+
+        app.world_mut()
+            .entity_mut(parent)
+            .get_mut::<ReadyFlag>()
+            .unwrap()
+            .0 = true;
+
+        app.update();
+        assert!(!is_load_finished(&app, parent));
+        app.update();
+        assert!(!is_load_finished(&app, parent));
+        app.update();
+
+        // We're finally loaded!
+        assert!(is_load_finished(&app, parent));
     }
 }
