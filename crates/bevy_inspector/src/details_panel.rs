@@ -10,9 +10,10 @@ use alloc::{
 };
 
 use bevy_annotations::{DisplayName, ReadOnly, Step, Unit, ValueRange};
+use bevy_app::Propagate;
 use bevy_color::{
-    Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva, Okhwba,
-    Oklaba, Oklcha, Srgba, Xyza,
+    Alpha, Color, ColorToComponents, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Okhsla, Okhsva,
+    Okhwba, Oklaba, Oklcha, Srgba, Xyza,
 };
 use bevy_dev_tools::inspection::{
     component_inspection::{ComponentDetailLevel, ComponentInspectionSettings},
@@ -34,15 +35,22 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_feathers::{
-    containers::{group, group_body, group_header, subpane, subpane_body, subpane_header},
+    constants::{fonts, size},
+    containers::{group, subpane, subpane_body, subpane_header},
     controls::{
-        list_rows_from_strings, ColorInputValue, FeathersCheckbox, FeathersColorInput,
-        FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar, FeathersSelect,
-        FeathersTextInput, FeathersTextInputContainer, HardLimit, NumberInputSnapToStep,
-        NumberInputStep, OptionIndex, ScrollbarGutter,
+        list_rows_from_strings, ButtonVariant, ColorInputValue, FeathersButton, FeathersCheckbox,
+        FeathersColorInput, FeathersDisclosureToggle, FeathersNumberInput, FeathersScrollbar,
+        FeathersSelect, FeathersTextInput, FeathersTextInputContainer, HardLimit,
+        NumberInputSnapToStep, NumberInputStep, OptionIndex, ScrollbarGutter,
     },
     display::caption,
-    theme::ThemedText,
+    font_styles::InheritableFont,
+    rounded_corners::RoundedCorners,
+    theme::{
+        InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
+        ThemeContext, ThemeTextColor, ThemeToken, ThemedText,
+    },
+    tokens,
 };
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
@@ -64,13 +72,18 @@ use bevy_reflect::{
     TypeRegistry, UnnamedField,
 };
 use bevy_scene::{bsn, on, Scene, WorldSceneExt};
-use bevy_text::{EditableText, LineBreak, TextEdit, TextEditChange, TextLayout};
+use bevy_text::{
+    EditableText, FontSource, FontSourceTemplate, FontWeight, LineBreak, TextEdit, TextEditChange,
+    TextLayout,
+};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
-    percent, px, widget::Text, AlignItems, Checked, Display, FlexDirection, Node, Overflow,
-    PositionType, UiRect, Val,
+    percent, px, widget::Text, AlignItems, BoxShadow, Checked, Display, FlexDirection,
+    JustifyContent, Node, Overflow, PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{ControlOrientation, NumericRange, NumericValue, ScrollArea, ValueChange};
+use bevy_ui_widgets::{
+    Activate, ControlOrientation, NumericRange, NumericValue, ScrollArea, ValueChange,
+};
 use bevy_utils::prelude::{DebugName, ShortName};
 
 use crate::{
@@ -91,8 +104,8 @@ const MAX_DEPTH: usize = 4;
 const MAX_ITEMS: usize = 16;
 /// The horizontal indent of a field row per nesting level, in logical pixels.
 const INDENT: f32 = 12.0;
-/// The width of the widget editing a field value, in logical pixels.
-const FIELD_WIDGET_WIDTH: f32 = 160.0;
+/// The corner radius of a component card and of the blocks inside it, in logical pixels.
+const CARD_RADIUS: f32 = 5.0;
 
 /// Marker for the scrollable column holding the component groups of the details panel.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -144,6 +157,21 @@ impl Borrow<str> for ComponentKey {
         &self.0
     }
 }
+
+/// The body of a block grouping the fields of a struct, which holds the rows of those fields.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct InspectorFieldGroupBody;
+
+/// The toggle that collapses a block grouping the fields of a struct, and the body it hides.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Clone)]
+pub struct InspectorFieldGroupToggle(pub Entity);
+
+/// A button of a segmented variant control, and the index of the variant it selects.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct InspectorSegment(pub usize);
 
 /// The [`ComponentKey`] of the component a group's toggle or field container belongs to.
 #[derive(Component, Debug, Clone, Reflect)]
@@ -255,6 +283,8 @@ pub struct FieldEntry {
     pub limit: Option<NumericRange>,
     /// The annotations of the field.
     pub annotations: FieldAnnotations,
+    /// Whether the field is an enum whose variants are all unit variants.
+    pub unit_enum: bool,
 }
 
 impl FieldEntry {
@@ -417,6 +447,7 @@ struct RowLayout {
     kind: FieldKind,
     limit: Option<NumericRange>,
     annotations: FieldAnnotations,
+    unit_enum: bool,
 }
 
 impl RowLayout {
@@ -428,6 +459,7 @@ impl RowLayout {
             kind: entry.value.kind(),
             limit: entry.limit.clone(),
             annotations: entry.annotations.clone(),
+            unit_enum: entry.unit_enum,
         }
     }
 
@@ -438,6 +470,7 @@ impl RowLayout {
             && self.kind == entry.value.kind()
             && self.limit == entry.limit
             && self.annotations == entry.annotations
+            && self.unit_enum == entry.unit_enum
     }
 }
 
@@ -603,7 +636,7 @@ pub fn details_body() -> impl Scene {
                 right: px(4),
                 top: px(0),
                 bottom: px(0),
-                width: px(6),
+                width: px(4),
             }
         ]
     }
@@ -1675,24 +1708,56 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
             .insert((InspectorDetailsComponent(component.key.clone()), split));
     }
 
-    for entry in &component.fields {
-        if let Some(widget) = spawn_field_row(world, container, component, entry) {
-            world
-                .resource_mut::<DetailsIndex>()
-                .fields
-                .insert((component.key.clone(), entry.path.clone()), widget);
-        }
-    }
+    spawn_fields(world, container, component, &component.fields, 0);
 }
 
 fn component_group(name: String, memory: String) -> impl Scene {
     bsn! {
         InspectorUi
-        @group()
+        Node {
+            display: Display::Flex,
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Stretch,
+            border: px(1),
+            border_radius: px(CARD_RADIUS),
+            overflow: Overflow::clip(),
+        }
+        ThemeBackgroundColor(tokens::SUBPANE_BODY_BG)
+        ThemeBorderColor(tokens::SUBPANE_BODY_BORDER)
+        BoxShadow::new(
+            Srgba::BLACK.with_alpha(0.88).into(),
+            px(0),
+            px(0),
+            px(0),
+            px(1),
+        )
         Children [
-            @group_header() Children [
-                @FeathersDisclosureToggle
-                on(inspector_details_toggled)
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(6),
+                height: px(26),
+                padding: UiRect::horizontal(px(8)),
+            }
+            ThemeBackgroundColor(tokens::SUBPANE_HEADER_BG)
+            InheritableThemeTextColor(tokens::LISTROW_TEXT)
+            InheritableFont {
+                font: FontSourceTemplate::Families(fonts::SANS),
+                font_size: size::SMALL_FONT,
+                weight: FontWeight::MEDIUM,
+            }
+            Children [
+                ThemedText
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
+                    align_items: AlignItems::Center,
+                }
+                Children [
+                    @FeathersDisclosureToggle
+                    on(inspector_details_toggled)
+                ]
                 --
                 ThemedText
                 Node {
@@ -1709,28 +1774,217 @@ fn component_group(name: String, memory: String) -> impl Scene {
                     }
                 ]
                 --
-                @caption(memory)
+                ThemedText
                 Node {
-                    flex_shrink: 0.0,
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexEnd,
+                    column_gap: px(6),
                 }
-                TextLayout {
-                    linebreak: LineBreak::NoWrap,
-                }
+                Children [
+                    @caption(memory)
+                    Node {
+                        flex_shrink: 0.0,
+                    }
+                    TextLayout {
+                        linebreak: LineBreak::NoWrap,
+                    }
+                    ThemeTextColor(tokens::TEXT_DIM)
+                    --
+                    Node {
+                        width: px(15),
+                        height: px(15),
+                        flex_shrink: 0.0,
+                    }
+                ]
             ]
             --
-            @group_body()
             InspectorDetailsFields
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                padding: px(6),
+            }
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Base))
+            InheritableThemeTextColor(tokens::TEXT_MAIN)
+            InheritableFont {
+                font: FontSourceTemplate::Families(fonts::SANS),
+                font_size: size::SMALL_FONT,
+                weight: FontWeight::NORMAL,
+            }
         ]
     }
 }
 
-fn spawn_field_row(
+/// Spawns the rows of `entries` into `container` and tracks their widgets in [`DetailsIndex`].
+///
+/// The fields of a vector are shown side by side under one label, and the fields of any other
+/// struct are grouped in a block of their own. `depth` is the nesting level of the entries spawned
+/// directly into `container`, which are not indented.
+fn spawn_fields(
+    world: &mut World,
+    container: Entity,
+    component: &ComponentDetails,
+    entries: &[FieldEntry],
+    depth: usize,
+) {
+    let mut index = 0;
+    while index < entries.len() {
+        let entry = &entries[index];
+        let end = index
+            + 1
+            + entries[index + 1..]
+                .iter()
+                .take_while(|child| child.depth > entry.depth)
+                .count();
+        let indent = entry.depth.saturating_sub(depth);
+        if let Some(axes) = vector_axes(entry, &entries[index + 1..end]) {
+            spawn_vector_row(world, container, component, entry, axes, indent);
+        } else if end > index + 1 && entry.value == FieldValue::Label(String::new()) {
+            if let Some((block, body)) = spawn_field_group(world, container, &entry.label, indent) {
+                track_widget(world, component, entry, block, None);
+                spawn_fields(
+                    world,
+                    body,
+                    component,
+                    &entries[index + 1..end],
+                    entry.depth + 1,
+                );
+            }
+        } else {
+            spawn_field_row(world, container, component, entry, indent);
+            index += 1;
+            continue;
+        }
+        index = end;
+    }
+}
+
+/// Records `entity` as the widget showing `entry` in [`DetailsIndex`].
+fn track_widget(
+    world: &mut World,
+    component: &ComponentDetails,
+    entry: &FieldEntry,
+    entity: Entity,
+    text: Option<Entity>,
+) {
+    world.resource_mut::<DetailsIndex>().fields.insert(
+        (component.key.clone(), entry.path.clone()),
+        FieldWidget {
+            entity,
+            text,
+            value: entry.value.clone(),
+        },
+    );
+}
+
+/// The names of the vector axes, and the color of the strip marking each one.
+const AXES: [(&str, ThemeToken); 4] = [
+    ("X", tokens::TEXT_INPUT_X_AXIS),
+    ("Y", tokens::TEXT_INPUT_Y_AXIS),
+    ("Z", tokens::TEXT_INPUT_Z_AXIS),
+    ("W", tokens::TEXT_INPUT_W_AXIS),
+];
+
+/// The rows of the axes of `entry` if it is a vector: a struct of two to four editable numbers
+/// named `x`, `y`, `z` and `w` in that order.
+fn vector_axes<'a>(entry: &FieldEntry, children: &'a [FieldEntry]) -> Option<&'a [FieldEntry]> {
+    let is_axis = |(child, (name, _)): (&FieldEntry, &(&str, ThemeToken))| {
+        child.depth == entry.depth + 1
+            && child.label.eq_ignore_ascii_case(name)
+            && child.path == join(&entry.path, &name.to_ascii_lowercase())
+            && matches!(child.value, FieldValue::Number(_))
+    };
+    (entry.value == FieldValue::Label(String::new())
+        && (2..=AXES.len()).contains(&children.len())
+        && children.iter().zip(AXES.iter()).all(is_axis))
+    .then_some(children)
+}
+
+/// Spawns the label of the vector `entry` above a number input for each of its `axes`.
+fn spawn_vector_row(
     world: &mut World,
     container: Entity,
     component: &ComponentDetails,
     entry: &FieldEntry,
-) -> Option<FieldWidget> {
+    axes: &[FieldEntry],
+    indent: usize,
+) {
     let row = world
+        .spawn((
+            InspectorUi,
+            ThemedText,
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                padding: UiRect::left(px(indent as f32 * INDENT)),
+                min_width: px(0),
+                ..Default::default()
+            },
+            ChildOf(container),
+        ))
+        .id();
+    spawn_row_label(world, row, entry.label.clone(), false);
+    let inputs = world
+        .spawn((
+            InspectorUi,
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                column_gap: px(8),
+                min_width: px(0),
+                ..Default::default()
+            },
+            ChildOf(row),
+        ))
+        .id();
+    track_widget(world, component, entry, row, None);
+
+    for (axis_entry, (name, sigil)) in axes.iter().zip(AXES) {
+        let Some(input) = spawn_number_input(world, inputs, axis_entry, Some(name), sigil) else {
+            continue;
+        };
+        world.entity_mut(input).insert(InspectorField {
+            component: component.key.clone(),
+            path: axis_entry.path.clone(),
+        });
+        let widget = FieldWidget {
+            entity: input,
+            text: None,
+            value: axis_entry.value.clone(),
+        };
+        apply_value(world, &widget, &axis_entry.value);
+        track_widget(world, component, axis_entry, input, None);
+    }
+}
+
+/// Spawns a block grouping the fields of a struct under a collapsible header, returning the block
+/// and the body that holds the fields.
+fn spawn_field_group(
+    world: &mut World,
+    container: Entity,
+    label: &str,
+    indent: usize,
+) -> Option<(Entity, Entity)> {
+    let block = spawn_child_scene(
+        world,
+        container,
+        bsn! {
+            InspectorUi
+            @group()
+            Node {
+                padding: px(6),
+                row_gap: px(6),
+                border_radius: px(CARD_RADIUS),
+                margin: UiRect::left(px(indent as f32 * INDENT)),
+            }
+            ThemedText
+        },
+    )?;
+    let header = world
         .spawn((
             InspectorUi,
             ThemedText,
@@ -1738,8 +1992,122 @@ fn spawn_field_row(
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
+                column_gap: px(4),
+                min_width: px(0),
+                ..Default::default()
+            },
+            ChildOf(block),
+        ))
+        .id();
+    let toggle = spawn_child_scene(
+        world,
+        header,
+        bsn! {
+            InspectorUi
+            @FeathersDisclosureToggle
+            Checked
+            on(inspector_field_group_toggled)
+        },
+    )?;
+    spawn_row_label(world, header, label.to_string(), false);
+    let body = world
+        .spawn((
+            InspectorUi,
+            InspectorFieldGroupBody,
+            ThemedText,
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                row_gap: px(6),
+                min_width: px(0),
+                ..Default::default()
+            },
+            ChildOf(block),
+        ))
+        .id();
+    world
+        .entity_mut(toggle)
+        .insert(InspectorFieldGroupToggle(body));
+    Some((block, body))
+}
+
+/// Observer that shows or hides the fields of a struct block when its toggle changes.
+pub(crate) fn inspector_field_group_toggled(
+    change: On<ValueChange<bool>>,
+    toggles: Query<&InspectorFieldGroupToggle>,
+    mut nodes: Query<&mut Node>,
+    mut commands: Commands,
+) {
+    let Ok(toggle) = toggles.get(change.source) else {
+        return;
+    };
+    if change.value {
+        commands.entity(change.source).insert(Checked);
+    } else {
+        commands.entity(change.source).remove::<Checked>();
+    }
+    if let Ok(mut node) = nodes.get_mut(toggle.0) {
+        node.display = if change.value {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
+}
+
+/// Spawns the single-line label of a row into `parent`, inside a leading column that lines up
+/// with the [`ColumnSplit`] of the row's group if `leading` is set.
+fn spawn_row_label(
+    world: &mut World,
+    parent: Entity,
+    text: String,
+    leading: bool,
+) -> Option<Entity> {
+    let node = Node {
+        flex_shrink: 0.0,
+        overflow: Overflow::clip_x(),
+        ..Default::default()
+    };
+    let cell = match leading {
+        true => world.spawn((ColumnSplitLeading, ThemedText, node, ChildOf(parent))),
+        false => world.spawn((ThemedText, node, ChildOf(parent))),
+    }
+    .id();
+    let label = spawn_child_scene(world, cell, caption(text))?;
+    world.entity_mut(label).insert(TextLayout {
+        linebreak: LineBreak::NoWrap,
+        ..Default::default()
+    });
+    Some(label)
+}
+
+fn spawn_field_row(
+    world: &mut World,
+    container: Entity,
+    component: &ComponentDetails,
+    entry: &FieldEntry,
+    indent: usize,
+) -> Option<()> {
+    let stacked = matches!(entry.value, FieldValue::Color(_));
+    let row = world
+        .spawn((
+            InspectorUi,
+            ThemedText,
+            Node {
+                display: Display::Flex,
+                flex_direction: if stacked {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
+                align_items: if stacked {
+                    AlignItems::Stretch
+                } else {
+                    AlignItems::Center
+                },
                 column_gap: px(6),
-                padding: UiRect::left(px(entry.depth as f32 * INDENT)),
+                row_gap: px(2),
+                padding: UiRect::left(px(indent as f32 * INDENT)),
                 min_width: px(0),
                 flex_shrink: 1.0,
                 overflow: Overflow::clip_x(),
@@ -1749,23 +2117,7 @@ fn spawn_field_row(
         ))
         .id();
 
-    let leading = world
-        .spawn((
-            ColumnSplitLeading,
-            ThemedText,
-            Node {
-                flex_shrink: 0.0,
-                overflow: Overflow::clip_x(),
-                ..Default::default()
-            },
-            ChildOf(row),
-        ))
-        .id();
-    let label = spawn_child_scene(world, leading, caption(entry.label.clone()))?;
-    world.entity_mut(label).insert(TextLayout {
-        linebreak: LineBreak::NoWrap,
-        ..Default::default()
-    });
+    spawn_row_label(world, row, entry.label.clone(), !stacked)?;
 
     let widget = spawn_widget(world, row, entry)?;
     if !matches!(entry.value, FieldValue::Variant { .. }) {
@@ -1790,70 +2142,166 @@ fn spawn_field_row(
         });
     }
 
-    Some(widget)
+    track_widget(world, component, entry, widget.entity, widget.text);
+    Some(())
+}
+
+/// Spawns a number input for `entry`, with an axis `label` and `sigil` strip if given.
+fn spawn_number_input(
+    world: &mut World,
+    parent: Entity,
+    entry: &FieldEntry,
+    label: Option<&'static str>,
+    sigil: ThemeToken,
+) -> Option<Entity> {
+    let unit = entry.annotations.unit;
+    let entity = spawn_child_scene(
+        world,
+        parent,
+        bsn! {
+            InspectorUi
+            @FeathersNumberInput {
+                @interior_label_text: {unit},
+                @label_text: {label},
+                @sigil_color: {sigil},
+            }
+            on(inspector_field_f32_changed)
+            on(inspector_field_f64_changed)
+            on(inspector_field_i32_changed)
+            on(inspector_field_i64_changed)
+            Node {
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+            }
+        },
+    )?;
+    if let Some(limit) = &entry.limit {
+        world.entity_mut(entity).insert(HardLimit(limit.clone()));
+    }
+    if let Some(step) = entry.annotations.step {
+        world
+            .entity_mut(entity)
+            .insert((NumberInputStep(step), NumberInputSnapToStep));
+    }
+    Some(entity)
+}
+
+/// The number of variants an enum with only unit variants needs to show as a segmented control.
+const SEGMENTS: core::ops::RangeInclusive<usize> = 2..=3;
+
+/// Spawns a row of buttons, one for each of `labels`, with the `selected` one highlighted.
+fn spawn_segmented(
+    world: &mut World,
+    parent: Entity,
+    labels: Vec<String>,
+    selected: usize,
+) -> Option<Entity> {
+    let entity = world
+        .spawn((
+            InspectorUi,
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                column_gap: px(1),
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_width: px(0),
+                ..Default::default()
+            },
+            ChildOf(parent),
+        ))
+        .id();
+    let last = labels.len().saturating_sub(1);
+    for (index, label) in labels.into_iter().enumerate() {
+        let corners = match (index == 0, index == last) {
+            (true, true) => RoundedCorners::All,
+            (true, false) => RoundedCorners::Left,
+            (false, true) => RoundedCorners::Right,
+            (false, false) => RoundedCorners::None,
+        };
+        let variant = ButtonVariant::selected(index == selected);
+        let button = spawn_child_scene(
+            world,
+            entity,
+            bsn! {
+                InspectorUi
+                @FeathersButton {
+                    @caption: bsn! {
+                        @caption(label)
+                        TextLayout {
+                            linebreak: LineBreak::NoWrap,
+                        }
+                    },
+                    @variant: {variant},
+                    @corners: {corners},
+                }
+                InspectorSegment(index)
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
+                    min_width: px(0),
+                    padding: UiRect::horizontal(px(4)),
+                    overflow: Overflow::clip_x(),
+                }
+                on(inspector_field_segment_activated)
+            },
+        )?;
+        world.entity_mut(button).insert(InheritableFont {
+            font: FontSource::Families(fonts::SANS.into()),
+            font_size: size::SMALL_FONT,
+            weight: FontWeight::NORMAL,
+        });
+    }
+    Some(entity)
+}
+
+/// Observer that turns a click on a segment of a segmented variant control into a [`FieldEdit`].
+pub(crate) fn inspector_field_segment_activated(
+    activate: On<Activate>,
+    segments: Query<(&InspectorSegment, &ChildOf)>,
+    fields: Query<&InspectorField>,
+    mut index: ResMut<DetailsIndex>,
+    mut commands: Commands,
+) {
+    let Ok((segment, child_of)) = segments.get(activate.event_target()) else {
+        return;
+    };
+    let selected = segment.0;
+    emit_field_edit(
+        child_of.parent(),
+        |current| match current {
+            FieldValue::Variant {
+                variants,
+                selected: current,
+            } if *current != selected => Some(FieldValue::Variant {
+                variants: variants.clone(),
+                selected,
+            }),
+            _ => None,
+        },
+        &fields,
+        &mut index,
+        &mut commands,
+    );
 }
 
 fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<FieldWidget> {
     let value = &entry.value;
-    let widget = match value {
-        FieldValue::Bool(_) => {
-            let entity = spawn_child_scene(
-                world,
-                row,
-                bsn! {
-                    InspectorUi
-                    @FeathersCheckbox
-                    on(inspector_field_bool_changed)
-                },
-            )?;
-            FieldWidget {
-                entity,
-                text: None,
-                value: value.clone(),
-            }
-        }
+    let entity = match value {
+        FieldValue::Bool(_) => spawn_child_scene(
+            world,
+            row,
+            bsn! {
+                InspectorUi
+                @FeathersCheckbox
+                on(inspector_field_bool_changed)
+            },
+        )?,
         FieldValue::Number(_) => {
-            let unit = entry.annotations.unit;
-            let entity = spawn_child_scene(
-                world,
-                row,
-                bsn! {
-                    InspectorUi
-                    @FeathersNumberInput {
-                        @interior_label_text: {unit},
-                    }
-                    on(inspector_field_f32_changed)
-                    on(inspector_field_f64_changed)
-                    on(inspector_field_i32_changed)
-                    on(inspector_field_i64_changed)
-                    Node {
-                        width: px(FIELD_WIDGET_WIDTH),
-                        flex_grow: 0.0,
-                    }
-                },
-            )?;
-            if let Some(limit) = &entry.limit {
-                world.entity_mut(entity).insert(HardLimit(limit.clone()));
-            }
-            if let Some(step) = entry.annotations.step {
-                world
-                    .entity_mut(entity)
-                    .insert((NumberInputStep(step), NumberInputSnapToStep));
-            }
-            FieldWidget {
-                entity,
-                text: None,
-                value: value.clone(),
-            }
+            spawn_number_input(world, row, entry, None, tokens::TEXT_INPUT_LABEL_BG)?
         }
-        FieldValue::Text(_) => {
-            let entity = spawn_text_input(world, row, px(FIELD_WIDGET_WIDTH), 0.0)?;
-            FieldWidget {
-                entity,
-                text: None,
-                value: value.clone(),
-            }
-        }
+        FieldValue::Text(_) => spawn_text_input(world, row, px(0), 1.0)?,
         FieldValue::Color(_) => {
             let cell = world
                 .spawn((
@@ -1864,7 +2312,7 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         column_gap: px(6),
-                        width: px(FIELD_WIDGET_WIDTH),
+                        min_width: px(0),
                         ..Default::default()
                     },
                     ChildOf(row),
@@ -1879,57 +2327,51 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
                     on(inspector_field_color_changed)
                 },
             )?;
-            let text = spawn_text_input(world, cell, Val::Auto, 1.0)?;
+            let text = spawn_text_input(world, cell, px(0), 1.0)?;
             world
                 .entity_mut(text)
                 .observe(inspector_field_hex_entered)
                 .observe(inspector_field_hex_focus_lost);
-            FieldWidget {
+            return Some(FieldWidget {
                 entity,
                 text: Some(text),
                 value: value.clone(),
-            }
+            });
         }
-        FieldValue::Variant {
-            variants,
-            selected: index,
-        } => {
+        FieldValue::Variant { variants, selected } => {
             let labels: Vec<String> = variants
                 .iter()
                 .map(|name| entry.annotations.variant_label(name).to_string())
                 .collect();
-            let options = list_rows_from_strings(labels, Some(*index));
-            let entity = spawn_child_scene(
-                world,
-                row,
-                bsn! {
-                    InspectorUi
-                    @FeathersSelect {
-                        @options: {options},
-                    }
-                    on(inspector_field_variant_changed)
-                    Node {
-                        width: px(FIELD_WIDGET_WIDTH),
-                        flex_grow: 0.0,
-                    }
-                },
-            )?;
-            FieldWidget {
-                entity,
-                text: None,
-                value: value.clone(),
+            if entry.unit_enum && SEGMENTS.contains(&labels.len()) {
+                spawn_segmented(world, row, labels, *selected)?
+            } else {
+                let options = list_rows_from_strings(labels, Some(*selected));
+                spawn_child_scene(
+                    world,
+                    row,
+                    bsn! {
+                        InspectorUi
+                        @FeathersSelect {
+                            @options: {options},
+                        }
+                        on(inspector_field_variant_changed)
+                        Node {
+                            flex_grow: 1.0,
+                            flex_basis: px(0),
+                            min_width: px(0),
+                        }
+                    },
+                )?
             }
         }
-        FieldValue::Label(text) => {
-            let entity = spawn_value_caption(world, row, text.clone())?;
-            FieldWidget {
-                entity,
-                text: None,
-                value: value.clone(),
-            }
-        }
+        FieldValue::Label(text) => spawn_value_caption(world, row, text.clone())?,
     };
-    Some(widget)
+    Some(FieldWidget {
+        entity,
+        text: None,
+        value: value.clone(),
+    })
 }
 
 /// Spawns a text input sized by `width` and `flex_grow`, returning the entity holding its
@@ -1982,7 +2424,8 @@ fn spawn_value_caption(world: &mut World, row: Entity, text: String) -> Option<E
 
 /// Shows `value` in the widgets of `widget`.
 ///
-/// Variant selects are left untouched, since a changed variant respawns its group instead.
+/// Variant selects are left untouched, since a changed variant respawns its group instead, while
+/// segmented variant controls highlight the selected variant.
 fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
     match value {
         FieldValue::Bool(checked) => {
@@ -2007,7 +2450,23 @@ fn apply_value(world: &mut World, widget: &FieldWidget, value: &FieldValue) {
             }
             replace_text(world, widget.text, &color_to_hex(*color));
         }
-        FieldValue::Variant { .. } => {}
+        FieldValue::Variant { selected, .. } => {
+            let segments: Vec<Entity> = world
+                .get::<Children>(widget.entity)
+                .map(|children| children.iter().copied().collect())
+                .unwrap_or_default();
+            for segment in segments {
+                let Some(index) = world
+                    .get::<InspectorSegment>(segment)
+                    .map(|segment| segment.0)
+                else {
+                    continue;
+                };
+                if let Some(mut variant) = world.get_mut::<ButtonVariant>(segment) {
+                    variant.set_if_neq(ButtonVariant::selected(index == *selected));
+                }
+            }
+        }
         FieldValue::Label(text) => set_text(world, Some(widget.entity), text.clone()),
     }
 }
@@ -2130,7 +2589,14 @@ fn walk_entries(
     } else if let Some(scalar) = scalar_value(value) {
         walk.push_scalar(path, label("value"), 0, value, scalar, &annotations);
     } else if let Some(variant) = variant_value(value, registry) {
-        walk.push(path.clone(), label("variant"), 0, variant, &annotations);
+        walk.push_variant(
+            path.clone(),
+            label("variant"),
+            0,
+            value,
+            variant,
+            &annotations,
+        );
         walk.children(value, &path, 0, editable, &annotations);
     } else if let Some(summary) = summary(value) {
         if !summary.is_empty() {
@@ -2178,6 +2644,28 @@ impl Walk<'_> {
             value,
             limit: None,
             annotations: annotations.clone(),
+            unit_enum: false,
+        });
+    }
+
+    /// Adds the row of `variant`, the variants read from the enum `value`.
+    fn push_variant(
+        &mut self,
+        path: String,
+        label: String,
+        depth: usize,
+        value: &dyn PartialReflect,
+        variant: FieldValue,
+        annotations: &FieldAnnotations,
+    ) {
+        self.push_entry(FieldEntry {
+            path,
+            label,
+            depth,
+            value: variant,
+            limit: None,
+            annotations: annotations.clone(),
+            unit_enum: is_unit_enum(value),
         });
     }
 
@@ -2204,6 +2692,7 @@ impl Walk<'_> {
             value: scalar,
             limit,
             annotations: annotations.clone(),
+            unit_enum: false,
         });
     }
 
@@ -2261,7 +2750,7 @@ impl Walk<'_> {
         }
 
         if let Some(variant) = variant_value(value, self.registry) {
-            self.push(path.clone(), label, depth, variant, &annotations);
+            self.push_variant(path.clone(), label, depth, value, variant, &annotations);
             self.children(value, &path, depth + 1, editable, &annotations);
             return;
         }
@@ -2699,14 +3188,21 @@ fn variant_value(value: &dyn PartialReflect, registry: &TypeRegistry) -> Option<
         .filter(|variant| variant.name() == current || has_defaults(variant, registry))
         .map(|variant| variant.name().to_string())
         .collect();
-    let unit_only = info
-        .iter()
-        .all(|variant| variant.variant_type() == VariantType::Unit);
-    if !unit_only && variants.len() < 2 {
+    if !is_unit_enum(value) && variants.len() < 2 {
         return None;
     }
     let selected = variants.iter().position(|name| name == current)?;
     Some(FieldValue::Variant { variants, selected })
+}
+
+/// Whether `value` is an enum whose variants are all unit variants.
+fn is_unit_enum(value: &dyn PartialReflect) -> bool {
+    match value.get_represented_type_info() {
+        Some(TypeInfo::Enum(info)) => info
+            .iter()
+            .all(|variant| variant.variant_type() == VariantType::Unit),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -3347,16 +3843,19 @@ mod tests {
         assert!(!rows.is_empty());
         let world = app.world();
         for row in rows {
-            let leading = world.get::<Children>(row).unwrap()[0];
-            assert!(world.entity(leading).contains::<ColumnSplitLeading>());
+            let label = descendant_with::<Text>(world, row).unwrap();
+            let leading = world.get::<ChildOf>(label).unwrap().parent();
             assert_eq!(
                 world.get::<Node>(leading).unwrap().overflow,
                 Overflow::clip_x()
             );
-            let label = world.get::<Children>(leading).unwrap()[0];
             let layout = world.get::<TextLayout>(label).unwrap();
             assert_eq!(layout.linebreak, LineBreak::NoWrap);
         }
+        let scale = widget_at(&app, "scale").unwrap();
+        let row = world.get::<ChildOf>(scale).unwrap().parent();
+        let leading = world.get::<Children>(row).unwrap()[0];
+        assert!(world.entity(leading).contains::<ColumnSplitLeading>());
     }
 
     fn fields_container(app: &App, component: &str) -> Entity {
@@ -3608,14 +4107,13 @@ mod tests {
             .map(|(_, widget)| widget.entity)
     }
 
-    /// The label text of every tracked row, read from the row's leading column.
+    /// The label text of every tracked row, the first text in the row.
     fn row_labels(app: &App) -> Vec<String> {
         let world = app.world();
         row_entities(app)
             .into_iter()
             .filter_map(|row| {
-                let leading = *world.get::<Children>(row)?.first()?;
-                let label = *world.get::<Children>(leading)?.first()?;
+                let label = descendant_with::<Text>(world, row)?;
                 Some(world.get::<Text>(label)?.0.clone())
             })
             .collect()
@@ -3631,7 +4129,10 @@ mod tests {
                 let mut row = widget.entity;
                 loop {
                     let parent = world.get::<ChildOf>(row)?.parent();
-                    if world.entity(parent).contains::<InspectorDetailsFields>() {
+                    let container = world.entity(parent);
+                    if container.contains::<InspectorDetailsFields>()
+                        || container.contains::<InspectorFieldGroupBody>()
+                    {
                         return Some(row);
                     }
                     row = parent;
@@ -4625,22 +5126,169 @@ mod tests {
         rows
     }
 
+    #[derive(Reflect, Debug, Default, Clone, Copy, PartialEq)]
+    enum Weather {
+        #[default]
+        Clear,
+        Cloudy,
+        Rain,
+        Snow,
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Forecast {
+        weather: Weather,
+    }
+
     #[test]
     fn choosing_a_select_option_edits_the_field() {
-        let (mut app, subject) = widget_app();
-        let select = field_widget(&mut app, "mode");
+        let mut app = test_app();
+        app.register_type::<Forecast>();
+        let subject = inspect(&mut app, Forecast::default());
+        let select = field_widget(&mut app, "weather");
         let listbox = descendant_with::<bevy_ui_widgets::ListBox>(app.world(), select).unwrap();
-        let running = option_rows(&app, select)[1].0;
+        let rain = option_rows(&app, select)[2].0;
 
         app.world_mut().trigger(ValueChange {
             source: listbox,
-            value: running,
+            value: rain,
             is_final: true,
         });
         app.update();
         assert_eq!(
+            app.world().get::<Forecast>(subject).unwrap().weather,
+            Weather::Rain
+        );
+
+        settle(&mut app);
+        assert_eq!(
+            app.world().get::<Forecast>(subject).unwrap().weather,
+            Weather::Rain
+        );
+        let select = field_widget(&mut app, "weather");
+        let selected: Vec<usize> = option_rows(&app, select)
+            .into_iter()
+            .filter(|(_, _, selected)| *selected)
+            .map(|(_, index, _)| index)
+            .collect();
+        assert_eq!(selected, alloc::vec![2]);
+    }
+
+    #[derive(Component, Reflect, Debug, Default)]
+    #[reflect(Component, Default)]
+    struct Motion {
+        velocity: bevy_math::Vec3,
+        speed: f32,
+    }
+
+    #[test]
+    fn vectors_show_an_input_per_axis_under_one_label() {
+        let mut app = test_app();
+        app.register_type::<Motion>();
+        let subject = inspect(&mut app, Motion::default());
+
+        let row = widget_at(&app, "velocity").unwrap();
+        let world = app.world();
+        let label = descendant_with::<Text>(world, row).unwrap();
+        assert_eq!(world.get::<Text>(label).unwrap().0, "velocity");
+        let inputs: Vec<Entity> = ["velocity.x", "velocity.y", "velocity.z"]
+            .into_iter()
+            .map(|path| widget_at(&app, path).unwrap())
+            .collect();
+        let line = world.get::<ChildOf>(inputs[0]).unwrap().parent();
+        assert_eq!(world.get::<ChildOf>(line).unwrap().parent(), row);
+        for (input, axis) in inputs.iter().zip(["X", "Y", "Z"]) {
+            assert_eq!(world.get::<ChildOf>(*input).unwrap().parent(), line);
+            assert!(world.entity(*input).contains::<FeathersNumberInput>());
+            assert!(has_text(world, *input, axis));
+        }
+        let speed = widget_at(&app, "speed").unwrap();
+        let speed_row = world.get::<ChildOf>(speed).unwrap().parent();
+        let leading = world.get::<Children>(speed_row).unwrap()[0];
+        assert!(world.entity(leading).contains::<ColumnSplitLeading>());
+
+        trigger_change(&mut app, inputs[1], 2.5_f32);
+        assert_eq!(app.world().get::<Motion>(subject).unwrap().velocity.y, 2.5);
+    }
+
+    #[test]
+    fn vector_inputs_show_a_changed_value_in_place() {
+        let mut app = test_app();
+        app.register_type::<Motion>();
+        let subject = inspect(&mut app, Motion::default());
+        let input = widget_at(&app, "velocity.z").unwrap();
+
+        app.world_mut()
+            .get_mut::<Motion>(subject)
+            .unwrap()
+            .velocity
+            .z = 3.0;
+        refresh(&mut app);
+
+        assert_eq!(widget_at(&app, "velocity.z"), Some(input));
+        assert_eq!(
+            app.world().get::<NumericValue>(input),
+            Some(&NumericValue::F32(3.0))
+        );
+    }
+
+    #[test]
+    fn struct_fields_are_grouped_in_a_collapsible_block() {
+        let mut app = test_app();
+        inspect(&mut app, Subject::default());
+
+        let block = widget_at(&app, "nested").unwrap();
+        let depth = widget_at(&app, "nested.depth").unwrap();
+        let world = app.world();
+        let body = descendant_with::<InspectorFieldGroupBody>(world, block).unwrap();
+        assert!(world
+            .get::<ChildOf>(depth)
+            .and_then(|row| world.get::<ChildOf>(row.parent()))
+            .is_some_and(|parent| parent.parent() == body));
+
+        let toggle = descendant_with::<InspectorFieldGroupToggle>(world, block).unwrap();
+        trigger_change(&mut app, toggle, false);
+        assert_eq!(
+            app.world().get::<Node>(body).unwrap().display,
+            Display::None
+        );
+        trigger_change(&mut app, toggle, true);
+        assert_eq!(
+            app.world().get::<Node>(body).unwrap().display,
+            Display::Flex
+        );
+    }
+
+    fn segment_variants(app: &App, segments: Entity) -> Vec<ButtonVariant> {
+        app.world()
+            .get::<Children>(segments)
+            .unwrap()
+            .iter()
+            .map(|segment| app.world().get::<ButtonVariant>(*segment).unwrap().clone())
+            .collect()
+    }
+
+    #[test]
+    fn clicking_a_segment_of_a_small_unit_enum_writes_the_variant() {
+        let (mut app, subject) = widget_app();
+        let segments = field_widget(&mut app, "mode");
+        assert!(app.world().get::<FeathersSelect>(segments).is_none());
+        assert_eq!(
+            segment_variants(&app, segments),
+            [ButtonVariant::Primary, ButtonVariant::Normal]
+        );
+
+        let running = app.world().get::<Children>(segments).unwrap()[1];
+        app.world_mut().trigger(Activate { entity: running });
+        app.update();
+        assert_eq!(
             app.world().get::<Subject>(subject).unwrap().mode,
             Mode::Running
+        );
+        assert_eq!(
+            segment_variants(&app, segments),
+            [ButtonVariant::Normal, ButtonVariant::Primary]
         );
 
         settle(&mut app);
@@ -4648,13 +5296,11 @@ mod tests {
             app.world().get::<Subject>(subject).unwrap().mode,
             Mode::Running
         );
-        let select = field_widget(&mut app, "mode");
-        let selected: Vec<usize> = option_rows(&app, select)
-            .into_iter()
-            .filter(|(_, _, selected)| *selected)
-            .map(|(_, index, _)| index)
-            .collect();
-        assert_eq!(selected, alloc::vec![1]);
+        let segments = field_widget(&mut app, "mode");
+        assert_eq!(
+            segment_variants(&app, segments),
+            [ButtonVariant::Normal, ButtonVariant::Primary]
+        );
     }
 
     #[derive(Component, Reflect, Debug, Default)]
@@ -5496,17 +6142,12 @@ mod tests {
                 ..annotated()
             },
         );
-        let select = field_widget(&mut app, "stance");
-        assert!(has_text(app.world(), select, "Standing Still"));
-        assert!(!has_text(app.world(), select, "Idle"));
+        let segments = field_widget(&mut app, "stance");
+        assert!(has_text(app.world(), segments, "Standing Still"));
+        assert!(!has_text(app.world(), segments, "Idle"));
 
-        let listbox = descendant_with::<bevy_ui_widgets::ListBox>(app.world(), select).unwrap();
-        let idle = option_rows(&app, select)[0].0;
-        app.world_mut().trigger(ValueChange {
-            source: listbox,
-            value: idle,
-            is_final: true,
-        });
+        let idle = app.world().get::<Children>(segments).unwrap()[0];
+        app.world_mut().trigger(Activate { entity: idle });
         app.update();
         assert_eq!(
             app.world().get::<Annotated>(entity).unwrap().stance,

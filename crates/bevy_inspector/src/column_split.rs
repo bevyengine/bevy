@@ -3,8 +3,9 @@
 use alloc::vec::Vec;
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     children,
     component::Component,
     entity::Entity,
@@ -38,8 +39,9 @@ const HANDLE_WIDTH: f32 = 5.0;
 /// A container whose descendant rows share one boundary between a leading and a trailing column.
 ///
 /// Rows mark their leading column with [`ColumnSplitLeading`]. A [`ColumnSplitHandle`] child is
-/// spawned when this component is added, drawn as a line along the boundary over the full height
-/// of the container. Dragging it writes `fraction` directly, without emitting a change event.
+/// spawned when this component is added, covering the boundary over the full height of the
+/// container and drawn as a line while hovered or dragged. Dragging it writes `fraction` directly,
+/// without emitting a change event.
 /// [`InteractionDisabled`] on this entity disables dragging.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[require(Node, ColumnSplitDragState)]
@@ -114,6 +116,7 @@ fn spawn_handle(add: On<Add<ColumnSplit>>, mut commands: Commands) {
                 ..Default::default()
             },
             ThemeBackgroundColor(tokens::SPLIT_PANE_HANDLE),
+            Visibility::Hidden,
             Pickable::IGNORE,
         )],
     ));
@@ -329,7 +332,7 @@ fn update_handle_styles(
         With<ColumnSplitHandle>,
     >,
     q_splits: Query<(&ColumnSplitDragState, Has<InteractionDisabled>)>,
-    q_lines: Query<&ThemeBackgroundColor, With<ColumnSplitHandleLine>>,
+    mut q_lines: Query<(&ThemeBackgroundColor, &mut Visibility), With<ColumnSplitHandleLine>>,
     mut commands: Commands,
 ) {
     for (handle, child_of, hovered, children, cursor) in &q_handles {
@@ -349,8 +352,16 @@ fn update_handle_styles(
             (false, false, true) => tokens::SPLIT_PANE_HANDLE_HOVER,
             (false, false, false) => tokens::SPLIT_PANE_HANDLE,
         };
+        let visibility = match !disabled && (state.dragging || hovered.0) {
+            true => Visibility::Inherited,
+            false => Visibility::Hidden,
+        };
         for &line in children {
-            if q_lines.get(line).is_ok_and(|color| color.0 != token) {
+            let Ok((color, mut line_visibility)) = q_lines.get_mut(line) else {
+                continue;
+            };
+            line_visibility.set_if_neq(visibility);
+            if color.0 != token {
                 commands
                     .entity(line)
                     .insert(ThemeBackgroundColor(token.clone()));
@@ -515,6 +526,32 @@ mod tests {
         assert_eq!(
             app.world().get::<EntityCursor>(handle),
             Some(&EntityCursor::System(SystemCursorIcon::ColResize))
+        );
+    }
+
+    #[test]
+    fn the_line_shows_only_while_the_handle_is_hovered() {
+        let mut app = split_app();
+        let (_, handle) = spawn_split(&mut app);
+        let line = app.world().get::<Children>(handle).unwrap()[0];
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(line),
+            Some(&Visibility::Hidden)
+        );
+
+        app.world_mut().entity_mut(handle).insert(Hovered(true));
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(line),
+            Some(&Visibility::Inherited)
+        );
+
+        app.world_mut().entity_mut(handle).insert(Hovered(false));
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(line),
+            Some(&Visibility::Hidden)
         );
     }
 
