@@ -421,6 +421,43 @@ impl Table {
         }
     }
 
+    /// Shrinks the capacity of the table with a lower bound.
+    ///
+    /// The capacity will remain at least as large as both the length
+    /// and the supplied value.
+    ///
+    /// If the current capacity is less than the lower limit, this is a no-op.
+    pub(crate) fn shrink_to(&mut self, min_capacity: usize) {
+        let cur_capacity = self.capacity();
+
+        // Never below the number of entities. If this fails, `entities` keeps its capacity, so the
+        // columns still match it.
+        self.entities.shrink_to(min_capacity);
+
+        let new_capacity = self.capacity();
+
+        if new_capacity == cur_capacity {
+            return;
+        }
+
+        // SAFETY: `shrink_to` never grows the capacity and it changed, so the current capacity is
+        // greater than the new one and therefore not 0.
+        let cur_capacity = unsafe { NonZeroUsize::new_unchecked(cur_capacity) };
+
+        match NonZeroUsize::new(new_capacity) {
+            Some(new_capacity) => {
+                // SAFETY: `cur_capacity` is indeed the columns' capacity
+                unsafe { self.realloc_columns(cur_capacity, new_capacity) };
+            }
+            None => {
+                // SAFETY:
+                // - `cur_capacity` is indeed the columns' capacity
+                // - The new capacity is 0, so the table holds no entities, and the columns no values
+                unsafe { self.dealloc_columns(cur_capacity) };
+            }
+        }
+    }
+
     /// Allocate memory for the columns in the [`Table`]
     ///
     /// # Aborts
@@ -474,6 +511,29 @@ impl Table {
             col.realloc(current_column_capacity, new_capacity);
         }
         core::mem::forget(_guard); // The allocation was successful, so we don't drop the guard.
+    }
+
+    /// Frees the memory of the columns in the [`Table`].
+    ///
+    /// # Safety
+    /// - `current_column_capacity` is indeed the capacity of the columns
+    /// - The table holds no entities
+    ///
+    /// The capacity of all columns is determined by that of the `entities` Vec, which must
+    /// therefore be 0 once this returns.
+    unsafe fn dealloc_columns(&mut self, current_column_capacity: NonZeroUsize) {
+        // A panic part way would leave some columns allocated while the table's capacity is 0.
+        // To avoid this, we use `AbortOnPanic`, as for `alloc_columns` and `realloc_columns`.
+        let _guard = AbortOnPanic;
+
+        for col in self.columns.values_mut() {
+            // SAFETY:
+            // - `current_column_capacity` is indeed the capacity, as the caller guarantees
+            // - The table holds no entities, so the column holds no values
+            unsafe { col.dealloc(current_column_capacity) };
+        }
+
+        core::mem::forget(_guard);
     }
 
     /// Allocates space for a new entity
@@ -911,5 +971,208 @@ mod tests {
 
         assert_eq!(table.entity_capacity(), 256);
         assert_eq!(table.entity_count(), 200);
+    }
+
+    mod shrink {
+        use crate::{
+            change_detection::{MaybeLocation, Tick},
+            component::{Component, ComponentId, ComponentIds, Components, ComponentsRegistrator},
+            entity::{Entity, EntityIndex},
+            ptr::OwningPtr,
+            storage::{Table, TableBuilder, TableRow},
+        };
+        use alloc::string::{String, ToString};
+        use core::ops::Range;
+        use nonmax::NonMaxU32;
+
+        /// Needs dropping, so that freeing a column without dropping its values would leak.
+        #[derive(Component, Debug, PartialEq, Eq)]
+        struct Name(String);
+
+        /// Zero-sized: its column allocates no memory.
+        #[derive(Component)]
+        struct Marker;
+
+        /// The ids of the [`Name`] and [`Marker`] columns of a table built by [`TableFixture::new`].
+        struct TableFixture {
+            name: ComponentId,
+            marker: ComponentId,
+        }
+
+        fn entity(i: u32) -> Entity {
+            Entity::from_index(EntityIndex::from_raw_u32(i).unwrap())
+        }
+
+        fn row(i: u32) -> TableRow {
+            TableRow::new(NonMaxU32::new(i).unwrap())
+        }
+
+        impl TableFixture {
+            /// Builds an empty table with a [`Name`] and a [`Marker`] column.
+            fn new() -> (Table, Self) {
+                let mut components = Components::default();
+                let mut component_ids = ComponentIds::default();
+                // SAFETY: They are both new.
+                let mut registrator =
+                    unsafe { ComponentsRegistrator::new(&mut components, &mut component_ids) };
+                let name = registrator.register_component::<Name>();
+                let marker = registrator.register_component::<Marker>();
+                let table = TableBuilder::with_capacity(0, 2)
+                    .add_column(name, components.get_info(name).unwrap())
+                    .add_column(marker, components.get_info(marker).unwrap())
+                    .build();
+
+                (table, Self { name, marker })
+            }
+
+            /// Appends entities for the given range, initializing their components
+            /// and change ticks using each entity's index.
+            fn initialize_rows(&self, table: &mut Table, rows: Range<u32>) {
+                for i in rows {
+                    // SAFETY: the new row is initialized right away, in every column.
+                    unsafe {
+                        let row = table.allocate(entity(i));
+                        let tick = Tick::new(i);
+                        OwningPtr::make(Name(i.to_string()), |value| {
+                            table.get_column_mut(self.name).unwrap().initialize(
+                                row,
+                                value,
+                                tick,
+                                MaybeLocation::caller(),
+                            );
+                        });
+                        OwningPtr::make(Marker, |value| {
+                            table.get_column_mut(self.marker).unwrap().initialize(
+                                row,
+                                value,
+                                tick,
+                                MaybeLocation::caller(),
+                            );
+                        });
+                    }
+                }
+            }
+
+            /// Asserts that `table` holds rows `0..len`, as [`Self::initialize_rows`] wrote them.
+            fn assert_rows(&self, table: &Table, len: u32) {
+                assert_eq!(table.entity_count(), len);
+
+                for i in 0..len {
+                    assert_eq!(table.entities()[i as usize], entity(i));
+                    // SAFETY: the row is in bounds, and the column stores `Name`.
+                    let name = unsafe {
+                        table
+                            .get_component(self.name, row(i))
+                            .unwrap()
+                            .deref::<Name>()
+                    };
+                    assert_eq!(name, &Name(i.to_string()));
+
+                    for column in [self.name, self.marker] {
+                        // SAFETY: nothing else accesses the ticks.
+                        let (added, changed) = unsafe {
+                            (
+                                *table.get_added_tick(column, row(i)).unwrap().get(),
+                                *table.get_changed_tick(column, row(i)).unwrap().get(),
+                            )
+                        };
+                        assert_eq!((added, changed), (Tick::new(i), Tick::new(i)));
+                    }
+                }
+            }
+        }
+
+        /// Truncates the table to `len` rows, preserving the order of remaining rows.
+        fn truncate(table: &mut Table, len: u32) {
+            while table.entity_count() > len {
+                let last = table.entity_count() - 1;
+                // SAFETY: `last` is in bounds.
+                unsafe { table.swap_remove_unchecked(row(last)) };
+            }
+        }
+
+        #[test]
+        fn shrinking_keeps_values_ticks_and_order() {
+            let (mut table, fixture) = TableFixture::new();
+
+            fixture.initialize_rows(&mut table, 0..1000);
+            truncate(&mut table, 100);
+
+            assert!(table.capacity() >= 1000);
+
+            table.shrink_to(0);
+
+            assert_eq!(table.capacity(), 100);
+
+            fixture.assert_rows(&table, 100);
+        }
+
+        #[test]
+        fn shrinking_keeps_at_least_min_capacity() {
+            let (mut table, fixture) = TableFixture::new();
+
+            fixture.initialize_rows(&mut table, 0..1000);
+            truncate(&mut table, 10);
+            table.shrink_to(256);
+
+            assert_eq!(table.capacity(), 256);
+
+            // A minimum above the current capacity leaves the table as it is
+            table.shrink_to(512);
+
+            assert_eq!(table.capacity(), 256);
+
+            fixture.assert_rows(&table, 10);
+        }
+
+        #[test]
+        fn a_full_table_keeps_its_capacity() {
+            let (mut table, fixture) = TableFixture::new();
+
+            fixture.initialize_rows(&mut table, 0..1024);
+            table.shrink_to(0);
+
+            assert_eq!(table.capacity(), 1024);
+
+            fixture.assert_rows(&table, 1024);
+        }
+
+        #[test]
+        fn a_shrunk_table_grows_again() {
+            let (mut table, fixture) = TableFixture::new();
+
+            fixture.initialize_rows(&mut table, 0..1000);
+            truncate(&mut table, 100);
+            table.shrink_to(0);
+
+            fixture.initialize_rows(&mut table, 100..300);
+
+            assert!(table.capacity() >= 400);
+
+            fixture.assert_rows(&table, 300);
+        }
+
+        #[test]
+        fn an_emptied_table_frees_its_storage_and_grows_again() {
+            let (mut table, fixture) = TableFixture::new();
+
+            fixture.initialize_rows(&mut table, 0..300);
+            truncate(&mut table, 0);
+            table.shrink_to(0);
+
+            assert_eq!(table.capacity(), 0);
+
+            fixture.initialize_rows(&mut table, 0..50);
+
+            assert!(table.capacity() >= 50);
+
+            fixture.assert_rows(&table, 50);
+
+            // And empties and frees again
+            truncate(&mut table, 0);
+            table.shrink_to(0);
+
+            assert_eq!(table.capacity(), 0);
+        }
     }
 }

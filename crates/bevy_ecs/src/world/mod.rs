@@ -54,7 +54,7 @@ use crate::{
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{NonSendData, Storages},
+    storage::{NonSendData, Storages, TableId},
     system::Commands,
     world::{
         command_queue::CommandQueueRunner,
@@ -3419,6 +3419,32 @@ impl World {
         self.last_check_tick = change_tick;
 
         Some(check)
+    }
+
+    /// Shrinks the archetype's entity list capacity, but not below `min_capacity` or its length.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `archetype_id` is not an archetype of this [`World`].
+    pub fn shrink_archetype_to(&mut self, archetype_id: ArchetypeId, min_capacity: usize) {
+        self.archetypes[archetype_id].shrink_to(min_capacity);
+    }
+
+    /// Shrinks the capacity of a table as much as possible, but not below `min_capacity` or the
+    /// number of entities it holds.
+    ///
+    /// A table keeps the capacity it needed for the most entities it ever held. Once entities
+    /// have moved on, for example after a load passed every entity through an intermediate
+    /// archetype, that capacity is unused memory. Shrinking releases it while keeping every
+    /// entity's components, their change ticks, and the entities' order. An empty table shrunk
+    /// to a capacity of 0 frees its storage entirely, and allocates it again when an entity is
+    /// added.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `table` is not a table of this [`World`].
+    pub fn shrink_table_to(&mut self, table: TableId, min_capacity: usize) {
+        self.storages.tables[table].shrink_to(min_capacity);
     }
 
     /// Clears all entities, resources, and non-send data.

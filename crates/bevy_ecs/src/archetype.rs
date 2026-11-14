@@ -618,6 +618,12 @@ impl Archetype {
         self.entities.reserve(additional);
     }
 
+    /// Shrinks the capacity of the archetype's entity list with a lower bound.
+    #[inline]
+    pub(crate) fn shrink_to(&mut self, min_capacity: usize) {
+        self.entities.shrink_to(min_capacity);
+    }
+
     /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
@@ -643,6 +649,12 @@ impl Archetype {
         // No entity may have more than one archetype row, so there are no duplicates,
         // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
+    }
+
+    /// Gets the total number of entities the archetype can hold without reallocating.
+    #[inline]
+    pub fn capacity(&self) -> u32 {
+        self.entities.capacity() as u32
     }
 
     /// Checks if the archetype has any entities.

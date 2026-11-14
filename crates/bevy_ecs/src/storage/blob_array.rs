@@ -315,6 +315,43 @@ impl BlobArray {
         }
     }
 
+    /// Frees the memory of this array, leaving it unallocated, as if it had been created with a
+    /// capacity of 0. [`Self::alloc`] may then allocate it again.
+    ///
+    /// # Safety
+    /// - `current_capacity` is indeed the current capacity of this array.
+    /// - The array holds no initialized elements: any it held were dropped or moved out.
+    /// - After calling this method, the caller must update their saved capacity to 0.
+    pub(super) unsafe fn dealloc(&mut self, current_capacity: NonZeroUsize) {
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(self.capacity, current_capacity.get());
+
+        if !self.is_zst() {
+            let layout = self.item_layout.repeat_packed(current_capacity.get());
+            // SAFETY:
+            // - `data` was allocated by this allocator, with the layout of an array of
+            //   `current_capacity` items, which is the current capacity, as the caller guarantees
+            // - The array holds no initialized elements that would need dropping
+            unsafe {
+                alloc::alloc::dealloc(
+                    self.data.as_ptr(),
+                    // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
+                    layout.unwrap_unchecked(),
+                );
+            }
+        }
+
+        // SAFETY: `align()` is guaranteed to be a power of two, and therefore nonzero
+        let align = unsafe { NonZeroUsize::new_unchecked(self.item_layout.align()) };
+        // A dangling pointer with the item's alignment, as for an array created with no capacity.
+        self.data = NonNull::without_provenance(align);
+
+        #[cfg(debug_assertions)]
+        {
+            self.capacity = 0;
+        }
+    }
+
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
     ///
     /// # Safety
