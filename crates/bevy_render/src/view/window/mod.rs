@@ -1,30 +1,36 @@
 use crate::renderer::wgpu_wrapper;
 use crate::sync_world::{MainEntity, RenderEntity, SyncToRenderWorld};
-use crate::{
-    camera::extract_cameras, renderer::RenderQueue,
-    view::display_target::prepare_view_display_targets,
-};
+use crate::{camera::extract_cameras, renderer::RenderQueue, view::prepare_view_attachments};
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_log::{debug, info, info_once, warn, warn_once};
+use bevy_platform::time::Instant;
 use bevy_utils::default;
 use bevy_window::{
-    CompositeAlphaMode, DisplayTarget, PresentMode, PrimaryWindow, RawHandleWrapper,
-    SurfaceColorSpace, SurfaceColorSpaces, Window, WindowClosing, WindowSurfaceColorSpaces,
+    CompositeAlphaMode, DisplayTarget, OnMonitor, PresentMode, PrimaryWindow, RawHandleWrapper,
+    ResolvedDisplayTarget, SurfaceColorSpace, SurfaceColorSpaces, Window, WindowClosing,
+    WindowFocused, WindowMoved,
 };
 use core::num::NonZero;
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
+mod display_state;
 pub mod screenshot;
 
+pub use display_state::WindowDisplayHdrInfo;
+use display_state::{
+    display_reports_sdr, prepare_view_display_targets, read_display, read_display_states,
+    resolve_display_target, write_back_display_state,
+};
 use screenshot::ScreenshotPlugin;
 
 pub struct WindowRenderPlugin;
@@ -59,7 +65,7 @@ impl Plugin for WindowRenderPlugin {
                     ExtractSchedule,
                     (
                         extract_windows.before(extract_cameras),
-                        write_back_surface_color_spaces.after(extract_windows),
+                        write_back_display_state.after(extract_windows),
                     ),
                 )
                 .add_systems(
@@ -70,8 +76,13 @@ impl Plugin for WindowRenderPlugin {
                 )
                 .add_systems(
                     Render,
-                    (prepare_windows, prepare_view_display_targets)
+                    (
+                        prepare_windows,
+                        read_display_states,
+                        prepare_view_display_targets,
+                    )
                         .chain()
+                        .before(prepare_view_attachments)
                         .in_set(RenderSystems::PrepareViews),
                 );
         }
@@ -100,13 +111,27 @@ pub struct ExtractedWindow {
     pub alpha_mode: CompositeAlphaMode,
     /// The window's requested [`DisplayTarget`].
     pub display_target: DisplayTarget,
-    /// Whether [`DisplayTarget::hdr`] or [`DisplayTarget::color_space_override`]
-    /// changed, so the surface must be renegotiated. A luminance change does
-    /// not reconfigure the surface.
+    /// The [`display_target`](Self::display_target) resolved for
+    /// [`resolved_color_space`](Self::resolved_color_space) and what the
+    /// display reports. Before the surface is configured, it is resolved for
+    /// SDR sRGB.
+    pub(crate) resolved_display_target: ResolvedDisplayTarget,
+    /// Whether the window's display reports that the OS HDR setting is off,
+    /// so a [`DisplayTarget::hdr`] request resolves to SDR sRGB. Only set on
+    /// Windows.
+    pub(crate) display_reports_sdr: bool,
+    /// Whether [`DisplayTarget::hdr`], [`DisplayTarget::color_space_override`]
+    /// or the OS HDR setting the display reports changed, so the surface must
+    /// be renegotiated. A luminance change does not reconfigure the surface.
     pub color_space_request_changed: bool,
     /// The [`SurfaceColorSpace`] the configured surface uses. `None` until
     /// [`create_surfaces`] has configured the surface.
     pub resolved_color_space: Option<SurfaceColorSpace>,
+    /// Whether the window's display may have changed, so it must be read
+    /// again. Set after a window move, a focus regain, a monitor change, or a
+    /// surface renegotiation. A focus regain counts because the brightness may
+    /// have changed while the window was unfocused.
+    pub(crate) display_changed: bool,
     /// Whether this window needs an initial buffer commit.
     ///
     /// On Wayland, windows must present at least once before they are shown.
@@ -151,10 +176,11 @@ impl ExtractedWindow {
 
 fn extract_windows(
     mut commands: Commands,
-    mut extracted_windows: Query<&mut ExtractedWindow>,
+    mut extracted_windows: Query<(&mut ExtractedWindow, Option<&SurfaceData>)>,
     mut closing: Extract<MessageReader<WindowClosing>>,
     windows: Extract<
         Query<(
+            Entity,
             RenderEntity,
             &Window,
             Option<&DisplayTarget>,
@@ -162,14 +188,42 @@ fn extract_windows(
             Has<PrimaryWindow>,
         )>,
     >,
+    mut moved: Extract<MessageReader<WindowMoved>>,
+    mut focused: Extract<MessageReader<WindowFocused>>,
+    changed_monitor: Extract<Query<Entity, Changed<OnMonitor>>>,
+    mut removed_monitor: Extract<RemovedComponents<OnMonitor>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut removed_primary: Extract<RemovedComponents<PrimaryWindow>>,
     mapper: Extract<Query<&RenderEntity>>,
 ) {
-    for (render_entity, window, display_target, handle, is_primary) in windows.iter() {
+    let display_changed_windows: EntityHashSet = moved
+        .read()
+        .map(|moved| moved.window)
+        .chain(focused.read().filter(|f| f.focused).map(|f| f.window))
+        .chain(changed_monitor.iter())
+        .chain(removed_monitor.read())
+        .collect();
+
+    for (entity, render_entity, window, display_target, handle, is_primary) in windows.iter() {
         // A required component can still be removed. Fall back to the default
         // rather than drop the window.
         let display_target = display_target.copied().unwrap_or_default();
+        let (color_space, display_info) = extracted_windows
+            .get(render_entity)
+            .map(|(window, surface_data)| {
+                (
+                    window.resolved_color_space,
+                    surface_data.and_then(|data| data.display_hdr_info.as_ref()),
+                )
+            })
+            .unwrap_or_default();
+        let display_reports_sdr = display_reports_sdr(display_info);
+        let resolved_display_target = resolve_display_target(
+            &display_target,
+            color_space.unwrap_or(SurfaceColorSpace::Srgb),
+            display_info,
+        );
+        let display_changed = display_changed_windows.contains(&entity);
         if is_primary {
             commands.entity(render_entity).insert(PrimaryWindow);
         }
@@ -179,7 +233,7 @@ fn extract_windows(
             window.resolution.physical_height().max(1),
         );
 
-        let Ok(mut extracted_window) = extracted_windows.get_mut(render_entity) else {
+        let Ok((mut extracted_window, _)) = extracted_windows.get_mut(render_entity) else {
             commands.entity(render_entity).insert((
                 ExtractedWindow {
                     physical_width: new_width,
@@ -194,8 +248,11 @@ fn extract_windows(
                     present_mode_changed: false,
                     alpha_mode: window.composite_alpha_mode,
                     display_target,
+                    resolved_display_target,
+                    display_reports_sdr,
                     color_space_request_changed: false,
                     resolved_color_space: None,
+                    display_changed,
                     needs_initial_present: true,
                 },
                 handle.clone(),
@@ -203,9 +260,16 @@ fn extract_windows(
             continue;
         };
 
-        extracted_window.color_space_request_changed =
-            color_space_request_changed(&extracted_window.display_target, &display_target);
+        extracted_window.color_space_request_changed = color_space_request_changed(
+            &extracted_window.display_target,
+            &display_target,
+            extracted_window.display_reports_sdr,
+            display_reports_sdr,
+        );
         extracted_window.display_target = display_target;
+        extracted_window.resolved_display_target = resolved_display_target;
+        extracted_window.display_reports_sdr = display_reports_sdr;
+        extracted_window.display_changed = display_changed;
 
         if extracted_window.swap_chain_texture.is_none() {
             // If we called present on the previous swap-chain texture last update,
@@ -277,10 +341,20 @@ fn extract_windows(
 
 /// Returns `true` if the change from `previous` to `current` needs a surface
 /// renegotiation: [`DisplayTarget::hdr`] or
-/// [`DisplayTarget::color_space_override`] differ. A luminance change does
-/// not.
-fn color_space_request_changed(previous: &DisplayTarget, current: &DisplayTarget) -> bool {
-    previous.hdr != current.hdr || previous.color_space_override != current.color_space_override
+/// [`DisplayTarget::color_space_override`] differ, or
+/// [`ExtractedWindow::display_reports_sdr`] changed for an `hdr` request
+/// without an override. A luminance change does not.
+fn color_space_request_changed(
+    previous: &DisplayTarget,
+    current: &DisplayTarget,
+    previous_reports_sdr: bool,
+    current_reports_sdr: bool,
+) -> bool {
+    previous.hdr != current.hdr
+        || previous.color_space_override != current.color_space_override
+        || (current.hdr
+            && current.color_space_override.is_none()
+            && previous_reports_sdr != current_reports_sdr)
 }
 
 /// Inserts `value` only if it differs from the current component, so change
@@ -298,26 +372,6 @@ fn insert_on_change<C: Component + PartialEq>(
     }
 }
 
-/// Writes each window's [`WindowSurfaceColorSpaces`] back to the main world.
-///
-/// It runs during extraction, so the main world sees the previous frame's
-/// result.
-fn write_back_surface_color_spaces(
-    mut main_world: ResMut<MainWorld>,
-    windows: Query<(MainEntity, &SurfaceData)>,
-) {
-    for (entity, surface_data) in windows.iter() {
-        insert_on_change(
-            &mut main_world,
-            entity,
-            WindowSurfaceColorSpaces {
-                resolved: surface_data.resolved_color_space,
-                supported: surface_data.supported_color_spaces,
-            },
-        );
-    }
-}
-
 // TODO: what lifetime should this be?
 wgpu_wrapper!(struct WgpuSurface(wgpu::Surface<'static>));
 
@@ -331,6 +385,9 @@ pub struct SurfaceData {
     /// The color spaces the surface can provide, refreshed by
     /// [`SurfaceData::renegotiate`] whenever the surface is reconfigured.
     supported_color_spaces: SurfaceColorSpaces,
+    /// What the surface's display last reported.
+    display_hdr_info: Option<crate::render_resource::DisplayHdrInfo>,
+    display_read_at: Instant,
 }
 
 impl SurfaceData {
@@ -358,6 +415,7 @@ impl SurfaceData {
         &mut self,
         caps: &wgpu::SurfaceCapabilities,
         display_target: &DisplayTarget,
+        display_reports_sdr: bool,
         request_changed: bool,
     ) -> bool {
         let supported = supported_color_spaces(caps);
@@ -384,7 +442,11 @@ impl SurfaceData {
                 changed. Renegotiating the surface."
             );
         }
-        self.apply_negotiated(negotiate_surface_format(caps, display_target));
+        self.apply_negotiated(negotiate_surface_format(
+            caps,
+            display_target,
+            display_reports_sdr,
+        ));
         true
     }
 }
@@ -502,9 +564,17 @@ pub fn prepare_windows(
                 // wgpu reports `Outdated` when the underlying surface changed, which
                 // includes its color spaces.
                 let caps = surface_data.surface.get_capabilities(&render_adapter);
-                if surface_data.renegotiate(&caps, &window.display_target, false) {
+                if surface_data.renegotiate(
+                    &caps,
+                    &window.display_target,
+                    window.display_reports_sdr,
+                    false,
+                ) {
                     window.resolved_color_space = Some(surface_data.resolved_color_space);
                 }
+                // The display can change while the capabilities stay the same.
+                // Windows keeps listing PQ after the OS HDR setting is turned off.
+                window.display_changed = true;
                 let surface = &surface_data.surface;
                 render_device.configure_surface(surface, &surface_data.configuration);
                 let frame = match surface.get_current_texture() {
@@ -696,9 +766,15 @@ fn supported_color_spaces(caps: &wgpu::SurfaceCapabilities) -> SurfaceColorSpace
 /// supports it, else SDR sRGB with a warning. Otherwise
 /// [`DisplayTarget::hdr`] takes the first entry of [`HDR_PREFERENCE`] the
 /// surface supports, else SDR sRGB. Without either, SDR sRGB.
+///
+/// When `display_reports_sdr` is set, [`DisplayTarget::hdr`] resolves to SDR
+/// sRGB even if the surface lists an HDR color space. Windows lists PQ while
+/// the OS HDR setting is off, and PQ on a display in SDR mode looks dim and
+/// washed out. An override is still used as requested.
 fn resolve_color_space(
     caps: &wgpu::SurfaceCapabilities,
     display_target: &DisplayTarget,
+    display_reports_sdr: bool,
 ) -> SurfaceColorSpace {
     if let Some(requested) = display_target.color_space_override {
         if !requested.is_hdr() || negotiate_color_space(caps, requested).is_some() {
@@ -709,6 +785,10 @@ fn resolve_color_space(
             does not support it. The OS HDR setting may be off, or the backend may not \
             support it. Using SDR sRGB."
         );
+        return SurfaceColorSpace::Srgb;
+    }
+    if display_target.hdr && display_reports_sdr {
+        info_once!("DisplayTarget::hdr is set, but the OS HDR setting is off. Using SDR sRGB.");
         return SurfaceColorSpace::Srgb;
     }
     if display_target.hdr {
@@ -732,8 +812,9 @@ fn resolve_color_space(
 /// [`resolve_color_space`] picks the color space. For
 /// [`DisplayTarget::hdr`] that is Bevy's choice, in the order of
 /// [`HDR_PREFERENCE`]: PQ, then linear scRGB, then extended sRGB, then
-/// extended Display P3. The surface is renegotiated when the color spaces it
-/// supports change at runtime, so with `hdr` the output moves to the best
+/// extended Display P3, unless `display_reports_sdr` is set. The surface is
+/// renegotiated when the color spaces it supports change at runtime, or when
+/// `display_reports_sdr` changes, so with `hdr` the output moves to the best
 /// supported color space in both directions. [`negotiate_color_space`] picks
 /// the format.
 ///
@@ -750,8 +831,9 @@ fn resolve_color_space(
 fn negotiate_surface_format(
     caps: &wgpu::SurfaceCapabilities,
     display_target: &DisplayTarget,
+    display_reports_sdr: bool,
 ) -> NegotiatedSurface {
-    let color_space = resolve_color_space(caps, display_target);
+    let color_space = resolve_color_space(caps, display_target, display_reports_sdr);
     if let Some(negotiated) = negotiate_color_space(caps, color_space) {
         return negotiated;
     }
@@ -811,9 +893,14 @@ pub fn create_surfaces(
                     .create_surface_unsafe(surface_target)
                     .expect("Failed to create wgpu surface")
             };
+            // Read the display before the first negotiation, so
+            // `display_reports_sdr` applies to the first configuration.
+            let display_hdr_info = read_display(&surface, &render_adapter);
+            window.display_reports_sdr = display_reports_sdr(display_hdr_info.as_ref());
             let caps = surface.get_capabilities(&render_adapter);
             let present_mode = present_mode(&window, &caps);
-            let negotiated = negotiate_surface_format(&caps, &window.display_target);
+            let negotiated =
+                negotiate_surface_format(&caps, &window.display_target, window.display_reports_sdr);
             let supported_color_spaces = supported_color_spaces(&caps);
             let texture_view_format = negotiated.texture_view_format();
             let configuration = SurfaceConfiguration {
@@ -848,6 +935,8 @@ pub fn create_surfaces(
                 texture_view_format,
                 resolved_color_space: negotiated.resolved,
                 supported_color_spaces,
+                display_hdr_info,
+                display_read_at: Instant::now(),
             });
             continue;
         };
@@ -867,9 +956,10 @@ pub fn create_surfaces(
             data.configuration.height = window.physical_height;
             let caps = data.surface.get_capabilities(&render_adapter);
             data.configuration.present_mode = present_mode(&window, &caps);
-            data.renegotiate(
+            window.display_changed |= data.renegotiate(
                 &caps,
                 &window.display_target,
+                window.display_reports_sdr,
                 window.color_space_request_changed,
             );
             render_device.configure_surface(&data.surface, &data.configuration);
@@ -953,6 +1043,7 @@ mod tests {
                 hdr: true,
                 ..Default::default()
             },
+            false,
         )
     }
 
@@ -967,6 +1058,7 @@ mod tests {
                 color_space_override: Some(color_space),
                 ..Default::default()
             },
+            false,
         )
     }
 
@@ -1117,11 +1209,11 @@ mod tests {
     fn default_selects_an_srgb_format_with_auto() {
         let default = DisplayTarget::default();
         assert_eq!(
-            negotiate_surface_format(&metal_like(), &default),
+            negotiate_surface_format(&metal_like(), &default, false),
             sdr(TextureFormat::Bgra8UnormSrgb)
         );
         assert_eq!(
-            negotiate_surface_format(&sdr_only(), &default),
+            negotiate_surface_format(&sdr_only(), &default, false),
             sdr(TextureFormat::Bgra8UnormSrgb)
         );
         assert_eq!(
@@ -1130,7 +1222,8 @@ mod tests {
                     vec![TextureFormat::Bgra8Unorm, TextureFormat::Rgba16Float],
                     vec![]
                 ),
-                &default
+                &default,
+                false
             ),
             sdr(TextureFormat::Bgra8Unorm)
         );
@@ -1140,7 +1233,8 @@ mod tests {
                     vec![TextureFormat::Rgba8UnormSrgb, TextureFormat::Bgra8UnormSrgb],
                     vec![]
                 ),
-                &default
+                &default,
+                false
             ),
             sdr(TextureFormat::Rgba8UnormSrgb)
         );
@@ -1159,6 +1253,34 @@ mod tests {
         assert_eq!(negotiate_hdr(&scrgb_only()), SCRGB_LINEAR);
         assert_eq!(negotiate_hdr(&web_like()), EXTENDED_SRGB);
         assert_eq!(negotiate_hdr(&extended_p3_only()), EXTENDED_P3);
+    }
+
+    #[test]
+    fn a_display_that_reports_sdr_keeps_hdr_on_sdr() {
+        let hdr = DisplayTarget {
+            hdr: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            negotiate_surface_format(&metal_like(), &hdr, true),
+            sdr(TextureFormat::Bgra8UnormSrgb)
+        );
+
+        // An override is used as requested.
+        let forced = DisplayTarget {
+            color_space_override: Some(SurfaceColorSpace::Pq),
+            ..Default::default()
+        };
+        assert_eq!(
+            negotiate_surface_format(&metal_like(), &forced, true),
+            pq(TextureFormat::Rgb10a2Unorm)
+        );
+
+        // A surface with no format for `Auto` falls back to an HDR color space.
+        assert_eq!(
+            negotiate_surface_format(&pq_only(), &hdr, true),
+            pq(TextureFormat::Rgb10a2Unorm)
+        );
     }
 
     /// A driver in OS HDR mode that lists formats only in explicit color
