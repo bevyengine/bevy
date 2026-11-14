@@ -1309,11 +1309,9 @@ impl<'w> EntityWorldMut<'w> {
                                         // SAFETY: The remover is cleaning this up.
                                         .take_component(component_id, location.table_row)
                                 }
-                                StorageType::SparseSet => sets
-                                    .get_mut(component_id)
-                                    .unwrap()
-                                    .remove_and_forget(entity)
-                                    .unwrap(),
+                                StorageType::SparseSet => {
+                                    sets.get_mut(component_id).unwrap().take(entity).unwrap()
+                                }
                             }
                         }),
                     )
