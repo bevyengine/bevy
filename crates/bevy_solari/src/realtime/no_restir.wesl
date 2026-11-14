@@ -23,6 +23,9 @@ fn initial_and_shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(gl
     var pixel_color = path.radiance;
     pixel_color += surface.material.emissive;
     pixel_color *= view.exposure;
+    if surface.unlit {
+        pixel_color = surface.material.emissive;
+    }
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)
