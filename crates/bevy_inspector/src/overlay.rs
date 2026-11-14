@@ -6,13 +6,14 @@
 //! them to that viewport. A draggable toolbar shows and hides each panel, and the panels are
 //! floating dialogs, so they can also be dragged and closed.
 
-use bevy_app::{App, Plugin, PreUpdate, Update};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate, Update};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
+    entity::Entity,
     event::EntityEvent,
-    hierarchy::Children,
+    hierarchy::{ChildOf, Children},
     name::Name,
     observer::On,
     query::{Changed, With},
@@ -34,8 +35,8 @@ use bevy_log::warn;
 use bevy_picking::{cursor::EntityCursor, Pickable, PickingSystems};
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, AlignItems, BorderRadius, DefaultUiCamera, FlexDirection, Node, PositionType,
-    UiRect, Val,
+    percent, px, AlignItems, BorderRadius, DefaultUiCamera, FlexDirection, GlobalZIndex, Node,
+    PositionType, UiRect, UiSystems, Val,
 };
 use bevy_ui_widgets::{Activate, Dialog, DialogDragHandle, RequestClose};
 use bevy_window::SystemCursorIcon;
@@ -43,8 +44,10 @@ use bevy_window::SystemCursorIcon;
 use crate::{
     details_panel::{details_body, DetailsCollapsed},
     entity_tree::InspectorUi,
+    picking::{pick_blocker, InspectorPickBlocker},
+    shown,
     world_tabs::world_tabs,
-    InspectorPlugin,
+    InspectorMode, InspectorPlugin, InspectorSource, InspectorSources,
 };
 
 /// Adds the inspector to an app as an overlay, hidden until [`toggle_key`](Self::toggle_key) is
@@ -74,7 +77,13 @@ impl Plugin for InspectorOverlayPlugin {
                     .after(InputSystems)
                     .before(PickingSystems::Last),
             )
-            .add_systems(Update, sync_panel_toggles);
+            .add_systems(Update, (sync_panel_toggles, sync_mode_toggles))
+            .add_systems(
+                PostUpdate,
+                sync_pick_blocker
+                    .ambiguous_with_all()
+                    .before(UiSystems::Prepare),
+            );
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .by_default = true;
@@ -83,6 +92,33 @@ impl Plugin for InspectorOverlayPlugin {
 
 #[derive(Resource)]
 struct InspectorOverlayKey(KeyCode);
+
+const OVERLAY_Z: i32 = 40;
+const BLOCKER_Z: i32 = OVERLAY_Z - 1;
+
+fn sync_pick_blocker(
+    mode: Res<InspectorMode>,
+    sources: Res<InspectorSources>,
+    overlays: Query<Entity, With<InspectorOverlay>>,
+    blockers: Query<Entity, With<InspectorPickBlocker>>,
+    visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
+    parents: Query<&ChildOf>,
+    mut commands: Commands,
+) {
+    let wanted = *mode == InspectorMode::Edit
+        && sources.sources.contains(&InspectorSource::Local)
+        && overlays
+            .iter()
+            .any(|overlay| shown(overlay, &visibilities, &nodes, &parents));
+    let mut existing = blockers.iter();
+    if wanted && existing.next().is_none() {
+        commands.spawn(pick_blocker(BLOCKER_Z));
+    }
+    for blocker in if wanted { existing } else { blockers.iter() } {
+        commands.entity(blocker).try_despawn();
+    }
+}
 
 /// Marker for the root entity of the inspector overlay.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -101,6 +137,9 @@ pub enum InspectorOverlayPanel {
 /// A toolbar button that shows and hides a panel.
 #[derive(Component, Clone, Copy, Debug, Default)]
 struct PanelToggle(InspectorOverlayPanel);
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+struct ModeToggle(InspectorMode);
 
 fn toggle_inspector_overlay(
     key: Res<InspectorOverlayKey>,
@@ -155,6 +194,25 @@ fn on_panel_close(mut close: On<RequestClose>, mut visibilities: Query<&mut Visi
     }
 }
 
+fn on_mode_toggle(
+    activate: On<Activate>,
+    toggles: Query<&ModeToggle>,
+    mut mode: ResMut<InspectorMode>,
+) {
+    if let Ok(toggle) = toggles.get(activate.event_target()) {
+        mode.set_if_neq(toggle.0);
+    }
+}
+
+fn sync_mode_toggles(
+    mode: Res<InspectorMode>,
+    mut toggles: Query<(&ModeToggle, &mut ButtonVariant)>,
+) {
+    for (toggle, mut variant) in &mut toggles {
+        variant.set_if_neq(ButtonVariant::selected(toggle.0 == *mode));
+    }
+}
+
 fn sync_panel_toggles(
     panels: Query<(&InspectorOverlayPanel, &Visibility), Changed<Visibility>>,
     mut toggles: Query<(&PanelToggle, &mut ButtonVariant)>,
@@ -173,6 +231,7 @@ fn overlay_scene() -> impl Scene {
         InspectorOverlay
         InspectorUi
         Name::new("Inspector")
+        GlobalZIndex(OVERLAY_Z)
         Node {
             position_type: PositionType::Absolute,
             width: percent(100),
@@ -232,6 +291,18 @@ fn toolbar() -> impl Scene {
             }
             PanelToggle(InspectorOverlayPanel::Details)
             on(on_panel_toggle)
+            --
+            @FeathersToolButton {
+                @caption: bsn! { @caption("Edit") },
+            }
+            ModeToggle(InspectorMode::Edit)
+            on(on_mode_toggle)
+            --
+            @FeathersToolButton {
+                @caption: bsn! { @caption("Preview") },
+            }
+            ModeToggle(InspectorMode::Preview)
+            on(on_mode_toggle)
             --
             DialogDragHandle
             EntityCursor::System(SystemCursorIcon::Grab)
@@ -314,8 +385,14 @@ mod tests {
         app.insert_resource(InspectorOverlayKey(KeyCode::F12));
         app.add_systems(
             Update,
-            (toggle_inspector_overlay, sync_panel_toggles).chain(),
+            (
+                toggle_inspector_overlay,
+                sync_panel_toggles,
+                sync_mode_toggles,
+            )
+                .chain(),
         );
+        app.add_systems(PostUpdate, sync_pick_blocker);
         app
     }
 
@@ -757,5 +834,157 @@ mod tests {
 
         world.entity_mut(panel).insert(Visibility::Hidden);
         assert!(!world.run_system_once(entity_tree_visible).unwrap());
+    }
+
+    fn mode_button(app: &mut App, mode: InspectorMode) -> Entity {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &ModeToggle)>()
+            .iter(world)
+            .find(|(_, toggle)| toggle.0 == mode)
+            .unwrap()
+            .0
+    }
+
+    #[test]
+    fn the_toolbar_switches_and_shows_the_mode() {
+        let mut app = test_app();
+        press(&mut app);
+        let edit = mode_button(&mut app, InspectorMode::Edit);
+        let preview = mode_button(&mut app, InspectorMode::Preview);
+        assert_eq!(
+            app.world().get::<ButtonVariant>(edit),
+            Some(&ButtonVariant::Primary)
+        );
+        assert_eq!(
+            app.world().get::<ButtonVariant>(preview),
+            Some(&ButtonVariant::Normal)
+        );
+
+        click(&mut app, preview);
+        assert_eq!(
+            *app.world().resource::<InspectorMode>(),
+            InspectorMode::Preview
+        );
+        assert_eq!(
+            app.world().get::<ButtonVariant>(preview),
+            Some(&ButtonVariant::Primary)
+        );
+
+        *app.world_mut().resource_mut::<InspectorMode>() = InspectorMode::Edit;
+        app.update();
+        assert_eq!(
+            app.world().get::<ButtonVariant>(edit),
+            Some(&ButtonVariant::Primary)
+        );
+        assert_eq!(
+            app.world().get::<ButtonVariant>(preview),
+            Some(&ButtonVariant::Normal)
+        );
+    }
+
+    fn blockers(app: &mut App) -> Vec<(Entity, bool, i32)> {
+        let world = app.world_mut();
+        world
+            .query_filtered::<(Entity, Has<ChildOf>, &GlobalZIndex), With<InspectorPickBlocker>>()
+            .iter(world)
+            .map(|(blocker, parented, z)| (blocker, parented, z.0))
+            .collect()
+    }
+
+    fn set_mode(app: &mut App, mode: InspectorMode) {
+        *app.world_mut().resource_mut::<InspectorMode>() = mode;
+        app.update();
+    }
+
+    #[test]
+    fn the_pick_blocker_is_a_root_below_the_overlay_while_editing() {
+        let mut app = test_app();
+        app.update();
+        assert!(blockers(&mut app).is_empty());
+        press(&mut app);
+        app.update();
+        let overlay = overlays(&mut app)[0];
+        let [(blocker, parented, z)] = blockers(&mut app)[..] else {
+            panic!("expected one blocker");
+        };
+        assert!(!parented);
+        let overlay_z = app.world().get::<GlobalZIndex>(overlay).unwrap().0;
+        assert!(z < overlay_z && overlay_z < 50);
+
+        select_page(&mut app, InspectorPage::Resources);
+        app.update();
+        assert_eq!(blockers(&mut app).len(), 1);
+
+        set_mode(&mut app, InspectorMode::Preview);
+        assert!(blockers(&mut app).is_empty());
+        set_mode(&mut app, InspectorMode::Edit);
+        assert_eq!(blockers(&mut app).len(), 1);
+
+        press(&mut app);
+        app.update();
+        assert!(blockers(&mut app).is_empty());
+        assert!(app.world().get_entity(blocker).is_err());
+    }
+
+    #[test]
+    fn picking_from_the_resources_tab_selects_and_shows_the_entity_tree() {
+        use bevy_picking::{
+            backend::{HitData, PointerHits},
+            pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput},
+        };
+
+        let mut app = test_app();
+        press(&mut app);
+        select_page(&mut app, InspectorPage::Resources);
+        assert!(!app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        let root = app.world_mut().spawn(Name::new("Root")).id();
+        let subject = app
+            .world_mut()
+            .spawn((Name::new("Subject"), ChildOf(root)))
+            .id();
+        let camera = app.world_mut().spawn_empty().id();
+        for action in [
+            PointerAction::Press(PointerButton::Primary),
+            PointerAction::Release(PointerButton::Primary),
+        ] {
+            app.world_mut().write_message(PointerHits::new(
+                PointerId::Mouse,
+                alloc::vec![(subject, HitData::new(camera, 1.0, None, None))],
+                0.0,
+            ));
+            app.world_mut().write_message(PointerInput::new(
+                PointerId::Mouse,
+                Location {
+                    target: bevy_camera::NormalizedRenderTarget::None {
+                        width: 1,
+                        height: 1,
+                    },
+                    position: bevy_math::Vec2::ZERO,
+                },
+                action,
+            ));
+            app.update();
+        }
+        assert_eq!(
+            app.world().resource::<InspectorSelection>().0,
+            Some(InspectableEntity::new(subject, InspectorSource::Local))
+        );
+        app.update();
+        assert!(app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        app.update();
+        let tree = single::<With<InspectorTreeView>>(&mut app);
+        let row = app
+            .world()
+            .resource::<crate::entity_tree::TreeRowIndex>()
+            .row(subject, InspectorSource::Local);
+        assert!(row.is_some());
+        assert_eq!(app.world().get::<SelectedTreeItem>(tree).unwrap().0, row);
     }
 }

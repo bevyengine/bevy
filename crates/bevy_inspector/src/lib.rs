@@ -12,6 +12,12 @@
 //! [`InspectorPlugin`]. The `inspector` cargo feature of `bevy` instead adds the
 //! [`InspectorOverlayPlugin`](overlay::InspectorOverlayPlugin) to `DefaultPlugins`, so that any
 //! app can open the inspector with a key.
+//!
+//! While the inspector is shown in [`InspectorMode::Edit`], clicking an entity in the app selects
+//! it, and with the overlay the app does not receive those clicks. Hits come from the app's own
+//! picking backends. Meshes can be clicked without `MeshPickingPlugin`, and when it is added its
+//! settings and filters apply instead. In Edit mode the selected entity is also outlined with a
+//! gizmo box. [`InspectorMode::Preview`] leaves clicks to the app and draws no outline.
 
 extern crate alloc;
 
@@ -20,7 +26,9 @@ pub mod column_split;
 pub mod connection_panel;
 pub mod details_panel;
 pub mod entity_tree;
+mod outline;
 pub mod overlay;
+mod picking;
 #[cfg(feature = "remote")]
 pub mod remote;
 pub mod resource_list;
@@ -29,7 +37,7 @@ pub mod world_tabs;
 use alloc::string::{String, ToString};
 use core::{fmt::Display, marker::PhantomData};
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
@@ -46,6 +54,7 @@ use bevy_ecs::{
     system::{In, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
+use bevy_picking::{backend::PointerHits, pointer::PointerInput, PickingSystems};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_time::{Time, Timer, TimerMode};
@@ -58,9 +67,11 @@ use crate::details_panel::{
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync, InspectorDetailsBody,
 };
 use crate::entity_tree::{
-    sync_entity_tree, EntityTreeSync, InspectorEntityRow, InspectorHeaderRow, InspectorTreeView,
-    TreeRowIndex,
+    reveal_in_tree, sync_entity_tree, EntityTreeSync, InspectorEntityRow, InspectorHeaderRow,
+    InspectorTreeView, TreeReveal, TreeRowIndex,
 };
+use crate::overlay::InspectorOverlay;
+use crate::picking::select_clicked_entity;
 use crate::resource_list::{
     sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
 };
@@ -190,6 +201,20 @@ impl InspectableEntity {
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub struct InspectorSelection(pub Option<InspectableEntity>);
 
+/// Whether clicks in the app pick entities for the inspector or reach the app.
+///
+/// Only the overlay keeps clicks from the app, for its window and the UI below it.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Resource, Debug, Default, Clone, PartialEq)]
+pub enum InspectorMode {
+    /// Clicks in the app select the entity under the cursor and do not reach the app. The
+    /// selected entity is outlined.
+    #[default]
+    Edit,
+    /// Clicks reach the app, nothing is picked and the selection is not outlined.
+    Preview,
+}
+
 /// The [`ShortName`] of a component type, taken from the type registry where possible.
 ///
 /// [`ComponentInfo::name`] is only populated when the `debug` feature of `bevy_utils` is enabled,
@@ -285,16 +310,47 @@ fn panel_visible<M: Component>(
     nodes: Query<&Node>,
     parents: Query<&ChildOf>,
 ) -> bool {
-    panels.iter().any(|panel| {
-        core::iter::once(panel)
-            .chain(parents.iter_ancestors(panel))
-            .all(|entity| {
-                visibilities.get(entity) != Ok(&Visibility::Hidden)
-                    && !nodes
-                        .get(entity)
-                        .is_ok_and(|node| node.display == NodeDisplay::None)
-            })
-    })
+    panels
+        .iter()
+        .any(|panel| shown(panel, &visibilities, &nodes, &parents))
+}
+
+pub(crate) fn shown(
+    entity: Entity,
+    visibilities: &Query<&Visibility>,
+    nodes: &Query<&Node>,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    core::iter::once(entity)
+        .chain(parents.iter_ancestors(entity))
+        .all(|entity| {
+            visibilities.get(entity) != Ok(&Visibility::Hidden)
+                && !nodes
+                    .get(entity)
+                    .is_ok_and(|node| node.display == NodeDisplay::None)
+        })
+}
+
+pub(crate) fn inspector_shown(
+    overlays: Query<Entity, With<InspectorOverlay>>,
+    panels: Query<
+        Entity,
+        Or<(
+            With<InspectorTreeView>,
+            With<InspectorResourceList>,
+            With<InspectorDetailsBody>,
+        )>,
+    >,
+    visibilities: Query<&Visibility>,
+    nodes: Query<&Node>,
+    parents: Query<&ChildOf>,
+) -> bool {
+    let is_shown = |root: Entity| shown(root, &visibilities, &nodes, &parents);
+    if overlays.is_empty() {
+        panels.iter().any(is_shown)
+    } else {
+        overlays.iter().any(is_shown)
+    }
 }
 
 /// Returns `true` if an entity tree panel is showing.
@@ -382,6 +438,10 @@ impl Plugin for InspectorPlugin {
         false
     }
 
+    fn finish(&self, app: &mut App) {
+        outline::add_outline(app);
+    }
+
     fn build(&self, app: &mut App) {
         if app.is_plugin_added::<Self>() {
             return;
@@ -395,20 +455,33 @@ impl Plugin for InspectorPlugin {
 
         app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
+            .init_resource::<InspectorMode>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
+            .init_resource::<TreeReveal>()
             .init_resource::<ResourceListSync>()
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsColumnSplits>()
             .init_resource::<DetailsPanelSync>()
+            .add_message::<PointerHits>()
+            .add_message::<PointerInput>()
             .add_observer(apply_field_edit)
+            .add_systems(
+                PreUpdate,
+                inspector_shown
+                    .pipe(select_clicked_entity)
+                    .ambiguous_with_all()
+                    .in_set(PickingSystems::Last),
+            )
             .add_systems(
                 PostUpdate,
                 (
                     (
                         entity_tree_visible.pipe(sync_when_shown::<InspectorTreeView>),
-                        sync_entity_tree.run_if(entity_tree_visible),
+                        (sync_entity_tree, reveal_in_tree)
+                            .chain()
+                            .run_if(entity_tree_visible),
                     )
                         .chain(),
                     (

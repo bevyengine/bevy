@@ -2,7 +2,7 @@
 //! own world. Editing the showcase tint and shape updates the object in the scene. Some showcase
 //! fields use `bevy_annotations` to set their label, range, step, unit, or make them read-only.
 //! The Resources tab lists the app's resources, such as `ClearColor`, which can be edited the same
-//! way.
+//! way. Clicking an object in the scene selects it.
 //!
 //! Run with the `bevy_inspector` feature enabled, and `debug` for readable names of unregistered types:
 //! ```bash
