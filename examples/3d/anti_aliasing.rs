@@ -242,7 +242,7 @@ fn modify_sharpening(
 ) {
     for mut cas in &mut query {
         if keys.just_pressed(KeyCode::Digit0) {
-            cas.enabled = !cas.enabled;
+            cas.enabled.toggle();
         }
         if cas.enabled {
             if keys.just_pressed(KeyCode::Minus) {
@@ -254,7 +254,7 @@ fn modify_sharpening(
                 cas.sharpening_strength = cas.sharpening_strength.clamp(0.0, 1.0);
             }
             if keys.just_pressed(KeyCode::KeyD) {
-                cas.denoise = !cas.denoise;
+                cas.denoise.toggle();
             }
         }
     }

@@ -272,7 +272,7 @@ fn example_control_system(
     }
 
     if input.just_pressed(KeyCode::Space) {
-        state.unlit = !state.unlit;
+        state.unlit.toggle();
     }
 
     let randomize_colors = input.just_pressed(KeyCode::KeyC);

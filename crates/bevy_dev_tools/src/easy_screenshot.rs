@@ -273,7 +273,7 @@ impl Plugin for EasyScreenRecordPlugin {
                 (
                     (move |mut messages: MessageWriter<RecordScreen>,
                            mut recording: Local<bool>| {
-                        *recording = !*recording;
+                        recording.toggle();
                         if *recording {
                             messages.write(RecordScreen::Start);
                         } else {

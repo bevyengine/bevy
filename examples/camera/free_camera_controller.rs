@@ -168,7 +168,7 @@ fn update_camera_settings(
         free_camera.scroll_factor += 0.02;
     }
     if input.just_pressed(KeyCode::KeyB) {
-        free_camera_state.enabled = !free_camera_state.enabled;
+        free_camera_state.enabled.toggle();
     }
     if input.just_pressed(KeyCode::KeyT) {
         free_camera.vertical_movement_axis = match free_camera.vertical_movement_axis {

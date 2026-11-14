@@ -401,7 +401,7 @@ fn first_cull(
             0,
             Some(4),
         );
-        ping = !ping;
+        ping.toggle();
     }
     ctx.command_encoder().pop_debug_group();
 
@@ -469,7 +469,7 @@ fn second_cull(
             },
             0,
         );
-        ping = !ping;
+        ping.toggle();
     }
     ctx.command_encoder().pop_debug_group();
 
