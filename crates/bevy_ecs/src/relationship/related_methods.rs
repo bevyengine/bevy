@@ -466,9 +466,8 @@ impl<'w> EntityWorldMut<'w> {
                                 .modify_or_remove_relation_target::<R::RelationshipTarget>(this);
                         });
                         return true;
-                    } else {
-                        return false;
                     }
+                    return false;
                 }
                 Some((None, true)) => {
                     return true;
@@ -507,14 +506,8 @@ impl<'w> EntityWorldMut<'w> {
                     .expect("entity access must be valid")
             });
 
-            match modified {
-                Some(true) => {
-                    return;
-                }
-                Some(false) => {
-                    return;
-                }
-                None => {}
+            if modified.is_some() {
+                return;
             }
         }
 
@@ -546,11 +539,9 @@ impl<'w> EntityWorldMut<'w> {
                 if self.get::<R>().unwrap().collection().is_empty() {
                     self.remove_with_relationship_hook_mode::<R>(RelationshipHookMode::Skip);
                 }
-                return true;
+                true
             }
-            Some(false) | None => {
-                return false;
-            }
+            Some(false) | None => false,
         }
     }
 
@@ -576,11 +567,9 @@ impl<'w> EntityWorldMut<'w> {
                 if self.get::<R>().unwrap().collection().is_empty() {
                     self.remove_with_relationship_hook_mode::<R>(RelationshipHookMode::Skip);
                 }
-                return true;
+                true
             }
-            Some(false) | None => {
-                return false;
-            }
+            Some(false) | None => false,
         }
     }
 }
