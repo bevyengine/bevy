@@ -260,9 +260,13 @@ pub fn inspector_tree_selected(
     change: On<ValueChange<Option<Entity>>>,
     trees: Query<(), With<InspectorTreeView>>,
     rows: Query<&InspectorEntityRow>,
+    headers: Query<(), With<InspectorHeaderRow>>,
     mut selection: ResMut<InspectorSelection>,
 ) {
     if !trees.contains(change.source) {
+        return;
+    }
+    if change.value.is_some_and(|row| headers.contains(row)) {
         return;
     }
 
@@ -389,9 +393,7 @@ pub fn sync_entity_tree(world: &mut World) {
             break;
         }
     }
-    if query_changed {
-        restore_selection(world);
-    }
+    restore_selection(world);
 }
 
 struct HeaderSpawn {
@@ -1115,6 +1117,11 @@ fn rebuild_index(world: &mut World) {
     index.row_to_inspectable = row_to_inspectable;
 }
 
+/// Points the tree views' [`SelectedTreeItem`] at the row of the [`InspectorSelection`].
+///
+/// Rows are despawned whenever their entity is filtered out or misses the filter, so the tree's
+/// [`SelectedTreeItem`] is cleared then and set again once the row is back.
+/// [`InspectorSelection`] itself is left alone.
 fn restore_selection(world: &mut World) {
     let row = world
         .get_resource::<InspectorSelection>()
@@ -2042,6 +2049,24 @@ mod tests {
             app.world().get::<Node>(note).unwrap().display,
             Display::None
         );
+    }
+
+    #[test]
+    fn the_selection_is_found_when_it_starts_matching() {
+        let mut app = test_app();
+        let (_, tree) = spawn_tree(&mut app);
+        let entity = app.world_mut().spawn(Name::new("Alpha")).id();
+        sync(&mut app);
+        select(&mut app, tree, entity);
+
+        set_filter(&mut app, "bravo");
+        assert_eq!(selected_row(&app, tree), None);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(Name::new("Bravo"));
+        sync(&mut app);
+        assert_eq!(selected_row(&app, tree), Some(row_of(&app, entity)));
     }
 
     #[test]
