@@ -349,12 +349,13 @@ fn preview_drop(
 }
 
 fn drop_rect(zone: DockDropZone) -> Node {
+    let band = DockDropZone::EDGE_BAND * 100.0;
     let (left, top, width, height) = match zone {
-        DockDropZone::Edge(DockEdge::Left) => (0, 0, 50, 100),
-        DockDropZone::Edge(DockEdge::Right) => (50, 0, 50, 100),
-        DockDropZone::Edge(DockEdge::Top) => (0, 0, 100, 50),
-        DockDropZone::Edge(DockEdge::Bottom) => (0, 50, 100, 50),
-        DockDropZone::Center => (0, 0, 100, 100),
+        DockDropZone::Edge(DockEdge::Left) => (0.0, 0.0, band, 100.0),
+        DockDropZone::Edge(DockEdge::Right) => (100.0 - band, 0.0, band, 100.0),
+        DockDropZone::Edge(DockEdge::Top) => (0.0, 0.0, 100.0, band),
+        DockDropZone::Edge(DockEdge::Bottom) => (0.0, 100.0 - band, 100.0, band),
+        DockDropZone::Center => (0.0, 0.0, 100.0, 100.0),
     };
     Node {
         position_type: PositionType::Absolute,
