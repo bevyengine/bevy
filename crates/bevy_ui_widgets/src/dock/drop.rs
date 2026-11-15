@@ -67,9 +67,9 @@ impl DockDropZone {
 
 /// An overlay on a dock tree leaf's content area that accepts a dragged tab.
 ///
-/// One is spawned over each leaf of the dock when a drag of one of its tabs starts, and they
-/// are despawned when the drag completes or is cancelled, even if the tab is gone by then. A tab
-/// dropped on one, and not on a tab list, is moved by sending a [`DockChange`] for its
+/// One is spawned over each leaf of the dock for each pointer dragging one of its tabs, and
+/// they are despawned when the drag completes or is cancelled, even if the tab is gone by then.
+/// A tab dropped on one, and not on a tab list, is moved by sending a [`DockChange`] for its
 /// [`DockDropZone`], unless the drop would leave the tree as it is or the leaf's [`TabList`] is
 /// [`InteractionDisabled`].
 #[derive(Component, Clone, Copy, Debug, PartialEq, Reflect)]
@@ -160,6 +160,14 @@ fn drop_on_tab_drag(
         };
         for (&leaf, node) in &ui.nodes {
             if let NodeUi::Leaf { area, tab_list, .. } = node {
+                // One overlay per leaf and pointer, even if the drag start is reported twice.
+                if areas.iter().any(|(_, existing)| {
+                    existing.dock == binding.dock
+                        && existing.pointer_id == drag.pointer_id
+                        && existing.leaf == leaf
+                }) {
+                    continue;
+                }
                 commands.spawn((
                     DockDropArea {
                         dock: binding.dock,
@@ -501,6 +509,50 @@ mod tests {
         let mut expected = f.tree.clone();
         expected.move_tab(f.a, f.side, None).unwrap();
         assert_eq!(tree(&f), &expected);
+    }
+
+    #[test]
+    fn drop_areas_belong_to_one_pointer() {
+        let mut f = fixture();
+        lifecycle(&mut f, TabDragPhase::Started);
+        assert_eq!(areas(f.app.world_mut()).len(), 2);
+
+        // Starting the same drag again must not stack a second set on top of the first.
+        lifecycle(&mut f, TabDragPhase::Started);
+        assert_eq!(areas(f.app.world_mut()).len(), 2);
+
+        // A second pointer dragging another tab of the same dock gets its own set.
+        let world = f.app.world_mut();
+        let tab = header(world, f.c);
+        let source = world.get::<ChildOf>(tab).unwrap().parent();
+        world.trigger(TabDragLifecycle {
+            source,
+            tab,
+            pointer_id: PointerId::Touch(0),
+            phase: TabDragPhase::Started,
+        });
+        f.app.update();
+        let spawned = areas(f.app.world_mut());
+        assert_eq!(spawned.len(), 4);
+        for pointer_id in [POINTER, PointerId::Touch(0)] {
+            let count = spawned
+                .iter()
+                .filter(|(_, area)| area.pointer_id == pointer_id)
+                .count();
+            assert_eq!(count, 2, "{pointer_id:?}");
+        }
+
+        // Ending one drag only removes the areas of its own pointer.
+        f.app.world_mut().trigger(TabDragLifecycle {
+            source,
+            tab,
+            pointer_id: PointerId::Touch(0),
+            phase: TabDragPhase::Cancelled,
+        });
+        f.app.update();
+        let spawned = areas(f.app.world_mut());
+        assert_eq!(spawned.len(), 2);
+        assert!(spawned.iter().all(|(_, area)| area.pointer_id == POINTER));
     }
 
     #[test]
