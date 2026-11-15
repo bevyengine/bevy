@@ -19,8 +19,6 @@ use crate::{
     DockUi, NodeUi, TabDragLifecycle, TabDragMode, TabDragPhase, TabList,
 };
 
-const EDGE_BAND: f32 = 0.25;
-
 pub(crate) struct DockDropPlugin;
 
 impl Plugin for DockDropPlugin {
@@ -45,11 +43,15 @@ pub enum DockDropZone {
 }
 
 impl DockDropZone {
-    /// Returns the zone at a position in a dock tree leaf's content, from `(0, 0)` at the top left to
-    /// `(1, 1)` at the bottom right.
+    /// The fraction of a leaf along each edge that drops at that edge.
+    pub const EDGE_BAND: f32 = 0.25;
+
+    /// Returns the zone at a position in a dock tree leaf's content, from `(0, 0)` at the top
+    /// left to `(1, 1)` at the bottom right.
     ///
-    /// A band a quarter of the leaf's size along each edge drops at that edge, the nearest one
-    /// in corners, and the rest is the center.
+    /// A band [`DockDropZone::EDGE_BAND`] of the leaf's size along each edge drops at that edge,
+    /// the nearest one in corners, with left, right, top and bottom breaking ties in that order.
+    /// The rest is the center.
     pub fn at(position: Vec2) -> Self {
         let edges = [
             (position.x, DockEdge::Left),
@@ -59,7 +61,7 @@ impl DockDropZone {
         ];
         edges
             .into_iter()
-            .filter(|(distance, _)| *distance < EDGE_BAND)
+            .filter(|(distance, _)| *distance < Self::EDGE_BAND)
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .map_or(DockDropZone::Center, |(_, edge)| DockDropZone::Edge(edge))
     }
