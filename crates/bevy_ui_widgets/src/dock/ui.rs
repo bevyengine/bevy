@@ -371,7 +371,7 @@ struct TabUi {
 }
 
 #[derive(SystemParam)]
-struct DockBuilder<'w, 's> {
+pub(crate) struct DockBuilder<'w, 's> {
     commands: Commands<'w, 's>,
     children: Query<'w, 's, &'static Children>,
     parents: Query<'w, 's, &'static ChildOf>,
@@ -381,7 +381,7 @@ struct DockBuilder<'w, 's> {
     drop_areas: Query<'w, 's, (), With<DockDropArea>>,
 }
 
-fn build_dock_ui(
+pub(crate) fn build_dock_ui(
     mut docks: Query<(Entity, &DockTree, Option<&mut DockUi>), Changed<DockTree>>,
     mut builder: DockBuilder,
 ) {

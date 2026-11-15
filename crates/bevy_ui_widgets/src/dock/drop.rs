@@ -15,8 +15,8 @@ use bevy_reflect::Reflect;
 use bevy_ui::{percent, InteractionDisabled, Node, PositionType};
 
 use crate::{
-    DockChange, DockEdge, DockEdit, DockNodeId, DockSystems, DockTabBinding, DockTabId, DockTree,
-    DockUi, NodeUi, TabDragLifecycle, TabDragMode, TabDragPhase, TabList,
+    build_dock_ui, DockChange, DockEdge, DockEdit, DockNodeId, DockSystems, DockTabBinding,
+    DockTabId, DockTree, DockUi, NodeUi, TabDragLifecycle, TabDragMode, TabDragPhase, TabList,
 };
 
 pub(crate) struct DockDropPlugin;
@@ -27,7 +27,9 @@ impl Plugin for DockDropPlugin {
             .add_observer(drop_on_tab_drag)
             .add_systems(
                 PostUpdate,
-                update_drop_targets.in_set(DockSystems::Structure),
+                update_drop_targets
+                    .in_set(DockSystems::Structure)
+                    .after(build_dock_ui),
             );
     }
 }
