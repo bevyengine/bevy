@@ -592,7 +592,7 @@ impl DockBuilder<'_, '_> {
             if self.panes.get(child) != Ok(&pane) {
                 self.commands.entity(child).insert(pane);
             }
-            self.set_size(child, width, height);
+            self.set_size(child, width.clone(), height.clone());
         }
         self.set_children(*entity, &ordered);
     }
@@ -1577,7 +1577,12 @@ mod tests {
             let mut nodes: Vec<_> = query
                 .iter(world)
                 .map(|(entity, node)| {
-                    (entity, node.flex_grow, node.flex_basis, node.flex_direction)
+                    (
+                        entity,
+                        node.flex_grow,
+                        node.flex_basis.clone(),
+                        node.flex_direction,
+                    )
                 })
                 .collect();
             nodes.sort_by_key(|(entity, ..)| *entity);
