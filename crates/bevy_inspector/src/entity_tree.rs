@@ -25,8 +25,8 @@ use bevy_feathers::{
     constants::{fonts, size},
     containers::{subpane, subpane_body, subpane_header},
     controls::{
-        FeathersScrollbar, FeathersTreeItem, FeathersTreeItemChildren, FeathersTreeItemHeader,
-        FeathersTreeItemToggle, FeathersTreeView, ScrollbarGutter,
+        FeathersTreeItem, FeathersTreeItemChildren, FeathersTreeItemHeader, FeathersTreeItemToggle,
+        FeathersTreeView,
     },
     display::caption,
     font_styles::InheritableFont,
@@ -41,12 +41,11 @@ use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
 use bevy_text::{FontSource, FontWeight};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
-    percent, px, widget::Text, BorderRadius, Display, Expanded, FlexDirection, Node, Overflow,
-    PositionType, Selected, Val,
+    percent, px, widget::Text, BorderRadius, Display, Expanded, Node, PositionType, Selected, Val,
 };
 use bevy_ui_widgets::{
-    tree_view_expand_self_update, tree_view_self_update, ControlOrientation, ScrollArea,
-    SelectedTreeItem, TreeItem, TreeItemExpandChange, ValueChange,
+    tree_view_expand_self_update, tree_view_self_update, SelectedTreeItem, TreeItem,
+    TreeItemChildren, TreeItemExpandChange, ValueChange,
 };
 
 use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
@@ -190,43 +189,16 @@ pub fn entity_tree_body() -> impl Scene {
             min_height: px(0),
         }
         Children [
+            InspectorTreeView
+            @FeathersTreeView
             Node {
-                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
                 min_height: px(0),
             }
-            ScrollbarGutter(px(10))
-            Children [
-                #inner
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    overflow: Overflow::scroll_y(),
-                }
-                ScrollArea
-                Children [
-                    InspectorTreeView
-                    @FeathersTreeView
-                    Node {
-                        padding: px(0),
-                        row_gap: px(2),
-                    }
-                    on(tree_view_self_update)
-                    on(tree_view_expand_self_update)
-                    on(inspector_tree_selected)
-                    on(inspector_tree_expanded)
-                ]
-                --
-                @FeathersScrollbar {
-                    @target: #inner,
-                    @orientation: {ControlOrientation::Vertical}
-                }
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: px(0),
-                    top: px(0),
-                    bottom: px(0),
-                    width: px(4),
-                }
-            ]
+            on(tree_view_self_update)
+            on(tree_view_expand_self_update)
+            on(inspector_tree_selected)
+            on(inspector_tree_expanded)
         ]
     }
 }
@@ -380,7 +352,12 @@ fn plan_sync(world: &World) -> SyncPlan {
     let inspector_sources = &world.resource::<InspectorSources>().sources;
 
     let ordered_sources = determine_sources_order(inspector_sources);
-    diff_header_container(world, tree_view, &ordered_sources, &mut plan);
+    diff_header_container(
+        world,
+        rows_container(world, tree_view),
+        &ordered_sources,
+        &mut plan,
+    );
 
     let inspectable_worlds: Vec<(&InspectorSource, &World)> = ordered_sources
         .iter()
@@ -476,6 +453,12 @@ impl<'w> Sources<'w> {
         }
         None
     }
+}
+
+/// The [`TreeItemChildren`] container inside `tree_view` that holds its root rows, or `tree_view`
+/// itself when it has none.
+fn rows_container(world: &World, tree_view: Entity) -> Entity {
+    child_with::<TreeItemChildren>(world, tree_view).unwrap_or(tree_view)
 }
 
 /// Diffs top container's header rows in `world` against the `expected` inspected entities, recording the
@@ -625,6 +608,9 @@ fn apply_sync(world: &mut World, plan: SyncPlan) {
     for spawn in plan.header_spawn {
         if world.get_entity(spawn.container).is_err() {
             continue;
+        }
+        if let Some(mut node) = world.get_mut::<Node>(spawn.container) {
+            node.row_gap = px(2);
         }
         match world.spawn_scene(header_row(spawn.label)) {
             Ok(mut row) => {
@@ -1045,9 +1031,9 @@ mod tests {
         app
     }
 
-    fn header_rows(world: &World, container: Entity) -> Vec<(Entity, InspectorSource)> {
+    fn header_rows(world: &World, tree: Entity) -> Vec<(Entity, InspectorSource)> {
         world
-            .get::<Children>(container)
+            .get::<Children>(rows_container(world, tree))
             .map(|children| {
                 children
                     .iter()
@@ -1275,6 +1261,7 @@ mod tests {
                 ChildOf(panel),
             ))
             .id();
+        app.world_mut().spawn((TreeItemChildren, ChildOf(tree)));
         (app, tree)
     }
 

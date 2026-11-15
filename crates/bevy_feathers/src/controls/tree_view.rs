@@ -93,6 +93,7 @@ impl FeathersTreeView {
                     overflow: Overflow::scroll_y(),
                 }
                 ScrollArea
+                TreeItemChildren
                 Children [
                     {props.rows}
                 ]
