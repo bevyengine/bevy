@@ -9,6 +9,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WebAssetPlugin {
             silence_startup_warning: true,
+            ..default()
         }))
         .add_systems(Startup, setup)
         .run();

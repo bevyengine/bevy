@@ -5,6 +5,8 @@ use alloc::{
     borrow::{Cow, ToOwned},
     boxed::Box,
     format,
+    string::String,
+    vec::Vec,
 };
 use atomicow::CowArc;
 use js_sys::{Uint8Array, JSON};
@@ -12,7 +14,7 @@ use std::path::{Path, PathBuf};
 use tracing::error;
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::Response;
+use web_sys::{Headers, RequestInit, Response};
 
 /// Represents the global object in the JavaScript context
 #[wasm_bindgen]
@@ -33,6 +35,7 @@ extern "C" {
 pub struct HttpWasmAssetReader {
     root_path: PathBuf,
     request_mapper: Option<Box<dyn Fn(&str) -> Cow<str> + Send + Sync + 'static>>,
+    request_headers: Option<Box<dyn Fn(&str) -> Vec<(String, String)> + Send + Sync + 'static>>,
 }
 
 impl HttpWasmAssetReader {
@@ -41,6 +44,7 @@ impl HttpWasmAssetReader {
         Self {
             root_path: path.as_ref().to_owned(),
             request_mapper: None,
+            request_headers: None,
         }
     }
 
@@ -51,6 +55,19 @@ impl HttpWasmAssetReader {
         F: Fn(&str) -> Cow<str> + Send + Sync + 'static,
     {
         self.request_mapper = Some(Box::new(mapper));
+        self
+    }
+
+    /// Sets a function that returns the headers to send with each asset fetch, as name and value
+    /// pairs. It is called with the URL that is about to be fetched, after the request mapper
+    /// has been applied. This can be used to authenticate with the server.
+    ///
+    /// A header name or value that is not valid fails the load.
+    pub fn with_request_headers<F>(mut self, request_headers: F) -> Self
+    where
+        F: Fn(&str) -> Vec<(String, String)> + Send + Sync + 'static,
+    {
+        self.request_headers = Some(Box::new(request_headers));
         self
     }
 }
@@ -80,14 +97,25 @@ impl HttpWasmAssetReader {
             .as_ref()
             .map_or_else(|| Cow::Borrowed(path), |mapper| mapper(path));
 
+        let init = RequestInit::new();
+        if let Some(request_headers) = &self.request_headers {
+            let headers = Headers::new().map_err(js_value_to_err("create request headers"))?;
+            for (name, value) in request_headers(&fetch_path) {
+                headers
+                    .append(&name, &value)
+                    .map_err(js_value_to_err("set request header"))?;
+            }
+            init.set_headers(&headers);
+        }
+
         // The JS global scope includes a self-reference via a specializing name, which can be used to determine the type of global context available.
         let global: Global = js_sys::global().unchecked_into();
         let promise = if !global.window().is_undefined() {
             let window: web_sys::Window = global.unchecked_into();
-            window.fetch_with_str(&fetch_path)
+            window.fetch_with_str_and_init(&fetch_path, &init)
         } else if !global.worker().is_undefined() {
             let worker: web_sys::WorkerGlobalScope = global.unchecked_into();
-            worker.fetch_with_str(&fetch_path)
+            worker.fetch_with_str_and_init(&fetch_path, &init)
         } else {
             let error = std::io::Error::other("Unsupported JavaScript global context");
             return Err(AssetReaderError::Io(error.into()));
