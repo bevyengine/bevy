@@ -86,8 +86,8 @@ use tracing::warn;
 pub struct WebAssetPlugin {
     /// Set this if you have seen the warning about URL safety enough times.
     pub silence_startup_warning: bool,
-    /// Returns the headers to send with a request, see [`WebAssetRequestHeaders`].
-    pub request_headers: Option<WebAssetRequestHeaders>,
+    /// Returns the headers to send with a request, see [`WebAssetRequestHeadersFn`].
+    pub request_headers: Option<WebAssetRequestHeadersFn>,
 }
 
 /// A callback that returns the headers to send with the request for a URL, as name and value
@@ -106,7 +106,7 @@ pub struct WebAssetPlugin {
 /// Requests that are given headers are neither read from nor saved to the `web_asset_cache`. The
 /// cache only knows the URL, so it would keep returning a response that depended on a header long
 /// after that header stopped being accepted.
-pub type WebAssetRequestHeaders = Arc<dyn Fn(&str) -> Vec<(String, String)> + Send + Sync>;
+pub type WebAssetRequestHeadersFn = Arc<dyn Fn(&str) -> Vec<(String, String)> + Send + Sync>;
 
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
@@ -151,7 +151,7 @@ impl WebAssetPlugin {
 /// Asset reader that treats paths as URLs to load assets from.
 pub struct WebAssetReader {
     scheme: Scheme,
-    request_headers: Option<WebAssetRequestHeaders>,
+    request_headers: Option<WebAssetRequestHeadersFn>,
 }
 
 #[derive(Clone, Copy)]
@@ -178,7 +178,7 @@ impl WebAssetReader {
     }
 
     /// Sets a function that returns the headers to send with the request for a URL, see
-    /// [`WebAssetRequestHeaders`].
+    /// [`WebAssetRequestHeadersFn`].
     pub fn with_request_headers<F>(mut self, request_headers: F) -> Self
     where
         F: Fn(&str) -> Vec<(String, String)> + Send + Sync + 'static,
@@ -205,7 +205,7 @@ impl WebAssetReader {
 #[cfg(target_arch = "wasm32")]
 async fn get(
     path: PathBuf,
-    request_headers: Option<WebAssetRequestHeaders>,
+    request_headers: Option<WebAssetRequestHeadersFn>,
 ) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::wasm::HttpWasmAssetReader;
 
@@ -222,7 +222,7 @@ async fn get(
 #[cfg(not(target_arch = "wasm32"))]
 async fn get(
     path: PathBuf,
-    request_headers: Option<WebAssetRequestHeaders>,
+    request_headers: Option<WebAssetRequestHeadersFn>,
 ) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
     use alloc::borrow::ToOwned;
