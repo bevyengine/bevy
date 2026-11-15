@@ -19,7 +19,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     name::Name,
     observer::{Observer, On},
-    query::{Or, With},
+    query::{Has, Or, With},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::{IsResource, Resource},
     system::{Commands, Query, Res, ResMut, SystemIdMarker},
@@ -260,9 +260,13 @@ pub fn inspector_tree_selected(
     change: On<ValueChange<Option<Entity>>>,
     trees: Query<(), With<InspectorTreeView>>,
     rows: Query<&InspectorEntityRow>,
+    headers: Query<(), With<InspectorHeaderRow>>,
     mut selection: ResMut<InspectorSelection>,
 ) {
     if !trees.contains(change.source) {
+        return;
+    }
+    if change.value.is_some_and(|row| headers.contains(row)) {
         return;
     }
 
@@ -273,13 +277,34 @@ pub fn inspector_tree_selected(
 }
 
 /// Observer that starts keeping a row's child rows in sync the first time it is expanded.
+///
+/// While a filter is active, it also records the user's own expansions and collapses, so that
+/// clearing the filter keeps them. Expansions the filter forces on ancestors do not go through
+/// this observer.
 pub fn inspector_tree_expanded(
     change: On<TreeItemExpandChange>,
-    rows: Query<(), Or<(With<InspectorHeaderRow>, With<InspectorEntityRow>)>>,
+    rows: Query<
+        Option<&InspectorEntityRow>,
+        Or<(With<InspectorHeaderRow>, With<InspectorEntityRow>)>,
+    >,
+    filter: Res<EntityTreeFilter>,
     mut sync: ResMut<EntityTreeSync>,
     mut commands: Commands,
 ) {
-    if !change.expanded || !rows.contains(change.item) {
+    let Ok(row) = rows.get(change.item) else {
+        return;
+    };
+    if let Some(row) = row
+        && !filter.0.trim().is_empty()
+        && let Some(expanded) = &mut sync.expanded_before_filter
+    {
+        let inspected = InspectableEntity::new(row.inspected, row.source);
+        match change.expanded {
+            true => expanded.insert(inspected),
+            false => expanded.remove(&inspected),
+        };
+    }
+    if !change.expanded {
         return;
     }
     commands.entity(change.item).insert(InspectorRowPopulated);
@@ -359,18 +384,33 @@ pub fn sync_entity_tree(world: &mut World) {
     }
 
     let pattern = FuzzyPattern::new(&query);
-    let filter = (!pattern.is_empty()).then(|| FilteredTree::new(world, &pattern));
+    let Some(tree_view) = world
+        .query_filtered::<Entity, With<InspectorTreeView>>()
+        .iter(world)
+        .next()
+    else {
+        return;
+    };
+    // A pass only spawns and despawns inspector rows, which `is_excluded` keeps out of the
+    // roots, so the inspected tree is the same for every pass of the loop below.
+    let roots = Sources::new(world).roots();
+    let filter = (!pattern.is_empty()).then(|| FilteredTree::new(world, &roots, &pattern));
     loop {
-        let plan = plan_sync(world, filter.as_ref(), query_changed, restore.as_ref());
+        let plan = plan_sync(
+            world,
+            tree_view,
+            &roots,
+            filter.as_ref(),
+            query_changed,
+            restore.as_ref(),
+        );
         let descended = apply_sync(world, plan);
         rebuild_index(world);
         if !descended {
             break;
         }
     }
-    if query_changed {
-        restore_selection(world);
-    }
+    restore_selection(world);
 }
 
 struct HeaderSpawn {
@@ -454,36 +494,35 @@ fn determine_sources_order(sources: &HashSet<InspectorSource>) -> Vec<InspectorS
 /// `restore` holds the entities whose rows to expand when the filter has just been cleared; the
 /// other rows are collapsed.
 ///
+/// `tree_view` and `roots` are the same for every pass of a synchronization, so the caller
+/// computes them once.
+///
 /// The rows live in `world`, while the entities they display are read from the inspected world,
 /// see [`crate::world_to_inspect`].
 fn plan_sync(
-    world: &World,
+    world: &mut World,
+    tree_view: Entity,
+    roots: &[(InspectorSource, Vec<InspectableEntity>)],
     filter: Option<&FilteredTree>,
     query_changed: bool,
     restore: Option<&HashSet<InspectableEntity>>,
 ) -> SyncPlan {
     let mut plan = SyncPlan::default();
-    let mut tree_view = None;
     let mut rows = Vec::new();
-
-    for entity_ref in world.iter_entities() {
-        let entity = entity_ref.id();
-        if entity_ref.contains::<InspectorTreeView>() {
-            tree_view = Some(entity);
-        }
-        if let Some(row) = entity_ref.get::<InspectorEntityRow>() {
-            rows.push(RowState {
-                row: entity,
-                inspected: InspectableEntity::new(row.inspected, row.source),
-                populated: entity_ref.contains::<InspectorRowPopulated>(),
-                expanded: entity_ref.contains::<Expanded>(),
-            });
-        }
+    let mut row_query = world.query::<(
+        Entity,
+        &InspectorEntityRow,
+        Has<InspectorRowPopulated>,
+        Has<Expanded>,
+    )>();
+    for (row, inspected, populated, expanded) in row_query.iter(world) {
+        rows.push(RowState {
+            row,
+            inspected: InspectableEntity::new(inspected.inspected, inspected.source),
+            populated,
+            expanded,
+        });
     }
-
-    let Some(tree_view) = tree_view else {
-        return plan;
-    };
 
     let index = world.resource::<TreeRowIndex>();
 
@@ -504,11 +543,15 @@ fn plan_sync(
         restore,
     };
 
-    for (source, mut roots) in sources.roots() {
-        let Some(container) = index.source_to_row.get(&source) else {
+    for (source, roots) in roots {
+        let Some(container) = index.source_to_row.get(source) else {
             continue;
         };
-        roots.retain(|root| shown.keeps(root));
+        let roots: Vec<InspectableEntity> = roots
+            .iter()
+            .filter(|root| shown.keeps(root))
+            .cloned()
+            .collect();
         diff_container(world, &shown, *container, &roots, &mut plan);
     }
 
@@ -621,7 +664,11 @@ struct FilteredTree {
 impl FilteredTree {
     /// Matches every shown entity of the inspected worlds against `pattern`, walking the tree
     /// depth first.
-    fn new(world: &World, pattern: &FuzzyPattern) -> Self {
+    fn new(
+        world: &World,
+        roots: &[(InspectorSource, Vec<InspectableEntity>)],
+        pattern: &FuzzyPattern,
+    ) -> Self {
         let sources = Sources::new(world);
         let mut filter = Self {
             kept: HashSet::new(),
@@ -631,10 +678,9 @@ impl FilteredTree {
         };
         let mut matches = Vec::new();
         let mut component_matches = HashMap::new();
-        let mut stack: Vec<InspectableEntity> = sources
-            .roots()
-            .into_iter()
-            .flat_map(|(_, roots)| roots)
+        let mut stack: Vec<InspectableEntity> = roots
+            .iter()
+            .flat_map(|(_, roots)| roots.iter().cloned())
             .rev()
             .collect();
         while let Some(entity) = stack.pop() {
@@ -1094,6 +1140,11 @@ fn rebuild_index(world: &mut World) {
     index.row_to_inspectable = row_to_inspectable;
 }
 
+/// Points the tree views' [`SelectedTreeItem`] at the row of the [`InspectorSelection`].
+///
+/// Rows are despawned whenever their entity is filtered out or misses the filter, so the tree's
+/// [`SelectedTreeItem`] is cleared then and set again once the row is back.
+/// [`InspectorSelection`] itself is left alone.
 fn restore_selection(world: &mut World) {
     let row = world
         .get_resource::<InspectorSelection>()
@@ -1202,19 +1253,19 @@ pub(crate) fn entity_label(
         return entity.to_string();
     };
 
-    let component_data: Vec<(ComponentId, String, LabelDefinitionPriority)> = ids
+    let component_data: Vec<(ComponentId, String, Option<LabelDefinitionPriority>)> = ids
         .into_iter()
-        .filter_map(|component_id| {
+        .map(|component_id| {
             let priority = world
                 .components()
                 .get_info(component_id)
                 .and_then(ComponentInfo::type_id)
-                .and_then(|type_id| priorities?.get_priority_by_type_id(type_id))?;
-            Some((
+                .and_then(|type_id| priorities?.get_priority_by_type_id(type_id));
+            (
                 component_id,
                 crate::component_short_name(world, component_id),
                 priority,
-            ))
+            )
         })
         .collect();
 
@@ -1223,7 +1274,7 @@ pub(crate) fn entity_label(
         .map(|(component_id, short_name, priority)| ComponentLabelData {
             component_id: *component_id,
             short_name: short_name.as_str(),
-            label_definition_priority: Some(*priority),
+            label_definition_priority: *priority,
         })
         .collect();
 
@@ -1562,7 +1613,8 @@ mod tests {
             .id();
         app.world_mut()
             .entity_mut(tree)
-            .observe(inspector_tree_selected);
+            .observe(inspector_tree_selected)
+            .observe(inspector_tree_expanded);
         (panel, tree)
     }
 
@@ -1847,6 +1899,39 @@ mod tests {
     }
 
     #[test]
+    fn rows_the_user_expands_while_filtering_are_kept() {
+        let mut app = test_app();
+        let (_, tree) = spawn_tree(&mut app);
+        let level = app.world_mut().spawn(Name::new("Level")).id();
+        let room = app
+            .world_mut()
+            .spawn((Name::new("Room"), ChildOf(level)))
+            .id();
+        app.world_mut().spawn((Name::new("Target"), ChildOf(room)));
+        sync(&mut app);
+        expand(&mut app, level);
+        assert!(has_row(&app, room));
+        assert!(!is_expanded(&app, room));
+
+        set_filter(&mut app, "target");
+        let level_row = row_of(&app, level);
+        app.world_mut().entity_mut(level_row).remove::<Expanded>();
+
+        // The filter expanded Room's row before Level was collapsed, so it is still indexed.
+        let room_row = row_of(&app, room);
+        app.world_mut().trigger(TreeItemExpandChange {
+            tree,
+            item: room_row,
+            expanded: true,
+        });
+        app.update();
+
+        set_filter(&mut app, "");
+        assert!(is_expanded(&app, level));
+        assert!(is_expanded(&app, room));
+    }
+
+    #[test]
     fn clearing_the_filter_follows_entities_that_changed_parents() {
         let mut app = test_app();
         let (panel, tree) = spawn_tree(&mut app);
@@ -1990,6 +2075,24 @@ mod tests {
     }
 
     #[test]
+    fn the_selection_is_found_when_it_starts_matching() {
+        let mut app = test_app();
+        let (_, tree) = spawn_tree(&mut app);
+        let entity = app.world_mut().spawn(Name::new("Alpha")).id();
+        sync(&mut app);
+        select(&mut app, tree, entity);
+
+        set_filter(&mut app, "bravo");
+        assert_eq!(selected_row(&app, tree), None);
+
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(Name::new("Bravo"));
+        sync(&mut app);
+        assert_eq!(selected_row(&app, tree), Some(row_of(&app, entity)));
+    }
+
+    #[test]
     fn clearing_the_filter_restores_the_row_order() {
         let mut app = test_app();
         let (panel, tree) = spawn_tree(&mut app);
@@ -2017,6 +2120,7 @@ mod tests {
         let input = app
             .world_mut()
             .spawn((EntityTreeFilterInput, EditableText::default()))
+            .observe(inspector_tree_filter_changed)
             .id();
         app.update();
 
@@ -2027,6 +2131,13 @@ mod tests {
         );
         set_filter(&mut app, "");
         assert_eq!(app.world().get::<EditableText>(input).unwrap().value(), "");
+
+        app.world_mut()
+            .get_mut::<EditableText>(input)
+            .unwrap()
+            .queue_edit(TextEdit::Insert("leaf".into()));
+        app.update();
+        assert_eq!(app.world().resource::<EntityTreeFilter>().0, "leaf");
     }
 
     #[cfg(feature = "remote")]
