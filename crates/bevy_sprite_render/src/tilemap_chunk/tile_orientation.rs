@@ -141,14 +141,14 @@ impl TileOrientation {
         let mut mirror_d = self.mirror_d();
 
         if then.mirror_d() {
-            mirror_d = !mirror_d;
+            mirror_d.toggle();
             (mirror_h, mirror_v) = (mirror_v, mirror_h);
         }
         if then.mirror_h() {
-            mirror_h = !mirror_h;
+            mirror_h.toggle();
         }
         if then.mirror_v() {
-            mirror_v = !mirror_v;
+            mirror_v.toggle();
         }
 
         Self::from_bools(mirror_h, mirror_v, mirror_d)
