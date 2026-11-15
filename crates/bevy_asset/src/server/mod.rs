@@ -1399,16 +1399,15 @@ impl AssetServer {
             AssetMetaCheck::Never => false,
         };
 
-        // Scope the meta reader up here. This allows the reader to be "transactional": for sources
-        // that want to lock the asset before reading it (e.g., with a RwLock), this allows the meta
-        // reader to take the RwLock, and since it overlaps with the asset reader, the asset reader
-        // can "take over" the RwLock before the meta reader gets dropped.
-        let mut meta_reader;
-
-        let (meta, loader) = if read_meta {
-            match asset_reader.read_meta(asset_path.path_cow()).await {
-                Ok(new_meta_reader) => {
-                    meta_reader = new_meta_reader;
+        // Open the meta and the asset in one call, so sources that lock while reading can use a
+        // single lock and return a matching pair. Opening them separately can deadlock against a
+        // waiting writer.
+        let (meta, loader, reader) = if read_meta {
+            let (meta_reader, reader) = asset_reader
+                .read_meta_and_asset(asset_path.path_cow())
+                .await;
+            let (meta, loader) = match meta_reader {
+                Ok(mut meta_reader) => {
                     let mut meta_bytes = vec![];
                     meta_reader
                         .read_to_end(&mut meta_bytes)
@@ -1460,7 +1459,10 @@ impl AssetServer {
                     (meta, loader)
                 }
                 Err(err) => return Err(err.into()),
-            }
+            };
+            // The asset's error is checked last, after the meta and loader errors, to keep the
+            // error order the same as before (`load_failure` depends on it).
+            (meta, loader, reader?)
         } else {
             let loader = { self.read_loaders().find(asset_type_id, asset_path) };
 
@@ -1472,9 +1474,9 @@ impl AssetServer {
             let loader = loader.ok_or_else(error)?.get().await.map_err(|_| error())?;
 
             let meta = loader.default_meta();
-            (meta, loader)
+            let reader = asset_reader.read(asset_path.path_cow()).await?;
+            (meta, loader, reader)
         };
-        let reader = asset_reader.read(asset_path.path_cow()).await?;
         Ok((meta, loader, reader))
     }
 

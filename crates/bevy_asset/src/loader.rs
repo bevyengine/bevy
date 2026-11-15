@@ -640,19 +640,27 @@ impl<'a> LoadContext<'a> {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
         };
-        let reader = asset_reader.read(path.path_cow()).await?;
-        let hash = if self.populate_hashes {
-            // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
-            // See `ProcessorGatedReader` for more info
-            let meta_bytes = asset_reader.read_meta_bytes(path.path()).await?;
+        let (reader, hash) = if self.populate_hashes {
+            // Open the meta together with the asset, so both come from the same version under one
+            // lock. See `AssetReader::read_meta_and_asset`.
+            let (meta_reader, reader) = asset_reader.read_meta_and_asset(path.path_cow()).await;
+            let reader = reader?;
+            let mut meta_bytes = vec![];
+            meta_reader?
+                .read_to_end(&mut meta_bytes)
+                .await
+                .map_err(AssetReaderError::from)?;
             let minimal: ProcessedInfoMinimal = ron::de::from_bytes(&meta_bytes)
                 .map_err(DeserializeMetaError::DeserializeMinimal)?;
             let processed_info = minimal
                 .processed_info
                 .ok_or(ReadAssetError::MissingAssetHash)?;
-            processed_info.full_hash
+            (reader, processed_info.full_hash)
         } else {
-            Default::default()
+            (
+                asset_reader.read(path.path_cow()).await?,
+                Default::default(),
+            )
         };
         self.loader_dependencies.insert(path.clone_owned(), hash);
         Ok(reader)
