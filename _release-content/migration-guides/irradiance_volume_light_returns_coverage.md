@@ -1,6 +1,6 @@
 ---
 title: "`irradiance_volume_light` returns `IrradianceVolumeLight`"
-pull_requests: []
+pull_requests: [26567]
 ---
 
 `irradiance_volume_light` now returns `IrradianceVolumeLight` instead of a `vec3`.
