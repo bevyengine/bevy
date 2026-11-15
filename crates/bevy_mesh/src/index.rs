@@ -58,7 +58,7 @@ pub enum MeshWindingInvertError {
     /// * [`PrimitiveTopology::LineList`](super::PrimitiveTopology::LineList), but the indices are not in chunks of 2.
     #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
-    #[error("Mesh access error: {0}")]
+    #[error(transparent)]
     MeshAccessError(#[from] MeshAccessError),
 }
 
@@ -73,7 +73,7 @@ pub enum MeshTrianglesError {
 
     #[error("Face index data references vertices that do not exist")]
     BadIndices,
-    #[error("mesh access error: {0}")]
+    #[error(transparent)]
     MeshAccessError(#[from] MeshAccessError),
 }
 

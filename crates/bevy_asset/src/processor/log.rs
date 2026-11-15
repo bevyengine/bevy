@@ -241,7 +241,7 @@ pub enum ReadLogError {
     #[error("Encountered an invalid log line: '{0}'")]
     InvalidLine(String),
     /// A file-system-based error occurred while reading the log file.
-    #[error("Failed to read log file: {0}")]
+    #[error("Failed to read log file")]
     Io(#[from] futures_io::Error),
 }
 

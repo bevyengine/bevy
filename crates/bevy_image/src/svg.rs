@@ -113,7 +113,7 @@ pub enum SvgError {
 #[derive(Debug, Error)]
 pub enum SvgLoaderError {
     /// The file could not be read.
-    #[error("failed to read SVG file: {0}")]
+    #[error("failed to read SVG file")]
     Io(#[from] std::io::Error),
     /// The file could not be turned into an image.
     #[error("failed to load SVG file {path}: {error}")]

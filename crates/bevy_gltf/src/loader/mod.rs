@@ -97,7 +97,7 @@ pub enum GltfError {
         mode: Mode,
     },
     /// Invalid glTF file.
-    #[error("invalid glTF file: {0}")]
+    #[error("invalid glTF file")]
     Gltf(#[from] gltf::Error),
     /// Binary blob is missing.
     #[error("binary blob is missing")]
@@ -116,33 +116,33 @@ pub enum GltfError {
     #[from(ignore)]
     InvalidImageMimeType(String),
     /// Error when loading a texture. Might be due to a disabled image file format feature.
-    #[error("You may need to add the feature for the file format: {0}")]
+    #[error("failed to load image, you may need to enable the feature for its file format")]
     ImageError(#[from] TextureError),
     /// The image URI was unable to be resolved with respect to the asset path.
     #[error("invalid image uri: {0}. asset path error={1}")]
     InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
-    #[error("failed to read from an asset path: {0}")]
+    #[error("failed to read from an asset path")]
     ReadAssetError(#[from] ReadAssetError),
     /// Failed to load asset from an asset path.
-    #[error("failed to load asset from an asset path: {0}")]
+    #[error("failed to load asset from an asset path")]
     AssetLoadError(#[from] AssetLoadError),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
-    #[error("failed to generate tangents: {0}")]
+    #[error("failed to generate tangents")]
     GenerateTangentsError(#[from] bevy_mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
-    #[error("failed to generate morph targets: {0}")]
+    #[error("failed to generate morph targets")]
     MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
     CircularChildren(String),
     /// Failed to load a file.
-    #[error("failed to load file: {0}")]
+    #[error("failed to load file")]
     Io(#[from] Error),
     /// A buffer view's meshopt compression data is malformed.
     #[error("invalid meshopt compression data on buffer view {buffer_view}: {message}")]

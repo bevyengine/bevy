@@ -1832,7 +1832,7 @@ pub enum InitializeError {
     FailedToReadSourcePaths(AssetReaderError),
     #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
-    #[error("Failed to validate asset log: {0}")]
+    #[error("Failed to validate asset log")]
     ValidateLogError(#[from] ValidateLogError),
 }
 

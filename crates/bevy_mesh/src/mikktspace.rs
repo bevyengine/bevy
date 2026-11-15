@@ -72,7 +72,7 @@ pub enum GenerateTangentsError {
     InvalidVertexAttributeFormat(&'static str, VertexFormat),
     #[error("mesh not suitable for tangent generation")]
     MikktspaceError(#[from] bevy_mikktspace::GenerateTangentSpaceError),
-    #[error("Mesh access error: {0}")]
+    #[error(transparent)]
     MeshAccessError(#[from] MeshAccessError),
 }
 

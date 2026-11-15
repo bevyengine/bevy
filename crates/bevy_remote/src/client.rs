@@ -211,9 +211,9 @@ impl From<serde_json::Error> for BrpClientError {
 impl core::fmt::Display for BrpClientError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Io(error) => write!(f, "I/O error: {error}"),
-            Self::Http(error) => write!(f, "HTTP error: {error}"),
-            Self::Json(error) => write!(f, "JSON error: {error}"),
+            Self::Io(_) => f.write_str("I/O error"),
+            Self::Http(_) => f.write_str("HTTP error"),
+            Self::Json(_) => f.write_str("JSON error"),
             Self::Remote(error) => {
                 write!(f, "remote error {}: {}", error.code, error.message)
             }

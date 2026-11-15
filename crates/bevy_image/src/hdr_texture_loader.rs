@@ -30,10 +30,10 @@ pub struct HdrTextureLoaderSettings {
 #[derive(Debug, Error)]
 pub enum HdrTextureLoaderError {
     /// I/O Error.
-    #[error("Could load texture: {0}")]
+    #[error("Could not load texture")]
     Io(#[from] std::io::Error),
     /// Failed to decode the texture.
-    #[error("Could not extract image: {0}")]
+    #[error("Could not extract image")]
     Image(#[from] image::ImageError),
     /// Failed to convert the panorama to a cubemap.
     #[cfg(feature = "equirectangular_cubemap")]

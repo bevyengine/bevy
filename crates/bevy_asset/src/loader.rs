@@ -366,7 +366,7 @@ pub enum LoadDirectError {
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
     /// Failed to deserialize the asset metadata.
-    #[error("Failed to deserialize asset meta: {0:?}")]
+    #[error("Failed to deserialize asset meta")]
     DeserializeSettings(#[from] SpannedError),
     /// Failed to deserialize the minimal asset metadata.
     #[error("Failed to deserialize minimal asset meta: {0:?}")]
@@ -764,7 +764,7 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     ReadAssetError(#[from] ReadAssetError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
+    #[error("Encountered an io error while loading asset at `{}`", path.display())]
     Io {
         path: PathBuf,
         source: std::io::Error,

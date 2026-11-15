@@ -32,7 +32,7 @@ pub struct TryInsertBatchError {
 
 /// An error that occurs when a specified [`Entity`] could not be despawned.
 #[derive(thiserror::Error, Debug, Clone, Copy)]
-#[error("Could not despawn entity: {0}")]
+#[error("Could not despawn entity")]
 pub struct EntityDespawnError(#[from] pub EntityNotSpawnedError);
 
 /// An error that occurs when dynamically retrieving components from an entity.
@@ -51,9 +51,8 @@ pub enum EntityComponentError {
 pub enum EntityMutableFetchError {
     /// The entity is not spawned.
     #[error(
-        "{0}\n
-    If you were attempting to apply a command to this entity,
-    and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
+        "The entity is not spawned. If you were attempting to apply a command to this entity, \
+        and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
     )]
     NotSpawned(#[from] EntityNotSpawnedError),
     /// The entity with the given ID was requested mutably more than once.

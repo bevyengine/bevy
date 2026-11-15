@@ -39,10 +39,10 @@ impl FromWorld for WorldAssetLoader {
 #[derive(Debug, Error)]
 pub enum WorldAssetLoaderError {
     /// An [IO Error](std::io::Error)
-    #[error("Error while trying to read the world file: {0}")]
+    #[error("Error while trying to read the world file")]
     Io(#[from] std::io::Error),
     /// A [RON Error](ron::error::SpannedError)
-    #[error("Could not parse RON: {0}")]
+    #[error("Could not parse RON")]
     RonSpannedError(#[from] ron::error::SpannedError),
 }
 

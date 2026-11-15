@@ -326,7 +326,7 @@ pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 #[derive(Error, Debug)]
 pub enum AssetWriterError {
     /// Encountered an I/O error while loading an asset.
-    #[error("encountered an io error while loading asset: {0}")]
+    #[error("encountered an io error while loading asset")]
     Io(#[from] std::io::Error),
 }
 

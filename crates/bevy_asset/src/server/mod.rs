@@ -2403,7 +2403,7 @@ pub enum WriteDefaultMetaError {
     MissingAssetSource(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingAssetWriter(#[from] MissingAssetWriterError),
-    #[error("failed to write default asset meta file: {0}")]
+    #[error("failed to write default asset meta file")]
     FailedToWriteMeta(#[from] AssetWriterError),
     #[error("asset meta file already exists, so avoiding overwrite")]
     MetaAlreadyExists,

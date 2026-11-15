@@ -31,7 +31,7 @@ struct RunningRumble {
 enum RumbleError {
     #[error("gamepad not found")]
     GamepadNotFound,
-    #[error("gilrs error while rumbling gamepad: {0}")]
+    #[error("gilrs error while rumbling gamepad")]
     GilrsError(#[from] ff::Error),
 }
 
