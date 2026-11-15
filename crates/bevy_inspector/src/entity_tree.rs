@@ -19,7 +19,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     name::Name,
     observer::{Observer, On},
-    query::{Or, With},
+    query::{Has, Or, With},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::{IsResource, Resource},
     system::{Commands, Query, Res, ResMut, SystemIdMarker},
@@ -384,9 +384,26 @@ pub fn sync_entity_tree(world: &mut World) {
     }
 
     let pattern = FuzzyPattern::new(&query);
-    let filter = (!pattern.is_empty()).then(|| FilteredTree::new(world, &pattern));
+    let Some(tree_view) = world
+        .query_filtered::<Entity, With<InspectorTreeView>>()
+        .iter(world)
+        .next()
+    else {
+        return;
+    };
+    // A pass only spawns and despawns inspector rows, which `is_excluded` keeps out of the
+    // roots, so the inspected tree is the same for every pass of the loop below.
+    let roots = Sources::new(world).roots();
+    let filter = (!pattern.is_empty()).then(|| FilteredTree::new(world, &roots, &pattern));
     loop {
-        let plan = plan_sync(world, filter.as_ref(), query_changed, restore.as_ref());
+        let plan = plan_sync(
+            world,
+            tree_view,
+            &roots,
+            filter.as_ref(),
+            query_changed,
+            restore.as_ref(),
+        );
         let descended = apply_sync(world, plan);
         rebuild_index(world);
         if !descended {
@@ -477,36 +494,35 @@ fn determine_sources_order(sources: &HashSet<InspectorSource>) -> Vec<InspectorS
 /// `restore` holds the entities whose rows to expand when the filter has just been cleared; the
 /// other rows are collapsed.
 ///
+/// `tree_view` and `roots` are the same for every pass of a synchronization, so the caller
+/// computes them once.
+///
 /// The rows live in `world`, while the entities they display are read from the inspected world,
 /// see [`crate::world_to_inspect`].
 fn plan_sync(
-    world: &World,
+    world: &mut World,
+    tree_view: Entity,
+    roots: &[(InspectorSource, Vec<InspectableEntity>)],
     filter: Option<&FilteredTree>,
     query_changed: bool,
     restore: Option<&HashSet<InspectableEntity>>,
 ) -> SyncPlan {
     let mut plan = SyncPlan::default();
-    let mut tree_view = None;
     let mut rows = Vec::new();
-
-    for entity_ref in world.iter_entities() {
-        let entity = entity_ref.id();
-        if entity_ref.contains::<InspectorTreeView>() {
-            tree_view = Some(entity);
-        }
-        if let Some(row) = entity_ref.get::<InspectorEntityRow>() {
-            rows.push(RowState {
-                row: entity,
-                inspected: InspectableEntity::new(row.inspected, row.source),
-                populated: entity_ref.contains::<InspectorRowPopulated>(),
-                expanded: entity_ref.contains::<Expanded>(),
-            });
-        }
+    let mut row_query = world.query::<(
+        Entity,
+        &InspectorEntityRow,
+        Has<InspectorRowPopulated>,
+        Has<Expanded>,
+    )>();
+    for (row, inspected, populated, expanded) in row_query.iter(world) {
+        rows.push(RowState {
+            row,
+            inspected: InspectableEntity::new(inspected.inspected, inspected.source),
+            populated,
+            expanded,
+        });
     }
-
-    let Some(tree_view) = tree_view else {
-        return plan;
-    };
 
     let index = world.resource::<TreeRowIndex>();
 
@@ -527,11 +543,15 @@ fn plan_sync(
         restore,
     };
 
-    for (source, mut roots) in sources.roots() {
-        let Some(container) = index.source_to_row.get(&source) else {
+    for (source, roots) in roots {
+        let Some(container) = index.source_to_row.get(source) else {
             continue;
         };
-        roots.retain(|root| shown.keeps(root));
+        let roots: Vec<InspectableEntity> = roots
+            .iter()
+            .filter(|root| shown.keeps(root))
+            .cloned()
+            .collect();
         diff_container(world, &shown, *container, &roots, &mut plan);
     }
 
@@ -644,7 +664,11 @@ struct FilteredTree {
 impl FilteredTree {
     /// Matches every shown entity of the inspected worlds against `pattern`, walking the tree
     /// depth first.
-    fn new(world: &World, pattern: &FuzzyPattern) -> Self {
+    fn new(
+        world: &World,
+        roots: &[(InspectorSource, Vec<InspectableEntity>)],
+        pattern: &FuzzyPattern,
+    ) -> Self {
         let sources = Sources::new(world);
         let mut filter = Self {
             kept: HashSet::new(),
@@ -654,10 +678,9 @@ impl FilteredTree {
         };
         let mut matches = Vec::new();
         let mut component_matches = HashMap::new();
-        let mut stack: Vec<InspectableEntity> = sources
-            .roots()
-            .into_iter()
-            .flat_map(|(_, roots)| roots)
+        let mut stack: Vec<InspectableEntity> = roots
+            .iter()
+            .flat_map(|(_, roots)| roots.iter().cloned())
             .rev()
             .collect();
         while let Some(entity) = stack.pop() {
