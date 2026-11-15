@@ -1888,7 +1888,7 @@ const AXES: [(&str, ThemeToken); 4] = [
     ("W", tokens::TEXT_INPUT_W_AXIS),
 ];
 
-/// The rows of the axes of `entry` if it is a vector: a struct of two to four editable numbers
+/// The rows of the axes of `entry` if it is a mathematical vector: a struct of two to four editable numbers
 /// named `x`, `y`, `z` and `w` in that order.
 fn vector_axes<'a>(entry: &FieldEntry, children: &'a [FieldEntry]) -> Option<&'a [FieldEntry]> {
     let is_axis = |(child, (name, _)): (&FieldEntry, &(&str, ThemeToken))| {
