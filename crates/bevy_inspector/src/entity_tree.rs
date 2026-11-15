@@ -1333,8 +1333,8 @@ fn entity_match(
         .then(Vec::new)
 }
 
-/// Whether the short name of a component names its type, which it does not for an unregistered
-/// type while the `debug` feature is off.
+/// Returns true if the component's name is its real type name. Unregistered types have no real
+/// name unless the `debug` feature is on.
 fn has_known_name(world: &World, component_id: ComponentId) -> bool {
     DebugName::ENABLED
         || world
