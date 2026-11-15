@@ -1202,19 +1202,19 @@ pub(crate) fn entity_label(
         return entity.to_string();
     };
 
-    let component_data: Vec<(ComponentId, String, LabelDefinitionPriority)> = ids
+    let component_data: Vec<(ComponentId, String, Option<LabelDefinitionPriority>)> = ids
         .into_iter()
-        .filter_map(|component_id| {
+        .map(|component_id| {
             let priority = world
                 .components()
                 .get_info(component_id)
                 .and_then(ComponentInfo::type_id)
-                .and_then(|type_id| priorities?.get_priority_by_type_id(type_id))?;
-            Some((
+                .and_then(|type_id| priorities?.get_priority_by_type_id(type_id));
+            (
                 component_id,
                 crate::component_short_name(world, component_id),
                 priority,
-            ))
+            )
         })
         .collect();
 
@@ -1223,7 +1223,7 @@ pub(crate) fn entity_label(
         .map(|(component_id, short_name, priority)| ComponentLabelData {
             component_id: *component_id,
             short_name: short_name.as_str(),
-            label_definition_priority: Some(*priority),
+            label_definition_priority: *priority,
         })
         .collect();
 
