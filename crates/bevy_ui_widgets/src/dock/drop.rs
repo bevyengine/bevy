@@ -181,6 +181,8 @@ fn drop_on_tab_drag(
                     },
                     Node {
                         position_type: PositionType::Absolute,
+                        left: percent(0),
+                        top: percent(0),
                         width: percent(100),
                         height: percent(100),
                         ..Default::default()
