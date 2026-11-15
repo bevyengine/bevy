@@ -2017,6 +2017,7 @@ mod tests {
         let input = app
             .world_mut()
             .spawn((EntityTreeFilterInput, EditableText::default()))
+            .observe(inspector_tree_filter_changed)
             .id();
         app.update();
 
@@ -2027,6 +2028,13 @@ mod tests {
         );
         set_filter(&mut app, "");
         assert_eq!(app.world().get::<EditableText>(input).unwrap().value(), "");
+
+        app.world_mut()
+            .get_mut::<EditableText>(input)
+            .unwrap()
+            .queue_edit(TextEdit::Insert("leaf".into()));
+        app.update();
+        assert_eq!(app.world().resource::<EntityTreeFilter>().0, "leaf");
     }
 
     #[cfg(feature = "remote")]
