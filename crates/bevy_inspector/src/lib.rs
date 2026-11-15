@@ -348,6 +348,9 @@ impl Plugin for InspectorPlugin {
                         .after(remote::stepping::poll_remote_stepping),
                 )
                     .after(remote::poll_remote_connections)
+                    // These conflict on `EditableText` and should be disjoint, but squashing
+                    // the ambiguity is good.
+                    .after(sync_entity_tree_filter_input)
                     .before(UiSystems::Prepare),
             );
     }
