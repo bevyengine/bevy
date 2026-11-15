@@ -273,13 +273,34 @@ pub fn inspector_tree_selected(
 }
 
 /// Observer that starts keeping a row's child rows in sync the first time it is expanded.
+///
+/// While a filter is active, it also records the user's own expansions and collapses, so that
+/// clearing the filter keeps them. Expansions the filter forces on ancestors do not go through
+/// this observer.
 pub fn inspector_tree_expanded(
     change: On<TreeItemExpandChange>,
-    rows: Query<(), Or<(With<InspectorHeaderRow>, With<InspectorEntityRow>)>>,
+    rows: Query<
+        Option<&InspectorEntityRow>,
+        Or<(With<InspectorHeaderRow>, With<InspectorEntityRow>)>,
+    >,
+    filter: Res<EntityTreeFilter>,
     mut sync: ResMut<EntityTreeSync>,
     mut commands: Commands,
 ) {
-    if !change.expanded || !rows.contains(change.item) {
+    let Ok(row) = rows.get(change.item) else {
+        return;
+    };
+    if let Some(row) = row
+        && !filter.0.trim().is_empty()
+        && let Some(expanded) = &mut sync.expanded_before_filter
+    {
+        let inspected = InspectableEntity::new(row.inspected, row.source);
+        match change.expanded {
+            true => expanded.insert(inspected),
+            false => expanded.remove(&inspected),
+        };
+    }
+    if !change.expanded {
         return;
     }
     commands.entity(change.item).insert(InspectorRowPopulated);
@@ -1562,7 +1583,8 @@ mod tests {
             .id();
         app.world_mut()
             .entity_mut(tree)
-            .observe(inspector_tree_selected);
+            .observe(inspector_tree_selected)
+            .observe(inspector_tree_expanded);
         (panel, tree)
     }
 
@@ -1844,6 +1866,39 @@ mod tests {
         app.world_mut().entity_mut(parent).despawn();
         set_filter(&mut app, "");
         assert_eq!(local_rows(&app, tree), [panel]);
+    }
+
+    #[test]
+    fn rows_the_user_expands_while_filtering_are_kept() {
+        let mut app = test_app();
+        let (_, tree) = spawn_tree(&mut app);
+        let level = app.world_mut().spawn(Name::new("Level")).id();
+        let room = app
+            .world_mut()
+            .spawn((Name::new("Room"), ChildOf(level)))
+            .id();
+        app.world_mut().spawn((Name::new("Target"), ChildOf(room)));
+        sync(&mut app);
+        expand(&mut app, level);
+        assert!(has_row(&app, room));
+        assert!(!is_expanded(&app, room));
+
+        set_filter(&mut app, "target");
+        let level_row = row_of(&app, level);
+        app.world_mut().entity_mut(level_row).remove::<Expanded>();
+
+        // The filter expanded Room's row before Level was collapsed, so it is still indexed.
+        let room_row = row_of(&app, room);
+        app.world_mut().trigger(TreeItemExpandChange {
+            tree,
+            item: room_row,
+            expanded: true,
+        });
+        app.update();
+
+        set_filter(&mut app, "");
+        assert!(is_expanded(&app, level));
+        assert!(is_expanded(&app, room));
     }
 
     #[test]
