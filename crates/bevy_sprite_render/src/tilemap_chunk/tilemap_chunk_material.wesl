@@ -1,12 +1,23 @@
+@if(TONEMAP_IN_SHADER)
+import bevy_core_pipeline::tonemapping;
+@if(SRGB_OUTPUT)
+import bevy_render::color_operations::linear_to_srgb;
+@if(OKLAB_OUTPUT)
+import bevy_render::color_operations::linear_rgb_to_oklab;
+
+import bevy_render::color_operations::srgb_to_linear;
 import package::mesh2d::{
     functions as mesh_functions,
-    view_bindings::view,
     vertex_output::VertexOutput,
+    view_bindings::view
 };
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0) var tileset: texture_2d_array<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1) var tileset_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(2) var tile_data: texture_2d<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0)
+var tileset: texture_2d_array<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1)
+var tileset_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2)
+var tile_data: texture_2d<u32>;
 
 struct TileData {
     tileset_index: u32,
@@ -27,7 +38,7 @@ fn get_tile_data(coord: vec2<u32>) -> TileData {
     let color_b = f32(data.b & 0xFFu) / 255.0;
     let color_a = f32((data.b >> 8u) & 0xFFu) / 255.0;
 
-    let color = vec4<f32>(color_r, color_g, color_b, color_a);
+    let color = vec4<f32>(srgb_to_linear(vec3(color_r, color_g, color_b)), color_a);
 
     let mirror_h = (data.a & 0x8u) != 0u;
     let mirror_v = (data.a & 0x4u) != 0u;
@@ -48,33 +59,48 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let tile = get_tile_data(tile_coord);
 
-    if (tile.tileset_index == 0xffffu || !tile.visible) {
+    if tile.tileset_index == 0xffffu || !tile.visible {
         discard;
     }
-
     var dx = dpdx(tile_uv);
     var dy = dpdy(tile_uv);
 
-    if (tile.mirror_h) {
+    if tile.mirror_h {
         local_uv.x = 1 - local_uv.x;
     }
 
-    if (tile.mirror_v) {
+    if tile.mirror_v {
         local_uv.y = 1 - local_uv.y;
     }
 
-    if (tile.mirror_d) {
+    if tile.mirror_d {
         local_uv = local_uv.yx;
         dx = dx.yx;
         dy = dy.yx;
     }
 
-    let tex_color = textureSampleGrad(tileset, tileset_sampler, local_uv, tile.tileset_index, dx, dy);
-    let final_color = tex_color * tile.color;
+    let tex_color = textureSampleGrad(
+            tileset,
+            tileset_sampler,
+            local_uv,
+            tile.tileset_index,
+            dx,
+            dy,
+        );
+    var color = tex_color * tile.color;
 
-    if (final_color.a < 0.001) {
+    if color.a < 0.001 {
         discard;
     }
 
-    return final_color;
+    @if(TONEMAP_IN_SHADER)
+    color = tonemapping::tone_mapping(color, view.color_grading);
+
+    @if(SRGB_OUTPUT)
+    color = vec4(linear_to_srgb(color.rgb), color.a);
+
+    @if(OKLAB_OUTPUT)
+    color = vec4(linear_rgb_to_oklab(color.rgb), color.a);
+
+    return color;
 }

@@ -177,7 +177,7 @@ impl ReflectAsset {
     }
 }
 
-impl<A: Asset + FromReflect> CreateTypeData<A> for ReflectAsset {
+impl<A: Asset + Reflect + FromReflect> CreateTypeData<A> for ReflectAsset {
     fn create_type_data(_input: ()) -> Self {
         ReflectAsset {
             handle_type_id: TypeId::of::<Handle<A>>(),

@@ -2,7 +2,6 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
-    system::ResMut,
 };
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
@@ -510,6 +509,9 @@ pub struct TextLayoutInfo {
     /// Underline rects for the active IME preedit/compose region.
     /// Should only have values when composition is in progress.
     pub preedit_underline_rects: Vec<Rect>,
+    /// Glyphs of an editable text's [`Placeholder`](crate::Placeholder), laid out
+    /// like [`glyphs`](Self::glyphs). Empty unless the placeholder is shown.
+    pub placeholder_glyphs: Vec<PositionedGlyph>,
     /// inline boxes
     pub inline_boxes: Vec<(Entity, crate::InlineBoxKind, Rect)>,
 }
@@ -525,6 +527,7 @@ impl TextLayoutInfo {
         self.cursor = None;
         self.selection_rects.clear();
         self.preedit_underline_rects.clear();
+        self.placeholder_glyphs.clear();
     }
 }
 
@@ -538,6 +541,7 @@ impl Default for TextLayoutInfo {
             cursor: None,
             selection_rects: Default::default(),
             preedit_underline_rects: Default::default(),
+            placeholder_glyphs: Default::default(),
             inline_boxes: Default::default(),
         }
     }
@@ -606,7 +610,7 @@ pub struct TextMeasureInfo {
 impl TextMeasureInfo {
     /// Computes the size of the text area within the provided bounds.
     pub fn compute_size(
-        &mut self,
+        &self,
         bounds: TextBounds,
         computed: &mut ComputedTextBlock,
         _font_system: &mut FontCx,
@@ -633,14 +637,4 @@ fn buffer_dimensions(buffer: &Layout<TextBrush>) -> Vec2 {
     } else {
         Vec2::ZERO
     }
-}
-
-/// Discards stale data cached in the font system.
-pub(crate) fn trim_source_cache(mut font_cx: ResMut<FontCx>) {
-    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
-    // See https://github.com/bevyengine/bevy/pull/15037
-    //
-    // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
-    // text that is dynamically measured for UI).
-    font_cx.source_cache.prune(2, false);
 }

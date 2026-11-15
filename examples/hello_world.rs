@@ -7,5 +7,5 @@ fn main() {
 }
 
 fn hello_world_system() {
-    info!("Hello, World!");
+    println!("Hello, World!");
 }

@@ -63,13 +63,13 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 
 @if(SCREEN_SPACE_AMBIENT_OCCLUSION) {
-        let ssao_tex_pos = vec2<i32>(in.position.xy - view.viewport.xy);
+        let ssao_tex_pos = vec2<i32>(in.position.xy - view.main_pass_viewport.xy);
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, ssao_tex_pos, 0i).r;
         let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001); 
+        let NdotV = clamp(dot(pbr_input.N, pbr_input.V), 0.0001, 1.0);
         var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
         // Use SSAO to estimate the specular occlusion.

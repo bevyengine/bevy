@@ -69,7 +69,6 @@ where
         unsafe { self.system.run_unsafe(&mut self.value, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();
@@ -160,7 +159,6 @@ where
         unsafe { self.system.run_unsafe(value, world) }
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {
         self.system.refresh_hotpatch();

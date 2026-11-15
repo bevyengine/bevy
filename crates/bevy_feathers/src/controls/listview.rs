@@ -13,10 +13,10 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_input_focus::{InputFocus, InputFocusSystems, InputFocusVisible};
-use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, Pickable, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::{FontSize, FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, Overflow, PositionType, Selected, UiRect,
@@ -94,7 +94,7 @@ impl FeathersListView {
                 }
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(4),
+                    right: px(0),
                     top: px(0),
                     bottom: px(0),
                     width: px(6),
@@ -126,7 +126,7 @@ impl FeathersListRow {
             InheritableThemeTextColor(tokens::LISTROW_TEXT)
             ThemeBackgroundColor(tokens::LISTROW_BG)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: FontSize::Px(14.0),
                 weight: FontWeight::NORMAL,
             }
@@ -317,6 +317,7 @@ fn highlight_active(
             },
             ThemeBorderColor(tokens::FOCUS_RING),
             ActiveRowOutline,
+            Pickable::IGNORE,
         ));
     }
 }

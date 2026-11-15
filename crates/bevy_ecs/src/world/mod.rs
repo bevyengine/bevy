@@ -4,7 +4,6 @@ pub(crate) mod command_queue;
 mod deferred_world;
 mod entity_access;
 mod entity_fetch;
-mod filtered_resource;
 mod identifier;
 mod spawn_batch;
 
@@ -25,7 +24,6 @@ pub use entity_access::{
     TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
-pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
@@ -52,7 +50,7 @@ use crate::{
     },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -350,7 +348,7 @@ impl World {
         let index = self.register_component::<T>();
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
         // SAFETY: We just created this component
-        unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
+        unsafe { self.components.get_hooks_mut(index).unwrap_unchecked() }
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
@@ -3476,7 +3474,7 @@ impl World {
         let id = self.register_bundle_info::<B>();
 
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+        unsafe { self.bundles.get(id).unwrap_unchecked() }
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
@@ -3529,7 +3527,7 @@ impl World {
             self.bundles
                 .init_dynamic_info(&mut self.storages, &self.components, component_ids);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+        unsafe { self.bundles.get(id).unwrap_unchecked() }
     }
 
     /// Convenience method for accessing the world's fallback error handler,
@@ -3753,8 +3751,7 @@ impl World {
             .iter()
             .filter_map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-                let component_info =
-                    unsafe { components.get_info(component_id).debug_checked_unwrap() };
+                let component_info = unsafe { components.get_info_unchecked(component_id) };
 
                 let entity_cell = unsafe_world.get_entity(entity).ok()?;
 

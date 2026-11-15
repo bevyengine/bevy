@@ -1,7 +1,7 @@
 //! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](bevy_gizmos::gizmos::Gizmos) system parameter.
 
 use crate::LineGizmoUniform;
-use bevy_camera::visibility::RenderLayers;
+use bevy_camera::visibility::{RenderLayers, ViewVisibility};
 use bevy_gizmos::retained::Gizmo;
 use bevy_math::{Affine3, Affine3Ext};
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
@@ -22,7 +22,15 @@ use bevy_gizmos::config::GizmoLineStyle;
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&RenderLayers>)>>,
+    query: Extract<
+        Query<(
+            Entity,
+            &Gizmo,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&RenderLayers>,
+        )>,
+    >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     #[cfg_attr(
@@ -32,7 +40,10 @@ pub(crate) fn extract_linegizmos(
             reason = "`render_layers` is unused when bevy_pbr and bevy_sprite_render are both disabled."
         )
     )]
-    for (entity, gizmo, transform, render_layers) in &query {
+    for (entity, gizmo, transform, view_visibility, render_layers) in &query {
+        if !view_visibility.get() {
+            continue;
+        }
         let joints_resolution = if let GizmoLineJoint::Round(resolution) = gizmo.line_config.joints
         {
             resolution

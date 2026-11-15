@@ -124,14 +124,20 @@ impl TextViewport {
             caret.min.y,
             caret.max.y,
         ) - margin.y;
+        // Use a small epsilon threshold to prevent micro-oscillations
+        // caused by floating-point rounding errors at specific resolutions.
+        let epsilon = 0.001;
+
         if line_bounds.peek().is_none() {
             self.offset.y = vertical_offset;
-        } else if vertical_offset < self.offset.y {
+        } else if vertical_offset + epsilon < self.offset.y {
+            // Only update offset if the difference exceeds the epsilon threshold
             self.offset.y = line_bounds
                 .filter(|line| line.min <= vertical_offset)
                 .last()
                 .map_or(0.0, |line| line.min);
-        } else if self.offset.y < vertical_offset {
+        } else if self.offset.y + epsilon < vertical_offset {
+            // Only update offset if the difference exceeds the epsilon threshold
             self.offset.y = line_bounds
                 .find(|line| vertical_offset <= line.min)
                 .map_or((caret_max - self.size).max(Vec2::ZERO).y, |line| line.min);

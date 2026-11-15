@@ -75,7 +75,7 @@ impl MeshletMesh {
         let vertex_buffer = mesh.create_packed_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
-        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
+        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..]);
 
         // Generate a position-only vertex buffer for determining triangle/meshlet connectivity
         let position_only_vertex_remap = generate_position_remap(&vertices);
@@ -298,7 +298,7 @@ fn compute_meshlets(
     // For each triangle pair, count how many vertices they share
     let mut triangle_pair_to_shared_vertex_count = <HashMap<_, _>>::default();
     for vertex_triangle_ids in vertices_to_triangles {
-        for (triangle_id1, triangle_id2) in vertex_triangle_ids.into_iter().tuple_combinations() {
+        for [triangle_id1, triangle_id2] in vertex_triangle_ids.into_iter().array_combinations() {
             let count = triangle_pair_to_shared_vertex_count
                 .entry((
                     triangle_id1.min(triangle_id2),
@@ -416,7 +416,7 @@ fn find_connected_meshlets(
     // For each meshlet pair, count how many vertices they share
     let mut meshlet_pair_to_shared_vertex_count = <HashMap<_, _>>::default();
     for vertex_meshlet_ids in vertices_to_meshlets {
-        for (meshlet_id1, meshlet_id2) in vertex_meshlet_ids.into_iter().tuple_combinations() {
+        for [meshlet_id1, meshlet_id2] in vertex_meshlet_ids.into_iter().array_combinations() {
             let count = meshlet_pair_to_shared_vertex_count
                 .entry((meshlet_id1.min(meshlet_id2), meshlet_id1.max(meshlet_id2)))
                 .or_insert(0);

@@ -22,26 +22,20 @@ import package::gaussian_blur::gaussian_blur;
 import bevy_render::view::View;
 
 /// Parameters that control the depth of field effect. See
-/// `bevy_core_pipeline::dof::DepthOfFieldUniforms` for information on what these
+/// `bevy_post_process::dof::DepthOfFieldUniform` for information on what these
 /// parameters mean.
 struct DepthOfFieldParams {
     /// The distance in meters to the location in focus.
     focal_distance: f32,
 
-    /// The [focal length]. Physically speaking, this represents "the distance
-    /// from the center of the lens to the principal foci of the lens". The
-    /// default value, 50 mm, is considered representative of human eyesight.
-    /// Real-world lenses range anywhere from 5 mm for "fisheye" lenses to
-    /// 2000 mm for "super-telephoto" lenses designed for very distant objects.
-    ///
-    /// The higher the value, the more blurry objects not in focus will be.
-    ///
-    /// [focal length]: https://en.wikipedia.org/wiki/Focal_length
-    focal_length: f32,
-
     /// The premultiplied factor that we scale the circle of confusion by.
     ///
-    /// This is calculated as `focal_length² / (sensor_height * aperture_f_stops)`.
+    /// This is calculated as:
+    /// ```text
+    /// sensor_height / (aperture_f_stops * view_height * (view_height - sensor_height))
+    /// ```
+    /// `view_height` is the height of the view at the focal plane. See
+    /// `calculate_circle_of_confusion` below for the derivation.
     coc_scale_factor: f32,
 
     /// The maximum diameter, in pixels, that we allow a circle of confusion to be.
@@ -55,13 +49,6 @@ struct DepthOfFieldParams {
     /// The depth value that we clamp distant objects to. See the comment in
     /// [`DepthOfField`] for more information.
     max_depth: f32,
-
-    /// Padding.
-    pad_a: u32,
-    /// Padding.
-    pad_b: u32,
-    /// Padding.
-    pad_c: u32,
 }
 
 /// The first bokeh pass outputs to two render targets. We declare them here.
@@ -97,8 +84,6 @@ struct DualOutput {
 /// The sampler that's used to fetch texels from the source color buffer.
 @group(1) @binding(1) var color_texture_sampler: sampler;
 
-/// used to ensure `depth * (focus - f)` is always a positive number,
-const EPSILON: f32 = 1.19209290e-07;
 /// cos(-30°), used for the bokeh blur.
 const COS_NEG_FRAC_PI_6: f32 = 0.8660254037844387;
 /// sin(-30°), used for the bokeh blur.
@@ -115,7 +100,6 @@ const SIN_NEG_FRAC_PI_5_6: f32 = -0.5;
 fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     // Unpack the depth of field parameters.
     let focus = dof_params.focal_distance;
-    let f = dof_params.focal_length;
     let scale = dof_params.coc_scale_factor;
     let max_coc_diameter = dof_params.max_circle_of_confusion_diameter;
 
@@ -124,12 +108,32 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     let raw_depth = textureLoad(depth_texture, frag_coord, 0);
     let depth = min(-depth_ndc_to_view_z(raw_depth), dof_params.max_depth);
 
-    // Calculate the circle of confusion.
+    // Calculate the circle of confusion, as a fraction of the view height.
     //
-    // This is just the formula from Wikipedia [1].
+    // Let h be the sensor height, N the f-stops, s the focal distance, d the
+    // depth, δ = d - s, and V the height of the view at the focal plane. The
+    // perspective formula from Wikipedia [1] is:
+    //
+    //     coc = f² |δ| / (h N d (s - f)),  where f = h / (2 tan(fov / 2))
+    //
+    // V = 2 s tan(fov / 2) = s h / f, so f = s h / V and s - f = s (V - h) / V.
+    // Substituting:
+    //
+    //     coc = h / (N V (V - h)) · |δ| · s / d
+    //
+    // The first factor is `scale`.
+    //
+    // An orthographic camera is the limit of a perspective camera whose FOV
+    // goes to zero while it pulls back (s → ∞), with V and the focal plane
+    // fixed in the world. δ is then unchanged, d = s + δ, and s / d → 1, so the
+    // orthographic formula drops that factor. With the same `scale`, switching
+    // between projections doesn't change the blur.
     //
     // [1]: https://en.wikipedia.org/wiki/Circle_of_confusion#Determining_a_circle_of_confusion_diameter_from_the_object_field
-    let candidate_coc = scale * abs(depth - focus) / (depth * max(focus - f, EPSILON));
+    var candidate_coc = scale * abs(depth - focus);
+    if (view.clip_from_view[3][3] != 1.0) {
+        candidate_coc *= focus / depth;
+    }
 
     let framebuffer_size = vec2<f32>(textureDimensions(color_texture_a));
     return clamp(candidate_coc * framebuffer_size.y, 0.0, max_coc_diameter);

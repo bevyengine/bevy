@@ -767,6 +767,9 @@ fn apply_deferred(
     world: &mut World,
     error_handler: ErrorHandler,
 ) -> Result<(), Box<dyn Any + Send>> {
+    #[cfg(feature = "trace")]
+    let _span = info_span!("apply_deferred").entered();
+
     for system_index in unapplied_systems.ones() {
         // SAFETY: none of these systems are running, no other references exist
         let system = &mut unsafe { &mut *systems[system_index].get() }.system;

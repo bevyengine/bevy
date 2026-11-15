@@ -27,6 +27,17 @@ pub enum AccessErrorKind {
         /// The actual [`VariantType`] that was found.
         actual: VariantType,
     },
+
+    /// An error that occurs when a key in the path can't be converted to the key type of the map or
+    /// set being accessed.
+    InvalidKey {
+        /// The type path of the map's key type or the set's element type, or `None` if the map or
+        /// set has no type info.
+        key_type: Option<&'static str>,
+    },
+
+    /// An error that occurs when trying to mutably access an element of a set.
+    MutableSetAccess,
 }
 
 impl AccessErrorKind {
@@ -111,7 +122,12 @@ impl fmt::Display for AccessError<'_> {
                         f,
                         "The {type_accessed} accessed doesn't have index `{}`",
                         access.display_value()
-                    )
+                    ),
+                    Access::Key(_) => write!(
+                        f,
+                        "The {type_accessed} accessed doesn't have key `{}`",
+                        access.display_value()
+                    ),
                 }
             }
             AccessErrorKind::IncompatibleTypes { expected, actual } => write!(
@@ -123,6 +139,18 @@ impl fmt::Display for AccessError<'_> {
                 f,
                 "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
                 access.kind()
+            ),
+            AccessErrorKind::InvalidKey { key_type: Some(key_type) } => write!(
+                f,
+                "The key in the path can't be converted to the map or set key type `{key_type}`."
+            ),
+            AccessErrorKind::InvalidKey { key_type: None } => write!(
+                f,
+                "The key type of the map or set is unknown, since it has no type info."
+            ),
+            AccessErrorKind::MutableSetAccess => write!(
+                f,
+                "Set elements can't be accessed mutably, since changing them could break the set."
             ),
         }
     }

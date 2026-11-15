@@ -41,6 +41,7 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod inline_box;
+mod masking;
 mod parley_context;
 mod pipeline;
 mod scroll;
@@ -136,7 +137,6 @@ impl Plugin for TextPlugin {
                     .chain()
                     .after(PropagateSet::<TextFont>::default()),
             )
-            .add_systems(Last, trim_source_cache)
             .add_systems(
                 PostUpdate,
                 apply_text_edits

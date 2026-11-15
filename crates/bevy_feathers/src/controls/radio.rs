@@ -14,7 +14,7 @@ use bevy_input_focus::Focusable;
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled,
     JustifyContent, LayoutConfig, Node, Pressed,
@@ -78,7 +78,7 @@ impl FeathersRadio {
             Focusable
             InheritableThemeTextColor(tokens::RADIO_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }

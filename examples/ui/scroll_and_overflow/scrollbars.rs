@@ -36,7 +36,19 @@ fn setup_view_root(mut commands: Commands) {
         BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
         UiTargetCamera(camera),
         TabGroup::default(),
-        Children::spawn((Spawn(Text::new("Scrolling")), Spawn(scroll_area_demo()))),
+        Children::spawn((
+            Spawn(Text::new("Scrolling")),
+            Spawn((
+                // Container that centers the scroll area with scrollbars
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::Center,
+                    ..Default::default()
+                },
+                Children::spawn(Spawn(scroll_area_demo())),
+            )),
+        )),
     ));
 }
 
@@ -75,7 +87,7 @@ fn scroll_area_demo() -> impl Bundle {
                         ..default()
                     },
                     BackgroundColor(colors::GRAY1.into()),
-                    ScrollPosition(Vec2::new(0.0, 10.0)),
+                    ScrollPosition::default(),
                     Children::spawn((
                         // The actual content of the scrolling area
                         Spawn(text_row("Alpha Wolf")),
@@ -104,30 +116,6 @@ fn scroll_area_demo() -> impl Bundle {
                 },
                 Scrollbar {
                     orientation: ControlOrientation::Vertical,
-                    target: scroll_area_id,
-                    min_thumb_length: 8.0,
-                },
-                Children::spawn(Spawn((
-                    Hovered::default(),
-                    BackgroundColor(colors::GRAY2.into()),
-                    BorderColor::all(colors::GRAY3),
-                    ScrollbarThumb {
-                        border_radius: BorderRadius::all(px(4)),
-                        border: px(1).all(),
-                    },
-                ))),
-            ));
-
-            // Horizontal scrollbar
-            parent.spawn((
-                Node {
-                    min_height: px(8),
-                    grid_row: GridPlacement::start(2),
-                    grid_column: GridPlacement::start(1),
-                    ..default()
-                },
-                Scrollbar {
-                    orientation: ControlOrientation::Horizontal,
                     target: scroll_area_id,
                     min_thumb_length: 8.0,
                 },
