@@ -4,6 +4,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::ChildOf,
     observer::On,
+    query::Has,
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, SystemParam},
@@ -11,7 +12,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_picking::{hover::HoverMap, pointer::PointerId, Pickable};
 use bevy_reflect::Reflect;
-use bevy_ui::{percent, Node, PositionType};
+use bevy_ui::{percent, InteractionDisabled, Node, PositionType};
 
 use crate::{
     DockChange, DockEdge, DockEdit, DockNodeId, DockSystems, DockTabBinding, DockTabId, DockTree,
@@ -69,7 +70,8 @@ impl DockDropZone {
 /// One is spawned over each leaf of the dock when a drag of one of its tabs starts, and they
 /// are despawned when the drag completes or is cancelled, even if the tab is gone by then. A tab
 /// dropped on one, and not on a tab list, is moved by sending a [`DockChange`] for its
-/// [`DockDropZone`], unless the drop would leave the tree as it is.
+/// [`DockDropZone`], unless the drop would leave the tree as it is or the leaf's [`TabList`] is
+/// [`InteractionDisabled`].
 #[derive(Component, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Component, Clone, Debug, PartialEq)]
 pub struct DockDropArea {
@@ -77,6 +79,8 @@ pub struct DockDropArea {
     pub dock: Entity,
     /// The dock tree leaf this area covers.
     pub leaf: DockNodeId,
+    /// The [`TabList`] of the dock tree leaf this area covers.
+    pub tab_list: Entity,
     /// The pointer dragging the tab.
     pub pointer_id: PointerId,
 }
@@ -92,13 +96,13 @@ pub struct DockDropTarget(pub DockDropZone);
 struct DropZones<'w, 's> {
     hover_map: Res<'w, HoverMap>,
     areas: Query<'w, 's, &'static DockDropArea>,
-    tab_lists: Query<'w, 's, &'static TabList>,
+    tab_lists: Query<'w, 's, (&'static TabList, Has<InteractionDisabled>)>,
     parents: Query<'w, 's, &'static ChildOf>,
 }
 
 impl DropZones<'_, '_> {
     /// The area and zone under a pointer, or `None` when it is over a tab list that would
-    /// take the drop instead.
+    /// take the drop instead, or when the area's leaf does not take drops.
     fn hovered(&self, pointer_id: PointerId) -> Option<(Entity, DockDropZone)> {
         let hits = self.hover_map.get(&pointer_id)?;
         if hits.keys().any(|&entity| self.in_tab_list(entity)) {
@@ -109,7 +113,7 @@ impl DropZones<'_, '_> {
             .filter(|(entity, _)| {
                 self.areas
                     .get(**entity)
-                    .is_ok_and(|area| area.pointer_id == pointer_id)
+                    .is_ok_and(|area| area.pointer_id == pointer_id && self.accepts_drops(area))
             })
             .min_by(|a, b| a.1.depth.total_cmp(&b.1.depth))?;
         let position = hit.position?.truncate() + Vec2::splat(0.5);
@@ -122,9 +126,21 @@ impl DropZones<'_, '_> {
             .any(|entity| {
                 self.tab_lists
                     .get(entity)
-                    .is_ok_and(|list| list.drag == TabDragMode::External)
+                    .is_ok_and(|(list, disabled)| takes_drop(list, disabled))
             })
     }
+
+    /// Whether the leaf an area covers takes drops.
+    fn accepts_drops(&self, area: &DockDropArea) -> bool {
+        self.tab_lists
+            .get(area.tab_list)
+            .is_ok_and(|(list, disabled)| takes_drop(list, disabled))
+    }
+}
+
+/// Whether a tab list takes a tab dropped by an `External` drag.
+fn takes_drop(list: &TabList, disabled: bool) -> bool {
+    list.drag == TabDragMode::External && !disabled
 }
 
 fn drop_on_tab_drag(
@@ -143,11 +159,12 @@ fn drop_on_tab_drag(
             return;
         };
         for (&leaf, node) in &ui.nodes {
-            if let NodeUi::Leaf { area, .. } = node {
+            if let NodeUi::Leaf { area, tab_list, .. } = node {
                 commands.spawn((
                     DockDropArea {
                         dock: binding.dock,
                         leaf,
+                        tab_list: *tab_list,
                         pointer_id: drag.pointer_id,
                     },
                     Node {
@@ -484,6 +501,28 @@ mod tests {
         let mut expected = f.tree.clone();
         expected.move_tab(f.a, f.side, None).unwrap();
         assert_eq!(tree(&f), &expected);
+    }
+
+    #[test]
+    fn disabled_group_does_not_accept_drops() {
+        let mut f = fixture();
+        count_changes(&mut f);
+        let world = f.app.world_mut();
+        let leaf = leaf_entity(world, f.side);
+        let list = world.get::<Children>(leaf).unwrap()[0];
+        world.entity_mut(list).insert(InteractionDisabled);
+
+        lifecycle(&mut f, TabDragPhase::Started);
+        hover_side(&mut f, Vec2::new(0.9, 0.5));
+        f.app.update();
+        let world = f.app.world_mut();
+        let area = area_for(world, f.side);
+        assert!(world.get::<DockDropTarget>(area).is_none());
+
+        lifecycle(&mut f, TabDragPhase::Completed { drop: None });
+        assert_eq!(changes(&f), 0);
+        assert_eq!(tree(&f), &f.tree);
+        assert!(areas(f.app.world_mut()).is_empty());
     }
 
     #[test]
