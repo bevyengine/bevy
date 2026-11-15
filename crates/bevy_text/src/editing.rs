@@ -419,7 +419,7 @@ pub struct Placeholder {
 impl Placeholder {
     /// Constructs a placeholder with the supplied `text`.
     ///
-    //// Uses the default [`PlaceholderMode`], and the font style and weight of the underlying field.
+    /// Uses the default [`PlaceholderMode`], and the font style and weight of the underlying field.
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
