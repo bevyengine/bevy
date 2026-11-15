@@ -41,13 +41,17 @@ impl<'w> EntityWorldMut<'w> {
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         self.world_scope(|world| {
-            for related in related {
-                world
-                    .entity_mut(*related)
-                    .modify_or_insert_relation_with_relationship_hook_mode::<R>(
-                        id,
-                        RelationshipHookMode::Run,
-                    );
+            for &related in related {
+                let modified = world
+                    .entity_mut(related)
+                    .modify_or_insert_relation_source::<R>(id);
+
+                // if it was able to modify the relationship entity, it should also modify the target
+                if modified {
+                    world
+                        .entity_mut(id)
+                        .modify_or_insert_relation_target::<R::RelationshipTarget>(related);
+                }
             }
         });
         self
@@ -90,29 +94,37 @@ impl<'w> EntityWorldMut<'w> {
     {
         let id = self.id();
         self.world_scope(|world| {
-            for (offset, related) in related.iter().enumerate() {
+            for (offset, &related) in related.iter().enumerate() {
                 let index = index.saturating_add(offset);
                 if world
-                    .get::<R>(*related)
+                    .get::<R>(related)
                     .is_some_and(|relationship| relationship.collection().contains(id))
                 {
                     world
                         .get_mut::<R::RelationshipTarget>(id)
                         .expect("hooks should have added relationship target")
                         .collection_mut_risky()
-                        .place(*related, index);
+                        .place(related, index);
                 } else {
-                    world
-                        .entity_mut(*related)
-                        .modify_or_insert_relation_with_relationship_hook_mode::<R>(
-                            id,
-                            RelationshipHookMode::Run,
-                        );
-                    world
-                        .get_mut::<R::RelationshipTarget>(id)
-                        .expect("hooks should have added relationship target")
-                        .collection_mut_risky()
-                        .place_most_recent(index);
+                    let modified = world
+                        .entity_mut(related)
+                        .modify_or_insert_relation_source::<R>(id);
+                    if modified {
+                        if world.entity(id).contains::<R::RelationshipTarget>() {
+                            let mut target = world
+                                .get_mut::<R::RelationshipTarget>(id)
+                                .expect("hooks should have added relationship target");
+                            let length = target.len();
+                            target
+                                .collection_mut_risky()
+                                .insert(index.min(length), related);
+                        } else {
+                            world.entity_mut(id).insert_with_relationship_hook_mode(
+                                <R::RelationshipTarget as RelationshipTarget>::from_risky(related),
+                                RelationshipHookMode::Skip,
+                            );
+                        }
+                    }
                 }
             }
         });
@@ -126,7 +138,12 @@ impl<'w> EntityWorldMut<'w> {
         self.world_scope(|world| {
             for &related in related {
                 if let Ok(mut source_entity_mut) = world.get_entity_mut(related) {
-                    source_entity_mut.remove_target_entity::<R>(id);
+                    let modified = source_entity_mut.modify_or_remove_relation_source::<R>(id);
+                    if modified {
+                        world
+                            .entity_mut(id)
+                            .modify_or_remove_relation_target::<R::RelationshipTarget>(related);
+                    }
                 }
             }
         });
@@ -170,7 +187,12 @@ impl<'w> EntityWorldMut<'w> {
             // Remove the existing relations that we won't keep
             for &related in existing_relations.difference(&final_relations) {
                 if let Ok(mut source_entity_mut) = world.get_entity_mut(related) {
-                    source_entity_mut.remove_target_entity::<R>(id);
+                    let modified = source_entity_mut.modify_or_remove_relation_source::<R>(id);
+                    if modified {
+                        world
+                            .entity_mut(id)
+                            .modify_or_remove_relation_target::<R::RelationshipTarget>(related);
+                    }
                 }
             }
 
@@ -408,6 +430,158 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         self.insert_with_relationship_hook_mode(R::from(entity), relationship_hook_mode);
+    }
+
+    // Only makes changes at the source side of the relationship.
+    // Returns true if an entity was successfully added
+    fn modify_or_insert_relation_source<R: Relationship>(&mut self, entity: Entity) -> bool {
+        // Check if the relation edge holds additional data
+        if size_of::<R>() > size_of::<Entity>() {
+            self.assert_not_despawned();
+
+            let this = self.id();
+
+            let modified = self.world_scope(|world| {
+                DeferredWorld::from(&mut *world)
+                    .modify_component_with_relationship_hook_mode::<R, _>(
+                        this,
+                        RelationshipHookMode::Skip,
+                        |r| {
+                            (
+                                r.collection().single(),
+                                r.collection_mut_risky().add(entity),
+                            )
+                        },
+                    )
+                    .expect("entity access must be valid")
+            });
+
+            match modified {
+                Some((Some(old_entity), true)) => {
+                    if old_entity != entity {
+                        // the old relationship needs to be cleaned up.
+                        self.world_scope(|world| {
+                            world
+                                .entity_mut(old_entity)
+                                .modify_or_remove_relation_target::<R::RelationshipTarget>(this);
+                        });
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+                Some((None, true)) => {
+                    return true;
+                }
+                Some((_, false)) => {
+                    return false;
+                }
+                None => {}
+            }
+        }
+
+        if let Some(relationship) = self.get::<R>()
+            && relationship.collection().contains(entity)
+        {
+            false // the relationship already has that connection, meaning that no change takes place
+        } else {
+            self.insert_with_relationship_hook_mode(R::from(entity), RelationshipHookMode::Skip);
+            true
+        }
+    }
+
+    fn modify_or_insert_relation_target<R: RelationshipTarget>(&mut self, entity: Entity) {
+        // Check if the relation edge holds additional data
+        if size_of::<R>() > size_of::<Entity>() {
+            self.assert_not_despawned();
+
+            let this = self.id();
+
+            let modified = self.world_scope(|world| {
+                DeferredWorld::from(&mut *world)
+                    .modify_component_with_relationship_hook_mode::<R, _>(
+                        this,
+                        RelationshipHookMode::Skip,
+                        |r| r.collection_mut_risky().add(entity),
+                    )
+                    .expect("entity access must be valid")
+            });
+
+            match modified {
+                Some(true) => {
+                    return;
+                }
+                Some(false) => {
+                    return;
+                }
+                None => {}
+            }
+        }
+
+        self.insert_with_relationship_hook_mode(
+            R::from_collection_risky(<R::Collection as RelationshipCollection>::from(entity)),
+            RelationshipHookMode::Skip,
+        );
+    }
+
+    // Only makes changes at the source side of the relationship.
+    // Returns true if an entity was successfully removed
+    fn modify_or_remove_relation_source<R: Relationship>(&mut self, entity: Entity) -> bool {
+        self.assert_not_despawned();
+
+        let this = self.id();
+
+        let modified = self.world_scope(|world| {
+            DeferredWorld::from(&mut *world)
+                .modify_component_with_relationship_hook_mode::<R, _>(
+                    this,
+                    RelationshipHookMode::Skip,
+                    |r| r.collection_mut_risky().remove(entity),
+                )
+                .expect("entity access must be valid")
+        });
+
+        match modified {
+            Some(true) => {
+                if self.get::<R>().unwrap().collection().is_empty() {
+                    self.remove_with_relationship_hook_mode::<R>(RelationshipHookMode::Skip);
+                }
+                return true;
+            }
+            Some(false) | None => {
+                return false;
+            }
+        }
+    }
+
+    // Only makes changes at the source side of the relationship.
+    // Returns true if an entity was successfully removed
+    fn modify_or_remove_relation_target<R: RelationshipTarget>(&mut self, entity: Entity) -> bool {
+        self.assert_not_despawned();
+
+        let this = self.id();
+
+        let modified = self.world_scope(|world| {
+            DeferredWorld::from(&mut *world)
+                .modify_component_with_relationship_hook_mode::<R, _>(
+                    this,
+                    RelationshipHookMode::Skip,
+                    |r| r.collection_mut_risky().remove(entity),
+                )
+                .expect("entity access must be valid")
+        });
+
+        match modified {
+            Some(true) => {
+                if self.get::<R>().unwrap().collection().is_empty() {
+                    self.remove_with_relationship_hook_mode::<R>(RelationshipHookMode::Skip);
+                }
+                return true;
+            }
+            Some(false) | None => {
+                return false;
+            }
+        }
     }
 }
 
@@ -861,6 +1035,8 @@ mod tests {
                 data: 42
             })
         );
+
+        assert!(!world.entity_mut(parent1).contains::<Parent>());
 
         world.entity_mut(parent1).replace_related::<Child>(&[child]);
         assert_eq!(

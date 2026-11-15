@@ -421,6 +421,15 @@ pub trait RelationshipTarget:
     /// The collection should not contain duplicates.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
+    /// Creates a new [`RelationshipTarget`] from a given [`Entity`].
+    ///
+    /// # Warning
+    /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
+    /// The collection should not contain duplicates.
+    fn from_risky(entity: Entity) -> Self {
+        Self::from_collection_risky(<Self::Collection as RelationshipCollection>::from(entity))
+    }
+
     /// The `on_discard` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
     fn on_discard(
