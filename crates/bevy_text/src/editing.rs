@@ -417,8 +417,9 @@ pub struct Placeholder {
 }
 
 impl Placeholder {
-    /// A placeholder in the field's own font style and weight, and the
-    /// default [`PlaceholderMode`].
+    /// Constructs a placeholder with the supplied `text`.
+    ///
+    //// Uses the default [`PlaceholderMode`], and the font style and weight of the underlying field.
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
