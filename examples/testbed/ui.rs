@@ -64,6 +64,7 @@ fn main() {
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(OnEnter(Scene::Block), block::setup)
     .add_systems(OnEnter(Scene::InlineImage), inline_image::scene.spawn())
+    .add_systems(OnEnter(Scene::Calc), calc::scene.spawn())
     .add_systems(
         OnEnter(Scene::FontRelativeUnits),
         font_relative_units::setup,
@@ -123,6 +124,7 @@ enum Scene {
     ChangeDetection,
     Block,
     InlineImage,
+    Calc,
 }
 
 impl Scene {
@@ -155,6 +157,7 @@ impl Scene {
         Scene::ChangeDetection,
         Scene::Block,
         Scene::InlineImage,
+        Scene::Calc,
     ];
 }
 
@@ -4211,6 +4214,81 @@ mod inline_image {
                 --
                 TextSpan::new(" after image")
             ]
+        }
+    }
+}
+
+mod calc {
+    use super::Scene;
+    use bevy::color::palettes::css::BLUE;
+    use bevy::color::palettes::css::GREEN;
+    use bevy::color::palettes::css::ORANGE;
+    use bevy::color::palettes::css::SNOW;
+    use bevy::color::palettes::css::VIOLET;
+    use bevy::color::palettes::css::YELLOW;
+    use bevy::color::palettes::tailwind::RED_500;
+    use bevy::prelude::*;
+
+    pub fn scene() -> impl SceneList {
+        bsn_list! {
+            Camera2d
+            DespawnOnExit<Scene>(Scene::Calc)
+            --
+            Node {
+                flex_direction: FlexDirection::Column,
+                margin: auto(),
+                border: { px(1) + vmin(1) },
+            }
+            BorderColor::all(SNOW)
+            DespawnOnExit<Scene>(Scene::Calc)
+            Children [
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                        width: px(100),
+                        height: px(50.),
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: vw(5),
+                        height: px(50.),
+                    }
+                    BackgroundColor(GREEN)
+                    --
+                    Node {
+                        width: vh(5),
+                        height: px(50.),
+                    }
+                    BackgroundColor(VIOLET)
+                    --
+                    Node {
+                        width: vmin(5),
+                        height: px(50.),
+                    }
+                    BackgroundColor(ORANGE)
+                    --
+                    Node {
+                        width: vmax(5),
+                        height: px(50.),
+                    }
+                    BackgroundColor(BLUE)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                     Node {
+                        width: { px(100) + vw(5) + vh(5) + vmin(5) + vmax(5) },
+                        height: px(50.),
+                     }
+                     BackgroundColor(RED_500)
+                ]
+            ]
+
         }
     }
 }
