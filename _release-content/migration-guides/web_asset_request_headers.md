@@ -1,6 +1,6 @@
 ---
 title: "`WebAssetPlugin` has a new field and `WebAssetReader` is now a struct"
-pull_requests: []
+pull_requests: [26561]
 ---
 
 Added a `request_headers` field to `WebAssetPlugin`, for a callback that returns
