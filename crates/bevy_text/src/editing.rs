@@ -437,7 +437,7 @@ impl Placeholder {
     }
 }
 
-/// Color for a [`Placeholder`]. If this component is not present, the hint
+/// Color for [`Placeholder`] text. If this component is not present, the hint
 /// is drawn in the field's [`TextColor`], with its alpha scaled by
 /// [`PlaceholderColor::DEFAULT_ALPHA`].
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
