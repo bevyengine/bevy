@@ -415,6 +415,11 @@ mod tests {
             (Vec2::new(0.05, 0.2), DockDropZone::Edge(DockEdge::Left)),
             (Vec2::new(0.5, 0.5), DockDropZone::Center),
             (Vec2::new(0.26, 0.74), DockDropZone::Center),
+            // The band is exclusive, and corners go to the first of the nearest edges.
+            (Vec2::new(0.25, 0.5), DockDropZone::Center),
+            (Vec2::new(0.75, 0.5), DockDropZone::Center),
+            (Vec2::new(0.0, 0.0), DockDropZone::Edge(DockEdge::Left)),
+            (Vec2::new(1.0, 1.0), DockDropZone::Edge(DockEdge::Right)),
         ];
         for (position, zone) in cases {
             assert_eq!(DockDropZone::at(position), zone, "{position}");
@@ -559,6 +564,56 @@ mod tests {
         let spawned = areas(f.app.world_mut());
         assert_eq!(spawned.len(), 2);
         assert!(spawned.iter().all(|(_, area)| area.pointer_id == POINTER));
+    }
+
+    #[test]
+    fn target_leaves_with_the_pointer() {
+        let mut f = fixture();
+        lifecycle(&mut f, TabDragPhase::Started);
+        hover_side(&mut f, Vec2::new(0.9, 0.5));
+        f.app.update();
+        let side = area_for(f.app.world_mut(), f.side);
+        assert_eq!(targets(f.app.world_mut()), 1);
+
+        hover(&mut f, &[]);
+        f.app.update();
+        assert_eq!(targets(f.app.world_mut()), 0);
+        assert!(f.app.world().get::<DockDropTarget>(side).is_none());
+    }
+
+    #[test]
+    fn center_drop_fills_an_empty_group() {
+        let mut f = fixture();
+        let main = f.main;
+        let c = f.c;
+        let emptied: Vec<DockTabId> = {
+            let world = f.app.world_mut();
+            let tree = world.get::<DockTree>(f.dock).unwrap();
+            tree.leaf(main)
+                .unwrap()
+                .tabs()
+                .iter()
+                .map(|t| t.id)
+                .collect()
+        };
+        for tab in emptied {
+            let world = f.app.world_mut();
+            let mut tree = world.get_mut::<DockTree>(f.dock).unwrap();
+            // A group that outlives its last tab.
+            tree.set_persistent(main, true).unwrap();
+            tree.remove_tab(tab).unwrap();
+        }
+        f.app.update();
+        assert!(tree(&f).leaf(main).unwrap().tabs().is_empty());
+        let mut expected = tree(&f).clone();
+
+        lifecycle_tab(&mut f, c, TabDragPhase::Started);
+        hover_leaf(&mut f, main, Vec2::splat(0.5));
+        lifecycle_tab(&mut f, c, TabDragPhase::Completed { drop: None });
+
+        expected.move_tab(c, main, None).unwrap();
+        assert_eq!(tree(&f), &expected);
+        assert_eq!(tree(&f).root(), main);
     }
 
     #[test]
