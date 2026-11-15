@@ -54,7 +54,7 @@ impl Default for ExplosionsEnabled {
 
 fn toggle_explosions(keyboard: Res<ButtonInput<KeyCode>>, mut enabled: ResMut<ExplosionsEnabled>) {
     if keyboard.just_pressed(KeyCode::Space) {
-        enabled.0 = !enabled.0;
+        enabled.0.toggle();
         info!(
             "Explosions {}",
             if enabled.0 { "ENABLED" } else { "DISABLED" }

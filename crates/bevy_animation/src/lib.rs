@@ -56,8 +56,9 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animation_curves::*, blendable::*, graph::*, transition::*, AnimationClip, AnimationPlayer,
-        AnimationPlugin, AnimationSystems, VariableCurve,
+        animated_field, animation_curves::*, blendable::*, graph::*, transition::*,
+        ActiveAnimation, AnimatedBy, AnimationClip, AnimationEvent, AnimationPlayer,
+        AnimationPlugin, AnimationSystems, AnimationTargetId, RepeatAnimation, VariableCurve,
     };
 }
 

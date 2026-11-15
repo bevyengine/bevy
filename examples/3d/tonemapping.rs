@@ -401,7 +401,7 @@ fn update_ui(
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     if keys.just_pressed(KeyCode::KeyH) {
-        *hide_ui = !*hide_ui;
+        hide_ui.toggle();
     }
 
     if *hide_ui {
