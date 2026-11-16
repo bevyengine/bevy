@@ -115,6 +115,24 @@ impl ValUnit {
     }
 }
 
+impl core::str::FromStr for ValUnit {
+    type Err = ValParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "%" => Ok(ValUnit::Percent),
+            unit if unit.eq_ignore_ascii_case("px") => Ok(ValUnit::Px),
+            unit if unit.eq_ignore_ascii_case("vw") => Ok(ValUnit::Vw),
+            unit if unit.eq_ignore_ascii_case("vh") => Ok(ValUnit::Vh),
+            unit if unit.eq_ignore_ascii_case("vmin") => Ok(ValUnit::VMin),
+            unit if unit.eq_ignore_ascii_case("vmax") => Ok(ValUnit::VMax),
+            unit if unit.eq_ignore_ascii_case("rem") => Ok(ValUnit::Rem),
+            unit if unit.eq_ignore_ascii_case("em") => Ok(ValUnit::Em),
+            _ => Err(ValParseError::InvalidUnit),
+        }
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
