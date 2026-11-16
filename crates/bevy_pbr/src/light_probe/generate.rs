@@ -65,7 +65,7 @@ use bevy_shader::ShaderDefVal;
 use core::cmp::min;
 use tracing::info;
 
-use crate::Bluenoise;
+use crate::{environment_map::EnvironmentMapExposures, Bluenoise};
 
 /// Stores the bind group layouts for the environment map generation pipelines
 #[derive(Resource)]
@@ -346,6 +346,7 @@ pub fn extract_generated_environment_map_entities(
     >,
     mut commands: Commands,
     render_images: Res<RenderAssets<GpuImage>>,
+    mut exposures: ResMut<EnvironmentMapExposures>,
 ) {
     for (entity, filtered_env_map, env_map_light) in query.iter() {
         let Some(env_map) = render_images.get(&filtered_env_map.environment_map) else {
@@ -362,6 +363,11 @@ pub fn extract_generated_environment_map_entities(
 
         let diffuse_map = diffuse_map.unwrap();
         let specular_map = specular_map.unwrap();
+
+        // Filtering runs ahead of the render graph that writes this frame's environment maps, so the
+        // filtered maps hold the exposure their source was last written with.
+        let exposure = exposures.get(filtered_env_map.environment_map.id());
+        exposures.insert(env_map_light.specular_map.id(), exposure);
 
         let render_filtered_env_map = RenderEnvironmentMap {
             environment_map: env_map.clone(),

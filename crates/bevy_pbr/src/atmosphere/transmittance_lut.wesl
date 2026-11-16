@@ -20,10 +20,19 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     // compute the optical depth from view height r to the top atmosphere boundary
     let optical_depth = ray_optical_depth(r_mu.x, r_mu.y, settings.transmittance_lut_samples);
-    let transmittance = exp(-optical_depth);
 
-    textureStore(transmittance_lut_out, idx.xy, vec4(transmittance, 1.0));
+    // Store optical depth (see `sample_optical_depth_lut`), kept finite: bilinear filtering turns
+    // an infinite or NaN texel into NaN in every lookup next to it. NaN fails the comparison.
+    let finite_depth = select(
+        vec3(MAX_OPTICAL_DEPTH),
+        optical_depth,
+        optical_depth < vec3(MAX_OPTICAL_DEPTH),
+    );
+    textureStore(transmittance_lut_out, idx.xy, vec4(finite_depth, 1.0));
 }
+
+/// Largest optical depth the LUT stores; `exp(-64)` is negligible for any light.
+const MAX_OPTICAL_DEPTH: f32 = 64.0;
 
 /// Compute the optical depth of the atmosphere from the ground to the top atmosphere boundary
 /// at a given view height (r) and zenith cos angle (mu)

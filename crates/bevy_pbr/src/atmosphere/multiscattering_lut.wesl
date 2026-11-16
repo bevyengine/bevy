@@ -35,6 +35,9 @@ var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
 /// Shared memory array for workgroup communication
 var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
 
+/// Smallest multiscattering factor the LUT stores.
+const MULTISCATTERING_FLOOR: f32 = 1e-20;
+
 @compute
 @workgroup_size(1, 1, 64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -73,7 +76,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Equation 10 from the paper: Geometric series for infinite scattering
     let psi_ms = l_2 / (1.0 - f_ms);
-    textureStore(multiscattering_lut_out, global_id.xy, vec4<f32>(psi_ms, 1.0));
+    // Stored in log space so it doesn't underflow f16 toward a sun below the horizon.
+    textureStore(multiscattering_lut_out, global_id.xy, vec4<f32>(log(max(psi_ms, vec3(MULTISCATTERING_FLOOR))), 1.0));
 }
 
 struct MultiscatteringSample {
