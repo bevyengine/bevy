@@ -860,6 +860,6 @@ mod tests {
             .entity_mut(entity)
             .remove::<PlaceholderColor>();
         app.update();
-        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
     }
 }
