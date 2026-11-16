@@ -37,10 +37,7 @@ use bevy_ui_widgets::{
     ValueChange,
 };
 
-use crate::{
-    picking::InspectorPickBlocker, InspectableEntity, InspectorSelection, InspectorSource,
-    InspectorSources, PanelSync,
-};
+use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, PanelSync};
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
 /// hidden from the entity tree, but the marked entity itself still shows as a single,
@@ -713,7 +710,6 @@ fn is_excluded(world: &World, entity: Entity) -> bool {
     if entity_ref.contains::<IsResource>()
         || entity_ref.contains::<SystemIdMarker>()
         || entity_ref.contains::<Observer>()
-        || entity_ref.contains::<InspectorPickBlocker>()
     {
         return true;
     }

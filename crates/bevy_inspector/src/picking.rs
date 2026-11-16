@@ -3,28 +3,22 @@ use bevy_camera::{
     Camera, RenderTarget,
 };
 use bevy_ecs::{
-    bundle::Bundle,
     change_detection::DetectChangesMut,
-    component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
     message::MessageReader,
     query::With,
+    resource::Resource,
     system::{Commands, In, Local, Query, Res, ResMut, SystemParam},
 };
 use bevy_picking::{
     backend::{ray::RayMap, PointerHits},
-    mesh_picking::{
-        ray_cast::{MeshRayCast, MeshRayCastSettings},
-        MeshPickingSettings,
-    },
+    hover::{HoverMap, PreviousHoverMap},
+    mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput},
-    Pickable,
+    Pickable, PickingSettings,
 };
-use bevy_ui::{
-    percent, px, ComputedNode, ComputedUiTargetCamera, Display, GlobalZIndex, Node, PositionType,
-    UiGlobalTransform,
-};
+use bevy_ui::{ComputedNode, ComputedUiTargetCamera, Display, Node, UiGlobalTransform};
 use bevy_ui_widgets::ValueChange;
 use bevy_window::{PrimaryWindow, Window};
 
@@ -104,9 +98,13 @@ impl InspectorPanels<'_, '_> {
     }
 }
 
+/// Whether the app added `MeshPickingPlugin`, which picks meshes itself.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MeshBackendPresent(pub bool);
+
 #[derive(SystemParam)]
 pub(crate) struct MeshFallback<'w, 's> {
-    mesh_picking: Option<Res<'w, MeshPickingSettings>>,
+    backend: Option<Res<'w, MeshBackendPresent>>,
     ray_map: Option<Res<'w, RayMap>>,
     cameras: Query<'w, 's, (&'static Camera, Option<&'static RenderLayers>)>,
     pickables: Query<'w, 's, &'static Pickable>,
@@ -116,7 +114,7 @@ pub(crate) struct MeshFallback<'w, 's> {
 
 impl MeshFallback<'_, '_> {
     fn nearest(&mut self) -> Option<Entity> {
-        if self.mesh_picking.is_some() {
+        if self.backend.as_ref().is_some_and(|backend| backend.0) {
             return None;
         }
         let ray_map = self.ray_map.as_ref()?;
@@ -161,25 +159,6 @@ impl MeshFallback<'_, '_> {
     }
 }
 
-#[derive(Component)]
-pub(crate) struct InspectorPickBlocker;
-
-pub(crate) fn pick_blocker(z: i32) -> impl Bundle {
-    (
-        InspectorPickBlocker,
-        Node {
-            position_type: PositionType::Absolute,
-            left: px(0),
-            top: px(0),
-            width: percent(100),
-            height: percent(100),
-            ..Default::default()
-        },
-        GlobalZIndex(z),
-        Pickable::default(),
-    )
-}
-
 #[derive(SystemParam)]
 pub(crate) struct EntitiesPage<'w, 's> {
     tabs: Query<'w, 's, (Entity, &'static InspectorPageTab, &'static ChildOf)>,
@@ -214,7 +193,6 @@ pub(crate) struct PickTargets<'w, 's> {
     panels: InspectorPanels<'w, 's>,
     windows: Query<'w, 's, (), With<Window>>,
     pickables: Query<'w, 's, &'static Pickable>,
-    blockers: Query<'w, 's, (), With<InspectorPickBlocker>>,
 }
 
 /// What a press or release of the primary button landed on.
@@ -231,7 +209,7 @@ impl PickTargets<'_, '_> {
             return Some(Pick::Blocked);
         }
         for (.., entity) in hits {
-            if self.windows.contains(*entity) || self.blockers.contains(*entity) {
+            if self.windows.contains(*entity) {
                 continue;
             }
             let pickable = self.pickables.get(*entity).copied().unwrap_or_default();
@@ -252,12 +230,30 @@ impl PickTargets<'_, '_> {
     }
 }
 
-pub(crate) fn select_clicked_entity(
+/// The entity the pointer is over while a click would pick it for the inspector.
+///
+/// Kept so that later editor features can show hover hints without reading the app's hover
+/// state, which picking keeps away from the app.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub(crate) struct InspectorHover(pub Option<InspectableEntity>);
+
+/// Picks for the inspector, and keeps the pointer's hover and events away from the app.
+///
+/// While the overlay is showing, the mode is [`InspectorMode::Edit`] and the inspected world is
+/// local, [`HoverMap`] and [`PreviousHoverMap`] keep only the inspector's own UI, which is what
+/// `bevy_picking` dispatches from. The app therefore sees no hover and no pointer events, while
+/// the overlay's own controls keep working and the inspector still reads every backend's hits to
+/// find the entity under the pointer.
+pub(crate) fn pick_for_inspector(
     In(visible): In<bool>,
+    settings: Option<Res<PickingSettings>>,
     mode: Res<InspectorMode>,
     sources: Res<InspectorSources>,
     mut pointer_hits: MessageReader<PointerHits>,
     mut inputs: MessageReader<PointerInput>,
+    mut hover_map: Option<ResMut<HoverMap>>,
+    mut previous_hover_map: Option<ResMut<PreviousHoverMap>>,
+    mut hover: ResMut<InspectorHover>,
     mut pressed: Local<Option<Pick>>,
     targets: PickTargets,
     mut meshes: MeshFallback,
@@ -274,7 +270,7 @@ pub(crate) fn select_clicked_entity(
                 .map(|(entity, hit)| (hits.order, hit.depth, *entity))
         })
         .collect();
-    let clicks: Vec<(PointerAction, Location)> = inputs
+    let inputs: Vec<(PointerAction, Location)> = inputs
         .read()
         .filter(|input| {
             input.pointer_id == PointerId::Mouse
@@ -282,38 +278,59 @@ pub(crate) fn select_clicked_entity(
                     input.action,
                     PointerAction::Press(PointerButton::Primary)
                         | PointerAction::Release(PointerButton::Primary)
+                        | PointerAction::Cancel
+                        | PointerAction::Move { .. }
+                        | PointerAction::Scroll { .. }
                 )
         })
         .map(|input| (input.action, input.location.clone()))
         .collect();
+
     let active = visible
         && *mode == InspectorMode::Edit
+        && settings.as_ref().is_none_or(|settings| settings.is_enabled)
         && sources.sources.contains(&InspectorSource::Local);
     if !active {
         *pressed = None;
+        hover.0 = None;
         return;
     }
-    if clicks.is_empty() {
+
+    // Everything dispatched to the app comes from these two maps, so keeping only the inspector's
+    // own UI in them is what stops the app seeing the pointer, without stopping our own controls.
+    if let Some(map) = hover_map.as_mut() {
+        for hits in map.0.values_mut() {
+            hits.retain(|entity, _| targets.panels.contains(*entity));
+        }
+    }
+    if let Some(map) = previous_hover_map.as_mut() {
+        for hits in map.0.values_mut() {
+            hits.retain(|entity, _| targets.panels.contains(*entity));
+        }
+    }
+    if inputs.is_empty() {
         return;
     }
     hits.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.total_cmp(&b.1)));
 
-    let mut picked = None;
-    let mut pick = |location: &Location| {
-        *picked.get_or_insert_with(|| {
+    for (action, location) in inputs {
+        // The mesh fallback costs a ray cast, so only the press and release ask for it; a hover
+        // hint only needs what the backends already reported.
+        let pressed_entity = |meshes: &mut MeshFallback| {
             targets
-                .topmost(&hits, location)
+                .topmost(&hits, &location)
                 .unwrap_or_else(|| meshes.nearest().map_or(Pick::Nothing, Pick::Entity))
-        })
-    };
-    for (action, location) in clicks {
+        };
         match action {
-            PointerAction::Press(_) => *pressed = Some(pick(&location)),
-            _ => {
+            PointerAction::Cancel => *pressed = None,
+            PointerAction::Press(PointerButton::Primary) => {
+                *pressed = Some(pressed_entity(&mut meshes));
+            }
+            PointerAction::Release(PointerButton::Primary) => {
                 let Some(pressed) = pressed.take() else {
                     continue;
                 };
-                if pick(&location) != pressed {
+                if pressed_entity(&mut meshes) != pressed {
                     continue;
                 }
                 match pressed {
@@ -329,7 +346,14 @@ pub(crate) fn select_clicked_entity(
                     Pick::Blocked => {}
                 }
             }
+            _ => {}
         }
+        hover.0 = match targets.topmost(&hits, &location) {
+            Some(Pick::Entity(entity)) => {
+                Some(InspectableEntity::new(entity, InspectorSource::Local))
+            }
+            _ => None,
+        };
     }
 }
 
@@ -351,7 +375,6 @@ mod tests {
     use bevy_picking::{
         backend::{ray::RayId, HitData},
         events::PointerClick,
-        mesh_picking::MeshPickingSettings,
         InteractionPlugin, PickingPlugin, PickingSystems,
     };
     use bevy_scene::WorldSceneExt;
@@ -449,10 +472,6 @@ mod tests {
             .unwrap()
     }
 
-    fn blocker(app: &mut App) -> Entity {
-        app.world_mut().spawn(pick_blocker(0)).id()
-    }
-
     fn set_mode(app: &mut App, mode: InspectorMode) {
         *app.world_mut().resource_mut::<InspectorMode>() = mode;
         app.update();
@@ -472,17 +491,6 @@ mod tests {
             app.world().get::<SelectedTreeItem>(tree).unwrap().0,
             row(&app, near)
         );
-    }
-
-    #[test]
-    fn a_click_on_the_blocker_picks_what_is_behind_it() {
-        let mut app = test_app();
-        spawn_panel(&mut app);
-        let blocker = blocker(&mut app);
-        let subject = app.world_mut().spawn(Name::new("Subject")).id();
-        let window = app.world_mut().spawn(Window::default()).id();
-        click(&mut app, &[(blocker, 0.0), (subject, 1.0), (window, 9.0)]);
-        assert_eq!(selected(&app), Some(subject));
     }
 
     #[test]
@@ -529,8 +537,7 @@ mod tests {
 
         click(&mut app, &[(subject, 1.0)]);
         let window = app.world_mut().spawn(Window::default()).id();
-        let blocker = blocker(&mut app);
-        click(&mut app, &[(blocker, 0.0), (window, 9.0)]);
+        click(&mut app, &[(window, 9.0)]);
         assert_eq!(selected(&app), None);
     }
 
@@ -707,13 +714,12 @@ mod tests {
     }
 
     #[test]
-    fn a_click_that_only_hits_the_blocker_or_window_selects_the_mesh_behind() {
+    fn a_click_that_only_hits_the_window_selects_the_mesh_behind() {
         let mut app = ray_cast_app();
         spawn_panel(&mut app);
         let mesh = spawn_mesh(&mut app, 4.0);
-        let blocker = blocker(&mut app);
         let window = app.world_mut().spawn(Window::default()).id();
-        click(&mut app, &[(blocker, 0.0), (window, 9.0)]);
+        click(&mut app, &[(window, 9.0)]);
         assert_eq!(selected(&app), Some(mesh));
     }
 
@@ -749,7 +755,7 @@ mod tests {
     #[test]
     fn no_mesh_fallback_when_the_app_has_mesh_picking() {
         let mut app = ray_cast_app();
-        app.init_resource::<MeshPickingSettings>();
+        app.insert_resource(MeshBackendPresent(true));
         spawn_panel(&mut app);
         spawn_mesh(&mut app, 4.0);
         click(&mut app, &[]);
@@ -830,7 +836,10 @@ mod tests {
             .init_resource::<AppClicks>()
             .add_systems(
                 PreUpdate,
-                (keep_ray, report_hits).in_set(PickingSystems::Backend),
+                (keep_ray, report_hits)
+                    .chain()
+                    .ambiguous_with_all()
+                    .in_set(PickingSystems::Backend),
             );
         app.world_mut().spawn(PointerId::Mouse);
         app
@@ -852,11 +861,11 @@ mod tests {
     }
 
     #[test]
-    fn editing_selects_through_the_blocker_and_the_app_gets_no_click() {
+    fn editing_selects_and_the_app_gets_no_click() {
         let mut app = picking_app();
         spawn_panel(&mut app);
         let mesh = observed_mesh(&mut app);
-        app_click(&mut app, |app| alloc::vec![blocker(app), mesh]);
+        app_click(&mut app, |_| alloc::vec![mesh]);
         assert_eq!(selected(&app), Some(mesh));
         assert_eq!(app.world().resource::<AppClicks>().0, 0);
     }
@@ -877,7 +886,7 @@ mod tests {
         let mut app = picking_app();
         spawn_panel(&mut app);
         let mesh = spawn_mesh(&mut app, 4.0);
-        app_click(&mut app, |app| alloc::vec![blocker(app)]);
+        app_click(&mut app, |_| alloc::vec![]);
         assert_eq!(selected(&app), Some(mesh));
     }
 }
