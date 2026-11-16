@@ -44,7 +44,7 @@ use bevy::{
 use bytemuck::{Pod, Zeroable};
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/instancing.wesl";
 
 fn main() {
     App::new()

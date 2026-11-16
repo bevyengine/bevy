@@ -47,7 +47,7 @@ pub fn init_pathtracer_pipelines(
             scene_bindings.bind_group_layout.clone(),
             bind_group_layout.clone(),
         ],
-        shader: load_embedded_asset!(asset_server.as_ref(), "pathtracer.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "pathtracer.wesl"),
         ..default()
     });
 

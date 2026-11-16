@@ -1,6 +1,6 @@
 use crate::Mix;
 use alloc::vec::Vec;
-use bevy_math::curve::{
+use bevy_curve::{
     cores::{EvenCore, EvenCoreError},
     Curve, Interval,
 };
@@ -32,8 +32,8 @@ where
     /// # use bevy_color::Mix;
     /// # use bevy_color::Srgba;
     /// # use bevy_color::ColorCurve;
-    /// # use bevy_math::curve::Interval;
-    /// # use bevy_math::curve::Curve;
+    /// # use bevy_curve::Interval;
+    /// # use bevy_curve::Curve;
     /// let broken = ColorCurve::new([RED]);
     /// assert!(broken.is_err());
     /// let gradient = ColorCurve::new([RED, GREEN, BLUE]);
@@ -76,7 +76,7 @@ where
 mod tests {
     use super::*;
     use crate::{palettes::basic, Srgba};
-    use bevy_math::curve::{Curve, CurveExt};
+    use bevy_curve::{Curve, CurveExt};
 
     #[test]
     fn test_color_curve() {

@@ -63,7 +63,7 @@ pub fn init_bloom_upscaling_pipeline(
     commands.insert_resource(BloomUpsamplingPipeline {
         bind_group_layout,
         fullscreen_shader: fullscreen_shader.clone(),
-        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wesl"),
     });
 }
 

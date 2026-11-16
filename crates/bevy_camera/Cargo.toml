@@ -15,6 +15,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.20.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.20.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.20.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev" }
+bevy_shape = { path = "../bevy_shape", version = "0.20.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", features = [
   "wgpu-types",
 ] }
@@ -37,6 +38,7 @@ smallvec = { version = "1", default-features = false, features = ["const_new"] }
 
 [dev-dependencies]
 bevy_scene = { path = "../bevy_scene", version = "0.20.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev" }
 
 [features]
 default = []

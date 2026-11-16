@@ -73,7 +73,8 @@ use bevy_ecs::{component::Component, message::Message, resource::Resource, sched
 
 #[cfg(feature = "bevy_reflect")]
 use {
-    bevy_ecs::reflect::ReflectResource, bevy_reflect::std_traits::ReflectDefault,
+    bevy_ecs::reflect::{ReflectComponent, ReflectResource},
+    bevy_reflect::std_traits::ReflectDefault,
     bevy_reflect::Reflect,
 };
 
@@ -224,6 +225,16 @@ impl ManageAccessibilityUpdates {
 /// `AccessibilityNode`s with care.
 #[derive(Component, Clone, Deref, DerefMut, Default)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(opaque),
+    reflect(Component, Clone, Default)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct AccessibilityNode(
     /// A representation of this component's entity to `AccessKit`.
     ///

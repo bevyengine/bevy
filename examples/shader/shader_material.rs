@@ -5,7 +5,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/custom_material.wesl";
 
 fn main() {
     App::new()

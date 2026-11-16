@@ -137,19 +137,19 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
-        load_shader_library!(app, "meshlet_bindings.wgsl");
-        load_shader_library!(app, "visibility_buffer_resolve.wgsl");
-        load_shader_library!(app, "meshlet_cull_shared.wgsl");
-        embedded_asset!(app, "clear_visibility_buffer.wgsl");
-        embedded_asset!(app, "cull_instances.wgsl");
-        embedded_asset!(app, "cull_bvh.wgsl");
-        embedded_asset!(app, "cull_clusters.wgsl");
-        embedded_asset!(app, "visibility_buffer_software_raster.wgsl");
-        embedded_asset!(app, "visibility_buffer_hardware_raster.wgsl");
-        embedded_asset!(app, "meshlet_mesh_material.wgsl");
-        embedded_asset!(app, "resolve_render_targets.wgsl");
-        embedded_asset!(app, "remap_1d_to_2d_dispatch.wgsl");
-        embedded_asset!(app, "fill_counts.wgsl");
+        load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "visibility_buffer_resolve.wesl");
+        load_shader_library!(app, "cull_shared.wesl");
+        embedded_asset!(app, "clear_visibility_buffer.wesl");
+        embedded_asset!(app, "cull_instances.wesl");
+        embedded_asset!(app, "cull_bvh.wesl");
+        embedded_asset!(app, "cull_clusters.wesl");
+        embedded_asset!(app, "visibility_buffer_software_raster.wesl");
+        embedded_asset!(app, "visibility_buffer_hardware_raster.wesl");
+        embedded_asset!(app, "meshlet_mesh_material.wesl");
+        embedded_asset!(app, "resolve_render_targets.wesl");
+        embedded_asset!(app, "remap_1d_to_2d_dispatch.wesl");
+        embedded_asset!(app, "fill_counts.wesl");
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshLoader);

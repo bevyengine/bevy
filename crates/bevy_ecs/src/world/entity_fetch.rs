@@ -302,14 +302,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        // Check for duplicate entities.
-        for i in 0..self.len() {
-            for j in 0..i {
-                if self[i] == self[j] {
-                    return Err(EntityMutableFetchError::AliasedMutability(self[i]));
-                }
-            }
-        }
+        check_duplicate_entities(self)?;
 
         let mut refs = [const { MaybeUninit::uninit() }; N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
@@ -364,14 +357,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        // Check for duplicate entities.
-        for i in 0..self.len() {
-            for j in 0..i {
-                if self[i] == self[j] {
-                    return Err(EntityMutableFetchError::AliasedMutability(self[i]));
-                }
-            }
-        }
+        check_duplicate_entities(self)?;
 
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
@@ -440,4 +426,29 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         // and `fetch_mut` does not return structurally-mutable references.
         unsafe { self.fetch_mut(cell) }
     }
+}
+
+/// Checks for duplicate entities in a slice.
+#[inline]
+fn check_duplicate_entities(entities: &[Entity]) -> Result<(), EntityMutableFetchError> {
+    const THRESHOLD: usize = 40;
+
+    if entities.len() <= THRESHOLD {
+        for i in 0..entities.len() {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(EntityMutableFetchError::AliasedMutability(entities[i]));
+                }
+            }
+        }
+    } else {
+        let mut seen = EntityHashSet::with_capacity(entities.len());
+        for &id in entities {
+            if !seen.insert(id) {
+                return Err(EntityMutableFetchError::AliasedMutability(id));
+            }
+        }
+    }
+
+    Ok(())
 }

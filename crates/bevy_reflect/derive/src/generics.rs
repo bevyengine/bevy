@@ -27,7 +27,7 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
                 let with_default = ty_param
                     .default
                     .as_ref()
-                    .map(|default_ty| quote!(.with_default::<#default_ty>()));
+                    .map(|(_, default_ty)| quote!(.with_default::<#default_ty>()));
 
                 Some(quote! {
                     #bevy_reflect_path::GenericInfo::Type(
@@ -41,7 +41,7 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
             GenericParam::Const(const_param) => {
                 let ty = &const_param.ty;
                 let name = const_param.ident.to_string();
-                let with_default = const_param.default.as_ref().map(|default| {
+                let with_default = const_param.default.as_ref().map(|(_, default)| {
                     // We add the `as #ty` to ensure that the correct type is inferred.
                     quote!(.with_default(#default as #ty))
                 });

@@ -76,18 +76,18 @@ use core::slice;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
-/// let mut child1 = Entity::PLACEHOLDER;
-/// let mut child2 = Entity::PLACEHOLDER;
-/// let mut grandchild = Entity::PLACEHOLDER;
+/// let mut child1 = None;
+/// let mut child2 = None;
+/// let mut grandchild = None;
 /// let root = world.spawn_empty().with_children(|p| {
-///     child1 = p.spawn_empty().with_children(|p| {
-///         grandchild = p.spawn_empty().id();
-///     }).id();
-///     child2 = p.spawn_empty().id();
+///     child1 = Some(p.spawn_empty().with_children(|p| {
+///         grandchild = Some(p.spawn_empty().id());
+///     }).id());
+///     child2 = Some(p.spawn_empty().id());
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1.unwrap(), child2.unwrap()]);
+/// assert_eq!(&**world.entity(child1.unwrap()).get::<Children>().unwrap(), &[grandchild.unwrap()]);
 /// ```
 ///
 /// [`Relationship`]: crate::relationship::Relationship
@@ -318,6 +318,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related children with a new set of children.
+    ///
+    /// Duplicated children are removed, leaving only their first occurrence.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
     }
@@ -411,6 +413,8 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Replaces the children on this entity with a new list of children.
+    ///
+    /// Duplicated children are removed, leaving only their first occurrence.
     pub fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         self.replace_related::<ChildOf>(children)
     }
@@ -577,20 +581,23 @@ mod tests {
     #[test]
     fn with_children() {
         let mut world = World::new();
-        let mut child1 = Entity::PLACEHOLDER;
-        let mut child2 = Entity::PLACEHOLDER;
+        let mut child1 = None;
+        let mut child2 = None;
         let root = world
             .spawn_empty()
             .with_children(|p| {
-                child1 = p.spawn_empty().id();
-                child2 = p.spawn_empty().id();
+                child1 = Some(p.spawn_empty().id());
+                child2 = Some(p.spawn_empty().id());
             })
             .id();
 
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
-            Node::new_with(root, vec![Node::new(child1), Node::new(child2)])
+            Node::new_with(
+                root,
+                vec![Node::new(child1.unwrap()), Node::new(child2.unwrap())]
+            )
         );
     }
 
@@ -1037,6 +1044,48 @@ mod tests {
         world.entity_mut(parent).replace_children(&new_order);
 
         assert_eq!(world.entity(parent).get::<Children>().unwrap().0, new_order);
+    }
+
+    #[test]
+    fn replace_children_duplicates() {
+        let mut world = World::new();
+
+        let parent = world.spawn_empty().id();
+        let child_a = world.spawn_empty().id();
+        let child_b = world.spawn_empty().id();
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_a])
+            .replace_children(&[child_a, child_a]);
+
+        assert_eq!(world.entity(parent).get::<Children>().unwrap().0, [child_a]);
+
+        world.entity_mut(parent).clear();
+
+        // Ensure the order is correct (child_a before child_b, irrespective of which is already inserted).
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_b])
+            .replace_children(&[child_a, child_b, child_a]);
+
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
+
+        world.entity_mut(parent).clear();
+
+        world
+            .entity_mut(parent)
+            .add_children(&[child_a])
+            .replace_children(&[child_a, child_b, child_a]);
+
+        assert_eq!(
+            world.entity(parent).get::<Children>().unwrap().0,
+            [child_a, child_b]
+        );
     }
 
     #[test]

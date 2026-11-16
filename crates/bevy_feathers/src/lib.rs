@@ -25,16 +25,19 @@ use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
 };
 use bevy_asset::embedded_asset;
-use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_ecs::{
+    query::With,
+    schedule::{IntoScheduleConfigs, SystemSet},
+};
 use bevy_input_focus::tab_navigation::TabNavigationPlugin;
+use bevy_picking::cursor::{CursorIconPlugin, DefaultCursor, EntityCursor};
 use bevy_text::{TextColor, TextFont};
-use bevy_ui::UiSystems;
-use bevy_ui_render::UiMaterialPlugin;
+use bevy_ui::{AccessibilityUiSystems, UiSystems};
+use bevy_ui_render::{ImageNodeAssetChangedSystems, UiMaterialPlugin};
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemeContext, ThemedText, UiTheme},
 };
 
@@ -42,7 +45,6 @@ mod alpha_pattern;
 pub mod constants;
 pub mod containers;
 pub mod controls;
-pub mod cursor;
 pub mod dark_theme;
 pub mod display;
 pub mod focus;
@@ -52,11 +54,23 @@ pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
 
+/// Feathers widget styling systems in [`PostUpdate`], run in [`UiSystems::Content`].
+/// Each one only touches its own widget's entities, so they are ambiguous with each other.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FeathersSystems;
+
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersCorePlugin;
 
 impl Plugin for FeathersCorePlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut bevy_app::App) {
+        if app.is_plugin_added::<Self>() {
+            return;
+        }
         app.init_resource::<UiTheme>();
 
         // Embedded font
@@ -65,15 +79,19 @@ impl Plugin for FeathersCorePlugin {
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
+        embedded_asset!(app, "assets/fonts/NotoSansSymbols2-U+1F7D5.ttf");
+        embedded_asset!(app, "assets/fonts/KeySymbols.ttf");
 
         // Embedded icons
         embedded_asset!(app, "assets/icons/chevron-down.png");
         embedded_asset!(app, "assets/icons/chevron-right.png");
+        embedded_asset!(app, "assets/icons/grip-vertical.png");
         embedded_asset!(app, "assets/icons/x.png");
 
         // Embedded shader
-        embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
-        embedded_asset!(app, "assets/shaders/color_plane.wgsl");
+        embedded_asset!(app, "assets/shaders/alpha_pattern.wesl");
+        embedded_asset!(app, "assets/shaders/color_plane.wesl");
+        embedded_asset!(app, "assets/shaders/color_wheel.wesl");
 
         app.add_plugins((
             ControlsPlugin,
@@ -91,6 +109,17 @@ impl Plugin for FeathersCorePlugin {
             PostUpdate,
             PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
         );
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<TextColor>::default().in_set(UiSystems::Propagate),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            FeathersSystems
+                .in_set(UiSystems::Content)
+                .ambiguous_with(FeathersSystems),
+        );
 
         app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
@@ -99,9 +128,19 @@ impl Plugin for FeathersCorePlugin {
         app.add_systems(
             PostUpdate,
             (
-                theme::update_theme,
-                display::update_themed_icons.after(PropagateSet::<TextColor>::default()),
-            ),
+                theme::update_theme.in_set(UiSystems::Prepare),
+                display::update_themed_icons
+                    .after(PropagateSet::<TextColor>::default())
+                    // These systems deal with the underlying asset of the ImageNode,
+                    // which this system does not change.
+                    .ambiguous_with(ImageNodeAssetChangedSystems)
+                    // These systems merely update the `AccessibilityNode` and do not depend
+                    // on any changes `update_themed_icons` does to an image node.
+                    .ambiguous_with(AccessibilityUiSystems)
+                    // `update_themed_icons` does not affect the size of content.
+                    .ambiguous_with(UiSystems::Content),
+            )
+                .chain(),
         )
         .add_observer(theme::on_changed_background)
         .add_observer(theme::on_changed_border)
@@ -110,6 +149,7 @@ impl Plugin for FeathersCorePlugin {
         .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+        app.init_resource::<font_styles::FeathersFonts>();
     }
 }
 

@@ -1,7 +1,8 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{primitives::Plane3d, Dir3, Quat, Vec2, Vec3};
+use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use bevy_reflect::prelude::*;
+use bevy_shape::Plane3d;
 
 /// A builder used for creating a [`Mesh`] with a [`Plane3d`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
@@ -107,7 +108,6 @@ impl PlaneMeshBuilder {
         self
     }
 
-    #[inline]
     /// The number of subdivisions along the X axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
@@ -117,12 +117,12 @@ impl PlaneMeshBuilder {
     /// 2 - adds 2 vertices along the X axis, resulting in a plane with 3 quads / 6 triangles.
     ///
     /// and so on...
+    #[inline]
     pub fn subdivisions_x(mut self, subdivisions: u32) -> Self {
         self.subdivisions_x = subdivisions;
         self
     }
 
-    #[inline]
     /// The number of subdivisions along the Z axis.
     ///
     /// 0 - is the original plane geometry, the 4 points in the XZ plane.
@@ -132,6 +132,7 @@ impl PlaneMeshBuilder {
     /// 2 - adds 2 vertices along the Z axis, resulting in a plane with 3 quads / 6 triangles.
     ///
     /// and so on...
+    #[inline]
     pub fn subdivisions_z(mut self, subdivisions: u32) -> Self {
         self.subdivisions_z = subdivisions;
         self

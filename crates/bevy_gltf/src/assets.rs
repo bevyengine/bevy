@@ -108,6 +108,13 @@ pub struct GltfNode {
     pub skin: Option<Handle<GltfSkin>>,
     /// Local transform.
     pub transform: bevy_transform::prelude::Transform,
+    /// Transforms of the instances of [`mesh`](Self::mesh) from
+    /// `EXT_mesh_gpu_instancing`, relative to this node.
+    ///
+    /// Empty if the mesh is not instanced. Unless the node has a skin, scenes
+    /// spawn one entity per instance under the node, with the mesh's
+    /// primitives as its children.
+    pub instances: Vec<bevy_transform::prelude::Transform>,
     /// Is this node used as an animation root
     #[cfg(feature = "bevy_animation")]
     pub is_animation_root: bool,
@@ -135,11 +142,17 @@ impl GltfNode {
             children,
             mesh,
             transform,
+            instances: Vec::new(),
             skin,
             #[cfg(feature = "bevy_animation")]
             is_animation_root: false,
             extras,
         }
+    }
+
+    /// Create a node with instance transforms
+    pub fn with_instances(self, instances: Vec<bevy_transform::prelude::Transform>) -> Self {
+        Self { instances, ..self }
     }
 
     /// Create a node with animation root mark

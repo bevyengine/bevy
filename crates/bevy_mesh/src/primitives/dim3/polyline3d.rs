@@ -1,7 +1,7 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::primitives::Polyline3d;
 use bevy_reflect::prelude::*;
+use bevy_shape::Polyline3d;
 
 /// A builder used for creating a [`Mesh`] with a [`Polyline3d`] shape.
 #[derive(Clone, Debug, Default, Reflect)]

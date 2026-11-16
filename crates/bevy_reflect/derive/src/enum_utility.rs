@@ -3,7 +3,7 @@ use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
 };
 use bevy_macro_utils::as_member;
-use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQInto, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 
@@ -228,62 +228,6 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
 
         quote! {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)?
-        }
-    }
-}
-
-/// Generates the enum variant output data needed to build the `PartialReflect::try_apply` implementation.
-pub(crate) struct TryApplyVariantBuilder<'a> {
-    reflect_enum: &'a ReflectEnum<'a>,
-}
-
-impl<'a> TryApplyVariantBuilder<'a> {
-    pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
-        Self { reflect_enum }
-    }
-}
-
-impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum<'_> {
-        self.reflect_enum
-    }
-
-    fn unwrap_field(&self, field: VariantField) -> TokenStream {
-        let VariantField {
-            alias,
-            variant_name,
-            field,
-            ..
-        } = field;
-
-        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-
-        let field_name = match &field.data.ident {
-            Some(ident) => format!("{ident}"),
-            None => format!(".{}", field.declaration_index),
-        };
-
-        quote! {
-            #alias.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField {
-                variant_name: #FQInto::into(#variant_name),
-                field_name: #FQInto::into(#field_name)
-            })?
-        }
-    }
-
-    fn construct_field(&self, field: VariantField) -> TokenStream {
-        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-        let alias = field.alias;
-        let field_ty = field.field.reflected_type();
-
-        quote! {
-            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
-                .ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes {
-                    from_type: #FQInto::into(
-                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias)
-                    ),
-                    to_type: #FQInto::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
-                })?
         }
     }
 }

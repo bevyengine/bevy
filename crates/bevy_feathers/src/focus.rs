@@ -14,6 +14,7 @@ use bevy_input_focus::{InputFocus, InputFocusVisible};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{px, Outline, UiSystems};
+use bevy_ui_widgets::MenuFocusSystem;
 
 use crate::{
     theme::{SurfaceLevel, UiTheme},
@@ -97,7 +98,9 @@ impl Plugin for FocusOutlinesPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PostUpdate,
-            manage_focus_indicators.in_set(UiSystems::Content),
+            manage_focus_indicators
+                .after(MenuFocusSystem)
+                .in_set(UiSystems::Content),
         );
     }
 }

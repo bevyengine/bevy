@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
-use bevy_camera::{Camera, Camera3d};
+use bevy_camera::{Camera, Camera3d, MainPassResolutionOverride};
 use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
     schedule::{Core3d, Core3dSystems},
@@ -44,11 +44,11 @@ pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "ssao_utils.wgsl");
+        load_shader_library!(app, "utils.wesl");
 
-        embedded_asset!(app, "preprocess_depth.wgsl");
-        embedded_asset!(app, "ssao.wgsl");
-        embedded_asset!(app, "spatial_denoise.wgsl");
+        embedded_asset!(app, "preprocess_depth.wesl");
+        embedded_asset!(app, "ssao.wesl");
+        embedded_asset!(app, "spatial_denoise.wesl");
 
         app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
@@ -184,6 +184,7 @@ impl ScreenSpaceAmbientOcclusionQualityLevel {
 fn ssao(
     view: ViewQuery<(
         &ExtractedCamera,
+        Option<&MainPassResolutionOverride>,
         &SsaoPipelineId,
         &SsaoBindGroups,
         &ViewUniformOffset,
@@ -192,7 +193,8 @@ fn ssao(
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, pipeline_id, bind_groups, view_uniform_offset) = view.into_inner();
+    let (camera, resolution_override, pipeline_id, bind_groups, view_uniform_offset) =
+        view.into_inner();
 
     let (
         Some(camera_size),
@@ -200,7 +202,9 @@ fn ssao(
         Some(spatial_denoise_pipeline),
         Some(ssao_pipeline),
     ) = (
-        camera.physical_viewport_size,
+        resolution_override
+            .map(|size| **size)
+            .or(camera.physical_viewport_size),
         pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
         pipeline_cache.get_compute_pipeline(pipelines.spatial_denoise_pipeline),
         pipeline_cache.get_compute_pipeline(pipeline_id.0),
@@ -416,7 +420,7 @@ impl FromWorld for SsaoPipelines {
                     preprocess_depth_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
+                shader: load_embedded_asset!(world, "preprocess_depth.wesl"),
                 shader_defs: shader_defs.clone(),
                 ..default()
             });
@@ -428,7 +432,7 @@ impl FromWorld for SsaoPipelines {
                     spatial_denoise_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ],
-                shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
+                shader: load_embedded_asset!(world, "spatial_denoise.wesl"),
                 shader_defs,
                 ..default()
             });
@@ -446,7 +450,7 @@ impl FromWorld for SsaoPipelines {
             point_clamp_sampler,
             linear_clamp_sampler,
 
-            shader: load_embedded_asset!(world, "ssao.wgsl"),
+            shader: load_embedded_asset!(world, "ssao.wesl"),
             depth_format,
         }
     }
@@ -508,7 +512,7 @@ fn extract_ssao_settings(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
                 *msaa
             );
-            return;
+            continue;
         }
         let mut entity_commands = commands
             .get_entity(entity)
@@ -535,13 +539,20 @@ fn prepare_ssao_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     pipelines: Res<SsaoPipelines>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
+    views: Query<(
+        Entity,
+        &ExtractedCamera,
+        &ScreenSpaceAmbientOcclusion,
+        Option<&MainPassResolutionOverride>,
+    )>,
 ) {
-    for (entity, camera, ssao_settings) in &views {
+    for (entity, camera, ssao_settings, resolution_override) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
         };
-        let size = physical_viewport_size.to_extents();
+        let size = resolution_override
+            .map_or(physical_viewport_size, |size| **size)
+            .to_extents();
 
         let preprocessed_depth_texture = texture_cache.get(
             &render_device,

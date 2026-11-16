@@ -172,13 +172,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                     ))
-                                    .observe(
-                                        |press: On<Pointer<Press>>, mut commands: Commands| {
-                                            if press.event().button == PointerButton::Primary {
-                                                commands.entity(press.entity).despawn();
-                                            }
-                                        },
-                                    );
+                                    .observe(|press: On<PointerPress>, mut commands: Commands| {
+                                        if press.event().button == PointerButton::Primary {
+                                            commands.entity(press.entity).despawn();
+                                        }
+                                    });
                             }
                         });
                 });

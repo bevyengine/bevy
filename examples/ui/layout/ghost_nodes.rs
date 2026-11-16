@@ -1,18 +1,10 @@
 //! This example demonstrates the use of Ghost Nodes.
 //!
-//! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants of the first non-ghost ancestor.
-//!
-//! # Warning
-//!
-//! This is an experimental feature, and should be used with caution,
-//! especially in concert with 3rd party plugins or systems that may not be aware of ghost nodes.
-//!
-//! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
+//! UI layout replaces ghost nodes with their children.
 
 use bevy::{
     prelude::*,
     text::FontSourceTemplate,
-    ui::experimental::GhostNode,
     ui_widgets::{Activate, Button},
 };
 
@@ -27,17 +19,23 @@ fn main() {
 struct Counter(i32);
 
 fn scene() -> impl SceneList {
-    bsn_list![Camera2d, ghost_root(), normal_root()]
+    bsn_list! {
+        Camera2d
+        --
+        @ghost_root()
+        --
+        @normal_root()
+    }
 }
 
 /// Ghost UI root
 fn ghost_root() -> impl Scene {
     bsn! {
         GhostNode
-        Children [(
+        Children [
             Node
-            Children [ label("This text node is rendered under a ghost root") ]
-        )]
+            Children [ @label("This text node is rendered under a ghost root") ]
+        ]
     }
 }
 
@@ -50,20 +48,19 @@ fn normal_root() -> impl Scene {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
         }
-        Children [(
+        Children [
             Node Counter(0)
             Children [
                 // Ghost children using a separate counter state.
                 // These buttons are being treated as children of the layout parent
                 // in the context of UI, but they share the ghost node's counter.
-                (
-                    GhostNode Counter(0)
-                    Children [ button(), button() ]
-                ),
+                GhostNode Counter(0)
+                Children [ @button() -- @button() ]
+                --
                 // A normal child using the layout parent counter
-                button(),
+                @button()
             ]
-        )]
+        ]
     }
 }
 
@@ -113,7 +110,7 @@ fn button() -> impl Scene {
         }
         BorderColor::from(Color::BLACK)
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15))
-        Children [ label("0") ]
+        Children [ @label("0") ]
     }
 }
 

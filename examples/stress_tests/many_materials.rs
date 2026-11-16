@@ -50,6 +50,8 @@ fn setup(
     mesh_assets: ResMut<Assets<Mesh>>,
     material_assets: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let args = args.into_inner();
     let material_assets = material_assets.into_inner();
     let mesh_assets = mesh_assets.into_inner();

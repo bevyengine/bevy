@@ -86,12 +86,12 @@ fn init_line_gizmo_pipelines(
     commands.insert_resource(LineGizmoPipeline {
         mesh_pipeline: mesh_2d_pipeline.clone(),
         uniform_layout: uniform_bind_group_layout.layout.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wesl"),
     });
     commands.insert_resource(LineJointGizmoPipeline {
         mesh_pipeline: mesh_2d_pipeline.clone(),
         uniform_layout: uniform_bind_group_layout.layout.clone(),
-        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wesl"),
     });
 }
 

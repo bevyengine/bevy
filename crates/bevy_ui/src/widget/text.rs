@@ -19,9 +19,10 @@ use bevy_log::warn_once;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx, LetterSpacing, LineBreak,
-    LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError, TextFont, TextLayout,
-    TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection, TextWriter,
+    ComputedTextBlock, DefaultFontSource, Font, FontAtlasSet, FontCx, FontHinting, LayoutCx,
+    LetterSpacing, LineBreak, LineHeight, RemSize, ScaleCx, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextSection,
+    TextWriter,
 };
 use taffy::{style::AvailableSpace, MaybeMath, ResolveOrZero};
 use tracing::error;
@@ -36,6 +37,8 @@ pub struct TextNodeFlags {
     needs_measure_fn: bool,
     /// If set then the text will be recomputed.
     needs_recompute: bool,
+    /// The most recently installed fixed measure for non-wrapping text.
+    no_wrap_measure: Option<Vec2>,
 }
 
 impl Default for TextNodeFlags {
@@ -43,7 +46,21 @@ impl Default for TextNodeFlags {
         Self {
             needs_measure_fn: true,
             needs_recompute: true,
+            no_wrap_measure: None,
         }
+    }
+}
+
+impl TextNodeFlags {
+    /// Caches `size`, returning whether it differs from the previously cached measure.
+    fn cache_no_wrap_measure(&mut self, size: Vec2) -> bool {
+        let changed = self.no_wrap_measure != Some(size);
+        self.no_wrap_measure = Some(size);
+        changed
+    }
+
+    fn clear_no_wrap_measure(&mut self) {
+        self.no_wrap_measure = None;
     }
 }
 
@@ -53,8 +70,6 @@ impl Default for TextNodeFlags {
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
-///
-/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
 ///
 /// ```
@@ -185,7 +200,7 @@ impl TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs) -> Vec2 {
+    fn measure(&self, measure_args: MeasureArgs) -> Vec2 {
         let mut width = measure_args.resolve_width();
         let height = measure_args.resolve_height();
 
@@ -288,6 +303,7 @@ pub fn measure_text_system(
     mut font_system: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     rem_size: Res<RemSize>,
+    default_font_source: Res<DefaultFontSource>,
 ) {
     for (
         entity,
@@ -322,12 +338,18 @@ pub fn measure_text_system(
             &mut font_system,
             &mut layout_cx,
             computed_target.logical_size(),
-            rem_size.0,
+            *rem_size,
+            &default_font_source.0,
         ) {
             Ok(measure) => {
                 if block.linebreak == LineBreak::NoWrap {
-                    content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+                    let size = measure.max;
+                    let measure_changed = text_flags.cache_no_wrap_measure(size);
+                    if content_size.is_added() || measure_changed {
+                        content_size.set(NodeMeasure::Fixed(FixedMeasure { size }));
+                    }
                 } else {
+                    text_flags.clear_no_wrap_measure();
                     content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
                 }
 
@@ -356,8 +378,8 @@ pub fn measure_text_system(
     }
 }
 
-/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
-/// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
+/// Updates the layout and size information for a UI text node when its text or hinting changes.
+/// Changes to [`ComputedNode`] also trigger updates when text wrapping is enabled.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
@@ -381,7 +403,10 @@ pub fn text_system(
     for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
         &mut text_query
     {
-        if node.is_changed() || text_flags.needs_recompute || hinting.is_changed() {
+        if (node.is_changed() && block.linebreak != LineBreak::NoWrap)
+            || text_flags.needs_recompute
+            || hinting.is_changed()
+        {
             // Skip the text node if it is waiting for a new measure func
             if text_flags.needs_measure_fn {
                 continue;
@@ -392,7 +417,7 @@ pub fn text_system(
                 TextBounds::UNBOUNDED
             } else {
                 let content_box_size = node.content_box().size();
-                TextBounds::new(content_box_size.x, content_box_size.y)
+                TextBounds::new(content_box_size.x.ceil(), content_box_size.y)
             };
 
             match text_pipeline.update_text_layout_info(
@@ -431,5 +456,191 @@ pub fn text_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::{App, Update};
+    use bevy_asset::AssetId;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_text::{
+        detect_text_needs_rerender, load_font_assets_into_font_collection, TextIterScratch,
+    };
+
+    fn text_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.init_resource::<Assets<Font>>()
+            .init_resource::<Assets<Image>>()
+            .init_resource::<DefaultFontSource>()
+            .init_resource::<FontAtlasSet>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
+            .init_resource::<TextIterScratch>()
+            .init_resource::<TextPipeline>()
+            .init_resource::<RemSize>()
+            .add_systems(
+                Update,
+                (
+                    load_font_assets_into_font_collection,
+                    detect_text_needs_rerender,
+                    measure_text_system,
+                    text_system,
+                )
+                    .chain(),
+            );
+        app.world_mut()
+            .resource_mut::<Assets<Font>>()
+            .insert(
+                AssetId::default(),
+                Font::from_bytes(bevy_text::DEFAULT_FONT_DATA.to_vec()),
+            )
+            .unwrap();
+        let entity = app
+            .world_mut()
+            .spawn((
+                Text::new("A fixed label"),
+                TextLayout::no_wrap(),
+                ComputedNode {
+                    size: Vec2::new(240., 100.),
+                    ..Default::default()
+                },
+            ))
+            .id();
+        app.update();
+        assert!(!app
+            .world()
+            .get::<TextLayoutInfo>(entity)
+            .unwrap()
+            .glyphs
+            .is_empty());
+        (app, entity)
+    }
+
+    #[test]
+    fn no_wrap_text_reuses_layout_when_node_changes() {
+        let (mut app, entity) = text_app();
+        let tick = app
+            .world()
+            .entity(entity)
+            .get_ref::<TextLayoutInfo>()
+            .unwrap()
+            .last_changed();
+        let size = app.world().get::<TextLayoutInfo>(entity).unwrap().size;
+
+        {
+            let mut node = app.world_mut().get_mut::<ComputedNode>(entity).unwrap();
+            node.size.x = 300.;
+            node.outline_width = 2.;
+        }
+        app.update();
+
+        let layout = app
+            .world()
+            .entity(entity)
+            .get_ref::<TextLayoutInfo>()
+            .unwrap();
+        assert_eq!(layout.last_changed(), tick);
+        assert_eq!(layout.size, size);
+    }
+
+    #[test]
+    fn no_wrap_text_updates_when_text_font_or_hinting_changes() {
+        let (mut app, entity) = text_app();
+        let first_glyph = &app.world().get::<TextLayoutInfo>(entity).unwrap().glyphs[0].atlas_info;
+        let first_glyph = (first_glyph.texture, first_glyph.rect);
+        let size = app.world().get::<TextLayoutInfo>(entity).unwrap().size;
+
+        app.world_mut().get_mut::<Text>(entity).unwrap().0 = "B fixed label".into();
+        app.update();
+        let layout = app.world().get::<TextLayoutInfo>(entity).unwrap();
+        assert_eq!(layout.size, size);
+        let glyph = &layout.glyphs[0].atlas_info;
+        assert_ne!((glyph.texture, glyph.rect), first_glyph);
+
+        app.world_mut()
+            .get_mut::<TextFont>(entity)
+            .unwrap()
+            .font_size = bevy_text::FontSize::Px(40.);
+        app.update();
+        let large_size = app.world().get::<TextLayoutInfo>(entity).unwrap().size;
+        assert!(large_size.x > size.x);
+        assert!(large_size.y > size.y);
+
+        let tick = app
+            .world()
+            .entity(entity)
+            .get_ref::<TextLayoutInfo>()
+            .unwrap()
+            .last_changed();
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(FontHinting::Disabled);
+        app.update();
+        assert_ne!(
+            app.world()
+                .entity(entity)
+                .get_ref::<TextLayoutInfo>()
+                .unwrap()
+                .last_changed(),
+            tick
+        );
+    }
+
+    #[test]
+    fn wrapping_mode_and_node_width_changes_update_layout() {
+        let (mut app, entity) = text_app();
+        let unwrapped_size = app.world().get::<TextLayoutInfo>(entity).unwrap().size;
+
+        app.world_mut()
+            .get_mut::<TextLayout>(entity)
+            .unwrap()
+            .linebreak = LineBreak::WordBoundary;
+        app.world_mut()
+            .get_mut::<ComputedNode>(entity)
+            .unwrap()
+            .size
+            .x = 40.;
+        app.update();
+        let wrapped_size = app.world().get::<TextLayoutInfo>(entity).unwrap().size;
+        assert!(wrapped_size.y > unwrapped_size.y);
+
+        app.world_mut()
+            .get_mut::<ComputedNode>(entity)
+            .unwrap()
+            .size
+            .x = 300.;
+        app.update();
+        assert_eq!(
+            app.world().get::<TextLayoutInfo>(entity).unwrap().size,
+            unwrapped_size
+        );
+
+        app.world_mut()
+            .get_mut::<TextLayout>(entity)
+            .unwrap()
+            .linebreak = LineBreak::NoWrap;
+        app.world_mut()
+            .get_mut::<ComputedNode>(entity)
+            .unwrap()
+            .size
+            .x = 1.;
+        app.update();
+        assert_eq!(
+            app.world().get::<TextLayoutInfo>(entity).unwrap().size,
+            unwrapped_size
+        );
+    }
+
+    #[test]
+    fn unchanged_no_wrap_measure_is_reused() {
+        let mut flags = TextNodeFlags::default();
+        let size = Vec2::new(100.0, 20.0);
+
+        assert!(flags.cache_no_wrap_measure(size));
+        assert!(!flags.cache_no_wrap_measure(size));
+        assert!(flags.cache_no_wrap_measure(Vec2::new(101.0, 20.0)));
     }
 }

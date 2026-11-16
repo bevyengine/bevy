@@ -12,21 +12,22 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::{tab_navigation::TabIndex, InputFocus, InputFocusVisible};
-use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_input_focus::{InputFocus, InputFocusSystems, InputFocusVisible};
+use bevy_picking::{cursor::EntityCursor, hover::Hovered, Pickable, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, Scene, SceneComponent, SceneList};
-use bevy_text::{FontSize, FontWeight};
+use bevy_text::{FontSize, FontSourceTemplate, FontWeight};
 use bevy_ui::{
     px, AlignItems, BorderRadius, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, Overflow, PositionType, Selected, UiRect,
 };
-use bevy_ui_widgets::{ActiveDescendant, ControlOrientation, ListBox, ListItem, ScrollArea};
+use bevy_ui_widgets::{
+    ActiveDescendant, ControlOrientation, ListBox, ListItem, MenuFocusSystem, ScrollArea,
+};
 
 use crate::{
     constants::{fonts, size},
     controls::{FeathersScrollbar, ScrollbarGutter},
-    cursor::EntityCursor,
     font_styles::InheritableFont,
     theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor},
     tokens,
@@ -50,7 +51,7 @@ pub struct FeathersListViewProps {
 impl Default for FeathersListViewProps {
     fn default() -> Self {
         Self {
-            rows: Box::new(bsn_list!()),
+            rows: Box::new(bsn_list! {}),
         }
     }
 }
@@ -72,31 +73,28 @@ impl FeathersListView {
             ScrollbarGutter(px(14))
             ListBox
             AccessibilityNode(accesskit::Node::new(Role::ListBox))
-            TabIndex(0)
             Children [
                 // Inner part that scrolls
-                (
-                    #inner
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Stretch,
-                        justify_content: JustifyContent::Start,
-                        overflow: Overflow::scroll_y(),
-                    }
-                    ScrollArea
-                    Children [
-                        {props.rows}
-                    ]
-                ),
-
+                #inner
+                Node {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Stretch,
+                    justify_content: JustifyContent::Start,
+                    overflow: Overflow::scroll_y(),
+                }
+                ScrollArea
+                Children [
+                    {props.rows}
+                ]
+                --
                 @FeathersScrollbar {
                     @target: #inner,
                     @orientation: {ControlOrientation::Vertical}
                 }
                 Node {
                     position_type: PositionType::Absolute,
-                    right: px(4),
+                    right: px(0),
                     top: px(0),
                     bottom: px(0),
                     width: px(6),
@@ -128,7 +126,7 @@ impl FeathersListRow {
             InheritableThemeTextColor(tokens::LISTROW_TEXT)
             ThemeBackgroundColor(tokens::LISTROW_BG)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: FontSize::Px(14.0),
                 weight: FontWeight::NORMAL,
             }
@@ -319,6 +317,7 @@ fn highlight_active(
             },
             ThemeBorderColor(tokens::FOCUS_RING),
             ActiveRowOutline,
+            Pickable::IGNORE,
         ));
     }
 }
@@ -332,6 +331,11 @@ impl Plugin for ListViewPlugin {
             PreUpdate,
             (update_listrow_styles, update_listrow_styles_remove).in_set(PickingSystems::Last),
         );
-        app.add_systems(PostUpdate, on_change_focus);
+        app.add_systems(
+            PostUpdate,
+            on_change_focus
+                .after(MenuFocusSystem)
+                .before(InputFocusSystems::FocusChangeEvents),
+        );
     }
 }

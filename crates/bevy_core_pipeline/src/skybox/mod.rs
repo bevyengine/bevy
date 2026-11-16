@@ -35,7 +35,7 @@ pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "skybox.wgsl");
+        embedded_asset!(app, "skybox.wesl");
 
         app.add_plugins((
             SyncComponentPlugin::<Skybox, Self>::default(),
@@ -132,7 +132,7 @@ impl SkyboxPipeline {
 }
 
 fn init_skybox_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wgsl");
+    let shader = load_embedded_asset!(asset_server.as_ref(), "skybox.wesl");
     commands.insert_resource(SkyboxPipeline::new(shader));
 }
 

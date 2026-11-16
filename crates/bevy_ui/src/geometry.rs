@@ -1,583 +1,9 @@
-use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use crate::val::*;
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_text::FontSize;
-use bevy_utils::default;
-use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
-use thiserror::Error;
-
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-
-/// Represents the possible value types for layout properties.
-///
-/// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
-/// such as logical pixels, percentages, or automatically determined values.
-///
-/// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
-/// * `px`: logical pixels
-/// * `%`: percentage
-/// * `vw`: percentage of the viewport width
-/// * `vh`: percentage of the viewport height
-/// * `vmin`: percentage of the viewport's smaller dimension
-/// * `vmax`: percentage of the viewport's larger dimension
-///
-/// Additionally, `auto` will be parsed as [`Val::Auto`].
-#[derive(Copy, Clone, Debug, Reflect)]
-#[reflect(Default, PartialEq, Debug, Clone)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum Val {
-    /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
-    Auto,
-    /// Set this value in logical pixels.
-    Px(f32),
-    /// Set the value as a percentage of its parent node's length along a specific axis.
-    ///
-    /// If the UI node has no parent, the percentage is calculated based on the window's length
-    /// along the corresponding axis.
-    ///
-    /// The chosen axis depends on the [`Node`](crate::Node) field set:
-    /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
-    /// * For `gap`, `min_size`, `size`, and `max_size`:
-    ///   - `width` is relative to the parent's width.
-    ///   - `height` is relative to the parent's height.
-    /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
-    /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-    Percent(f32),
-    /// Set this value in percent of the viewport width
-    Vw(f32),
-    /// Set this value in percent of the viewport height
-    Vh(f32),
-    /// Set this value in percent of the viewport's smaller dimension.
-    VMin(f32),
-    /// Set this value in percent of the viewport's larger dimension.
-    VMax(f32),
-}
-
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum ValParseError {
-    UnitMissing,
-    ValueMissing,
-    InvalidValue,
-    InvalidUnit,
-}
-
-impl core::fmt::Display for ValParseError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ValParseError::UnitMissing => write!(f, "unit missing"),
-            ValParseError::ValueMissing => write!(f, "value missing"),
-            ValParseError::InvalidValue => write!(f, "invalid value"),
-            ValParseError::InvalidUnit => write!(f, "invalid unit"),
-        }
-    }
-}
-
-impl core::str::FromStr for Val {
-    type Err = ValParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("auto") {
-            return Ok(Val::Auto);
-        }
-
-        let Some(end_of_number) = s
-            .bytes()
-            .position(|c| !(c.is_ascii_digit() || c == b'.' || c == b'-' || c == b'+'))
-        else {
-            return Err(ValParseError::UnitMissing);
-        };
-
-        if end_of_number == 0 {
-            return Err(ValParseError::ValueMissing);
-        }
-
-        let (value, unit) = s.split_at(end_of_number);
-
-        let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
-
-        let unit = unit.trim();
-
-        if unit.eq_ignore_ascii_case("px") {
-            Ok(Val::Px(value))
-        } else if unit.eq_ignore_ascii_case("%") {
-            Ok(Val::Percent(value))
-        } else if unit.eq_ignore_ascii_case("vw") {
-            Ok(Val::Vw(value))
-        } else if unit.eq_ignore_ascii_case("vh") {
-            Ok(Val::Vh(value))
-        } else if unit.eq_ignore_ascii_case("vmin") {
-            Ok(Val::VMin(value))
-        } else if unit.eq_ignore_ascii_case("vmax") {
-            Ok(Val::VMax(value))
-        } else {
-            Err(ValParseError::InvalidUnit)
-        }
-    }
-}
-
-impl PartialEq for Val {
-    fn eq(&self, other: &Self) -> bool {
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-        );
-
-        let left = match self {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        let right = match other {
-            Self::Auto => None,
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v) => Some(v),
-        };
-
-        match (same_unit, left, right) {
-            (true, a, b) => a == b,
-            // All zero-value variants are considered equal.
-            (false, Some(&a), Some(&b)) => a == 0. && b == 0.,
-            _ => false,
-        }
-    }
-}
-
-impl Val {
-    pub const DEFAULT: Self = Self::Auto;
-    pub const ZERO: Self = Self::Px(0.0);
-
-    /// Returns a [`UiRect`] with its `left` equal to this value,
-    /// and all other fields set to `Val::ZERO`.
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).left();
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(1.));
-    /// assert_eq!(ui_rect.right, Val::ZERO);
-    /// assert_eq!(ui_rect.top, Val::ZERO);
-    /// assert_eq!(ui_rect.bottom, Val::ZERO);
-    /// ```
-    pub const fn left(self) -> UiRect {
-        UiRect::left(self)
-    }
-
-    /// Returns a [`UiRect`] with its `right` equal to this value,
-    /// and all other fields set to `Val::ZERO`.
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).right();
-    ///
-    /// assert_eq!(ui_rect.left, Val::ZERO);
-    /// assert_eq!(ui_rect.right, Val::Px(1.));
-    /// assert_eq!(ui_rect.top, Val::ZERO);
-    /// assert_eq!(ui_rect.bottom, Val::ZERO);
-    /// ```
-    pub const fn right(self) -> UiRect {
-        UiRect::right(self)
-    }
-
-    /// Returns a [`UiRect`] with its `top` equal to this value,
-    /// and all other fields set to `Val::ZERO`.
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).top();
-    ///
-    /// assert_eq!(ui_rect.left, Val::ZERO);
-    /// assert_eq!(ui_rect.right, Val::ZERO);
-    /// assert_eq!(ui_rect.top, Val::Px(1.));
-    /// assert_eq!(ui_rect.bottom, Val::ZERO);
-    /// ```
-    pub const fn top(self) -> UiRect {
-        UiRect::top(self)
-    }
-
-    /// Returns a [`UiRect`] with its `bottom` equal to this value,
-    /// and all other fields set to `Val::ZERO`.
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).bottom();
-    ///
-    /// assert_eq!(ui_rect.left, Val::ZERO);
-    /// assert_eq!(ui_rect.right, Val::ZERO);
-    /// assert_eq!(ui_rect.top, Val::ZERO);
-    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
-    /// ```
-    pub const fn bottom(self) -> UiRect {
-        UiRect::bottom(self)
-    }
-
-    /// Returns a [`UiRect`] with all its fields equal to this value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).all();
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(1.));
-    /// assert_eq!(ui_rect.right, Val::Px(1.));
-    /// assert_eq!(ui_rect.top, Val::Px(1.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
-    /// ```
-    pub const fn all(self) -> UiRect {
-        UiRect::all(self)
-    }
-
-    /// Returns a [`UiRect`] with all its `left` and `right` equal to this value,
-    /// and its `top` and `bottom` set to `Val::ZERO`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).horizontal();
-    ///
-    /// assert_eq!(ui_rect.left, Val::Px(1.));
-    /// assert_eq!(ui_rect.right, Val::Px(1.));
-    /// assert_eq!(ui_rect.top, Val::ZERO);
-    /// assert_eq!(ui_rect.bottom, Val::ZERO);
-    /// ```
-    pub const fn horizontal(self) -> UiRect {
-        UiRect::horizontal(self)
-    }
-
-    /// Returns a [`UiRect`] with all its `top` and `bottom` equal to this value,
-    /// and its `left` and `right` set to `Val::ZERO`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::{UiRect, Val};
-    /// #
-    /// let ui_rect = Val::Px(1.).vertical();
-    ///
-    /// assert_eq!(ui_rect.left, Val::ZERO);
-    /// assert_eq!(ui_rect.right, Val::ZERO);
-    /// assert_eq!(ui_rect.top, Val::Px(1.));
-    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
-    /// ```
-    pub const fn vertical(self) -> UiRect {
-        UiRect::vertical(self)
-    }
-
-    /// Try to add two `Val`s.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, ValArithmeticError};
-    /// assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
-    /// assert_eq!(
-    ///     Val::Px(1.).try_add(Val::Percent(2.)),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub const fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
-            _ => Err(ValArithmeticError::IncompatibleUnits),
-        }
-    }
-
-    /// Try to subtract one `Val` from another.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if the units differ or both are `Val::Auto`.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, ValArithmeticError};
-    /// assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
-    /// assert_eq!(
-    ///     Val::Px(1.).try_sub(Val::Percent(2.)),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub const fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
-            _ => Err(ValArithmeticError::IncompatibleUnits),
-        }
-    }
-}
-
-impl Default for Val {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-impl Mul<f32> for Val {
-    type Output = Val;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-        }
-    }
-}
-
-impl MulAssign<f32> for Val {
-    fn mul_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
-        }
-    }
-}
-
-impl Div<f32> for Val {
-    type Output = Val;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-        }
-    }
-}
-
-impl DivAssign<f32> for Val {
-    fn div_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
-        }
-    }
-}
-
-impl Neg for Val {
-    type Output = Val;
-
-    fn neg(self) -> Self::Output {
-        match self {
-            Val::Px(value) => Val::Px(-value),
-            Val::Percent(value) => Val::Percent(-value),
-            Val::Vw(value) => Val::Vw(-value),
-            Val::Vh(value) => Val::Vh(-value),
-            Val::VMin(value) => Val::VMin(-value),
-            Val::VMax(value) => Val::VMax(-value),
-            _ => self,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
-pub enum ValArithmeticError {
-    #[error("the given variant of Val is not evaluable (non-numeric)")]
-    NonEvaluable,
-    #[error("the given variants of Val have incompatible units")]
-    IncompatibleUnits,
-}
-
-impl Val {
-    /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
-    /// and `physical_target_size` context values.
-    ///
-    /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
-    pub const fn resolve(
-        self,
-        scale_factor: f32,
-        physical_base_value: f32,
-        physical_target_size: Vec2,
-    ) -> Result<f32, ValArithmeticError> {
-        match self {
-            Val::Percent(value) => Ok(physical_base_value * value / 100.0),
-            Val::Px(value) => Ok(value * scale_factor),
-            Val::Vw(value) => Ok(physical_target_size.x * value / 100.0),
-            Val::Vh(value) => Ok(physical_target_size.y * value / 100.0),
-            Val::VMin(value) => {
-                Ok(physical_target_size.x.min(physical_target_size.y) * value / 100.0)
-            }
-            Val::VMax(value) => {
-                Ok(physical_target_size.x.max(physical_target_size.y) * value / 100.0)
-            }
-            Val::Auto => Err(ValArithmeticError::NonEvaluable),
-        }
-    }
-}
-
-impl From<Val> for FontSize {
-    fn from(value: Val) -> Self {
-        match value {
-            Val::Auto => FontSize::Rem(1.),
-            Val::Px(px) => FontSize::Px(px),
-            Val::Percent(percent) => FontSize::Rem(percent / 100.),
-            Val::Vw(vw) => FontSize::Vw(vw),
-            Val::Vh(vh) => FontSize::Vh(vh),
-            Val::VMin(vmin) => FontSize::VMin(vmin),
-            Val::VMax(vmax) => FontSize::VMax(vmax),
-        }
-    }
-}
-
-impl TryStableInterpolate for Val {
-    type Error = MismatchedUnitsError;
-
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ui::Val;
-    /// # use bevy_math::TryStableInterpolate;
-    /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
-    /// ```
-    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
-        match (self, other) {
-            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
-            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
-            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
-            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
-            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
-            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
-            (Val::Auto, Val::Auto) => Ok(Val::Auto),
-            _ => Err(MismatchedUnitsError),
-        }
-    }
-}
-
-/// All the types that should be able to be used in the [`Val`] enum should implement this trait.
-///
-/// Instead of just implementing `Into<Val>` a custom trait is added.
-/// This is done in order to prevent having to define a default unit, which could lead to confusion especially for newcomers.
-pub trait ValNum {
-    /// Called by the [`Val`] helper functions to convert the implementing type to an `f32` that can
-    /// be used by [`Val`].
-    fn val_num_f32(self) -> f32;
-}
-
-macro_rules! impl_to_val_num {
-    ($($impl_type:ty),*$(,)?) => {
-        $(
-            impl ValNum for $impl_type {
-                fn val_num_f32(self) -> f32 {
-                    self as f32
-                }
-            }
-        )*
-    };
-}
-
-impl_to_val_num!(f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
-
-/// Returns a [`Val::Auto`] where the value is automatically determined
-/// based on the context and other [`Node`](crate::Node) properties.
-pub const fn auto() -> Val {
-    Val::Auto
-}
-
-/// Returns a [`Val::Px`] representing a value in logical pixels.
-pub fn px<T: ValNum>(value: T) -> Val {
-    Val::Px(value.val_num_f32())
-}
-
-/// Returns a [`Val::Percent`] representing a percentage of the parent node's length
-/// along a specific axis.
-///
-/// If the UI node has no parent, the percentage is based on the window's length
-/// along that axis.
-///
-/// Axis rules:
-/// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
-/// * For `gap`, `min_size`, `size`, and `max_size`:
-///   - `width` is relative to the parent's width.
-///   - `height` is relative to the parent's height.
-/// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
-/// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-pub fn percent<T: ValNum>(value: T) -> Val {
-    Val::Percent(value.val_num_f32())
-}
-
-/// Returns a [`Val::Vw`] representing a percentage of the viewport width.
-pub fn vw<T: ValNum>(value: T) -> Val {
-    Val::Vw(value.val_num_f32())
-}
-
-/// Returns a [`Val::Vh`] representing a percentage of the viewport height.
-pub fn vh<T: ValNum>(value: T) -> Val {
-    Val::Vh(value.val_num_f32())
-}
-
-/// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
-pub fn vmin<T: ValNum>(value: T) -> Val {
-    Val::VMin(value.val_num_f32())
-}
-
-/// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
-pub fn vmax<T: ValNum>(value: T) -> Val {
-    Val::VMax(value.val_num_f32())
-}
+use bevy_utils::default;
 
 /// A type which is commonly used to define margins, paddings and borders.
 ///
@@ -1130,23 +556,14 @@ impl UiPosition {
         Self::BOTTOM_RIGHT.at(x, y)
     }
 
-    /// Resolves the `Position` into physical coordinates.
-    pub fn resolve(
-        self,
-        scale_factor: f32,
-        physical_size: Vec2,
-        physical_target_size: Vec2,
-    ) -> Vec2 {
+    /// Resolves the `UiPosition` into physical coordinates.
+    pub fn resolve(self, context: &ValContext, physical_size: Vec2) -> Vec2 {
         let d = self.anchor.map(|p| if 0. < p { -1. } else { 1. });
 
         physical_size * self.anchor
             + d * Vec2::new(
-                self.x
-                    .resolve(scale_factor, physical_size.x, physical_target_size)
-                    .unwrap_or(0.),
-                self.y
-                    .resolve(scale_factor, physical_size.y, physical_target_size)
-                    .unwrap_or(0.),
+                self.x.resolve(context, physical_size.x).unwrap_or(0.),
+                self.y.resolve(context, physical_size.y).unwrap_or(0.),
             )
     }
 }
@@ -1163,200 +580,269 @@ impl From<(Val, Val)> for UiPosition {
     }
 }
 
+/// The horizontal and vertical radii of a rounded corner's elliptical arc.
+/// If one field is auto, the resolved radius will be circular and clamped to half the length of the node's shortest side.
+/// If either field is zero, or both are auto, the node will have square corners.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_math::{Vec2, Vec2Swizzles};
+/// # use bevy_ui::{CornerRadius, Val, ValContext};
+/// # use bevy_text::{EmSize, RemSize};
+/// let radius = Val::Px(10.0);
+/// let size = Vec2::new(100.0, 50.0);
+/// let viewport_size = Vec2::new(1920.0, 1080.0);
+/// let em_size = EmSize(20.0);
+/// let rem_size = RemSize(20.0);
+/// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
+///
+/// let c1 = CornerRadius {
+///     x: radius,
+///     y: Val::ZERO,
+/// };
+/// let c2 = CornerRadius {
+///     x: Val::ZERO,
+///     y: radius,
+/// };
+/// let r = c1.resolve(&context, size);
+/// assert_eq!(
+///     r,
+///     c2.resolve(&context, size).yx(),
+/// );
+/// assert_eq!(
+///     r,
+///     Vec2::new(10.0, 0.0),
+/// );
+/// ```
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct CornerRadius {
+    /// Responsive horizontal radius.
+    pub x: Val,
+    /// Responsive vertical radius.
+    pub y: Val,
+}
+
+impl CornerRadius {
+    /// A fully rounded corner with a circular radius of half the length of the node's shortest side.
+    pub const MAX: Self = Self {
+        x: Val::MAX,
+        y: Val::Auto,
+    };
+
+    /// An elliptical corner with a horizontal radius of half the node's width and a vertical radius of half its height.
+    pub const MAX_ELLIPTICAL: Self = Self {
+        x: Val::MAX,
+        y: Val::MAX,
+    };
+
+    /// A square corner.
+    pub const ZERO: Self = Self {
+        x: Val::ZERO,
+        y: Val::ZERO,
+    };
+
+    /// Creates a circular corner radius, with `radius` resolved relative to the node's shortest side and clamped to half its length.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Vec2;
+    /// # use bevy_ui::{CornerRadius, Val, ValContext};
+    /// # use bevy_text::{EmSize, RemSize};
+    /// let radius = Val::Px(30.0);
+    /// let size = Vec2::new(100.0, 50.0);
+    /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    /// let em_size = EmSize(20.0);
+    /// let rem_size = RemSize(20.0);
+    /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
+    ///
+    /// let c1 = CornerRadius::circular(radius);
+    /// let c2 = CornerRadius {
+    ///     x: Val::Auto,
+    ///     y: radius,
+    /// };
+    ///
+    /// let r = c1.resolve(&context, size);
+    /// assert_eq!(
+    ///     r,
+    ///     c2.resolve(&context, size),
+    /// );
+    /// assert_eq!(
+    ///     r,
+    ///     Vec2::splat(25.0)
+    /// );
+    /// ```
+    #[inline]
+    pub const fn circular(radius: Val) -> Self {
+        Self {
+            x: radius,
+            y: Val::Auto,
+        }
+    }
+
+    /// Creates a corner radius with the same `radius` on both axes.
+    ///
+    /// Note that since each axis is resolved independently, the resolved radii may not be equal (see example below).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Vec2;
+    /// # use bevy_ui::{CornerRadius, Val, ValContext};
+    /// # use bevy_text::{EmSize, RemSize};
+    /// let radius = Val::Px(30.0);
+    /// let size = Vec2::new(100.0, 50.0);
+    /// let viewport_size = Vec2::new(1920.0, 1080.0);
+    /// let em_size = EmSize(20.0);
+    /// let rem_size = RemSize(20.0);
+    /// let context = ValContext::new(1.0, viewport_size, em_size, rem_size);
+    ///
+    /// let c1 = CornerRadius::all(radius);
+    /// let c2 = CornerRadius {
+    ///     x: radius,
+    ///     y: radius,
+    /// };
+    ///
+    /// let r = c1.resolve(&context, size);
+    /// assert_eq!(
+    ///     r,
+    ///     c2.resolve(&context, size),
+    /// );
+    /// assert_eq!(
+    ///     r,
+    ///     Vec2::new(30., 25.)
+    /// );
+    /// ```
+    #[inline]
+    pub const fn all(radius: Val) -> Self {
+        Self {
+            x: radius,
+            y: radius,
+        }
+    }
+
+    /// Creates a corner radius with the given horizontal (`x`) and vertical (`y`) radii.
+    #[inline]
+    pub const fn new(x: Val, y: Val) -> Self {
+        Self { x, y }
+    }
+
+    /// Resolves this corner radius into horizontal and vertical radii in physical pixels.
+    pub fn resolve(self, context: &ValContext, size: Vec2) -> Vec2 {
+        match self {
+            Self {
+                x: Val::Auto,
+                y: Val::Auto,
+            } => Vec2::ZERO,
+            Self {
+                x: radius,
+                y: Val::Auto,
+            }
+            | Self {
+                x: Val::Auto,
+                y: radius,
+            } => Vec2::splat(
+                radius
+                    .resolve(context, size.min_element())
+                    .unwrap_or(0.)
+                    .clamp(0., 0.5 * size.min_element()),
+            ),
+            Self { x, y } => Vec2::new(
+                x.resolve(context, size.x).unwrap_or(0.),
+                y.resolve(context, size.y).unwrap_or(0.),
+            )
+            .clamp(Vec2::ZERO, 0.5 * size),
+        }
+    }
+}
+
+impl Default for CornerRadius {
+    fn default() -> Self {
+        Self {
+            x: auto(),
+            y: auto(),
+        }
+    }
+}
+
+impl From<Val> for CornerRadius {
+    fn from(x: Val) -> Self {
+        Self { x, y: auto() }
+    }
+}
+
+impl From<(Val, Val)> for CornerRadius {
+    fn from((x, y): (Val, Val)) -> Self {
+        Self { x, y }
+    }
+}
+
+impl From<[Val; 2]> for CornerRadius {
+    fn from([x, y]: [Val; 2]) -> Self {
+        Self { x, y }
+    }
+}
+
+impl PartialEq for CornerRadius {
+    fn eq(&self, other: &Self) -> bool {
+        // `Val::Auto` is used to indicate that the radius on an axis is unset and that the value on the other axis should be interpreted as a circular radius.
+        // So  `CornerRadius { x: v, y: Val::AUTO } == CornerRadius { x: Val::Auto, y: v }`
+        match (self, other) {
+            (Self { x: r, y: Val::Auto }, Self { x: Val::Auto, y: s })
+            | (Self { x: Val::Auto, y: r }, Self { x: s, y: Val::Auto }) => r == s,
+            _ => self.x == other.x && self.y == other.y,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::geometry::*;
+    use crate::val::Val;
     use bevy_math::vec2;
+    use bevy_text::{EmSize, RemSize};
 
     #[test]
-    fn val_evaluate() {
-        let size = 250.;
+    fn corner_radius_resolve() {
+        let size = vec2(100., 50.);
         let viewport_size = vec2(1000., 500.);
-        let result = Val::Percent(80.).resolve(1., size, viewport_size).unwrap();
+        let context = ValContext::new(1., viewport_size, EmSize(20.0), RemSize(20.0));
 
-        assert_eq!(result, size * 0.8);
-    }
-
-    #[test]
-    fn val_resolve_px() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let result = Val::Px(10.).resolve(1., size, viewport_size).unwrap();
-
-        assert_eq!(result, 10.);
-
-        let result = Val::Px(10.).resolve(3., size, viewport_size).unwrap();
-        assert_eq!(result, 30.);
-        let result = Val::Px(10.).resolve(0.25, size, viewport_size).unwrap();
-        assert_eq!(result, 2.5);
-    }
-
-    #[test]
-    fn val_resolve_viewport_coords() {
-        let size = 250.;
-        let viewport_size = vec2(500., 500.);
-
-        for value in (-10..10).map(|value| value as f32) {
-            // for a square viewport there should be no difference between `Vw` and `Vh` and between `Vmin` and `Vmax`.
-            assert_eq!(
-                Val::Vw(value).resolve(1., size, viewport_size),
-                Val::Vh(value).resolve(1., size, viewport_size)
-            );
-            assert_eq!(
-                Val::VMin(value).resolve(1., size, viewport_size),
-                Val::VMax(value).resolve(1., size, viewport_size)
-            );
-            assert_eq!(
-                Val::VMin(value).resolve(1., size, viewport_size),
-                Val::Vw(value).resolve(1., size, viewport_size)
-            );
-        }
-
-        let viewport_size = vec2(1000., 500.);
         assert_eq!(
-            Val::Vw(100.).resolve(1., size, viewport_size).unwrap(),
-            1000.
+            CornerRadius {
+                x: Val::Px(100.),
+                y: Val::Auto,
+            }
+            .resolve(&context, size),
+            vec2(25., 25.)
         );
         assert_eq!(
-            Val::Vh(100.).resolve(1., size, viewport_size).unwrap(),
-            500.
-        );
-        assert_eq!(Val::Vw(60.).resolve(1., size, viewport_size).unwrap(), 600.);
-        assert_eq!(Val::Vh(40.).resolve(1., size, viewport_size).unwrap(), 200.);
-        assert_eq!(
-            Val::VMin(50.).resolve(1., size, viewport_size).unwrap(),
-            250.
+            CornerRadius {
+                x: Val::Px(40.),
+                y: Val::Px(40.),
+            }
+            .resolve(&context, size),
+            vec2(40., 25.)
         );
         assert_eq!(
-            Val::VMax(75.).resolve(1., size, viewport_size).unwrap(),
-            750.
-        );
-    }
-
-    #[test]
-    fn val_auto_is_non_evaluable() {
-        let size = 250.;
-        let viewport_size = vec2(1000., 500.);
-        let resolve_auto = Val::Auto.resolve(1., size, viewport_size);
-
-        assert_eq!(resolve_auto, Err(ValArithmeticError::NonEvaluable));
-    }
-
-    #[test]
-    fn val_try_add_compatible_variants() {
-        assert_eq!(Val::Px(1.).try_add(Val::Px(2.)), Ok(Val::Px(3.)));
-        assert_eq!(
-            Val::Percent(1.).try_add(Val::Percent(2.)),
-            Ok(Val::Percent(3.))
-        );
-        assert_eq!(Val::Vw(1.).try_add(Val::Vw(2.)), Ok(Val::Vw(3.)));
-        assert_eq!(Val::Vh(1.).try_add(Val::Vh(2.)), Ok(Val::Vh(3.)));
-        assert_eq!(Val::VMin(1.).try_add(Val::VMin(2.)), Ok(Val::VMin(3.)));
-        assert_eq!(Val::VMax(1.).try_add(Val::VMax(2.)), Ok(Val::VMax(3.)));
-    }
-
-    #[test]
-    fn val_try_add_incompatible_variants() {
-        assert_eq!(
-            Val::Auto.try_add(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
+            CornerRadius {
+                x: Val::ZERO,
+                y: Val::Px(20.),
+            }
+            .resolve(&context, size),
+            vec2(0., 20.)
         );
         assert_eq!(
-            Val::Px(1.).try_add(Val::Percent(2.)),
-            Err(ValArithmeticError::IncompatibleUnits)
+            CornerRadius::default().resolve(&context, size),
+            vec2(0., 0.)
         );
-        assert_eq!(
-            Val::Auto.try_add(Val::Px(1.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-    }
-
-    #[test]
-    fn val_try_sub_compatible_variants() {
-        assert_eq!(Val::Px(3.).try_sub(Val::Px(2.)), Ok(Val::Px(1.)));
-        assert_eq!(
-            Val::Percent(3.).try_sub(Val::Percent(2.)),
-            Ok(Val::Percent(1.))
-        );
-        assert_eq!(Val::Vw(3.).try_sub(Val::Vw(2.)), Ok(Val::Vw(1.)));
-        assert_eq!(Val::Vh(3.).try_sub(Val::Vh(2.)), Ok(Val::Vh(1.)));
-        assert_eq!(Val::VMin(3.).try_sub(Val::VMin(2.)), Ok(Val::VMin(1.)));
-        assert_eq!(Val::VMax(3.).try_sub(Val::VMax(2.)), Ok(Val::VMax(1.)));
-    }
-
-    #[test]
-    fn val_try_sub_incompatible_variants() {
-        assert_eq!(
-            Val::Auto.try_sub(Val::Auto),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
-            Val::Px(1.).try_sub(Val::Percent(2.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-        assert_eq!(
-            Val::Auto.try_sub(Val::Px(1.)),
-            Err(ValArithmeticError::IncompatibleUnits)
-        );
-    }
-
-    #[test]
-    fn val_str_parse() {
-        assert_eq!("auto".parse::<Val>(), Ok(Val::Auto));
-        assert_eq!("Auto".parse::<Val>(), Ok(Val::Auto));
-        assert_eq!("AUTO".parse::<Val>(), Ok(Val::Auto));
-
-        assert_eq!("3px".parse::<Val>(), Ok(Val::Px(3.)));
-        assert_eq!("3 px".parse::<Val>(), Ok(Val::Px(3.)));
-        assert_eq!("3.5px".parse::<Val>(), Ok(Val::Px(3.5)));
-        assert_eq!("-3px".parse::<Val>(), Ok(Val::Px(-3.)));
-        assert_eq!("3.5 PX".parse::<Val>(), Ok(Val::Px(3.5)));
-
-        assert_eq!("3%".parse::<Val>(), Ok(Val::Percent(3.)));
-        assert_eq!("3 %".parse::<Val>(), Ok(Val::Percent(3.)));
-        assert_eq!("3.5%".parse::<Val>(), Ok(Val::Percent(3.5)));
-        assert_eq!("-3%".parse::<Val>(), Ok(Val::Percent(-3.)));
-
-        assert_eq!("3vw".parse::<Val>(), Ok(Val::Vw(3.)));
-        assert_eq!("3 vw".parse::<Val>(), Ok(Val::Vw(3.)));
-        assert_eq!("3.5vw".parse::<Val>(), Ok(Val::Vw(3.5)));
-        assert_eq!("-3vw".parse::<Val>(), Ok(Val::Vw(-3.)));
-        assert_eq!("3.5 VW".parse::<Val>(), Ok(Val::Vw(3.5)));
-
-        assert_eq!("3vh".parse::<Val>(), Ok(Val::Vh(3.)));
-        assert_eq!("3 vh".parse::<Val>(), Ok(Val::Vh(3.)));
-        assert_eq!("3.5vh".parse::<Val>(), Ok(Val::Vh(3.5)));
-        assert_eq!("-3vh".parse::<Val>(), Ok(Val::Vh(-3.)));
-        assert_eq!("3.5 VH".parse::<Val>(), Ok(Val::Vh(3.5)));
-
-        assert_eq!("3vmin".parse::<Val>(), Ok(Val::VMin(3.)));
-        assert_eq!("3 vmin".parse::<Val>(), Ok(Val::VMin(3.)));
-        assert_eq!("3.5vmin".parse::<Val>(), Ok(Val::VMin(3.5)));
-        assert_eq!("-3vmin".parse::<Val>(), Ok(Val::VMin(-3.)));
-        assert_eq!("3.5 VMIN".parse::<Val>(), Ok(Val::VMin(3.5)));
-
-        assert_eq!("3vmax".parse::<Val>(), Ok(Val::VMax(3.)));
-        assert_eq!("3 vmax".parse::<Val>(), Ok(Val::VMax(3.)));
-        assert_eq!("3.5vmax".parse::<Val>(), Ok(Val::VMax(3.5)));
-        assert_eq!("-3vmax".parse::<Val>(), Ok(Val::VMax(-3.)));
-        assert_eq!("3.5 VMAX".parse::<Val>(), Ok(Val::VMax(3.5)));
-
-        assert_eq!("".parse::<Val>(), Err(ValParseError::UnitMissing));
-        assert_eq!(
-            "hello world".parse::<Val>(),
-            Err(ValParseError::ValueMissing)
-        );
-        assert_eq!("3".parse::<Val>(), Err(ValParseError::UnitMissing));
-        assert_eq!("3.5".parse::<Val>(), Err(ValParseError::UnitMissing));
-        assert_eq!("3pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
-        assert_eq!("3.5pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
-        assert_eq!("3-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
-        assert_eq!("3.5-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
-    }
-
-    #[test]
-    fn default_val_equals_const_default_val() {
-        assert_eq!(Val::default(), Val::DEFAULT);
     }
 
     #[test]
@@ -1406,5 +892,17 @@ mod tests {
         assert_eq!(vh(0.0), Val::Vh(0.0));
         assert_eq!(vmin(0.0), Val::VMin(0.0));
         assert_eq!(vmax(0.0), Val::VMax(0.0));
+    }
+
+    #[test]
+    fn corner_radius_partial_eq_with_auto() {
+        assert_eq!(
+            CornerRadius::new(px(1.), Val::Auto),
+            CornerRadius::new(Val::Auto, px(1.)),
+        );
+        assert_eq!(
+            CornerRadius::new(Val::Auto, percent(1.)),
+            CornerRadius::new(percent(1.), Val::Auto),
+        );
     }
 }

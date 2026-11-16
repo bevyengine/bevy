@@ -37,7 +37,7 @@ fn main() {
         .run();
 }
 
-const SHADER_ASSET_PATH: &str = "shaders/deferred_raymarch.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/deferred_raymarch.wesl";
 
 fn setup(
     mut commands: Commands,

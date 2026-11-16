@@ -22,16 +22,6 @@ pub trait CommandsStatesExt {
     /// Note that commands introduce sync points to the ECS schedule, so modifying `NextState`
     /// directly may be more efficient depending on your use-case.
     fn set_state_if_different<S: FreelyMutableState>(&mut self, state: S);
-
-    /// Sets the next state the app should move to, skipping any state transitions if the next state is the same as the current state.
-    ///
-    /// Internally this schedules a command that updates the [`NextState<S>`](crate::prelude::NextState)
-    /// resource with `state`.
-    ///
-    /// Note that commands introduce sync points to the ECS schedule, so modifying `NextState`
-    /// directly may be more efficient depending on your use-case.
-    #[deprecated(since = "0.19.0", note = "use `set_state_if_different` instead")]
-    fn set_state_if_neq<S: FreelyMutableState>(&mut self, state: S);
 }
 
 impl CommandsStatesExt for Commands<'_, '_> {
@@ -55,9 +45,5 @@ impl CommandsStatesExt for Commands<'_, '_> {
             }
             next.set_if_different(state);
         });
-    }
-
-    fn set_state_if_neq<S: FreelyMutableState>(&mut self, state: S) {
-        self.set_state_if_different(state);
     }
 }

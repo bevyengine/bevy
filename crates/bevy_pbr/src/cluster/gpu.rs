@@ -96,7 +96,7 @@ use bevy_render::{
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     GpuResourceAppExt, MainWorld, Render, RenderApp, RenderSystems,
 };
-use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
 use tracing::{error, trace, warn};
@@ -113,9 +113,9 @@ use crate::{
     ViewLightsUniformOffset,
 };
 
-/// The workgroup size of the `cluster_allocate.wgsl` shader.
+/// The workgroup size of the `cluster_allocate.wesl` shader.
 const ALLOCATION_WORKGROUP_SIZE: u32 = 256;
-/// The workgroup size of the `cluster_z_slice.wgsl` shader.
+/// The workgroup size of the `cluster_z_slice.wesl` shader.
 const Z_SLICING_WORKGROUP_SIZE: u32 = 64;
 
 /// A plugin that enables GPU clustering of lights and other objects.
@@ -123,10 +123,9 @@ pub struct GpuClusteringPlugin;
 
 impl Plugin for GpuClusteringPlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "cluster.wgsl");
-        embedded_asset!(app, "cluster_z_slice.wgsl");
-        embedded_asset!(app, "cluster_raster.wgsl");
-        embedded_asset!(app, "cluster_allocate.wgsl");
+        embedded_asset!(app, "cluster_z_slice.wesl");
+        embedded_asset!(app, "cluster_raster.wesl");
+        embedded_asset!(app, "cluster_allocate.wesl");
 
         app.add_plugins(ExtractResourcePlugin::<
             GlobalClusterSettings,
@@ -219,7 +218,7 @@ pub struct ClusterableObjectZSlice {
     /// The type of the object to be clustered.
     ///
     /// This is one of the `CLUSTERABLE_OBJECT_TYPE_` constants in
-    /// `cluster.wgsl`.
+    /// `cluster.wesl`.
     pub object_type: u32,
     /// The Z coordinate of the froxels that this slice covers.
     pub z_slice: u32,
@@ -286,7 +285,7 @@ pub struct ClusterRasterIndirectDrawParams {
 pub struct ViewGpuClusteringBuffers {
     /// The buffer that holds the Z slices for each clusterable object.
     ///
-    /// The `cluster_z_slice.wgsl` shader fills this buffer out, and the raster
+    /// The `cluster_z_slice.wesl` shader fills this buffer out, and the raster
     /// passes read it.
     pub z_slices_buffer: UninitBufferVec<ClusterableObjectZSlice>,
     /// The buffer that holds the scratchpad offsets and counts for each
@@ -316,6 +315,20 @@ impl ViewGpuClusteringBuffers {
                 BufferUsages::STORAGE | BufferUsages::COPY_DST,
             ),
         }
+    }
+
+    pub(crate) fn update(
+        &mut self,
+        metadata: ClusterMetadata,
+        z_slice_list_capacity: usize,
+        cluster_count: usize,
+    ) {
+        *self.cluster_metadata_buffer.get_mut() = metadata;
+        self.z_slices_buffer.clear();
+        self.z_slices_buffer.add_multiple(z_slice_list_capacity);
+        self.scratchpad_offsets_and_counts_buffer.clear();
+        self.scratchpad_offsets_and_counts_buffer
+            .add_multiple(cluster_count);
     }
 }
 
@@ -441,7 +454,7 @@ impl ViewClusteringReadbackData {
 }
 
 /// Decodes a `u32` produced by `f32_bits_to_sortable_u32` (in
-/// `cluster_z_slice.wgsl`) back into `f32` bits.
+/// `cluster_z_slice.wesl`) back into `f32` bits.
 ///
 /// The encode flips the sign bit for positive floats and all bits for
 /// negative floats, so the decode must inspect the *encoded* sign bit
@@ -452,7 +465,7 @@ fn sortable_u32_to_f32_bits(bits: u32) -> u32 {
     bits ^ mask
 }
 
-/// Global data relating to the `cluster_raster.wgsl` shader.
+/// Global data relating to the `cluster_raster.wesl` shader.
 #[derive(Resource)]
 pub struct ClusteringRasterPipeline {
     /// The bind group layout for group 0 for the count (first) pass.
@@ -463,7 +476,7 @@ pub struct ClusteringRasterPipeline {
     pub shader: Handle<Shader>,
 }
 
-/// Global data relating to the `cluster_z_slice.wgsl` shader.
+/// Global data relating to the `cluster_z_slice.wesl` shader.
 #[derive(Resource)]
 pub struct ClusteringZSlicingPipeline {
     /// The bind group layout for group 0.
@@ -472,17 +485,17 @@ pub struct ClusteringZSlicingPipeline {
     pub shader: Handle<Shader>,
 }
 
-/// Global data relating to the `cluster_allocate.wgsl` shader.
+/// Global data relating to the `cluster_allocate.wesl` shader.
 #[derive(Resource)]
 pub struct ClusteringAllocationPipeline {
     /// The bind group layout of group 0 for both shader invocations.
     pub bind_group_layout: BindGroupLayoutDescriptor,
-    /// A handle to the `cluster_allocate.wgsl` shader itself.
+    /// A handle to the `cluster_allocate.wesl` shader itself.
     pub shader: Handle<Shader>,
 }
 
 /// The pipeline key that identifies specializations of the
-/// `cluster_raster.wgsl` shader.
+/// `cluster_raster.wesl` shader.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClusteringRasterPipelineKey {
     /// True if this is the populate (second) pass; false if it's the count
@@ -491,7 +504,7 @@ pub struct ClusteringRasterPipelineKey {
 }
 
 /// The pipeline key that identifies specializations of the
-/// `cluster_allocate.wgsl` shader.
+/// `cluster_allocate.wesl` shader.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClusteringAllocationPipelineKey {
     /// True if this is the global (second) pass; false if it's the local
@@ -563,7 +576,7 @@ impl FromWorld for ClusteringRasterPipeline {
             &bind_group_layout_entries_populate_pass,
         );
 
-        let shader = load_embedded_asset!(asset_server, "cluster_raster.wgsl");
+        let shader = load_embedded_asset!(asset_server, "cluster_raster.wesl");
 
         ClusteringRasterPipeline {
             bind_group_layout_count_pass,
@@ -663,7 +676,7 @@ impl FromWorld for ClusteringZSlicingPipeline {
             ),
         );
 
-        let shader = load_embedded_asset!(asset_server, "cluster_z_slice.wgsl");
+        let shader = load_embedded_asset!(asset_server, "cluster_z_slice.wesl");
 
         ClusteringZSlicingPipeline {
             bind_group_layout,
@@ -712,7 +725,7 @@ impl FromWorld for ClusteringAllocationPipeline {
             ),
         );
 
-        let shader = load_embedded_asset!(asset_server, "cluster_allocate.wgsl");
+        let shader = load_embedded_asset!(asset_server, "cluster_allocate.wesl");
 
         ClusteringAllocationPipeline {
             bind_group_layout,
@@ -1604,12 +1617,14 @@ pub fn extract_clusters_for_gpu_clustering(
 /// views.
 pub(crate) fn prepare_clusters_for_gpu_clustering(
     mut commands: Commands,
-    views_query: Query<(
+    mut views_query: Query<(
         Entity,
         &MainEntity,
         &ExtractedClusterConfig,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
+        Option<&mut ViewGpuClusteringBuffers>,
+        Option<&mut ViewClusterBindings>,
     )>,
     render_clustered_decals: Res<RenderClusteredDecals>,
     render_device: Res<RenderDevice>,
@@ -1635,16 +1650,13 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         extracted_cluster_config,
         maybe_environment_maps,
         maybe_irradiance_volumes,
-    ) in &views_query
+        maybe_existing_buffers,
+        maybe_existing_cluster_bindings,
+    ) in &mut views_query
     {
-        // Allocate the cluster array.
-        let mut view_clusters_bindings =
-            ViewClusterBindings::new(BufferBindingType::Storage { read_only: false });
-        view_clusters_bindings.clear();
         let cluster_count = extracted_cluster_config.dimensions.x as usize
             * extracted_cluster_config.dimensions.y as usize
             * extracted_cluster_config.dimensions.z as usize;
-        view_clusters_bindings.reserve_clusters(cluster_count);
 
         all_view_main_entities.insert(*view_main_entity);
 
@@ -1663,8 +1675,6 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             continue;
         };
 
-        let mut view_gpu_clustering_buffers = ViewGpuClusteringBuffers::new();
-
         // Count the number of each type of clusterable object that we have.
         let clustered_light_count = gpu_clustered_lights_storage.data.len() as u32;
         let reflection_probe_count = match maybe_environment_maps {
@@ -1675,12 +1685,10 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             Some(view_irradiance_volumes) => view_irradiance_volumes.len() as u32,
             None => 0,
         };
-        let decal_count = render_clustered_decals.len() as u32;
+        // Light textures share the decal buffer but aren't clusterable objects.
+        let decal_count = render_clustered_decals.clusterable_decal_count() as u32;
 
-        // Initialize the metadata.
-        *view_gpu_clustering_buffers
-            .cluster_metadata_buffer
-            .get_mut() = ClusterMetadata {
+        let new_metadata = ClusterMetadata {
             indirect_draw_params: ClusterRasterIndirectDrawParams {
                 index_count: 6,
                 // This will be filled in by the GPU.
@@ -1698,29 +1706,37 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             farthest_z: 0,
         };
 
-        // Allocate Z slices.
-        if view_gpu_clustering_buffers.z_slices_buffer.len()
-            < view_clustering_buffer_size_data.z_slice_list_capacity
-        {
-            view_gpu_clustering_buffers.z_slices_buffer.add_multiple(
-                view_clustering_buffer_size_data.z_slice_list_capacity
-                    - view_gpu_clustering_buffers.z_slices_buffer.len(),
-            );
+        let mut entity_commands = commands.entity(view_entity);
+
+        if let Some(mut bindings) = maybe_existing_cluster_bindings {
+            bindings.clear();
+            bindings.reserve_clusters(cluster_count);
+            bindings.reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
+            bindings.write_buffers(render_device, &render_queue);
+        } else {
+            let mut bindings =
+                ViewClusterBindings::new(BufferBindingType::Storage { read_only: false });
+            bindings.reserve_clusters(cluster_count);
+            bindings.reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
+            bindings.write_buffers(render_device, &render_queue);
+            entity_commands.insert(bindings);
         }
 
-        // Make room for the appropriate number of indices.
-        view_clusters_bindings
-            .reserve_indices(view_clustering_buffer_size_data.max_index_list_capacity);
-        view_clusters_bindings.write_buffers(render_device, &render_queue);
-
-        // Allocate scratchpad offsets and counts.
-        view_gpu_clustering_buffers
-            .scratchpad_offsets_and_counts_buffer
-            .add_multiple(cluster_count);
-
-        commands
-            .entity(view_entity)
-            .insert((view_clusters_bindings, view_gpu_clustering_buffers));
+        if let Some(mut b) = maybe_existing_buffers {
+            b.update(
+                new_metadata,
+                view_clustering_buffer_size_data.z_slice_list_capacity,
+                cluster_count,
+            );
+        } else {
+            let mut b = ViewGpuClusteringBuffers::new();
+            b.update(
+                new_metadata,
+                view_clustering_buffer_size_data.z_slice_list_capacity,
+                cluster_count,
+            );
+            entity_commands.insert(b);
+        }
     }
 
     // Clear out clustering allocations corresponding to views that don't exist

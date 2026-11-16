@@ -1,16 +1,17 @@
 //! System parameters for working with observers.
 
 use crate::{
-    bundle::Bundle,
     change_detection::MaybeLocation,
-    event::{Event, EventKey, PropagateEntityTrigger},
+    event::{
+        Event, EventKey, EventPattern, EventTriggerView, PropagateEntityTrigger,
+        SetEntityEventTarget,
+    },
     prelude::*,
     traversal::Traversal,
 };
 use bevy_ptr::Ptr;
 use core::{
     fmt::Debug,
-    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -20,46 +21,27 @@ use core::{
 /// [`Trigger`](crate::event::Trigger), which for things like [`EntityEvent`] with a [`PropagateEntityTrigger`],
 /// includes control over event propagation.
 ///
-/// The generic `B: Bundle` is used to further specialize the events that this observer is interested in.
-/// The entity involved *does not* have to have these components, but the observer will only be
-/// triggered if the event matches the components in `B`.
-///
-/// This is used to avoid providing a generic argument in your event, as is done for [`Add`]
-/// and the other lifecycle events.
-///
-/// Providing multiple components in this bundle will cause this event to be triggered by any
-/// matching component in the bundle,
-/// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
-///
 /// [system parameter]: crate::system::SystemParam
-// SAFETY WARNING!
-// this type must _never_ expose anything with the 'w lifetime
-// See the safety discussion on `Trigger` for more details.
-pub struct On<'w, 't, E: Event, B: Bundle = ()> {
+pub struct On<'i, E: EventPattern> {
     observer: Entity,
-    // SAFETY WARNING: never expose this 'w lifetime
-    event: &'w mut E,
-    // SAFETY WARNING: never expose this 'w lifetime
-    trigger: &'w mut E::Trigger<'t>,
-    // SAFETY WARNING: never expose this 'w lifetime
-    trigger_context: &'w TriggerContext,
-    _marker: PhantomData<B>,
+    event: &'i mut E::Event,
+    trigger: EventTriggerView<'i, E::Event>,
+    trigger_context: &'i TriggerContext,
 }
 
-impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
+impl<'i, E: EventPattern> On<'i, E> {
     /// Creates a new instance of [`On`] for the given triggered event.
     pub fn new(
-        event: &'w mut E,
+        event: &'i mut E::Event,
         observer: Entity,
-        trigger: &'w mut E::Trigger<'t>,
-        trigger_context: &'w TriggerContext,
+        trigger: EventTriggerView<'i, E::Event>,
+        trigger_context: &'i TriggerContext,
     ) -> Self {
         Self {
             event,
             observer,
             trigger,
             trigger_context,
-            _marker: PhantomData,
         }
     }
 
@@ -69,12 +51,12 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     }
 
     /// Returns a reference to the triggered event.
-    pub fn event(&self) -> &E {
+    pub fn event(&self) -> &E::Event {
         self.event
     }
 
     /// Returns a mutable reference to the triggered event.
-    pub fn event_mut(&mut self) -> &mut E {
+    pub fn event_mut(&mut self) -> &mut E::Event {
         self.event
     }
 
@@ -84,13 +66,13 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     }
 
     /// Returns the [`Trigger`](crate::event::Trigger) context for this event.
-    pub fn trigger(&self) -> &E::Trigger<'t> {
-        self.trigger
+    pub fn trigger(&self) -> &EventTriggerView<'i, E::Event> {
+        &self.trigger
     }
 
     /// Returns the mutable [`Trigger`](crate::event::Trigger) context for this event.
-    pub fn trigger_mut(&mut self) -> &mut E::Trigger<'t> {
-        self.trigger
+    pub fn trigger_mut(&mut self) -> &mut EventTriggerView<'i, E::Event> {
+        &mut self.trigger
     }
 
     /// Returns the [`Entity`] of the [`Observer`] of the triggered event.
@@ -125,14 +107,13 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     }
 }
 
-impl<
-        'w,
-        't,
-        const AUTO_PROPAGATE: bool,
-        E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
-        B: Bundle,
-        T: Traversal<E>,
-    > On<'w, 't, E, B>
+impl<'i, const AUTO_PROPAGATE: bool, E, T> On<'i, E>
+where
+    E: EventPattern<
+        Event: EntityEvent<Trigger = PropagateEntityTrigger<AUTO_PROPAGATE, E::Event, T>>
+                   + SetEntityEventTarget,
+    >,
+    T: Traversal<E::Event>,
 {
     /// Returns the original [`Entity`] that this [`EntityEvent`] targeted via [`EntityEvent::event_target`] when it was _first_ triggered,
     /// prior to any propagation logic.
@@ -165,25 +146,29 @@ impl<
     }
 }
 
-impl<'w, 't, E: for<'a> Event<Trigger<'a>: Debug> + Debug, B: Bundle> Debug for On<'w, 't, E, B> {
+impl<'i, E> Debug for On<'i, E>
+where
+    E: EventPattern,
+    E::Event: Event + Debug,
+    EventTriggerView<'i, E::Event>: Debug,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("On")
             .field("event", &self.event)
             .field("trigger", &self.trigger)
-            .field("_marker", &self._marker)
             .finish()
     }
 }
 
-impl<'w, 't, E: Event, B: Bundle> Deref for On<'w, 't, E, B> {
-    type Target = E;
+impl<'i, E: EventPattern> Deref for On<'i, E> {
+    type Target = E::Event;
 
     fn deref(&self) -> &Self::Target {
         self.event
     }
 }
 
-impl<'w, 't, E: Event, B: Bundle> DerefMut for On<'w, 't, E, B> {
+impl<'i, E: EventPattern> DerefMut for On<'i, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }

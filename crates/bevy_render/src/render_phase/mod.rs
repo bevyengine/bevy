@@ -41,7 +41,6 @@ use encase::{internal::WriteInto, ShaderSize};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
-use tracing::error;
 use wgpu::{BufferUsages, Features};
 
 use crate::batching::gpu_preprocessing::{
@@ -143,7 +142,7 @@ where
     /// can in order to execute custom drawing commands. Draw functions for each
     /// entity are simply called in order at rendering time.
     ///
-    /// See the `custom_phase_item` example for an example of how to use this.
+    /// See the [`custom_phase_item` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/custom_phase_item.rs) for an example of how to use this.
     pub non_mesh_items: IndexMap<(BPI::BatchSetKey, BPI::BinKey), NonMeshEntities>,
 
     /// Information on each batch set.
@@ -294,7 +293,7 @@ impl RenderMultidrawableBatchSetGpuBuffers {
         // If an entity is to change bins, it must first be removed from the bin
         // it was previously in.
         if maybe_previous_binned_mesh_instance_buffer_index.is_some() {
-            error!(
+            panic!(
                 "Binning main entity {:?} when it was already binned. This should never happen.",
                 main_entity
             );

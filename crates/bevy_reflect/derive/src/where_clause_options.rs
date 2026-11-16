@@ -39,7 +39,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is
     ///   present
     /// - Active fields with non-generic types have the bounds `TypePath`, either `PartialReflect`
-    ///   if `#[reflect(from_reflect = false)]` is present or `FromReflect` otherwise,
+    ///   if `#[reflect(from_reflect = false)]` is present or `Reflect + FromReflect` otherwise,
     ///   `MaybeTyped`, and `RegisterForReflection` (or no bounds at all if
     ///   `#[reflect(no_field_bounds)]` is present)
     ///
@@ -67,7 +67,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   T: TypePath,
     ///   U: TypePath,
     ///   // Active non-generic field bounds
-    ///   T: FromReflect + TypePath + MaybeTyped + RegisterForReflection,
+    ///   T: Reflect + FromReflect + TypePath + MaybeTyped + RegisterForReflection,
     ///
     /// ```
     ///

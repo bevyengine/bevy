@@ -170,6 +170,19 @@ impl<A: RenderAsset> RenderAssetDependency for A {
     }
 }
 
+impl<A, B> RenderAssetDependency for (A, B)
+where
+    A: RenderAsset,
+    B: RenderAsset,
+{
+    fn register_system(render_app: &mut SubApp, system: ScheduleConfigs<ScheduleSystem>) {
+        render_app.add_systems(
+            Render,
+            system.after(prepare_assets::<A>).after(prepare_assets::<B>),
+        );
+    }
+}
+
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {

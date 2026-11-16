@@ -263,21 +263,20 @@ F6 - Load boxes"
 
 /// Spawns a new box whenever you left-click on the background.
 fn spawn_box(
-    event: On<Pointer<Press>>,
+    press: On<PointerPress>,
     window: Query<(), With<Window>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     mut commands: Commands,
 ) {
-    if event.button != PointerButton::Primary {
+    if press.button != PointerButton::Primary {
         return;
     }
-    if !window.contains(event.entity) {
+    if !window.contains(press.entity) {
         return;
     }
 
     let (camera, camera_transform) = camera.into_inner();
-    let Ok(click_point) =
-        camera.viewport_to_world_2d(camera_transform, event.pointer_location.position)
+    let Ok(click_point) = camera.viewport_to_world_2d(camera_transform, press.pointer.position)
     else {
         return;
     };
@@ -303,7 +302,7 @@ fn rotate_hue(time: Res<Time>, mut sprites: Query<&mut Sprite, With<RotateHue>>)
 
 /// Starts rotating the hue of a box that has been right-clicked.
 fn start_rotate_box_hue(
-    event: On<Pointer<Press>>,
+    event: On<PointerPress>,
     boxes: Query<(), With<Box>>,
     mut commands: Commands,
 ) {
@@ -318,7 +317,7 @@ fn start_rotate_box_hue(
 
 /// Stops rotating the box hue if it's right-click is released.
 fn end_rotate_box_hue_on_release(
-    event: On<Pointer<Release>>,
+    event: On<PointerRelease>,
     boxes: Query<(), (With<Box>, With<RotateHue>)>,
     mut commands: Commands,
 ) {
@@ -333,7 +332,7 @@ fn end_rotate_box_hue_on_release(
 
 /// Stops rotating the box hue if the cursor moves off the entity.
 fn end_rotate_box_hue_on_out(
-    event: On<Pointer<Out>>,
+    event: On<PointerOut>,
     boxes: Query<(), (With<Box>, With<RotateHue>)>,
     mut commands: Commands,
 ) {
@@ -344,7 +343,7 @@ fn end_rotate_box_hue_on_out(
 }
 
 /// Blocks propagation of pointer press events on left-clicked boxes.
-fn stop_propagate_on_clicked_box(mut event: On<Pointer<Press>>, boxes: Query<(), With<Box>>) {
+fn stop_propagate_on_clicked_box(mut event: On<PointerPress>, boxes: Query<(), With<Box>>) {
     if event.button != PointerButton::Primary {
         return;
     }
@@ -355,7 +354,7 @@ fn stop_propagate_on_clicked_box(mut event: On<Pointer<Press>>, boxes: Query<(),
 }
 
 /// Drags a box when you left-click on one.
-fn drag_box(event: On<Pointer<Drag>>, mut boxes: Query<&mut Transform, With<Box>>) {
+fn drag_box(event: On<PointerDrag>, mut boxes: Query<&mut Transform, With<Box>>) {
     if event.button != PointerButton::Primary {
         return;
     }

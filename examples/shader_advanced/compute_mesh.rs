@@ -31,7 +31,7 @@ use bevy::{
 };
 
 /// This example uses a shader source file from the assets subdirectory
-const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/compute_mesh.wesl";
 
 fn main() {
     App::new()

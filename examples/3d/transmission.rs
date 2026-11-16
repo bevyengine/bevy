@@ -4,6 +4,7 @@
 //!
 //! | Key Binding        | Action                                               |
 //! |:-------------------|:-----------------------------------------------------|
+//! | `Space`            | Toggle Screen Space Transmission                     |
 //! | `J`/`K`/`L`/`;`    | Change Screen Space Transmission Quality             |
 //! | `O` / `P`          | Decrease / Increase Screen Space Transmission Steps  |
 //! | `1` / `2`          | Decrease / Increase Diffuse Transmission             |
@@ -299,6 +300,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
+        ScreenSpaceTransmission::default(),
         Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
         ColorGrading {
             global: ColorGradingGlobal {
@@ -346,6 +348,7 @@ struct ExampleControls {
 }
 
 struct ExampleState {
+    transmission: ScreenSpaceTransmission,
     diffuse_transmission: f32,
     specular_transmission: f32,
     thickness: f32,
@@ -361,6 +364,7 @@ struct ExampleDisplay;
 impl Default for ExampleState {
     fn default() -> Self {
         ExampleState {
+            transmission: ScreenSpaceTransmission::default(),
             diffuse_transmission: 0.5,
             specular_transmission: 0.9,
             thickness: 1.8,
@@ -379,7 +383,7 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut ScreenSpaceTransmission,
+            Option<&mut ScreenSpaceTransmission>,
             &mut Transform,
             Option<&DepthPrepass>,
             Option<&TemporalJitter>,
@@ -489,28 +493,44 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::KeyO) && transmission.steps > 0 {
-        transmission.steps -= 1;
+    if input.just_pressed(KeyCode::KeyO) && state.transmission.steps > 0 {
+        state.transmission.steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::KeyP) && transmission.steps < 4 {
-        transmission.steps += 1;
+    if input.just_pressed(KeyCode::KeyP) && state.transmission.steps < 4 {
+        state.transmission.steps += 1;
     }
 
     if input.just_pressed(KeyCode::KeyJ) {
-        transmission.quality = ScreenSpaceTransmissionQuality::Low;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::Low;
     }
 
     if input.just_pressed(KeyCode::KeyK) {
-        transmission.quality = ScreenSpaceTransmissionQuality::Medium;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::Medium;
     }
 
     if input.just_pressed(KeyCode::KeyL) {
-        transmission.quality = ScreenSpaceTransmissionQuality::High;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::High;
     }
 
     if input.just_pressed(KeyCode::Semicolon) {
-        transmission.quality = ScreenSpaceTransmissionQuality::Ultra;
+        state.transmission.quality = ScreenSpaceTransmissionQuality::Ultra;
+    }
+
+    if let Some(transmission) = &mut transmission {
+        **transmission = state.transmission.clone();
+    }
+
+    if input.just_pressed(KeyCode::Space) {
+        if transmission.is_some() {
+            commands
+                .entity(camera_entity)
+                .remove::<ScreenSpaceTransmission>();
+        } else {
+            commands
+                .entity(camera_entity)
+                .insert(state.transmission.clone());
+        }
     }
 
     let rotation = if input.pressed(KeyCode::ArrowRight) {
@@ -543,6 +563,7 @@ fn example_control_system(
 
     display.0 = format!(
         concat!(
+            "         Space  Screen Space Specular Transmission: {}\n",
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",
             "         1 / 2  Diffuse Transmission: {:.2}\n",
@@ -557,8 +578,9 @@ fn example_control_system(
             "             D  Depth Prepass: {}\n",
             "             T  TAA: {}\n",
         ),
-        transmission.quality,
-        transmission.steps,
+        if transmission.is_some() { "ON" } else { "OFF" },
+        state.transmission.quality,
+        state.transmission.steps,
         state.diffuse_transmission,
         state.specular_transmission,
         state.thickness,

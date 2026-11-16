@@ -3,7 +3,6 @@ use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
 };
-use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
     fmt::{Debug, Display},
@@ -13,6 +12,9 @@ use core::{
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+// Type-alias so that users don't need to add a dependency on atomicow just to name visible types.
+pub use atomicow::CowArc;
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -268,6 +270,12 @@ impl<'a> AssetPath<'a> {
         self.path.deref()
     }
 
+    /// Gets the path to the asset in the "virtual filesystem".
+    #[inline]
+    pub fn path_cow(&self) -> CowArc<'a, Path> {
+        self.path.clone()
+    }
+
     /// Gets the path to the asset in the "virtual filesystem" without a label (if a label is currently set).
     #[inline]
     pub fn without_label(&self) -> AssetPath<'_> {
@@ -317,7 +325,7 @@ impl<'a> AssetPath<'a> {
         let path = match &self.path {
             CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
             CowArc::Static(path) => CowArc::Static(path.parent()?),
-            CowArc::Owned(path) => path.parent()?.to_path_buf().into(),
+            CowArc::Owned(path) => CowArc::Owned(path.parent()?.into()),
         };
         Some(AssetPath {
             source: self.source.clone(),
@@ -568,17 +576,16 @@ impl<'a> AssetPath<'a> {
     /// ```
     pub fn is_unapproved(&self) -> bool {
         use std::path::Component;
-        let mut simplified = PathBuf::new();
+
+        let mut component_count: usize = 0;
+
         for component in self.path.components() {
             match component {
                 Component::Prefix(_) | Component::RootDir => return true,
                 Component::CurDir => {}
-                Component::ParentDir => {
-                    if !simplified.pop() {
-                        return true;
-                    }
-                }
-                Component::Normal(os_str) => simplified.push(os_str),
+                Component::ParentDir if component_count == 0 => return true,
+                Component::ParentDir => component_count -= 1,
+                Component::Normal(_) => component_count += 1,
             }
         }
 

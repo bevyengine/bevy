@@ -11,14 +11,12 @@
 //!
 //! - This backend does not provide `normal` in `HitData`.
 
-use core::f32;
-
 use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
 
 use crate::{
-    backend::{HitData, PointerHits},
-    pointer::{Location, PointerId, PointerLocation},
+    backend::{ray::RayMap, HitData, PointerHits},
+    pointer::{Location, PointerLocation, PointerMap},
 };
 
 /// Generates pointer hit events for window entities.
@@ -28,21 +26,34 @@ use crate::{
 ///
 /// The depth of the hit will be listed as zero.
 pub fn update_window_hits(
-    pointers: Query<(&PointerId, &PointerLocation)>,
+    pointer_locations: Query<&PointerLocation>,
     mut pointer_hits_writer: MessageWriter<PointerHits>,
+    ray_map: Res<RayMap>,
+    pointer_map: Res<PointerMap>,
 ) {
-    for (pointer_id, pointer_location) in pointers.iter() {
-        if let Some(Location {
-            target: NormalizedRenderTarget::Window(window_ref),
-            position,
-            ..
-        }) = pointer_location.location
+    for (&ray_id, _) in ray_map.iter() {
+        if let Some((position, window_entity)) =
+            pointer_map
+                .get_entity(ray_id.pointer)
+                .and_then(|pointer_e| {
+                    if let Ok(PointerLocation {
+                        location:
+                            Some(Location {
+                                target: NormalizedRenderTarget::Window(window_ref),
+                                position,
+                                ..
+                            }),
+                    }) = pointer_locations.get(pointer_e)
+                    {
+                        return Some((position, window_ref.entity()));
+                    }
+                    None
+                })
         {
-            let entity = window_ref.entity();
-            let hit_data = HitData::new(entity, 0.0, Some(position.extend(0.0)), None);
+            let hit_data = HitData::new(ray_id.camera, 0.0, Some(position.extend(0.0)), None);
             pointer_hits_writer.write(PointerHits::new(
-                *pointer_id,
-                vec![(entity, hit_data)],
+                ray_id.pointer,
+                vec![(window_entity, hit_data)],
                 f32::NEG_INFINITY,
             ));
         }

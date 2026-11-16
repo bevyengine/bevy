@@ -17,6 +17,7 @@
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
+use bevy_curve::{Curve, Interval, SampleAutoCurve};
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
 use bevy_input::mouse::{
@@ -25,8 +26,6 @@ use bevy_input::mouse::{
 use bevy_input::touch::Touches;
 use bevy_input::ButtonInput;
 use bevy_log::info;
-use bevy_math::curve::{Interval, SampleAutoCurve};
-use bevy_math::Curve;
 use bevy_math::{ops::exp, Dir3, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
@@ -336,7 +335,7 @@ pub fn run_freecamera_controller(
 
     let mut cursor_grab_change = false;
     if key_input.just_pressed(config.keyboard_key_toggle_cursor_grab) {
-        *toggle_cursor_grab = !*toggle_cursor_grab;
+        toggle_cursor_grab.toggle();
         cursor_grab_change = true;
     }
     if mouse_button_input.just_pressed(config.mouse_key_cursor_grab) {

@@ -45,7 +45,7 @@ pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "bloom.wgsl");
+        embedded_asset!(app, "bloom.wesl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Bloom>::default(),

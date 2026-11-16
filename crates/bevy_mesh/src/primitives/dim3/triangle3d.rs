@@ -1,7 +1,8 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{primitives::Triangle3d, Vec3};
+use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
+use bevy_shape::Triangle3d;
 
 /// A builder used for creating a [`Mesh`] with a [`Triangle3d`] shape.
 #[derive(Clone, Copy, Debug, Default, Reflect)]
@@ -103,7 +104,7 @@ impl From<Triangle3d> for Mesh {
 #[cfg(test)]
 mod tests {
     use super::uv_coords;
-    use bevy_math::primitives::Triangle3d;
+    use bevy_shape::Triangle3d;
 
     #[test]
     fn uv_test() {

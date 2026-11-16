@@ -265,23 +265,14 @@ fn get_active_fields(
                 };
 
                 let into_remote = |value: proc_macro2::TokenStream| {
-                    if field.attrs.is_remote_generic().unwrap_or_default() {
+                    if field.attrs().remote.is_some() {
                         quote! {
                             #FQOption::Some(
-                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
-                                unsafe {
-                                    ::core::mem::transmute_copy::<#ty, #real_ty>(
-                                        &::core::mem::ManuallyDrop::new(#value?)
-                                    )
-                                }
-                            )
-                        }
-                    } else if field.attrs().remote.is_some() {
-                        quote! {
-                            #FQOption::Some(
-                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
-                                unsafe {
-                                    ::core::mem::transmute::<#ty, #real_ty>(#value?)
+                                {
+                                    let wrapper: #ty = #value?;
+                                    let remote: #real_ty =
+                                        <#ty as #bevy_reflect_path::ReflectRemote>::into_remote(wrapper);
+                                    remote
                                 }
                             )
                         }

@@ -322,7 +322,7 @@ mod menu {
 
     /// Observer that changes the background color to hovered over buttons / radio buttons to the correct color.
     fn on_button_over_style(
-        event: On<Pointer<Over>>,
+        event: On<PointerOver>,
         mut button_q: Query<&mut BackgroundColor, (With<Button>, Without<RadioButton>)>,
         mut radio_button_q: Query<
             (&mut BackgroundColor, Has<Checked>),
@@ -343,7 +343,7 @@ mod menu {
 
     /// Observer that returns the normal background color to buttons / radio buttons that are hovered out of.
     fn on_button_out_style(
-        event: On<Pointer<Out>>,
+        event: On<PointerOut>,
         mut bg_q: Query<&mut BackgroundColor, (With<Button>, Without<RadioButton>)>,
         mut radio_button_q: Query<
             (&mut BackgroundColor, Has<Checked>),
@@ -364,7 +364,7 @@ mod menu {
 
     /// Observer that changes the background color of radio buttons that are pressed
     fn on_radio_button_press_style(
-        event: On<Pointer<Press>>,
+        event: On<PointerPress>,
         mut radio_button_q: Query<&mut BackgroundColor, With<RadioButton>>,
     ) {
         if let Ok(mut background_color) = radio_button_q.get_mut(event.entity) {
@@ -374,7 +374,7 @@ mod menu {
 
     /// Observer that changes the background color of radio buttons that are released
     fn on_radio_button_release_style(
-        event: On<Pointer<Release>>,
+        event: On<PointerRelease>,
         mut radio_button_q: Query<(&mut BackgroundColor, Has<Checked>), With<RadioButton>>,
     ) {
         if let Ok((mut background_color, is_checked)) = radio_button_q.get_mut(event.entity) {

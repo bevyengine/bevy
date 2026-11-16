@@ -1,5 +1,6 @@
-use alloc::collections::{btree_set, BTreeSet};
+use alloc::collections::{btree_set, vec_deque, BTreeSet, VecDeque};
 use core::{
+    convert,
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
@@ -500,7 +501,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.deref_mut().reserve(additional);
+        self.reserve(additional);
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -512,7 +513,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn remove(&mut self, entity: Entity) -> bool {
-        self.deref_mut().shift_remove(&entity)
+        self.shift_remove(&entity)
     }
 
     fn iter(&self) -> Self::SourceIter<'_> {
@@ -524,11 +525,11 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 
     fn clear(&mut self) {
-        self.deref_mut().clear();
+        self.clear();
     }
 
     fn shrink_to_fit(&mut self) {
-        self.deref_mut().shrink_to_fit();
+        self.shrink_to_fit();
     }
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
@@ -578,6 +579,133 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         self.extend(entities);
+    }
+}
+
+impl RelationshipSourceCollection for VecDeque<Entity> {
+    type SourceIter<'a>
+        = core::iter::Copied<vec_deque::Iter<'a, Entity>>
+    where
+        Self: 'a;
+
+    fn new() -> Self {
+        VecDeque::default()
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        VecDeque::with_capacity(capacity)
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        self.reserve(additional);
+    }
+
+    fn add(&mut self, entity: Entity) -> bool {
+        self.push_back(entity);
+        true
+    }
+
+    /// Rmoves the given entity. If the entity is on the back or the front, it uses the respective pop implementation.
+    fn remove(&mut self, entity: Entity) -> bool {
+        if Some(&entity) == self.back() {
+            self.pop_back();
+        } else if Some(&entity) == self.front() {
+            self.pop_front();
+        } else {
+            let Some(i) = self.iter().position(|e| *e == entity) else {
+                return false;
+            };
+            self.remove(i);
+        }
+
+        true
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit();
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
+}
+
+impl OrderedRelationshipSourceCollection for VecDeque<Entity> {
+    fn insert(&mut self, index: usize, entity: Entity) {
+        if index == 0 {
+            self.push_front(entity);
+        } else {
+            self.push_back(entity);
+            if index < self.len() {
+                self.swap(index, self.len());
+            }
+        }
+    }
+
+    fn remove_at(&mut self, index: usize) -> Option<Entity> {
+        if index == 0 {
+            self.pop_front()
+        } else if index == self.len() {
+            self.pop_back()
+        } else {
+            self.swap_remove_back(index)
+        }
+    }
+
+    fn insert_stable(&mut self, index: usize, entity: Entity) {
+        if index == 0 {
+            self.push_front(entity);
+        } else if index >= self.len() {
+            self.push_back(entity);
+        } else {
+            self.insert(index, entity);
+        }
+    }
+
+    fn remove_at_stable(&mut self, index: usize) -> Option<Entity> {
+        if index == 0 {
+            self.pop_front()
+        } else if index == self.len() {
+            self.pop_back()
+        } else {
+            self.remove(index)
+        }
+    }
+
+    fn sort(&mut self) {
+        self.make_contiguous().sort();
+    }
+
+    fn insert_sorted(&mut self, entity: Entity) {
+        let index = self
+            .binary_search(&entity)
+            .unwrap_or_else(convert::identity);
+        self.insert_stable(index, entity);
+    }
+
+    fn place_most_recent(&mut self, index: usize) {
+        let entity = self.pop_back();
+        if let Some(entity) = entity {
+            OrderedRelationshipSourceCollection::insert(self, index, entity);
+        }
+    }
+
+    fn place(&mut self, entity: Entity, index: usize) {
+        if RelationshipSourceCollection::remove(self, entity) {
+            OrderedRelationshipSourceCollection::insert(self, index, entity);
+        }
     }
 }
 

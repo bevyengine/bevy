@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                     }
                 })
                 .observe(
-                    |on_scroll: On<Pointer<Scroll>>,
+                    |on_scroll: On<PointerScroll>,
                      mut query: Query<(&mut ScrollPosition, &ComputedNode)>| {
                         if let Ok((mut scroll_position, node)) = query.get_mut(on_scroll.entity) {
                             let dy = match on_scroll.unit {

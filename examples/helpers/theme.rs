@@ -72,6 +72,45 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
         bevy::feathers::palette::TRANSPARENT,
     );
 
+    // Checkbox tokens
+    color.insert(bevy::feathers::tokens::CHECKBOX_TEXT, text_color);
+    color.insert(bevy::feathers::tokens::CHECKBOX_BG, Color::BLACK);
+    color.insert(bevy::feathers::tokens::CHECKBOX_MARK, Color::WHITE);
+    color.insert(bevy::feathers::tokens::CHECKBOX_BORDER, Color::BLACK);
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BORDER_HOVER,
+        bevy::feathers::palette::GRAY_2,
+    );
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BORDER_CHECKED_HOVER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BORDER_PRESSED,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BORDER_CHECKED_PRESSED,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BORDER_CHECKED,
+        Color::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BG_HOVER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(bevy::feathers::tokens::CHECKBOX_BG_CHECKED, Color::BLACK);
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BG_CHECKED_HOVER,
+        Color::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::CHECKBOX_BG_CHECKED_PRESSED,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(bevy::feathers::tokens::CHECKBOX_BG_PRESSED, Color::BLACK);
     // Feathers Button / Select
     color.insert(
         bevy::feathers::tokens::BUTTON_BG,
@@ -119,6 +158,33 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
     );
     color.insert(bevy::feathers::tokens::BUTTON_TEXT, text_color);
     color.insert(bevy::feathers::tokens::LISTROW_TEXT, text_color);
+
+    // Slider tokens
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BG,
+        bevy::feathers::palette::BLACK,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BG_HOVER,
+        bevy::feathers::palette::GRAY_0,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BG_PRESSED,
+        bevy::feathers::palette::GRAY_1,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BAR,
+        bevy::feathers::palette::ACCENT,
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BAR_HOVER,
+        bevy::feathers::palette::ACCENT.lighter(0.05),
+    );
+    color.insert(
+        bevy::feathers::tokens::SLIDER_BAR_PRESSED,
+        bevy::feathers::palette::ACCENT.lighter(0.1),
+    );
+    color.insert(bevy::feathers::tokens::SLIDER_TEXT, text_color);
 
     // Main text color
     color.insert(bevy::feathers::tokens::TEXT_MAIN, text_color);

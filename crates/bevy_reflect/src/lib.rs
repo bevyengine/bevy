@@ -620,6 +620,8 @@ mod type_registry;
 
 mod impls {
     mod alloc;
+    #[cfg(feature = "annotations")]
+    mod annotations;
     mod bevy_platform;
     mod core;
     mod foldhash;
@@ -3623,6 +3625,52 @@ bevy_reflect::tests::Test {
         assert_eq!("Hello", data.0.value);
         data.apply(&patch);
         assert_eq!("Goodbye", data.0.value);
+    }
+
+    #[test]
+    fn from_reflect_uses_remote_conversion() {
+        #[derive(Reflect)]
+        struct BadWrapper(u8);
+
+        impl ReflectRemote for BadWrapper {
+            type Remote = bool;
+
+            fn as_remote(&self) -> &Self::Remote {
+                panic!("not used by this test")
+            }
+
+            fn as_remote_mut(&mut self) -> &mut Self::Remote {
+                panic!("not used by this test")
+            }
+
+            fn into_remote(self) -> Self::Remote {
+                false
+            }
+
+            fn as_wrapper(_: &Self::Remote) -> &Self {
+                panic!("not used by this test")
+            }
+
+            fn as_wrapper_mut(_: &mut Self::Remote) -> &mut Self {
+                panic!("not used by this test")
+            }
+
+            fn into_wrapper(_: Self::Remote) -> Self {
+                panic!("not used by this test")
+            }
+        }
+
+        #[derive(Reflect)]
+        struct Container {
+            #[reflect(remote = BadWrapper)]
+            value: bool,
+        }
+
+        let mut reflected = DynamicStruct::default();
+        reflected.insert("value", BadWrapper(2));
+
+        let container = Container::from_reflect(&reflected).unwrap();
+        assert!(!container.value);
     }
 
     #[test]

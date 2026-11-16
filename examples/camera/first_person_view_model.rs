@@ -124,6 +124,7 @@ fn spawn_view_model(
                 Camera {
                     // Bump the order to render on top of the world model.
                     order: 1,
+                    clear_color: ClearColorConfig::None,
                     ..default()
                 },
                 Projection::from(PerspectiveProjection {

@@ -12,8 +12,10 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
-use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
+use bevy_input_focus::{Focusable, FocusedInput};
+use bevy_picking::events::{
+    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+};
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
@@ -40,7 +42,7 @@ use crate::{ActivateOnPress, ValueChange};
 /// and how to respond to state changes, see the [crate-level documentation].
 /// [crate-level documentation]: crate
 #[derive(Component, Debug, Clone, Default)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
+#[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)), Focusable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct RadioGroup;
@@ -177,7 +179,9 @@ fn radio_button_on_key_input(
     let event = &ev.event().input;
     if event.state == ButtonState::Pressed
         && !event.repeat
-        && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+        && (event.key_code == KeyCode::Enter
+            || event.key_code == KeyCode::NumpadEnter
+            || event.key_code == KeyCode::Space)
     {
         ev.propagate(false);
 
@@ -196,7 +200,7 @@ fn radio_button_on_key_input(
 }
 
 fn radio_button_on_click(
-    mut click: On<Pointer<Click>>,
+    mut click: On<PointerClick>,
     q_group: Query<(), With<RadioGroup>>,
     q_radio: Query<
         (Has<InteractionDisabled>, Has<Checked>),
@@ -226,7 +230,7 @@ fn radio_button_on_click(
 }
 
 fn radio_button_on_pointer_down(
-    mut press: On<Pointer<Press>>,
+    mut press: On<PointerPress>,
     q_group: Query<(), With<RadioGroup>>,
     mut q_radio: Query<
         (
@@ -260,7 +264,7 @@ fn radio_button_on_pointer_down(
 }
 
 fn radio_button_on_pointer_up(
-    mut release: On<Pointer<Release>>,
+    mut release: On<PointerRelease>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
 ) {
@@ -273,7 +277,7 @@ fn radio_button_on_pointer_up(
 }
 
 fn radio_button_on_pointer_drag_end(
-    mut drag_end: On<Pointer<DragEnd>>,
+    mut drag_end: On<PointerDragEnd>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
 ) {
@@ -286,7 +290,7 @@ fn radio_button_on_pointer_drag_end(
 }
 
 fn radio_button_on_pointer_cancel(
-    mut cancel: On<Pointer<Cancel>>,
+    mut cancel: On<PointerCancel>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
     mut commands: Commands,
 ) {
@@ -356,7 +360,7 @@ pub fn radio_self_update(
     };
 
     // Iterate the children of this radio group
-    let mut iter = q_radio.iter_many(children);
+    let mut iter = q_radio.iter_many(children).matched();
     while let Some(radio) = iter.fetch_next() {
         if radio == value_change.value {
             commands.entity(radio).insert(Checked);
@@ -370,10 +374,15 @@ pub fn radio_self_update(
 mod tests {
     use super::*;
     use bevy_app::App;
+    use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
-    use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
+    use bevy_input_focus::{
+        tab_navigation::TabNavigationPlugin, FocusCause, InputDispatchPlugin, InputFocus,
+        InputFocusPlugin,
+    };
     use bevy_math::Vec2;
     use bevy_picking::backend::HitData;
+    use bevy_picking::events::Pointer;
     use bevy_picking::pointer::{Location, PointerButton, PointerId};
     use bevy_window::{PrimaryWindow, Window, WindowRef};
 
@@ -384,6 +393,7 @@ mod tests {
         app.add_plugins((
             InputPlugin,
             InputFocusPlugin,
+            InputDispatchPlugin,
             TabNavigationPlugin,
             RadioGroupPlugin,
         ));
@@ -405,19 +415,16 @@ mod tests {
         }
     }
 
-    /// Triggers the `Pointer<Click>` event, the last event a real click ends with, on `target`.
+    /// Triggers the `PointerClick` event, the last event a real click ends with, on `target`.
     fn click_entity(app: &mut App, target: Entity, window: Entity) {
-        app.world_mut().trigger(Pointer::new(
-            PointerId::Mouse,
-            window_location(window),
-            Click {
-                button: PointerButton::Primary,
-                hit: HitData::new(window, 0.0, None, None),
-                duration: core::time::Duration::from_millis(10),
-                count: 1,
-            },
-            target,
-        ));
+        app.world_mut().trigger(PointerClick {
+            entity: target,
+            pointer: Pointer::new(PointerId::Mouse, window_location(window)),
+            button: PointerButton::Primary,
+            hit: HitData::new(window, 0.0, None, None),
+            duration: core::time::Duration::from_millis(10),
+            count: 1,
+        });
         app.update();
     }
 
@@ -444,6 +451,34 @@ mod tests {
             "selecting another option must uncheck the previous one"
         );
         assert!(app.world().entity(option_b).contains::<Checked>());
+    }
+
+    /// With a radio button focused, pressing `NumpadEnter` selects it as `Enter` does.
+    #[test]
+    fn numpad_enter_selects_focused_radio_button() {
+        let (mut app, window) = radio_app();
+        let group = app.world_mut().spawn((RadioGroup, ChildOf(window))).id();
+        let option_a = app.world_mut().spawn((RadioButton, ChildOf(group))).id();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(option_a, FocusCause::Navigated);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::NumpadEnter,
+            logical_key: Key::Enter,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        assert!(
+            app.world().entity(option_a).contains::<Checked>(),
+            "NumpadEnter should select the focused radio button"
+        );
     }
 
     /// Clicking an already-checked radio option leaves it selected (no toggle-off for radios).

@@ -16,6 +16,7 @@ extern crate alloc;
 pub mod common_conditions;
 mod delayed_commands;
 mod fixed;
+mod moment;
 mod real;
 mod stopwatch;
 mod time;
@@ -24,6 +25,7 @@ mod virt;
 
 pub use delayed_commands::*;
 pub use fixed::*;
+pub use moment::*;
 pub use real::*;
 pub use stopwatch::*;
 pub use time::*;

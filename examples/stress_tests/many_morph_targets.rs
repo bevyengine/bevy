@@ -4,7 +4,7 @@ use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     gltf::GltfPlugin,
-    mesh::MeshAttributeCompressionFlags,
+    mesh::MeshCompressionArgs,
     post_process::motion_blur::MotionBlur,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -132,9 +132,9 @@ struct Args {
     #[argh(switch)]
     motion_blur: bool,
 
-    /// whether to enable vertex compression.
+    /// whether to enable mesh compression.
     #[argh(switch)]
-    vertex_compression: bool,
+    mesh_compression: bool,
 }
 
 fn main() {
@@ -153,16 +153,15 @@ fn main() {
                         present_mode: PresentMode::AutoNoVsync,
                         resolution: WindowResolution::new(1920, 1080)
                             .with_scale_factor_override(1.0),
-                        ..Default::default()
+                        ..default()
                     }),
-                    ..Default::default()
+                    ..default()
                 })
                 .set(GltfPlugin {
-                    mesh_attribute_compression: if args.vertex_compression {
-                        MeshAttributeCompressionFlags::all()
-                            .with_color(MeshAttributeCompressionFlags::COMPRESS_COLOR_UNORM8)
+                    mesh_compression: if args.mesh_compression {
+                        MeshCompressionArgs::regular()
                     } else {
-                        MeshAttributeCompressionFlags::empty()
+                        MeshCompressionArgs::none()
                     },
                     ..default()
                 }),
@@ -172,7 +171,7 @@ fn main() {
         .insert_resource(WinitSettings::continuous())
         .insert_resource(GlobalAmbientLight {
             brightness: 1000.0,
-            ..Default::default()
+            ..default()
         })
         .insert_resource(MorphAssets::default())
         .insert_resource(Rng(ChaCha8Rng::seed_from_u64(856673)))
@@ -186,13 +185,13 @@ fn main() {
 #[derive(Resource, Default)]
 struct MorphAssets {
     scene: Handle<WorldAsset>,
-    animations: Vec<(Handle<AnimationGraph>, AnimationNodeIndex)>,
+    animations: Vec<(Handle<BlendGraph>, BlendNodeIndex)>,
 }
 
 #[derive(Component, Clone)]
 struct AnimationToPlay {
-    graph_handle: Handle<AnimationGraph>,
-    index: AnimationNodeIndex,
+    graph_handle: Handle<BlendGraph>,
+    index: BlendNodeIndex,
     speed: f32,
 }
 
@@ -208,9 +207,11 @@ fn setup(
     mut commands: Commands,
     mut assets: ResMut<MorphAssets>,
     asset_server: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
     state: Res<State>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     let (x_dim, _) = dims(state.slot_count);
 
     commands.spawn((
@@ -234,7 +235,7 @@ fn setup(
             MotionBlur {
                 // Use an unrealistically large shutter angle so that motion blur is clearly visible.
                 shutter_angle: 3.0,
-                ..Default::default()
+                ..default()
             },
             // MSAA and MotionBlur are not compatible on WebGL.
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -248,7 +249,7 @@ fn setup(
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(ASSET_PATH)),
         animations: (0..3)
             .map(|gltf_index| {
-                let (graph, index) = AnimationGraph::from_clip(
+                let (graph, index) = BlendGraph::from_clip(
                     asset_server.load(GltfAssetLabel::Animation(gltf_index).from_asset(ASSET_PATH)),
                 );
                 (graphs.add(graph), index)
@@ -395,7 +396,7 @@ fn play_animation(
             if let Ok(mut player) = players.get_mut(child) {
                 commands
                     .entity(child)
-                    .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
+                    .insert(BlendGraphHandle(animation_to_play.graph_handle.clone()));
 
                 player
                     .play(animation_to_play.index)
