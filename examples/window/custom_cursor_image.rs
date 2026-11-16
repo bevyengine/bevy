@@ -164,7 +164,7 @@ fn toggle_flip_x(
     if input.just_pressed(KeyCode::KeyX) {
         for mut cursor_icon in &mut query {
             if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
-                image.flip_x = !image.flip_x;
+                image.flip_x.toggle();
             }
         }
     }
@@ -177,7 +177,7 @@ fn toggle_flip_y(
     if input.just_pressed(KeyCode::KeyY) {
         for mut cursor_icon in &mut query {
             if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
-                image.flip_y = !image.flip_y;
+                image.flip_y.toggle();
             }
         }
     }
