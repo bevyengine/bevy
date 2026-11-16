@@ -292,8 +292,9 @@ fn directional_light_transmittance(
     let mu = dot(direction_to_light, normalize(position));
 
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
-    let transmittance = textureSampleLevel(transmittance_texture, transmittance_sampler, uv, 0.0).rgb;
-    return transmittance * calculate_visible_sun_ratio(atmosphere, r, mu, sun_angular_size);
+    // The LUT stores optical depth.
+    let optical_depth = textureSampleLevel(transmittance_texture, transmittance_sampler, uv, 0.0).rgb;
+    return exp(-optical_depth) * calculate_visible_sun_ratio(atmosphere, r, mu, sun_angular_size);
 }
 
 // TRANSFORM UTILITIES
