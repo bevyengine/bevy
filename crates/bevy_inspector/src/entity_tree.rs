@@ -33,7 +33,7 @@ use bevy_feathers::{
         FeathersTextInput, FeathersTextInputContainer, FeathersTreeItem, FeathersTreeItemChildren,
         FeathersTreeItemHeader, FeathersTreeView,
     },
-    display::caption,
+    display::{caption, icon},
     theme::{SurfaceLevel, ThemeContext, ThemeTextColor, ThemedText},
     tokens,
 };
@@ -95,6 +95,8 @@ pub struct EntityTreeFilterNote;
 
 /// The maximum number of matching entities the filtered entity tree lists.
 pub const MAX_FILTER_RESULTS: usize = 500;
+
+const FILTER_ICON: &str = "embedded://bevy_inspector/assets/icons/filter.png";
 
 /// The query filtering the entity tree.
 ///
@@ -225,6 +227,8 @@ pub fn entity_tree_body() -> impl Scene {
             }
             Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Base))
             Children [
+                @icon(FILTER_ICON)
+                --
                 EntityTreeFilterInput
                 @FeathersTextInput
                 TextFont {
