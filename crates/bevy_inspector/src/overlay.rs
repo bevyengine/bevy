@@ -249,7 +249,7 @@ fn overlay_scene() -> impl Scene {
                 @world_tabs()
             ]
             --
-            @panel_window(px(240), px(280))
+            @panel_window(px(240), px(320))
             InspectorOverlayPanel::Details
             Children [
                 @panel_header("Details")

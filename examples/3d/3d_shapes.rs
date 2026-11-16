@@ -263,7 +263,7 @@ fn toggle_wireframe(
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
-        wireframe_config.global = !wireframe_config.global;
+        wireframe_config.global.toggle();
     }
 }
 
