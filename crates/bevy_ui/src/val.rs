@@ -294,7 +294,7 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the unit and value of a numeric `Val`, or `None` otherwise.
+    /// Returns the unit and value of a numeric `Val`.
     pub const fn unit_value(self) -> Result<(ValUnit, f32), ValArithmeticError> {
         match self {
             Self::Px(v) => Ok((ValUnit::Px, v)),
@@ -309,7 +309,7 @@ impl Val {
         }
     }
 
-    /// Returns the unit of this `Val` if it is a numeric variant, or `None` otherwise.
+    /// Returns the unit of this `Val` if it is a numeric variant.
     pub const fn unit(self) -> Result<ValUnit, ValArithmeticError> {
         match self.unit_value() {
             Ok((unit, _)) => Ok(unit),
@@ -317,7 +317,7 @@ impl Val {
         }
     }
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
+    /// Returns the number this `Val` wraps, whatever its unit, or an error if it's a non-numeric variant.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
