@@ -73,12 +73,22 @@ fn main() {
         Update,
         change_detection::update.run_if(in_state(Scene::ChangeDetection)),
     )
+    .add_systems(
+        OnEnter(Scene::UiScale70),
+        ui_scale::setup(Scene::UiScale70, 0.7),
+    )
+    .add_systems(OnExit(Scene::UiScale70), ui_scale::reset)
+    .add_systems(
+        OnEnter(Scene::UiScale100),
+        ui_scale::setup(Scene::UiScale100, 1.0),
+    )
+    .add_systems(OnExit(Scene::UiScale100), ui_scale::reset)
+    .add_systems(
+        OnEnter(Scene::UiScale125),
+        ui_scale::setup(Scene::UiScale125, 1.25),
+    )
+    .add_systems(OnExit(Scene::UiScale125), ui_scale::reset)
     .add_systems(Update, switch_scene);
-
-    for (scene, scale) in ui_scale::SCENES {
-        app.add_systems(OnEnter(scene), ui_scale::setup(scene, scale))
-            .add_systems(OnExit(scene), ui_scale::reset);
-    }
 
     match args.scene {
         None => app.init_state::<Scene>(),
@@ -4195,12 +4205,6 @@ mod inline_image {
 mod ui_scale {
     use super::Scene;
     use bevy::{color::palettes::css::*, prelude::*, ui::ColorStop};
-
-    pub const SCENES: [(Scene, f32); 3] = [
-        (Scene::UiScale70, 0.7),
-        (Scene::UiScale100, 1.0),
-        (Scene::UiScale125, 1.25),
-    ];
 
     pub fn reset(mut ui_scale: ResMut<UiScale>) {
         *ui_scale = UiScale::default();
