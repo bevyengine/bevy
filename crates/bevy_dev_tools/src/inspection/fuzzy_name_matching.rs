@@ -9,6 +9,12 @@
 //! and is case-insensitive and ignores leading/trailing whitespace.
 //! Jaro-Winkler distance is a more suitable metric for this type of fuzzy matching
 //! than Levenshtein distance, as it is more robust to transpositions and prioritizes prefix characters.
+//!
+//! Names that the query structurally matches are always returned, regardless of the threshold,
+//! and rank ahead of names that only match fuzzily.
+//! A query without uppercase letters structurally matches a name case-insensitively when it is a prefix of the name,
+//! or when it abbreviates the name's leading words: `do` and `dangoo` both match `DangerousOozeRed`.
+//! A query with any uppercase letter structurally matches only names it is a case-sensitive prefix of.
 
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity::Entity;
@@ -20,8 +26,8 @@ use crate::inspection::label_resolution::EntityLabel;
 
 /// Attempts to find a [`ComponentId`] for the given fuzzy component name.
 ///
-/// A best-effort match will be returned,
-/// or `None` if no suitable match could be found.
+/// Matches are returned with their similarity scores, best first,
+/// and the result is empty if no suitable match could be found.
 ///
 /// See [`fuzzy_match_resource_name`] for a similar function for resources,
 /// and [`fuzzy_match_entity_label`] for a similar function when searching for entities.
@@ -29,6 +35,7 @@ use crate::inspection::label_resolution::EntityLabel;
 /// Only the "shortname" of the component (i.e., without module paths) is considered.
 ///
 /// The `threshold` parameter controls the minimum similarity score required for a match to be included in the results.
+/// Prefix and abbreviation matches bypass the threshold and rank first; see the [module docs](self).
 /// When incrementally searching for a matching name, it may be useful to start with a lower threshold
 /// and increase it as the user types more characters.
 pub fn fuzzy_match_component_name(
@@ -42,8 +49,8 @@ pub fn fuzzy_match_component_name(
 
 /// Attempts to find a [`ComponentId`] for the given fuzzy resource name.
 ///
-/// A best-effort match will be returned,
-/// or `None` if no suitable match could be found.
+/// Matches are returned with their similarity scores, best first,
+/// and the result is empty if no suitable match could be found.
 ///
 /// See [`fuzzy_match_component_name`] for a similar function for components,
 /// and [`fuzzy_match_entity_label`] for a similar function when searching for entities.
@@ -51,6 +58,7 @@ pub fn fuzzy_match_component_name(
 /// Only the "shortname" of the resource (i.e., without module paths) is considered.
 ///
 /// The `threshold` parameter controls the minimum similarity score required for a match to be included in the results.
+/// Prefix and abbreviation matches bypass the threshold and rank first; see the [module docs](self).
 /// When incrementally searching for a matching name, it may be useful to start with a lower threshold
 /// and increase it as the user types more characters.
 pub fn fuzzy_match_resource_name(
@@ -73,7 +81,7 @@ fn shortnames(
 }
 
 /// Find the best fuzzy match for a given name among a set of [`EntityLabel`]s.
-/// The matching [`Entity`]s are returned along with their similarity scores, sorted in descending order of similarity.
+/// The matching [`Entity`]s are returned along with their similarity scores, best first.
 ///
 /// Returning the [`Entity`] allows the caller to look up the entity in the world,
 /// and display additional information to help users narrow down their search results.
@@ -85,6 +93,7 @@ fn shortnames(
 /// See [`fuzzy_match_component_name`] and [`fuzzy_match_resource_name`] for similar functions for components and resources.
 ///
 /// The `threshold` parameter controls the minimum similarity score required for a match to be included in the results.
+/// Prefix and abbreviation matches bypass the threshold and rank first; see the [module docs](self).
 /// When incrementally searching for a matching name, it may be useful to start with a lower threshold
 /// and increase it as the user types more characters.
 pub fn fuzzy_match_entity_label(
@@ -101,32 +110,311 @@ pub fn fuzzy_match_entity_label(
 
 /// Ranks `(name, candidate)` pairs by how closely each name matches `fuzzy_name`.
 ///
-/// Names are normalized by trimming whitespace and converting to lowercase before
-/// computing Jaro-Winkler similarity.
-/// An exact (post-normalization) match short-circuits and is always preferred.
+/// An exact match after trimming short-circuits and is always preferred.
+/// It ignores case unless the query has an uppercase letter.
+/// Otherwise, structural matches come first, then names whose Jaro-Winkler similarity reaches `threshold`.
 fn rank_by_name<T>(
     fuzzy_name: &str,
     candidates: impl IntoIterator<Item = (String, T)>,
     threshold: f64,
 ) -> Vec<(f64, T)> {
-    let processed_fuzzy_name = fuzzy_name.trim().to_lowercase();
+    let query = Query::parse(fuzzy_name);
 
     // PERF: it is almost certainly more efficient to build an accelerated structure
     // across all possible names once, rather than re-computing distances
     // whenever a user enters a new fuzzy name.
     let mut matches = Vec::with_capacity(5);
     for (name, candidate) in candidates {
-        let processed_name = name.trim().to_lowercase();
+        let name = name.trim();
+        let lowercase_name = name.to_lowercase();
 
-        if processed_fuzzy_name == processed_name {
+        let exact = if query.case_sensitive {
+            query.trimmed == name
+        } else {
+            query.lowercase == lowercase_name
+        };
+        if exact {
             return vec![(1.0, candidate)];
         }
-        let similarity = jaro_winkler(&processed_fuzzy_name, &processed_name);
-        if similarity >= threshold {
-            matches.push((similarity, candidate));
+        let similarity = jaro_winkler(&query.lowercase, &lowercase_name);
+        let structural = structural_match(&query, name);
+        if structural || similarity >= threshold {
+            matches.push((structural, similarity, candidate));
         }
     }
 
-    matches.sort_by(|a, b| b.0.total_cmp(&a.0));
+    matches.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.total_cmp(&a.1)));
     matches
+        .into_iter()
+        .map(|(_, similarity, candidate)| (similarity, candidate))
+        .collect()
+}
+
+struct Query<'a> {
+    trimmed: &'a str,
+    lowercase: String,
+    /// A query with any uppercase letter only matches names it is a case-sensitive prefix of.
+    case_sensitive: bool,
+}
+
+impl<'a> Query<'a> {
+    fn parse(fuzzy_name: &'a str) -> Self {
+        let trimmed = fuzzy_name.trim();
+        Self {
+            trimmed,
+            lowercase: trimmed.to_lowercase(),
+            case_sensitive: trimmed.chars().any(char::is_uppercase),
+        }
+    }
+}
+
+/// Whether `query` is a prefix of `shortname`, or abbreviates its leading words.
+fn structural_match(query: &Query, shortname: &str) -> bool {
+    // An empty query is a prefix of every name, but should not match every name.
+    if query.trimmed.is_empty() {
+        return false;
+    }
+    if query.case_sensitive {
+        return shortname.starts_with(query.trimmed);
+    }
+    if shortname.to_lowercase().starts_with(&query.lowercase) {
+        return true;
+    }
+    let words: Vec<String> = words(shortname).map(str::to_lowercase).collect();
+    abbreviates(&query.lowercase, &words)
+}
+
+/// Whether `query` splits into non-empty pieces where each piece is a prefix of the next word,
+/// starting from the first word. Trailing words need not be used.
+fn abbreviates(query: &str, words: &[String]) -> bool {
+    // Byte offsets into `query` reachable after consuming a prefix of each word so far.
+    // Tracking offsets instead of backtracking keeps this polynomial for long, repetitive names.
+    let mut reachable = vec![0];
+    for word in words {
+        reachable = reachable
+            .iter()
+            .flat_map(|&start| {
+                common_prefix_ends(&query[start..], word).map(move |end| start + end)
+            })
+            .collect();
+        reachable.sort_unstable();
+        reachable.dedup();
+        if reachable.last() == Some(&query.len()) {
+            return true;
+        }
+    }
+    false
+}
+
+/// The byte offsets into `a` that end each non-empty prefix shared by `a` and `b`.
+fn common_prefix_ends<'a>(a: &'a str, b: &'a str) -> impl Iterator<Item = usize> + 'a {
+    a.chars()
+        .zip(b.chars())
+        .take_while(|(x, y)| x == y)
+        .scan(0, |end, (c, _)| {
+            *end += c.len_utf8();
+            Some(*end)
+        })
+}
+
+/// Splits a name into words at case changes, acronyms, digits, and punctuation.
+///
+/// `HDRBloom` splits into `HDR` and `Bloom`, `Camera3d` into `Camera` and `3d`,
+/// and `Foo<bar_baz>` into `Foo`, `bar` and `baz`.
+fn words(name: &str) -> impl Iterator<Item = &str> {
+    let chars: Vec<(usize, char)> = name.char_indices().collect();
+    let mut bounds = Vec::new();
+    let mut start = None;
+    for (i, &(byte, c)) in chars.iter().enumerate() {
+        if !c.is_alphanumeric() {
+            if let Some(start) = start.take() {
+                bounds.push((start, byte));
+            }
+            continue;
+        }
+        let Some(word_start) = start else {
+            start = Some(byte);
+            continue;
+        };
+        let prev = chars[i - 1].1;
+        let next = chars.get(i + 1).map(|&(_, c)| c);
+        let starts_word = (c.is_uppercase() && (prev.is_lowercase() || prev.is_numeric()))
+            || (c.is_uppercase() && prev.is_uppercase() && next.is_some_and(char::is_lowercase))
+            || (c.is_numeric() && prev.is_alphabetic());
+        if starts_word {
+            bounds.push((word_start, byte));
+            start = Some(byte);
+        }
+    }
+    if let Some(start) = start {
+        bounds.push((start, name.len()));
+    }
+    bounds
+        .into_iter()
+        .map(move |(start, end)| &name[start..end])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::component::Component;
+
+    #[derive(Component)]
+    struct Door;
+
+    #[derive(Component)]
+    struct DangerousOoze;
+
+    #[derive(Component)]
+    struct DangerousOozeRed;
+
+    #[derive(Component)]
+    struct Transform;
+
+    fn component_world() -> World {
+        let mut world = World::new();
+        world.register_component::<Door>();
+        world.register_component::<DangerousOoze>();
+        world.register_component::<DangerousOozeRed>();
+        world.register_component::<Transform>();
+        world
+    }
+
+    fn component_matches(world: &World, query: &str, threshold: f64) -> Vec<String> {
+        fuzzy_match_component_name(world, query, threshold)
+            .into_iter()
+            .map(|(_, id)| {
+                world
+                    .components()
+                    .get_name(id)
+                    .unwrap()
+                    .shortname()
+                    .to_string()
+            })
+            .collect()
+    }
+
+    fn label_matches(names: &[&str], query: &str, threshold: f64) -> Vec<(f64, String)> {
+        let mut world = World::new();
+        let labels: Vec<(EntityLabel, Entity)> = names
+            .iter()
+            .map(|name| (EntityLabel::custom(name), world.spawn_empty().id()))
+            .collect();
+        fuzzy_match_entity_label(&labels, query, threshold)
+            .into_iter()
+            .map(|(score, entity)| {
+                let (label, _) = labels.iter().find(|(_, e)| *e == entity).unwrap();
+                (score, label.to_string())
+            })
+            .collect()
+    }
+
+    fn label_names(names: &[&str], query: &str, threshold: f64) -> Vec<String> {
+        let mut matched: Vec<String> = label_matches(names, query, threshold)
+            .into_iter()
+            .map(|(_, name)| name)
+            .collect();
+        matched.sort();
+        matched
+    }
+
+    const LABELS: &[&str] = &[
+        "door",
+        "Door",
+        "DangerousOoze",
+        "DangerousOozeRed",
+        "Dragon",
+        "RedDoor",
+        "Ooze",
+        "Transform",
+    ];
+
+    #[test]
+    fn lowercase_query_matches_prefixes_and_word_initials() {
+        assert_eq!(
+            label_names(LABELS, "do", 0.99),
+            ["DangerousOoze", "DangerousOozeRed", "Door", "door"]
+        );
+
+        let world = component_world();
+        let matched = component_matches(&world, "do", 0.99);
+        for name in ["Door", "DangerousOoze", "DangerousOozeRed"] {
+            assert!(matched.iter().any(|m| m == name), "{name} in {matched:?}");
+        }
+        assert!(!matched.iter().any(|m| m == "Transform"));
+    }
+
+    #[test]
+    fn abbreviation_pieces_are_prefixes_of_consecutive_words() {
+        for query in ["dao", "dangoo", "dor", "dangerousoozer"] {
+            assert_eq!(
+                label_names(&["DangerousOozeRed"], query, 0.99),
+                ["DangerousOozeRed"],
+                "{query}"
+            );
+        }
+        for query in ["dr", "oo", "ozr", "dangerousr"] {
+            assert!(
+                label_names(&["DangerousOozeRed"], query, 0.99).is_empty(),
+                "{query}"
+            );
+        }
+    }
+
+    #[test]
+    fn uppercase_query_is_a_case_sensitive_prefix() {
+        let world = component_world();
+        let matched = component_matches(&world, "Do", 0.99);
+        assert_eq!(matched.first().map(String::as_str), Some("Door"));
+        assert!(!matched.iter().any(|m| m == "DangerousOoze"));
+        assert!(!matched.iter().any(|m| m == "DangerousOozeRed"));
+
+        assert_eq!(label_names(LABELS, "Do", 0.99), ["Door"]);
+        assert_eq!(component_matches(&world, "Do", 0.0)[0], "Door");
+    }
+
+    #[test]
+    fn uppercase_query_ignores_exact_matches_in_other_cases() {
+        let matched = label_matches(&["do", "Door"], "Do", 0.99);
+        assert_eq!(matched.first().map(|(_, name)| name.as_str()), Some("Door"));
+        assert_eq!(
+            label_matches(&["door", "Door"], "Door", 0.0),
+            [(1.0, "Door".to_string())]
+        );
+    }
+
+    #[test]
+    fn structural_matches_rank_before_better_scoring_fuzzy_matches() {
+        let matched = label_matches(&["DangoTool", "DangerousOoze"], "dangoo", 0.0);
+        let names: Vec<&str> = matched.iter().map(|(_, name)| name.as_str()).collect();
+        assert_eq!(names, ["DangerousOoze", "DangoTool"]);
+        assert!(
+            matched[1].0 > matched[0].0,
+            "the fuzzy-only match should score higher: {matched:?}"
+        );
+    }
+
+    #[test]
+    fn exact_match_short_circuits() {
+        let world = component_world();
+        let door = world.component_id::<Door>().unwrap();
+        assert_eq!(
+            fuzzy_match_component_name(&world, "  door ", 0.0),
+            [(1.0, door)]
+        );
+        assert_eq!(
+            label_matches(LABELS, "dangerousooze", 0.0),
+            [(1.0, "DangerousOoze".to_string())]
+        );
+    }
+
+    #[test]
+    fn acronyms_and_digits_start_words() {
+        let names = ["HDRBloom", "Camera3d", "Foo<bar_baz>"];
+        assert_eq!(label_names(&names, "hb", 0.99), ["HDRBloom"]);
+        assert_eq!(label_names(&names, "hdrbl", 0.99), ["HDRBloom"]);
+        assert_eq!(label_names(&names, "c3", 0.99), ["Camera3d"]);
+        assert!(label_names(&names, "cd", 0.99).is_empty());
+        assert_eq!(label_names(&names, "fbab", 0.99), ["Foo<bar_baz>"]);
+    }
 }
