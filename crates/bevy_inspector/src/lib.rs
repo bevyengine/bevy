@@ -27,6 +27,7 @@ use alloc::string::{String, ToString};
 use core::fmt::Display;
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::embedded_asset;
 use bevy_camera::visibility::{Visibility, VisibilitySystems};
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
@@ -285,6 +286,9 @@ impl Plugin for InspectorPlugin {
         if !app.is_plugin_added::<ColumnSplitPlugin>() {
             app.add_plugins(ColumnSplitPlugin);
         }
+
+        embedded_asset!(app, "assets/icons/eye.png");
+        embedded_asset!(app, "assets/icons/eye-closed.png");
 
         app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
