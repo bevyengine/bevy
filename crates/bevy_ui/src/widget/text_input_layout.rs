@@ -811,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_color() {
+    fn resolve_placeholder_color() {
         let field = TextColor(bevy_color::Color::srgba(1., 1., 1., 0.5)).0;
         let derived = PlaceholderColor::resolve(None, field);
         assert_eq!(
