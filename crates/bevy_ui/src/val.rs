@@ -275,34 +275,11 @@ impl core::str::FromStr for Val {
 
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::MinContent, Self::MinContent)
-                | (Self::MaxContent, Self::MaxContent)
-                | (Self::FitContent, Self::FitContent)
-                | (Self::Stretch, Self::Stretch)
-                | (Self::Content, Self::Content)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-                | (Self::Em(_), Self::Em(_))
-                | (Self::Rem(_), Self::Rem(_))
-        );
-
-        // as long as the units are the same comparing `inner`
-        // is valid.
-        let left = self.value();
-        let right = other.value();
-
-        match (same_unit, left, right) {
-            (true, Ok(a), Ok(b)) => a == b,
-            (true, Err(_), Err(_)) => true,
+        match (self.unit_value(), other.unit_value()) {
+            (Ok((u, a)), Ok((v, b))) if u == v => a == b,
             // All zero-value variants are considered equal.
-            (false, Ok(a), Ok(b)) => a == 0. && b == 0.,
+            (Ok((_, a)), Ok((_, b))) => a == 0. && b == 0.,
+            (Err(_), Err(_)) => core::mem::discriminant(self) == core::mem::discriminant(other),
             _ => false,
         }
     }
@@ -768,6 +745,17 @@ mod tests {
     use bevy_math::vec2;
 
     use super::*;
+
+    #[test]
+    fn val_numeric_equality() {
+        assert_eq!(Val::Px(1.), Val::Px(1.));
+        assert_ne!(Val::Px(1.), Val::Px(2.));
+        assert_ne!(Val::Px(1.), Val::Percent(1.));
+        assert_ne!(Val::Px(0.), Val::Percent(1.));
+        assert_eq!(Val::Px(0.), Val::Percent(-0.));
+        assert_eq!(Val::Px(f32::INFINITY), Val::Px(f32::INFINITY));
+        assert_ne!(Val::Px(f32::NAN), Val::Px(f32::NAN));
+    }
 
     #[test]
     fn val_non_numeric_equality() {
