@@ -14,12 +14,23 @@ use bevy_utils::default;
 /// Auto exposure adjusts the exposure of the camera automatically to
 /// simulate the human eye's ability to adapt to different lighting conditions.
 ///
-/// Bevy's implementation builds a 64 bin histogram of the scene's luminance,
+/// Bevy's implementation builds a 128 bin histogram of the scene's luminance,
 /// and then adjusts the exposure so that the average brightness of the final
 /// render will be middle gray. Because it's using a histogram, some details can
 /// be selectively ignored or emphasized. Outliers like shadows and specular
 /// highlights can be ignored, and certain areas can be given more (or less)
 /// weight based on a mask.
+///
+/// Metering uses absolute scene luminance in [EV100], with the camera's
+/// [`Exposure`] divided out. The adapted exposure moves gradually toward the
+/// metered target over real time ([`Time<Real>`](bevy_time::Real)), so it keeps
+/// adapting while virtual time is paused, and a newly added camera starts at
+/// its first metered target. Tonemapping applies the difference between the
+/// adapted exposure and the camera's [`Exposure`]; auto exposure doesn't modify
+/// the [`Exposure`] component.
+///
+/// [EV100]: https://en.wikipedia.org/wiki/Exposure_value
+/// [`Exposure`]: bevy_camera::Exposure
 ///
 /// # Usage Notes
 ///
@@ -29,11 +40,15 @@ use bevy_utils::default;
 #[require(Hdr)]
 #[extract_app(RenderApp)]
 pub struct AutoExposure {
-    /// The range of exposure values for the histogram.
+    /// The range of scene luminance the histogram covers, in EV100.
+    ///
+    /// A luminance of `L` cd/m² is `log2(L) + 3` EV100. A mid-gray surface is about 15 EV100 in
+    /// direct sunlight, 8 in an office and -3 under a full moon.
     ///
     /// Pixel values below this range count towards the lowest bin and are metered at the minimum
-    /// luminance. Pixel values above this range count towards the highest bin in the histogram.
-    /// The default value is `-8.0..=8.0`.
+    /// luminance. Pixel values above this range count towards the highest bin and are metered at
+    /// the maximum luminance.
+    /// The default value is `-8.0..=20.0`.
     pub range: RangeInclusive<f32>,
 
     /// The portion of the histogram to consider when metering.
@@ -42,10 +57,12 @@ pub struct AutoExposure {
     /// so the default value is `0.10..=0.90`.
     pub filter: RangeInclusive<f32>,
 
-    /// The speed at which the exposure adapts from dark to bright scenes, in F-stops per second.
+    /// The speed at which the exposure adapts from dark to bright scenes, in F-stops per second
+    /// of real time.
     pub speed_brighten: f32,
 
-    /// The speed at which the exposure adapts from bright to dark scenes, in F-stops per second.
+    /// The speed at which the exposure adapts from bright to dark scenes, in F-stops per second
+    /// of real time.
     pub speed_darken: f32,
 
     /// The distance in F-stops from the target exposure from where to transition from animating
@@ -86,20 +103,23 @@ pub struct AutoExposure {
     pub metering_mask: Handle<Image>,
 
     /// Exposure compensation curve to apply after metering.
+    /// A compensation of `0.0` exposes the metered average to 1.0 before color grading and
+    /// tonemapping; each stop of compensation doubles that.
     /// The default value is a flat line at 0.0.
     /// For more information, see [`AutoExposureCompensationCurve`].
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
 
-    /// The minimum and maximum exposure adjustments that auto exposure can apply, in stops.
+    /// The minimum and maximum exposure adjustments that auto exposure can apply relative to the
+    /// camera's [`Exposure`](bevy_camera::Exposure), in stops.
     ///
     /// A correction of `1.0` brightens the image by one stop, and `-1.0` darkens it by one stop.
     /// This limits the automatic correction independently of the luminance [`range`](Self::range)
-    /// used for the histogram. Setting this to `0.0..=0.0` disables the automatic correction.
+    /// used for the histogram. Setting this to `0.0..=0.0` renders at the camera's exposure.
     ///
     /// The applied correction, including compensation from
-    /// [`compensation_curve`](Self::compensation_curve), always stays within this range.
-    /// It is applied in addition to the camera's [`Exposure`](bevy_camera::Exposure) and
-    /// color grading settings.
+    /// [`compensation_curve`](Self::compensation_curve), always stays within this range, and the
+    /// adapted exposure is clamped to it around the camera's exposure. The correction is applied
+    /// in addition to the color grading settings.
     ///
     /// Neither limit can be NaN or infinite, and the minimum must not be greater than the maximum.
     /// Invalid ranges are ignored with a one-time warning.
@@ -111,7 +131,7 @@ pub struct AutoExposure {
 impl Default for AutoExposure {
     fn default() -> Self {
         Self {
-            range: -8.0..=8.0,
+            range: -8.0..=20.0,
             filter: 0.10..=0.90,
             speed_brighten: 3.0,
             speed_darken: 1.0,
