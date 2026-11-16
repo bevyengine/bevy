@@ -584,7 +584,7 @@ fn start_animation(
 /// Changes between the film flythrough and free-fly.
 fn toggle_flythrough(input: Res<ButtonInput<KeyCode>>, mut cinematic: ResMut<Cinematic>) {
     if input.just_pressed(KeyCode::KeyC) {
-        cinematic.active = !cinematic.active;
+        cinematic.active.toggle();
     }
 }
 
