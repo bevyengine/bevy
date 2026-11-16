@@ -14,10 +14,12 @@
 //! app can open the inspector with a key.
 //!
 //! While the inspector is shown in [`InspectorMode::Edit`], clicking an entity in the app selects
-//! it, and with the overlay the app does not receive those clicks. Hits come from the app's own
-//! picking backends. Meshes can be clicked without `MeshPickingPlugin`, and when it is added its
-//! settings and filters apply instead. In Edit mode the selected entity is also outlined with a
-//! gizmo box. [`InspectorMode::Preview`] leaves clicks to the app and draws no outline.
+//! it, and with the overlay the app sees neither the pointer's clicks nor its hover. That covers
+//! every picking event and interaction state, not the raw input an app reads from
+//! [`ButtonInput`](bevy_input::ButtonInput). Hits come from the app's own picking backends. Meshes
+//! can be clicked without `MeshPickingPlugin`, and when it is added its settings and filters apply
+//! instead. In Edit mode the selected entity is also outlined with a gizmo box.
+//! [`InspectorMode::Preview`] leaves the pointer to the app and draws no outline.
 
 extern crate alloc;
 
@@ -54,7 +56,7 @@ use bevy_ecs::{
     system::{In, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
-use bevy_picking::{backend::PointerHits, pointer::PointerInput, PickingSystems};
+use bevy_picking::{backend::PointerHits, pointer::PointerInput};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_time::{Time, Timer, TimerMode};
@@ -71,7 +73,7 @@ use crate::entity_tree::{
     InspectorTreeView, TreeReveal, TreeRowIndex,
 };
 use crate::overlay::InspectorOverlay;
-use crate::picking::select_clicked_entity;
+use crate::picking::pick_for_inspector;
 use crate::resource_list::{
     sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
 };
@@ -201,17 +203,18 @@ impl InspectableEntity {
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub struct InspectorSelection(pub Option<InspectableEntity>);
 
-/// Whether clicks in the app pick entities for the inspector or reach the app.
+/// Whether the pointer picks entities for the inspector or reaches the app.
 ///
-/// Only the overlay keeps clicks from the app, for its window and the UI below it.
+/// With the overlay shown, the mode decides whether the app sees the pointer at all.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Resource, Debug, Default, Clone, PartialEq)]
 pub enum InspectorMode {
     /// Clicks in the app select the entity under the cursor, or clear the selection when nothing
-    /// is under it, and do not reach the app. The selected entity is outlined.
+    /// is under it. The app sees neither the clicks nor the hover. The selected entity is
+    /// outlined.
     #[default]
     Edit,
-    /// Clicks reach the app, nothing is picked and the selection is not outlined.
+    /// The pointer reaches the app, nothing is picked and the selection is not outlined.
     Preview,
 }
 
@@ -440,6 +443,10 @@ impl Plugin for InspectorPlugin {
 
     fn finish(&self, app: &mut App) {
         outline::add_outline(app);
+        // Plugins are all added by now, so this is where the app's own mesh backend can be found.
+        let mesh_backend = app.is_plugin_added::<bevy_picking::mesh_picking::MeshPickingPlugin>();
+        app.world_mut()
+            .insert_resource(picking::MeshBackendPresent(mesh_backend));
     }
 
     fn build(&self, app: &mut App) {
@@ -470,9 +477,9 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PreUpdate,
                 inspector_shown
-                    .pipe(select_clicked_entity)
-                    .ambiguous_with_all()
-                    .in_set(PickingSystems::Last),
+                    .pipe(pick_for_inspector)
+                    .after(bevy_picking::hover::generate_hovermap)
+                    .before(bevy_picking::hover::update_interactions),
             )
             .add_systems(
                 PostUpdate,

@@ -5,6 +5,8 @@ use bevy_camera::{
 };
 use bevy_ecs::{
     hierarchy::Children,
+    query::{Changed, Or, With},
+    resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{In, IntoSystem, Query, Res, ResMut},
 };
@@ -29,6 +31,14 @@ struct Outline {
     layers: RenderLayers,
 }
 
+/// The descendants' bounds of the last selection, so the walk only happens when it can change.
+#[derive(Resource, Default)]
+struct DescendantBounds {
+    selection: Option<bevy_ecs::entity::Entity>,
+    /// The union of the descendants' world bounds when it was last computed.
+    world: Option<(Aabb3d, RenderLayers)>,
+}
+
 pub(crate) fn add_outline(app: &mut App) {
     let registered = app
         .world()
@@ -37,23 +47,24 @@ pub(crate) fn add_outline(app: &mut App) {
     if registered || !app.is_plugin_added::<GizmoPlugin>() {
         return;
     }
-    app.insert_gizmo_config(
-        InspectorOutline,
-        GizmoConfig {
-            depth_bias: -1.0,
-            ..Default::default()
-        },
-    )
-    .add_systems(
-        PostUpdate,
-        inspector_shown
-            .pipe(selection_outline)
-            .pipe(set_outline_layers)
-            .pipe(draw_outline)
-            .ambiguous_with_all()
-            .after(TransformSystems::Propagate)
-            .after(VisibilitySystems::CalculateBounds),
-    );
+    app.init_resource::<DescendantBounds>()
+        .insert_gizmo_config(
+            InspectorOutline,
+            GizmoConfig {
+                depth_bias: -1.0,
+                ..Default::default()
+            },
+        )
+        .add_systems(
+            PostUpdate,
+            inspector_shown
+                .pipe(selection_outline)
+                .pipe(set_outline_layers)
+                .pipe(draw_outline)
+                .ambiguous_with_all()
+                .after(TransformSystems::Propagate)
+                .after(VisibilitySystems::CalculateBounds),
+        );
 }
 
 fn selection_outline(
@@ -62,39 +73,68 @@ fn selection_outline(
     selection: Res<InspectorSelection>,
     bounds: Query<(&Aabb, &GlobalTransform, Option<&RenderLayers>)>,
     children: Query<&Children>,
+    mut cache: ResMut<DescendantBounds>,
+    moved: Query<(), (With<Aabb>, Or<(Changed<Aabb>, Changed<GlobalTransform>)>)>,
+    restructured: Query<(), Changed<Children>>,
 ) -> Option<Outline> {
     if !visible || *mode != InspectorMode::Edit {
+        cache.selection = None;
         return None;
     }
-    let selected = selection
+    let Some(selected) = selection
         .0
         .as_ref()
-        .filter(|selection| selection.source == InspectorSource::Local)?
-        .entity;
+        .filter(|selection| selection.source == InspectorSource::Local)
+        .map(|selection| selection.entity)
+    else {
+        cache.selection = None;
+        return None;
+    };
     if let Ok((aabb, transform, layers)) = bounds.get(selected) {
+        cache.selection = None;
         return Some(Outline {
             aabb: Aabb3d::new(aabb.center, aabb.half_extents),
             transform: *transform,
             layers: layers.cloned().unwrap_or_default(),
         });
     }
-    children
-        .iter_descendants(selected)
-        .filter_map(|descendant| bounds.get(descendant).ok())
-        .map(|(aabb, transform, layers)| {
-            (
-                world_aabb(aabb, transform),
-                layers.cloned().unwrap_or_default(),
-            )
-        })
-        .reduce(|(union, union_layers), (aabb, layers)| {
-            (union.merge(&aabb), union_layers.union(&layers))
-        })
-        .map(|(aabb, layers)| Outline {
-            aabb,
+    // The union only changes when the selection, a bound of the subtree or its shape changes, so
+    // a scene where none of those move costs nothing beyond these queries.
+    let stale = cache.selection != Some(selected)
+        || cache.world.is_none()
+        || !moved.is_empty()
+        || !restructured.is_empty();
+    if stale {
+        let union = children
+            .iter_descendants(selected)
+            .filter_map(|descendant| bounds.get(descendant).ok())
+            .map(|(aabb, transform, layers)| {
+                (
+                    world_aabb(aabb, transform),
+                    layers.cloned().unwrap_or_default(),
+                )
+            })
+            .reduce(|(union, union_layers), (aabb, layers)| {
+                (union.merge(&aabb), union_layers.union(&layers))
+            });
+        let Some((union, layers)) = union else {
+            cache.selection = None;
+            cache.world = None;
+            return None;
+        };
+        cache.selection = Some(selected);
+        cache.world = Some((union, layers.clone()));
+        return Some(Outline {
+            aabb: union,
             transform: GlobalTransform::IDENTITY,
             layers,
-        })
+        });
+    }
+    cache.world.clone().map(|(aabb, layers)| Outline {
+        aabb,
+        transform: GlobalTransform::IDENTITY,
+        layers,
+    })
 }
 
 fn world_aabb(aabb: &Aabb, transform: &GlobalTransform) -> Aabb3d {
@@ -144,6 +184,7 @@ mod tests {
         world.init_resource::<InspectorSelection>();
         world.init_resource::<InspectorSources>();
         world.init_resource::<InspectorMode>();
+        world.init_resource::<DescendantBounds>();
         if visible {
             world.spawn(InspectorTreeView);
         }

@@ -6,14 +6,13 @@
 //! them to that viewport. A draggable toolbar shows and hides each panel, and the panels are
 //! floating dialogs, so they can also be dragged and closed.
 
-use bevy_app::{App, Plugin, PostUpdate, PreUpdate, Update};
+use bevy_app::{App, Plugin, PreUpdate, Update};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
-    entity::Entity,
     event::EntityEvent,
-    hierarchy::{ChildOf, Children},
+    hierarchy::Children,
     name::Name,
     observer::On,
     query::{Changed, With},
@@ -36,7 +35,7 @@ use bevy_picking::{cursor::EntityCursor, Pickable, PickingSystems};
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BorderRadius, DefaultUiCamera, FlexDirection, GlobalZIndex, Node,
-    PositionType, UiRect, UiSystems, Val,
+    PositionType, UiRect, Val,
 };
 use bevy_ui_widgets::{Activate, Dialog, DialogDragHandle, RequestClose};
 use bevy_window::SystemCursorIcon;
@@ -44,10 +43,8 @@ use bevy_window::SystemCursorIcon;
 use crate::{
     details_panel::{details_body, DetailsCollapsed},
     entity_tree::InspectorUi,
-    picking::{pick_blocker, InspectorPickBlocker},
-    shown,
     world_tabs::world_tabs,
-    InspectorMode, InspectorPlugin, InspectorSource, InspectorSources,
+    InspectorMode, InspectorPlugin,
 };
 
 /// Adds the inspector to an app as an overlay, hidden until [`toggle_key`](Self::toggle_key) is
@@ -77,13 +74,7 @@ impl Plugin for InspectorOverlayPlugin {
                     .after(InputSystems)
                     .before(PickingSystems::Last),
             )
-            .add_systems(Update, (sync_panel_toggles, sync_mode_toggles))
-            .add_systems(
-                PostUpdate,
-                sync_pick_blocker
-                    .ambiguous_with_all()
-                    .before(UiSystems::Prepare),
-            );
+            .add_systems(Update, (sync_panel_toggles, sync_mode_toggles));
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .by_default = true;
@@ -94,31 +85,6 @@ impl Plugin for InspectorOverlayPlugin {
 struct InspectorOverlayKey(KeyCode);
 
 const OVERLAY_Z: i32 = 40;
-const BLOCKER_Z: i32 = OVERLAY_Z - 1;
-
-fn sync_pick_blocker(
-    mode: Res<InspectorMode>,
-    sources: Res<InspectorSources>,
-    overlays: Query<Entity, With<InspectorOverlay>>,
-    blockers: Query<Entity, With<InspectorPickBlocker>>,
-    visibilities: Query<&Visibility>,
-    nodes: Query<&Node>,
-    parents: Query<&ChildOf>,
-    mut commands: Commands,
-) {
-    let wanted = *mode == InspectorMode::Edit
-        && sources.sources.contains(&InspectorSource::Local)
-        && overlays
-            .iter()
-            .any(|overlay| shown(overlay, &visibilities, &nodes, &parents));
-    let mut existing = blockers.iter();
-    if wanted && existing.next().is_none() {
-        commands.spawn(pick_blocker(BLOCKER_Z));
-    }
-    for blocker in if wanted { existing } else { blockers.iter() } {
-        commands.entity(blocker).try_despawn();
-    }
-}
 
 /// Marker for the root entity of the inspector overlay.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -392,7 +358,6 @@ mod tests {
             )
                 .chain(),
         );
-        app.add_systems(PostUpdate, sync_pick_blocker);
         app
     }
 
@@ -881,50 +846,6 @@ mod tests {
             app.world().get::<ButtonVariant>(preview),
             Some(&ButtonVariant::Normal)
         );
-    }
-
-    fn blockers(app: &mut App) -> Vec<(Entity, bool, i32)> {
-        let world = app.world_mut();
-        world
-            .query_filtered::<(Entity, Has<ChildOf>, &GlobalZIndex), With<InspectorPickBlocker>>()
-            .iter(world)
-            .map(|(blocker, parented, z)| (blocker, parented, z.0))
-            .collect()
-    }
-
-    fn set_mode(app: &mut App, mode: InspectorMode) {
-        *app.world_mut().resource_mut::<InspectorMode>() = mode;
-        app.update();
-    }
-
-    #[test]
-    fn the_pick_blocker_is_a_root_below_the_overlay_while_editing() {
-        let mut app = test_app();
-        app.update();
-        assert!(blockers(&mut app).is_empty());
-        press(&mut app);
-        app.update();
-        let overlay = overlays(&mut app)[0];
-        let [(blocker, parented, z)] = blockers(&mut app)[..] else {
-            panic!("expected one blocker");
-        };
-        assert!(!parented);
-        let overlay_z = app.world().get::<GlobalZIndex>(overlay).unwrap().0;
-        assert!(z < overlay_z && overlay_z < 50);
-
-        select_page(&mut app, InspectorPage::Resources);
-        app.update();
-        assert_eq!(blockers(&mut app).len(), 1);
-
-        set_mode(&mut app, InspectorMode::Preview);
-        assert!(blockers(&mut app).is_empty());
-        set_mode(&mut app, InspectorMode::Edit);
-        assert_eq!(blockers(&mut app).len(), 1);
-
-        press(&mut app);
-        app.update();
-        assert!(blockers(&mut app).is_empty());
-        assert!(app.world().get_entity(blocker).is_err());
     }
 
     #[test]
