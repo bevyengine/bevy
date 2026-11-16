@@ -835,7 +835,7 @@ mod tests {
     }
 
     #[test]
-    fn changing_the_color_keeps_the_layout() {
+    fn changes_to_placeholder_color_dont_relayout() {
         let (mut app, entity) = app_with_field(Placeholder::new("Search"));
         // Clear the hint glyphs, if they are replaced it means there was a relayout.
         app.world_mut()
