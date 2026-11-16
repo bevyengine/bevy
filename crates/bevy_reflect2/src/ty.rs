@@ -180,7 +180,7 @@ impl Type {
     /// reference.
     pub unsafe fn initialize_struct(
         &self,
-        mut func: impl FnMut(&StructField, PtrMut),
+        mut func: impl FnMut(&StructField, NonNull<u8>),
     ) -> Option<Box<dyn Reflect>> {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
@@ -189,7 +189,7 @@ impl Type {
         for field in struct_type.fields() {
             // SAFETY: `ptr` is a unique allocation of this type, and `Type::new` guarantees that
             // `field.offset` is in bounds of it
-            let field_ptr = unsafe { PtrMut::new(ptr).byte_add(field.offset) };
+            let field_ptr = unsafe { ptr.byte_add(field.offset) };
             // If `func` panics, the allocation for this type will be leaked.
             (func)(field, field_ptr);
         }
