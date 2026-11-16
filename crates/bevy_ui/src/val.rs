@@ -298,20 +298,18 @@ impl core::str::FromStr for Val {
 
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Auto, Self::Auto)
-            | (Self::MinContent, Self::MinContent)
-            | (Self::MaxContent, Self::MaxContent)
-            | (Self::FitContent, Self::FitContent)
-            | (Self::Stretch, Self::Stretch)
-            | (Self::Content, Self::Content) => true,
-            (Self::Calc(a), Self::Calc(b)) => a == b,
-            _ => match (self.unit(), self.value(), other.unit(), other.value()) {
-                (Some(unit), Some(a), Some(other_unit), Some(b)) if unit == other_unit => a == b,
-                // All zero-value variants are considered equal.
-                (Some(_), Some(0.), Some(_), Some(0.)) => true,
-                _ => false,
-            },
+        if let Self::Calc(a) = self
+            && let Self::Calc(b) = other
+        {
+            return a == b;
+        }
+
+        match (self.unit_value(), other.unit_value()) {
+            (Ok((u, a)), Ok((v, b))) if u == v => a == b,
+            // All zero-value variants are considered equal.
+            (Ok((_, a)), Ok((_, b))) => a == 0. && b == 0.,
+            (Err(_), Err(_)) => core::mem::discriminant(self) == core::mem::discriminant(other),
+            _ => false,
         }
     }
 }
@@ -325,37 +323,37 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the unit and value of a numeric `Val`, or `None` otherwise.
-    pub const fn unit_value(&self) -> Option<(ValUnit, f32)> {
+    /// Returns the unit and value of a numeric `Val`.
+    pub const fn unit_value(&self) -> Result<(ValUnit, f32), ValArithmeticError> {
         match self {
-            Self::Px(v) => Some((ValUnit::Px, *v)),
-            Self::Percent(v) => Some((ValUnit::Percent, *v)),
-            Self::Vw(v) => Some((ValUnit::Vw, *v)),
-            Self::Vh(v) => Some((ValUnit::Vh, *v)),
-            Self::VMin(v) => Some((ValUnit::VMin, *v)),
-            Self::VMax(v) => Some((ValUnit::VMax, *v)),
-            Self::Em(v) => Some((ValUnit::Em, *v)),
-            Self::Rem(v) => Some((ValUnit::Rem, *v)),
-            _ => None,
+            Self::Px(v) => Ok((ValUnit::Px, *v)),
+            Self::Percent(v) => Ok((ValUnit::Percent, *v)),
+            Self::Vw(v) => Ok((ValUnit::Vw, *v)),
+            Self::Vh(v) => Ok((ValUnit::Vh, *v)),
+            Self::VMin(v) => Ok((ValUnit::VMin, *v)),
+            Self::VMax(v) => Ok((ValUnit::VMax, *v)),
+            Self::Em(v) => Ok((ValUnit::Em, *v)),
+            Self::Rem(v) => Ok((ValUnit::Rem, *v)),
+            _ => Err(ValArithmeticError::NonEvaluable),
         }
     }
 
-    /// Returns the unit of this `Val` if it is a numeric variant, or `None` otherwise.
-    pub const fn unit(&self) -> Option<ValUnit> {
+    /// Returns the unit of this `Val` if it is a numeric variant.
+    pub const fn unit(&self) -> Result<ValUnit, ValArithmeticError> {
         match self.unit_value() {
-            Some((unit, _)) => Some(unit),
-            None => None,
+            Ok((unit, _)) => Ok(unit),
+            Err(err) => Err(err),
         }
     }
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
+    /// Returns the number this `Val` wraps, whatever its unit, or an error if it's a non-numeric variant.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    pub const fn value(&self) -> Option<f32> {
+    pub const fn value(&self) -> Result<f32, ValArithmeticError> {
         match self.unit_value() {
-            Some((_, value)) => Some(value),
-            None => None,
+            Ok((_, value)) => Ok(value),
+            Err(err) => Err(err),
         }
     }
 
@@ -527,14 +525,14 @@ impl Val {
     /// Keyword `Val`s are replaced with `Val::ZERO`.
     pub fn clamp(self, min: Val, max: Val) -> Val {
         let [min, value, max] = [min, self, max].map(Val::map_keyword_to_zero);
-        if let (Some((unit, lo)), Some((max_unit, hi))) = (min.unit_value(), max.unit_value())
+        if let (Ok((unit, lo)), Ok((max_unit, hi))) = (min.unit_value(), max.unit_value())
             && unit == max_unit
         {
             // Inverted bounds resolve to the minimum, whatever the value.
             if hi < lo {
                 return min;
             }
-            if let Some((u, v)) = value.unit_value()
+            if let Ok((u, v)) = value.unit_value()
                 && unit == u
             {
                 return unit.with_value(lo.max(hi.min(v)));
@@ -591,7 +589,7 @@ impl Val {
             .zip(leaves)
             .filter_map(|(unit, value)| Some(unit.with_value(value?)))
             // Zero terms don't change a sum.
-            .filter(|leaf| op != ReduceOp::Sum || leaf.value() != Some(0.0))
+            .filter(|leaf| op != ReduceOp::Sum || leaf.value() != Ok(0.0))
             .collect();
         terms.extend(rest);
         match terms.len() {
@@ -621,7 +619,7 @@ impl Val {
                 }
             }
             val => match val.unit_value() {
-                Some((unit, value)) => {
+                Ok((unit, value)) => {
                     let leaf = &mut leaves[unit as usize];
                     *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
                 }
