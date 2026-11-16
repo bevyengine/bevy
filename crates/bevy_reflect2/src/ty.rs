@@ -178,7 +178,8 @@ impl Type {
     /// 4) `func` must initialize every pointer to a valid value that matches the type described in
     ///    each [`StructField`]. `func` may not read/drop the previous value (as the pointer may
     ///    point to an uninitialized or overwritten location).
-    /// 5) All ignored fields of the struct must have a reflected default impl.
+    /// 5) All ignored fields of the struct must have a reflected default impl (or there are no
+    ///    ignored fields).
     /// 6) Either `uncovered_initialized` is `false`, **or** the uncovered bytes in `dst` must be
     ///    correctly initialized according to [`Struct::uncovered_bytes`].
     pub unsafe fn initialize_struct_raw(
