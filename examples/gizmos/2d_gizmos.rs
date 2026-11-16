@@ -149,7 +149,7 @@ fn update_config(
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
-        config.enabled ^= true;
+        config.enabled.toggle();
     }
     if keyboard.just_pressed(KeyCode::KeyU) {
         config.line.style = match config.line.style {
@@ -199,7 +199,7 @@ fn update_config(
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
-        my_config.enabled ^= true;
+        my_config.enabled.toggle();
     }
     if keyboard.just_pressed(KeyCode::KeyI) {
         my_config.line.style = match my_config.line.style {

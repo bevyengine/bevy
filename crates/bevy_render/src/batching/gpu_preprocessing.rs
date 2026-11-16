@@ -628,7 +628,7 @@ impl Default for LatePreprocessWorkItemIndirectParameters {
 /// which meshes are to be drawn.
 ///
 /// You may need to call this function if you're implementing your own custom
-/// render phases. See the `specialized_mesh_pipeline` example.
+/// render phases. See the [`specialized_mesh_pipeline` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/specialized_mesh_pipeline.rs).
 pub fn get_or_create_work_item_buffer<'a, I>(
     work_item_buffers: &'a mut HashMap<RetainedViewEntity, PreprocessWorkItemBuffers>,
     view: RetainedViewEntity,
@@ -990,7 +990,7 @@ pub struct IndirectParametersBuffersSettings {
     /// that they can be read back to CPU.
     ///
     /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
+    /// exists for the [`occlusion_culling` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/occlusion_culling.rs).
     pub allow_copies_from_indirect_parameter_buffers: bool,
 }
 

@@ -4,7 +4,7 @@ use crate::{
         UiTreeDirty,
     },
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val, ValContext,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -457,10 +457,6 @@ impl From<BVec2> for IgnoreScroll {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
-///
-/// # See also
-///
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
@@ -474,7 +470,6 @@ impl From<BVec2> for IgnoreScroll {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy,
     ScrollPosition,
     Visibility,
     ZIndex,
@@ -3198,43 +3193,12 @@ impl BorderRadius {
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
-        &self,
-        scale_factor: f32,
-        node_size: Vec2,
-        viewport_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> ResolvedBorderRadius {
+    pub fn resolve(&self, context: &ValContext, node_size: Vec2) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self.top_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            top_right: self.top_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_left: self.bottom_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_right: self.bottom_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
+            top_left: self.top_left.resolve(context, node_size),
+            top_right: self.top_right.resolve(context, node_size),
+            bottom_left: self.bottom_left.resolve(context, node_size),
+            bottom_right: self.bottom_right.resolve(context, node_size),
         }
     }
 }

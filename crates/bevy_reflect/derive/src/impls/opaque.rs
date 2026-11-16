@@ -24,6 +24,13 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let mut info = quote! {
         #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs
     };
+    let custom_attributes = meta.attrs().custom_attributes();
+    if !custom_attributes.is_empty() {
+        let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+        info.extend(quote! {
+            .with_custom_attributes(#custom_attributes)
+        });
+    }
     if let Some(generics) = generate_generics(meta) {
         info.extend(quote! {
             .with_generics(#generics)

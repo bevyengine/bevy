@@ -35,7 +35,7 @@ use bevy_render::{
     camera::{
         DirtySpecializationSystems, DirtyWireframeSpecializations, ExtractedCamera, PendingQueues,
     },
-    extract_resource::ExtractResource,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{
         allocator::{MeshAllocator, MeshAllocatorSettings, MeshSlabs},
         RenderMesh, RenderMeshBufferInfo,
@@ -93,6 +93,7 @@ impl Plugin for WireframePlugin {
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
             RenderAssetPlugin::<RenderWireframeMaterial>::default(),
+            ExtractResourcePlugin::<WireframeConfig>::default(),
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
@@ -738,6 +739,7 @@ pub struct WireframePipelineKey {
     pub quads: bool,
     pub line_mode: bool,
     pub xray_mode: bool,
+    pub cull_mode: Option<Face>,
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
@@ -756,6 +758,8 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
             // An x-ray wireframe must not occlude or be occluded by anything
             depth_stencil.depth_compare = Some(CompareFunction::Always);
             depth_stencil.depth_write_enabled = Some(false);
+        } else {
+            descriptor.primitive.cull_mode = key.cull_mode;
         }
 
         if descriptor.primitive.topology.is_triangles() {
@@ -919,6 +923,11 @@ pub struct WireframeConfig {
     /// Whether all wireframe pipelines render as x-ray overlays. When enabled,
     /// both sides are rendered without depth testing.
     pub xray_mode: bool,
+    /// Which faces the wireframe pass culls. The default matches the mesh pipeline
+    /// and skips back faces, so a mesh with no fill shows only its front edges;
+    /// `None` draws the edges of every face, like a classic wireframe. Ignored in
+    /// [`Self::xray_mode`], which never culls.
+    pub cull_mode: Option<Face>,
 }
 
 impl Default for WireframeConfig {
@@ -929,6 +938,7 @@ impl Default for WireframeConfig {
             default_line_width: 1.0,
             default_topology: WireframeTopology::default(),
             xray_mode: false,
+            cull_mode: Some(Face::Back),
         }
     }
 }
@@ -1011,7 +1021,14 @@ pub struct WireframeEntitiesNeedingSpecialization {
 pub struct SpecializedWireframePipelineCache {
     views: HashMap<RetainedViewEntity, SpecializedWireframeViewPipelineCache>,
     wide: HashMap<
-        (MeshPipelineKey, MeshVertexBufferLayoutRef, bool, bool, bool),
+        (
+            MeshPipelineKey,
+            MeshVertexBufferLayoutRef,
+            bool,
+            bool,
+            bool,
+            Option<Face>,
+        ),
         CachedRenderPipelineId,
     >,
 }
@@ -1460,6 +1477,7 @@ pub fn specialize_wireframes(
     pipeline: Res<Wireframe3dPipeline>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
+    config: Res<WireframeConfig>,
 ) {
     let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
 
@@ -1584,7 +1602,14 @@ pub fn specialize_wireframes(
             let line_mode = wide && !thick;
 
             let pipeline_id = if wide {
-                let cache_key = (mesh_key, mesh.layout.clone(), quads, line_mode, xray_mode);
+                let cache_key = (
+                    mesh_key,
+                    mesh.layout.clone(),
+                    quads,
+                    line_mode,
+                    xray_mode,
+                    config.cull_mode,
+                );
                 *wide_pipeline_cache.entry(cache_key).or_insert_with(|| {
                     let wireframe_key = WireframePipelineKey {
                         mesh_key,
@@ -1592,6 +1617,7 @@ pub fn specialize_wireframes(
                         quads,
                         line_mode,
                         xray_mode,
+                        cull_mode: config.cull_mode,
                     };
                     match pipeline.specialize(wireframe_key, &mesh.layout) {
                         Ok(descriptor) => pipeline_cache.queue_render_pipeline(descriptor),
@@ -1608,6 +1634,7 @@ pub fn specialize_wireframes(
                     quads: false,
                     line_mode: false,
                     xray_mode,
+                    cull_mode: config.cull_mode,
                 };
                 match pipelines.specialize(&pipeline_cache, &pipeline, wireframe_key, &mesh.layout)
                 {

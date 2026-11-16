@@ -56,6 +56,9 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.20.0-dev" }
+bevy_text = { path = "../bevy_text", version = "0.20.0-dev", features = [
+  "default_font",
+] }
 
 [features]
 default = []
