@@ -37,7 +37,7 @@ pub fn fuzzy_match_component_name(
     threshold: f64,
 ) -> Vec<(f64, ComponentId)> {
     let candidates = world.components().iter_registered().map(|(id, _)| id);
-    fuzzy_name_to_id(world, fuzzy_name, candidates, threshold)
+    rank_by_name(fuzzy_name, shortnames(world, candidates), threshold)
 }
 
 /// Attempts to find a [`ComponentId`] for the given fuzzy resource name.
@@ -61,7 +61,15 @@ pub fn fuzzy_match_resource_name(
     // We can restrict the candidate set to the component id values that are registered as resources,
     // allowing us to share code with the component equivalent above.
     let candidates = world.resource_entities().iter().map(|(id, _)| id);
-    fuzzy_name_to_id(world, fuzzy_name, candidates, threshold)
+    rank_by_name(fuzzy_name, shortnames(world, candidates), threshold)
+}
+
+/// Pairs each [`ComponentId`] with the shortname of its type, skipping unnamed components.
+fn shortnames(
+    world: &World,
+    ids: impl Iterator<Item = ComponentId>,
+) -> impl Iterator<Item = (String, ComponentId)> {
+    ids.filter_map(|id| Some((world.components().get_name(id)?.shortname().to_string(), id)))
 }
 
 /// Find the best fuzzy match for a given name among a set of [`EntityLabel`]s.
@@ -84,64 +92,41 @@ pub fn fuzzy_match_entity_label(
     fuzzy_name: &str,
     threshold: f64,
 ) -> Vec<(f64, Entity)> {
-    let processed_fuzzy_name = fuzzy_name.trim().to_lowercase();
-
-    let mut matches = Vec::with_capacity(5);
-    for (label, entity) in labels {
+    let candidates = labels.iter().map(|(label, entity)| {
         // Truncate crate / module paths to improve matching accuracy
-        let shortname = ShortName::from(label.as_str());
-        // Shortnames are lazy; this needs to be forced into a string to complete the truncation
-        let processed_label = shortname.to_string().trim().to_lowercase();
-
-        if processed_fuzzy_name == processed_label {
-            return vec![(1.0, *entity)];
-        }
-        let similarity = jaro_winkler(&processed_fuzzy_name, &processed_label);
-        if similarity >= threshold {
-            matches.push((similarity, *entity));
-        }
-    }
-
-    matches.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-    matches
+        (ShortName::from(label.as_str()).to_string(), *entity)
+    });
+    rank_by_name(fuzzy_name, candidates, threshold)
 }
 
-/// Finds the best fuzzy match for `fuzzy_name` among the provided candidate [`ComponentId`]s.
+/// Ranks `(name, candidate)` pairs by how closely each name matches `fuzzy_name`.
 ///
-/// Matching uses Jaro-Winkler similarity over each candidate's "shortname",
-/// which trims module paths.
-///
-/// This is normalized by trimming whitespace and converting to lowercase.
+/// Names are normalized by trimming whitespace and converting to lowercase before
+/// computing Jaro-Winkler similarity.
 /// An exact (post-normalization) match short-circuits and is always preferred.
-///
-/// The `threshold` parameter controls the minimum similarity score required for a match to be included in the results.
-fn fuzzy_name_to_id(
-    world: &World,
+fn rank_by_name<T>(
     fuzzy_name: &str,
-    candidates: impl Iterator<Item = ComponentId>,
+    candidates: impl IntoIterator<Item = (String, T)>,
     threshold: f64,
-) -> Vec<(f64, ComponentId)> {
+) -> Vec<(f64, T)> {
     let processed_fuzzy_name = fuzzy_name.trim().to_lowercase();
 
     // PERF: it is almost certainly more efficient to build an accelerated structure
     // across all possible names once, rather than re-computing distances
     // whenever a user enters a new fuzzy name.
     let mut matches = Vec::with_capacity(5);
-    for id in candidates {
-        let Some(name) = world.components().get_name(id) else {
-            continue;
-        };
-        let processed_name = name.shortname().to_string().trim().to_lowercase();
+    for (name, candidate) in candidates {
+        let processed_name = name.trim().to_lowercase();
 
         if processed_fuzzy_name == processed_name {
-            return vec![(1.0, id)];
+            return vec![(1.0, candidate)];
         }
         let similarity = jaro_winkler(&processed_fuzzy_name, &processed_name);
         if similarity >= threshold {
-            matches.push((similarity, id));
+            matches.push((similarity, candidate));
         }
     }
 
-    matches.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    matches.sort_by(|a, b| b.0.total_cmp(&a.0));
     matches
 }
