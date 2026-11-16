@@ -693,17 +693,15 @@ impl TryStableInterpolate for Val {
     /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
     /// ```
     fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
-        match (self, other) {
-            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
-            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
-            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
-            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
-            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
-            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
-            (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
-            (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
-            (a, b) if a == b => Ok(*a),
-            _ => Err(MismatchedUnitsError),
+        if let Ok((u, x)) = self.unit_value()
+            && let Ok((v, y)) = other.unit_value()
+            && u == v
+        {
+            Ok(u.with_value(x.interpolate_stable(&y, t)))
+        } else if self == other {
+            Ok(*self)
+        } else {
+            Err(MismatchedUnitsError)
         }
     }
 }
