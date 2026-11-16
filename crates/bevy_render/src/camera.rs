@@ -481,6 +481,9 @@ pub struct ExtractedCamera {
     /// target. Those exceptions don't apply when the render target is shared by
     /// multiple cameras.
     pub tonemap_in_shader: bool,
+    /// Whether the tonemapping pass runs for the camera. It runs when the
+    /// camera's [`Tonemapping`] is enabled and `tonemap_in_shader` is false.
+    pub runs_tonemapping_pass: bool,
 }
 
 pub fn extract_cameras(
@@ -670,9 +673,10 @@ pub fn extract_cameras(
                 target.as_ref(),
                 shares_target,
             );
+            let runs_tonemapping_pass = tonemapping_enabled && !in_shader;
             let target_format = main_texture_format(
                 hdr_output,
-                tonemapping_enabled && !in_shader,
+                runs_tonemapping_pass,
                 compositing_space.copied(),
                 output_texture_format,
             );
@@ -697,6 +701,7 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr: hdr_output,
                     tonemap_in_shader: in_shader,
+                    runs_tonemapping_pass,
                 },
                 ResolvedCompositingSpace(compositing_space.copied()),
                 view_display_target,
@@ -1530,6 +1535,7 @@ mod tests {
             exposure: 1.0,
             hdr,
             tonemap_in_shader: false,
+            runs_tonemapping_pass: false,
         }
     }
 
