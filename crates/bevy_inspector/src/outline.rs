@@ -37,8 +37,6 @@ struct DescendantBounds {
     selection: Option<bevy_ecs::entity::Entity>,
     /// The union of the descendants' world bounds when it was last computed.
     world: Option<(Aabb3d, RenderLayers)>,
-    /// The selected entity's transform when the union was last computed.
-    transform: GlobalTransform,
 }
 
 pub(crate) fn add_outline(app: &mut App) {
@@ -76,39 +74,36 @@ fn selection_outline(
     bounds: Query<(&Aabb, &GlobalTransform, Option<&RenderLayers>)>,
     children: Query<&Children>,
     mut cache: ResMut<DescendantBounds>,
-    moved: Query<
-        (),
-        (
-            With<Aabb>,
-            Or<(Changed<Aabb>, Changed<Children>, Changed<GlobalTransform>)>,
-        ),
-    >,
+    moved: Query<(), (With<Aabb>, Or<(Changed<Aabb>, Changed<GlobalTransform>)>)>,
+    restructured: Query<(), Changed<Children>>,
 ) -> Option<Outline> {
     if !visible || *mode != InspectorMode::Edit {
+        cache.selection = None;
         return None;
     }
-    let selected = selection
+    let Some(selected) = selection
         .0
         .as_ref()
-        .filter(|selection| selection.source == InspectorSource::Local)?
-        .entity;
+        .filter(|selection| selection.source == InspectorSource::Local)
+        .map(|selection| selection.entity)
+    else {
+        cache.selection = None;
+        return None;
+    };
     if let Ok((aabb, transform, layers)) = bounds.get(selected) {
+        cache.selection = None;
         return Some(Outline {
             aabb: Aabb3d::new(aabb.center, aabb.half_extents),
             transform: *transform,
             layers: layers.cloned().unwrap_or_default(),
         });
     }
-    let transform = bounds
-        .get(selected)
-        .map(|(_, transform, _)| *transform)
-        .unwrap_or_default();
-    // The union only changes when the selection, the selected transform or a bound of the
-    // subtree changes, so a scene where none of those move costs nothing beyond these queries.
+    // The union only changes when the selection, a bound of the subtree or its shape changes, so
+    // a scene where none of those move costs nothing beyond these queries.
     let stale = cache.selection != Some(selected)
         || cache.world.is_none()
-        || cache.transform != transform
-        || !moved.is_empty();
+        || !moved.is_empty()
+        || !restructured.is_empty();
     if stale {
         let union = children
             .iter_descendants(selected)
@@ -128,7 +123,6 @@ fn selection_outline(
             return None;
         };
         cache.selection = Some(selected);
-        cache.transform = transform;
         cache.world = Some((union, layers.clone()));
         return Some(Outline {
             aabb: union,
