@@ -750,7 +750,7 @@ mod tests {
         assert_eq!(DROPS.swap(0, Relaxed), 3);
 
         // Not a struct
-        assert!(u32::TYPE.construct_struct([]).is_none());
+        assert!(u32::TYPE.construct_struct(vec![]).is_none());
     }
 
     #[test]
