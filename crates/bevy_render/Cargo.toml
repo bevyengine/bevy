@@ -88,7 +88,9 @@ image = { version = "0.25.2", default-features = false }
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "30", default-features = false, features = [
+# 30.0.2 adds the eager Send/Sync impls for wgpu-core's Global/Hub
+# (gfx-rs/wgpu#9953), which fix the nightly recursion-depth overflow.
+wgpu = { version = "30.0.2", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -126,7 +128,7 @@ static_assertions = "1"
 proptest = "1"
 proptest-derive = "0.8"
 # noop backend used for tests via test_utils.rs
-wgpu = { version = "30", default-features = false, features = ["noop"] }
+wgpu = { version = "30.0.2", default-features = false, features = ["noop"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 spin_sleep = "1.3"
