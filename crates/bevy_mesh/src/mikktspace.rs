@@ -1,14 +1,16 @@
 use crate::MeshAccessError;
 
-use super::{Indices, Mesh, VertexAttributeValues};
+use super::{
+    DecodedNormals, DecodedPositions, DecodedUvs, Indices, Mesh, MeshVertexAttribute, UvChannel,
+};
 use thiserror::Error;
 use wgpu_types::{PrimitiveTopology, VertexFormat};
 
 struct MikktspaceGeometryHelper<'a> {
     indices: Option<&'a Indices>,
-    positions: &'a Vec<[f32; 3]>,
-    normals: &'a Vec<[f32; 3]>,
-    uvs: &'a Vec<[f32; 2]>,
+    positions: DecodedPositions<'a>,
+    normals: DecodedNormals<'a>,
+    uvs: DecodedUvs<'a>,
     tangents: Vec<[f32; 4]>,
 }
 
@@ -37,15 +39,18 @@ impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
     }
 
     fn position(&self, face: usize, vert: usize) -> [f32; 3] {
-        self.positions[self.index(face, vert)]
+        self.positions
+            .get(self.index(face, vert))
+            .unwrap()
+            .to_array()
     }
 
     fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
-        self.normals[self.index(face, vert)]
+        self.normals.get(self.index(face, vert)).unwrap().to_array()
     }
 
     fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
-        self.uvs[self.index(face, vert)]
+        self.uvs.get(self.index(face, vert)).unwrap().to_array()
     }
 
     fn set_tangent(
@@ -84,33 +89,25 @@ pub(crate) fn generate_tangents_for_mesh(
         other => return Err(GenerateTangentsError::UnsupportedTopology(other)),
     };
 
-    let positions = mesh.try_attribute_option(Mesh::ATTRIBUTE_POSITION)?.ok_or(
-        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_POSITION.name),
-    )?;
-    let VertexAttributeValues::Float32x3(positions) = positions else {
-        return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-            Mesh::ATTRIBUTE_POSITION.name,
-            VertexFormat::Float32x3,
-        ));
+    // The error for an attribute that is missing or can't be read as floats.
+    let unreadable = |attribute: MeshVertexAttribute, expected| -> GenerateTangentsError {
+        match mesh.try_attribute_option(attribute) {
+            Ok(Some(_)) => {
+                GenerateTangentsError::InvalidVertexAttributeFormat(attribute.name, expected)
+            }
+            Ok(None) => GenerateTangentsError::MissingVertexAttribute(attribute.name),
+            Err(err) => err.into(),
+        }
     };
-    let normals = mesh.try_attribute_option(Mesh::ATTRIBUTE_NORMAL)?.ok_or(
-        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_NORMAL.name),
-    )?;
-    let VertexAttributeValues::Float32x3(normals) = normals else {
-        return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-            Mesh::ATTRIBUTE_NORMAL.name,
-            VertexFormat::Float32x3,
-        ));
-    };
-    let uvs = mesh.try_attribute_option(Mesh::ATTRIBUTE_UV_0)?.ok_or(
-        GenerateTangentsError::MissingVertexAttribute(Mesh::ATTRIBUTE_UV_0.name),
-    )?;
-    let VertexAttributeValues::Float32x2(uvs) = uvs else {
-        return Err(GenerateTangentsError::InvalidVertexAttributeFormat(
-            Mesh::ATTRIBUTE_UV_0.name,
-            VertexFormat::Float32x2,
-        ));
-    };
+    let positions = mesh
+        .decoded_positions()
+        .ok_or_else(|| unreadable(Mesh::ATTRIBUTE_POSITION, VertexFormat::Float32x3))?;
+    let normals = mesh
+        .decoded_normals()
+        .ok_or_else(|| unreadable(Mesh::ATTRIBUTE_NORMAL, VertexFormat::Float32x3))?;
+    let uvs = mesh
+        .decoded_uvs(UvChannel::Uv0)
+        .ok_or_else(|| unreadable(Mesh::ATTRIBUTE_UV_0, VertexFormat::Float32x2))?;
 
     let len = positions.len();
     let tangents = vec![[0., 0., 0., 0.]; len];

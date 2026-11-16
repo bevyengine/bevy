@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::resource::Resource;
-use bevy_math::{vec2, Vec2, Vec3, Vec3A, Vec3Swizzles};
+use bevy_math::{vec2, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_platform::collections::HashSet;
@@ -609,77 +609,6 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Create a new `VertexAttributeValues` with Float32x3 normals converted to Snorm16x2 using octahedral encoding. Return None if the values are not Float32x3.
-    pub(crate) fn create_octahedral_encode_normals(&self) -> Option<VertexAttributeValues> {
-        match &self {
-            VertexAttributeValues::Float32x3(uncompressed_values) => {
-                let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
-                for value in uncompressed_values {
-                    let encoded = octahedral_encode_signed(Vec3::from_array(*value).normalize());
-                    values.push(arr_f32_to_snorm16(encoded.to_array()));
-                }
-                Some(VertexAttributeValues::Snorm16x2(values))
-            }
-            _ => None,
-        }
-    }
-
-    /// Create a new `VertexAttributeValues` with Float32x4 tangents converted to Snorm16x2 using octahedral encoding. Return None if the values are not Float32x4.
-    pub(crate) fn create_octahedral_encode_tangents(&self) -> Option<VertexAttributeValues> {
-        match &self {
-            VertexAttributeValues::Float32x4(uncompressed_values) => {
-                let mut values = Vec::<[i16; 2]>::with_capacity(uncompressed_values.len());
-                for value in uncompressed_values {
-                    let encoded = octahedral_encode_tangent(
-                        Vec3::from_array([value[0], value[1], value[2]]).normalize(),
-                        value[3],
-                    );
-                    values.push(arr_f32_to_snorm16(encoded.to_array()));
-                }
-                Some(VertexAttributeValues::Snorm16x2(values))
-            }
-            _ => None,
-        }
-    }
-
-    /// Returns the compressed positions, or `None` if `self` is not [`Self::Float32x3`].
-    pub(crate) fn create_compressed_positions(
-        &self,
-        aabb: Aabb3d,
-    ) -> Option<VertexAttributeValues> {
-        // Create Snorm16x4 position
-        let VertexAttributeValues::Float32x3(uncompressed_values) = self else {
-            return None;
-        };
-        let mut values = Vec::<[i16; 4]>::with_capacity(uncompressed_values.len());
-        let scale = 1.0 / aabb.half_size();
-        let scale = Vec3A::select(scale.is_nan_mask(), Vec3A::ZERO, scale);
-        for val in uncompressed_values {
-            let mut val = Vec3A::from_array(*val);
-            val = (val - aabb.center()) * scale;
-            let val = arr_f32_to_snorm16(val.extend(0.0).to_array());
-            values.push(val);
-        }
-        Some(VertexAttributeValues::Snorm16x4(values))
-    }
-
-    /// Create compressed UVs. Returns `None` if `self` isn't [`VertexAttributeValues::Float32x2`].
-    pub(crate) fn create_compressed_uvs(&self, range: Aabb2d) -> Option<VertexAttributeValues> {
-        // Create Unorm16x2 UVs
-        let VertexAttributeValues::Float32x2(uncompressed_values) = self else {
-            return None;
-        };
-        let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
-        let scale = 1.0 / (range.max - range.min);
-        let scale = Vec2::select(scale.is_nan_mask(), Vec2::ZERO, scale);
-        for val in uncompressed_values {
-            let mut val = Vec2::from_array(*val);
-            val = (val - range.min) * scale;
-            values.push(arr_f32_to_unorm16(val.to_array()));
-        }
-        Some(VertexAttributeValues::Unorm16x2(values))
-    }
-
     #[expect(
         clippy::match_same_arms,
         reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
@@ -1179,6 +1108,189 @@ pub(crate) fn arr_f32_to_snorm16<const N: usize>(value: [f32; N]) -> [i16; N] {
 
 pub(crate) fn arr_f32_to_float16<const N: usize>(value: [f32; N]) -> [half::f16; N] {
     value.map(half::f16::from_f32)
+}
+
+/// Encodes positions as described by [`MeshAttributeCompressionFlags::COMPRESS_POSITION`],
+/// relative to `aabb`. Positions outside `aabb` are clamped to it.
+pub fn encode_compressed_positions(
+    positions: impl IntoIterator<Item = Vec3A>,
+    aabb: Aabb3d,
+) -> Vec<[i16; 4]> {
+    let half_size = aabb.half_size();
+    let scale = Vec3A::select(half_size.cmpgt(Vec3A::ZERO), half_size.recip(), Vec3A::ZERO);
+    positions
+        .into_iter()
+        .map(|position| {
+            arr_f32_to_snorm16(((position - aabb.center()) * scale).extend(0.0).to_array())
+        })
+        .collect()
+}
+
+/// Encodes UVs as described by [`MeshAttributeCompressionFlags::COMPRESS_UV0`], relative to
+/// `range`. UVs outside `range` are clamped to it.
+pub fn encode_compressed_uvs(uvs: impl IntoIterator<Item = Vec2>, range: Aabb2d) -> Vec<[u16; 2]> {
+    let extents = range.max - range.min;
+    let scale = Vec2::select(extents.cmpgt(Vec2::ZERO), extents.recip(), Vec2::ZERO);
+    uvs.into_iter()
+        .map(|uv| arr_f32_to_unorm16(((uv - range.min) * scale).to_array()))
+        .collect()
+}
+
+/// Encodes normals as described by [`MeshAttributeCompressionFlags::COMPRESS_NORMAL`].
+pub fn encode_compressed_normals(normals: impl IntoIterator<Item = Vec3>) -> Vec<[i16; 2]> {
+    normals
+        .into_iter()
+        .map(|normal| arr_f32_to_snorm16(octahedral_encode_signed(normal.normalize()).to_array()))
+        .collect()
+}
+
+/// Encodes tangents, with the bitangent sign in `w`, as described by
+/// [`MeshAttributeCompressionFlags::COMPRESS_TANGENT`].
+pub fn encode_compressed_tangents(tangents: impl IntoIterator<Item = Vec4>) -> Vec<[i16; 2]> {
+    tangents
+        .into_iter()
+        .map(|tangent| {
+            arr_f32_to_snorm16(
+                octahedral_encode_tangent(tangent.xyz().normalize(), tangent.w).to_array(),
+            )
+        })
+        .collect()
+}
+
+/// [`Mesh::ATTRIBUTE_POSITION`](crate::Mesh::ATTRIBUTE_POSITION) values as floats, decoding
+/// compressed positions when read. See [`Mesh::decoded_positions`](crate::Mesh::decoded_positions).
+#[derive(Clone, Copy, Debug)]
+pub enum DecodedPositions<'a> {
+    Float(&'a [[f32; 3]]),
+    Compressed {
+        positions: &'a [[i16; 4]],
+        center: Vec3A,
+        half_size: Vec3A,
+    },
+}
+
+impl DecodedPositions<'_> {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Float(positions) => positions.len(),
+            Self::Compressed { positions, .. } => positions.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The position of vertex `index`, or `None` if it is out of bounds.
+    pub fn get(&self, index: usize) -> Option<Vec3> {
+        match *self {
+            Self::Float(positions) => positions.get(index).map(|&p| p.into()),
+            Self::Compressed {
+                positions,
+                center,
+                half_size,
+            } => positions.get(index).map(|&p| {
+                let p = Vec3A::new(
+                    snorm16_to_f32(p[0]),
+                    snorm16_to_f32(p[1]),
+                    snorm16_to_f32(p[2]),
+                );
+                center.mul_add(Vec3A::ONE, half_size * p).into()
+            }),
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Vec3> + '_ {
+        (0..self.len()).filter_map(|index| self.get(index))
+    }
+}
+
+/// [`Mesh::ATTRIBUTE_NORMAL`](crate::Mesh::ATTRIBUTE_NORMAL) values as floats, decoding
+/// compressed normals when read. See [`Mesh::decoded_normals`](crate::Mesh::decoded_normals).
+#[derive(Clone, Copy, Debug)]
+pub enum DecodedNormals<'a> {
+    Float(&'a [[f32; 3]]),
+    Compressed(&'a [[i16; 2]]),
+}
+
+impl DecodedNormals<'_> {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Float(normals) => normals.len(),
+            Self::Compressed(normals) => normals.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The normal of vertex `index`, or `None` if it is out of bounds.
+    pub fn get(&self, index: usize) -> Option<Vec3> {
+        match self {
+            Self::Float(normals) => normals.get(index).map(|&n| n.into()),
+            Self::Compressed(normals) => normals.get(index).map(|&n| decode_compressed_normal(n)),
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Vec3> + '_ {
+        (0..self.len()).filter_map(|index| self.get(index))
+    }
+}
+
+/// UV values of one channel as floats, decoding compressed UVs when read. See
+/// [`Mesh::decoded_uvs`](crate::Mesh::decoded_uvs).
+#[derive(Clone, Copy, Debug)]
+pub enum DecodedUvs<'a> {
+    Float(&'a [[f32; 2]]),
+    Compressed(&'a [[u16; 2]], Aabb2d),
+}
+
+impl DecodedUvs<'_> {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Float(uvs) => uvs.len(),
+            Self::Compressed(uvs, _) => uvs.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The UV of vertex `index`, or `None` if it is out of bounds.
+    pub fn get(&self, index: usize) -> Option<Vec2> {
+        match self {
+            Self::Float(uvs) => uvs.get(index).map(|&uv| uv.into()),
+            Self::Compressed(uvs, range) => {
+                uvs.get(index).map(|&uv| decode_compressed_uv(uv, *range))
+            }
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Vec2> + '_ {
+        (0..self.len()).filter_map(|index| self.get(index))
+    }
+}
+
+fn snorm16_to_f32(value: i16) -> f32 {
+    (value as f32 / i16::MAX as f32).max(-1.0)
+}
+
+/// Decodes a normal encoded by [`encode_compressed_normals`].
+pub(crate) fn decode_compressed_normal(normal: [i16; 2]) -> Vec3 {
+    octahedral_decode_signed(Vec2::from_array(normal.map(snorm16_to_f32)))
+}
+
+/// Decodes a tangent encoded by [`encode_compressed_tangents`], with the bitangent sign in `w`.
+pub(crate) fn decode_compressed_tangent(tangent: [i16; 2]) -> Vec4 {
+    let (tangent, sign) = octahedral_decode_tangent(Vec2::from_array(tangent.map(snorm16_to_f32)));
+    tangent.extend(sign)
+}
+
+/// Decodes a UV encoded by [`encode_compressed_uvs`] relative to `range`.
+pub(crate) fn decode_compressed_uv(uv: [u16; 2], range: Aabb2d) -> Vec2 {
+    range.min + (range.max - range.min) * Vec2::from_array(uv.map(|c| c as f32 / u16::MAX as f32))
 }
 
 /// Encode normals or unit direction vectors as octahedral coordinates with range [-1, 1]. Use [`octahedral_decode_signed`] to decode.

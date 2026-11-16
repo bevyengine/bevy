@@ -117,7 +117,15 @@ impl SkinnedMeshBounds {
     /// The mesh is expected to have position, joint index and joint weight
     /// attributes. If any are missing then a [`MeshAttributeError`] is returned.
     pub fn from_mesh(mesh: &Mesh) -> Result<SkinnedMeshBounds, SkinnedMeshBoundsError> {
-        let vertex_positions = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
+        let vertex_positions = mesh.decoded_positions().ok_or_else(|| {
+            match mesh.try_attribute_option(Mesh::ATTRIBUTE_POSITION) {
+                Ok(Some(values)) => MeshAttributeError::UnexpectedFormat(
+                    Mesh::ATTRIBUTE_POSITION.name,
+                    values.into(),
+                ),
+                _ => MeshAttributeError::MissingAttribute(Mesh::ATTRIBUTE_POSITION.name),
+            }
+        })?;
         let vertex_influences = InfluenceIterator::new(mesh)?;
 
         // Find the maximum joint index.
@@ -136,9 +144,8 @@ impl SkinnedMeshBounds {
         // Iterate over all vertex influences and add the vertex position to
         // the influencing joint's AABB.
         for influence in vertex_influences {
-            if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
-                accumulators[influence.joint_index.0 as usize]
-                    .add_point(Vec3A::from_array(vertex_position));
+            if let Some(vertex_position) = vertex_positions.get(influence.vertex_index) {
+                accumulators[influence.joint_index.0 as usize].add_point(vertex_position.into());
             }
         }
 
@@ -419,9 +426,9 @@ pub enum MeshAttributeError {
 // Implements a function that returns a mesh attribute's data or `MeshAttributeError`.
 //
 // ```
-// impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3]);
+// impl_expect_attribute!(expect_attribute_float32x4, Float32x4, [f32; 4]);
 //
-// let positions: Vec<[f32; 3]> = expect_attribute_float32x3(mesh, Mesh::ATTRIBUTE_POSITION)?;
+// let weights: Vec<[f32; 4]> = expect_attribute_float32x4(mesh, Mesh::ATTRIBUTE_JOINT_WEIGHT)?;
 // ```
 macro_rules! impl_expect_attribute {
     ($name:ident, $value_type:ident, $output_type:ty) => {
@@ -443,7 +450,6 @@ macro_rules! impl_expect_attribute {
     };
 }
 
-impl_expect_attribute!(expect_attribute_float32x3, Float32x3, [f32; 3]);
 impl_expect_attribute!(expect_attribute_float32x4, Float32x4, [f32; 4]);
 impl_expect_attribute!(expect_attribute_uint16x4, Uint16x4, [u16; 4]);
 
