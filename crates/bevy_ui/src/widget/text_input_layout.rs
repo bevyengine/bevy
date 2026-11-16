@@ -837,7 +837,7 @@ mod tests {
     #[test]
     fn changing_the_color_keeps_the_layout() {
         let (mut app, entity) = app_with_field(Placeholder::new("Search"));
-        // A truncated hint stays truncated until it is laid out again.
+        // Clear the hint glyphs, if they are replaced it means there was a relayout.
         app.world_mut()
             .get_mut::<TextLayoutInfo>(entity)
             .unwrap()
