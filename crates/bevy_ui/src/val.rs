@@ -546,7 +546,7 @@ impl Div<f32> for Val {
     type Output = Val;
 
     fn div(mut self, rhs: f32) -> Self::Output {
-        self *= rhs;
+        self /= rhs;
         self
     }
 }
