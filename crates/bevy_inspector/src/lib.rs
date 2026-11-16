@@ -73,7 +73,7 @@ use crate::entity_tree::{
     InspectorTreeView, TreeReveal, TreeRowIndex,
 };
 use crate::overlay::InspectorOverlay;
-use crate::picking::{pick_for_inspector, InspectorHover};
+use crate::picking::pick_for_inspector;
 use crate::resource_list::{
     sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
 };
@@ -466,7 +466,6 @@ impl Plugin for InspectorPlugin {
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
             .init_resource::<TreeReveal>()
-            .init_resource::<InspectorHover>()
             .init_resource::<ResourceListSync>()
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()

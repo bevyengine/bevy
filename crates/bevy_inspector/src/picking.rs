@@ -13,7 +13,8 @@ use bevy_ecs::{
 };
 use bevy_picking::{
     backend::{ray::RayMap, PointerHits},
-    hover::{HoverMap, PreviousHoverMap},
+    events::PointerState,
+    hover::{HoverMap, PickingInteraction, PreviousHoverMap},
     mesh_picking::ray_cast::{MeshRayCast, MeshRayCastSettings},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput},
     Pickable, PickingSettings,
@@ -59,42 +60,43 @@ impl InspectorPanels<'_, '_> {
     }
 
     fn under(&self, location: &Location) -> bool {
-        self.inspector_ui
-            .iter()
-            .flat_map(|(root, pickable, children)| {
-                let passes_through = pickable.is_some_and(|pickable| *pickable == Pickable::IGNORE);
-                let panels = children
-                    .map(|children| children.iter().copied().collect())
-                    .unwrap_or_default();
-                if passes_through {
-                    panels
-                } else {
-                    alloc::vec![root]
-                }
-            })
-            .any(|panel| {
-                let Ok((node, transform, visibility, target)) = self.nodes.get(panel) else {
-                    return false;
-                };
-                let Some((camera, render_target)) = target
-                    .get()
-                    .and_then(|camera| self.cameras.get(camera).ok())
-                else {
-                    return false;
-                };
-                if !visibility.get()
-                    || node.is_empty()
-                    || render_target.normalize(self.primary_window.single().ok())
-                        != Some(location.target.clone())
-                {
-                    return false;
-                }
-                let mut point = location.position * camera.target_scaling_factor().unwrap_or(1.0);
-                if let Some(viewport) = camera.physical_viewport_rect() {
-                    point -= viewport.min.as_vec2();
-                }
-                node.contains_point(*transform, point)
-            })
+        self.inspector_ui.iter().any(|(root, pickable, children)| {
+            let passes_through = pickable.is_some_and(|pickable| *pickable == Pickable::IGNORE);
+            match (passes_through, children) {
+                (true, Some(children)) => children
+                    .iter()
+                    .copied()
+                    .any(|panel| self.panel_under(panel, location)),
+                (true, None) => false,
+                (false, _) => self.panel_under(root, location),
+            }
+        })
+    }
+
+    fn panel_under(&self, panel: Entity, location: &Location) -> bool {
+        {
+            let Ok((node, transform, visibility, target)) = self.nodes.get(panel) else {
+                return false;
+            };
+            let Some((camera, render_target)) = target
+                .get()
+                .and_then(|camera| self.cameras.get(camera).ok())
+            else {
+                return false;
+            };
+            if !visibility.get()
+                || node.is_empty()
+                || render_target.normalize(self.primary_window.single().ok())
+                    != Some(location.target.clone())
+            {
+                return false;
+            }
+            let mut point = location.position * camera.target_scaling_factor().unwrap_or(1.0);
+            if let Some(viewport) = camera.physical_viewport_rect() {
+                point -= viewport.min.as_vec2();
+            }
+            node.contains_point(*transform, point)
+        }
     }
 }
 
@@ -230,13 +232,6 @@ impl PickTargets<'_, '_> {
     }
 }
 
-/// The entity the pointer is over while a click would pick it for the inspector.
-///
-/// Kept so that later editor features can show hover hints without reading the app's hover
-/// state, which picking keeps away from the app.
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct InspectorHover(pub Option<InspectableEntity>);
-
 /// Picks for the inspector, and keeps the pointer's hover and events away from the app.
 ///
 /// While the overlay is showing, the mode is [`InspectorMode::Edit`] and the inspected world is
@@ -253,13 +248,14 @@ pub(crate) fn pick_for_inspector(
     mut inputs: MessageReader<PointerInput>,
     mut hover_map: Option<ResMut<HoverMap>>,
     mut previous_hover_map: Option<ResMut<PreviousHoverMap>>,
-    mut hover: ResMut<InspectorHover>,
+    mut pointer_state: Option<ResMut<PointerState>>,
     mut pressed: Local<Option<Pick>>,
     targets: PickTargets,
     mut meshes: MeshFallback,
     mut selection: ResMut<InspectorSelection>,
     mut reveal: ResMut<TreeReveal>,
     mut entities_page: EntitiesPage,
+    mut commands: Commands,
 ) {
     let mut hits: Vec<(f32, f32, Entity)> = pointer_hits
         .read()
@@ -292,16 +288,38 @@ pub(crate) fn pick_for_inspector(
         && sources.sources.contains(&InspectorSource::Local);
     if !active {
         *pressed = None;
-        hover.0 = None;
         return;
     }
 
-    // Everything dispatched to the app comes from these two maps, so keeping only the inspector's
-    // own UI in them is what stops the app seeing the pointer, without stopping our own controls.
+    // Everything dispatched to the app comes from these two maps and the pointer's press and drag
+    // state, so keeping only the inspector's own UI in them is what stops the app seeing the
+    // pointer, without stopping our own controls.
     if let Some(map) = hover_map.as_mut() {
         for hits in map.0.values_mut() {
-            hits.retain(|entity, _| targets.panels.contains(*entity));
+            hits.retain(|entity, _| {
+                let keep = targets.panels.contains(*entity);
+                if !keep {
+                    // `update_interactions` clears interactions from `PreviousHoverMap`, which
+                    // this prunes as well, so the app's own hover state is cleared here.
+                    commands
+                        .entity(*entity)
+                        .try_insert(PickingInteraction::None);
+                }
+                keep
+            });
         }
+    }
+    if let Some(state) = pointer_state.as_mut() {
+        let primary = state.get_mut(PointerId::Mouse, PointerButton::Primary);
+        primary
+            .pressing
+            .retain(|entity, _| targets.panels.contains(*entity));
+        primary
+            .dragging
+            .retain(|entity, _| targets.panels.contains(*entity));
+        primary
+            .dragging_over
+            .retain(|entity, _| targets.panels.contains(*entity));
     }
     if let Some(map) = previous_hover_map.as_mut() {
         for hits in map.0.values_mut() {
@@ -348,12 +366,6 @@ pub(crate) fn pick_for_inspector(
             }
             _ => {}
         }
-        hover.0 = match targets.topmost(&hits, &location) {
-            Some(Pick::Entity(entity)) => {
-                Some(InspectableEntity::new(entity, InspectorSource::Local))
-            }
-            _ => None,
-        };
     }
 }
 
@@ -867,6 +879,38 @@ mod tests {
         let mesh = observed_mesh(&mut app);
         app_click(&mut app, |_| alloc::vec![mesh]);
         assert_eq!(selected(&app), Some(mesh));
+        assert_eq!(app.world().resource::<AppClicks>().0, 0);
+    }
+
+    fn interaction(app: &App, entity: Entity) -> PickingInteraction {
+        app.world()
+            .get::<PickingInteraction>(entity)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn entering_edit_mode_clears_the_apps_hover_and_press_state() {
+        let mut app = picking_app();
+        spawn_panel(&mut app);
+        set_mode(&mut app, InspectorMode::Preview);
+        let mesh = observed_mesh(&mut app);
+        app.world_mut().resource_mut::<BackendHits>().0 = alloc::vec![mesh];
+        send(&mut app, PointerAction::Move { delta: Vec2::ONE });
+        assert_eq!(interaction(&app, mesh), PickingInteraction::Hovered);
+
+        send(&mut app, PointerAction::Press(PointerButton::Primary));
+        let pressed = |app: &App| {
+            app.world()
+                .resource::<PointerState>()
+                .get(PointerId::Mouse, PointerButton::Primary)
+                .is_some_and(|state| state.pressing.contains_key(&mesh))
+        };
+        assert!(pressed(&app));
+
+        set_mode(&mut app, InspectorMode::Edit);
+        assert_eq!(interaction(&app, mesh), PickingInteraction::None);
+        assert!(!pressed(&app));
         assert_eq!(app.world().resource::<AppClicks>().0, 0);
     }
 
