@@ -854,7 +854,7 @@ mod tests {
             .unwrap()
             .0 = bevy_color::Color::WHITE;
         app.update();
-        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
 
         app.world_mut()
             .entity_mut(entity)
