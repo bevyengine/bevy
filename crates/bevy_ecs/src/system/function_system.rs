@@ -1,7 +1,6 @@
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
-    never::Never,
     prelude::FromWorld,
     schedule::{InternedSystemSet, SystemSet},
     system::{
@@ -740,13 +739,13 @@ impl<T> IntoResult<T> for Result<T, BevyError> {
 // `impl<T> IntoResult<T> for T` when `T` = `!`.
 // Use explicit impls for `()` and `bool` so diverging functions
 // can be used for systems and conditions.
-impl IntoResult<()> for Never {
+impl IntoResult<()> for ! {
     fn into_result(self) -> Result<(), RunSystemError> {
         self
     }
 }
 
-impl IntoResult<bool> for Never {
+impl IntoResult<bool> for ! {
     fn into_result(self) -> Result<bool, RunSystemError> {
         self
     }

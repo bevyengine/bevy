@@ -189,7 +189,7 @@ fn overlay_scene() -> impl Scene {
                 @entity_tree_body()
             ]
             --
-            @panel_window(px(240), px(280))
+            @panel_window(px(240), px(320))
             InspectorOverlayPanel::Details
             Children [
                 @panel_header("Details")

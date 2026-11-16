@@ -20,8 +20,8 @@ use bevy_text::{
     add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
     DefaultFontSource, EditableText, EditableTextGeneration, Font, FontAtlasKey, FontAtlasSet,
     FontCx, FontHinting, FontSize, FontSmoothing, GlyphCacheKey, LayoutCx, LineBreak, LineHeight,
-    Placeholder, PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush, TextFont, TextLayout,
-    TextLayoutInfo, TextLineYBounds,
+    Placeholder, PlaceholderMode, PositionedGlyph, RemSize, RunGeometry, ScaleCx, TextBrush,
+    TextFont, TextLayout, TextLayoutInfo, TextLineYBounds,
 };
 use bevy_time::{Real, Time};
 use parley::{BoundingBox, GlyphRun, PositionedLayoutItem, StyleProperty};
@@ -541,7 +541,10 @@ pub fn update_editable_text_layout(
                 if layout_changed
                     || hinting.is_changed()
                     || placeholder.is_changed()
-                    || focus_changed =>
+                    // Only re-layout on focus changes affecting this hint
+                    || (focus_changed
+                        && placeholder.mode == PlaceholderMode::UnlessFocused
+                        && (is_focused || *previous_focus == Some(entity))) =>
             {
                 info.placeholder_glyphs.clear();
                 if placeholder.is_shown(&editable_text, is_focused) {
@@ -672,7 +675,7 @@ mod tests {
     use alloc::borrow::Cow;
     use bevy_app::{App, Update};
     use bevy_ecs::{change_detection::Mut, world::World};
-    use bevy_text::{PlaceholderMode, TextColor};
+    use bevy_text::TextColor;
     use parley::{FontFamilyName, PlainEditorDriver};
 
     struct Fixture {
@@ -997,6 +1000,45 @@ mod tests {
         app.insert_resource(InputFocus::default());
         app.update();
         assert!(!info(&app, entity).placeholder_glyphs.is_empty());
+    }
+
+    #[test]
+    fn focus_changes_only_relayout_the_hints_they_affect() {
+        // A truncated hint stays truncated until it is laid out again.
+        fn truncate(app: &mut App, entity: Entity) {
+            app.world_mut()
+                .get_mut::<TextLayoutInfo>(entity)
+                .unwrap()
+                .placeholder_glyphs
+                .truncate(1);
+        }
+        fn focus(app: &mut App, entity: Entity) {
+            app.insert_resource(InputFocus::from_entity(entity));
+            app.update();
+        }
+
+        // `WhileEmpty` hints don't depend on focus.
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        let other = app.world_mut().spawn_empty().id();
+        truncate(&mut app, entity);
+        focus(&mut app, entity);
+        focus(&mut app, other);
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+
+        // `UnlessFocused` hints only depend on their own field's focus.
+        let (mut app, entity) = app_with_field(Placeholder {
+            mode: PlaceholderMode::UnlessFocused,
+            ..Placeholder::new("Search")
+        });
+        let [a, b] = [(); 2].map(|()| app.world_mut().spawn_empty().id());
+        truncate(&mut app, entity);
+        focus(&mut app, a);
+        focus(&mut app, b);
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+        focus(&mut app, entity);
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+        focus(&mut app, a);
+        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 6);
     }
 
     #[test]
