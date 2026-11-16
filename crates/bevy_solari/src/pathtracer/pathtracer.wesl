@@ -1,6 +1,6 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
-import bevy_render::view::View;
+import bevy_render::view::{View, apply_hdr_ceiling};
 import package::scene::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB};
 import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic, sample_environment_map_light};
 import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
@@ -90,11 +90,9 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
-    // Camera exposure
-    radiance *= view.exposure;
-
-    // Accumulation over time via running average
+    // Accumulation over time via running average, in absolute radiance so it doesn't depend on
+    // the exposure of earlier frames
     let new_color = mix(old_color.rgb, radiance, 1.0 / (old_color.a + 1.0));
     textureStore(accumulation_texture, global_id.xy, vec4(new_color, old_color.a + 1.0));
-    textureStore(view_output, global_id.xy, vec4(new_color, 1.0));
+    textureStore(view_output, global_id.xy, vec4(apply_hdr_ceiling(new_color * view.exposure), 1.0));
 }

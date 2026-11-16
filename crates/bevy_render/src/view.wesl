@@ -98,6 +98,22 @@ struct View {
     frame_count: u32,
 };
 
+/// The largest exposed value shaders write to a view's HDR main texture.
+///
+/// Two stops under the largest finite `Rgba16Float` value (65504), leaving headroom for light that
+/// later passes add on top. Light many stops brighter than the view's exposure reaches it.
+const HDR_CEILING: f32 = 16384.0;
+
+/// Scales `color` down so that no channel exceeds [`HDR_CEILING`], keeping its hue for bloom.
+///
+/// Infinite channels count as the largest finite value; the result for NaN channels is
+/// implementation-defined.
+fn apply_hdr_ceiling(color: vec3<f32>) -> vec3<f32> {
+    let finite = min(color, vec3(3.40282347e+38));
+    let peak = max(finite.r, max(finite.g, finite.b));
+    return select(finite, finite * (HDR_CEILING / peak), peak > HDR_CEILING);
+}
+
 // -----------------
 // TO WORLD --------
 // -----------------

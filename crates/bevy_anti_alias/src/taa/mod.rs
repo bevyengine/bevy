@@ -22,13 +22,14 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_depth_2d},
+        binding_types::{sampler, texture_2d, texture_depth_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, Canonical, ColorTargetState, ColorWrites, FilterMode,
         FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
-        ShaderStages, Specializer, SpecializerKey, TextureDescriptor, TextureDimension,
+        ShaderStages, ShaderType, Specializer, SpecializerKey, TextureDescriptor, TextureDimension,
         TextureFormat, TextureSampleType, TextureUsages, Variants,
     },
     renderer::{RenderContext, RenderDevice, ViewQuery},
@@ -51,7 +52,10 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "taa.wesl");
 
-        app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
+        app.add_plugins((
+            SyncComponentPlugin::<TemporalAntiAliasing>::default(),
+            UniformComponentPlugin::<TaaUniform>::default(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -64,7 +68,10 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     prepare_taa_jitter.in_set(RenderSystems::PrepareViews),
                     prepare_taa_pipelines.in_set(RenderSystems::Prepare),
-                    prepare_taa_history_textures.in_set(RenderSystems::PrepareResources),
+                    // Inserts each view's `TaaUniform` before the uniforms upload.
+                    prepare_taa_history_textures
+                        .in_set(RenderSystems::Prepare)
+                        .before(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -109,6 +116,9 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
+///
+/// The history follows changes to the view's exposure (`view.exposure` in shaders), so an exposure
+/// change doesn't fade in over several frames.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(TemporalJitter, MipBias, DepthPrepass, MotionVectorPrepass)]
@@ -141,14 +151,23 @@ pub fn temporal_anti_alias(
         &TemporalAntiAliasHistoryTextures,
         &ViewPrepassTextures,
         &TemporalAntiAliasPipelineId,
+        &DynamicUniformIndex<TaaUniform>,
         &Msaa,
     )>,
     pipelines: Option<Res<TaaPipeline>>,
+    uniforms: Res<ComponentUniforms<TaaUniform>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
-    let (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa) =
-        view.into_inner();
+    let (
+        camera,
+        view_target,
+        taa_history_textures,
+        prepass_textures,
+        taa_pipeline_id,
+        uniform_offset,
+        msaa,
+    ) = view.into_inner();
 
     if *msaa != Msaa::Off {
         warn!("Temporal anti-aliasing requires MSAA to be disabled");
@@ -158,11 +177,18 @@ pub fn temporal_anti_alias(
     let Some(pipelines) = pipelines else {
         return;
     };
-    let (Some(taa_pipeline), Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) = (
+    let (
+        Some(taa_pipeline),
+        Some(prepass_motion_vectors_texture),
+        Some(prepass_depth_texture),
+        Some(uniforms),
+    ) = (
         pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
         &prepass_textures.motion_vectors,
         &prepass_textures.depth,
-    ) else {
+        uniforms.binding(),
+    )
+    else {
         return;
     };
 
@@ -178,6 +204,7 @@ pub fn temporal_anti_alias(
             &prepass_depth_texture.texture.default_view,
             &pipelines.nearest_sampler,
             &pipelines.linear_sampler,
+            uniforms,
         )),
     );
 
@@ -208,7 +235,7 @@ pub fn temporal_anti_alias(
     let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
 
     taa_pass.set_render_pipeline(taa_pipeline);
-    taa_pass.set_bind_group(0, &taa_bind_group, &[]);
+    taa_pass.set_bind_group(0, &taa_bind_group, &[uniform_offset.index()]);
     if let Some(viewport) = camera.viewport.as_ref() {
         taa_pass.set_camera_viewport(viewport);
     }
@@ -261,6 +288,8 @@ fn init_taa_pipeline(
                 sampler(SamplerBindingType::NonFiltering),
                 // Linear sampler
                 sampler(SamplerBindingType::Filtering),
+                // Uniforms
+                uniform_buffer::<TaaUniform>(true),
             ),
         ),
     );
@@ -387,6 +416,25 @@ fn prepare_taa_jitter(
 pub struct TemporalAntiAliasHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
+    /// The exposure the view renders with this frame, which `write` stores the history at.
+    exposure: f32,
+}
+
+/// The per-view TAA settings the shader reads.
+#[derive(Component, Clone, Copy, ShaderType)]
+pub struct TaaUniform {
+    /// The view's exposure divided by the exposure the history was stored at, which rescales the
+    /// history to this frame's exposure.
+    history_exposure_correction: f32,
+}
+
+/// The factor that rescales history stored at `history_exposure` to `exposure`, or 1 when there
+/// is no history exposure or the factor isn't positive and finite.
+fn history_exposure_correction(exposure: f32, history_exposure: Option<f32>) -> f32 {
+    history_exposure
+        .map(|history_exposure| exposure / history_exposure)
+        .filter(|correction| correction.is_finite() && *correction > 0.0)
+        .unwrap_or(1.0)
 }
 
 fn prepare_taa_history_textures(
@@ -394,9 +442,17 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    cameras: Query<(Entity, &ExtractedView, &ExtractedCamera), With<TemporalAntiAliasing>>,
+    cameras: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedCamera,
+            Option<&TemporalAntiAliasHistoryTextures>,
+        ),
+        With<TemporalAntiAliasing>,
+    >,
 ) {
-    for (entity, view, camera) in &cameras {
+    for (entity, view, camera, history) in &cameras {
         if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
@@ -415,19 +471,29 @@ fn prepare_taa_history_textures(
             texture_descriptor.label = Some("taa_history_2_texture");
             let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
-            let textures = if frame_count.0.is_multiple_of(2) {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_1_texture,
-                    read: history_2_texture,
-                }
+            let (write, read) = if frame_count.0.is_multiple_of(2) {
+                (history_1_texture, history_2_texture)
             } else {
-                TemporalAntiAliasHistoryTextures {
-                    write: history_2_texture,
-                    read: history_1_texture,
-                }
+                (history_2_texture, history_1_texture)
             };
 
-            commands.entity(entity).insert(textures);
+            // Last frame's `write` texture is this frame's `read` texture, so last frame's exposure
+            // is the history's.
+            let uniform = TaaUniform {
+                history_exposure_correction: history_exposure_correction(
+                    camera.exposure,
+                    history.map(|history| history.exposure),
+                ),
+            };
+
+            commands.entity(entity).insert((
+                TemporalAntiAliasHistoryTextures {
+                    write,
+                    read,
+                    exposure: camera.exposure,
+                },
+                uniform,
+            ));
         }
     }
 }
