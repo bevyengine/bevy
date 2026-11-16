@@ -300,6 +300,7 @@ impl PartialEq for Val {
 
         match (same_unit, left, right) {
             (true, Ok(a), Ok(b)) => a == b,
+            (true, Err(_), Err(_)) => true,
             // All zero-value variants are considered equal.
             (false, Ok(a), Ok(b)) => a == 0. && b == 0.,
             _ => false,
@@ -542,18 +543,9 @@ impl Default for Val {
 impl Mul<f32> for Val {
     type Output = Val;
 
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-            Val::Em(value) => Val::Em(value * rhs),
-            Val::Rem(value) => Val::Rem(value * rhs),
-            non_numeric => non_numeric,
-        }
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        self *= rhs;
+        self
     }
 }
 
@@ -576,19 +568,9 @@ impl MulAssign<f32> for Val {
 impl Div<f32> for Val {
     type Output = Val;
 
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-            Val::Em(value) => Val::Em(value / rhs),
-            Val::Rem(value) => Val::Rem(value / rhs),
-            non_numeric => non_numeric,
-        }
+    fn div(mut self, rhs: f32) -> Self::Output {
+        self *= rhs;
+        self
     }
 }
 
@@ -612,16 +594,9 @@ impl Neg for Val {
     type Output = Val;
 
     fn neg(self) -> Self::Output {
-        match self {
-            Val::Px(value) => Val::Px(-value),
-            Val::Percent(value) => Val::Percent(-value),
-            Val::Vw(value) => Val::Vw(-value),
-            Val::Vh(value) => Val::Vh(-value),
-            Val::VMin(value) => Val::VMin(-value),
-            Val::VMax(value) => Val::VMax(-value),
-            Val::Em(value) => Val::Em(-value),
-            Val::Rem(value) => Val::Rem(-value),
-            non_numeric => non_numeric,
+        match self.unit_value() {
+            Ok((unit, value)) => unit.with_value(-value),
+            Err(_) => self,
         }
     }
 }
@@ -793,6 +768,28 @@ mod tests {
     use bevy_math::vec2;
 
     use super::*;
+
+    #[test]
+    fn val_non_numeric_equality() {
+        let values = [
+            Val::Auto,
+            Val::MinContent,
+            Val::MaxContent,
+            Val::FitContent,
+            Val::Stretch,
+            Val::Content,
+        ];
+
+        for (i, left) in values.iter().enumerate() {
+            for (j, right) in values.iter().enumerate() {
+                assert_eq!(left == right, i == j);
+            }
+            for unit in ValUnit::ALL {
+                assert_ne!(*left, unit.with_value(0.));
+                assert_ne!(unit.with_value(0.), *left);
+            }
+        }
+    }
 
     #[test]
     fn val_evaluate() {
