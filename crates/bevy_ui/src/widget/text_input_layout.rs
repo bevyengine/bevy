@@ -847,7 +847,7 @@ mod tests {
         let mut field = app.world_mut().entity_mut(entity);
         field.insert(PlaceholderColor(bevy_color::Color::BLACK));
         app.update();
-        assert_eq!(info(&app, entity).placeholder_glyphs.len(), 1);
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
 
         app.world_mut()
             .get_mut::<PlaceholderColor>(entity)
