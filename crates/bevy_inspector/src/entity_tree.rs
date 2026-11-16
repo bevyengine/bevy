@@ -215,7 +215,8 @@ pub(crate) fn reveal_in_tree(world: &mut World) {
     };
     let selected = world.resource::<InspectorSelection>().0
         == Some(InspectableEntity::new(target, InspectorSource::Local));
-    if !selected || world.get_entity(target).is_err() {
+    // An excluded entity never gets a row, so waiting for one would retry forever.
+    if !selected || world.get_entity(target).is_err() || is_excluded(world, target) {
         world.resource_mut::<TreeReveal>().0 = None;
         return;
     }
@@ -965,6 +966,61 @@ mod tests {
         let sources = row_sources(app.world(), local_header.unwrap());
         assert!(sources.contains(&local));
         assert!(!sources.contains(&parent));
+    }
+
+    #[test]
+    fn revealing_a_row_scrolls_it_into_view() {
+        #[derive(Resource, Default)]
+        struct Scrolled(usize);
+
+        let mut app = test_app();
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        app.world_mut().spawn((InspectorTreeView, ChildOf(panel)));
+        let target = app.world_mut().spawn(Name::new("Target")).id();
+        app.init_resource::<Scrolled>();
+        app.world_mut()
+            .add_observer(|_: On<ScrollIntoView>, mut scrolled: ResMut<Scrolled>| scrolled.0 += 1);
+        app.update();
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
+
+        let row = app
+            .world()
+            .resource::<TreeRowIndex>()
+            .row(target, InspectorSource::Local)
+            .unwrap();
+        let header = child_with::<FeathersTreeItemHeader>(app.world(), row).unwrap_or(row);
+        app.world_mut().entity_mut(header).insert(ComputedNode {
+            size: bevy_math::Vec2::splat(10.0),
+            ..ComputedNode::default()
+        });
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(target, InspectorSource::Local));
+        app.world_mut().resource_mut::<TreeReveal>().0 = Some(target);
+        app.update();
+
+        assert_eq!(app.world().resource::<Scrolled>().0, 1);
+        assert!(app.world().resource::<TreeReveal>().0.is_none());
+    }
+
+    #[test]
+    fn revealing_an_entity_without_a_row_stops_asking() {
+        let mut app = test_app();
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        app.world_mut().spawn((InspectorTreeView, ChildOf(panel)));
+        let hidden_ui = app.world_mut().spawn(InspectorUi).id();
+        let excluded = app
+            .world_mut()
+            .spawn((Name::new("Excluded"), ChildOf(hidden_ui)))
+            .id();
+        app.update();
+
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(excluded, InspectorSource::Local));
+        app.world_mut().resource_mut::<TreeReveal>().0 = Some(excluded);
+        app.update();
+
+        assert!(app.world().resource::<TreeReveal>().0.is_none());
     }
 
     #[test]
