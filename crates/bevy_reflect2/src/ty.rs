@@ -193,16 +193,21 @@ impl Type {
             // If `func` panics, the allocation for this type will be leaked.
             (func)(field, field_ptr);
         }
-        // SAFETY: `ptr` was allocated by `alloc_struct`, and the caller guarantees that every
-        // reflected field is now initialized
-        Some(unsafe { self.finish_struct(struct_type, ptr) })
+        // SAFETY: `alloc_struct` returns a valid allocation of this type, and `alloc_struct` checks
+        // that all ignored fields have reflected default impls.
+        unsafe { initialize_ignored_fields(struct_type, ptr) }
+        // SAFETY: We've initialized the regular fields and the ignored fields, and `Struct::new`
+        // ensures this covers all fields, and `alloc_struct` ensures all uncovered bytes are
+        // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
+        // the global allocator (or the type is a ZST).
+        Some(unsafe { self.box_from_raw(ptr) })
     }
 
     /// Allocates memory for a value of `struct_type` (the [`Kind`] of this type), which is zeroed
     /// if the struct requires it (see [`UncoveredBytes`]).
     ///
     /// Returns `None` if this type is unsized, or has an ignored field without a `default`
-    /// function (which [`Type::finish_struct`] could not initialize).
+    /// function (which [`initialize_ignored_fields`] could not initialize).
     fn alloc_struct(&self, struct_type: &Struct) -> Option<NonNull<u8>> {
         if struct_type
             .ignored_fields()
@@ -215,31 +220,6 @@ impl Type {
             UncoveredBytes::Padding => self.alloc(),
             UncoveredBytes::Zeroed => self.alloc_zeroed(),
         }
-    }
-
-    /// Initializes the [ignored fields](Struct::ignored_fields) of the struct at `ptr` with
-    /// their default, and takes ownership of it.
-    ///
-    /// # Safety
-    ///
-    /// `struct_type` must be the [`Kind`] of this type, `ptr` must have been allocated by
-    /// [`Type::alloc_struct`] with it (which ensures that ignored fields without default impls are not allowed),
-    /// and every reflected field of `ptr` must be initialized.
-    unsafe fn finish_struct(&self, struct_type: &Struct, ptr: NonNull<u8>) -> Box<dyn Reflect> {
-        for field in struct_type.ignored_fields() {
-            // Skipping a field would leave it uninitialized, so this panics (leaking `ptr`) instead
-            // `alloc_struct` checked to ensure ignored fields have defaults, so this should never panic.
-            let default = field.vtable.default.unwrap();
-            // SAFETY: `Struct::new` guarantees that `field.offset` is the location of the field in
-            // this allocation, and that `default` is valid for the field's type
-            unsafe { default(ptr.as_ptr().add(field.offset)) };
-        }
-
-        // SAFETY: the caller guarantees that every reflected field is initialized, and every
-        // ignored field was initialized above. `Struct::new` guarantees that these are all of the struct's fields, and that
-        // every other byte is either padding (which doesn't need to be initialized), or was zeroed
-        // by `alloc_struct`, which `Struct::new` guarantees is valid.
-        unsafe { self.box_from_raw(ptr) }
     }
 
     /// Constructs a new value of this struct type from the values of its reflected fields, in the
@@ -264,9 +244,14 @@ impl Type {
         // SAFETY: `ptr` was allocated by `alloc_struct` (which uses `Type::alloc`), and
         // `Struct::new` guarantees that each field is at its offset in it, with its type
         unsafe { self.move_values_into(ptr, fields, values)? };
-        // SAFETY: `ptr` was allocated by `alloc_struct`, and every reflected field was initialized
-        // above
-        Some(unsafe { self.finish_struct(struct_type, ptr) })
+        // SAFETY: `alloc_struct` returns a valid allocation of this type, and `alloc_struct` checks
+        // that all ignored fields have reflected default impls.
+        unsafe { initialize_ignored_fields(struct_type, ptr) }
+        // SAFETY: We've initialized the regular fields and the ignored fields, and `Struct::new`
+        // ensures this covers all fields, and `alloc_struct` ensures all uncovered bytes are
+        // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
+        // the global allocator (or the type is a ZST).
+        Some(unsafe { self.box_from_raw(ptr) })
     }
 
     /// Constructs a new value of this array type from its items.
@@ -439,5 +424,26 @@ impl<I: Iterator<Item = (usize, &'static Type)>> Drop for PartialConstruct<'_, I
         }
         // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
         unsafe { self.ty.dealloc(self.dst) };
+    }
+}
+
+/// Initializes the [ignored fields](Struct::ignored_fields) of the struct at `ptr` with
+/// their default.
+///
+/// Overwritten values are leaked. If the default impl panics, all previously written values are
+/// leaked.
+///
+/// # Safety
+///
+/// `ptr` must be valid for writes of the `struct_type`, and all ignored fields of `struct_type`
+/// must have a default impl reflected.
+unsafe fn initialize_ignored_fields(struct_type: &Struct, ptr: NonNull<u8>) {
+    for field in struct_type.ignored_fields() {
+        // SAFETY: Safety precondition ensures that all ignored fields of `struct_type` has a
+        // reflected default impl.
+        let default = unsafe { field.vtable.default.unwrap_unchecked() };
+        // SAFETY: `Struct::new` guarantees that `field.offset` is the location of the field in
+        // this allocation, and that `default` is valid for the field's type
+        unsafe { default(ptr.as_ptr().add(field.offset)) };
     }
 }
