@@ -267,27 +267,9 @@ impl core::str::FromStr for Val {
 
         let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
 
-        let unit = unit.trim();
+        let unit = ValUnit::from_str(unit)?;
 
-        if unit.eq_ignore_ascii_case("px") {
-            Ok(Val::Px(value))
-        } else if unit.eq_ignore_ascii_case("%") {
-            Ok(Val::Percent(value))
-        } else if unit.eq_ignore_ascii_case("vw") {
-            Ok(Val::Vw(value))
-        } else if unit.eq_ignore_ascii_case("vh") {
-            Ok(Val::Vh(value))
-        } else if unit.eq_ignore_ascii_case("vmin") {
-            Ok(Val::VMin(value))
-        } else if unit.eq_ignore_ascii_case("vmax") {
-            Ok(Val::VMax(value))
-        } else if unit.eq_ignore_ascii_case("rem") {
-            Ok(Val::Rem(value))
-        } else if unit.eq_ignore_ascii_case("em") {
-            Ok(Val::Em(value))
-        } else {
-            Err(ValParseError::InvalidUnit)
-        }
+        Ok(unit.with_value(value))
     }
 }
 
@@ -317,9 +299,9 @@ impl PartialEq for Val {
         let right = other.value();
 
         match (same_unit, left, right) {
-            (true, a, b) => a == b,
+            (true, Ok(a), Ok(b)) => a == b,
             // All zero-value variants are considered equal.
-            (false, Some(a), Some(b)) => a == 0. && b == 0.,
+            (false, Ok(a), Ok(b)) => a == 0. && b == 0.,
             _ => false,
         }
     }
@@ -335,25 +317,25 @@ impl Val {
     pub const MAX: Self = Self::Px(f32::MAX);
 
     /// Returns the unit and value of a numeric `Val`, or `None` otherwise.
-    pub const fn unit_value(self) -> Option<(ValUnit, f32)> {
+    pub const fn unit_value(self) -> Result<(ValUnit, f32), ValArithmeticError> {
         match self {
-            Self::Px(v) => Some((ValUnit::Px, v)),
-            Self::Percent(v) => Some((ValUnit::Percent, v)),
-            Self::Vw(v) => Some((ValUnit::Vw, v)),
-            Self::Vh(v) => Some((ValUnit::Vh, v)),
-            Self::VMin(v) => Some((ValUnit::VMin, v)),
-            Self::VMax(v) => Some((ValUnit::VMax, v)),
-            Self::Em(v) => Some((ValUnit::Em, v)),
-            Self::Rem(v) => Some((ValUnit::Rem, v)),
-            _ => None,
+            Self::Px(v) => Ok((ValUnit::Px, v)),
+            Self::Percent(v) => Ok((ValUnit::Percent, v)),
+            Self::Vw(v) => Ok((ValUnit::Vw, v)),
+            Self::Vh(v) => Ok((ValUnit::Vh, v)),
+            Self::VMin(v) => Ok((ValUnit::VMin, v)),
+            Self::VMax(v) => Ok((ValUnit::VMax, v)),
+            Self::Em(v) => Ok((ValUnit::Em, v)),
+            Self::Rem(v) => Ok((ValUnit::Rem, v)),
+            _ => Err(ValArithmeticError::NonEvaluable),
         }
     }
 
     /// Returns the unit of this `Val` if it is a numeric variant, or `None` otherwise.
-    pub const fn unit(self) -> Option<ValUnit> {
+    pub const fn unit(self) -> Result<ValUnit, ValArithmeticError> {
         match self.unit_value() {
-            Some((unit, _)) => Some(unit),
-            None => None,
+            Ok((unit, _)) => Ok(unit),
+            Err(err) => Err(err),
         }
     }
 
@@ -361,10 +343,10 @@ impl Val {
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    pub const fn value(self) -> Option<f32> {
+    pub const fn value(self) -> Result<f32, ValArithmeticError> {
         match self.unit_value() {
-            Some((_, value)) => Some(value),
-            None => None,
+            Ok((_, value)) => Ok(value),
+            Err(err) => Err(err),
         }
     }
 
@@ -517,16 +499,13 @@ impl Val {
     /// );
     /// ```
     pub const fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
-            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u + v)),
-            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u + v)),
-            _ => Err(ValArithmeticError::IncompatibleUnits),
+        if let Ok((u, x)) = self.unit_value()
+            && let Ok((v, y)) = val.unit_value()
+            && (u as u8) == (v as u8)
+        {
+            Ok(u.with_value(x + y))
+        } else {
+            Err(ValArithmeticError::IncompatibleUnits)
         }
     }
 
@@ -543,16 +522,13 @@ impl Val {
     /// );
     /// ```
     pub const fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
-            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u - v)),
-            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u - v)),
-            _ => Err(ValArithmeticError::IncompatibleUnits),
+        if let Ok((u, x)) = self.unit_value()
+            && let Ok((v, y)) = val.unit_value()
+            && (u as u8) == (v as u8)
+        {
+            Ok(u.with_value(x - y))
+        } else {
+            Err(ValArithmeticError::IncompatibleUnits)
         }
     }
 }
