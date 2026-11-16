@@ -75,6 +75,11 @@ fn main() {
     )
     .add_systems(Update, switch_scene);
 
+    for (scene, scale) in ui_scale::SCENES {
+        app.add_systems(OnEnter(scene), ui_scale::setup(scene, scale))
+            .add_systems(OnExit(scene), ui_scale::reset);
+    }
+
     match args.scene {
         None => app.init_state::<Scene>(),
         Some(scene) => app.insert_state(scene),
@@ -123,6 +128,9 @@ enum Scene {
     ChangeDetection,
     Block,
     InlineImage,
+    UiScale70,
+    UiScale100,
+    UiScale125,
 }
 
 impl Scene {
@@ -155,6 +163,9 @@ impl Scene {
         Scene::ChangeDetection,
         Scene::Block,
         Scene::InlineImage,
+        Scene::UiScale70,
+        Scene::UiScale100,
+        Scene::UiScale125,
     ];
 }
 
@@ -4177,6 +4188,387 @@ mod inline_image {
                 --
                 TextSpan::new(" after image")
             ]
+        }
+    }
+}
+
+mod ui_scale {
+    use super::Scene;
+    use bevy::{color::palettes::css::*, prelude::*, ui::ColorStop};
+
+    pub const SCENES: [(Scene, f32); 3] = [
+        (Scene::UiScale70, 0.7),
+        (Scene::UiScale100, 1.0),
+        (Scene::UiScale125, 1.25),
+    ];
+
+    pub fn reset(mut ui_scale: ResMut<UiScale>) {
+        *ui_scale = UiScale::default();
+    }
+
+    fn cell() -> impl Bundle {
+        (
+            Node {
+                flex_direction: FlexDirection::Column,
+                padding: px(8).all(),
+                row_gap: px(8),
+                border_radius: BorderRadius::all(px(8)),
+                ..default()
+            },
+            BackgroundColor(DARK_SLATE_GRAY.into()),
+        )
+    }
+
+    fn caption(label: &str) -> impl Bundle {
+        (Text::new(label), TextFont::from_font_size(14.))
+    }
+
+    fn row() -> Node {
+        Node {
+            align_items: AlignItems::Center,
+            column_gap: px(16),
+            ..default()
+        }
+    }
+
+    // The grid is sized so it still fits the 1280x720 window at the largest scale.
+    pub fn setup(scene: Scene, scale: f32) -> impl Fn(Commands, Res<AssetServer>, ResMut<UiScale>) {
+        move |mut commands, asset_server, mut ui_scale| {
+            ui_scale.0 = scale;
+            commands.spawn((Camera2d, DespawnOnExit(scene)));
+            let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+            let icon: Handle<Image> = asset_server.load("branding/icon.png");
+
+            commands
+                .spawn((
+                    Node {
+                        width: percent(100),
+                        height: percent(100),
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        row_gap: px(12),
+                        ..default()
+                    },
+                    DespawnOnExit(scene),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new(format!("UiScale({scale})")),
+                        TextFont {
+                            font: font.clone().into(),
+                            font_size: FontSize::Px(32.),
+                            ..default()
+                        },
+                    ));
+                    parent
+                        .spawn((
+                            Node {
+                                display: Display::Grid,
+                                grid_template_columns: RepeatedGridTrack::px(3, 300.),
+                                grid_template_rows: RepeatedGridTrack::px(2, 210.),
+                                row_gap: px(16),
+                                column_gap: px(16),
+                                padding: px(12).all(),
+                                border: px(4).all(),
+                                border_radius: BorderRadius::all(px(16)),
+                                ..default()
+                            },
+                            BackgroundColor(MIDNIGHT_BLUE.into()),
+                            BorderColor::all(GOLD),
+                            Outline::new(px(3), px(4), WHITE.into()),
+                            BoxShadow::new(Color::BLACK, px(0), px(6), px(2), px(16)),
+                        ))
+                        .with_children(|grid| {
+                            grid.spawn(cell()).with_children(|cell| {
+                                cell.spawn(row()).with_children(|row| {
+                                    for size in [12., 20., 28.] {
+                                        row.spawn((
+                                            Text::new(format!("{size}px")),
+                                            TextFont {
+                                                font: font.clone().into(),
+                                                font_size: FontSize::Px(size),
+                                                ..default()
+                                            },
+                                        ));
+                                    }
+                                });
+                                cell.spawn((
+                                    Text::new(
+                                        "This paragraph wraps inside a fixed width cell, so its \
+                                         line breaks shift if text measurement ignores the scale.",
+                                    ),
+                                    TextFont::from_font_size(16.),
+                                    Node {
+                                        width: percent(100),
+                                        ..default()
+                                    },
+                                ));
+                                cell.spawn(row()).with_children(|row| {
+                                    for (width, height, font_size, label, color) in [
+                                        (rem(5), rem(2), FontSize::Rem(0.875), "rem", INDIGO),
+                                        (vw(7), vh(4), FontSize::Vw(1.1), "vw vh", SADDLE_BROWN),
+                                        (em(5), em(2), FontSize::Px(14.), "em", DARK_GREEN),
+                                    ] {
+                                        row.spawn((
+                                            Node {
+                                                width,
+                                                height,
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::Center,
+                                                ..default()
+                                            },
+                                            EmSize(14.),
+                                            BackgroundColor(color.into()),
+                                            children![(
+                                                Text::new(label),
+                                                TextFont::from_font_size(font_size)
+                                            )],
+                                        ));
+                                    }
+                                });
+                            });
+
+                            grid.spawn(cell()).with_children(|cell| {
+                                cell.spawn(caption("Borders, radius, outlines"));
+                                cell.spawn(row()).with_children(|row| {
+                                    row.spawn((
+                                        Node {
+                                            width: px(72),
+                                            height: px(72),
+                                            border: px(6).all(),
+                                            border_radius: BorderRadius::all(px(18)),
+                                            ..default()
+                                        },
+                                        BorderColor::all(RED),
+                                        BackgroundColor(NAVY.into()),
+                                    ));
+                                    row.spawn((
+                                        Node {
+                                            width: px(72),
+                                            height: px(72),
+                                            border: UiRect {
+                                                left: px(12),
+                                                top: px(4),
+                                                right: px(4),
+                                                bottom: px(8),
+                                            },
+                                            border_radius: BorderRadius::MAX,
+                                            ..default()
+                                        },
+                                        BorderColor::all(LIME),
+                                        BackgroundColor(MAROON.into()),
+                                        Outline::new(px(3), px(3), YELLOW.into()),
+                                    ));
+                                    row.spawn((
+                                        Node {
+                                            width: px(72),
+                                            height: px(48),
+                                            border_radius: BorderRadius::top_left(px(24)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(TEAL.into()),
+                                        Outline::new(px(4), px(6), ORANGE.into()),
+                                    ));
+                                });
+                            });
+
+                            grid.spawn(cell()).with_children(|cell| {
+                                cell.spawn(caption("Image, box shadow"));
+                                cell.spawn(row()).with_children(|row| {
+                                    row.spawn((
+                                        ImageNode::new(icon.clone()),
+                                        Node {
+                                            width: px(96),
+                                            height: px(96),
+                                            border_radius: BorderRadius::all(px(24)),
+                                            ..default()
+                                        },
+                                    ));
+                                    row.spawn((
+                                        ImageNode::new(icon.clone()),
+                                        Node {
+                                            width: percent(20),
+                                            ..default()
+                                        },
+                                    ));
+                                    row.spawn((
+                                        Node {
+                                            width: px(72),
+                                            height: px(72),
+                                            border_radius: BorderRadius::all(px(12)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(CORNFLOWER_BLUE.into()),
+                                        BoxShadow::new(
+                                            Color::BLACK.with_alpha(0.8),
+                                            px(8),
+                                            px(8),
+                                            px(4),
+                                            px(10),
+                                        ),
+                                    ));
+                                });
+                            });
+
+                            grid.spawn(cell()).with_children(|cell| {
+                                cell.spawn(caption("Nine-slice"));
+                                cell.spawn((
+                                    ImageNode {
+                                        image: asset_server.load(
+                                            "textures/fantasy_ui_borders/numbered_slices.png",
+                                        ),
+                                        image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                            border: BorderRect::all(16.0),
+                                            center_scale_mode: SliceScaleMode::Tile {
+                                                stretch_value: 1.0,
+                                            },
+                                            sides_scale_mode: SliceScaleMode::Tile {
+                                                stretch_value: 1.0,
+                                            },
+                                            ..default()
+                                        }),
+                                        ..default()
+                                    },
+                                    Node {
+                                        width: percent(100),
+                                        height: px(70),
+                                        ..default()
+                                    },
+                                ));
+                                cell.spawn((
+                                    ImageNode {
+                                        image: asset_server.load(
+                                            "textures/fantasy_ui_borders/panel-border-010.png",
+                                        ),
+                                        image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                            border: BorderRect::all(22.0),
+                                            center_scale_mode: SliceScaleMode::Stretch,
+                                            sides_scale_mode: SliceScaleMode::Stretch,
+                                            max_corner_scale: 1.0,
+                                        }),
+                                        ..default()
+                                    },
+                                    Node {
+                                        width: px(200),
+                                        height: px(70),
+                                        ..default()
+                                    },
+                                ));
+                            });
+
+                            grid.spawn(cell()).with_children(|cell| {
+                                cell.spawn(caption("Linear and radial gradients"));
+                                cell.spawn((
+                                    Node {
+                                        width: percent(100),
+                                        height: px(50),
+                                        border_radius: BorderRadius::all(px(10)),
+                                        ..default()
+                                    },
+                                    BackgroundGradient::from(LinearGradient::new(
+                                        LinearGradient::TO_RIGHT,
+                                        vec![
+                                            ColorStop::auto(RED),
+                                            ColorStop::auto(YELLOW),
+                                            ColorStop::auto(BLUE),
+                                        ],
+                                    )),
+                                ));
+                                cell.spawn(row()).with_children(|row| {
+                                    row.spawn((
+                                        Node {
+                                            width: percent(45),
+                                            height: px(100),
+                                            ..default()
+                                        },
+                                        BackgroundGradient::from(RadialGradient::new(
+                                            UiPosition::CENTER,
+                                            RadialGradientShape::FarthestCorner,
+                                            vec![
+                                                ColorStop::new(WHITE, px(10)),
+                                                ColorStop::new(ORANGE, px(30)),
+                                                ColorStop::auto(PURPLE),
+                                            ],
+                                        )),
+                                    ));
+                                    row.spawn((
+                                        Node {
+                                            width: px(100),
+                                            height: px(100),
+                                            border_radius: BorderRadius::MAX,
+                                            ..default()
+                                        },
+                                        BackgroundGradient::from(RadialGradient::new(
+                                            UiPosition::TOP_LEFT,
+                                            RadialGradientShape::Circle(px(80)),
+                                            vec![ColorStop::auto(LIME), ColorStop::auto(NAVY)],
+                                        )),
+                                    ));
+                                });
+                            });
+
+                            grid.spawn(cell()).with_children(|cell| {
+                                cell.spawn(caption("Overflow clip, UiTransform"));
+                                cell.spawn(row()).with_children(|row| {
+                                    row.spawn((
+                                        Node {
+                                            width: px(110),
+                                            height: px(110),
+                                            padding: UiRect {
+                                                left: px(20),
+                                                top: px(20),
+                                                ..default()
+                                            },
+                                            border: px(4).all(),
+                                            overflow: Overflow::clip(),
+                                            ..default()
+                                        },
+                                        BorderColor::all(RED),
+                                        BackgroundColor(Color::WHITE),
+                                    ))
+                                    .with_children(|clip| {
+                                        clip.spawn((
+                                            ImageNode::new(icon.clone()),
+                                            Node {
+                                                min_width: px(160),
+                                                min_height: px(160),
+                                                ..default()
+                                            },
+                                        ));
+                                    });
+                                    for (transform, label, color) in [
+                                        (
+                                            UiTransform::from_rotation(Rot2::degrees(30.)),
+                                            "30deg",
+                                            CRIMSON,
+                                        ),
+                                        (
+                                            UiTransform::from_scale(Vec2::new(1.2, 0.6)),
+                                            "scale",
+                                            DARK_CYAN,
+                                        ),
+                                    ] {
+                                        row.spawn((
+                                            Node {
+                                                width: px(60),
+                                                height: px(60),
+                                                align_items: AlignItems::Center,
+                                                justify_content: JustifyContent::Center,
+                                                ..default()
+                                            },
+                                            BackgroundColor(color.into()),
+                                            transform,
+                                            children![(
+                                                Text::new(label),
+                                                TextFont::from_font_size(14.)
+                                            )],
+                                        ));
+                                    }
+                                });
+                            });
+                        });
+                });
         }
     }
 }
