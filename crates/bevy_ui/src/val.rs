@@ -290,27 +290,9 @@ impl core::str::FromStr for Val {
 
         let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
 
-        let unit = unit.trim();
+        let unit = ValUnit::from_str(unit)?;
 
-        if unit.eq_ignore_ascii_case("px") {
-            Ok(Val::Px(value))
-        } else if unit.eq_ignore_ascii_case("%") {
-            Ok(Val::Percent(value))
-        } else if unit.eq_ignore_ascii_case("vw") {
-            Ok(Val::Vw(value))
-        } else if unit.eq_ignore_ascii_case("vh") {
-            Ok(Val::Vh(value))
-        } else if unit.eq_ignore_ascii_case("vmin") {
-            Ok(Val::VMin(value))
-        } else if unit.eq_ignore_ascii_case("vmax") {
-            Ok(Val::VMax(value))
-        } else if unit.eq_ignore_ascii_case("rem") {
-            Ok(Val::Rem(value))
-        } else if unit.eq_ignore_ascii_case("em") {
-            Ok(Val::Em(value))
-        } else {
-            Err(ValParseError::InvalidUnit)
-        }
+        Ok(unit.with_value(value))
     }
 }
 
