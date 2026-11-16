@@ -24,12 +24,12 @@ use layout_tree::ComputedLayout;
 use thiserror::Error;
 
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont};
-pub use taffy_style::TaffyStyle;
+pub use convert::TaffyStyle;
 
 pub mod clipping;
+mod convert;
 pub mod debug;
 pub mod layout_tree;
-mod taffy_style;
 #[cfg(test)]
 mod tests;
 
@@ -210,7 +210,7 @@ pub fn sync_taffy_styles_with_nodes(
                 || em_size.is_changed()
                 || rem_size.is_changed()
             {
-                taffy_style::update_taffy_style_from_node(
+                convert::update_taffy_style_from_node(
                     &node,
                     &ValContext::new(
                         target.scale_factor(),
