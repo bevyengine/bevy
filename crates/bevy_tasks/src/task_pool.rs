@@ -726,12 +726,9 @@ mod tests {
             for _ in 0..100 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
-                    if *foo != 42 {
-                        panic!("not 42!?!?")
-                    } else {
-                        count_clone.fetch_add(1, Ordering::Relaxed);
-                        *foo
-                    }
+                    assert_eq!(*foo, 42, "not 42!?!?");
+                    count_clone.fetch_add(1, Ordering::Relaxed);
+                    *foo
                 });
             }
         });
@@ -810,22 +807,16 @@ mod tests {
                 if i % 2 == 0 {
                     let count_clone = non_local_count.clone();
                     scope.spawn(async move {
-                        if *foo != 42 {
-                            panic!("not 42!?!?")
-                        } else {
-                            count_clone.fetch_add(1, Ordering::Relaxed);
-                            *foo
-                        }
+                        assert_eq!(*foo, 42, "not 42!?!?");
+                        count_clone.fetch_add(1, Ordering::Relaxed);
+                        *foo
                     });
                 } else {
                     let count_clone = local_count.clone();
                     scope.spawn_on_scope(async move {
-                        if *foo != 42 {
-                            panic!("not 42!?!?")
-                        } else {
-                            count_clone.fetch_add(1, Ordering::Relaxed);
-                            *foo
-                        }
+                        assert_eq!(*foo, 42, "not 42!?!?");
+                        count_clone.fetch_add(1, Ordering::Relaxed);
+                        *foo
                     });
                 }
             }
@@ -893,12 +884,9 @@ mod tests {
                     for _ in 0..10 {
                         let count_clone_clone = count_clone.clone();
                         scope.spawn(async move {
-                            if *foo != 42 {
-                                panic!("not 42!?!?")
-                            } else {
-                                count_clone_clone.fetch_add(1, Ordering::Relaxed);
-                                *foo
-                            }
+                            assert_eq!(*foo, 42, "not 42!?!?");
+                            count_clone_clone.fetch_add(1, Ordering::Relaxed);
+                            *foo
                         });
                     }
                     *foo

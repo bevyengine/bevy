@@ -57,6 +57,7 @@ use crate::{
     MissingAssetLoaderForExtensionError, UnapprovedPathMode, WriteDefaultMetaError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, string::String, sync::Arc, vec, vec::Vec};
+use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::{hash_map::Entry, HashMap, HashSet},
@@ -916,45 +917,43 @@ impl AssetProcessor {
             }
 
             for path in processed_paths {
-                let mut dependencies = Vec::new();
                 let asset_path = AssetPath::from(path).with_source(source.id());
-                if let Some(info) = asset_infos.get_mut(&asset_path) {
-                    match processed_reader.read_meta_bytes(asset_path.path()).await {
-                        Ok(meta_bytes) => {
-                            match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
-                                Ok(minimal) => {
-                                    trace!(
-                                        "Populated processed info for asset {asset_path} {:?}",
-                                        minimal.processed_info
-                                    );
-
-                                    if let Some(processed_info) = &minimal.processed_info {
-                                        for process_dependency_info in
-                                            &processed_info.process_dependencies
-                                        {
-                                            dependencies.push(process_dependency_info.path.clone());
-                                        }
-                                    }
-                                    info.processed_info = minimal.processed_info;
-                                }
-                                Err(err) => {
-                                    trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
-                                    self.remove_processed_asset_and_meta(source, asset_path.path())
-                                        .await;
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
-                            self.remove_processed_asset_and_meta(source, asset_path.path())
-                                .await;
-                        }
-                    }
-                } else {
+                let Some(info) = asset_infos.get_mut(&asset_path) else {
                     trace!("Removing processed data for non-existent asset {asset_path}");
                     self.remove_processed_asset_and_meta(source, asset_path.path())
                         .await;
+                    continue;
+                };
+                let meta_bytes = match processed_reader.read_meta_bytes(asset_path.path()).await {
+                    Ok(meta_bytes) => meta_bytes,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+                let minimal = match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
+                    Ok(minimal) => minimal,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+                trace!(
+                    "Populated processed info for asset {asset_path} {:?}",
+                    minimal.processed_info
+                );
+
+                let mut dependencies = Vec::new();
+                if let Some(processed_info) = &minimal.processed_info {
+                    for process_dependency_info in &processed_info.process_dependencies {
+                        dependencies.push(process_dependency_info.path.clone());
+                    }
                 }
+                info.processed_info = minimal.processed_info;
 
                 for dependency in dependencies {
                     asset_infos.add_dependent(&dependency, asset_path.clone());
@@ -1108,7 +1107,10 @@ impl AssetProcessor {
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
             // as soon as the hash is computed.
-            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
+            let mut reader_for_hash = reader
+                .read(CowArc::Borrowed(path))
+                .await
+                .map_err(reader_err)?;
 
             get_asset_hash(&meta_bytes, &mut reader_for_hash)
                 .await
@@ -1176,7 +1178,10 @@ impl AssetProcessor {
             // it's not likely to be too big a deal. If in the future, we decide we want to avoid
             // this repeated read, we could "ask" the asset source if it prefers avoiding repeated
             // reads or not.
-            let reader_for_process = reader.read(path).await.map_err(reader_err)?;
+            let reader_for_process = reader
+                .read(CowArc::Borrowed(path))
+                .await
+                .map_err(reader_err)?;
 
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
@@ -1224,7 +1229,10 @@ impl AssetProcessor {
                 .map_err(writer_err)?;
         } else {
             // See the reasoning for processing why it's ok to do a second read here.
-            let mut reader_for_copy = reader.read(path).await.map_err(reader_err)?;
+            let mut reader_for_copy = reader
+                .read(CowArc::Borrowed(path))
+                .await
+                .map_err(reader_err)?;
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             futures_lite::io::copy(&mut reader_for_copy, &mut writer)
                 .await

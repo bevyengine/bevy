@@ -111,6 +111,46 @@ pub const SPLIT_PANE_HANDLE_PRESSED: ThemeToken =
 pub const SPLIT_PANE_HANDLE_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.splitpane.handle.disabled");
 
+// Tabs
+
+/// Tab list background
+pub const TAB_STRIP_BG: ThemeToken = ThemeToken::new_static("feathers.tab.strip.bg");
+/// Tab list border
+pub const TAB_STRIP_BORDER: ThemeToken = ThemeToken::new_static("feathers.tab.strip.border");
+/// Tab list border (showing a drop preview)
+pub const TAB_STRIP_BORDER_PREVIEW: ThemeToken =
+    ThemeToken::new_static("feathers.tab.strip.border.preview");
+/// Tab background
+pub const TAB_BG: ThemeToken = ThemeToken::new_static("feathers.tab.bg");
+/// Tab background (hovered)
+pub const TAB_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.tab.bg.hover");
+/// Tab background (selected)
+pub const TAB_BG_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.bg.selected");
+/// Tab background (being dragged)
+pub const TAB_BG_DRAGGING: ThemeToken = ThemeToken::new_static("feathers.tab.bg.dragging");
+/// Tab selection stripe
+pub const TAB_STRIPE: ThemeToken = ThemeToken::new_static("feathers.tab.stripe");
+/// Tab selection stripe (selected)
+pub const TAB_STRIPE_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.stripe.selected");
+/// Tab text
+pub const TAB_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.text");
+/// Tab text (selected)
+pub const TAB_TEXT_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tab.text.selected");
+/// Tab text (being dragged)
+pub const TAB_TEXT_DRAGGING: ThemeToken = ThemeToken::new_static("feathers.tab.text.dragging");
+/// Tab text (disabled)
+pub const TAB_TEXT_DISABLED: ThemeToken = ThemeToken::new_static("feathers.tab.text.disabled");
+/// Tab insertion indicator
+pub const TAB_INSERTION_INDICATOR: ThemeToken = ThemeToken::new_static("feathers.tab.insertion");
+/// Tab drag proxy background
+pub const TAB_DRAG_PROXY_BG: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.bg");
+/// Tab drag proxy border
+pub const TAB_DRAG_PROXY_BORDER: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.border");
+/// Tab drag proxy outline
+pub const TAB_DRAG_PROXY_OUTLINE: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.outline");
+/// Tab drag proxy text
+pub const TAB_DRAG_PROXY_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.text");
+
 // Checkbox
 
 /// Checkbox background around the checkmark

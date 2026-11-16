@@ -234,7 +234,7 @@ fn menu_on_key_event(
             if !event.repeat && event.state == ButtonState::Pressed {
                 match event.key_code {
                     // Activate the item and close the popup
-                    KeyCode::Enter | KeyCode::Space => {
+                    KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Space => {
                         ev.propagate(false);
                         // Trigger the action for this menu item.
                         commands.trigger(Activate { entity });

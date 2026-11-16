@@ -5,7 +5,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Hand
 use bevy_camera::{visibility::ViewVisibility, Camera2d, CompositingSpace};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
-    camera::{DirtySpecializations, ExtractedCamera},
+    camera::{DirtySpecializations, DirtyWireframeSpecializations, ExtractedCamera},
     material_bind_groups::{
         MaterialBindGroupIndex, MaterialBindGroupSlot, MaterialBindingId, RenderMaterialBindings,
     },
@@ -137,6 +137,7 @@ pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut dirty_specializations: ResMut<DirtySpecializations>,
+    mut dirty_wireframe_specializations: ResMut<DirtyWireframeSpecializations>,
     cameras: Query<(
         &MainEntity,
         &ExtractedView,
@@ -172,6 +173,9 @@ pub fn check_views_need_specialization(
             dirty_specializations
                 .views
                 .insert(view.retained_view_entity);
+            dirty_wireframe_specializations
+                .views
+                .insert(view.retained_view_entity);
         }
     }
 }
@@ -182,7 +186,10 @@ pub fn init_batched_instance_buffer(mut commands: Commands, render_device: Res<R
     ));
 }
 
-fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<AssetServer>) {
+pub(crate) fn load_mesh2d_bindings(
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
     let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
     if let Some(per_object_buffer_batch_size) =

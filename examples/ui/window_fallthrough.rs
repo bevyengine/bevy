@@ -49,6 +49,6 @@ fn toggle_mouse_passthrough(
     mut cursor_options: Single<&mut CursorOptions>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
-        cursor_options.hit_test = !cursor_options.hit_test;
+        cursor_options.hit_test.toggle();
     }
 }

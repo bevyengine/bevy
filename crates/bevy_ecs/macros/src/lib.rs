@@ -166,8 +166,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
                 func: &mut impl ::core::ops::FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                use #ecs_path::__macro_exports::DebugCheckedUnwrap;
-
                 #ecs_path::ptr::deconstruct_moving_ptr!({
                     let #struct_name { #(#active_field_members: #active_field_locals,)* #(#inactive_field_members: _,)* } = ptr;
                 });

@@ -216,6 +216,7 @@ impl WorldInspectionExtensionTrait for World {
             entity,
             component_id,
             name,
+            type_path: metadata.type_path.clone(),
             memory_size,
             value,
             reflected_value,

@@ -18,6 +18,7 @@ mod scrollbar;
 mod select;
 mod slider;
 mod split_pane;
+mod tabs;
 mod text_input;
 mod toggle_switch;
 mod tree_view;
@@ -41,6 +42,7 @@ pub use scrollbar::*;
 pub use select::*;
 pub use slider::*;
 pub use split_pane::*;
+pub use tabs::*;
 pub use text_input::*;
 pub use toggle_switch::*;
 pub use tree_view::*;
@@ -73,6 +75,7 @@ impl PluginGroup for ControlsPlugin {
             .add(SelectPlugin)
             .add(SliderPlugin)
             .add(SplitPanePlugin)
+            .add(FeathersTabsPlugin)
             .add(TextInputPlugin)
             .add(ToggleSwitchPlugin)
             .add(TreeViewPlugin)

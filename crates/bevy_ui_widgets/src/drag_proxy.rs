@@ -1,4 +1,5 @@
 use bevy_app::{App, Plugin, PreUpdate};
+use bevy_camera::Camera;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -22,7 +23,9 @@ use bevy_picking::{
     Pickable, PickingSystems,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{ComputedNode, Node, PositionType, UiGlobalTransform, UiScale, Val};
+use bevy_ui::{
+    ComputedNode, ComputedUiTargetCamera, Node, PositionType, UiGlobalTransform, UiScale, Val,
+};
 
 /// Marks a UI ancestor that receives drag-proxy visuals.
 ///
@@ -87,6 +90,8 @@ fn update_drag_proxies(
     pointer_state: Option<Res<PointerState>>,
     ui_scale: Res<UiScale>,
     mut commands: Commands,
+    target_cameras: Query<&ComputedUiTargetCamera>,
+    cameras: Query<&Camera>,
 ) {
     for (entity, proxy, mut node, parent, tracked_source) in &mut proxies {
         let pointer_drag = pointer_state
@@ -146,7 +151,15 @@ fn update_drag_proxies(
                 (transform.translation - node.size() * 0.5) * node.inverse_scale_factor()
             })
             .unwrap_or(Vec2::ZERO);
-        let position = location.position / scale + proxy.offset - overlay_origin;
+        let viewport_rect = target_cameras
+            .get(overlay_root.unwrap_or(entity))
+            .ok()
+            .and_then(ComputedUiTargetCamera::get)
+            .and_then(|camera| cameras.get(camera).ok())
+            .and_then(Camera::logical_viewport_rect)
+            .unwrap_or_default();
+        let position =
+            (location.position - viewport_rect.min) / scale + proxy.offset - overlay_origin;
         node.position_type = PositionType::Absolute;
         node.left = Val::Px(position.x);
         node.top = Val::Px(position.y);

@@ -86,8 +86,11 @@ pub fn main_transmissive_pass_3d(
                 let pass_span =
                     diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(viewport);
+                if let Some(viewport) = Viewport::from_viewport_and_override(
+                    camera.viewport.as_ref(),
+                    resolution_override,
+                ) {
+                    render_pass.set_camera_viewport(&viewport);
                 }
 
                 if let Err(err) =

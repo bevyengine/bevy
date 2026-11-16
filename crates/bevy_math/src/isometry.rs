@@ -458,6 +458,133 @@ impl Isometry3d {
     pub fn inverse_transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         self.rotation.inverse() * (point.into() - self.translation)
     }
+
+    /// Rotates this [`Isometry3d`] so that [`Isometry3d::forward`] points in the given `direction`
+    /// and [`Isometry3d::up`] points towards `up`.
+    /// This does not change the translation part of the isometry.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::NEG_Z` is used instead
+    /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
+    #[inline]
+    pub fn look_to(&mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) {
+        let back = -direction.try_into().unwrap_or(Dir3::NEG_Z);
+        let up = up.try_into().unwrap_or(Dir3::Y);
+        let right = up
+            .cross(back.into())
+            .try_normalize()
+            .unwrap_or_else(|| up.any_orthonormal_vector());
+        let up = back.cross(right);
+        self.rotation = Quat::from_rotation_axes(right, up, back.into());
+    }
+
+    /// Rotates this [`Isometry3d`] so that [`Isometry3d::forward`] points towards
+    /// the `target` position, and [`Isometry3d::up`] points towards `up`.
+    /// This does not change the translation part of the isometry.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `target` is the same as the translation, `Vec3::Z` is used instead
+    /// * if `up` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Y` is used instead
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
+    #[inline]
+    pub fn look_at(&mut self, target: Vec3, up: impl TryInto<Dir3>) {
+        self.look_to(target - self.translation.to_vec3(), up);
+    }
+
+    /// Returns this [`Isometry3d`] with a new rotation so that [`Isometry3d::forward`]
+    /// points towards the `target` position and [`Isometry3d::up`] points towards `up`.
+    /// This does not change the translation part of the isometry.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `target` is the same as the isometry3d translation, `Vec3::Z` is used instead
+    /// * if `up` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Y` is used instead
+    /// * if the resulting forward direction is parallel with `up`, an orthogonal vector is used as the "right" direction
+    #[inline]
+    #[must_use]
+    pub fn looking_at(mut self, target: Vec3, up: impl TryInto<Dir3>) -> Self {
+        self.look_at(target, up);
+        self
+    }
+
+    /// Returns this [`Isometry3d`] with a new rotation so that [`Isometry3d::forward`]
+    /// points in the given `direction` and [`Isometry3d::up`] points towards `up`.
+    /// This does not change the translation part of the isometry.
+    ///
+    /// In some cases it's not possible to construct a rotation. Another axis will be picked in those cases:
+    /// * if `direction` fails converting to `Dir3` (e.g if it is `Vec3::ZERO`), `Dir3::Z` is used instead
+    /// * if `up` fails converting to `Dir3`, `Dir3::Y` is used instead
+    /// * if `direction` is parallel with `up`, an orthogonal vector is used as the "right" direction
+    #[inline]
+    #[must_use]
+    pub fn looking_to(mut self, direction: impl TryInto<Dir3>, up: impl TryInto<Dir3>) -> Self {
+        self.look_to(direction, up);
+        self
+    }
+
+    /// Get the unit vector in the local `X` direction.
+    #[inline]
+    pub fn local_x(&self) -> Dir3 {
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::X)
+    }
+
+    /// Equivalent to [`-local_x()`][Isometry3d::local_x()]
+    #[inline]
+    pub fn left(&self) -> Dir3 {
+        -self.local_x()
+    }
+
+    /// Equivalent to [`local_x()`][Isometry3d::local_x()]
+    #[inline]
+    pub fn right(&self) -> Dir3 {
+        self.local_x()
+    }
+
+    /// Get the unit vector in the local `Y` direction.
+    #[inline]
+    pub fn local_y(&self) -> Dir3 {
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::Y)
+    }
+
+    /// Equivalent to [`local_y()`][Isometry3d::local_y]
+    #[inline]
+    pub fn up(&self) -> Dir3 {
+        self.local_y()
+    }
+
+    /// Equivalent to [`-local_y()`][Isometry3d::local_y]
+    #[inline]
+    pub fn down(&self) -> Dir3 {
+        -self.local_y()
+    }
+
+    /// Get the unit vector in the local `Z` direction.
+    #[inline]
+    pub fn local_z(&self) -> Dir3 {
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::Z)
+    }
+
+    /// Equivalent to [`-local_z()`][Isometry3d::local_z]
+    #[inline]
+    pub fn forward(&self) -> Dir3 {
+        -self.local_z()
+    }
+
+    /// Equivalent to [`local_z()`][Isometry3d::local_z]
+    #[inline]
+    pub fn back(&self) -> Dir3 {
+        self.local_z()
+    }
+
+    /// Rotates this [`Isometry3d`] by the given rotation.
+    /// This does not change the translation component.
+    #[inline]
+    pub fn rotate(&mut self, rotation: Quat) {
+        self.rotation = rotation * self.rotation;
+    }
 }
 
 impl From<Isometry3d> for Affine3 {
@@ -595,6 +722,40 @@ mod tests {
     use crate::{vec2, vec3, vec3a};
     use approx::assert_abs_diff_eq;
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3};
+
+    #[test]
+    fn look_to() {
+        let mut iso = Isometry3d::IDENTITY;
+        iso.look_to(Vec3::new(1.0, 0.0, 0.0), Vec3::Y);
+        assert_abs_diff_eq!(iso.forward(), Dir3::new_unchecked(Vec3::X));
+        assert_abs_diff_eq!(iso.up(), Dir3::new_unchecked(Vec3::Y));
+
+        iso.rotate(Quat::from_rotation_y(FRAC_PI_2));
+        assert_abs_diff_eq!(iso.forward(), Dir3::new_unchecked(Vec3::NEG_Z));
+        assert_abs_diff_eq!(iso.up(), Dir3::new_unchecked(Vec3::Y));
+    }
+
+    #[test]
+    fn look_lots_of_directions() {
+        use crate::ops::sin_cos;
+
+        let mut iso = Isometry3d::IDENTITY;
+        const STEPS: usize = 100;
+        for i in 0..STEPS {
+            let angle = i as f32 * (std::f32::consts::TAU / STEPS as f32);
+
+            let (sin, cos) = sin_cos(angle);
+            let direction = Vec3::new(sin, 0.0, cos);
+            iso.look_to(direction, Vec3::Y);
+
+            // asserting with abs_diff_eq on the direction has too large an error for some angles.
+            // -Z is forwards, so `quat * -Z` should equal the normalized direction.
+            assert!(
+                (iso.rotation * Vec3::NEG_Z - direction).length() < 1e-6,
+                "Failed for angle: {angle}"
+            );
+        }
+    }
 
     #[test]
     fn mul_2d() {

@@ -18,7 +18,7 @@ pub const SUBPIXEL_BINS: u8 = 4;
 pub struct GlyphCacheKey {
     /// Id used to look up the glyph
     pub glyph_id: u16,
-    /// Bin the fractional x offset lands in
+    /// Bin the horizontal fractional offset
     pub subpixel_bin: u8,
 }
 
