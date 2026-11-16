@@ -1,3 +1,7 @@
+@if(TONEMAP_IN_SHADER)
+import bevy_core_pipeline::tonemapping;
+
+import bevy_render::color_operations::srgb_to_linear;
 import package::mesh2d::{
     functions as mesh_functions,
     view_bindings::view,
@@ -29,7 +33,7 @@ fn get_tile_data(coord: vec2<u32>) -> TileData {
     let color_b = f32(data.b & 0xFFu) / 255.0;
     let color_a = f32((data.b >> 8u) & 0xFFu) / 255.0;
 
-    let color = vec4<f32>(color_r, color_g, color_b, color_a);
+    let color = vec4<f32>(srgb_to_linear(vec3(color_r, color_g, color_b)), color_a);
 
     let mirror_h = (data.a & 0x8u) != 0u;
     let mirror_v = (data.a & 0x4u) != 0u;
@@ -67,11 +71,14 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
-    let final_color = tex_color * tile.color;
+    var color = tex_color * tile.color;
 
-    if (final_color.a < 0.001) {
+    if (color.a < 0.001) {
         discard;
     }
 
-    return writer_encode(final_color);
+@if(TONEMAP_IN_SHADER)
+    color = tonemapping::tone_mapping(color, view.color_grading);
+
+    return writer_encode(color);
 }

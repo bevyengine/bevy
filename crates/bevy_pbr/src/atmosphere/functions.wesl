@@ -269,6 +269,23 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
     return clamp(visible_ratio, 0.0, 1.0);
 }
 
+fn directional_light_transmittance(
+    atmosphere: Atmosphere,
+    transmittance_texture: texture_2d<f32>,
+    transmittance_sampler: sampler,
+    world_position: vec3<f32>,
+    direction_to_light: vec3<f32>,
+    sun_angular_size: f32,
+) -> vec3<f32> {
+    let position = clamp_to_surface(atmosphere, (atmosphere.world_to_atmosphere * vec4(world_position, 1.0)).xyz);
+    let r = length(position);
+    let mu = dot(direction_to_light, normalize(position));
+
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
+    let transmittance = textureSampleLevel(transmittance_texture, transmittance_sampler, uv, 0.0).rgb;
+    return transmittance * calculate_visible_sun_ratio(atmosphere, r, mu, sun_angular_size);
+}
+
 // TRANSFORM UTILITIES
 
 /// Clamp a position to the planet surface (with a small epsilon) to avoid underground artifacts.
@@ -481,7 +498,7 @@ fn raymarch_atmosphere(
             let sphere_point = pos + ray_dir * t_end;
             let sphere_normal = normalize(sphere_point);
             let mu_light = dot(light_dir, sphere_normal);
-            let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+            let transmittance_to_light = sample_transmittance_lut(atmosphere.inner_radius, mu_light);
             let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
             // Normalized Lambert BRDF
             let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;

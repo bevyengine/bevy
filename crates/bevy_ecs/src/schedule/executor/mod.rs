@@ -186,7 +186,6 @@ impl System for ApplyDeferred {
         Ok(())
     }
 
-    #[cfg(feature = "hotpatching")]
     #[inline]
     fn refresh_hotpatch(&mut self) {}
 

@@ -45,6 +45,9 @@ pub struct GpuMaterial {
     flags: u32,
     uv_translation: Vec2,
     uv_transform: Mat2,
+    alpha: f32,
+    alpha_cutoff: f32,
+    _padding: Vec2,
 }
 
 impl_atomic_pod!(GpuMaterial, GpuMaterialBlob);
@@ -196,8 +199,21 @@ impl AssetState {
         self.unresolved_materials.remove(&material_id);
         let slot = self.material_slots.get_or_allocate(material_id);
 
+        let base_color = LinearRgba::from(material.base_color);
+
         let emissive = material.emissive.to_vec3();
         let is_emissive = emissive != Vec3::ZERO;
+
+        let alpha_cutoff = match material.alpha_mode {
+            AlphaMode::Mask(cutoff) => cutoff,
+            // Without MSAA alpha to coverage is treated as a mask with a cutoff of 0.5
+            AlphaMode::AlphaToCoverage => 0.5,
+            AlphaMode::Opaque
+            | AlphaMode::Blend
+            | AlphaMode::Premultiplied
+            | AlphaMode::Add
+            | AlphaMode::Multiply => 0.0,
+        };
         let is_opaque = match material.alpha_mode {
             AlphaMode::Opaque => true,
             AlphaMode::Mask(_) | AlphaMode::AlphaToCoverage => false,
@@ -223,7 +239,7 @@ impl AssetState {
                 base_color_texture_id: texture_ids[1],
                 emissive_texture_id: texture_ids[2],
                 metallic_roughness_texture_id: texture_ids[3],
-                base_color: LinearRgba::from(material.base_color).to_vec3(),
+                base_color: base_color.to_vec3(),
                 perceptual_roughness: material.perceptual_roughness.clamp(0.0, 1.0),
                 emissive,
                 metallic: material.metallic.clamp(0.0, 1.0),
@@ -231,6 +247,9 @@ impl AssetState {
                 flags,
                 uv_translation: material.uv_transform.translation,
                 uv_transform: material.uv_transform.matrix2,
+                alpha: base_color.alpha,
+                alpha_cutoff,
+                _padding: Vec2::ZERO,
             },
         );
 

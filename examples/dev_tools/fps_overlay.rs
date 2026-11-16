@@ -95,9 +95,9 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
     }
 
     if input.just_pressed(KeyCode::Digit4) {
-        overlay.enabled = !overlay.enabled;
+        overlay.enabled.toggle();
     }
     if input.just_released(KeyCode::Digit5) {
-        overlay.frame_time_graph_config.enabled = !overlay.frame_time_graph_config.enabled;
+        overlay.frame_time_graph_config.enabled.toggle();
     }
 }

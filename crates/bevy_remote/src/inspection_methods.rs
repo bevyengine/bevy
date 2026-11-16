@@ -316,6 +316,7 @@ mod tests {
             .find(|component| component["name"] == json!(health_type_path()))
             .expect("the `Health` component should be inspected");
         assert_eq!(health["serialized_value"], json!(7));
+        assert_eq!(health["type_path"], json!(health_type_path()));
     }
 
     #[test]
@@ -371,6 +372,7 @@ mod tests {
         .expect("the component should be inspectable");
 
         assert_eq!(result["serialized_value"], json!(7));
+        assert_eq!(result["type_path"], json!(health_type_path()));
     }
 
     #[test]
@@ -452,6 +454,7 @@ mod tests {
         let map = result["map"].as_object().unwrap();
         assert!(map
             .values()
-            .any(|metadata| metadata["name"] == json!(health_type_path())));
+            .any(|metadata| metadata["name"] == json!(health_type_path())
+                && metadata["type_path"] == json!(health_type_path())));
     }
 }

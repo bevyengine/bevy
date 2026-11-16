@@ -32,10 +32,9 @@ impl Plugin for PanCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             RunFixedMainLoop,
-            (
-                run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
-                run_pan_to_cursor_on_zoom.after(run_pancamera_controller),
-            ),
+            (run_pancamera_controller, run_pan_to_cursor_on_zoom)
+                .chain()
+                .in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         )
         .add_message::<ZoomEvent>()
         .add_observer(add_window_observer)
@@ -236,25 +235,25 @@ fn run_pancamera_controller(
 
     // === Movement
     let mut movement = Vec2::ZERO;
-    if let Some(key) = controller.key_left {
-        if key_input.pressed(key) {
-            movement.x -= 1.0;
-        }
+    if let Some(key) = controller.key_left
+        && key_input.pressed(key)
+    {
+        movement.x -= 1.0;
     }
-    if let Some(key) = controller.key_right {
-        if key_input.pressed(key) {
-            movement.x += 1.0;
-        }
+    if let Some(key) = controller.key_right
+        && key_input.pressed(key)
+    {
+        movement.x += 1.0;
     }
-    if let Some(key) = controller.key_down {
-        if key_input.pressed(key) {
-            movement.y -= 1.0;
-        }
+    if let Some(key) = controller.key_down
+        && key_input.pressed(key)
+    {
+        movement.y -= 1.0;
     }
-    if let Some(key) = controller.key_up {
-        if key_input.pressed(key) {
-            movement.y += 1.0;
-        }
+    if let Some(key) = controller.key_up
+        && key_input.pressed(key)
+    {
+        movement.y += 1.0;
     }
 
     if movement != Vec2::ZERO {
@@ -268,30 +267,30 @@ fn run_pancamera_controller(
     }
 
     // === Rotation
-    if let Some(key) = controller.key_rotate_ccw {
-        if key_input.pressed(key) {
-            transform.rotate_z(controller.rotation_speed * dt);
-        }
+    if let Some(key) = controller.key_rotate_ccw
+        && key_input.pressed(key)
+    {
+        transform.rotate_z(controller.rotation_speed * dt);
     }
-    if let Some(key) = controller.key_rotate_cw {
-        if key_input.pressed(key) {
-            transform.rotate_z(-controller.rotation_speed * dt);
-        }
+    if let Some(key) = controller.key_rotate_cw
+        && key_input.pressed(key)
+    {
+        transform.rotate_z(-controller.rotation_speed * dt);
     }
 
     // === Zoom
     let mut zoom_amount = 0.0;
 
     // (with keys)
-    if let Some(key) = controller.key_zoom_in {
-        if key_input.pressed(key) {
-            zoom_amount -= controller.zoom_speed;
-        }
+    if let Some(key) = controller.key_zoom_in
+        && key_input.pressed(key)
+    {
+        zoom_amount -= controller.zoom_speed;
     }
-    if let Some(key) = controller.key_zoom_out {
-        if key_input.pressed(key) {
-            zoom_amount += controller.zoom_speed;
-        }
+    if let Some(key) = controller.key_zoom_out
+        && key_input.pressed(key)
+    {
+        zoom_amount += controller.zoom_speed;
     }
 
     // (with mouse wheel)

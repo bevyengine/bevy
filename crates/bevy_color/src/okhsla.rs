@@ -1,5 +1,4 @@
 use crate::{
-    impl_componentwise_vector_space,
     okcolor_convert::{okhsl_to_oklab, oklab_to_okhsl},
     Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba, Luminance, Mix,
     Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
@@ -40,8 +39,6 @@ pub struct Okhsla {
 }
 
 impl StandardColor for Okhsla {}
-
-impl_componentwise_vector_space!(Okhsla, [hue, saturation, lightness, alpha]);
 
 impl Okhsla {
     /// Construct a new [`Okhsla`] color from components.

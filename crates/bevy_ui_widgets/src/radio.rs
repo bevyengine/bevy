@@ -179,7 +179,9 @@ fn radio_button_on_key_input(
     let event = &ev.event().input;
     if event.state == ButtonState::Pressed
         && !event.repeat
-        && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+        && (event.key_code == KeyCode::Enter
+            || event.key_code == KeyCode::NumpadEnter
+            || event.key_code == KeyCode::Space)
     {
         ev.propagate(false);
 
@@ -372,8 +374,12 @@ pub fn radio_self_update(
 mod tests {
     use super::*;
     use bevy_app::App;
+    use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
-    use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputFocusPlugin};
+    use bevy_input_focus::{
+        tab_navigation::TabNavigationPlugin, FocusCause, InputDispatchPlugin, InputFocus,
+        InputFocusPlugin,
+    };
     use bevy_math::Vec2;
     use bevy_picking::backend::HitData;
     use bevy_picking::events::Pointer;
@@ -387,6 +393,7 @@ mod tests {
         app.add_plugins((
             InputPlugin,
             InputFocusPlugin,
+            InputDispatchPlugin,
             TabNavigationPlugin,
             RadioGroupPlugin,
         ));
@@ -444,6 +451,34 @@ mod tests {
             "selecting another option must uncheck the previous one"
         );
         assert!(app.world().entity(option_b).contains::<Checked>());
+    }
+
+    /// With a radio button focused, pressing `NumpadEnter` selects it as `Enter` does.
+    #[test]
+    fn numpad_enter_selects_focused_radio_button() {
+        let (mut app, window) = radio_app();
+        let group = app.world_mut().spawn((RadioGroup, ChildOf(window))).id();
+        let option_a = app.world_mut().spawn((RadioButton, ChildOf(group))).id();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(option_a, FocusCause::Navigated);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::NumpadEnter,
+            logical_key: Key::Enter,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        assert!(
+            app.world().entity(option_a).contains::<Checked>(),
+            "NumpadEnter should select the focused radio button"
+        );
     }
 
     /// Clicking an already-checked radio option leaves it selected (no toggle-off for radios).

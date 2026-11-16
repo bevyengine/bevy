@@ -335,7 +335,7 @@ mod tests {
         // === Tuple === //
         let result = target.try_apply(&MyEnum::B(0, 1));
         assert!(
-            matches!(result, Err(ApplyError::MismatchedTypes { .. })),
+            matches!(result, Err(ApplyError::InvalidEnumVariant { .. })),
             "`result` was {result:?}"
         );
 

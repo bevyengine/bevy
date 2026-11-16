@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_picking::{cursor::EntityCursor, hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
-use bevy_text::FontWeight;
+use bevy_text::{FontSourceTemplate, FontWeight};
 use bevy_ui::{px, AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect};
 use bevy_ui_widgets::Button;
 
@@ -107,7 +107,7 @@ impl FeathersButton {
             ThemeBackgroundColor(tokens::BUTTON_BG)
             InheritableThemeTextColor(tokens::BUTTON_TEXT)
             InheritableFont {
-                font: fonts::REGULAR,
+                font: FontSourceTemplate::Families(fonts::SANS),
                 font_size: size::MEDIUM_FONT,
                 weight: FontWeight::NORMAL,
             }

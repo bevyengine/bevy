@@ -255,21 +255,24 @@ impl AsBindGroupShaderType<SpriteMeshMaterialUniform> for SpriteMeshMaterial {
                     tile_stretch_value = (image_size * stretch_value) / custom_size;
                     quad_size = custom_size;
                 }
+                SpriteImageMode::Sliced(_)
+                    if self.image_mode.slice_border_out_of_bounds(quad_size) =>
+                {
+                    tracing::error!(
+                        "TextureSlicer::border has out of bounds values. No slicing will be applied."
+                    );
+                    quad_size = custom_size;
+                }
                 SpriteImageMode::Sliced(slicer) => {
-                    let quad_ratio = quad_size.x / quad_size.y;
-                    let custom_ratio = custom_size.x / custom_size.y;
-
-                    if quad_ratio > custom_ratio {
-                        scale = vec2(1.0, quad_ratio / custom_ratio);
-                    } else {
-                        scale = vec2(custom_ratio / quad_ratio, 1.0);
-                    }
-
                     min_inset = slicer.border.min_inset / quad_size;
                     max_inset = slicer.border.max_inset / quad_size;
 
-                    let corner_scale = slicer.max_corner_scale.clamp(f32::EPSILON, 1.0);
-                    scale /= corner_scale;
+                    let coef = custom_size / quad_size;
+                    let corner_scale = coef
+                        .min_element()
+                        .min(slicer.max_corner_scale)
+                        .max(f32::EPSILON);
+                    scale = coef / corner_scale;
 
                     if let SliceScaleMode::Tile { stretch_value } = slicer.sides_scale_mode {
                         side_stretch_value = stretch_value

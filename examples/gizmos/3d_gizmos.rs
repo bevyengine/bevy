@@ -242,7 +242,7 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::KeyP) {
         for (_, config, _) in config_store.iter_mut() {
             // Toggle line perspective
-            config.line.perspective ^= true;
+            config.line.perspective.toggle();
             // Increase the line width when line perspective is on
             config.line.width *= if config.line.perspective { 5. } else { 1. / 5. };
         }
@@ -258,7 +258,7 @@ fn update_config(
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
-        config.enabled ^= true;
+        config.enabled.toggle();
     }
     if keyboard.just_pressed(KeyCode::KeyU) {
         config.line.style = match config.line.style {
@@ -289,7 +289,7 @@ fn update_config(
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
-        my_config.enabled ^= true;
+        my_config.enabled.toggle();
     }
     if keyboard.just_pressed(KeyCode::KeyI) {
         my_config.line.style = match my_config.line.style {
@@ -313,7 +313,8 @@ fn update_config(
     if keyboard.just_pressed(KeyCode::KeyB) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behavior in the configuration of AabbGizmoGroup
-        config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+        let (_, config) = config_store.config_mut::<AabbGizmoConfigGroup>();
+        config.draw_all.toggle();
     }
     if keyboard.just_pressed(KeyCode::Space) {
         virtual_time.toggle();

@@ -17,12 +17,18 @@ use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::utils::default;
 use bevy_ecs::world::World;
 use bevy_text::FontCx;
+use bevy_ui::clear_transient_dirty_flags;
+use bevy_ui::clipping::update_clipping_system;
+use bevy_ui::mark_dirty_ui_trees;
 use bevy_ui::prelude::*;
 use bevy_ui::sync_font_size_to_em_size;
+use bevy_ui::sync_taffy_styles_with_nodes;
 use bevy_ui::ui_layout_system;
-use bevy_ui::ui_surface::UiSurface;
 use bevy_ui::update::propagate_ui_target_cameras;
-use bevy_ui::update::update_clipping_system;
+use bevy_ui::update_border_radius;
+use bevy_ui::update_computed_nodes;
+use bevy_ui::update_ui_roots;
+use bevy_ui::UiRoots;
 use criterion::criterion_group;
 use criterion::BenchmarkId;
 use criterion::Criterion;
@@ -80,15 +86,21 @@ fn setup_app() -> App {
             PostUpdate,
         ))
         .init_resource::<UiScale>()
-        .init_resource::<UiSurface>()
+        .init_resource::<UiRoots>()
         .init_resource::<FontCx>()
         .init_resource::<RemSize>()
         .add_systems(
             PostUpdate,
             (
                 propagate_ui_target_cameras,
+                clear_transient_dirty_flags,
+                update_ui_roots,
                 sync_font_size_to_em_size,
+                sync_taffy_styles_with_nodes,
+                mark_dirty_ui_trees,
                 ui_layout_system,
+                update_computed_nodes,
+                update_border_radius,
                 update_clipping_system,
             )
                 .chain(),
@@ -97,13 +109,13 @@ fn setup_app() -> App {
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(sync_font_size_to_em_size),
         )
         .configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
-                .before(ui_layout_system),
+                .before(sync_font_size_to_em_size),
         );
 
     let size = UVec2::new(10000, 10000);
@@ -225,5 +237,28 @@ fn layout(c: &mut Criterion) {
                 app.update();
             });
         });
+
+        group.bench_function(
+            BenchmarkId::new("update_single_leaf", layout.label()),
+            |b| {
+                let mut app = setup_app();
+                let mut leaf = spawn_layout(app.world_mut(), true, layout.nodes, layout.depth);
+                while let Some(children) = app.world().get::<Children>(leaf) {
+                    leaf = children[0];
+                }
+                for _ in 1..layout.roots {
+                    spawn_layout(app.world_mut(), true, layout.nodes, layout.depth);
+                }
+                app.update();
+                app.update();
+                b.iter(|| {
+                    let mut node = app.world_mut().get_mut::<Node>(leaf).unwrap();
+                    let length = if node.width == px(1) { px(2) } else { px(1) };
+                    node.width = length;
+                    node.height = length;
+                    app.update();
+                });
+            },
+        );
     }
 }
