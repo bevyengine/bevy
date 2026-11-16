@@ -842,7 +842,7 @@ mod tests {
             .get_mut::<TextLayoutInfo>(entity)
             .unwrap()
             .placeholder_glyphs
-            .truncate(1);
+            .clear();
 
         let mut field = app.world_mut().entity_mut(entity);
         field.insert(PlaceholderColor(bevy_color::Color::BLACK));
