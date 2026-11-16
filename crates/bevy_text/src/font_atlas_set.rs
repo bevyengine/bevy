@@ -1,9 +1,11 @@
-use crate::{FontAtlas, FontHinting, FontSmoothing, GlyphCacheKey};
+use crate::{FontAtlas, FontHinting, FontSmoothing, GlyphCacheKey, TextBrush};
 use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
 use bevy_image::Image;
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, hash::FixedHasher};
+use core::hash::BuildHasher;
+use parley::GlyphRun;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
@@ -22,6 +24,24 @@ pub struct FontAtlasKey {
     pub hinting: FontHinting,
     /// Antialiasing method
     pub font_smoothing: FontSmoothing,
+}
+
+impl FontAtlasKey {
+    /// Create a new `FontAtlasKey`.
+    pub fn new(glyph_run: &GlyphRun<'_, TextBrush>, hinting: FontHinting) -> Self {
+        let font_smoothing = glyph_run.style().brush.font_smoothing;
+        let run = glyph_run.run();
+        let font = run.font();
+
+        Self {
+            id: font.data.id() as u32,
+            index: font.index,
+            font_size_bits: run.font_size().to_bits(),
+            variations_hash: FixedHasher.hash_one(run.normalized_coords()),
+            hinting,
+            font_smoothing,
+        }
+    }
 }
 
 /// Set of rasterized fonts stored in [`FontAtlas`]es.

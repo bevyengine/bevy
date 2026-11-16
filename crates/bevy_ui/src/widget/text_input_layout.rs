@@ -1,4 +1,3 @@
-use core::hash::BuildHasher;
 use core::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
@@ -14,7 +13,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
-use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
     add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
@@ -602,14 +600,7 @@ fn push_run_glyphs(
     let font_size = run.font_size();
     let coords = run.normalized_coords();
 
-    let font_atlas_key = FontAtlasKey {
-        id: font_data.data.id() as u32,
-        index: font_data.index,
-        font_size_bits: font_size.to_bits(),
-        variations_hash: FixedHasher.hash_one(coords),
-        hinting,
-        font_smoothing: brush.font_smoothing,
-    };
+    let font_atlas_key = FontAtlasKey::new(&glyph_run, hinting);
 
     for glyph in glyph_run.positioned_glyphs() {
         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
