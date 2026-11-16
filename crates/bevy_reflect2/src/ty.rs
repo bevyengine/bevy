@@ -15,6 +15,7 @@ use core::{
     alloc::Layout,
     any::{Any, TypeId},
     fmt::Debug,
+    hint::unreachable_unchecked,
     mem,
     ptr::{self, NonNull},
 };
@@ -157,6 +158,73 @@ impl Type {
         Some(unsafe { self.box_from_raw(ptr) })
     }
 
+    /// Initializes a new value of this struct type into `dst`, initializing each field of the
+    /// struct with `func`.
+    ///
+    /// `func` is called exactly once for each field in the field, and in the same order as
+    /// [`Struct::fields`].
+    ///
+    /// The value in `dst` is overwritten and **will not** be dropped. Ignored fields are
+    /// initialized with the field's default implementation. If `func` panics or an ignored field's
+    /// default implementation panics, all previously written fields are leaked.
+    ///
+    /// After this function, `dst` holds a fully-initialized value of this type.
+    ///
+    /// # Safety
+    ///
+    /// 1) This type must be a [`Kind::Struct`].
+    /// 2) This type's [`Self::layout`] must be [`Some`] (i.e., the type must be sized).
+    /// 3) `dst` must be valid for writes of this type.
+    /// 4) `func` must initialize every pointer to a valid value that matches the type described in
+    ///    each [`StructField`]. `func` may not read/drop the previous value (as the pointer may
+    ///    point to an uninitialized or overwritten location).
+    /// 5) All ignored fields of the struct must have a reflected default impl.
+    /// 6) Either `uncovered_initialized` is `false`, **or** the uncovered bytes in `dst` must be
+    ///    correctly initialized according to [`Struct::uncovered_bytes`].
+    pub unsafe fn initialize_struct_raw(
+        &self,
+        mut func: impl FnMut(&StructField, NonNull<u8>),
+        uncovered_initialized: bool,
+        dst: NonNull<u8>,
+    ) {
+        let Kind::Struct(struct_type) = &self.kind else {
+            // SAFETY: The safety precondition guarantees the type is a struct.
+            unsafe { unreachable_unchecked() };
+        };
+        // This check allows us to avoid writing zeroed bytes over top an allocation that was
+        // allocated with `alloc_zeroed` (which can be more efficient, then `alloc` + `memset`).
+        if !uncovered_initialized {
+            match struct_type.uncovered_bytes() {
+                // Do nothing. Uncovered bytes can be uninitialized.
+                UncoveredBytes::Padding => {}
+                UncoveredBytes::Zeroed => {
+                    // SAFETY: The safety precondition guarantees that the type is sized (and therefore
+                    // that the layout is `Some`).
+                    let layout = unsafe { self.layout.unwrap_unchecked() };
+                    // SAFETY: By the safety precondition, `dst` is valid for writes of this type, and
+                    // we know the type has the specified layout by the safety of `Type::new`, so the
+                    // size is correct.
+                    unsafe { dst.as_ptr().write_bytes(0, layout.size()) };
+                }
+            }
+        }
+        for field in struct_type.fields() {
+            // SAFETY: By the safety precondition, `dst` is valid for writes of this type, and
+            // `Type::new` guarantees that `field.offset` is in bounds of it.
+            let field_ptr = unsafe { dst.byte_add(field.offset) };
+            // If `func` panics, the previously written values in this type are leaked.
+            (func)(field, field_ptr);
+        }
+        // SAFETY: By the safety precondition, `dst` is valid for writes of the `struct_type` and
+        // all ignored fields have a reflected default impl.
+        unsafe { initialize_ignored_fields(struct_type, dst) };
+        // At this point, all the uncovered bytes are initialized (either by the caller if
+        // `uncovered_initialized` is true, or by us otherwise), all the normal fields have been
+        // initialized with func, and all the ignored fields have been defaulted (and by
+        // `Struct::new` these are all the fields in the struct). Therefore, `dst` is fully
+        // initialized.
+    }
+
     /// Allocates a new value of this type, initializing each field of the struct with `func`.
     ///
     /// Bytes that are not covered by a field are left uninitialized if they are padding, or zeroed
@@ -180,26 +248,25 @@ impl Type {
     /// reference.
     pub unsafe fn initialize_struct(
         &self,
-        mut func: impl FnMut(&StructField, NonNull<u8>),
+        func: impl FnMut(&StructField, NonNull<u8>),
     ) -> Option<Box<dyn Reflect>> {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
         };
         let ptr = self.alloc_struct(struct_type)?;
-        for field in struct_type.fields() {
-            // SAFETY: `ptr` is a unique allocation of this type, and `Type::new` guarantees that
-            // `field.offset` is in bounds of it
-            let field_ptr = unsafe { ptr.byte_add(field.offset) };
-            // If `func` panics, the allocation for this type will be leaked.
-            (func)(field, field_ptr);
+        // SAFETY:
+        // 1) We've checked the type is `Kind::Struct`.
+        // 2) `alloc_struct` returns `None` if the type is unsized, so we know the type is sized.
+        // 3) We just allocated `ptr`, and with the layout of this type, so it is valid for writes.
+        // 4) By the safety precondition, `func` will initialize every field pointer, and will not
+        //    read from the pointer.
+        // 5) `alloc_struct` returns `None` if any ignored fields don't have a default impl.
+        // 6) `alloc_struct` allocates the pointer based on the struct's `Struct::uncovered_bytes`.
+        unsafe {
+            self.initialize_struct_raw(func, /*uncovered_initialized=*/ true, ptr);
         }
-        // SAFETY: `alloc_struct` returns a valid allocation of this type, and `alloc_struct` checks
-        // that all ignored fields have reflected default impls.
-        unsafe { initialize_ignored_fields(struct_type, ptr) }
-        // SAFETY: We've initialized the regular fields and the ignored fields, and `Struct::new`
-        // ensures this covers all fields, and `alloc_struct` ensures all uncovered bytes are
-        // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
-        // the global allocator (or the type is a ZST).
+        // SAFETY: `initialize_struct_raw` guarantees that the type is fully initialized.
+        // `alloc_struct` also allocated `ptr` with the global allocator (or the type is a ZST).
         Some(unsafe { self.box_from_raw(ptr) })
     }
 
