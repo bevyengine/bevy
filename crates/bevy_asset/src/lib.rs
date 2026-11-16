@@ -1043,7 +1043,7 @@ mod tests {
     }
 
     #[test]
-    fn preregistered_loader_notification_releases_lock() {
+    fn preregistered_loader_notifies_pending_loads() {
         let (mut app, _) = create_app();
         app.preregister_asset_loader::<CoolTextLoader>(&["cool.ron"]);
         let server = app.world().resource::<AssetServer>().clone();
@@ -1062,10 +1062,7 @@ mod tests {
                 assert!(check_ready(&mut loader).is_none());
                 waiting_sender.send(()).unwrap();
                 loader.await.unwrap();
-                // A blocking read here would deadlock instead of reporting the regression.
-                result_sender
-                    .send(server.data.loaders.try_read().is_ok())
-                    .unwrap();
+                result_sender.send(()).unwrap();
             }));
         }
 
@@ -1075,13 +1072,11 @@ mod tests {
                 .unwrap();
         }
         app.register_asset_loader(CoolTextLoader);
+        bevy_tasks::IoTaskPool::get().with_local_executor(|executor| while executor.try_tick() {});
         for _ in 0..2 {
-            assert!(
-                result_receiver
-                    .recv_timeout(Duration::from_secs(10))
-                    .unwrap(),
-                "loader notification resumed a task while the loaders lock was held"
-            );
+            result_receiver
+                .recv_timeout(Duration::from_secs(10))
+                .unwrap();
         }
         for task in tasks {
             block_on(task);

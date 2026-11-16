@@ -197,12 +197,7 @@ impl AssetServer {
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub fn register_loader<L: AssetLoader>(&self, loader: L) {
-        let pending_loader = self.write_loaders().push(loader);
-        // Spawning can immediately resume a pending load on a single-threaded task pool.
-        // Release the write lock first so that load can access the loader registry.
-        if let Some(notify) = pending_loader {
-            IoTaskPool::get().spawn(notify).detach();
-        }
+        self.write_loaders().push(loader);
     }
 
     /// Registers a new [`Asset`] type. [`Asset`] types must be registered before assets of that type can be loaded.

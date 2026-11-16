@@ -26,12 +26,7 @@ impl AssetLoaders {
     }
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
-    ///
-    /// The returned future notifies pending loads and must be spawned after releasing the loaders lock.
-    pub(crate) fn push<L: AssetLoader>(
-        &mut self,
-        loader: L,
-    ) -> Option<impl Future<Output = ()> + Send + 'static> {
+    pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
         let type_path = L::type_path();
         // TODO: Allow using the short path of loaders.
         let loader_asset_type = TypeId::of::<L::Asset>();
@@ -79,7 +74,6 @@ impl AssetLoaders {
                 .push(loader_index);
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
-            None
         } else {
             let maybe_loader = core::mem::replace(
                 self.loaders.get_mut(loader_index).unwrap(),
@@ -87,9 +81,10 @@ impl AssetLoaders {
             );
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
-                MaybeAssetLoader::Pending { sender, .. } => Some(async move {
-                    let _ = sender.broadcast(loader).await;
-                }),
+                MaybeAssetLoader::Pending { sender, .. } => {
+                    // The channel is empty and its original receiver is still alive.
+                    sender.try_broadcast(loader).unwrap();
+                }
             }
         }
     }
@@ -377,7 +372,7 @@ mod tests {
 
         assert!(rx.try_recv().is_err());
 
-        assert!(loaders.push(loader).is_none());
+        loaders.push(loader);
 
         assert!(rx.try_recv().is_ok());
         assert!(rx.try_recv().is_err());
@@ -396,6 +391,20 @@ mod tests {
         assert!(rx.try_recv().is_err());
     }
 
+    #[test]
+    fn preregistered_loader_without_pending_loads() {
+        let mut loaders = AssetLoaders::default();
+        loaders.reserve::<Loader<A, 1, 0>>(&[]);
+        let (loader, _rx) = Loader::<A, 1, 0>::new();
+
+        loaders.push(loader);
+
+        assert!(matches!(
+            loaders.get_by_name(<Loader<A, 1, 0> as TypePath>::type_path()),
+            Some(MaybeAssetLoader::Ready(_))
+        ));
+    }
+
     /// Ensure that if multiple loaders have different types but no extensions, they can be found
     #[test]
     fn type_resolution() {
@@ -405,9 +414,9 @@ mod tests {
         let (loader_b1, rx_b1) = Loader::<B, 1, 0>::new();
         let (loader_c1, rx_c1) = Loader::<C, 1, 0>::new();
 
-        assert!(loaders.push(loader_a1).is_none());
-        assert!(loaders.push(loader_b1).is_none());
-        assert!(loaders.push(loader_c1).is_none());
+        loaders.push(loader_a1);
+        loaders.push(loader_b1);
+        loaders.push(loader_c1);
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_b1.try_recv().is_ok());
@@ -447,9 +456,9 @@ mod tests {
         let (loader_a2, rx_a2) = Loader::<A, 2, 0>::new();
         let (loader_a3, rx_a3) = Loader::<A, 3, 0>::new();
 
-        assert!(loaders.push(loader_a1).is_none());
-        assert!(loaders.push(loader_a2).is_none());
-        assert!(loaders.push(loader_a3).is_none());
+        loaders.push(loader_a1);
+        loaders.push(loader_a2);
+        loaders.push(loader_a3);
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_a2.try_recv().is_ok());
@@ -473,9 +482,9 @@ mod tests {
         let (loader_b1, rx_b1) = Loader::<A, 1, 2>::new();
         let (loader_c1, rx_c1) = Loader::<A, 1, 3>::new();
 
-        assert!(loaders.push(loader_a1).is_none());
-        assert!(loaders.push(loader_b1).is_none());
-        assert!(loaders.push(loader_c1).is_none());
+        loaders.push(loader_a1);
+        loaders.push(loader_b1);
+        loaders.push(loader_c1);
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_b1.try_recv().is_ok());
@@ -515,9 +524,9 @@ mod tests {
         let (loader_b1, rx_b1) = Loader::<A, 1, 2>::new();
         let (loader_c1, rx_c1) = Loader::<A, 1, 3>::new();
 
-        assert!(loaders.push(loader_a1).is_none());
-        assert!(loaders.push(loader_b1).is_none());
-        assert!(loaders.push(loader_c1).is_none());
+        loaders.push(loader_a1);
+        loaders.push(loader_b1);
+        loaders.push(loader_c1);
 
         assert!(rx_a1.try_recv().is_ok());
         assert!(rx_b1.try_recv().is_ok());
@@ -567,11 +576,11 @@ mod tests {
         let (loader_c1_b, rx_c1_b) = Loader::<C, 1, 2>::new();
         let (loader_c1_c, rx_c1_c) = Loader::<C, 1, 3>::new();
 
-        assert!(loaders.push(loader_a1_a).is_none());
-        assert!(loaders.push(loader_b1_b).is_none());
-        assert!(loaders.push(loader_c1_a).is_none());
-        assert!(loaders.push(loader_c1_b).is_none());
-        assert!(loaders.push(loader_c1_c).is_none());
+        loaders.push(loader_a1_a);
+        loaders.push(loader_b1_b);
+        loaders.push(loader_c1_a);
+        loaders.push(loader_c1_b);
+        loaders.push(loader_c1_c);
 
         assert!(rx_a1_a.try_recv().is_ok());
         assert!(rx_b1_b.try_recv().is_ok());
@@ -728,9 +737,9 @@ mod tests {
         let (loader_a2_a, rx_a2_a) = Loader::<A, 2, 1>::new();
         let (loader_a3_a, rx_a3_a) = Loader::<A, 3, 1>::new();
 
-        assert!(loaders.push(loader_a1_a).is_none());
-        assert!(loaders.push(loader_a2_a).is_none());
-        assert!(loaders.push(loader_a3_a).is_none());
+        loaders.push(loader_a1_a);
+        loaders.push(loader_a2_a);
+        loaders.push(loader_a3_a);
 
         assert!(rx_a1_a.try_recv().is_ok());
         assert!(rx_a2_a.try_recv().is_ok());
