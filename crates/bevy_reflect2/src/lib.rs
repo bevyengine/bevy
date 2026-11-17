@@ -898,10 +898,8 @@ mod tests {
         #[derive(Reflect, PartialEq, Eq, Debug)]
         struct Foo {
             a: u32,
-            b: u32,
+            b: String,
         }
-
-        let mut values = [("a", 10), ("b", 20)].iter();
 
         let mut value = MaybeUninit::<Foo>::uninit();
 
@@ -909,15 +907,20 @@ mod tests {
         // 1) Foo is a struct.
         // 2) Foo is sized, so the layout is some.
         // 3) `value` is mutable, and has the correct layout for `Foo`.
-        // 4) every field of `Foo` is a u32, and each one is initialized.
+        // 4) We initialize every field with a valid value of the appropriate type.
         // 5) There are no ignored fields.
         // 6) uncovered_initialized is false.
         unsafe {
             Foo::TYPE.initialize_struct_raw(
                 |field, ptr| {
-                    let (name, value) = values.next().unwrap();
-                    assert_eq!(*name, field.name);
-                    ptr.as_ptr().cast::<u32>().write(*value);
+                    if field.ty.get().type_id() == TypeId::of::<u32>() {
+                        // SAFETY: We've checked the type matches, and we have write access.
+                        ptr.as_ptr().cast::<u32>().write(10);
+                    } else {
+                        assert_eq!(field.ty.get().type_id(), TypeId::of::<String>());
+                        // SAFETY: We've checked the type matches, and we have write access.
+                        ptr.as_ptr().cast::<String>().write(String::from("hello"));
+                    }
                 },
                 /*uncovered_initialized=*/ false,
                 non_null_from_maybe_uninit(&mut value),
@@ -927,7 +930,13 @@ mod tests {
         // SAFETY: initialize_struct_raw guarantees `value` is fully initialized.
         let value = unsafe { value.assume_init() };
 
-        assert_eq!(value, Foo { a: 10, b: 20 });
+        assert_eq!(
+            value,
+            Foo {
+                a: 10,
+                b: String::from("hello")
+            }
+        );
     }
 
     #[test]
