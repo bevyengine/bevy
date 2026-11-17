@@ -678,7 +678,7 @@ mod tests {
     use alloc::borrow::Cow;
     use bevy_app::{App, Update};
     use bevy_ecs::{change_detection::Mut, world::World};
-    use bevy_text::TextColor;
+    use bevy_text::{PlaceholderColor, TextColor};
     use parley::{FontFamilyName, PlainEditorDriver};
 
     struct Fixture {
@@ -1056,17 +1056,55 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_color() {
+    fn resolve_placeholder_color() {
         let field = TextColor(bevy_color::Color::srgba(1., 1., 1., 0.5)).0;
-        let derived = Placeholder::new("x").resolve_color(field);
+        let derived = PlaceholderColor::resolve(None, field);
         assert_eq!(
             bevy_color::Alpha::alpha(&derived),
-            0.5 * Placeholder::DEFAULT_ALPHA
+            0.5 * PlaceholderColor::DEFAULT_ALPHA
         );
-        let explicit = Placeholder {
-            color: Some(bevy_color::Color::BLACK),
-            ..Placeholder::new("x")
-        };
-        assert_eq!(explicit.resolve_color(field), bevy_color::Color::BLACK);
+        let explicit = PlaceholderColor(bevy_color::Color::BLACK);
+        assert_eq!(
+            PlaceholderColor::resolve(Some(&explicit), field),
+            bevy_color::Color::BLACK
+        );
+        // The default looks like having no `PlaceholderColor` at all.
+        assert_eq!(
+            PlaceholderColor::default().0,
+            PlaceholderColor::resolve(None, TextColor::default().0)
+        );
+        assert_eq!(
+            bevy_color::Alpha::alpha(&PlaceholderColor::default().0),
+            PlaceholderColor::DEFAULT_ALPHA
+        );
+    }
+
+    #[test]
+    fn changes_to_placeholder_color_dont_relayout() {
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        // Clear the hint glyphs, if they are replaced it means there was a relayout.
+        app.world_mut()
+            .get_mut::<TextLayoutInfo>(entity)
+            .unwrap()
+            .placeholder_glyphs
+            .clear();
+
+        let mut field = app.world_mut().entity_mut(entity);
+        field.insert(PlaceholderColor(bevy_color::Color::BLACK));
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+
+        app.world_mut()
+            .get_mut::<PlaceholderColor>(entity)
+            .unwrap()
+            .0 = bevy_color::Color::WHITE;
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<PlaceholderColor>();
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
     }
 }
