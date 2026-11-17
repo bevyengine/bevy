@@ -6,11 +6,16 @@
 //! Press `C` to change between the film flythrough and free-fly with WASD and the mouse.
 //! Press `N` to turn DLSS Ray Reconstruction on and off. Press `B` to run a short
 //! benchmark and print the result to the console.
+#![expect(
+    clippy::print_stdout,
+    reason = "this is an example, we want to show the user progress while the example loads"
+)]
 
 use std::f32::consts::{PI, TAU};
 use std::time::{Duration, Instant};
 
 use argh::FromArgs;
+use bevy::diagnostic::Diagnostic;
 use bevy::{
     asset::LoadState,
     camera::{CameraMainTextureUsages, Hdr},
@@ -43,8 +48,8 @@ use bevy::{
 /// Config
 #[derive(FromArgs, Resource)]
 pub struct Args {
-    /// which scene to load: measure_one (default), measure_seven, or
-    /// measure_seven_colored_lights
+    /// which scene to load: `measure_one` (default), `measure_seven`, or
+    /// `measure_seven_colored_lights`
     #[argh(option, default = "Scene::MeasureOne")]
     scene: Scene,
 
@@ -106,8 +111,10 @@ const BASE_URL: &str =
     "https://github.com/bevyengine/bevy_asset_files/releases/download/zero-day-1.0";
 
 /// The scene to load. Only the asset filename differs between measures.
-// Keep the shared `Measure` prefix, which matches the Zero-Day asset names.
-#[allow(clippy::enum_variant_names)]
+#[expect(
+    clippy::enum_variant_names,
+    reason = "These prefixes match the Zero-Day asset names"
+)]
 #[derive(Clone, Copy)]
 enum Scene {
     MeasureOne,
@@ -476,7 +483,7 @@ fn proc_scene(
 /// transform, which `drive_flythrough` follows.
 ///
 /// The far plane isn't copied. The film's far=100 would cut off the ~700-unit shaft in
-/// measure_seven, so the render camera keeps its far=2000. The near plane of 0.001 must
+/// `measure_seven`, so the render camera keeps its far=2000. The near plane of 0.001 must
 /// be copied, because Solari gets primary visibility from a rasterized prepass and the
 /// flythrough passes within ~0.02 units of geometry, which the default near plane of 0.1
 /// would clip away. Bevy's reverse-z depth buffer keeps enough precision between 0.001
@@ -484,7 +491,6 @@ fn proc_scene(
 ///
 /// `FilmCamera` goes on the first camera only, so the `Single` in `drive_flythrough`
 /// can never find more than one.
-#[allow(clippy::type_complexity)]
 fn setup_flythrough_camera(
     scene_ready: On<WorldInstanceReady>,
     children: Query<&Children>,
@@ -538,7 +544,6 @@ fn setup_raytracing_meshes(
 /// Plays the imported animation in a loop. It moves approximately 550 objects plus the
 /// film camera. The Blender exporter writes one clip per object, thousands per scene,
 /// all on the film's shared timeline.
-#[allow(clippy::too_many_arguments)]
 fn start_animation(
     scene_ready: On<WorldInstanceReady>,
     scene_gltf: Res<SceneGltf>,
@@ -655,7 +660,6 @@ fn frame_stats(
 /// Rewinding and switching to cinematic mode make the runs comparable. The percentiles
 /// are calculated once at the end, so the 1% values cover the whole run. GPU span
 /// times are averaged over the run.
-#[allow(clippy::too_many_arguments)]
 fn benchmark(
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time<Real>>,
@@ -794,7 +798,7 @@ fn update_hud(
 ) {
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|d| d.smoothed())
+        .and_then(Diagnostic::smoothed)
         .unwrap_or_default();
     let mode = if cinematic.active {
         "flythrough  (C: free-fly)"
