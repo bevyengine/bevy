@@ -179,6 +179,16 @@ impl core::str::FromStr for Val {
 
         if s.eq_ignore_ascii_case("auto") {
             return Ok(Val::Auto);
+        } else if s.eq_ignore_ascii_case("min-content") || s.eq_ignore_ascii_case("mincontent") {
+            return Ok(Val::MinContent);
+        } else if s.eq_ignore_ascii_case("max-content") || s.eq_ignore_ascii_case("maxcontent") {
+            return Ok(Val::MaxContent);
+        } else if s.eq_ignore_ascii_case("fit-content") || s.eq_ignore_ascii_case("fitcontent") {
+            return Ok(Val::FitContent);
+        } else if s.eq_ignore_ascii_case("stretch") {
+            return Ok(Val::Stretch);
+        } else if s.eq_ignore_ascii_case("content") {
+            return Ok(Val::Content);
         }
 
         let Some(end_of_number) = s
@@ -491,6 +501,14 @@ impl Mul<f32> for Val {
             Val::Rem(value) => Val::Rem(value * rhs),
             non_numeric => non_numeric,
         }
+    }
+}
+
+impl Mul<Val> for f32 {
+    type Output = Val;
+
+    fn mul(self, rhs: Val) -> Self::Output {
+        rhs * self
     }
 }
 
@@ -891,6 +909,29 @@ mod tests {
         assert_eq!("auto".parse::<Val>(), Ok(Val::Auto));
         assert_eq!("Auto".parse::<Val>(), Ok(Val::Auto));
         assert_eq!("AUTO".parse::<Val>(), Ok(Val::Auto));
+
+        assert_eq!("min-content".parse::<Val>(), Ok(Val::MinContent));
+        assert_eq!("MIN-CONTENT".parse::<Val>(), Ok(Val::MinContent));
+        assert_eq!("mincontent".parse::<Val>(), Ok(Val::MinContent));
+        assert_eq!("MinContent".parse::<Val>(), Ok(Val::MinContent));
+
+        assert_eq!("max-content".parse::<Val>(), Ok(Val::MaxContent));
+        assert_eq!("MAX-CONTENT".parse::<Val>(), Ok(Val::MaxContent));
+        assert_eq!("maxcontent".parse::<Val>(), Ok(Val::MaxContent));
+        assert_eq!("MaxContent".parse::<Val>(), Ok(Val::MaxContent));
+
+        assert_eq!("fit-content".parse::<Val>(), Ok(Val::FitContent));
+        assert_eq!("FIT-CONTENT".parse::<Val>(), Ok(Val::FitContent));
+        assert_eq!("fitcontent".parse::<Val>(), Ok(Val::FitContent));
+        assert_eq!("FitContent".parse::<Val>(), Ok(Val::FitContent));
+
+        assert_eq!("stretch".parse::<Val>(), Ok(Val::Stretch));
+        assert_eq!("Stretch".parse::<Val>(), Ok(Val::Stretch));
+        assert_eq!("STRETCH".parse::<Val>(), Ok(Val::Stretch));
+
+        assert_eq!("content".parse::<Val>(), Ok(Val::Content));
+        assert_eq!("Content".parse::<Val>(), Ok(Val::Content));
+        assert_eq!("CONTENT".parse::<Val>(), Ok(Val::Content));
 
         assert_eq!("3px".parse::<Val>(), Ok(Val::Px(3.)));
         assert_eq!("3 px".parse::<Val>(), Ok(Val::Px(3.)));

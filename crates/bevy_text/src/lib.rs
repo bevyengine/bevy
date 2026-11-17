@@ -41,6 +41,7 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod inline_box;
+mod masking;
 mod parley_context;
 mod pipeline;
 mod scroll;

@@ -4799,17 +4799,20 @@ impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 #[cfg(test)]
 mod tests {
     use core::sync::atomic::{AtomicUsize, Ordering};
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     use std::sync::Mutex;
 
     use super::*;
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     use crate::batching::BatchingStrategy;
     use crate::change_detection::DetectChanges;
-    use crate::query::{QueryNotDenseError, Without};
+    use crate::query::Without;
     use crate::system::{assert_is_system, Query};
-    use alloc::sync::Arc;
-    use alloc::{vec, vec::Vec};
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
+    use alloc::{sync::Arc, vec, vec::Vec};
     use bevy_ecs::prelude::Schedule;
     use bevy_ecs_macros::QueryData;
+    #[cfg(all(feature = "multi_threaded", feature = "std"))]
     use fixedbitset::FixedBitSet;
 
     #[derive(Component)]
@@ -5553,6 +5556,8 @@ mod tests {
     #[cfg(all(feature = "multi_threaded", feature = "std"))]
     #[test]
     fn contiguous_par_iter_failure_test() {
+        use crate::query::QueryNotDenseError;
+
         // Declare a couple of components, one of which is a sparse set.
 
         #[derive(Component, Clone, Copy)]

@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.97.1"
+rust-version = "1.100.0"
 
 [workspace]
 resolver = "3"
@@ -361,6 +361,9 @@ bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
+
+# Adds frame pacing diagnostics and logs
+framepace_debug = ["bevy_render", "bevy_internal/framepace_debug"]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
@@ -4402,6 +4405,18 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "framepace"
+path = "examples/window/framepace.rs"
+doc-scrape-examples = true
+required-features = ["framepace_debug"]
+
+[package.metadata.example.framepace]
+name = "Framepace"
+description = "Demonstrates frame pacing"
+category = "Window"
+wasm = false
+
+[[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
 doc-scrape-examples = true
@@ -5629,6 +5644,17 @@ doc-scrape-examples = true
 [package.metadata.example.headless_tabs]
 name = "Headless Tabs"
 description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "dock"
+path = "examples/ui/widgets/dock.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dock]
+name = "Dock"
+description = "Builds split panes and tab groups from a dock tree and edits the tree at runtime"
 category = "UI (User Interface)"
 wasm = true
 
