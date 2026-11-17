@@ -193,7 +193,7 @@ Color: {}",
 
     // Toggle showing a wireframe on all meshes
     if keyboard_input.just_pressed(KeyCode::KeyZ) {
-        config.global = !config.global;
+        config.global.toggle();
     }
 
     // Toggle the global wireframe color
@@ -235,12 +235,12 @@ Color: {}",
     }
 
     if keyboard_input.just_pressed(KeyCode::KeyN) {
-        config.xray_mode = !config.xray_mode;
+        config.xray_mode.toggle();
     }
 
     if keyboard_input.just_pressed(KeyCode::KeyM) {
         for mut xray in &mut xray_cubes {
-            xray.0 = !xray.0;
+            xray.0.toggle();
         }
     }
 

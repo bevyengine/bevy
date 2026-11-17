@@ -1,4 +1,7 @@
-use taffy::{style_helpers, Dimension};
+use std::sync::LazyLock;
+
+use bevy_ecs::component::Component;
+use taffy::style_helpers;
 
 use crate::{
     val::{CalcOp, ValContext},
@@ -7,8 +10,6 @@ use crate::{
     JustifyItems, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis,
     PositionType, RepeatedGridTrack, UiRect, Val,
 };
-
-use super::layout_tree::TaffyStyle;
 
 /// Owns the `CalcOp`s referenced by raw pointers in `style`.
 /// Boxing keeps their addresses stable when the vector reallocates.
@@ -36,6 +37,118 @@ impl CalcOps {
         self.0.clear()
     }
 }
+
+#[expect(
+    unsafe_code,
+    reason = "`TaffyStyle` uses raw pointers to its `CalcOp` values."
+)]
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
+unsafe impl Send for TaffyStyle {}
+
+#[expect(
+    unsafe_code,
+    reason = "`TaffyStyle` owns the `CalcOp`s that its `Style` points to."
+)]
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `CalcOp` is `Send + Sync`.
+unsafe impl Sync for TaffyStyle {}
+
+/// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
+/// `Style` references `CalcOp`s using percentages that can't be resolved until layout using raw pointers.
+/// The `Vec` is used to keep the percentages alive because Taffy's `CompactLength` pointers are non-owning.
+
+#[derive(Default, Component)]
+pub struct TaffyStyle {
+    /// Taffy `Style` converted from a `Node`.
+    pub(crate) style: taffy::Style,
+    /// Owns the `CalcOp`s referenced by raw pointers in `style`.
+    /// Boxing keeps their addresses stable when the vector reallocates.
+    /// These `CalcOp`s are reduced to operations only using `Px` and `Percentage` before layout.
+    pub(crate) calcs: CalcOps,
+}
+
+/// Resolves a calc pointer that taffy read back out of a [`TaffyStyle`] against the
+/// percentage `basis`.
+#[expect(
+    unsafe_code,
+    reason = "Taffy hands back the pointer it was given, which points into a `Box<CalcOp>` owned by the same `TaffyStyle`"
+)]
+pub fn resolve_calc(ptr: *const (), basis: f32) -> f32 {
+    // SAFETY: Taffy hands back the pointer it was given, which points into a `Box<CalcOp>` owned by the same `TaffyStyle`
+    let calc = unsafe { &*ptr.cast::<CalcOp>() };
+    calc.resolve(&ValContext::default(), basis).unwrap()
+}
+
+impl TaffyStyle {
+    pub fn viewport_node() -> &'static TaffyStyle {
+        &VIEWPORT_NODE_TAFFY_STYLE
+    }
+}
+
+static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyStyle {
+    style: taffy::Style {
+        dummy: core::marker::PhantomData,
+        display: taffy::Display::Grid,
+        item_is_table: false,
+        item_is_replaced: false,
+        item_is_compressible_replaced: false,
+        box_sizing: taffy::BoxSizing::BorderBox,
+        direction: taffy::Direction::Ltr,
+        overflow: taffy::Point {
+            x: taffy::Overflow::Visible,
+            y: taffy::Overflow::Visible,
+        },
+        scrollbar_width: 0.0,
+        contain: taffy::Contain::NONE,
+        position: taffy::Position::Relative,
+        inset: taffy::Rect::auto(),
+        size: taffy::Size {
+            width: taffy::Dimension::percent(1.0),
+            height: taffy::Dimension::percent(1.0),
+        },
+        min_size: taffy::Size::auto(),
+        max_size: taffy::Size::auto(),
+        aspect_ratio: None,
+        margin: taffy::Rect::zero(),
+        padding: taffy::Rect::zero(),
+        border: taffy::Rect::zero(),
+        align_items: taffy::AlignItems::START,
+        align_self: None,
+        justify_items: taffy::JustifyItems::START,
+        justify_self: None,
+        align_content: taffy::AlignContent::NORMAL,
+        justify_content: taffy::AlignContent::NORMAL,
+        gap: taffy::Size::zero(),
+        text_align: taffy::TextAlign::Auto,
+        flex_direction: taffy::FlexDirection::Row,
+        flex_wrap: taffy::FlexWrap::NoWrap,
+        flex_basis: taffy::Dimension::auto(),
+        flex_grow: 0.0,
+        flex_shrink: 1.0,
+        grid_template_rows: vec![style_helpers::minmax(
+            style_helpers::length(0.0),
+            style_helpers::fr(1.0),
+        )],
+        grid_template_columns: vec![style_helpers::minmax(
+            style_helpers::length(0.0),
+            style_helpers::fr(1.0),
+        )],
+        grid_auto_rows: Vec::new(),
+        grid_auto_columns: Vec::new(),
+        grid_auto_flow: taffy::GridAutoFlow::Row,
+        grid_template_areas: None,
+        grid_template_column_names: Vec::new(),
+        grid_template_row_names: Vec::new(),
+        grid_row: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
+        grid_column: taffy::Line {
+            start: taffy::GridPlacement::Span(1),
+            end: taffy::GridPlacement::Auto,
+        },
+    },
+    calcs: CalcOps::default(),
+});
 
 impl Val {
     /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels
@@ -131,14 +244,14 @@ impl Val {
 
     /// Convert a `Val` to Taffy's packed `Dimension`.
     /// `Dimension` is a superset of `LengthPercentageAuto`, it also supports "min-content", "max-content", "fit-content", "stretch" and "content" values.
-    fn to_dimension(&self, context: &ValContext, calcs: &mut CalcOps) -> Dimension {
+    fn to_dimension(&self, context: &ValContext, calcs: &mut CalcOps) -> taffy::Dimension {
         match self {
             Val::Auto => style_helpers::auto(),
-            Val::MinContent => Dimension::min_content(),
-            Val::MaxContent => Dimension::max_content(),
-            Val::FitContent => Dimension::fit_content(),
-            Val::Stretch => Dimension::stretch(),
-            Val::Content => Dimension::content(),
+            Val::MinContent => taffy::Dimension::min_content(),
+            Val::MaxContent => taffy::Dimension::max_content(),
+            Val::FitContent => taffy::Dimension::fit_content(),
+            Val::Stretch => taffy::Dimension::stretch(),
+            Val::Content => taffy::Dimension::content(),
             _ => self.to_length_percentage_auto(context, calcs).into(),
         }
     }
@@ -809,9 +922,9 @@ mod tests {
         );
         assert_eq!(style.flex_grow, 1.);
         assert_eq!(style.flex_shrink, 0.);
-        assert_eq!(style.flex_basis, Dimension::ZERO);
-        assert_eq!(style.size.width, Dimension::ZERO);
-        assert_eq!(style.size.height, Dimension::auto());
+        assert_eq!(style.flex_basis, taffy::Dimension::ZERO);
+        assert_eq!(style.size.width, taffy::Dimension::ZERO);
+        assert_eq!(style.size.height, taffy::Dimension::auto());
         assert_eq!(
             style.min_size.width,
             taffy::style::LengthPercentageAuto::ZERO

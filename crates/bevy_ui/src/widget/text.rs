@@ -1,6 +1,6 @@
 use crate::{
-    layout_tree::resolve_calc, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure,
-    Measure, MeasureArgs, Node, NodeMeasure,
+    layout_tree::ComputedLayout, resolve_calc, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
+    FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -391,6 +391,7 @@ pub fn text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Ref<ComputedNode>,
+        &ComputedLayout,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
@@ -399,7 +400,7 @@ pub fn text_system(
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (node, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
+    for (node, layout, block, mut text_layout_info, mut text_flags, mut computed, hinting) in
         &mut text_query
     {
         if (node.is_changed() && block.linebreak != LineBreak::NoWrap)
@@ -416,7 +417,13 @@ pub fn text_system(
                 TextBounds::UNBOUNDED
             } else {
                 let content_box_size = node.content_box().size();
-                TextBounds::new(content_box_size.x.ceil(), content_box_size.y)
+                // Use unrounded dimensions for TextBounds to match TextMeasure
+                let width = layout
+                    .get_layout(false)
+                    .map_or(content_box_size.x, |(unrounded, _)| {
+                        unrounded.content_box_width()
+                    });
+                TextBounds::new(width.ceil(), content_box_size.y)
             };
 
             match text_pipeline.update_text_layout_info(

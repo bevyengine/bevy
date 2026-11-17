@@ -8,7 +8,7 @@ use taffy::MaybeMath;
 use taffy::MaybeResolve;
 use taffy::ResolveOrZero;
 
-use crate::layout::layout_tree::resolve_calc;
+use crate::resolve_calc;
 use crate::widget::ImageMeasure;
 
 use crate::widget::TextMeasure;
