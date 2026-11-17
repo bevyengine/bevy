@@ -37,8 +37,6 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_world_serialization::WorldAsset;
 use gltf::{
@@ -687,56 +685,23 @@ impl GltfLoader {
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
         let mut texture_handles = Vec::new();
-        if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-            for texture in gltf.textures() {
-                let image = load_image(
-                    texture.clone(),
-                    &buffer_data,
-                    &linear_textures,
-                    load_context.path(),
-                    loader.supported_compressed_formats,
-                    default_sampler,
-                    settings,
-                )
-                .await?;
-                image.process_loaded_texture(load_context, &mut texture_handles);
-                // let extensions handle texture data
-                for extension in extensions.iter_mut() {
-                    extension.on_texture(&texture, texture_handles.last().unwrap().clone());
-                }
-            }
-        } else {
-            // This cfg is redundant, but if we don't explicitly cfg it out, Wasm will compile it
-            // and fail.
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                let textures = IoTaskPool::get().scope(|scope| {
-                    gltf.textures().for_each(|gltf_texture| {
-                        let asset_path = load_context.path().clone();
-                        let linear_textures = &linear_textures;
-                        let buffer_data = &buffer_data;
-                        scope.spawn(async move {
-                            load_image(
-                                gltf_texture,
-                                buffer_data,
-                                linear_textures,
-                                &asset_path,
-                                loader.supported_compressed_formats,
-                                default_sampler,
-                                settings,
-                            )
-                            .await
-                        });
-                    });
-                });
-                // order is preserved if the futures are only spawned from the root scope
-                for (result, texture) in textures.into_iter().zip(gltf.textures()) {
-                    result?.process_loaded_texture(load_context, &mut texture_handles);
-                    // let extensions handle texture data
-                    for extension in extensions.iter_mut() {
-                        extension.on_texture(&texture, texture_handles.last().unwrap().clone());
-                    }
-                }
+        // Textures are loaded one after another: loading them in an `IoTaskPool` scope
+        // overflows the stack when many glTFs load at once (#15271).
+        for texture in gltf.textures() {
+            let image = load_image(
+                texture.clone(),
+                &buffer_data,
+                &linear_textures,
+                load_context.path(),
+                loader.supported_compressed_formats,
+                default_sampler,
+                settings,
+            )
+            .await?;
+            image.process_loaded_texture(load_context, &mut texture_handles);
+            // let extensions handle texture data
+            for extension in extensions.iter_mut() {
+                extension.on_texture(&texture, texture_handles.last().unwrap().clone());
             }
         }
 
