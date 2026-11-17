@@ -11,7 +11,7 @@ use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 const GLYPH_ATLAS_PADDING: u32 = 2;
 
 /// Number of horizontal subpixel offsets a glyph can be rasterized at.
-pub const SUBPIXEL_BINS: u8 = 4;
+const SUBPIXEL_BINS: u8 = 4;
 
 /// Key identifying a glyph
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -33,7 +33,7 @@ impl GlyphCacheKey {
                     glyph_id,
                     subpixel_bin: 0,
                 },
-                position.floor(),
+                position.round(),
             ),
             FontSmoothing::AntiAliased => {
                 let bins = SUBPIXEL_BINS as f32;
