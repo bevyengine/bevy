@@ -310,7 +310,7 @@ fn keyboard_animation_control(
     mut foxes: ResMut<Foxes>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        foxes.moving = !foxes.moving;
+        foxes.moving.toggle();
     }
 
     if keyboard_input.just_pressed(KeyCode::ArrowUp) {

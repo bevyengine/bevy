@@ -232,7 +232,7 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
+        let angle_to_sun = fast_acos(neg_LdotV);
         let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
         let sun_angular_size = (*light).sun_disk_angular_size;
         let sun_intensity = (*light).sun_disk_intensity;

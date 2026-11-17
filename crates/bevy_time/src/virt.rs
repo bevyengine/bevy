@@ -211,7 +211,7 @@ impl Time<Virtual> {
     /// Stops the clock if it is running, otherwise resumes the clock.
     #[inline]
     pub fn toggle(&mut self) {
-        self.context_mut().paused ^= true;
+        self.context_mut().paused.toggle();
     }
 
     /// Stops the clock, preventing it from advancing until resumed.
