@@ -31,17 +31,16 @@ pub struct FontAtlasKey {
 impl FontAtlasKey {
     /// Create a new `FontAtlasKey`.
     pub fn new(glyph_run: &GlyphRun<'_, TextBrush>, hinting: FontHinting) -> Self {
-        let font_smoothing = glyph_run.style().brush.font_smoothing;
         let run = glyph_run.run();
         let font = run.font();
-
         Self {
             id: font.data.id() as u32,
             index: font.index,
             font_size_bits: run.font_size().to_bits(),
             variations_hash: FixedHasher.hash_one(run.normalized_coords()),
+            synthetic_skew_bits: run.synthesis().skew().unwrap_or_default().to_bits(),
             hinting,
-            font_smoothing,
+            font_smoothing: glyph_run.style().brush.font_smoothing,
         }
     }
 }
