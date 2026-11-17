@@ -39,7 +39,6 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
 use bevy_text::{FontSource, FontWeight};
-use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{
     percent, px, widget::Text, BorderRadius, Display, Expanded, Node, PositionType, Selected, Val,
 };
@@ -48,7 +47,7 @@ use bevy_ui_widgets::{
     TreeItemChildren, TreeItemExpandChange, ValueChange,
 };
 
-use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
+use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, PanelSync};
 
 /// The minimum height of a row's header line, in logical pixels.
 const ROW_HEIGHT: f32 = 21.0;
@@ -141,26 +140,7 @@ impl TreeRowIndex {
 }
 
 /// Pacing of the entity tree synchronization pass.
-#[derive(Resource, Debug)]
-pub struct EntityTreeSync {
-    /// Time between synchronization passes.
-    pub timer: Timer,
-}
-
-impl Default for EntityTreeSync {
-    fn default() -> Self {
-        let mut timer = Timer::from_seconds(0.25, TimerMode::Repeating);
-        timer.set_elapsed(timer.duration());
-        Self { timer }
-    }
-}
-
-impl EntityTreeSync {
-    /// Forces a synchronization pass on the next tick.
-    pub fn set_dirty(&mut self) {
-        self.timer.almost_finish();
-    }
-}
+pub type EntityTreeSync = PanelSync<InspectorTreeView>;
 
 /// A panel listing the entities of the inspected world as an expandable tree.
 pub fn entity_tree_panel() -> impl Scene {
@@ -236,17 +216,7 @@ pub fn inspector_tree_expanded(
 
 /// Adds, removes and relabels tree rows so that they match the inspected world.
 pub fn sync_entity_tree(world: &mut World) {
-    let delta = world
-        .get_resource::<Time>()
-        .map(Time::delta)
-        .unwrap_or_default();
-
-    if !world
-        .resource_mut::<EntityTreeSync>()
-        .timer
-        .tick(delta)
-        .just_finished()
-    {
+    if !EntityTreeSync::tick(world) {
         return;
     }
 
@@ -457,7 +427,7 @@ impl<'w> Sources<'w> {
 
 /// The [`TreeItemChildren`] container inside `tree_view` that holds its root rows, or `tree_view`
 /// itself when it has none.
-fn rows_container(world: &World, tree_view: Entity) -> Entity {
+pub(crate) fn rows_container(world: &World, tree_view: Entity) -> Entity {
     child_with::<TreeItemChildren>(world, tree_view).unwrap_or(tree_view)
 }
 
@@ -712,7 +682,7 @@ fn entity_row(label: String, expandable: bool, hidden: bool) -> impl Scene {
     }
 }
 
-fn row_label(text: String) -> impl Scene {
+pub(crate) fn row_label(text: String) -> impl Scene {
     bsn! {
         InspectorRowLabel
         @caption(text)
@@ -1377,7 +1347,7 @@ mod tests {
 
     #[test]
     fn the_guide_beside_the_selected_row_uses_the_accent_color() {
-        let (mut app, tree) = tree_app();
+        let (mut app, _) = tree_app();
         let parent = app.world_mut().spawn(Name::new("Parent")).id();
         let child = app.world_mut().spawn(ChildOf(parent)).id();
         app.update();
@@ -1396,19 +1366,16 @@ mod tests {
         };
         assert_eq!(guide(&app), tokens::TREE_GUIDE);
 
-        let select = |app: &mut App, row| {
-            app.world_mut()
-                .entity_mut(tree)
-                .insert(SelectedTreeItem(row));
+        let select = |app: &mut App, entity| {
+            app.world_mut().resource_mut::<InspectorSelection>().0 =
+                Some(InspectableEntity::new(entity, InspectorSource::Local));
             app.update();
             app.update();
         };
-        let child_row = row_of(&app, child);
-        select(&mut app, Some(child_row));
+        select(&mut app, child);
         assert_eq!(guide(&app), tokens::TREE_GUIDE_SELECTED);
 
-        let parent_row = row_of(&app, parent);
-        select(&mut app, Some(parent_row));
+        select(&mut app, parent);
         assert_eq!(guide(&app), tokens::TREE_GUIDE);
     }
 }
