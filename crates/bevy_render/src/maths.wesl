@@ -151,8 +151,9 @@ fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
 // accuracy can be sacrificed for greater sample count.
 
 /// Slightly less accurate than fast_acos_4, but much simpler.
+/// Inputs outside [-1, 1] are clamped to that range.
 fn fast_acos(in_x: f32) -> f32 {
-    let x = abs(in_x);
+    let x = min(abs(in_x), 1.0);
     var res = -0.156583 * x + HALF_PI;
     res *= sqrt(1.0 - x);
     return select(PI - res, res, in_x >= 0.0);
@@ -162,8 +163,9 @@ fn fast_acos(in_x: f32) -> f32 {
 /// 4 VGRP, 16 ALU Full Rate
 /// 7 * 10^-5 radians precision
 /// Reference : Handbook of Mathematical Functions (chapter : Elementary Transcendental Functions), M. Abramowitz and I.A. Stegun, Ed.
+/// Inputs outside [-1, 1] are clamped to that range.
 fn fast_acos_4(x: f32) -> f32 {
-    let x1 = abs(x);
+    let x1 = min(abs(x), 1.0);
     let x2 = x1 * x1;
     let x3 = x2 * x1;
     var s: f32;
