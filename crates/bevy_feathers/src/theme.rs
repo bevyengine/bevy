@@ -297,8 +297,8 @@ pub(crate) fn update_theme(
 
         // Update all parent text span colors.
         // Note that we don't need to update the children, Propagate will take care of that for us.
-        for (mut propagate_text_color, InheritableThemeTextColor(token), ctx) in
-            q_inheritable_theme_text_color.iter_mut()
+        if let Ok((mut propagate_text_color, InheritableThemeTextColor(token), ctx)) =
+            q_inheritable_theme_text_color.get_mut(ent)
         {
             let context = ctx.map(|tc| tc.0).unwrap_or(SurfaceLevel::Base);
             propagate_text_color.0 = TextColor(theme.context_color(token, context));

@@ -490,7 +490,7 @@ fn demo_column_1() -> impl Scene {
                     if change.value {
                         commands.entity(change.source).insert(Checked);
                         commands.insert_resource(UiTheme(create_dark_theme()));
-                    }else {
+                    } else {
                         commands.entity(change.source).remove::<Checked>();
                         commands.insert_resource(UiTheme(create_light_theme()));
                     }
