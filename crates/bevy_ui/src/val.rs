@@ -864,7 +864,7 @@ pub struct Calc(pub(crate) Box<CalcOp>);
 
 /// Stores a max of 3 `Val`s inline so that the sizes of `CalcOp`s variants holding `CalcTerms`
 /// matches `Clamp`.
-pub(crate) type CalcTerms = SmallVec<[Val; 3]>;
+type CalcTerms = SmallVec<[Val; 3]>;
 
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
@@ -891,7 +891,7 @@ pub(crate) struct ClampOp {
 }
 
 impl ClampOp {
-    pub(crate) fn new(min: Val, value: Val, max: Val) -> Self {
+    fn new(min: Val, value: Val, max: Val) -> Self {
         Self {
             min,
             value,
@@ -900,7 +900,7 @@ impl ClampOp {
         }
     }
 
-    pub(crate) fn resolve(
+    fn resolve(
         &self,
         context: &ValContext,
         percent_basis: f32,
@@ -973,7 +973,7 @@ impl CalcOp {
 
     /// Multiply an operation by a scalar.
     /// If the scale is negative, the direction of a min or max is changed and a clamp's `negated` flag is flipped.
-    pub(crate) fn scale(&mut self, k: f32) {
+    fn scale(&mut self, k: f32) {
         if k == 1. {
             return;
         }

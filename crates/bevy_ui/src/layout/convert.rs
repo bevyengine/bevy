@@ -157,11 +157,11 @@ impl Val {
     ///
     /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
     /// collapse to a single `Px` or a `Px` and `Percent` sum.
-    fn to_physical_except_percent(&self, context: &ValContext) -> Val {
+    fn to_physical_and_percent(&self, context: &ValContext) -> Val {
         match self {
             Val::Auto => Val::Auto,
             Val::Calc(calc) => {
-                let physical = |val: &Val| val.to_physical_except_percent(context);
+                let physical = |val: &Val| val.to_physical_and_percent(context);
                 match &*calc.0 {
                     CalcOp::Sum(terms) => terms.iter().map(physical).reduce(|a, b| a + b),
                     CalcOp::Min(terms) => terms.iter().map(physical).reduce(Val::min),
@@ -193,7 +193,7 @@ impl Val {
         context: &ValContext,
         calcs: &mut CalcOps,
     ) -> taffy::LengthPercentageAuto {
-        match self.to_physical_except_percent(context) {
+        match self.to_physical_and_percent(context) {
             Val::Auto => style_helpers::auto(),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
@@ -211,7 +211,7 @@ impl Val {
         context: &ValContext,
         calcs: &mut CalcOps,
     ) -> taffy::LengthPercentage {
-        match self.to_physical_except_percent(context) {
+        match self.to_physical_and_percent(context) {
             Val::Auto => style_helpers::length(0.0_f32),
             Val::Percent(value) => style_helpers::percent(value / 100.),
             Val::Px(value) => style_helpers::length(value),
@@ -737,17 +737,17 @@ mod tests {
         let value =
             Val::Percent(50.0) - Val::Px(10.0) + Val::Em(2.0) + Val::Rem(1.0) + Val::Vw(1.0);
         assert_eq!(
-            value.to_physical_except_percent(&context),
+            value.to_physical_and_percent(&context),
             Val::Percent(50.0) + Val::Px(78.0)
         );
         assert_eq!(
-            (Val::Px(1.0) + Val::Em(1.0)).to_physical_except_percent(&context),
+            (Val::Px(1.0) + Val::Em(1.0)).to_physical_and_percent(&context),
             Val::Px(26.0)
         );
         assert_eq!(
             Val::Percent(80.0)
                 .clamp(Val::Px(100.0), Val::Px(300.0))
-                .to_physical_except_percent(&context),
+                .to_physical_and_percent(&context),
             Val::Percent(80.0).clamp(Val::Px(200.0), Val::Px(600.0))
         );
         let nested: Val = CalcOp::Min(smallvec::smallvec![
@@ -755,15 +755,15 @@ mod tests {
             Val::Rem(1.0)
         ])
         .into();
-        let physical = nested.to_physical_except_percent(&context);
+        let physical = nested.to_physical_and_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
         assert_eq!(physical.resolve(&ValContext::DEFAULT, 100.0), Ok(34.0));
         assert_eq!(
-            (Val::Percent(50.0) - Val::Px(10.0)).to_physical_except_percent(&context),
+            (Val::Percent(50.0) - Val::Px(10.0)).to_physical_and_percent(&context),
             Val::Percent(50.0) - Val::Px(20.0)
         );
         assert_eq!(
-            (Val::Px(1.0) + Val::Vh(10.0)).to_physical_except_percent(&context),
+            (Val::Px(1.0) + Val::Vh(10.0)).to_physical_and_percent(&context),
             Val::Px(52.0)
         );
     }
