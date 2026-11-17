@@ -61,7 +61,6 @@ wgpu-types = ["dep:wgpu-types"]
 ## supported platforms.
 std = [
   "erased-serde/std",
-  "downcast-rs/std",
   "serde/std",
   "glam?/std",
   "smol_str?/std",
@@ -114,7 +113,6 @@ erased-serde = { version = "0.4", default-features = false, features = [
   "alloc",
 ] }
 disqualified = { version = "1.0", default-features = false }
-downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }

@@ -41,6 +41,7 @@ use bevy_ecs::{
     system::{In, IntoSystem, Local, Query, ResMut},
     world::World,
 };
+use bevy_feathers::FeathersSystems;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::EditableTextSystems;
@@ -52,8 +53,8 @@ use crate::details_panel::{
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync, InspectorDetailsBody,
 };
 use crate::entity_tree::{
-    sync_entity_tree, sync_entity_tree_filter_input, EntityTreeFilter, EntityTreeSync,
-    InspectorTreeView, TreeRowIndex,
+    sync_entity_tree, sync_entity_tree_filter_input, update_tree_guides, EntityTreeFilter,
+    EntityTreeSync, InspectorTreeView, TreeRowIndex,
 };
 
 /// Where the inspector reads its data from.
@@ -324,6 +325,13 @@ impl Plugin for InspectorPlugin {
             .add_systems(
                 PostUpdate,
                 sync_entity_tree_filter_input.before(EditableTextSystems),
+            )
+            .add_systems(
+                PostUpdate,
+                update_tree_guides
+                    .run_if(entity_tree_visible)
+                    .in_set(UiSystems::Content)
+                    .after(FeathersSystems),
             );
 
         #[cfg(feature = "remote")]

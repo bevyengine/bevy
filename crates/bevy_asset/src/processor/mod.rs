@@ -1082,7 +1082,7 @@ impl AssetProcessor {
                     let meta = processor.default_meta(MetaTypePathKind::Long);
                     (meta, Some(processor))
                 } else {
-                    match server.get_path_asset_loader(asset_path.clone()).await {
+                    match server.get_asset_loader_with_path(asset_path.clone()).await {
                         Ok(loader) => (loader.default_meta(), None),
                         Err(MissingAssetLoaderForExtensionError { .. }) => {
                             let meta: Box<dyn AssetMetaDyn> =

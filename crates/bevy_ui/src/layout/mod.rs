@@ -1,5 +1,5 @@
 use crate::{
-    layout_tree::{compute_layout, TaffyStyle},
+    layout_tree::compute_layout,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FixedNode, GhostNode,
     IgnoreScroll, LayoutConfig, Node, Outline, OverflowAxis, OverrideClip, ScrollPosition,
@@ -24,6 +24,7 @@ use layout_tree::ComputedLayout;
 use thiserror::Error;
 
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont};
+pub use convert::TaffyStyle;
 
 pub mod clipping;
 mod convert;

@@ -8,6 +8,7 @@ use alloc::{
 use core::cmp::Ordering;
 
 use bevy_app::Propagate;
+use bevy_camera::visibility::Visibility;
 use bevy_dev_tools::inspection::label_resolution::{
     resolve_label, ComponentLabelData, LabelDefinitionPriority, LabelResolutionRegistry,
 };
@@ -19,7 +20,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     name::Name,
     observer::{Observer, On},
-    query::{Has, Or, With},
+    query::{Added, Changed, Has, Or, With},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::{IsResource, Resource},
     system::{Commands, Query, Res, ResMut, SystemIdMarker},
@@ -27,31 +28,45 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_feathers::{
-    constants::size,
+    constants::{fonts, size},
     containers::{subpane, subpane_body, subpane_header},
     controls::{
         FeathersTextInput, FeathersTextInputContainer, FeathersTreeItem, FeathersTreeItemChildren,
-        FeathersTreeItemHeader, FeathersTreeView,
+        FeathersTreeItemHeader, FeathersTreeItemToggle, FeathersTreeView,
     },
     display::{caption, icon},
-    theme::{SurfaceLevel, ThemeContext, ThemeTextColor, ThemedText},
+    font_styles::InheritableFont,
+    theme::{
+        SurfaceLevel, ThemeBackgroundColor, ThemeContext, ThemeTextColor, ThemeToken, ThemedText,
+    },
     tokens,
 };
 use bevy_fuzzy::{segments, FuzzyPattern};
 use bevy_log::warn;
+use bevy_picking::Pickable;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
-use bevy_text::{EditableText, Placeholder, TextEdit, TextEditChange, TextFont, TextSpan};
+use bevy_text::{
+    EditableText, FontSource, FontWeight, Placeholder, TextEdit, TextEditChange, TextFont, TextSpan,
+};
 use bevy_time::{Time, Timer, TimerMode};
-use bevy_ui::{percent, px, widget::Text, Display, Expanded, Node, Overflow, UiRect};
+use bevy_ui::{
+    percent, px, widget::Text, BorderRadius, Display, Expanded, Node, PositionType, Selected,
+    UiRect, Val,
+};
 use bevy_ui_widgets::{
     tree_view_expand_self_update, tree_view_self_update, SelectedTreeItem, TreeItem,
-    TreeItemExpandChange, ValueChange,
+    TreeItemChildren, TreeItemExpandChange, ValueChange,
 };
 use bevy_utils::DebugName;
 
 use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSources};
+
+/// The minimum height of a row's header line, in logical pixels.
+const ROW_HEIGHT: f32 = 21.0;
+/// The width of an [`InspectorTreeGuide`], in logical pixels.
+const GUIDE_WIDTH: f32 = 3.0;
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
 /// hidden from the entity tree, but the marked entity itself still shows as a single,
@@ -120,6 +135,16 @@ pub struct InspectorRowLabel {
     /// The sorted char indices of `text` highlighted as filter matches.
     pub matched: Vec<usize>,
 }
+
+/// The vertical line drawn alongside the child rows of an expanded row.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct InspectorTreeGuide;
+
+/// The dot shown in place of the disclosure chevron of a row without children.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct InspectorLeafDot;
 
 /// Marker for rows whose child rows are kept in sync, added the first time a row is expanded.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -214,7 +239,7 @@ pub fn entity_tree_body() -> impl Scene {
     bsn! {
         @subpane_body()
         Node {
-            overflow: Overflow::clip(),
+            min_height: px(0),
         }
         Children [
             @FeathersTextInputContainer
@@ -244,17 +269,16 @@ pub fn entity_tree_body() -> impl Scene {
                 display: Display::None,
             }
             --
+            InspectorTreeView
+            @FeathersTreeView
             Node {
-                overflow: Overflow::scroll_y(),
+                flex_grow: 1.0,
+                min_height: px(0),
             }
-            Children [
-                InspectorTreeView
-                @FeathersTreeView
-                on(tree_view_self_update)
-                on(tree_view_expand_self_update)
-                on(inspector_tree_selected)
-                on(inspector_tree_expanded)
-            ]
+            on(tree_view_self_update)
+            on(tree_view_expand_self_update)
+            on(inspector_tree_selected)
+            on(inspector_tree_expanded)
         ]
     }
 }
@@ -430,6 +454,7 @@ struct RowSpawn {
     label: InspectorRowLabel,
     expandable: bool,
     expanded: bool,
+    hidden: bool,
 }
 
 /// The set of changes a single synchronization pass needs to apply.
@@ -437,8 +462,8 @@ struct RowSpawn {
 /// [`plan_sync`] reads the world without mutating it, diffing each header row against the current
 /// root entities of its source and each populated row's children container against that row's
 /// entity's current children (see [`diff_container`]). Rows that were never expanded are not
-/// diffed. The result records which rows to despawn, which to spawn, which labels to update,
-/// which `expandable` flags to flip, which rows to expand or collapse and which containers to
+/// diffed. The result records which rows to despawn, which to spawn, which labels to update or
+/// dim, which `expandable` flags to flip, which rows to expand or collapse and which containers to
 /// reorder. [`apply_sync`] then applies those changes. Expanding a row populates it, so its
 /// children are diffed by the next pass, which runs while the previous one expanded a row or
 /// added a header row.
@@ -454,6 +479,7 @@ struct SyncPlan {
     despawn: Vec<Entity>,
     spawn: Vec<RowSpawn>,
     relabel: Vec<(Entity, InspectorRowLabel)>,
+    dim: Vec<(Entity, bool)>,
     expandable: Vec<(Entity, bool)>,
     expand: Vec<Entity>,
     collapse: Vec<Entity>,
@@ -531,7 +557,12 @@ fn plan_sync(
     let index = world.resource::<TreeRowIndex>();
 
     let sources = Sources::new(world);
-    diff_header_container(world, tree_view, &sources.ordered(), &mut plan);
+    diff_header_container(
+        world,
+        rows_container(world, tree_view),
+        &sources.ordered(),
+        &mut plan,
+    );
 
     if let Some(filter) = filter
         && filter.total > MAX_FILTER_RESULTS
@@ -548,7 +579,11 @@ fn plan_sync(
     };
 
     for (source, roots) in roots {
-        let Some(container) = index.source_to_row.get(source) else {
+        let Some(container) = index
+            .source_to_row
+            .get(source)
+            .and_then(|header| child_with::<FeathersTreeItemChildren>(world, *header))
+        else {
             continue;
         };
         let roots: Vec<InspectableEntity> = roots
@@ -556,7 +591,7 @@ fn plan_sync(
             .filter(|root| shown.keeps(root))
             .cloned()
             .collect();
-        diff_container(world, &shown, *container, &roots, &mut plan);
+        diff_container(world, &shown, container, &roots, &mut plan);
     }
 
     for row in rows {
@@ -777,6 +812,12 @@ impl ShownTree<'_> {
     }
 }
 
+/// The [`TreeItemChildren`] container inside `tree_view` that holds its root rows, or `tree_view`
+/// itself when it has none.
+fn rows_container(world: &World, tree_view: Entity) -> Entity {
+    child_with::<TreeItemChildren>(world, tree_view).unwrap_or(tree_view)
+}
+
 /// Diffs top container's header rows in `world` against the `expected` inspected entities, recording the
 /// changes into `plan`. See [`SyncPlan`].
 fn diff_header_container(
@@ -858,6 +899,7 @@ fn diff_container(
         };
         let expandable = !shown.children(inspected).is_empty();
         let label = shown.label(inspected_world, inspected);
+        let hidden = is_hidden(inspected_world, inspected.entity);
         let Some(row) = existing.get(inspected).copied() else {
             plan.spawn.push(RowSpawn {
                 container,
@@ -866,14 +908,21 @@ fn diff_container(
                 label,
                 expandable,
                 expanded: expandable && shown.expands(inspected),
+                hidden,
             });
             continue;
         };
 
-        if let Some(label_entity) = row_label_entity(world, row)
-            && world.get::<InspectorRowLabel>(label_entity) != Some(&label)
-        {
-            plan.relabel.push((label_entity, label));
+        if let Some(label_entity) = row_label_entity(world, row) {
+            if world.get::<InspectorRowLabel>(label_entity) != Some(&label) {
+                plan.relabel.push((label_entity, label));
+            }
+            if world
+                .get::<ThemeTextColor>(label_entity)
+                .is_some_and(|color| color.0 != row_label_color(hidden))
+            {
+                plan.dim.push((label_entity, hidden));
+            }
         }
 
         if world
@@ -926,10 +975,17 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
         write_label(world, label_entity, label);
     }
 
+    for (label_entity, hidden) in plan.dim {
+        if let Ok(mut label) = world.get_entity_mut(label_entity) {
+            label.insert(ThemeTextColor(row_label_color(hidden)));
+        }
+    }
+
     for (row, expandable) in plan.expandable {
         if let Some(mut item) = world.get_mut::<TreeItem>(row) {
             item.expandable = expandable;
         }
+        show_leaf_dot(world, row, !expandable);
     }
 
     for row in plan.collapse {
@@ -949,12 +1005,16 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
         if world.get_entity(spawn.container).is_err() {
             continue;
         }
+        if let Some(mut node) = world.get_mut::<Node>(spawn.container) {
+            node.row_gap = px(2);
+        }
         let row = match world.spawn_scene(header_row()) {
             Ok(mut row) => {
                 row.insert((
                     InspectorHeaderRow {
                         source: spawn.source,
                     },
+                    Expanded,
                     ChildOf(spawn.container),
                 ));
                 descended = true;
@@ -965,6 +1025,7 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
                 continue;
             }
         };
+        style_row(world, row, true);
         if let Some(label_entity) = row_label_entity(world, row) {
             let label = InspectorRowLabel {
                 text: spawn.label,
@@ -978,7 +1039,7 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
         if world.get_entity(spawn.container).is_err() {
             continue;
         }
-        let row = match world.spawn_scene(entity_row(spawn.expandable)) {
+        let row = match world.spawn_scene(entity_row(spawn.expandable, spawn.hidden)) {
             Ok(mut row) => {
                 row.insert((
                     InspectorEntityRow {
@@ -998,6 +1059,7 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
                 continue;
             }
         };
+        style_row(world, row, spawn.expandable);
         if let Some(label_entity) = row_label_entity(world, row) {
             write_label(world, label_entity, spawn.label);
         }
@@ -1180,11 +1242,14 @@ fn header_row() -> impl Scene {
     }
 }
 
-fn entity_row(expandable: bool) -> impl Scene {
+fn entity_row(expandable: bool, hidden: bool) -> impl Scene {
     bsn! {
         @FeathersTreeItem {
             @expandable: {expandable},
-            @label: bsn_list! { @row_label() },
+            @label: bsn_list! {
+                @row_label()
+                ThemeTextColor({row_label_color(hidden)})
+            },
         }
     }
 }
@@ -1193,6 +1258,181 @@ fn row_label() -> impl Scene {
     bsn! {
         InspectorRowLabel
         @caption("")
+    }
+}
+
+/// The text color of the label of a row, dimmed for an entity that is hidden.
+fn row_label_color(hidden: bool) -> ThemeToken {
+    if hidden {
+        tokens::LISTROW_TEXT_DISABLED
+    } else {
+        tokens::LISTROW_TEXT
+    }
+}
+
+/// Fits the header line of `row` to the compact tree layout, and adds the line drawn alongside its
+/// child rows and the dot shown while it has none.
+fn style_row(world: &mut World, row: Entity, expandable: bool) {
+    if let Some(header) = child_with::<FeathersTreeItemHeader>(world, row) {
+        if let Some(mut node) = world.get_mut::<Node>(header) {
+            node.min_height = px(ROW_HEIGHT);
+            node.padding.top = px(3);
+            node.padding.bottom = px(3);
+            node.padding.right = px(3);
+            node.border_radius = BorderRadius::all(px(4));
+        }
+        world.entity_mut(header).insert(InheritableFont {
+            font: FontSource::Families(fonts::SANS.into()),
+            font_size: size::SMALL_FONT,
+            weight: FontWeight::NORMAL,
+        });
+        if let Some(toggle) = child_with::<FeathersTreeItemToggle>(world, header) {
+            world.spawn((
+                InspectorLeafDot,
+                Node {
+                    display: if expandable {
+                        Display::None
+                    } else {
+                        Display::Flex
+                    },
+                    width: px(4),
+                    height: px(4),
+                    border_radius: BorderRadius::all(px(2)),
+                    ..Default::default()
+                },
+                ThemeBackgroundColor(tokens::TEXT_DIM),
+                Pickable::IGNORE,
+                ChildOf(toggle),
+            ));
+        }
+    }
+    if let Some(children) = child_with::<FeathersTreeItemChildren>(world, row) {
+        if let Some(mut node) = world.get_mut::<Node>(children) {
+            node.row_gap = px(2);
+            node.padding.top = px(2);
+        }
+        world.spawn((
+            InspectorTreeGuide,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(2),
+                bottom: px(0),
+                width: px(GUIDE_WIDTH),
+                ..Default::default()
+            },
+            ThemeBackgroundColor(tokens::TREE_GUIDE),
+            Pickable::IGNORE,
+            ChildOf(children),
+        ));
+    }
+}
+
+/// Shows or hides the [`InspectorLeafDot`] of `row`.
+fn show_leaf_dot(world: &mut World, row: Entity, show: bool) {
+    let Some(dot) = child_with::<FeathersTreeItemHeader>(world, row)
+        .and_then(|header| child_with::<FeathersTreeItemToggle>(world, header))
+        .and_then(|toggle| child_with::<InspectorLeafDot>(world, toggle))
+    else {
+        return;
+    };
+    let display = if show { Display::Flex } else { Display::None };
+    if let Some(mut node) = world.get_mut::<Node>(dot)
+        && node.display != display
+    {
+        node.display = display;
+    }
+}
+
+/// Lines each [`InspectorTreeGuide`] up under the disclosure chevron of its row, and draws it in
+/// the accent color while one of the rows beside it is selected.
+///
+/// Runs only when a guide is added, or the selection, a row or a row container changes.
+pub fn update_tree_guides(
+    changed: Query<
+        (),
+        Or<(
+            Added<InspectorTreeGuide>,
+            Added<Selected>,
+            Changed<SelectedTreeItem>,
+            (With<FeathersTreeItemChildren>, Changed<Children>),
+            Changed<TreeItem>,
+        )>,
+    >,
+    guides: Query<(Entity, &ChildOf, &ThemeBackgroundColor), With<InspectorTreeGuide>>,
+    parents: Query<&ChildOf>,
+    children: Query<&Children>,
+    selected: Query<(), (With<Selected>, With<InspectorEntityRow>)>,
+    headers: Query<&Children, With<FeathersTreeItemHeader>>,
+    toggles: Query<(), With<FeathersTreeItemToggle>>,
+    mut nodes: Query<&mut Node>,
+    mut commands: Commands,
+) {
+    if changed.is_empty() {
+        return;
+    }
+    for (guide, child_of, color) in &guides {
+        let container = child_of.parent();
+        let token = match children
+            .get(container)
+            .is_ok_and(|rows| rows.iter().any(|row| selected.contains(*row)))
+        {
+            true => tokens::TREE_GUIDE_SELECTED,
+            false => tokens::TREE_GUIDE,
+        };
+        if color.0 != token {
+            commands.entity(guide).insert(ThemeBackgroundColor(token));
+        }
+
+        let Some((header, toggle)) = parents
+            .get(container)
+            .ok()
+            .and_then(|row| children.get(row.parent()).ok())
+            .and_then(|row_children| {
+                row_children.iter().find_map(|header| {
+                    let toggle = headers
+                        .get(*header)
+                        .ok()?
+                        .iter()
+                        .copied()
+                        .find(|child| toggles.contains(*child))?;
+                    Some((*header, toggle))
+                })
+            })
+        else {
+            continue;
+        };
+        let (Ok(header), Ok(toggle)) = (nodes.get(header), nodes.get(toggle)) else {
+            continue;
+        };
+        let left = px(px_value(header.padding.left) + 0.5 * (px_value(toggle.width) - GUIDE_WIDTH));
+        if let Ok(mut node) = nodes.get_mut(guide)
+            && node.left != left
+        {
+            node.left = left;
+        }
+    }
+}
+
+fn px_value(val: Val) -> f32 {
+    match val {
+        Val::Px(value) => value,
+        _ => 0.0,
+    }
+}
+
+/// Whether `entity` is hidden, by its own [`Visibility`] or by that of an ancestor.
+fn is_hidden(world: &World, entity: Entity) -> bool {
+    let mut current = entity;
+    loop {
+        match world.get::<Visibility>(current) {
+            Some(Visibility::Hidden) => return true,
+            Some(Visibility::Visible) => return false,
+            _ => {}
+        }
+        match world.get::<ChildOf>(current) {
+            Some(child_of) => current = child_of.parent(),
+            None => return false,
+        }
     }
 }
 
@@ -1387,9 +1627,9 @@ mod tests {
         app
     }
 
-    fn header_rows(world: &World, container: Entity) -> Vec<(Entity, InspectorSource)> {
+    fn header_rows(world: &World, tree: Entity) -> Vec<(Entity, InspectorSource)> {
         world
-            .get::<Children>(container)
+            .get::<Children>(rows_container(world, tree))
             .map(|children| {
                 children
                     .iter()
@@ -1413,9 +1653,9 @@ mod tests {
         None
     }
 
-    fn row_sources(world: &World, container: Entity) -> Vec<Entity> {
-        world
-            .get::<Children>(container)
+    fn row_sources(world: &World, row: Entity) -> Vec<Entity> {
+        child_with::<FeathersTreeItemChildren>(world, row)
+            .and_then(|container| world.get::<Children>(container))
             .map(|children| {
                 children
                     .iter()
@@ -1615,6 +1855,7 @@ mod tests {
                 ChildOf(panel),
             ))
             .id();
+        app.world_mut().spawn((TreeItemChildren, ChildOf(tree)));
         app.world_mut()
             .entity_mut(tree)
             .observe(inspector_tree_selected)
@@ -1652,9 +1893,7 @@ mod tests {
     }
 
     fn child_rows(app: &App, inspected: Entity) -> Vec<Entity> {
-        let container =
-            child_with::<FeathersTreeItemChildren>(app.world(), row_of(app, inspected)).unwrap();
-        row_sources(app.world(), container)
+        row_sources(app.world(), row_of(app, inspected))
     }
 
     fn is_expanded(app: &App, inspected: Entity) -> bool {
@@ -2197,12 +2436,8 @@ mod tests {
             let label = row_label_entity(app.world(), remote_row(app, inspected)).unwrap();
             app.world().get::<InspectorRowLabel>(label).unwrap().clone()
         };
-        let remote_children = |app: &App, inspected: Entity| {
-            let container =
-                child_with::<FeathersTreeItemChildren>(app.world(), remote_row(app, inspected))
-                    .unwrap();
-            row_sources(app.world(), container)
-        };
+        let remote_children =
+            |app: &App, inspected: Entity| row_sources(app.world(), remote_row(app, inspected));
 
         set_filter(&mut app, "leaf");
         assert_eq!(row_sources(app.world(), remote_header), [parent]);
@@ -2218,5 +2453,148 @@ mod tests {
         assert_eq!(row_sources(app.world(), remote_header), [parent]);
         assert_eq!(remote_children(&app, parent), [child]);
         assert!(!remote_label(&app, parent).matched.is_empty());
+    }
+
+    fn tree_app() -> (App, Entity) {
+        let mut app = test_app();
+        app.add_plugins(bevy_ui_widgets::TreePlugin);
+        let panel = app.world_mut().spawn(InspectorUi).id();
+        let tree = app
+            .world_mut()
+            .spawn((
+                InspectorTreeView,
+                bevy_ui_widgets::TreeView::default(),
+                ChildOf(panel),
+            ))
+            .id();
+        app.world_mut().spawn((TreeItemChildren, ChildOf(tree)));
+        (app, tree)
+    }
+
+    #[test]
+    fn child_rows_are_nested_one_level_deeper() {
+        let (mut app, tree) = tree_app();
+        let parent = app.world_mut().spawn(Name::new("Parent")).id();
+        let child = app
+            .world_mut()
+            .spawn((Name::new("Child"), ChildOf(parent)))
+            .id();
+        app.update();
+        sync(&mut app);
+        expand(&mut app, parent);
+        app.update();
+
+        let header = local_header(&header_rows(app.world(), tree)).unwrap();
+        assert!(app.world().entity(header).contains::<Expanded>());
+        assert!(row_sources(app.world(), header).contains(&parent));
+        let level = |app: &App, entity| {
+            app.world()
+                .get::<TreeItem>(row_of(app, entity))
+                .unwrap()
+                .level
+        };
+        assert_eq!(level(&app, parent), 1);
+        assert_eq!(level(&app, child), 2);
+        assert_eq!(row_sources(app.world(), row_of(&app, parent)), [child]);
+    }
+
+    fn label_color(app: &App, entity: Entity) -> ThemeToken {
+        let label = row_label_entity(app.world(), row_of(app, entity)).unwrap();
+        app.world().get::<ThemeTextColor>(label).unwrap().0.clone()
+    }
+
+    #[test]
+    fn hidden_entities_are_dimmed() {
+        let (mut app, _) = tree_app();
+        let hidden = app.world_mut().spawn(Visibility::Hidden).id();
+        let under_hidden = app.world_mut().spawn(ChildOf(hidden)).id();
+        let visible_under_hidden = app
+            .world_mut()
+            .spawn((Visibility::Visible, ChildOf(hidden)))
+            .id();
+        let inherited = app.world_mut().spawn(Visibility::Inherited).id();
+        let shown = app.world_mut().spawn(Name::new("Shown")).id();
+        app.update();
+        sync(&mut app);
+        expand(&mut app, hidden);
+        sync(&mut app);
+
+        assert_eq!(label_color(&app, hidden), tokens::LISTROW_TEXT_DISABLED);
+        assert_eq!(
+            label_color(&app, under_hidden),
+            tokens::LISTROW_TEXT_DISABLED
+        );
+        assert_eq!(
+            label_color(&app, visible_under_hidden),
+            tokens::LISTROW_TEXT
+        );
+        assert_eq!(label_color(&app, inherited), tokens::LISTROW_TEXT);
+        assert_eq!(label_color(&app, shown), tokens::LISTROW_TEXT);
+
+        app.world_mut().entity_mut(shown).insert(Visibility::Hidden);
+        sync(&mut app);
+        assert_eq!(label_color(&app, shown), tokens::LISTROW_TEXT_DISABLED);
+    }
+
+    fn leaf_dot_shown(app: &App, entity: Entity) -> bool {
+        let world = app.world();
+        let header = child_with::<FeathersTreeItemHeader>(world, row_of(app, entity)).unwrap();
+        let toggle = child_with::<FeathersTreeItemToggle>(world, header).unwrap();
+        let dot = child_with::<InspectorLeafDot>(world, toggle).unwrap();
+        world.get::<Node>(dot).unwrap().display != Display::None
+    }
+
+    #[test]
+    fn rows_without_children_show_a_dot() {
+        let (mut app, _) = tree_app();
+        let parent = app.world_mut().spawn(Name::new("Parent")).id();
+        let leaf = app.world_mut().spawn(Name::new("Leaf")).id();
+        app.world_mut().spawn(ChildOf(parent));
+        app.update();
+        sync(&mut app);
+
+        assert!(!leaf_dot_shown(&app, parent));
+        assert!(leaf_dot_shown(&app, leaf));
+
+        app.world_mut().spawn(ChildOf(leaf));
+        sync(&mut app);
+        assert!(!leaf_dot_shown(&app, leaf));
+    }
+
+    #[test]
+    fn the_guide_beside_the_selected_row_uses_the_accent_color() {
+        let (mut app, tree) = tree_app();
+        let parent = app.world_mut().spawn(Name::new("Parent")).id();
+        let child = app.world_mut().spawn(ChildOf(parent)).id();
+        app.update();
+        sync(&mut app);
+        expand(&mut app, parent);
+
+        let guide = |app: &App| {
+            let container =
+                child_with::<FeathersTreeItemChildren>(app.world(), row_of(app, parent)).unwrap();
+            let guide = child_with::<InspectorTreeGuide>(app.world(), container).unwrap();
+            app.world()
+                .get::<ThemeBackgroundColor>(guide)
+                .unwrap()
+                .0
+                .clone()
+        };
+        assert_eq!(guide(&app), tokens::TREE_GUIDE);
+
+        let select = |app: &mut App, row| {
+            app.world_mut()
+                .entity_mut(tree)
+                .insert(SelectedTreeItem(row));
+            app.update();
+            app.update();
+        };
+        let child_row = row_of(&app, child);
+        select(&mut app, Some(child_row));
+        assert_eq!(guide(&app), tokens::TREE_GUIDE_SELECTED);
+
+        let parent_row = row_of(&app, parent);
+        select(&mut app, Some(parent_row));
+        assert_eq!(guide(&app), tokens::TREE_GUIDE);
     }
 }
