@@ -16,7 +16,6 @@ use core::{
     any::{type_name, Any, TypeId},
     convert::Infallible,
 };
-use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -89,7 +88,7 @@ where
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>> {
         Box::pin(async move {
-            let settings = settings
+            let settings = (settings as &dyn Any)
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
@@ -249,12 +248,15 @@ impl ErasedLoadedAsset {
     /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return [`Some`] if
     /// the stored type matches `A` and [`None`] if it does not.
     pub fn take<A: Asset>(self) -> Option<A> {
-        self.value.downcast::<A>().map(|a| *a).ok()
+        (self.value as Box<dyn Any>)
+            .downcast::<A>()
+            .map(|a| *a)
+            .ok()
     }
 
     /// Retrieves a reference to the internal [`Asset`] type, if it matches the type `A`. Otherwise returns [`None`].
     pub fn get<A: Asset>(&self) -> Option<&A> {
-        self.value.downcast_ref::<A>()
+        (&*self.value as &dyn Any).downcast_ref::<A>()
     }
 
     /// Retrieves the [`TypeId`] of the stored [`Asset`] type.
@@ -299,31 +301,31 @@ impl ErasedLoadedAsset {
             reason = "Returning the passed in ErasedLoadedAsset"
         )
     )]
-    pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
-        match self.value.downcast::<A>() {
-            Ok(value) => Ok(LoadedAsset {
+    pub fn downcast<A: Asset>(self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
+        // Any::downcast() loses the type on failure, so check manually
+        if (&*self.value as &dyn Any).is::<A>() {
+            let value = (self.value as Box<dyn Any>)
+                .downcast::<A>()
+                .expect("type was just checked with `is`");
+            Ok(LoadedAsset {
                 value: *value,
                 dependencies: self.dependencies,
                 loader_dependencies: self.loader_dependencies,
                 labeled_assets: self.labeled_assets,
                 label_to_asset_index: self.label_to_asset_index,
                 asset_id_to_asset_index: self.asset_id_to_asset_index,
-            }),
-            Err(value) => {
-                self.value = value;
-                Err(self)
-            }
+            })
+        } else {
+            Err(self)
         }
     }
 }
 
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
-pub(crate) trait AssetContainer: Downcast + Any + Send + Sync + 'static {
+pub(crate) trait AssetContainer: Any + Send + Sync {
     fn insert(self: Box<Self>, id: AssetIndex, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
 }
-
-impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
     fn insert(self: Box<Self>, index: AssetIndex, world: &mut World) {
