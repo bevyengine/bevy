@@ -402,8 +402,8 @@ pub struct MaskState(pub(crate) Option<crate::masking::Masked>);
 /// Laid out with the field's own editor settings and drawn as part of the
 /// field, so it clips, scrolls, layers and transforms with it. It never
 /// enters the editor's buffer: [`EditableText::value`] stays empty.
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Debug, Clone)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
 pub struct Placeholder {
     /// The hint text.
     pub text: String,
@@ -585,5 +585,27 @@ mod tests {
     fn delete_after_clear_ignores_the_old_selection() {
         let value = edit_after_clear(TextEdit::SelectAll, TextEdit::Backspace);
         assert_eq!(value, "");
+    }
+
+    #[test]
+    fn placeholder_in_bsn() {
+        use bevy_scene::{prelude::*, ScenePlugin};
+
+        let mut app = bevy_app::App::new();
+        app.add_plugins((bevy_asset::AssetPlugin::default(), ScenePlugin));
+        let world = app.world_mut();
+
+        let entity = world
+            .spawn_scene(bsn! {
+                Placeholder {
+                    text: "Search",
+                    mode: PlaceholderMode::UnlessFocused,
+                }
+            })
+            .unwrap()
+            .id();
+        let placeholder = world.entity(entity).get::<Placeholder>().unwrap();
+        assert_eq!(placeholder.text, "Search");
+        assert_eq!(placeholder.mode, PlaceholderMode::UnlessFocused);
     }
 }
