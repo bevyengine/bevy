@@ -162,7 +162,7 @@ impl Type {
     /// Initializes a new value of this struct type into `dst`, initializing each field of the
     /// struct with `func`.
     ///
-    /// `func` is called exactly once for each field in the field, and in the same order as
+    /// `func` is called exactly once for each field in the struct, and in the same order as
     /// [`Struct::fields`].
     ///
     /// The value in `dst` is overwritten and **will not** be dropped. Ignored fields are
@@ -170,6 +170,9 @@ impl Type {
     /// default implementation panics, all previously written fields are leaked.
     ///
     /// After this function, `dst` holds a fully-initialized value of this type.
+    ///
+    /// Consider using [`initialize_struct`] or [`construct_struct`] for versions that perform the
+    /// allocation of the destination for you (and have fewer safety requirements).
     ///
     /// # Safety
     ///
@@ -230,8 +233,7 @@ impl Type {
     /// Allocates a new value of this type, initializing each field of the struct with `func`.
     ///
     /// Bytes that are not covered by a field are left uninitialized if they are padding, or zeroed
-    /// before `func` is called if the struct requires it (see
-    /// [`UncoveredBytes`]).
+    /// before `func` is called if the struct requires it (see [`UncoveredBytes`]).
     ///
     /// [Ignored fields](crate::kind::Struct::ignored_fields) are initialized with their
     /// [`default`](crate::kind::IgnoredFieldVTable::default) function (registered with
@@ -241,6 +243,9 @@ impl Type {
     /// without a `default` function.
     ///
     /// If `func` panics, the allocation for this type will be leaked.
+    ///
+    /// This is like [`Self::initialize_struct_raw`] but with 1) fewer safety requirements, and 2)
+    /// allocates a box to store the type for you.
     ///
     /// # Safety
     ///
@@ -298,6 +303,8 @@ impl Type {
     ///
     /// Returns `None` if this type is not a [`Kind::Struct`], the number of values doesn't match
     /// the number of fields, a value has the wrong type, or an ignored field has no default.
+    ///
+    /// This is a type-checked and safe version of [`Self::initialize_struct_raw`].
     pub fn construct_struct(&self, mut values: Vec<Box<dyn Reflect>>) -> Option<Box<dyn Reflect>> {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
