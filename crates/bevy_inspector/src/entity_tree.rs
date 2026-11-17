@@ -55,9 +55,8 @@ const ROW_HEIGHT: f32 = 21.0;
 /// The width of an [`InspectorTreeGuide`], in logical pixels.
 const GUIDE_WIDTH: f32 = 3.0;
 
-/// Marker for root entities spawned by the inspector. An `InspectorUi` entity's descendants are
-/// hidden from the entity tree, but the marked entity itself still shows as a single,
-/// non-expandable row. Clicks on it or its descendants do not select entities.
+/// Marker for root entities spawned by the inspector. An `InspectorUi` entity and its descendants
+/// are hidden from the entity tree, and clicks on them do not select entities.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorUi;
@@ -960,6 +959,7 @@ fn is_excluded(world: &World, entity: Entity) -> bool {
     if entity_ref.contains::<IsResource>()
         || entity_ref.contains::<SystemIdMarker>()
         || entity_ref.contains::<Observer>()
+        || entity_ref.contains::<InspectorUi>()
     {
         return true;
     }
@@ -1134,15 +1134,18 @@ mod tests {
     }
 
     #[test]
-    fn excludes_inspector_ui_descendants_but_shows_the_root() {
+    fn excludes_inspector_ui_and_its_descendants() {
         let mut world = World::new();
         let panel = world.spawn(InspectorUi).id();
         let inner = world.spawn(ChildOf(panel)).id();
         let subject = world.spawn_empty().id();
 
-        assert!(!is_excluded(&world, panel));
+        let nested_panel = world.spawn((InspectorUi, ChildOf(subject))).id();
+
+        assert!(is_excluded(&world, panel));
         assert!(is_excluded(&world, inner));
         assert!(!is_excluded(&world, subject));
+        assert!(is_excluded(&world, nested_panel));
     }
 
     #[test]
@@ -1152,7 +1155,7 @@ mod tests {
         let nested = world.spawn((InspectorUi, ChildOf(panel))).id();
         let nested_inner = world.spawn(ChildOf(nested)).id();
 
-        assert!(!is_excluded(&world, panel));
+        assert!(is_excluded(&world, panel));
         assert!(is_excluded(&world, nested));
         assert!(is_excluded(&world, nested_inner));
     }
@@ -1288,7 +1291,7 @@ mod tests {
         app.update();
         let headers = header_rows(app.world(), tree);
         let local_header = local_header(&headers).unwrap();
-        assert_eq!(row_sources(app.world(), local_header).len(), 501);
+        assert_eq!(row_sources(app.world(), local_header).len(), 500);
 
         for root in roots.iter().step_by(2) {
             app.world_mut().entity_mut(*root).despawn();
@@ -1297,7 +1300,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), local_header);
-        assert_eq!(sources.len(), 251);
+        assert_eq!(sources.len(), 250);
         assert!(roots
             .iter()
             .skip(1)
@@ -1324,17 +1327,10 @@ mod tests {
         let headers = header_rows(app.world(), tree);
         let local_header = local_header(&headers).unwrap();
         let sources = row_sources(app.world(), local_header);
-        assert_eq!(sources.len(), 3);
-        assert!(sources.contains(&panel));
+        assert_eq!(sources.len(), 2);
+        assert!(!sources.contains(&panel));
         assert!(sources.contains(&parent));
         assert!(sources.contains(&sibling));
-
-        let panel_row = app
-            .world()
-            .resource::<TreeRowIndex>()
-            .row(panel, InspectorSource::Local)
-            .unwrap();
-        assert!(!app.world().get::<TreeItem>(panel_row).unwrap().expandable);
         let parent_row = app
             .world()
             .resource::<TreeRowIndex>()
@@ -1353,8 +1349,7 @@ mod tests {
         app.update();
 
         let sources = row_sources(app.world(), local_header);
-        assert_eq!(sources.len(), 2);
-        assert!(sources.contains(&panel));
+        assert_eq!(sources.len(), 1);
         assert!(sources.contains(&parent));
         assert!(app
             .world()
