@@ -1,5 +1,5 @@
 ---
-title: Glyph atlas keys and helpers carry the synthetic italic skew
+title: Glyph atlas keys must account for synthetic italic skew
 pull_requests: [26563]
 ---
 
