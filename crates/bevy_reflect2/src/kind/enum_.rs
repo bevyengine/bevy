@@ -22,7 +22,6 @@ use crate::{
 pub struct Enum {
     variants: &'static [Variant],
     cast_enum_access: fn(*const u8) -> *const dyn EnumAccess,
-    construct: ConstructEnumFn,
 }
 
 impl Enum {
@@ -41,12 +40,10 @@ impl Enum {
     pub const unsafe fn new(
         variants: &'static [Variant],
         cast_enum_access: fn(*const u8) -> *const dyn EnumAccess,
-        construct: ConstructEnumFn,
     ) -> Self {
         Self {
             variants,
             cast_enum_access,
-            construct,
         }
     }
 
@@ -62,25 +59,6 @@ impl Enum {
         self.variants
             .iter()
             .position(|variant| variant.name == name)
-    }
-
-    /// Constructs a new value of the enum with the variant at index `variant`. `func` is called with
-    /// the index and description of each reflected field of the variant, in declaration order, and
-    /// returns the value of that field.
-    ///
-    /// [Ignored fields](Variant::ignored_fields) are initialized with their default (registered
-    /// with `#[reflect(ignore, default)]`).
-    ///
-    /// Returns `None` if there is no such variant, `func` returns `None` or a value with the wrong
-    /// type, or the variant has an ignored field without a default. Values that were already
-    /// returned by `func` are dropped.
-    pub fn construct_variant(
-        &self,
-        variant: usize,
-        mut func: impl FnMut(usize, &'static EnumField) -> Option<Box<dyn Reflect>>,
-    ) -> Option<Box<dyn Reflect>> {
-        let fields = self.variants.get(variant)?.fields;
-        (self.construct)(variant, &mut |index| func(index, fields.get(index)?))
     }
 
     /// Casts the given `enum_ptr` of this type to an [`EnumAccess`] reference.
@@ -109,6 +87,8 @@ pub struct Variant {
     pub ignored_fields: &'static [EnumIgnoredField],
     /// The metadata of the variant (registered with `#[reflect(@expr)]`).
     pub metadata: Metadata,
+    /// Constructs a value of this variant from its fields.
+    pub construct: Option<ConstructEnumVariantFn>,
 }
 
 impl Variant {
@@ -119,6 +99,26 @@ impl Variant {
     /// [ignored fields](Variant::ignored_fields) are not included.
     pub fn field_index(&self, name: &str) -> Option<usize> {
         self.fields.iter().position(|field| field.name == name)
+    }
+
+    /// Constructs a new value of this enum variant. `func` is called with the index and description
+    /// of each reflected field of the variant, in declaration order, and must return the value of
+    /// that field.
+    ///
+    /// [Ignored fields](Variant::ignored_fields) are initialized with their default (registered
+    /// with `#[reflect(ignore, default)]`).
+    ///
+    /// Returns `None` if `func` returns `None` or a value with the wrong type, or the variant has
+    /// an ignored field without a default. Values that were already returned by `func` are dropped.
+    pub fn construct_variant(
+        &self,
+        mut func: impl FnMut(usize, &'static EnumField) -> Option<Box<dyn Reflect>>,
+    ) -> Option<Box<dyn Reflect>> {
+        let Some(construct) = self.construct else {
+            return None;
+        };
+        let fields = self.fields;
+        (construct)(&mut |index| func(index, fields.get(index)?))
     }
 }
 
@@ -362,12 +362,10 @@ impl<'a> EnumMut<'a> {
     }
 }
 
-/// Constructs the variant of an enum at index `variant` (in [`Enum::variants`]), used by
-/// [`Enum::construct_variant`]. `fields` is called with the index of each reflected field of the
-/// variant (in [`Variant::fields`]), in declaration order, and returns its value. Ignored fields are
-/// initialized with their default.
+/// Constructs a variant of an enum, used by [`Variant::construct`]. `fields` is called with the
+/// index of each reflected field of the variant (in [`Variant::fields`]), in declaration order,
+/// and returns its value. Ignored fields are initialized with their default.
 ///
-/// Returns `None` if there is no such variant, `fields` returns `None` or a value with the wrong
-/// type, or the variant has an ignored field without a default.
-pub type ConstructEnumFn =
-    fn(usize, &mut dyn FnMut(usize) -> Option<Box<dyn Reflect>>) -> Option<Box<dyn Reflect>>;
+/// Returns `None` if `fields` returns `None` or a value with the wrong type.
+pub type ConstructEnumVariantFn =
+    fn(&mut dyn FnMut(usize) -> Option<Box<dyn Reflect>>) -> Option<Box<dyn Reflect>>;

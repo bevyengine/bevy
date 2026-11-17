@@ -295,7 +295,6 @@ fn enum_kind(
     let mut variants = Vec::with_capacity(reflect_variants.len());
     let mut variant_field_offsets = Vec::with_capacity(reflect_variants.len());
     let mut variant_indices = Vec::with_capacity(reflect_variants.len());
-    let mut variant_constructors = Vec::with_capacity(reflect_variants.len());
     for (index, variant) in reflect_variants.iter().enumerate() {
         let variant_ident = &variant.variant.ident;
 
@@ -365,11 +364,19 @@ fn enum_kind(
         variant_indices.push(quote! {
             Self::#variant_ident { .. } => #index
         });
-        variant_constructors.push(if constructible {
-            quote! { #index => #FQOption::Some(Self::#variant_ident { #(#field_initializers),* }) }
+        let construct = if constructible {
+            quote! {
+                #FQOption::Some(|__fields| {
+                    #FQOption::Some(#bevy_reflect::__macro_exports::Box::new(
+                        Self::#variant_ident {
+                            #(#field_initializers,)*
+                        }
+                    ) as #bevy_reflect::__macro_exports::Box<dyn #bevy_reflect::Reflect>)
+                })
+            }
         } else {
-            quote! { #index => #FQOption::None }
-        });
+            quote! { #FQOption::None }
+        };
 
         let field_kind = variant.fields.field_kind(bevy_reflect);
         let name = variant_ident.to_string();
@@ -381,6 +388,7 @@ fn enum_kind(
                 fields: &[#(#fields),*],
                 ignored_fields: &[#(#ignored_fields),*],
                 metadata: #metadata,
+                construct: #construct,
             }
         });
     }
@@ -393,18 +401,8 @@ fn enum_kind(
     // with the requested variant
     let kind = quote! {{
         let variants = &[#(#variants),*];
-        let construct: #bevy_reflect::kind::ConstructEnumFn = |__variant, __fields| {
-            let value: #FQOption<Self> = match __variant {
-                #(#variant_constructors,)*
-                _ => #FQOption::None,
-            };
-            value.map(|value| {
-                #bevy_reflect::__macro_exports::Box::new(value)
-                    as #bevy_reflect::__macro_exports::Box<dyn #bevy_reflect::Reflect>
-            })
-        };
         #bevy_reflect::kind::Kind::Enum(unsafe {
-            #bevy_reflect::kind::Enum::new(variants, #bevy_reflect::kind::cast_enum_access::<Self>, construct)
+            #bevy_reflect::kind::Enum::new(variants, #bevy_reflect::kind::cast_enum_access::<Self>)
         })
     }};
     let self_access = if reflect_variants.is_empty() {
