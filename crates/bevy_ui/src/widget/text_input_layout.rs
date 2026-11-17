@@ -618,6 +618,9 @@ fn push_run_glyphs(
         font_smoothing: brush.font_smoothing,
     };
 
+    let font_ref = FontRef::from_index(font_data.data.as_ref(), font_data.index as usize).unwrap();
+    let mut maybe_scaler = None;
+
     for glyph in glyph_run.positioned_glyphs() {
         let (cache_key, glyph_pos) = GlyphCacheKey::new(
             glyph.id as u16,
@@ -625,30 +628,34 @@ fn push_run_glyphs(
             brush.font_smoothing,
         );
         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-        let Ok(atlas_info) = get_glyph_atlas_info(font_atlases, cache_key)
-            .map(Ok)
-            .unwrap_or_else(|| {
-                let font_ref =
-                    FontRef::from_index(font_data.data.as_ref(), font_data.index as usize).unwrap();
-                let font_id = [font_data.data.id(), font_data.index.into()];
-
-                let mut scaler = scale_cx
-                    .builder_with_id(font_ref, font_id)
-                    .size(font_size)
-                    .hint(matches!(hinting, FontHinting::Enabled))
-                    .normalized_coords(coords)
-                    .build();
-                add_glyph_to_atlas(
+        let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
+            Some(atlas_info) => atlas_info,
+            None => {
+                if maybe_scaler.is_none() {
+                    let font_id = [font_data.data.id(), font_data.index.into()];
+                    let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
+                    maybe_scaler = Some(
+                        scale_cx
+                            .0
+                            .builder_with_id(font_ref, font_id)
+                            .size(font_size)
+                            .hint(hint)
+                            .normalized_coords(coords)
+                            .build(),
+                    );
+                }
+                let Ok(atlas_info) = add_glyph_to_atlas(
                     font_atlases,
                     textures,
-                    &mut scaler,
+                    maybe_scaler.as_mut().unwrap(),
                     font_smoothing,
                     synthetic_skew,
                     cache_key,
-                )
-            })
-        else {
-            continue;
+                ) else {
+                    continue;
+                };
+                atlas_info
+            }
         };
 
         glyphs.push(PositionedGlyph {
