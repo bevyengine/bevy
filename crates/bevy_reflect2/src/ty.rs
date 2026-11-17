@@ -2,7 +2,7 @@ use bevy_ptr::{Ptr, PtrMut};
 
 use crate::{
     builtin::move_box_into,
-    kind::{Kind, Struct, StructField, UncoveredBytes},
+    kind::{EnumField, Kind, Struct, StructField, UncoveredBytes},
     metadata::impl_metadata_methods,
     metadata::Metadata,
     reflect::Reflect,
@@ -345,6 +345,76 @@ impl Type {
         // ensures this covers all fields, and `alloc_struct` ensures all uncovered bytes are
         // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
         // the global allocator (or the type is a ZST).
+        Some(unsafe { self.box_from_raw(ptr) })
+    }
+
+    /// Constructs a new value of this enum from the desired variant index and its reflected fields.
+    ///
+    /// The variant index is in the order of [`Enum::variants`]. `func` is called exactly once for
+    /// each field in the variant, in declaration order.
+    /// [Ignored fields](crate::kind::Variant::ignored_fields) are initialized with their default.
+    ///
+    /// Returns [`None`] if this type is not a [`Kind::Enum`], `func` returns [`None`] or a value
+    /// with the wrong type, or the variant cannot be constructed (i.e., it has an ignored field
+    /// without a default). Values that were already returned by `func` are dropped.
+    ///
+    /// [`Enum::variants`]: crate::kind::Enum::variants
+    pub fn construct_enum(
+        &self,
+        variant_index: usize,
+        mut func: impl FnMut(usize, &'static EnumField) -> Option<Box<dyn Reflect>>,
+    ) -> Option<Box<dyn Reflect>> {
+        let Kind::Enum(enum_ty) = self.kind() else {
+            return None;
+        };
+        let variant = enum_ty.variants().get(variant_index)?;
+        // Bail out before we allocate anything if the variant can't be initialized.
+        variant.init?;
+
+        let ptr = self.alloc()?;
+        // Drop guard to deallocate the pointer if we early-return or panic.
+        let ptr_dealloc = DropGuard::new((), |_| {
+            // SAFETY: We allocated the ptr with [`Type::alloc`], and we only continue to use the
+            // pointer if we successfully initialized the value (where this DropGuard is dismissed).
+            unsafe { self.dealloc(ptr) };
+        });
+
+        // SAFETY:
+        // 1) We've checked about that this variant has an `init` implementation.
+        // 2) We own `ptr` and it is not currently borrowed. `alloc` allocates the appropriate
+        //    layout for this type.
+        // 3) The function only returns true in the case where it writes an initialized value into
+        //    `field_ptr`, and we check that the type
+        let initialized = unsafe {
+            variant.initialize_variant_raw(
+                |field_index, field_ptr| {
+                    let field = &variant.fields[field_index];
+                    let Some(value) = (func)(field_index, field) else {
+                        return false;
+                    };
+                    if field.ty.get().type_id != value.as_ref().type_id() {
+                        return false;
+                    }
+                    // SAFETY: `initialize_variant_raw` guarantees the field ptr is valid for writes
+                    // of the field type, and we've checked above that `value` matches the field
+                    // type for this index.
+                    move_box_into(value, field_ptr.as_ptr());
+                    true
+                },
+                ptr,
+            )
+        };
+
+        if !initialized {
+            // The `DropGuard` ensures the ptr gets freed.
+            return None;
+        }
+
+        DropGuard::dismiss(ptr_dealloc);
+
+        // SAFETY: `initialize_variant_raw` guarantees the `ptr` is a fully-initialized value, so
+        // long as it returns true (which we've checked). `alloc` always allocates with the global
+        // allocator (or the type is zero-sized and is dangling).
         Some(unsafe { self.box_from_raw(ptr) })
     }
 

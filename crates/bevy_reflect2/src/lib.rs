@@ -622,8 +622,8 @@ mod tests {
             ("b", Box::new(String::from("b"))),
         ];
         let variant = enum_type.variant_index("X").unwrap();
-        let foo = enum_type.variants()[variant]
-            .construct_variant(|_, field| {
+        let foo = Foo::TYPE
+            .construct_enum(variant, |_, field| {
                 let index = values.iter().position(|(name, _)| *name == field.name)?;
                 Some(values.remove(index).1)
             })
@@ -638,8 +638,8 @@ mod tests {
         );
 
         // Tuple variant, with a custom default for the ignored field
-        let foo = enum_type.variants()[1]
-            .construct_variant(|index, _| {
+        let foo = Foo::TYPE
+            .construct_enum(1, |index, _| {
                 assert_eq!(index, 0);
                 Some(Box::new(2u64))
             })
@@ -647,21 +647,20 @@ mod tests {
         assert_eq!(foo.take::<Foo>().ok(), Some(Foo::Y(2, 7)));
 
         // Unit variant
-        let foo = enum_type.variants()[2]
-            .construct_variant(|_, _| unreachable!("unit variants have no fields"))
+        let foo = Foo::TYPE
+            .construct_enum(2, |_, _| unreachable!("unit variants have no fields"))
             .unwrap();
         assert_eq!(foo.take::<Foo>().ok(), Some(Foo::Z));
 
         // Values with the wrong type, missing values, and ignored fields without a default
-        assert!(enum_type.variants()[1]
-            .construct_variant(|_, _| Some(Box::new(2u32)))
+        assert!(Foo::TYPE
+            .construct_enum(1, |_, _| Some(Box::new(2u32)))
             .is_none());
-        assert!(enum_type.variants()[1]
-            .construct_variant(|_, _| None)
-            .is_none());
+        assert!(Foo::TYPE.construct_enum(1, |_, _| None).is_none());
+        assert!(Foo::TYPE.construct_enum(4, |_, _| None).is_none());
         assert!(enum_type.variant_index("Missing").is_none());
-        assert!(enum_type.variants()[3]
-            .construct_variant(|_, _| unreachable!("the variant can't be constructed"))
+        assert!(Foo::TYPE
+            .construct_enum(3, |_, _| unreachable!("the variant can't be constructed"))
             .is_none());
     }
 
@@ -670,12 +669,14 @@ mod tests {
         let Kind::Enum(enum_type) = Option::<u32>::TYPE.kind() else {
             panic!("Expected enum kind");
         };
-        let some = enum_type.variants()[enum_type.variant_index("Some").unwrap()]
-            .construct_variant(|_, _| Some(Box::new(1u32)))
+        let some = Option::<u32>::TYPE
+            .construct_enum(enum_type.variant_index("Some").unwrap(), |_, _| {
+                Some(Box::new(1u32))
+            })
             .unwrap();
         assert_eq!(some.take::<Option<u32>>().ok(), Some(Some(1)));
-        let none = enum_type.variants()[enum_type.variant_index("None").unwrap()]
-            .construct_variant(|_, _| None)
+        let none = Option::<u32>::TYPE
+            .construct_enum(enum_type.variant_index("None").unwrap(), |_, _| None)
             .unwrap();
         assert_eq!(none.take::<Option<u32>>().ok(), Some(None));
     }

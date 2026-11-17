@@ -345,8 +345,20 @@ fn enum_kind(
                 field_offsets.push(offset);
                 // Fields are initialized in declaration order, so `__fields` is called in the
                 // order of `Variant::fields`
+
+                // SAFETY: We gave the appropriate index for this field in this variant, and `func`
+                // expects to initialize the correct type. By the safety precondition of calling
+                // the `init` function, `func` satisfies `InitializeEnumVariant`'s safety
+                // requirements.
                 field_initializers.push(quote! {
-                    #member: <dyn #bevy_reflect::Reflect>::take::<#field_ty>(__fields(#field_index)?).ok()?
+                    #member: {
+                        let Some(__value) = (unsafe {
+                            #bevy_reflect::kind::create_enum_field_value_from_init(#field_index, __fields)
+                        }) else {
+                            return false;
+                        };
+                        __value
+                    }
                 });
             }
         }
@@ -364,14 +376,16 @@ fn enum_kind(
         variant_indices.push(quote! {
             Self::#variant_ident { .. } => #index
         });
-        let construct = if constructible {
+        // SAFETY: By the safety precondition of `InitializeEnumVariantFn`, we know `__dst` is valid
+        // for writes of this enum type.
+        let init = if constructible {
             quote! {
-                #FQOption::Some(|__fields| {
-                    #FQOption::Some(#bevy_reflect::__macro_exports::Box::new(
-                        Self::#variant_ident {
-                            #(#field_initializers,)*
-                        }
-                    ) as #bevy_reflect::__macro_exports::Box<dyn #bevy_reflect::Reflect>)
+                #FQOption::Some(|__fields, __dst| {
+                    let __value = Self::#variant_ident {
+                        #(#field_initializers,)*
+                    };
+                    unsafe { __dst.as_ptr().cast::<Self>().write(__value) };
+                    true
                 })
             }
         } else {
@@ -388,7 +402,7 @@ fn enum_kind(
                 fields: &[#(#fields),*],
                 ignored_fields: &[#(#ignored_fields),*],
                 metadata: #metadata,
-                construct: #construct,
+                init: #init,
             }
         });
     }

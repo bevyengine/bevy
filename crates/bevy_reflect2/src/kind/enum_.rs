@@ -1,4 +1,4 @@
-use alloc::boxed::Box;
+use core::{hint::unreachable_unchecked, mem::MaybeUninit, ptr::NonNull};
 
 use bevy_ptr::{Ptr, PtrMut};
 
@@ -32,7 +32,7 @@ impl Enum {
     /// `variants` must describe every variant of the enum, in declaration order, and
     /// `cast_enum_access` must cast pointers to the enum to its [`EnumAccess`] implementation (see
     /// [`cast_enum_access`]). `construct` must only return values of the enum, with the requested
-    /// variant (see [`ConstructEnumFn`]).
+    /// variant (see [`InitializeEnumVariantFn`]).
     ///
     /// Together, [`Variant::fields`] and [`Variant::ignored_fields`] must contain every field of that
     /// variant exactly once, each with the correct type (see [`IgnoredFieldVTable`] for the
@@ -87,8 +87,8 @@ pub struct Variant {
     pub ignored_fields: &'static [EnumIgnoredField],
     /// The metadata of the variant (registered with `#[reflect(@expr)]`).
     pub metadata: Metadata,
-    /// Constructs a value of this variant from its fields.
-    pub construct: Option<ConstructEnumVariantFn>,
+    /// Initializes a value of this variant from its fields.
+    pub init: Option<InitializeEnumVariantFn>,
 }
 
 impl Variant {
@@ -101,24 +101,40 @@ impl Variant {
         self.fields.iter().position(|field| field.name == name)
     }
 
-    /// Constructs a new value of this enum variant. `func` is called with the index and description
-    /// of each reflected field of the variant, in declaration order, and must return the value of
-    /// that field.
+    /// Initializes a new value of this variant into `dst`, initializing each field of the variant
+    /// with `func`.
     ///
-    /// [Ignored fields](Variant::ignored_fields) are initialized with their default (registered
-    /// with `#[reflect(ignore, default)]`).
+    /// `func` is called exactly once for each field in the variant, in declaration order. `func`
+    /// must return whether it initialized the passed-in pointer. If `func` returns `false`, the
+    /// initialization bails out and won't call `func` again.
     ///
-    /// Returns `None` if `func` returns `None` or a value with the wrong type, or the variant has
-    /// an ignored field without a default. Values that were already returned by `func` are dropped.
-    pub fn construct_variant(
+    /// The value in `dst` is overwritten and **will not** be dropped. Ignored fields are
+    /// initialized with the field's default implementation.
+    ///
+    /// If this function returns `true`, `dst` holds a fully initialized value of this variant.
+    ///
+    /// # Safety
+    ///
+    /// 1) This variant must have an `init` implementation.
+    /// 2) `dst` must be valid for writes of this enum type.
+    /// 3) `func` must return whether it initialized the passed-in pointer. It must initialize to a
+    ///    valid value for the field at the provided index in the variant. `func` may not read/drop
+    ///    the previous value (as the pointer may point to an uninitialized or overwritten
+    ///    location).
+    // Note: This function doesn't really do anything different from calling `self.init` directly,
+    // it's just slightly more convenient to call.
+    pub unsafe fn initialize_variant_raw(
         &self,
-        mut func: impl FnMut(usize, &'static EnumField) -> Option<Box<dyn Reflect>>,
-    ) -> Option<Box<dyn Reflect>> {
-        let Some(construct) = self.construct else {
-            return None;
+        mut func: impl FnMut(usize, NonNull<u8>) -> bool,
+        dst: NonNull<u8>,
+    ) -> bool {
+        let Some(init) = self.init else {
+            // SAFETY: By the safety precondition, we know there is an `init` implementation.
+            unsafe { unreachable_unchecked() };
         };
-        let fields = self.fields;
-        (construct)(&mut |index| func(index, fields.get(index)?))
+        // SAFETY: By the safety precondition, `dst` is valid for writes of this enum type, and
+        // `func` will initialize all the field types to a valid value.
+        unsafe { (init)(&mut func, dst) }
     }
 }
 
@@ -362,10 +378,48 @@ impl<'a> EnumMut<'a> {
     }
 }
 
-/// Constructs a variant of an enum, used by [`Variant::construct`]. `fields` is called with the
-/// index of each reflected field of the variant (in [`Variant::fields`]), in declaration order,
-/// and returns its value. Ignored fields are initialized with their default.
+/// Creates an owned value of type `T` by initializing the value using `func`.
 ///
-/// Returns `None` if `fields` returns `None` or a value with the wrong type.
-pub type ConstructEnumVariantFn =
-    fn(&mut dyn FnMut(usize) -> Option<Box<dyn Reflect>>) -> Option<Box<dyn Reflect>>;
+/// # Safety
+///
+/// 1) `field_index` must correspond to the index of a field of type `T` in an enum variant that
+///    `func` expects.
+/// 2) `func` must satisfy the same safety requirements as [`InitializeEnumVariantFn`]'s func
+///    argument.
+pub unsafe fn create_enum_field_value_from_init<T>(
+    field_index: usize,
+    func: &mut dyn FnMut(usize, NonNull<u8>) -> bool,
+) -> Option<T> {
+    let mut value = MaybeUninit::<T>::uninit();
+    // SAFETY: `value` is a stack variable, so its pointer cannot be null.
+    let value_ptr = unsafe { NonNull::new_unchecked(value.as_mut_ptr().cast::<u8>()) };
+    if !func(field_index, value_ptr) {
+        // The value wasn't initialized, so there's nothing more to do. We don't need to drop
+        // anything either.
+        return None;
+    }
+    // SAFETY: By the safety precondition, `func` returns true if and only if it initialized the
+    // `value_ptr` to a valid value of the enum's field.
+    Some(unsafe { value.assume_init() })
+}
+
+/// Initializes the variant of an enum from its fields.
+///
+/// We will assume the names of the arguments are `func` and `dst`. `func` is called with the index
+/// of each reflected field of the variant (in [`Variant::fields`]), in declaration order. `func`
+/// must return whether it initialized the passed-in pointer. If `func` returns `false`, the
+/// initialization bails out and won't call `func` again.
+///
+/// The value in `dst` is overwritten and **will not** be dropped. Ignored fields are initialized
+/// with their default.
+///
+/// If this function returns `true`, `dst` holds a fully-initialized value of this variant.
+///
+/// # Safety
+///
+/// 1) `dst` must be valid for writes of this enum type.
+/// 2) `func` must return whether it initialized the passed-in pointer. It must initialize to a
+///    valid value for the field at the provided index in the variant. `func` may not read/drop the
+///    previous value (as the pointer may point to an uninitialized or overwritten location).
+pub type InitializeEnumVariantFn =
+    unsafe fn(&mut dyn FnMut(usize, NonNull<u8>) -> bool, NonNull<u8>) -> bool;
