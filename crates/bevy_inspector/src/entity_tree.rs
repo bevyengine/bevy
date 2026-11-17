@@ -871,13 +871,6 @@ pub fn update_tree_guides(
     }
 }
 
-fn px_value(val: Val) -> f32 {
-    match val {
-        Val::Px(value) => value,
-        _ => 0.0,
-    }
-}
-
 /// Whether `entity` is hidden, by its own [`Visibility`] or by that of an ancestor.
 fn is_hidden(world: &World, entity: Entity) -> bool {
     let mut current = entity;
