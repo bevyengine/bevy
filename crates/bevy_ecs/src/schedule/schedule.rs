@@ -1846,15 +1846,14 @@ impl ScheduleGraph {
     ///
     /// Without the `debug` feature, type names are not available, so only the [`Debug`] output is used.
     fn named_set_name(&self, set: &dyn SystemSet) -> String {
-        let debug = format!("{set:?}");
         if !DebugName::ENABLED || set.debug_includes_type_name() {
-            return debug;
+            return format!("{set:?}");
         }
         let set_type_name = set.set_type_name();
         if self.settings.use_shortnames {
-            format!("{}::{debug}", set_type_name.shortname())
+            format!("{}::{set:?}", set_type_name.shortname())
         } else {
-            format!("{set_type_name}::{debug}")
+            format!("{set_type_name}::{set:?}")
         }
     }
 
