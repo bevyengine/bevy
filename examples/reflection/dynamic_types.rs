@@ -163,7 +163,7 @@ fn main() {
     assert!(!my_dynamic_list
         .as_partial_reflect()
         .represents::<Vec<u32>>());
-    my_dynamic_list.set_represented_type(Some(<Vec<u32>>::type_info()));
+    my_dynamic_list.set_runtime_type(Some(<Vec<u32>>::type_info()));
     assert!(my_dynamic_list
         .as_partial_reflect()
         .represents::<Vec<u32>>());

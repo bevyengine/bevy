@@ -139,9 +139,9 @@ pub enum WorldInstanceSpawnError {
         /// The unregistered type.
         type_path: String,
     },
-    /// `WorldAsset` contains a proxy without a represented type.
-    #[error("world contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
-    NoRepresentedType {
+    /// `WorldAsset` contains a proxy without a runtime type.
+    #[error("world contains dynamic type `{type_path}` without a runtime type. consider changing this using `set_runtime_type`.")]
+    NoRuntimeType {
         /// The dynamic instance type.
         type_path: String,
     },
