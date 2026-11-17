@@ -179,10 +179,11 @@ pub fn add_glyph_to_atlas(
     textures: &mut Assets<Image>,
     scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
+    synthetic_skew: Option<f32>,
     key: GlyphCacheKey,
 ) -> Result<GlyphAtlasInfo, TextError> {
     let (glyph_texture, offset, is_alpha_mask) =
-        get_outlined_glyph_texture(scaler, key, font_smoothing)?;
+        get_outlined_glyph_texture(scaler, key, font_smoothing, synthetic_skew)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
         atlas.add_glyph(textures, key, &glyph_texture, offset, is_alpha_mask)
     };
@@ -222,16 +223,20 @@ pub fn get_outlined_glyph_texture(
     scaler: &mut Scaler,
     key: GlyphCacheKey,
     font_smoothing: FontSmoothing,
+    synthetic_skew: Option<f32>,
 ) -> Result<(Image, Vec2, bool), TextError> {
-    let image = swash::scale::Render::new(&[
+    let mut renderer = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
         swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
         swash::scale::Source::Outline,
-    ])
-    .format(swash::zeno::Format::Alpha)
-    .offset(Vector::new(key.subpixel_offset(), 0.))
-    .render(scaler, key.glyph_id)
-    .ok_or(TextError::FailedToGetGlyphImage(key.glyph_id))?;
+    ]);
+    renderer
+        .format(swash::zeno::Format::Alpha)
+        .offset(Vector::new(key.subpixel_offset(), 0.))
+        .transform(synthetic_skew_transform(synthetic_skew));
+    let image = renderer
+        .render(scaler, key.glyph_id)
+        .ok_or(TextError::FailedToGetGlyphImage(key.glyph_id))?;
 
     let left = image.placement.left;
     let top = image.placement.top;
@@ -286,6 +291,15 @@ pub fn get_outlined_glyph_texture(
     ))
 }
 
+fn synthetic_skew_transform(degrees: Option<f32>) -> Option<swash::zeno::Transform> {
+    degrees.map(|degrees| {
+        swash::zeno::Transform::skew(
+            swash::zeno::Angle::from_degrees(degrees),
+            swash::zeno::Angle::ZERO,
+        )
+    })
+}
+
 /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
 pub fn get_glyph_atlas_info(
     font_atlases: &mut [FontAtlas],
@@ -320,9 +334,13 @@ mod allocation_regression_tests {
         };
         let mut scale_context = ScaleContext::new();
         let mut measurement_scaler = scale_context.builder(font).size(1479.0).build();
-        let (glyph_texture, _, _) =
-            get_outlined_glyph_texture(&mut measurement_scaler, key, FontSmoothing::AntiAliased)
-                .expect("glyph should rasterize");
+        let (glyph_texture, _, _) = get_outlined_glyph_texture(
+            &mut measurement_scaler,
+            key,
+            FontSmoothing::AntiAliased,
+            None,
+        )
+        .expect("glyph should rasterize");
         assert_eq!(
             glyph_texture.width().max(glyph_texture.height()),
             1021,
@@ -338,8 +356,77 @@ mod allocation_regression_tests {
             &mut textures,
             &mut scaler,
             FontSmoothing::AntiAliased,
+            None,
             key,
         )
         .expect("a newly created atlas should fit the glyph that requested it");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use swash::{scale::ScaleContext, FontRef};
+
+    /// Alpha-weighted horizontal centroid of the ink on one image row.
+    fn ink_centroid_x(image: &Image, row: u32) -> Option<f32> {
+        let data = image.data.as_ref()?;
+        let width = image.width();
+        let mut sum = 0.0;
+        let mut weight = 0.0;
+        for x in 0..width {
+            let alpha = data[((row * width + x) * 4 + 3) as usize] as f32;
+            sum += alpha * x as f32;
+            weight += alpha;
+        }
+        (weight > 0.0).then_some(sum / weight)
+    }
+
+    /// Horizontal ink centroids of the topmost and bottommost rows that have ink.
+    fn top_and_bottom_x(image: &Image) -> (f32, f32) {
+        let rows: Vec<u32> = (0..image.height())
+            .filter(|row| ink_centroid_x(image, *row).is_some())
+            .collect();
+        let top = *rows.first().expect("glyph should have ink");
+        let bottom = *rows.last().expect("glyph should have ink");
+        (
+            ink_centroid_x(image, top).unwrap(),
+            ink_centroid_x(image, bottom).unwrap(),
+        )
+    }
+
+    // Layout gives a font with no italic face a synthetic skew. It has to reach
+    // the rasterizer, or italic text is drawn upright (#25569).
+    #[test]
+    fn synthetic_italic_skews_the_glyph_top_to_the_right() {
+        let font =
+            FontRef::from_index(include_bytes!("FiraMono-subset.ttf"), 0).expect("valid test font");
+        let key = GlyphCacheKey {
+            glyph_id: font.charmap().map('I'),
+            subpixel_bin: 0,
+        };
+        let mut scale_context = ScaleContext::new();
+
+        let mut scaler = scale_context.builder(font).size(64.0).build();
+        let (upright, _, _) =
+            get_outlined_glyph_texture(&mut scaler, key, FontSmoothing::AntiAliased, None)
+                .expect("glyph should rasterize");
+
+        let mut scaler = scale_context.builder(font).size(64.0).build();
+        let (skewed, _, _) =
+            get_outlined_glyph_texture(&mut scaler, key, FontSmoothing::AntiAliased, Some(14.0))
+                .expect("glyph should rasterize");
+
+        let (upright_top, upright_bottom) = top_and_bottom_x(&upright);
+        let (skewed_top, skewed_bottom) = top_and_bottom_x(&skewed);
+
+        assert!(
+            skewed_top > upright_top + 5.0,
+            "skewed top row should move right: {skewed_top} vs {upright_top}"
+        );
+        assert!(
+            (skewed_bottom - upright_bottom).abs() < 1.0,
+            "skewed bottom row should stay put: {skewed_bottom} vs {upright_bottom}"
+        );
     }
 }
