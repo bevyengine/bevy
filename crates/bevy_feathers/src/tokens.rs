@@ -456,6 +456,14 @@ pub const LISTROW_TEXT: ThemeToken = ThemeToken::new_static("feathers.listrow.te
 pub const LISTROW_TEXT_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.listrow.text.disabled");
 
+/// Tree view row background (selected)
+pub const TREE_ROW_BG_SELECTED: ThemeToken =
+    ThemeToken::new_static("feathers.tree.row.bg.selected");
+/// Tree view indent guide
+pub const TREE_GUIDE: ThemeToken = ThemeToken::new_static("feathers.tree.guide");
+/// Tree view indent guide of the branch holding the selected row
+pub const TREE_GUIDE_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tree.guide.selected");
+
 // Modal Dialog
 
 /// Dialog background
@@ -543,6 +551,8 @@ pub mod semantic {
     pub const FILL_ITEM_HOVER: SemanticToken = SemanticToken::new_static("fill.item.hover");
     /// Fill when pressed
     pub const FILL_ITEM_PRESSED: SemanticToken = SemanticToken::new_static("fill.item.pressed");
+    /// Fill when selected
+    pub const FILL_ITEM_SELECTED: SemanticToken = SemanticToken::new_static("fill.item.selected");
 
     /// Field fill - text inputs
     pub const FILL_FIELD_DEFAULT: SemanticToken = SemanticToken::new_static("fill.field.default");
