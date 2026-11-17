@@ -214,7 +214,7 @@ impl<const N: usize> Plugin for BlurShaderPlugin<N> {
         .add_systems(
             PostUpdate,
             sync_blur_regions::<N>
-                .after(UiSystems::Layout)
+                .in_set(UiSystems::PostLayout)
                 .after(VisibilitySystems::VisibilityPropagate),
         );
 

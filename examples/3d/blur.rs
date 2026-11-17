@@ -350,26 +350,25 @@ fn ui_root(state: &BlurDemoState) -> impl Scene + use<> {
             align_items: AlignItems::Center,
         }
         Children [
-            @control_panel(state),
-            (
-                BlurRegion
-                Node {
-                    width: percent(75),
-                    height: percent(75),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::FlexEnd,
-                    padding: UiRect::all(px(14)),
-                    border_radius: BorderRadius::all(px(36)),
-                    border: UiRect::all(px(12)),
+            @control_panel(state)
+            --
+            BlurRegion
+            Node {
+                width: percent(75),
+                height: percent(75),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::FlexEnd,
+                padding: UiRect::all(px(14)),
+                border_radius: BorderRadius::all(px(36)),
+                border: UiRect::all(px(12)),
+            }
+            BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.45))
+            Children [
+                TextFont {
+                    font_size: FontSize::Px(15.0),
                 }
-                BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.45))
-                Children [(
-                    TextFont {
-                        font_size: FontSize::Px(15.0),
-                    }
-                    TextColor(Color::srgba(1.0, 1.0, 1.0, 0.85))
-                )]
-            ),
+                TextColor(Color::srgba(1.0, 1.0, 1.0, 0.85))
+            ]
         ]
     }
 }
@@ -394,32 +393,37 @@ fn control_panel(state: &BlurDemoState) -> impl Scene + use<> {
         BackgroundColor(Color::srgba(0.05, 0.08, 0.11, 0.25))
         BorderColor::all(Color::srgba(0.85, 0.92, 1.0, 0.65))
         Children [
-            (
-                Text("Blur playground")
-                TextFont {
-                    font_size: FontSize::Px(26.0),
-                }
-                TextColor(Color::WHITE)
-            ),
-            (
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: px(4),
-                }
-                RadioGroup
-                on(algorithm_selected)
-                Children [
-                    // The demo starts on the gaussian algorithm, so it spawns checked.
-                    (@algorithm_radio(Algorithm::Gaussian) Checked),
-                    @algorithm_radio(Algorithm::BoxBlur),
-                    @algorithm_radio(Algorithm::DualKawase),
-                    @algorithm_radio(Algorithm::Bokeh),
-                ]
-            ),
-            @param_label(0, &specs[0]),
-            @param_slider(0, values[0], &specs[0]),
-            @param_label(1, &specs[1]),
-            @param_slider(1, values[1], &specs[1]),
+            Text("Blur playground")
+            TextFont {
+                font_size: FontSize::Px(26.0),
+            }
+            TextColor(Color::WHITE)
+            --
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(4),
+            }
+            RadioGroup
+            on(algorithm_selected)
+            Children [
+                // The demo starts on the gaussian algorithm, so it spawns checked.
+                @algorithm_radio(Algorithm::Gaussian)
+                Checked
+                --
+                @algorithm_radio(Algorithm::BoxBlur)
+                --
+                @algorithm_radio(Algorithm::DualKawase)
+                --
+                @algorithm_radio(Algorithm::Bokeh)
+            ]
+            --
+            @param_label(0, &specs[0])
+            --
+            @param_slider(0, values[0], &specs[0])
+            --
+            @param_label(1, &specs[1])
+            --
+            @param_slider(1, values[1], &specs[1])
         ]
     }
 }

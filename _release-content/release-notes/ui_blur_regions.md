@@ -36,7 +36,7 @@ fn setup(mut commands: Commands) {
 
 Each frame, Bevy automatically syncs the layout rectangles and border radii (including rounded and elliptical corners) of visible [`BlurRegion`](https://docs.rs/bevy/latest/bevy/ui_render/struct.BlurRegion.html) nodes and applies the blur as a post-processing pass before drawing UI on top. You can also push custom screen-space rectangles directly onto [`BlurRegionCamera`](https://docs.rs/bevy/latest/bevy/ui_render/struct.BlurRegionCamera.html) via `blur` and `rounded_blur`.
 
-### Four Built-in Blur Algorithms
+## Four Built-in Blur Algorithms
 
 Different games and UI styles have different needs, so [`BlurSetting`](https://docs.rs/bevy/latest/bevy/ui_render/enum.BlurSetting.html) comes with four algorithms that let you trade off between performance, blur width, and visual style—all of which can be tweaked at runtime:
 
