@@ -41,6 +41,7 @@ use core::{
 use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::Stream;
 use std::{
+    borrow::Cow,
     io::SeekFrom,
     path::{Path, PathBuf},
 };
@@ -91,6 +92,12 @@ impl From<std::io::Error> for AssetReaderError {
 // but compiler optimizations can apparently inflate the stack size of futures due to inlining, which makes
 // a higher maximum necessary.
 pub const STACK_FUTURE_SIZE: usize = 10 * size_of::<&()>();
+
+/// The size of the [`StackFuture`] returned by [`Reader::read_to_cow`].
+///
+/// Larger than [`STACK_FUTURE_SIZE`] because that future wraps the [`Reader::read_to_end`]
+/// `StackFuture` along with the `Vec` it accumulates into.
+pub const READ_TO_COW_FUTURE_SIZE: usize = 24 * size_of::<&()>();
 
 pub use stackfuture::StackFuture;
 
@@ -143,6 +150,27 @@ pub trait Reader: AsyncRead + Unpin + Send + Sync {
     /// # };
     /// ```
     fn seekable(&mut self) -> Result<&mut dyn SeekableReader, ReaderNotSeekableError>;
+
+    /// Reads the entire contents of this reader into a copy-on-write construct that minimizes
+    /// the number of memory copy operations when the data is stored in static memory.
+    fn read_to_cow<'a>(
+        &'a mut self,
+    ) -> StackFuture<'a, std::io::Result<Cow<'static, [u8]>>, READ_TO_COW_FUTURE_SIZE> {
+        StackFuture::from(async move {
+            if let Some(static_bytes) = self.as_static_bytes() {
+                return Ok(Cow::Borrowed(static_bytes));
+            }
+            let mut bytes = Vec::new();
+            self.read_to_end(&mut bytes).await?;
+            Ok(Cow::Owned(bytes))
+        })
+    }
+
+    /// Returns the bytes as a static slice if the reader is backed by a piece of
+    /// static memory, which avoids two copy operations.
+    fn as_static_bytes(&self) -> Option<&'static [u8]> {
+        None
+    }
 }
 
 /// A [`Reader`] that also has [`AsyncSeek`] functionality.
