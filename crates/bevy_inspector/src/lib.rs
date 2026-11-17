@@ -46,6 +46,7 @@ use bevy_ecs::{
     system::{In, IntoSystem, Local, Query, Res, ResMut},
     world::World,
 };
+use bevy_feathers::FeathersSystems;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_time::{Time, Timer, TimerMode};
@@ -58,8 +59,8 @@ use crate::details_panel::{
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync, InspectorDetailsBody,
 };
 use crate::entity_tree::{
-    sync_entity_tree, EntityTreeSync, InspectorEntityRow, InspectorHeaderRow, InspectorTreeView,
-    TreeRowIndex,
+    sync_entity_tree, update_tree_guides, EntityTreeSync, InspectorEntityRow, InspectorHeaderRow,
+    InspectorTreeView, TreeRowIndex,
 };
 use crate::resource_list::{
     sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
@@ -433,6 +434,13 @@ impl Plugin for InspectorPlugin {
                     .before(UiSystems::Prepare)
                     .before(UiSystems::Stack)
                     .before(VisibilitySystems::VisibilityPropagate),
+            )
+            .add_systems(
+                PostUpdate,
+                update_tree_guides
+                    .run_if(entity_tree_visible)
+                    .in_set(UiSystems::Content)
+                    .after(FeathersSystems),
             );
 
         #[cfg(feature = "remote")]

@@ -420,7 +420,7 @@ impl SubApp {
     {
         self.plugin_registry
             .iter()
-            .filter_map(|p| p.downcast_ref())
+            .filter_map(|p| (&**p as &dyn core::any::Any).downcast_ref())
             .collect()
     }
 
