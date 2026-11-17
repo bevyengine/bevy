@@ -617,6 +617,7 @@ fn push_run_glyphs(
         hinting,
         font_smoothing: brush.font_smoothing,
     };
+    let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
     for glyph in glyph_run.positioned_glyphs() {
         let (cache_key, glyph_pos) = GlyphCacheKey::new(
@@ -624,7 +625,6 @@ fn push_run_glyphs(
             Vec2::new(glyph.x, glyph.y),
             brush.font_smoothing,
         );
-        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
         let Ok(atlas_info) = get_glyph_atlas_info(font_atlases, cache_key)
             .map(Ok)
             .unwrap_or_else(|| {

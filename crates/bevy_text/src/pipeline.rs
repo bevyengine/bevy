@@ -386,6 +386,7 @@ impl TextPipeline {
                             hinting,
                             font_smoothing,
                         };
+                        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
                         let Some(font_ref) =
                             FontRef::from_index(font.data.as_ref(), font.index as usize)
@@ -405,8 +406,6 @@ impl TextPipeline {
                                 Vec2::new(glyph.x, glyph.y),
                                 font_smoothing,
                             );
-
-                            let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
                             let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
                                 Some(info) => info,
