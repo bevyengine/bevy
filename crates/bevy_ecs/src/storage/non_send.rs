@@ -174,14 +174,17 @@ impl NonSendData {
             //   layout must be identical.
             // - The value was previously not present and thus must not have been initialized.
             unsafe { self.data.initialize_unchecked(Self::ROW, value) };
-            *self.added_ticks.as_mut_unchecked() = change_tick;
+            // SAFETY: This function is being called through an exclusive mutable reference to Self
+            *unsafe { self.added_ticks.as_mut_unchecked() } = change_tick;
             self.is_present = true;
         }
-        *self.changed_ticks.as_mut_unchecked() = change_tick;
+        // SAFETY: This function is being called through an exclusive mutable reference to Self
+        *unsafe { self.changed_ticks.as_mut_unchecked() } = change_tick;
 
+        // SAFETY: This function is being called through an exclusive mutable reference to Self
         self.changed_by
             .as_ref()
-            .map(|changed_by| changed_by.as_mut_unchecked())
+            .map(|changed_by| unsafe { changed_by.as_mut_unchecked() })
             .assign(caller);
     }
 

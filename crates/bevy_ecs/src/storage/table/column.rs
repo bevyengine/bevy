@@ -480,18 +480,22 @@ impl Column {
     /// This function does not do any bounds checking.
     ///
     /// # Safety
-    /// `row` must be within the range `[0, self.len())`.
+    /// - `row` must be within the range `[0, self.len())`.
+    /// - no other mutable reference to the ticks of the same row can exist at the same time
     #[inline]
     pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
-        ComponentTicks {
-            added: *self
-                .added_ticks
-                .get_unchecked(row.index())
-                .as_ref_unchecked(),
-            changed: *self
-                .changed_ticks
-                .get_unchecked(row.index())
-                .as_ref_unchecked(),
+        // SAFETY: Caller ensures row is in range and there are no mutable references to the ticks
+        unsafe {
+            ComponentTicks {
+                added: *self
+                    .added_ticks
+                    .get_unchecked(row.index())
+                    .as_ref_unchecked(),
+                changed: *self
+                    .changed_ticks
+                    .get_unchecked(row.index())
+                    .as_ref_unchecked(),
+            }
         }
     }
 

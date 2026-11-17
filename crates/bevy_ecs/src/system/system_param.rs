@@ -905,11 +905,14 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         Ok(Res {
             value: ptr.deref(),
             ticks: ComponentTicksRef {
-                added: ticks.added.as_ref_unchecked(),
-                changed: ticks.changed.as_ref_unchecked(),
+                // SAFETY: Read access was registered in `init_access`
+                added: unsafe { ticks.added.as_ref_unchecked() },
+                // SAFETY: Read access was registered in `init_access`
+                changed: unsafe { ticks.changed.as_ref_unchecked() },
+                // SAFETY: Read access was registered in `init_access`
                 changed_by: ticks
                     .changed_by
-                    .map(|changed_by| changed_by.as_ref_unchecked()),
+                    .map(|changed_by| unsafe { changed_by.as_ref_unchecked() }),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },

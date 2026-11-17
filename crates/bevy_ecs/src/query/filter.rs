@@ -1002,8 +1002,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
-                tick.as_ref_unchecked()
-                    .is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
@@ -1014,8 +1014,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                         .unwrap_unchecked()
                 };
 
-                tick.as_ref_unchecked()
-                    .is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }
@@ -1264,8 +1264,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
-                tick.as_ref_unchecked()
-                    .is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
@@ -1276,8 +1276,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                         .unwrap_unchecked()
                 };
 
-                tick.as_ref_unchecked()
-                    .is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }
