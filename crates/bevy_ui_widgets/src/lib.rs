@@ -109,6 +109,7 @@ impl PluginGroup for UiWidgetsPlugins {
             .add(ListBoxPlugin)
             .add(MenuPlugin)
             .add(DialogPlugin)
+            .add(DockPlugin)
             .add(DragProxyPlugin)
             .add(ModalDialogPlugin)
             .add(PopoverPlugin)

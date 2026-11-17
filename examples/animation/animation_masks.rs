@@ -104,7 +104,7 @@ impl AnimationLabel {
 }
 
 #[derive(Clone, Debug, Resource)]
-struct AnimationNodes([AnimationNodeIndex; 3]);
+struct BlendNodes([BlendNodeIndex; 3]);
 
 // The application entry point.
 fn main() {
@@ -121,7 +121,7 @@ fn main() {
         ))
         .insert_resource(UiTheme(create_dark_theme()))
         .add_systems(Startup, (setup_scene, setup_ui))
-        .add_systems(Update, setup_animation_graph_once_loaded)
+        .add_systems(Update, setup_blend_graph_once_loaded)
         .add_observer(handle_animation_control_change)
         .add_observer(radio_self_update)
         .insert_resource(GlobalAmbientLight {
@@ -236,29 +236,27 @@ fn make_animation_controls(group_id: u32) -> [(AnimationControl, &'static str); 
     ]
 }
 
-// Builds up the animation graph, including the mask groups, and adds it to the
+// Builds up the blend graph, including the mask groups, and adds it to the
 // entity with the `AnimationPlayer` that the glTF loader created.
-fn setup_animation_graph_once_loaded(
+fn setup_blend_graph_once_loaded(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
     targets: Query<(Entity, &AnimationTargetId)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
-        let mut animation_graph = AnimationGraph::new();
-        let blend_node = animation_graph.add_additive_blend(1.0, animation_graph.root);
+        let mut blend_graph = BlendGraph::new();
+        let blend_node = blend_graph.add_additive_blend(1.0, blend_graph.root);
 
-        let animation_graph_nodes: [AnimationNodeIndex; 3] =
-            std::array::from_fn(|animation_index| {
-                let handle = asset_server.load(
-                    GltfAssetLabel::Animation(animation_index)
-                        .from_asset("models/animated/Fox.glb"),
-                );
-                let mask = if animation_index == 0 { 0 } else { 0x3f };
-                animation_graph.add_clip_with_mask(handle, mask, 1.0, blend_node)
-            });
+        let blend_graph_nodes: [BlendNodeIndex; 3] = std::array::from_fn(|animation_index| {
+            let handle = asset_server.load(
+                GltfAssetLabel::Animation(animation_index).from_asset("models/animated/Fox.glb"),
+            );
+            let mask = if animation_index == 0 { 0 } else { 0x3f };
+            blend_graph.add_clip_with_mask(handle, mask, 1.0, blend_node)
+        });
 
         // Create each mask group.
         let mut all_animation_target_ids = HashSet::new();
@@ -274,17 +272,16 @@ fn setup_animation_graph_once_loaded(
                 let animation_target_id = AnimationTargetId::from_names(
                     prefix.iter().chain(suffix[0..chain_length].iter()),
                 );
-                animation_graph
-                    .add_target_to_mask_group(animation_target_id, mask_group_index as u32);
+                blend_graph.add_target_to_mask_group(animation_target_id, mask_group_index as u32);
                 all_animation_target_ids.insert(animation_target_id);
             }
         }
 
-        // We're doing constructing the animation graph. Add it as an asset.
-        let animation_graph = animation_graphs.add(animation_graph);
+        // We're doing constructing the blend graph. Add it as an asset.
+        let blend_graph = blend_graphs.add(blend_graph);
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(animation_graph));
+            .insert(BlendGraphHandle(blend_graph));
 
         // Remove animation targets that aren't in any of the mask groups. If we
         // don't do that, those bones will play all animations at once, which is
@@ -299,12 +296,12 @@ fn setup_animation_graph_once_loaded(
         }
 
         // Play the animation.
-        for animation_graph_node in animation_graph_nodes {
-            player.play(animation_graph_node).repeat();
+        for blend_graph_node in blend_graph_nodes {
+            player.play(blend_graph_node).repeat();
         }
 
         // Record the graph nodes.
-        commands.insert_resource(AnimationNodes(animation_graph_nodes));
+        commands.insert_resource(BlendNodes(blend_graph_nodes));
     }
 }
 
@@ -313,11 +310,11 @@ fn setup_animation_graph_once_loaded(
 fn handle_animation_control_change(
     event: On<ValueChange<Entity>>,
     new_value_query: Query<&RadioButtonOptionValue<AnimationControl>>,
-    mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut animation_nodes: Option<ResMut<AnimationNodes>>,
+    mut animation_players: Query<&BlendGraphHandle, With<AnimationPlayer>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
+    mut blend_nodes: Option<ResMut<BlendNodes>>,
 ) {
-    let Some(ref mut animation_nodes) = animation_nodes else {
+    let Some(ref mut blend_nodes) = blend_nodes else {
         return;
     };
 
@@ -327,21 +324,21 @@ fn handle_animation_control_change(
 
     // Grab the animation player. (There's only one in our case, but we
     // iterate just for clarity's sake.)
-    for animation_graph_handle in animation_players.iter_mut() {
-        // The animation graph needs to have loaded.
-        let Some(mut animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
+    for blend_graph_handle in animation_players.iter_mut() {
+        // The blend graph needs to have loaded.
+        let Some(mut blend_graph) = blend_graphs.get_mut(blend_graph_handle) else {
             continue;
         };
 
-        for (clip_index, &animation_node_index) in animation_nodes.0.iter().enumerate() {
-            let Some(animation_node) = animation_graph.get_mut(animation_node_index) else {
+        for (clip_index, &blend_node_index) in blend_nodes.0.iter().enumerate() {
+            let Some(blend_node) = blend_graph.get_mut(blend_node_index) else {
                 continue;
             };
 
             if animation_control.label as usize == clip_index {
-                animation_node.mask &= !(1 << animation_control.group_id);
+                blend_node.mask &= !(1 << animation_control.group_id);
             } else {
-                animation_node.mask |= 1 << animation_control.group_id;
+                blend_node.mask |= 1 << animation_control.group_id;
             }
         }
     }

@@ -2,7 +2,7 @@
 //! end-to-end tests.
 //!
 //! [`click`], [`key`] and [`type_text`] queue input in [`InputQueue`], as [`WindowEvent`]s one
-//! frame apart, and [`write_due_input`] writes each when its frame comes. Bevy's remote protocol
+//! frame apart, and [`write_due_input`] writes each when its turn comes. Bevy's remote protocol
 //! exposes these as its `input.click`, `input.key` and `input.type` methods.
 
 mod us_layout;
@@ -14,14 +14,13 @@ use alloc::{
 use core::fmt::{self, Display, Formatter};
 
 use bevy_camera::{Camera, NormalizedRenderTarget, RenderTarget};
-use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     entity::{ContainsEntity, Entity},
     hierarchy::ChildOf,
     message::MessageWriter,
     query::With,
     resource::Resource,
-    system::{Query, Res, ResMut},
+    system::{Query, ResMut},
     world::World,
 };
 use bevy_input::{
@@ -33,13 +32,21 @@ use bevy_math::Vec2;
 use bevy_ui::{ComputedUiTargetCamera, ScrollIntoView, ScrollPosition, UiGlobalTransform};
 use bevy_window::{PrimaryWindow, RawCursorMoved, Window, WindowEvent};
 
-/// Input waiting for [`write_due_input`], each event with the frame on which the app receives it, in order.
+/// Input waiting for [`write_due_input`], in order, each event with how many frames it comes after
+/// the event before it. The first event counts from the frame before it was queued, so with a gap
+/// of 1 it's written on the next run.
 #[derive(Resource, Default)]
 pub struct InputQueue {
     events: VecDeque<(u32, QueuedInput)>,
-    /// The frame that reads the last event queued.
-    last: u32,
+    /// How many events have ever been written. Every event queued is either written or still in
+    /// `events`, so an event's [`QueuedInputId`] is its place in that sequence.
+    written: u64,
 }
+
+/// Identifies input queued by [`click`], [`key`] or [`type_text`], to tell with
+/// [`InputQueue::is_written`] when it has been sent to the app.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct QueuedInputId(u64);
 
 enum QueuedInput {
     /// The cursor moves to `node` as it's drawn by then, or to `position` without one or once the
@@ -64,13 +71,16 @@ enum QueuedInput {
 }
 
 impl InputQueue {
-    /// Queues `event` to be read `gap` frames after the last event queued, and not before
-    /// `earliest`. Returns the frame that reads it.
-    fn push(&mut self, earliest: u32, gap: u32, event: QueuedInput) -> u32 {
-        let frame = earliest.max(self.last + gap);
-        self.events.push_back((frame, event));
-        self.last = frame;
-        frame
+    /// Queues `event` to be written `gap` frames after the event queued before it.
+    fn push(&mut self, gap: u32, event: QueuedInput) -> QueuedInputId {
+        self.events.push_back((gap, event));
+        QueuedInputId(self.written + self.events.len() as u64)
+    }
+
+    /// Whether [`write_due_input`] has written the input `id` names. The app reads it on the
+    /// frame after the write.
+    pub fn is_written(&self, id: QueuedInputId) -> bool {
+        id.0 <= self.written
     }
 }
 
@@ -126,41 +136,33 @@ impl core::error::Error for ClickError {}
 /// the cursor to move before the press, and an app may treat a press and release on the same frame
 /// differently from a click. A click queued while another is pending follows it.
 ///
-/// Returns the frame on which the app receives the release, as counted by [`FrameCount`]. This assumes
-/// [`write_due_input`] runs after [`Last`](bevy_app::Last), where [`FrameCount`] advances, so
-/// events it writes are read on the frame [`FrameCount`] names.
+/// Returns the id of the release, for [`InputQueue::is_written`].
 pub fn click(
     world: &mut World,
     target: ClickTarget,
     button: MouseButton,
     hold: u32,
-) -> Result<u32, ClickError> {
+) -> Result<QueuedInputId, ClickError> {
     if hold == 0 {
         return Err(ClickError::ZeroHold);
     }
-    let mut earliest = world
-        .get_resource::<FrameCount>()
-        .map_or(0, |frame| frame.0);
-    let (window, node, position) = match target {
+    let (window, node, position, gap) = match target {
         ClickTarget::Node(entity) => {
             let (window, center) = locate(world, entity)?;
-            if scroll_into_view(world, entity) {
-                // Layout moves the node on the next frame; the cursor follows it there.
-                earliest += 1;
-            }
-            (window, Some(entity), center)
+            // Layout moves a scrolled node on the next frame; the cursor follows it there.
+            let gap = 1 + u32::from(scroll_into_view(world, entity));
+            (window, Some(entity), center, gap)
         }
         ClickTarget::Point { window, position } => {
             if world.get::<Window>(window).is_none() {
                 return Err(ClickError::NotAWindow(window));
             }
-            (window, None, position)
+            (window, None, position, 1)
         }
     };
     let mut queue = world.get_resource_or_init::<InputQueue>();
     queue.push(
-        earliest,
-        1,
+        gap,
         QueuedInput::Cursor {
             window,
             node,
@@ -168,7 +170,6 @@ pub fn click(
         },
     );
     queue.push(
-        earliest,
         1,
         QueuedInput::Button {
             window,
@@ -177,7 +178,6 @@ pub fn click(
         },
     );
     Ok(queue.push(
-        earliest,
         hold,
         QueuedInput::Button {
             window,
@@ -239,7 +239,7 @@ impl core::error::Error for KeyError {}
 /// `logical_key` is `None`, both come from a US layout, and `text` only overrides the text. Each
 /// event is read on its own frame, after any input already queued.
 ///
-/// Returns the frame on which the app receives the last event, as [`click`] does.
+/// Returns the id of the last event, for [`InputQueue::is_written`].
 pub fn key(
     world: &mut World,
     window: Option<Entity>,
@@ -247,7 +247,7 @@ pub fn key(
     logical_key: Option<Key>,
     text: Option<&str>,
     action: KeyAction,
-) -> Result<u32, KeyError> {
+) -> Result<QueuedInputId, KeyError> {
     if action == (KeyAction::Tap { hold: 0 }) {
         return Err(KeyError::ZeroHold);
     }
@@ -270,15 +270,14 @@ pub fn key(
         text: text.clone(),
         state,
     };
-    let earliest = current_frame(world);
     let mut queue = world.get_resource_or_init::<InputQueue>();
     Ok(match action {
         KeyAction::Tap { hold } => {
-            queue.push(earliest, 1, event(ButtonState::Pressed));
-            queue.push(earliest, hold, event(ButtonState::Released))
+            queue.push(1, event(ButtonState::Pressed));
+            queue.push(hold, event(ButtonState::Released))
         }
-        KeyAction::Press => queue.push(earliest, 1, event(ButtonState::Pressed)),
-        KeyAction::Release => queue.push(earliest, 1, event(ButtonState::Released)),
+        KeyAction::Press => queue.push(1, event(ButtonState::Pressed)),
+        KeyAction::Release => queue.push(1, event(ButtonState::Released)),
     })
 }
 
@@ -289,15 +288,18 @@ pub fn key(
 /// with an unidentified key code, as its own logical key and text, so it still reaches a text
 /// field.
 ///
-/// Returns the frame on which the app receives the last event, as [`click`] does.
-pub fn type_text(world: &mut World, window: Option<Entity>, text: &str) -> Result<u32, KeyError> {
+/// Returns the id of the last event, for [`InputQueue::is_written`].
+pub fn type_text(
+    world: &mut World,
+    window: Option<Entity>,
+    text: &str,
+) -> Result<QueuedInputId, KeyError> {
     if text.is_empty() {
         return Err(KeyError::EmptyText);
     }
     let window = keyboard_window(world, window)?;
-    let earliest = current_frame(world);
     let mut queue = world.get_resource_or_init::<InputQueue>();
-    let mut frame = earliest;
+    let mut last = None;
     for character in text.chars() {
         let (key_code, shifted) = us_layout::character_key(character)
             .unwrap_or((KeyCode::Unidentified(NativeKeyCode::Unidentified), false));
@@ -322,15 +324,15 @@ pub fn type_text(world: &mut World, window: Option<Entity>, text: &str) -> Resul
             state,
         };
         if shifted {
-            queue.push(earliest, 1, shift(ButtonState::Pressed));
+            queue.push(1, shift(ButtonState::Pressed));
         }
-        queue.push(earliest, 1, event(ButtonState::Pressed));
-        frame = queue.push(earliest, 1, event(ButtonState::Released));
+        queue.push(1, event(ButtonState::Pressed));
+        last = Some(queue.push(1, event(ButtonState::Released)));
         if shifted {
-            frame = queue.push(earliest, 1, shift(ButtonState::Released));
+            last = Some(queue.push(1, shift(ButtonState::Released)));
         }
     }
-    Ok(frame)
+    Ok(last.expect("the text isn't empty"))
 }
 
 /// `window`, or the primary window.
@@ -343,12 +345,6 @@ fn keyboard_window(world: &mut World, window: Option<Entity>) -> Result<Entity, 
             .single(world)
             .map_err(|_| KeyError::NoPrimaryWindow),
     }
-}
-
-fn current_frame(world: &World) -> u32 {
-    world
-        .get_resource::<FrameCount>()
-        .map_or(0, |frame| frame.0)
 }
 
 /// The window `entity` is drawn in, and its center in physical pixels.
@@ -400,23 +396,30 @@ fn scroll_into_view(world: &mut World, entity: Entity) -> bool {
     positions(world) != before
 }
 
-/// Writes the [`InputQueue`]'s events that are due, as [`WindowEvent`]s.
+/// Counts down the [`InputQueue`]'s first event by a frame, then writes the events that are due as
+/// [`WindowEvent`]s.
 ///
-/// Run it after [`Last`](bevy_app::Last), so what it writes is read on the frame [`FrameCount`]
-/// names: picking reads the cursor in `First`, and `bevy_window` splits the rest into typed
-/// messages in `PreUpdate`. A cursor move to a node goes to the node's center as it is drawn when
-/// the event is written.
+/// Run it once a frame, after [`Last`](bevy_app::Last), so what it writes is read at the start of
+/// the next frame: picking reads the cursor in `First`, and `bevy_window` splits the rest into
+/// typed messages in `PreUpdate`. A cursor move to a node goes to the node's center as it is drawn
+/// when the event is written.
+///
+/// This system is scheduled by `RemotePlugin`. If ran more than once a frame, input events won't
+/// wait their expected delays
 pub fn write_due_input(
     mut queue: ResMut<InputQueue>,
-    frame: Res<FrameCount>,
     nodes: Query<(&UiGlobalTransform, &ComputedUiTargetCamera)>,
     cameras: Query<&Camera>,
     mut window_events: MessageWriter<WindowEvent>,
 ) {
-    while queue.events.front().is_some_and(|(due, _)| *due <= frame.0) {
+    if let Some((delay, _)) = queue.events.front_mut() {
+        *delay = delay.saturating_sub(1);
+    }
+    while queue.events.front().is_some_and(|(delay, _)| *delay == 0) {
         let Some((_, event)) = queue.events.pop_front() else {
             break;
         };
+        queue.written += 1;
         window_events.write(match event {
             QueuedInput::Cursor {
                 window,
@@ -470,6 +473,7 @@ pub fn write_due_input(
 mod tests {
     use super::*;
     use bevy_camera::Viewport;
+    use bevy_diagnostic::FrameCount;
     use bevy_ecs::{message::Messages, observer::On};
     use bevy_math::UVec2;
     use bevy_reflect::structs::GetField;
@@ -541,9 +545,9 @@ mod tests {
         let (mut world, _) = world();
         let start = node(&mut world, 400.0, 300.0);
 
-        let frame = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1);
+        let release = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1).unwrap();
 
-        assert_eq!(frame, Ok(12));
+        assert!(!world.resource::<InputQueue>().is_written(release));
         assert_eq!(
             frames_through(&mut world, 13),
             events(&[
@@ -552,6 +556,7 @@ mod tests {
                 (12, "Released Left")
             ])
         );
+        assert!(world.resource::<InputQueue>().is_written(release));
     }
 
     #[test]
@@ -559,9 +564,9 @@ mod tests {
         let (mut world, _) = world();
         let start = node(&mut world, 400.0, 300.0);
 
-        let frame = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 3);
+        let release = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 3).unwrap();
 
-        assert_eq!(frame, Ok(14));
+        assert!(!world.resource::<InputQueue>().is_written(release));
         assert_eq!(
             frames_through(&mut world, 14),
             events(&[
@@ -570,6 +575,7 @@ mod tests {
                 (14, "Released Left")
             ])
         );
+        assert!(world.resource::<InputQueue>().is_written(release));
     }
 
     #[test]
@@ -579,9 +585,9 @@ mod tests {
         let quit = node(&mut world, 400.0, 500.0);
 
         click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1).unwrap();
-        let frame = click(&mut world, ClickTarget::Node(quit), MouseButton::Left, 1);
+        let release = click(&mut world, ClickTarget::Node(quit), MouseButton::Left, 1).unwrap();
 
-        assert_eq!(frame, Ok(15));
+        assert!(!world.resource::<InputQueue>().is_written(release));
         assert_eq!(
             frames_through(&mut world, 15)[3..],
             events(&[
@@ -590,6 +596,7 @@ mod tests {
                 (15, "Released Left")
             ])
         );
+        assert!(world.resource::<InputQueue>().is_written(release));
     }
 
     #[test]
@@ -625,7 +632,7 @@ mod tests {
             },
         );
 
-        let frame = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1);
+        let release = click(&mut world, ClickTarget::Node(start), MouseButton::Left, 1).unwrap();
         // What layout does on frame 10, having seen the scroll.
         frames_through(&mut world, 10);
         world
@@ -633,7 +640,7 @@ mod tests {
             .insert(UiGlobalTransform::from_translation(Vec2::new(100.0, 90.0)));
         world.resource_mut::<FrameCount>().0 += 1;
 
-        assert_eq!(frame, Ok(13));
+        assert!(!world.resource::<InputQueue>().is_written(release));
         assert_eq!(
             frames_through(&mut world, 13),
             events(&[
@@ -642,6 +649,7 @@ mod tests {
                 (13, "Released Left")
             ])
         );
+        assert!(world.resource::<InputQueue>().is_written(release));
     }
 
     #[test]
@@ -712,7 +720,7 @@ mod tests {
         assert!(frames_through(&mut world, 12).is_empty());
     }
 
-    fn tap(world: &mut World, key_code: KeyCode, hold: u32) -> Result<u32, KeyError> {
+    fn tap(world: &mut World, key_code: KeyCode, hold: u32) -> Result<QueuedInputId, KeyError> {
         key(world, None, key_code, None, None, KeyAction::Tap { hold })
     }
 
@@ -720,8 +728,8 @@ mod tests {
     fn a_key_takes_its_meaning_from_a_us_layout() {
         let (mut world, _) = world();
 
-        assert_eq!(tap(&mut world, KeyCode::KeyA, 1), Ok(11));
-        assert_eq!(tap(&mut world, KeyCode::Escape, 3), Ok(15));
+        tap(&mut world, KeyCode::KeyA, 1).unwrap();
+        tap(&mut world, KeyCode::Escape, 3).unwrap();
 
         assert_eq!(
             frames_through(&mut world, 15),
@@ -750,9 +758,9 @@ mod tests {
         };
 
         numpad_plus(KeyAction::Press).unwrap();
-        let frame = numpad_plus(KeyAction::Release);
+        let release = numpad_plus(KeyAction::Release).unwrap();
 
-        assert_eq!(frame, Ok(11));
+        assert!(!world.resource::<InputQueue>().is_written(release));
         assert_eq!(
             frames_through(&mut world, 11),
             events(&[
@@ -760,15 +768,16 @@ mod tests {
                 (11, r#"Released NumpadAdd Character("+") Some("+")"#),
             ])
         );
+        assert!(world.resource::<InputQueue>().is_written(release));
     }
 
     #[test]
     fn typing_holds_shift_where_a_character_needs_it() {
         let (mut world, _) = world();
 
-        let frame = type_text(&mut world, None, "a B");
+        let release = type_text(&mut world, None, "a B").unwrap();
 
-        assert_eq!(frame, Ok(17));
+        assert!(!world.resource::<InputQueue>().is_written(release));
         assert_eq!(
             frames_through(&mut world, 17),
             events(&[
@@ -782,6 +791,7 @@ mod tests {
                 (17, "Released ShiftLeft Shift None"),
             ])
         );
+        assert!(world.resource::<InputQueue>().is_written(release));
     }
 
     #[test]
