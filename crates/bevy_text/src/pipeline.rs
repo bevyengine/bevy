@@ -375,12 +375,14 @@ impl TextPipeline {
                         let font = run.font();
                         let font_size = run.font_size();
                         let coords = run.normalized_coords();
+                        let synthetic_skew = run.synthesis().skew();
                         let variations_hash = FixedHasher.hash_one(coords);
                         let font_atlas_key = FontAtlasKey {
                             id: font.data.id() as u32,
                             index: font.index,
                             font_size_bits: font_size.to_bits(),
                             variations_hash,
+                            synthetic_skew_bits: synthetic_skew.unwrap_or_default().to_bits(),
                             hinting,
                             font_smoothing,
                         };
@@ -425,6 +427,7 @@ impl TextPipeline {
                                         textures,
                                         maybe_scaler.as_mut().unwrap(),
                                         font_smoothing,
+                                        synthetic_skew,
                                         glyph_id,
                                     )?
                                 }

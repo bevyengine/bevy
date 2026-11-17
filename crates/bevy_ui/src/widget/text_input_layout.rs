@@ -606,12 +606,14 @@ fn push_run_glyphs(
     let font_data = run.font();
     let font_size = run.font_size();
     let coords = run.normalized_coords();
+    let synthetic_skew = run.synthesis().skew();
 
     let font_atlas_key = FontAtlasKey {
         id: font_data.data.id() as u32,
         index: font_data.index,
         font_size_bits: font_size.to_bits(),
         variations_hash: FixedHasher.hash_one(coords),
+        synthetic_skew_bits: synthetic_skew.unwrap_or_default().to_bits(),
         hinting,
         font_smoothing: brush.font_smoothing,
     };
@@ -641,6 +643,7 @@ fn push_run_glyphs(
                 textures,
                 &mut scaler,
                 font_smoothing,
+                synthetic_skew,
                 glyph.id as u16,
             )
         }) else {
