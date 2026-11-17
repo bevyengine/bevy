@@ -1319,7 +1319,7 @@ mod tests {
         // Test that enum set names keep the enum name, and struct set names are unchanged
         // Related issue https://github.com/bevyengine/bevy/issues/23908
         #[test]
-        #[cfg(all(feature = "trace", feature = "debug"))]
+        #[cfg(feature = "debug")]
         fn enum_set_name() {
             #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
             enum EnumSet {
