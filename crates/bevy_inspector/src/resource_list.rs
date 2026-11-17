@@ -25,12 +25,12 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
 use bevy_text::{FontSize, FontSourceTemplate, FontWeight, LineBreak, TextFont, TextLayout};
-use bevy_ui::{px, widget::Text, AlignItems, Node, Overflow, OverflowAxis, UiRect};
+use bevy_ui::{px, widget::Text, AlignItems, Node, UiRect};
 use bevy_ui_widgets::{tree_view_self_update, ValueChange};
 
 use crate::{
-    entity_tree::row_label, InspectableEntity, InspectorSelection, InspectorSource,
-    InspectorSources, PanelSync,
+    entity_tree::{row_label, rows_container},
+    InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, PanelSync,
 };
 
 /// The default number of rows a resource list shows before summarizing the rest in one row.
@@ -83,14 +83,15 @@ pub fn resource_list_body() -> impl Scene {
     bsn! {
         @subpane_body()
         Node {
-            overflow: Overflow {
-                x: OverflowAxis::Clip,
-                y: OverflowAxis::Scroll,
-            },
+            min_height: px(0),
         }
         Children [
             InspectorResourceList
             @FeathersTreeView
+            Node {
+                flex_grow: 1.0,
+                min_height: px(0),
+            }
             on(tree_view_self_update)
             on(inspector_resource_selected)
         ]
@@ -131,6 +132,7 @@ pub fn sync_resource_list(world: &mut World) {
     else {
         return;
     };
+    let rows = rows_container(world, list);
 
     let local = world
         .resource::<InspectorSources>()
@@ -186,7 +188,7 @@ pub fn sync_resource_list(world: &mut World) {
         .map(|(position, (.., entity))| (*entity, position))
         .collect();
     let existing: Vec<(Entity, Entity)> = world
-        .get::<Children>(list)
+        .get::<Children>(rows)
         .map(|children| {
             children
                 .iter()
@@ -212,16 +214,16 @@ pub fn sync_resource_list(world: &mut World) {
         }
         match world.spawn_scene(resource_row(label, !unreflected)) {
             Ok(mut row) => {
-                row.insert((InspectorResourceRow { inspected }, ChildOf(list)));
+                row.insert((InspectorResourceRow { inspected }, ChildOf(rows)));
             }
             Err(error) => warn!("failed to spawn an inspector resource row: {error}"),
         }
     }
 
-    sync_overflow_row(world, list, hidden);
+    sync_overflow_row(world, rows, hidden);
 
     let positions: HashMap<Entity, usize> = world
-        .get::<Children>(list)
+        .get::<Children>(rows)
         .map(|children| {
             children
                 .iter()
@@ -233,7 +235,7 @@ pub fn sync_resource_list(world: &mut World) {
                 .collect()
         })
         .unwrap_or_default();
-    if let Some(mut children) = world.get_mut::<Children>(list) {
+    if let Some(mut children) = world.get_mut::<Children>(rows) {
         children.sort_by_key(|row| positions.get(row).copied().unwrap_or(usize::MAX));
     }
 

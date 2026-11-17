@@ -394,7 +394,7 @@ fn show_selection_in_lists(
         (Entity, &mut SelectedTreeItem, Has<InspectorResourceList>),
         Or<(With<InspectorTreeView>, With<InspectorResourceList>)>,
     >,
-    resource_rows: Query<(Entity, &InspectorResourceRow, &ChildOf)>,
+    resource_rows: Query<(Entity, &InspectorResourceRow)>,
     header_rows: Query<(), With<InspectorHeaderRow>>,
     parents: Query<&ChildOf>,
 ) {
@@ -406,8 +406,11 @@ fn show_selection_in_lists(
                 .and_then(|selection| {
                     resource_rows
                         .iter()
-                        .find(|(_, row, parent)| {
-                            parent.parent() == list && row.inspected == selection.entity
+                        .find(|(entity, row)| {
+                            row.inspected == selection.entity
+                                && parents
+                                    .iter_ancestors(*entity)
+                                    .any(|ancestor| ancestor == list)
                         })
                         .map(|(row, ..)| row)
                 })

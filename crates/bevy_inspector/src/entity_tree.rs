@@ -516,7 +516,7 @@ impl<'w> Sources<'w> {
 
 /// The [`TreeItemChildren`] container inside `tree_view` that holds its root rows, or `tree_view`
 /// itself when it has none.
-fn rows_container(world: &World, tree_view: Entity) -> Entity {
+pub(crate) fn rows_container(world: &World, tree_view: Entity) -> Entity {
     child_with::<TreeItemChildren>(world, tree_view).unwrap_or(tree_view)
 }
 
