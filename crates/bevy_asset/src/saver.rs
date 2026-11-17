@@ -86,7 +86,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         asset_path: AssetPath<'a>,
     ) -> BoxedFuture<'a, Result<(), BevyError>> {
         Box::pin(async move {
-            let settings = settings
+            let settings = (settings as &dyn Any)
                 .downcast_ref::<S::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
@@ -163,7 +163,7 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
 
     /// Creates a new [`SavedAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: &'a ErasedLoadedAsset) -> Option<Self> {
-        let value = asset.value.downcast_ref::<A>()?;
+        let value = (&*asset.value as &dyn Any).downcast_ref::<A>()?;
         Some(Self::from_value_and_labeled_assets(
             value,
             &asset.labeled_assets,
@@ -314,7 +314,7 @@ impl<'a> ErasedSavedAsset<'a, '_> {
     ///
     /// Returns [`None`] if the asset is the wrong type.
     pub fn downcast<'b, A: Asset>(&'b self) -> Option<SavedAsset<'a, 'b, A>> {
-        let value = self.value.downcast_ref::<A>()?;
+        let value = (self.value as &dyn Any).downcast_ref::<A>()?;
         Some(SavedAsset::from_value_and_labeled_saved_assets(
             value,
             &self.labeled_assets,

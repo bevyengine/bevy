@@ -47,13 +47,7 @@ error_panic_hook = []
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = [
-  "bevy_reflect?/std",
-  "bevy_ecs/std",
-  "dep:ctrlc",
-  "downcast-rs/std",
-  "bevy_platform/std",
-]
+std = ["bevy_reflect?/std", "bevy_ecs/std", "dep:ctrlc", "bevy_platform/std"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
@@ -89,7 +83,6 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.20.0-dev", default-features 
 bevy_platform = { path = "../bevy_platform", version = "0.20.0-dev", default-features = false }
 
 # other
-downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 variadics_please = "2.0"
 tracing = { version = "0.1", default-features = false, optional = true }
