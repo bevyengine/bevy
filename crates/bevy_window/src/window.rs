@@ -251,9 +251,9 @@ pub struct Window {
     pub canvas: Option<String>,
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
-    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
-    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
-    /// feature, ensure the parent's size is not affected by its children.
+    /// This is enabled by default, but should be disabled if the canvas needs to belong to a parent that sets
+    /// its size according to the size of its children, as this can create a "feedback loop" that will result in the
+    /// canvas growing infinitely.
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
@@ -497,7 +497,7 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
-            fit_canvas_to_parent: false,
+            fit_canvas_to_parent: true,
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
