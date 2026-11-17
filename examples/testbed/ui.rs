@@ -4238,9 +4238,10 @@ mod calc {
             DespawnOnExit<Scene>(Scene::Calc)
             --
             Node {
-                flex_direction: FlexDirection::Column,
+                display: Display::Grid,
                 margin: auto(),
                 border: { px(1) + vmin(1) },
+                grid_auto_rows: vec![GridTrack::px(50.)],
             }
             BorderColor::all(SNOW)
             DespawnOnExit<Scene>(Scene::Calc)
@@ -4251,31 +4252,26 @@ mod calc {
                 Children [
                     Node {
                         width: px(100),
-                        height: px(50.),
                     }
                     BackgroundColor(YELLOW)
                     --
                     Node {
                         width: vw(5),
-                        height: px(50.),
                     }
                     BackgroundColor(GREEN)
                     --
                     Node {
                         width: vh(5),
-                        height: px(50.),
                     }
                     BackgroundColor(VIOLET)
                     --
                     Node {
                         width: vmin(5),
-                        height: px(50.),
                     }
                     BackgroundColor(ORANGE)
                     --
                     Node {
                         width: vmax(5),
-                        height: px(50.),
                     }
                     BackgroundColor(BLUE)
                 ]
