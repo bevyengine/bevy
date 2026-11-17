@@ -98,11 +98,13 @@ pub(crate) fn on_remove_checked(remove: On<Remove<Checked>>, mut world: Deferred
 
 /// Component that indicates that a widget can be selected. Similar to [`Checkable`], but works for
 /// the ARIA "selected" state instead of "checked".
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Selectable;
 
 /// Similar to [`Checked`], but works for the ARIA "selected" state instead of "checked".
-#[derive(Component, Default, Debug, Clone)]
+#[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component, Default, Clone)]
 pub struct Selected;
 
 pub(crate) fn on_add_selectable(add: On<Add<Selectable>>, mut world: DeferredWorld) {

@@ -403,18 +403,19 @@
 //! and the value is the serialized data.
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
-//! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
-//! where the underlying type will be a dynamic type representing some concrete type (except for opaque types).
-//!
-//! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
-//! in order to be used in certain cases.
-//! This can be achieved using [`FromReflect`].
+//! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn PartialReflect>`.
+//! Unless the type registers its own deserialization (such as [`ReflectDeserialize`]),
+//! the data is first deserialized into a dynamic type representing the concrete type.
+//! If the type registers [`ReflectFromReflect`], the deserializer then tries to convert
+//! this dynamic value into the concrete type.
+//! If it doesn't, or the conversion fails, the dynamic value is returned and may need to be
+//! converted manually (for example, using [`PartialReflect::apply`]).
 //!
 //! ```
 //! # use serde::de::DeserializeSeed;
 //! # use bevy_reflect::{
 //! #     serde::{ReflectSerializer, ReflectDeserializer},
-//! #     Reflect, PartialReflect, FromReflect, TypeRegistry
+//! #     Reflect, PartialReflect, TypeRegistry
 //! # };
 //! #[derive(Reflect, PartialEq, Debug)]
 //! struct MyStruct {
@@ -439,10 +440,7 @@
 //!   &mut ron::Deserializer::from_str(&serialized_value).unwrap()
 //! ).unwrap();
 //!
-//! // Convert
-//! let converted_value = <MyStruct as FromReflect>::from_reflect(&*deserialized_value).unwrap();
-//!
-//! assert_eq!(original_value, converted_value);
+//! assert_eq!(original_value, deserialized_value.try_take::<MyStruct>().unwrap());
 //! ```
 //!
 //! # Limitations

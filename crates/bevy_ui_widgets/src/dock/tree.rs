@@ -791,6 +791,28 @@ mod tests {
     }
 
     #[test]
+    fn move_tab_to_edge_of_a_split() {
+        let (mut tree, root) = tree_with(&["a"]);
+        let (bottom, _) = tree.split(root, DockEdge::Bottom, "b").unwrap();
+        tree.add_tab(bottom, "c").unwrap();
+        let split = tree.root();
+
+        let leaf = tree
+            .move_tab_to_edge(tab(&tree, "c"), split, DockEdge::Left)
+            .unwrap();
+
+        // The new leaf takes the edge of the whole split, not of one of its panes.
+        assert_eq!(child_nodes(root_split(&tree)), vec![leaf, split]);
+        assert_eq!(
+            child_nodes(tree.node(split).unwrap().as_split().unwrap()),
+            vec![root, bottom]
+        );
+        assert_eq!(panels(&tree, leaf), vec!["c"]);
+        assert_eq!(panels(&tree, root), vec!["a"]);
+        assert_eq!(panels(&tree, bottom), vec!["b"]);
+    }
+
+    #[test]
     fn remove_last_tab_keeps_root_empty_leaf() {
         let (mut tree, root) = tree_with(&["a"]);
         let removed = tree.remove_tab(tab(&tree, "a")).unwrap();

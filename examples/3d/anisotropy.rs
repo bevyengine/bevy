@@ -265,7 +265,7 @@ fn handle_input(
 
     // If Enter was pressed, toggle anisotropy on and off.
     if keyboard.just_pressed(KeyCode::Enter) {
-        app_status.anisotropy_enabled = !app_status.anisotropy_enabled;
+        app_status.anisotropy_enabled.toggle();
 
         // Go through each mesh and alter its material.
         for (mut material_handle, material_variants) in meshes.iter_mut() {
