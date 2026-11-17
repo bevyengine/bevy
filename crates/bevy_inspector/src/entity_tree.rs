@@ -862,7 +862,7 @@ pub fn update_tree_guides(
         let (Ok(header), Ok(toggle)) = (nodes.get(header), nodes.get(toggle)) else {
             continue;
         };
-        let left = px(px_value(header.padding.left) + 0.5 * (px_value(toggle.width) - GUIDE_WIDTH));
+        let left = header.padding.left + 0.5 * toggle.width - px(GUIDE_WIDTH);
         if let Ok(mut node) = nodes.get_mut(guide)
             && node.left != left
         {
