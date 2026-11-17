@@ -605,7 +605,7 @@ fn push_run_glyphs(
     let font_size = run.font_size();
     let coords = run.normalized_coords();
     let synthetic_skew = run.synthesis().skew();
-    let font_atlas_key = FontAtlasKey::new(&glyph_run, hinting);
+    let font_atlas_key = FontAtlasKey::new(glyph_run, hinting);
 
     for glyph in glyph_run.positioned_glyphs() {
         let (cache_key, glyph_pos) = GlyphCacheKey::new(
