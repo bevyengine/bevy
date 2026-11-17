@@ -11,6 +11,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Commands, In, Local, Query, Res, ResMut, SystemParam},
 };
+use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_picking::{
     backend::{ray::RayMap, PointerHits},
     events::PointerState,
@@ -19,6 +20,7 @@ use bevy_picking::{
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput},
     Pickable, PickingSettings,
 };
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ui::{ComputedNode, ComputedUiTargetCamera, Display, Node, UiGlobalTransform};
 use bevy_ui_widgets::ValueChange;
 use bevy_window::{PrimaryWindow, Window};
@@ -115,7 +117,7 @@ pub(crate) struct MeshFallback<'w, 's> {
 }
 
 impl MeshFallback<'_, '_> {
-    fn nearest(&mut self) -> Option<Entity> {
+    fn nearest(&mut self, pointer: PointerId) -> Option<Entity> {
         if self.backend.as_ref().is_some_and(|backend| backend.0) {
             return None;
         }
@@ -123,7 +125,7 @@ impl MeshFallback<'_, '_> {
         let ray_cast = self.ray_cast.as_mut()?;
         let mut nearest: Option<(isize, f32, Entity)> = None;
         for (ray_id, ray) in ray_map.iter() {
-            if ray_id.pointer != PointerId::Mouse {
+            if ray_id.pointer != pointer {
                 continue;
             }
             let Ok((camera, camera_layers)) = self.cameras.get(ray_id.camera) else {
@@ -197,6 +199,91 @@ pub(crate) struct PickTargets<'w, 's> {
     pickables: Query<'w, 's, &'static Pickable>,
 }
 
+#[derive(SystemParam)]
+pub(crate) struct Presses<'w, 's> {
+    picks: Local<'s, HashMap<PointerId, Pick>>,
+    held: Local<'s, HashSet<PointerId>>,
+    ended: Local<'s, HashMap<PointerId, bool>>,
+    pointers: Query<'w, 's, &'static PointerId>,
+    mouse: Option<ResMut<'w, ButtonInput<MouseButton>>>,
+    touches: Option<ResMut<'w, Touches>>,
+}
+
+impl Presses<'_, '_> {
+    fn press(&mut self, pointer: PointerId, pick: Option<Pick>) {
+        if let Some(pick) = pick {
+            self.picks.insert(pointer, pick);
+        }
+        if let Some(pressed_again) = self.ended.get_mut(&pointer) {
+            *pressed_again = true;
+        }
+        if pick.is_some_and(|pick| pick != Pick::Blocked) {
+            self.held.insert(pointer);
+        } else {
+            self.held.remove(&pointer);
+        }
+    }
+
+    fn release(&mut self, pointer: PointerId) -> Option<Pick> {
+        if self.held.remove(&pointer) {
+            self.ended.insert(pointer, false);
+        } else {
+            self.ended.remove(&pointer);
+        }
+        self.picks.remove(&pointer)
+    }
+
+    fn hide_raw_input(&mut self) {
+        let Self {
+            picks,
+            held,
+            ended,
+            pointers,
+            mouse,
+            touches,
+        } = self;
+        let exists = |pointer: &PointerId| {
+            !matches!(pointer, PointerId::Custom(_)) || pointers.iter().any(|id| id == pointer)
+        };
+        picks.retain(|pointer, _| exists(pointer));
+        held.retain(exists);
+        for pointer in held.iter() {
+            match pointer {
+                PointerId::Mouse => {
+                    if let Some(mouse) = mouse.as_mut() {
+                        mouse.reset(MouseButton::Left);
+                    }
+                }
+                PointerId::Touch(id) => {
+                    if let Some(touches) = touches.as_mut() {
+                        touches.release(*id);
+                        touches.clear_just_pressed(*id);
+                        touches.clear_just_released(*id);
+                        touches.clear_just_canceled(*id);
+                    }
+                }
+                PointerId::Custom(_) => {}
+            }
+        }
+        for (pointer, pressed_again) in ended.drain() {
+            match (pointer, mouse.as_mut(), touches.as_mut()) {
+                (PointerId::Mouse, Some(mouse), _) if !pressed_again => {
+                    mouse.clear_just_pressed(MouseButton::Left);
+                    mouse.clear_just_released(MouseButton::Left);
+                }
+                (PointerId::Touch(id), _, Some(touches)) => {
+                    if !pressed_again {
+                        touches.clear_just_pressed(id);
+                    }
+                    touches.clear_just_released(id);
+                    touches.clear_just_canceled(id);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 /// What a press or release of the primary button landed on.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Pick {
@@ -238,7 +325,9 @@ impl PickTargets<'_, '_> {
 /// local, [`HoverMap`] and [`PreviousHoverMap`] keep only the inspector's own UI, which is what
 /// `bevy_picking` dispatches from. The app therefore sees no hover and no pointer events, while
 /// the overlay's own controls keep working and the inspector still reads every backend's hits to
-/// find the entity under the pointer.
+/// find the entity under the pointer. A press that lands on the app is also removed from
+/// [`ButtonInput<MouseButton>`] or [`Touches`] until it ends, so systems from `Update` on do not
+/// see it.
 pub(crate) fn pick_for_inspector(
     In(visible): In<bool>,
     settings: Option<Res<PickingSettings>>,
@@ -249,7 +338,7 @@ pub(crate) fn pick_for_inspector(
     mut hover_map: Option<ResMut<HoverMap>>,
     mut previous_hover_map: Option<ResMut<PreviousHoverMap>>,
     mut pointer_state: Option<ResMut<PointerState>>,
-    mut pressed: Local<Option<Pick>>,
+    mut presses: Presses,
     targets: PickTargets,
     mut meshes: MeshFallback,
     mut selection: ResMut<InspectorSelection>,
@@ -257,29 +346,28 @@ pub(crate) fn pick_for_inspector(
     mut entities_page: EntitiesPage,
     mut commands: Commands,
 ) {
-    let mut hits: Vec<(f32, f32, Entity)> = pointer_hits
-        .read()
-        .filter(|hits| hits.pointer == PointerId::Mouse)
-        .flat_map(|hits| {
-            hits.picks
+    let mut hits: HashMap<PointerId, Vec<(f32, f32, Entity)>> = HashMap::default();
+    for reported in pointer_hits.read() {
+        hits.entry(reported.pointer).or_default().extend(
+            reported
+                .picks
                 .iter()
-                .map(|(entity, hit)| (hits.order, hit.depth, *entity))
-        })
-        .collect();
-    let inputs: Vec<(PointerAction, Location)> = inputs
+                .map(|(entity, hit)| (reported.order, hit.depth, *entity)),
+        );
+    }
+    let inputs: Vec<(PointerId, PointerAction, Location)> = inputs
         .read()
         .filter(|input| {
-            input.pointer_id == PointerId::Mouse
-                && matches!(
-                    input.action,
-                    PointerAction::Press(PointerButton::Primary)
-                        | PointerAction::Release(PointerButton::Primary)
-                        | PointerAction::Cancel
-                        | PointerAction::Move { .. }
-                        | PointerAction::Scroll { .. }
-                )
+            matches!(
+                input.action,
+                PointerAction::Press(PointerButton::Primary)
+                    | PointerAction::Release(PointerButton::Primary)
+                    | PointerAction::Cancel
+                    | PointerAction::Move { .. }
+                    | PointerAction::Scroll { .. }
+            )
         })
-        .map(|input| (input.action, input.location.clone()))
+        .map(|input| (input.pointer_id, input.action, input.location.clone()))
         .collect();
 
     let active = visible
@@ -287,7 +375,17 @@ pub(crate) fn pick_for_inspector(
         && settings.as_ref().is_none_or(|settings| settings.is_enabled)
         && sources.sources.contains(&InspectorSource::Local);
     if !active {
-        *pressed = None;
+        presses.picks.clear();
+        for (pointer, action, _) in inputs {
+            match action {
+                PointerAction::Press(PointerButton::Primary) => presses.press(pointer, None),
+                PointerAction::Release(PointerButton::Primary) | PointerAction::Cancel => {
+                    presses.release(pointer);
+                }
+                _ => {}
+            }
+        }
+        presses.hide_raw_input();
         return;
     }
 
@@ -310,42 +408,49 @@ pub(crate) fn pick_for_inspector(
         }
     }
     if let Some(state) = pointer_state.as_mut() {
-        let primary = state.get_mut(PointerId::Mouse, PointerButton::Primary);
-        primary
-            .pressing
-            .retain(|entity, _| targets.panels.contains(*entity));
-        primary
-            .dragging
-            .retain(|entity, _| targets.panels.contains(*entity));
-        primary
-            .dragging_over
-            .retain(|entity, _| targets.panels.contains(*entity));
+        for ((_, button), primary) in state.pointer_buttons.iter_mut() {
+            if *button != PointerButton::Primary {
+                continue;
+            }
+            primary
+                .pressing
+                .retain(|entity, _| targets.panels.contains(*entity));
+            primary
+                .dragging
+                .retain(|entity, _| targets.panels.contains(*entity));
+            primary
+                .dragging_over
+                .retain(|entity, _| targets.panels.contains(*entity));
+        }
     }
     if let Some(map) = previous_hover_map.as_mut() {
         for hits in map.0.values_mut() {
             hits.retain(|entity, _| targets.panels.contains(*entity));
         }
     }
-    if inputs.is_empty() {
-        return;
+    for hits in hits.values_mut() {
+        hits.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.total_cmp(&b.1)));
     }
-    hits.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.total_cmp(&b.1)));
 
-    for (action, location) in inputs {
+    for (pointer, action, location) in inputs {
+        let under_pointer = hits.get(&pointer).map_or(&[][..], Vec::as_slice);
         // The mesh fallback costs a ray cast, so only the press and release ask for it; a hover
         // hint only needs what the backends already reported.
         let pressed_entity = |meshes: &mut MeshFallback| {
             targets
-                .topmost(&hits, &location)
-                .unwrap_or_else(|| meshes.nearest().map_or(Pick::Nothing, Pick::Entity))
+                .topmost(under_pointer, &location)
+                .unwrap_or_else(|| meshes.nearest(pointer).map_or(Pick::Nothing, Pick::Entity))
         };
         match action {
-            PointerAction::Cancel => *pressed = None,
+            PointerAction::Cancel => {
+                presses.release(pointer);
+            }
             PointerAction::Press(PointerButton::Primary) => {
-                *pressed = Some(pressed_entity(&mut meshes));
+                let pick = pressed_entity(&mut meshes);
+                presses.press(pointer, Some(pick));
             }
             PointerAction::Release(PointerButton::Primary) => {
-                let Some(pressed) = pressed.take() else {
+                let Some(pressed) = presses.release(pointer) else {
                     continue;
                 };
                 if pressed_entity(&mut meshes) != pressed {
@@ -367,10 +472,12 @@ pub(crate) fn pick_for_inspector(
             _ => {}
         }
     }
+    presses.hide_raw_input();
 }
 
 #[cfg(test)]
 mod tests {
+    use bevy_app::Update;
     use bevy_app::{App, PreUpdate, TaskPoolPlugin};
     use bevy_asset::{AssetApp, AssetPlugin, Assets};
     use bevy_camera::{
@@ -381,6 +488,11 @@ mod tests {
     use bevy_ecs::{
         message::MessageWriter, name::Name, observer::On, resource::Resource,
         schedule::IntoScheduleConfigs,
+    };
+    use bevy_input::{
+        mouse::MouseButtonInput,
+        touch::{TouchInput, TouchPhase},
+        ButtonState, InputPlugin,
     };
     use bevy_math::{Dir3, Vec2, Vec3};
     use bevy_mesh::{Mesh, Mesh3d};
@@ -436,18 +548,26 @@ mod tests {
     }
 
     fn write_hits(app: &mut App, hits: &[(Entity, f32)]) {
+        write_pointer_hits(app, PointerId::Mouse, hits);
+    }
+
+    fn write_pointer_hits(app: &mut App, pointer: PointerId, hits: &[(Entity, f32)]) {
         let camera = app.world_mut().spawn_empty().id();
         let picks = hits
             .iter()
             .map(|(entity, depth)| (*entity, HitData::new(camera, *depth, None, None)))
             .collect();
         app.world_mut()
-            .write_message(PointerHits::new(PointerId::Mouse, picks, 0.0));
+            .write_message(PointerHits::new(pointer, picks, 0.0));
     }
 
     fn send(app: &mut App, action: PointerAction) {
+        send_pointer(app, PointerId::Mouse, action);
+    }
+
+    fn send_pointer(app: &mut App, pointer: PointerId, action: PointerAction) {
         app.world_mut()
-            .write_message(PointerInput::new(PointerId::Mouse, location(), action));
+            .write_message(PointerInput::new(pointer, location(), action));
         app.update();
     }
 
@@ -932,5 +1052,289 @@ mod tests {
         let mesh = spawn_mesh(&mut app, 4.0);
         app_click(&mut app, |_| alloc::vec![]);
         assert_eq!(selected(&app), Some(mesh));
+    }
+
+    #[test]
+    fn a_touch_on_an_entity_selects_it() {
+        let mut app = test_app();
+        spawn_panel(&mut app);
+        let touched = app.world_mut().spawn(Name::new("Touched")).id();
+        let under_mouse = app.world_mut().spawn(Name::new("Under mouse")).id();
+        let touch = PointerId::Touch(0);
+        for action in [
+            PointerAction::Press(PointerButton::Primary),
+            PointerAction::Release(PointerButton::Primary),
+        ] {
+            write_hits(&mut app, &[(under_mouse, 0.0)]);
+            write_pointer_hits(&mut app, touch, &[(touched, 1.0)]);
+            send_pointer(&mut app, touch, action);
+        }
+        assert_eq!(selected(&app), Some(touched));
+    }
+
+    #[test]
+    fn the_mesh_fallback_casts_the_ray_of_the_pointer_that_clicked() {
+        let mut app = ray_cast_app();
+        spawn_panel(&mut app);
+        let mesh = spawn_mesh(&mut app, 4.0);
+        let camera = app.world_mut().spawn(Camera::default()).id();
+        let touch = PointerId::Touch(0);
+        app.world_mut()
+            .resource_mut::<RayMap>()
+            .map
+            .insert(RayId::new(camera, touch), Ray3d::new(Vec3::ZERO, Dir3::Z));
+        click(&mut app, &[]);
+        assert_eq!(selected(&app), Some(mesh));
+
+        send_pointer(
+            &mut app,
+            touch,
+            PointerAction::Press(PointerButton::Primary),
+        );
+        send_pointer(
+            &mut app,
+            touch,
+            PointerAction::Release(PointerButton::Primary),
+        );
+        assert_eq!(selected(&app), None);
+    }
+
+    #[derive(Resource, Default, Debug, PartialEq, Eq)]
+    struct AppSawLeft {
+        pressed: usize,
+        just_pressed: usize,
+        just_released: usize,
+    }
+
+    fn watch_left(mouse: Res<ButtonInput<MouseButton>>, mut saw: ResMut<AppSawLeft>) {
+        saw.pressed += usize::from(mouse.pressed(MouseButton::Left));
+        saw.just_pressed += usize::from(mouse.just_pressed(MouseButton::Left));
+        saw.just_released += usize::from(mouse.just_released(MouseButton::Left));
+    }
+
+    #[derive(Resource, Default)]
+    struct AppSawTouch(usize);
+
+    fn watch_touches(touches: Res<Touches>, mut saw: ResMut<AppSawTouch>) {
+        saw.0 += touches.iter().count()
+            + touches.iter_just_pressed().count()
+            + touches.iter_just_released().count()
+            + touches.iter_just_canceled().count();
+    }
+
+    fn raw_input_app() -> App {
+        let mut app = test_app();
+        app.add_plugins(InputPlugin)
+            .init_resource::<AppSawLeft>()
+            .init_resource::<AppSawTouch>()
+            .add_systems(Update, (watch_left, watch_touches));
+        app
+    }
+
+    fn mouse_button(app: &mut App, state: ButtonState) {
+        app.world_mut().write_message(MouseButtonInput {
+            button: MouseButton::Left,
+            state,
+            window: Entity::PLACEHOLDER,
+        });
+    }
+
+    fn raw_click(app: &mut App, hits: &[(Entity, f32)]) {
+        write_hits(app, hits);
+        mouse_button(app, ButtonState::Pressed);
+        send(app, PointerAction::Press(PointerButton::Primary));
+        app.update();
+        write_hits(app, hits);
+        mouse_button(app, ButtonState::Released);
+        send(app, PointerAction::Release(PointerButton::Primary));
+    }
+
+    fn saw_left(app: &App) -> &AppSawLeft {
+        app.world().resource::<AppSawLeft>()
+    }
+
+    #[test]
+    fn a_click_on_the_app_while_editing_never_reaches_the_apps_mouse_buttons() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        raw_click(&mut app, &[(subject, 1.0)]);
+        assert_eq!(selected(&app), Some(subject));
+        raw_click(&mut app, &[]);
+        assert_eq!(selected(&app), None);
+        assert_eq!(*saw_left(&app), AppSawLeft::default());
+
+        write_hits(&mut app, &[(subject, 1.0)]);
+        mouse_button(&mut app, ButtonState::Pressed);
+        mouse_button(&mut app, ButtonState::Released);
+        app.world_mut().write_message(PointerInput::new(
+            PointerId::Mouse,
+            location(),
+            PointerAction::Press(PointerButton::Primary),
+        ));
+        send(&mut app, PointerAction::Release(PointerButton::Primary));
+        assert_eq!(selected(&app), Some(subject));
+        assert_eq!(*saw_left(&app), AppSawLeft::default());
+    }
+
+    #[test]
+    fn a_press_on_inspector_ui_in_the_frame_a_hidden_click_ends_reaches_the_app() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        write_hits(&mut app, &[(subject, 1.0)]);
+        mouse_button(&mut app, ButtonState::Pressed);
+        send(&mut app, PointerAction::Press(PointerButton::Primary));
+
+        let tree = tree(&mut app);
+        write_hits(&mut app, &[(tree, 0.0)]);
+        mouse_button(&mut app, ButtonState::Released);
+        mouse_button(&mut app, ButtonState::Pressed);
+        app.world_mut().write_message(PointerInput::new(
+            PointerId::Mouse,
+            location(),
+            PointerAction::Release(PointerButton::Primary),
+        ));
+        send(&mut app, PointerAction::Press(PointerButton::Primary));
+        assert_eq!(
+            *saw_left(&app),
+            AppSawLeft {
+                pressed: 1,
+                just_pressed: 1,
+                just_released: 0,
+            }
+        );
+
+        write_hits(&mut app, &[(tree, 0.0)]);
+        mouse_button(&mut app, ButtonState::Released);
+        send(&mut app, PointerAction::Release(PointerButton::Primary));
+        assert_eq!(saw_left(&app).just_released, 1);
+    }
+
+    #[test]
+    fn a_click_on_inspector_ui_reaches_the_apps_mouse_buttons() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        let tree = tree(&mut app);
+        raw_click(&mut app, &[(tree, 0.0)]);
+        let saw = saw_left(&app);
+        assert_eq!(saw.just_pressed, 1);
+        assert_eq!(saw.just_released, 1);
+        assert_eq!(saw.pressed, 2);
+    }
+
+    #[test]
+    fn previewing_leaves_the_apps_mouse_buttons_alone() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        set_mode(&mut app, InspectorMode::Preview);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        raw_click(&mut app, &[(subject, 1.0)]);
+        assert_eq!(selected(&app), None);
+        let saw = saw_left(&app);
+        assert_eq!(saw.just_pressed, 1);
+        assert_eq!(saw.just_released, 1);
+        assert_eq!(saw.pressed, 2);
+    }
+
+    fn touch(app: &mut App, phase: TouchPhase, action: PointerAction, hits: &[(Entity, f32)]) {
+        app.world_mut().write_message(TouchInput {
+            phase,
+            position: Vec2::ZERO,
+            window: Entity::PLACEHOLDER,
+            force: None,
+            id: 0,
+        });
+        write_pointer_hits(app, PointerId::Touch(0), hits);
+        send_pointer(app, PointerId::Touch(0), action);
+    }
+
+    fn raw_tap(app: &mut App, hits: &[(Entity, f32)]) {
+        touch(
+            app,
+            TouchPhase::Started,
+            PointerAction::Press(PointerButton::Primary),
+            hits,
+        );
+        touch(
+            app,
+            TouchPhase::Moved,
+            PointerAction::Move { delta: Vec2::ZERO },
+            hits,
+        );
+        touch(
+            app,
+            TouchPhase::Ended,
+            PointerAction::Release(PointerButton::Primary),
+            hits,
+        );
+    }
+
+    #[test]
+    fn a_touch_on_the_app_while_editing_never_reaches_the_apps_touches() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        raw_tap(&mut app, &[(subject, 1.0)]);
+        assert_eq!(selected(&app), Some(subject));
+        assert_eq!(app.world().resource::<AppSawTouch>().0, 0);
+
+        let tree = tree(&mut app);
+        raw_tap(&mut app, &[(tree, 0.0)]);
+        assert_eq!(selected(&app), Some(subject));
+        assert!(app.world().resource::<AppSawTouch>().0 > 0);
+    }
+
+    fn saw_touch(app: &App) -> usize {
+        app.world().resource::<AppSawTouch>().0
+    }
+
+    #[test]
+    fn a_hidden_touch_stays_hidden_when_preview_starts_before_it_lifts() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        let hits = [(subject, 1.0)];
+        touch(
+            &mut app,
+            TouchPhase::Started,
+            PointerAction::Press(PointerButton::Primary),
+            &hits,
+        );
+        set_mode(&mut app, InspectorMode::Preview);
+        touch(
+            &mut app,
+            TouchPhase::Moved,
+            PointerAction::Move { delta: Vec2::ZERO },
+            &hits,
+        );
+        touch(
+            &mut app,
+            TouchPhase::Ended,
+            PointerAction::Release(PointerButton::Primary),
+            &hits,
+        );
+        assert_eq!(saw_touch(&app), 0);
+
+        raw_tap(&mut app, &hits);
+        assert!(saw_touch(&app) > 0);
+    }
+
+    #[test]
+    fn a_canceled_touch_on_the_app_never_reaches_the_apps_touches() {
+        let mut app = raw_input_app();
+        spawn_panel(&mut app);
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        let hits = [(subject, 1.0)];
+        touch(
+            &mut app,
+            TouchPhase::Started,
+            PointerAction::Press(PointerButton::Primary),
+            &hits,
+        );
+        touch(&mut app, TouchPhase::Canceled, PointerAction::Cancel, &hits);
+        app.update();
+        assert_eq!(selected(&app), None);
+        assert_eq!(saw_touch(&app), 0);
     }
 }

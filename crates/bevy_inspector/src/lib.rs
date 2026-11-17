@@ -15,8 +15,10 @@
 //!
 //! While the inspector is shown in [`InspectorMode::Edit`], clicking an entity in the app selects
 //! it, and with the overlay the app sees neither the pointer's clicks nor its hover. That covers
-//! every picking event and interaction state, not the raw input an app reads from
-//! [`ButtonInput`](bevy_input::ButtonInput). Hits come from the app's own picking backends. Meshes
+//! every picking event and interaction state. A press on the app is also removed from the left
+//! mouse button in [`ButtonInput`](bevy_input::ButtonInput) and from
+//! [`Touches`](bevy_input::touch::Touches), so the app's systems from `Update` on do not see it.
+//! Hits come from the app's own picking backends. Meshes
 //! can be clicked without `MeshPickingPlugin`, and when it is added its settings and filters apply
 //! instead. In Edit mode the selected entity is also outlined with a gizmo box.
 //! [`InspectorMode::Preview`] leaves the pointer to the app and draws no outline.
@@ -482,6 +484,7 @@ impl Plugin for InspectorPlugin {
                 PreUpdate,
                 inspector_shown
                     .pipe(pick_for_inspector)
+                    .after(bevy_input::InputSystems)
                     .after(bevy_picking::hover::generate_hovermap)
                     .before(bevy_picking::hover::update_interactions),
             )
