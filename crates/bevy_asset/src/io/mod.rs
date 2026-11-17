@@ -30,7 +30,7 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, sync::Arc, vec::Vec};
 use atomicow::CowArc;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{
@@ -41,7 +41,6 @@ use core::{
 use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::Stream;
 use std::{
-    borrow::Cow,
     io::SeekFrom,
     path::{Path, PathBuf},
 };
