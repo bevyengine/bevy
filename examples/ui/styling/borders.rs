@@ -95,55 +95,58 @@ fn setup(mut commands: Commands) {
             flex_wrap: FlexWrap::Wrap,
             ..default()
         },
-        Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
-            |(label, border)| {
-                (
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    children![
-                        (
-                            Node {
-                                width: px(50),
-                                height: px(50),
-                                border,
-                                margin: px(20).all(),
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::Center,
-                                ..default()
-                            },
-                            BackgroundColor(MAROON.into()),
-                            BorderColor {
-                                top: RED.into(),
-                                bottom: YELLOW.into(),
-                                left: GREEN.into(),
-                                right: BLUE.into(),
-                            },
-                            Outline {
-                                width: px(6),
-                                offset: px(6),
-                                color: Color::WHITE,
-                            },
-                            children![(
+        Children::spawn(SpawnIter(
+            border_labels
+                .into_iter()
+                .zip(borders.clone())
+                .map(|(label, border)| {
+                    (
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        children![
+                            (
                                 Node {
-                                    width: px(10),
-                                    height: px(10),
+                                    width: px(50),
+                                    height: px(50),
+                                    border,
+                                    margin: px(20).all(),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
                                     ..default()
                                 },
-                                BackgroundColor(YELLOW.into()),
-                            )]
-                        ),
-                        (Text::new(label), TextFont::from_font_size(9.0))
-                    ],
-                )
-            },
-        ))),
+                                BackgroundColor(MAROON.into()),
+                                BorderColor {
+                                    top: RED.into(),
+                                    bottom: YELLOW.into(),
+                                    left: GREEN.into(),
+                                    right: BLUE.into(),
+                                },
+                                Outline {
+                                    width: px(6),
+                                    offset: px(6),
+                                    color: Color::WHITE,
+                                },
+                                children![(
+                                    Node {
+                                        width: px(10),
+                                        height: px(10),
+                                        ..default()
+                                    },
+                                    BackgroundColor(YELLOW.into()),
+                                )]
+                            ),
+                            (Text::new(label), TextFont::from_font_size(9.0))
+                        ],
+                    )
+                }),
+        )),
     );
 
-    let non_zero = |x, y| x != px(0) && y != px(0);
-    let border_size = move |x, y| {
+    let non_zero = |x: &Val, y: &Val| x != &px(0) && y != &px(0);
+    let border_size = move |x: &Val, y: &Val| {
         if non_zero(x, y) {
             f32::MAX
         } else {
@@ -151,12 +154,12 @@ fn setup(mut commands: Commands) {
         }
     };
 
-    let rounded_border_radii = borders.map(|border| {
+    let rounded_border_radii = borders.clone().map(|border| {
         BorderRadius::px(
-            border_size(border.left, border.top),
-            border_size(border.right, border.top),
-            border_size(border.right, border.bottom),
-            border_size(border.left, border.bottom),
+            border_size(&border.left, &border.top),
+            border_size(&border.right, &border.top),
+            border_size(&border.right, &border.bottom),
+            border_size(&border.left, &border.bottom),
         )
     });
 

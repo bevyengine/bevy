@@ -80,7 +80,7 @@ fn on_drag_viewport(drag: On<PointerDrag>, mut node_query: Query<&mut Node>) {
     if matches!(drag.button, PointerButton::Secondary) {
         let mut node = node_query.get_mut(drag.entity).unwrap();
 
-        if let (Val::Px(top), Val::Px(left)) = (node.top, node.left) {
+        if let (&Val::Px(top), &Val::Px(left)) = (&node.top, &node.left) {
             node.left = px(left + drag.delta.x);
             node.top = px(top + drag.delta.y);
         };

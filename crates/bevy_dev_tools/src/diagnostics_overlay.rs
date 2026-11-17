@@ -24,7 +24,7 @@ const BACKGROUND_COLOR_ALPHA: f32 = 0.75;
 /// Row and column gap for the diagnostics overlay
 const ROW_COLUMN_GAP: Val = Val::Px(4.);
 /// Padding for cels of the diagnostics overlay
-const DEFAULT_PADDING: UiRect = UiRect::all(Val::Px(4.));
+const DEFAULT_PADDING: UiRect = UiRect::px(4., 4., 4., 4.);
 /// Initial Z-index for the [`DiagnosticsOverlayPlane`]
 pub const INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX: GlobalZIndex = GlobalZIndex(1_000_000);
 /// Alias to shorten the name

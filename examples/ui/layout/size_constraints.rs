@@ -39,7 +39,7 @@ enum Constraint {
     MaxWidth,
 }
 
-#[derive(Copy, Clone, Component, Default, PartialEq)]
+#[derive(Clone, Component, Default, PartialEq)]
 struct RadioButtonValue(Val);
 
 fn setup(mut commands: Commands) {
@@ -320,16 +320,16 @@ fn on_value_change_constraints(
 
         match constraint {
             Constraint::FlexBasis => {
-                bar_node.flex_basis = value.0;
+                bar_node.flex_basis = value.0.clone();
             }
             Constraint::Width => {
-                bar_node.width = value.0;
+                bar_node.width = value.0.clone();
             }
             Constraint::MinWidth => {
-                bar_node.min_width = value.0;
+                bar_node.min_width = value.0.clone();
             }
             Constraint::MaxWidth => {
-                bar_node.max_width = value.0;
+                bar_node.max_width = value.0.clone();
             }
         }
     }

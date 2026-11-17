@@ -117,7 +117,7 @@ fn setup_text(mut commands: Commands, asset_server: Res<AssetServer>) {
                 let font = asset_server.load(font_path);
                 let text_font = TextFont {
                     font: font.into(),
-                    font_size: px(10).into(),
+                    font_size: FontSize::Px(10.),
                     ..default()
                 };
                 parent

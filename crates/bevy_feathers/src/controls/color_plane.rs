@@ -253,7 +253,7 @@ fn update_plane_thumb_position(
         };
         let inner_size = inner_node.size() * inner_node.inverse_scale_factor;
         if inner_size.x > 0.0 && inner_size.y > 0.0 {
-            let mut updated_transform = *thumb_transform;
+            let mut updated_transform = thumb_transform.clone();
             // `ColorPlaneValue` is in channel space, where y increases upward, while
             // the transform is in screen space (+y down), so the y component is inverted.
             updated_transform.translation = Val2::new(

@@ -1,5 +1,4 @@
 use crate::Val;
-use crate::ValArithmeticError;
 use crate::ValContext;
 use crate::ValNum;
 use bevy_derive::Deref;
@@ -13,7 +12,7 @@ use bevy_reflect::prelude::*;
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
-#[derive(Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Debug, PartialEq, Clone, Reflect)]
 #[reflect(Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -43,8 +42,8 @@ impl Val2 {
     }
 
     /// Creates a new [`Val2`] where both components are the same value
-    pub const fn all(val: Val) -> Self {
-        Self::new(val, val)
+    pub fn all(val: Val) -> Self {
+        Self::new(val.clone(), val)
     }
 
     /// Creates a new [`Val2`] where both components are in logical pixels
@@ -66,44 +65,6 @@ impl Val2 {
             self.y.resolve(context, base_size.y).unwrap_or(0.),
         )
     }
-
-    /// Try to add two `Val2`s component-wise.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
-    /// assert_eq!(Val2::px(1., 2.).try_add(Val2::px(3., 4.)), Ok(Val2::px(4., 6.)));
-    /// assert_eq!(
-    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_add(Val2::new(Val::Percent(3.), Val::Px(4.))),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub fn try_add(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_add(other.x), self.y.try_add(other.y)) else {
-            return Err(ValArithmeticError::IncompatibleUnits);
-        };
-        Ok(Self { x, y })
-    }
-
-    /// Try to subtract two `Val2`s component-wise.
-    ///
-    /// Returns [`ValArithmeticError::IncompatibleUnits`] if either component has mismatched units.
-    ///
-    /// ```
-    /// # use bevy_ui::{Val, Val2, ValArithmeticError};
-    /// assert_eq!(Val2::px(3., 4.).try_sub(Val2::px(1., 2.)), Ok(Val2::px(2., 2.)));
-    /// assert_eq!(
-    ///     Val2::new(Val::Px(1.), Val::Px(2.)).try_sub(Val2::new(Val::Percent(3.), Val::Px(4.))),
-    ///     Err(ValArithmeticError::IncompatibleUnits)
-    /// );
-    /// ```
-    pub fn try_sub(self, other: Val2) -> Result<Self, ValArithmeticError> {
-        let (Ok(x), Ok(y)) = (self.x.try_sub(other.x), self.y.try_sub(other.y)) else {
-            return Err(ValArithmeticError::IncompatibleUnits);
-        };
-        Ok(Self { x, y })
-    }
 }
 
 impl Default for Val2 {
@@ -121,7 +82,7 @@ impl From<Val> for Val2 {
 /// Relative 2D transform for UI nodes
 ///
 /// [`UiGlobalTransform`] is automatically inserted whenever [`UiTransform`] is inserted.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",

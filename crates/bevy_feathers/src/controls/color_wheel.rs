@@ -340,7 +340,7 @@ fn position_thumb(q_transform: &mut Query<&mut UiTransform>, thumb_ent: Entity, 
     let Ok(mut thumb_transform) = q_transform.get_mut(thumb_ent) else {
         return;
     };
-    let mut updated_transform = *thumb_transform;
+    let mut updated_transform = thumb_transform.clone();
     updated_transform.translation =
         Val2::px(position.x - THUMB_SIZE * 0.5, position.y - THUMB_SIZE * 0.5);
     thumb_transform.set_if_neq(updated_transform);

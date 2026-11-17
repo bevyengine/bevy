@@ -12,7 +12,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("[Text]"),
-        TextFont::from_font_size(px(40.)),
+        TextFont::from_font_size(40.),
         Node {
             margin: px(25).all(),
             justify_self: JustifySelf::Center,
@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![
             (
                 TextSpan::new("[span before image]"),
-                TextFont::from_font_size(px(40)),
+                TextFont::from_font_size(40.),
             ),
             (InlineImage {
                 color: bevy::color::palettes::css::RED.into(),
@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },),
             (
                 TextSpan::new("[span between images]"),
-                TextFont::from_font_size(px(40.)),
+                TextFont::from_font_size(40.),
             ),
             (InlineImage {
                 color: bevy::color::palettes::css::YELLOW.into(),
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },),
             (
                 TextSpan::new("[span after image]"),
-                TextFont::from_font_size(px(40.)),
+                TextFont::from_font_size(40.),
             ),
         ],
     ));
