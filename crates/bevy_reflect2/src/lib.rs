@@ -1811,6 +1811,10 @@ mod tests {
             B,
         }
 
+        #[derive(Reflect)]
+        #[reflect(opaque, @Tooltip("opaque"))]
+        struct Opaque;
+
         let ty = Foo::TYPE;
         assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("type")));
         assert_eq!(ty.get_attribute::<u8>(), Some(&3));
@@ -1853,5 +1857,8 @@ mod tests {
             Some(&Tooltip("enum field"))
         );
         assert!(enum_type.variants()[1].custom_attributes.is_empty());
+
+        let ty = Opaque::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("opaque")));
     }
 }
