@@ -276,9 +276,8 @@ impl core::str::FromStr for Val {
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
         match (self.unit_value(), other.unit_value()) {
-            (Ok((u, a)), Ok((v, b))) if u == v => a == b,
             // All zero-value variants are considered equal.
-            (Ok((_, a)), Ok((_, b))) => a == 0. && b == 0.,
+            (Ok((u, a)), Ok((v, b))) => (u, a) == (v, b) || (a == 0. && b == 0.),
             (Err(_), Err(_)) => core::mem::discriminant(self) == core::mem::discriminant(other),
             _ => false,
         }
