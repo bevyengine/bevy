@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::default;
+use bevy_utils::{default, prelude::DebugName};
 use core::{
     any::TypeId,
     fmt::{Debug, Write},
@@ -1841,35 +1841,20 @@ impl ScheduleGraph {
     /// Returns the name of a non-anonymous system set.
     ///
     /// The derived [`Debug`] output of an enum only contains the variant name (e.g. `Variant`),
-    /// so the type name is prepended when the [`Debug`] output does not already start with it
+    /// so the type name is prepended for sets whose [`Debug`] output doesn't include it
     /// (e.g. `MySet::Variant`). Structs keep their [`Debug`] output as is.
     ///
     /// Without the `debug` feature, type names are not available, so only the [`Debug`] output is used.
     fn named_set_name(&self, set: &dyn SystemSet) -> String {
         let debug = format!("{set:?}");
-        // Use this crate's `debug` feature, which is what `set_type_name` checks.
-        if !cfg!(feature = "debug") {
+        if !DebugName::ENABLED || set.debug_includes_type_name() {
             return debug;
         }
         let set_type_name = set.set_type_name();
-        let type_name = if self.settings.use_shortnames {
-            set_type_name.shortname().to_string()
+        if self.settings.use_shortnames {
+            format!("{}::{debug}", set_type_name.shortname())
         } else {
-            set_type_name.to_string()
-        };
-        // Compare against the bare type name, without module path or generics.
-        let without_generics = type_name.split('<').next().unwrap_or(&type_name);
-        let bare_name = without_generics
-            .rsplit("::")
-            .next()
-            .unwrap_or(without_generics);
-        let starts_with_type_name = debug
-            .strip_prefix(bare_name)
-            .is_some_and(|rest| !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'));
-        if starts_with_type_name {
-            debug
-        } else {
-            format!("{type_name}::{debug}")
+            format!("{set_type_name}::{debug}")
         }
     }
 

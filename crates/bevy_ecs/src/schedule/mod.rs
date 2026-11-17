@@ -1329,6 +1329,9 @@ mod tests {
             #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
             struct StructSet;
 
+            assert!(!EnumSet::Variant.debug_includes_type_name());
+            assert!(StructSet.debug_includes_type_name());
+
             let mut schedule = Schedule::new(TestSchedule);
             schedule.add_systems((
                 resmut_system.in_set(EnumSet::Variant),
