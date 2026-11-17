@@ -165,6 +165,9 @@ fn reflect_impl(
     );
 
     let vtable = container_attributes.vtable(&bevy_reflect);
+    let custom_attributes = container_attributes
+        .custom_attributes
+        .to_tokens(&bevy_reflect);
     // Registering a type registers the types of its reflected fields, so the registration requires
     // the field types that depend on type parameters to be registrable (the type parameters
     // themselves only need to be `Typed`). Primitive types don't register their fields.
@@ -212,6 +215,7 @@ fn reflect_impl(
                 #definition_check
                 let kind = #kind;
                 let vtable = #vtable;
+                let custom_attributes = #custom_attributes;
                 unsafe {
                     #bevy_reflect::Type::new(
                         ::core::any::TypeId::of::<Self>(),
@@ -221,6 +225,7 @@ fn reflect_impl(
                         #type_path,
                     )
                 }
+                .with_custom_attributes(custom_attributes)
             };
         }
 
@@ -251,11 +256,13 @@ fn struct_kind(struct_fields: &ReflectFields, bevy_reflect: &Path) -> TokenStrea
             });
         } else {
             let field_ty = &field.field.ty;
+            let custom_attributes = field.attributes.custom_attributes.to_tokens(bevy_reflect);
             fields.push(quote! {
                 #bevy_reflect::kind::StructField {
                     name: #name,
                     offset: ::core::mem::offset_of!(Self, #member),
                     ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
+                    custom_attributes: #custom_attributes,
                 }
             });
         }
@@ -328,10 +335,12 @@ fn enum_kind(
                 }
             } else {
                 let field_ty = &field.field.ty;
+                let custom_attributes = field.attributes.custom_attributes.to_tokens(bevy_reflect);
                 fields.push(quote! {
                     #bevy_reflect::kind::EnumField {
                         name: #name,
                         ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
+                        custom_attributes: #custom_attributes,
                     }
                 });
                 let field_index = field_offsets.len();
@@ -365,12 +374,14 @@ fn enum_kind(
 
         let field_kind = variant.fields.field_kind(bevy_reflect);
         let name = variant_ident.to_string();
+        let custom_attributes = variant.custom_attributes.to_tokens(bevy_reflect);
         variants.push(quote! {
             #bevy_reflect::kind::Variant {
                 name: #name,
                 field_kind: #field_kind,
                 fields: &[#(#fields),*],
                 ignored_fields: &[#(#ignored_fields),*],
+                custom_attributes: #custom_attributes,
             }
         });
     }
