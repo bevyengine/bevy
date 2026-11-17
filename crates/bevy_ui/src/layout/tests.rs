@@ -1,6 +1,6 @@
+use crate::layout::convert::TaffyStyle;
 use crate::layout::{mark_dirty_ui_trees, update_ui_roots, UiRoots, UiTreeDirty};
 use crate::layout_tree::compute_layout;
-use crate::layout_tree::TaffyStyle;
 use crate::update_computed_nodes;
 use crate::UiSystems;
 use crate::{clear_transient_dirty_flags, update_border_radius};
