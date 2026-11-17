@@ -1351,14 +1351,14 @@ mod tests {
                 .map(|item| (item.0, item.1))
                 .collect();
 
-            // Only check the set part of each name, since the order of the pair isn't stable.
-            let enum_set = " (in set EnumSet::Variant)";
-            let struct_set = " (in set StructSet)";
+            let enum_system = "resmut_system (in set EnumSet::Variant)";
+            let struct_system = "resmut_system (in set StructSet)";
             assert_eq!(ambiguities.len(), 1);
             let (first, second) = &ambiguities[0];
+            // The two systems can be reported in either order.
             assert!(
-                (first.ends_with(enum_set) && second.ends_with(struct_set))
-                    || (first.ends_with(struct_set) && second.ends_with(enum_set)),
+                (first == enum_system && second == struct_system)
+                    || (first == struct_system && second == enum_system),
                 "unexpected ambiguity names: {first:?}, {second:?}",
             );
         }

@@ -183,11 +183,11 @@ macro_rules! define_label {
             /// Returns `true` if the [`Debug`](::core::fmt::Debug) output of this label already
             /// includes its type name.
             ///
-            /// This is `true` for structs, but `false` for enums, whose derived
-            /// [`Debug`](::core::fmt::Debug) output only contains the variant name.
-            /// Diagnostics can use this to prefix the type name where needed (e.g. `MyEnum::Variant`).
+            /// The derived [`Debug`](::core::fmt::Debug) output of an enum only contains the variant name,
+            /// so diagnostics use this to decide whether to prefix the type name (e.g. `MyEnum::Variant`).
             ///
-            /// When deriving the label trait, this is implemented automatically.
+            /// Deriving the label trait returns `true` for structs and `false` for enums.
+            /// Defaults to `true`.
             fn debug_includes_type_name(&self) -> bool {
                 true
             }
