@@ -1,6 +1,6 @@
 use crate::{
-    layout_tree::ComputedLayout, resolve_calc, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
-    FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
+    layout_tree::ComputedLayout, resolve_calc, ComputedNode, ComputedUiRenderTargetInfo,
+    ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
