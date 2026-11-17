@@ -4280,11 +4280,45 @@ mod calc {
                     flex_direction: FlexDirection::Row,
                 }
                 Children [
-                     Node {
-                        width: { px(100) + vw(5) + vh(5) + vmin(5) + vmax(5) },
-                        height: px(50.),
-                     }
-                     BackgroundColor(RED_500)
+                    Node {
+                        width: { px(100) + vw(5) },
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: { vh(5) + vmin(5) + vmax(5) },
+                    }
+                    BackgroundColor(GREEN)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                        width: { px(100) },
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: { vw(10).min(vh(10)) },
+                    }
+                    BackgroundColor(GREEN)
+                    --
+                    Node {
+                        width: { vw(10).max(vh(10)) },
+                    }
+                    BackgroundColor(BLUE)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                    width: { px(100) + vw(5) + vh(5) + vmin(5) + vmax(5) },
+                    }
+                    BackgroundColor(RED_500)
                 ]
             ]
 
