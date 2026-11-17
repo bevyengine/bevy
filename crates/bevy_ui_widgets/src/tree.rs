@@ -41,8 +41,9 @@ pub enum TreeSelectionMode {
 
 /// Headless tree-view behavior and policy.
 ///
-/// A tree nests as `TreeView -> TreeItem -> TreeItemChildren -> TreeItem`. Rows are never spawned
-/// by the widget. Selection lives in [`SelectedTreeItem`] and expansion in the [`Expanded`]
+/// A tree nests as `TreeView -> TreeItem -> TreeItemChildren -> TreeItem`. A [`TreeItemChildren`]
+/// placed directly in the tree, such as a scroll area, holds rows at the root level. Rows are
+/// never spawned by the widget. Selection lives in [`SelectedTreeItem`] and expansion in the [`Expanded`]
 /// marker; both only change when [`tree_view_self_update`] and [`tree_view_expand_self_update`]
 /// are added.
 #[derive(Component, Debug, Default, Clone, PartialEq, Reflect)]
@@ -79,7 +80,8 @@ pub struct TreeItem {
 }
 
 /// Container for a [`TreeItem`]'s child rows. It must be a direct child of the row it belongs to,
-/// and child rows must be its direct children.
+/// and child rows must be its direct children. Another container placed directly inside it holds
+/// rows at the same level.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct TreeItemChildren;
@@ -184,6 +186,9 @@ fn visible_rows(
     };
     for child in container_children.iter().copied() {
         let Ok((_, expanded, disabled)) = rows.get(child) else {
+            if containers.contains(child) {
+                visible_rows(child, children, rows, containers, out);
+            }
             continue;
         };
         if disabled {
@@ -217,15 +222,29 @@ fn first_child_row(
     containers: &ContainerQuery,
 ) -> Option<Entity> {
     child_containers(row, children, containers)
-        .filter_map(|container| {
-            children.get(container).ok().and_then(|nested| {
-                nested
-                    .iter()
-                    .copied()
-                    .find(|child| rows.get(*child).is_ok_and(|(.., disabled)| !disabled))
-            })
+        .find_map(|container| first_row_in(container, children, rows, containers))
+}
+
+fn first_row_in(
+    container: Entity,
+    children: &Query<&Children>,
+    rows: &RowQuery,
+    containers: &ContainerQuery,
+) -> Option<Entity> {
+    children
+        .get(container)
+        .ok()?
+        .iter()
+        .copied()
+        .find_map(|child| {
+            if let Ok((.., disabled)) = rows.get(child) {
+                (!disabled).then_some(child)
+            } else if containers.contains(child) {
+                first_row_in(child, children, rows, containers)
+            } else {
+                None
+            }
         })
-        .next()
 }
 
 fn parent_row(
@@ -234,11 +253,15 @@ fn parent_row(
     rows: &RowQuery,
     containers: &ContainerQuery,
 ) -> Option<Entity> {
-    let container = parents.get(row).ok()?.parent();
+    let mut container = parents.get(row).ok()?.parent();
     if !containers.contains(container) {
         return None;
     }
-    let parent = parents.get(container).ok()?.parent();
+    let mut parent = parents.get(container).ok()?.parent();
+    while containers.contains(parent) {
+        container = parent;
+        parent = parents.get(container).ok()?.parent();
+    }
     rows.get(parent)
         .ok()
         .and_then(|(.., disabled)| if disabled { None } else { Some(parent) })
@@ -502,6 +525,9 @@ fn collect_levels(
     };
     for child in container_children.iter().copied() {
         if !items.contains(child) {
+            if containers.contains(child) {
+                collect_levels(child, level, children, containers, items, out);
+            }
             continue;
         }
         out.push((child, level));
@@ -1217,6 +1243,50 @@ mod tests {
                 .level,
             1
         );
+    }
+
+    #[test]
+    fn rows_in_a_container_inside_the_tree_are_root_rows() {
+        let (mut app, window) = tree_app();
+        let tree = app
+            .world_mut()
+            .spawn((TreeView::default(), ChildOf(window)))
+            .id();
+        let scroll = app
+            .world_mut()
+            .spawn((TreeItemChildren, ChildOf(tree)))
+            .id();
+        let parent = app
+            .world_mut()
+            .spawn((
+                TreeItem {
+                    expandable: true,
+                    level: 0,
+                },
+                Expanded,
+                ChildOf(scroll),
+            ))
+            .id();
+        let container = app
+            .world_mut()
+            .spawn((TreeItemChildren, ChildOf(parent)))
+            .id();
+        let child = app
+            .world_mut()
+            .spawn((TreeItem::default(), ChildOf(container)))
+            .id();
+        app.update();
+
+        let level = |entity| app.world().get::<TreeItem>(entity).unwrap().level;
+        assert_eq!((level(parent), level(child)), (0, 1));
+        assert_eq!(
+            app.world().get::<TreeView>(tree).unwrap().visible_rows,
+            [parent, child]
+        );
+
+        focus(&mut app, child);
+        press_key(&mut app, KeyCode::ArrowLeft, window);
+        assert_eq!(app.world().resource::<InputFocus>().get(), Some(parent));
     }
 
     #[test]

@@ -20,6 +20,8 @@ pub struct FontAtlasKey {
     pub font_size_bits: u32,
     /// Hash of normalized variation coords for this run.
     pub variations_hash: u64,
+    /// Synthetic italic skew in degrees via `f32::to_bits`, `0.0` when unskewed
+    pub synthetic_skew_bits: u32,
     /// Hinting
     pub hinting: FontHinting,
     /// Antialiasing method

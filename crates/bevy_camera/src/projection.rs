@@ -1,3 +1,4 @@
+use core::any::Any;
 use core::fmt::Debug;
 use core::ops::{Deref, DerefMut};
 
@@ -86,12 +87,10 @@ mod sealed {
     /// trait objects, without breaking object safety rules by making it `Sized`. Additional bounds
     /// are included for downcasting, and fulfilling the trait bounds on `Projection`.
     pub trait DynCameraProjection:
-        CameraProjection + core::fmt::Debug + Send + Sync + downcast_rs::Downcast
+        CameraProjection + core::fmt::Debug + Send + Sync + core::any::Any
     {
         fn clone_box(&self) -> Box<dyn DynCameraProjection>;
     }
-
-    downcast_rs::impl_downcast!(DynCameraProjection);
 
     impl<T> DynCameraProjection for T
     where
@@ -151,7 +150,7 @@ impl CustomProjection {
     where
         P: CameraProjection + Debug + Send + Sync + Clone + 'static,
     {
-        self.dyn_projection.downcast_ref()
+        (&*self.dyn_projection as &dyn Any).downcast_ref()
     }
 
     /// Returns a mutable  reference to the [`CameraProjection`] `P`.
@@ -175,7 +174,7 @@ impl CustomProjection {
     where
         P: CameraProjection + Debug + Send + Sync + Clone + 'static,
     {
-        self.dyn_projection.downcast_mut()
+        (&mut *self.dyn_projection as &mut dyn Any).downcast_mut()
     }
 }
 
