@@ -221,7 +221,7 @@ fn update_lorem_text(mut lorem_text_query: Query<(&mut Text, &mut Lorem)>) {
             text.0.push_str(LOREM_TEXT_2);
         }
 
-        lorem.0 = !lorem.0;
+        lorem.0.toggle();
     }
 }
 

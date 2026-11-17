@@ -86,18 +86,18 @@ impl Plugin for SceneViewerPlugin {
 }
 
 fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
-    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+    let (_, config) = config.config_mut::<AabbGizmoConfigGroup>();
+    config.draw_all.toggle();
 }
 
 fn toggle_camera_frusta(mut config: ResMut<GizmoConfigStore>) {
-    config.config_mut::<FrustumGizmoConfigGroup>().1.draw_all ^= true;
+    let (_, config) = config.config_mut::<FrustumGizmoConfigGroup>();
+    config.draw_all.toggle();
 }
 
 fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
-    config
-        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
-        .1
-        .draw_all ^= true;
+    let (_, config) = config.config_mut::<SkinnedMeshBoundsGizmoConfigGroup>();
+    config.draw_all.toggle();
 }
 
 fn scene_load_check(
@@ -167,12 +167,12 @@ fn update_lights(
 ) {
     for (_, mut light) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
-            light.shadow_maps_enabled = !light.shadow_maps_enabled;
+            light.shadow_maps_enabled.toggle();
         }
     }
 
     if key_input.just_pressed(KeyCode::KeyL) {
-        *animate_directional_light = !*animate_directional_light;
+        animate_directional_light.toggle();
     }
     if *animate_directional_light {
         for (mut transform, _) in &mut query {

@@ -27,7 +27,7 @@ use bevy_ui_widgets::{
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
-    controls::{FeathersSlider, FeathersTextInput, ToggleSwitchSlide},
+    controls::{FeathersDisclosureToggle, FeathersSlider, FeathersTextInput, ToggleSwitchSlide},
     focus::FocusIndicator,
     palette,
     rounded_corners::RoundedCorners,
@@ -326,7 +326,11 @@ fn update_slider_pos(
     q_children: Query<&Children>,
     mut q_slider_thumb: Query<
         (&ChildOf, &mut UiTransform),
-        (With<ColorSliderThumb>, Without<ToggleSwitchSlide>),
+        (
+            With<ColorSliderThumb>,
+            Without<ToggleSwitchSlide>,
+            Without<FeathersDisclosureToggle>,
+        ),
     >,
     q_computed_node: Query<&ComputedNode>,
 ) {

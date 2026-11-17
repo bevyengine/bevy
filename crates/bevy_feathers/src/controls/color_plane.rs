@@ -25,12 +25,12 @@ use bevy_shader::{ShaderDefVal, ShaderRef};
 use bevy_ui::{
     percent, px, AlignSelf, BorderColor, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo,
     Display, InteractionDisabled, Node, Outline, PositionType, UiGlobalTransform, UiRect, UiScale,
-    UiSystems, UiTransform, Val2,
+    UiTransform, Val2,
 };
 use bevy_ui_render::{prelude::UiMaterial, ui_material::MaterialNode, UiMaterialPlugin};
 use bevy_ui_widgets::ValueChange;
 
-use crate::{palette, theme::ThemeBackgroundColor, tokens};
+use crate::{palette, theme::ThemeBackgroundColor, tokens, FeathersSystems};
 
 const COLOR_PLANE_THUMB_SIZE: f32 = 10.0;
 
@@ -448,7 +448,7 @@ impl Plugin for ColorPlanePlugin {
         app.add_plugins(UiMaterialPlugin::<ColorPlaneMaterial>::default());
         app.add_systems(
             PostUpdate,
-            (update_plane_color, update_plane_thumb_position).in_set(UiSystems::Content),
+            (update_plane_color, update_plane_thumb_position).in_set(FeathersSystems),
         );
         app.add_observer(on_pointer_press)
             .add_observer(on_drag_start)

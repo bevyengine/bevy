@@ -375,12 +375,14 @@ impl TextPipeline {
                         let font = run.font();
                         let font_size = run.font_size();
                         let coords = run.normalized_coords();
+                        let synthetic_skew = run.synthesis().skew();
                         let variations_hash = FixedHasher.hash_one(coords);
                         let font_atlas_key = FontAtlasKey {
                             id: font.data.id() as u32,
                             index: font.index,
                             font_size_bits: font_size.to_bits(),
                             variations_hash,
+                            synthetic_skew_bits: synthetic_skew.unwrap_or_default().to_bits(),
                             hinting,
                             font_smoothing,
                         };
@@ -425,6 +427,7 @@ impl TextPipeline {
                                         textures,
                                         maybe_scaler.as_mut().unwrap(),
                                         font_smoothing,
+                                        synthetic_skew,
                                         glyph_id,
                                     )?
                                 }
@@ -509,6 +512,9 @@ pub struct TextLayoutInfo {
     /// Underline rects for the active IME preedit/compose region.
     /// Should only have values when composition is in progress.
     pub preedit_underline_rects: Vec<Rect>,
+    /// Glyphs of an editable text's [`Placeholder`](crate::Placeholder), laid out
+    /// like [`glyphs`](Self::glyphs). Empty unless the placeholder is shown.
+    pub placeholder_glyphs: Vec<PositionedGlyph>,
     /// inline boxes
     pub inline_boxes: Vec<(Entity, crate::InlineBoxKind, Rect)>,
 }
@@ -524,6 +530,7 @@ impl TextLayoutInfo {
         self.cursor = None;
         self.selection_rects.clear();
         self.preedit_underline_rects.clear();
+        self.placeholder_glyphs.clear();
     }
 }
 
@@ -537,6 +544,7 @@ impl Default for TextLayoutInfo {
             cursor: None,
             selection_rects: Default::default(),
             preedit_underline_rects: Default::default(),
+            placeholder_glyphs: Default::default(),
             inline_boxes: Default::default(),
         }
     }
