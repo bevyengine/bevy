@@ -222,8 +222,8 @@ impl BevyError {
     ///
     /// Context messages are not included, see [`ContextExt`].
     ///
-    /// This is useful for custom error handlers that want to report every cause,
-    /// see [`FallbackErrorHandler`](crate::error::FallbackErrorHandler).
+    /// This is useful for custom error handlers that want to report every cause.
+    /// See [`FallbackErrorHandler`](crate::error::FallbackErrorHandler).
     ///
     /// # Examples
     ///
