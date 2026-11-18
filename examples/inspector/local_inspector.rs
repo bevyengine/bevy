@@ -1,6 +1,8 @@
-//! Shows the `bevy_inspector` entity tree and details panels inspecting the app's own world.
-//! Editing the showcase tint and shape updates the object in the scene. Some showcase fields use
-//! `bevy_annotations` to set their label, range, step, unit, or make them read-only.
+//! Shows the `bevy_inspector` entity tree, resource list and details panels inspecting the app's
+//! own world. Editing the showcase tint and shape updates the object in the scene. Some showcase
+//! fields use `bevy_annotations` to set their label, range, step, unit, or make them read-only.
+//! The Resources tab lists the app's resources, such as `ClearColor`, which can be edited the same
+//! way. Clicking an object in the scene selects it.
 //!
 //! Run with the `bevy_inspector` feature enabled, and `debug` for readable names of unregistered types:
 //! ```bash
@@ -16,8 +18,7 @@ use bevy::{
         FeathersPlugins,
     },
     inspector::{
-        details_panel::details_panel,
-        entity_tree::{entity_tree_panel, InspectorUi},
+        details_panel::details_panel, entity_tree::InspectorUi, world_tabs::world_tabs,
         InspectableEntity, InspectorPlugin, InspectorSelection,
     },
     prelude::*,
@@ -220,10 +221,7 @@ fn inspector_ui() -> impl Scene {
             Children [
                 @FeathersPane { @size: 1.0, @min_size: 220.0 }
                 Children [
-                    @entity_tree_panel()
-                    Node {
-                        width: Val::Auto,
-                    }
+                    @world_tabs()
                 ]
                 --
                 @FeathersSplitPaneHandle

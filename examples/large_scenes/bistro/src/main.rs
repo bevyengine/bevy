@@ -480,7 +480,7 @@ fn run_animation(
         return;
     };
     if input.just_pressed(KeyCode::Space) {
-        *animation_active = !*animation_active;
+        animation_active.toggle();
     }
     if !*animation_active {
         return;

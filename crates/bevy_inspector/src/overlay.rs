@@ -34,22 +34,23 @@ use bevy_log::warn;
 use bevy_picking::{cursor::EntityCursor, Pickable, PickingSystems};
 use bevy_scene::prelude::*;
 use bevy_ui::{
-    percent, px, AlignItems, BorderRadius, DefaultUiCamera, FlexDirection, Node, PositionType,
-    UiRect, Val,
+    percent, px, AlignItems, BorderRadius, DefaultUiCamera, FlexDirection, GlobalZIndex, Node,
+    PositionType, UiRect, Val,
 };
 use bevy_ui_widgets::{Activate, Dialog, DialogDragHandle, RequestClose};
 use bevy_window::SystemCursorIcon;
 
 use crate::{
     details_panel::{details_body, DetailsCollapsed},
-    entity_tree::{entity_tree_body, InspectorUi},
-    InspectorPlugin,
+    entity_tree::InspectorUi,
+    world_tabs::world_tabs,
+    InspectorMode, InspectorPlugin,
 };
 
 /// Adds the inspector to an app as an overlay, hidden until [`toggle_key`](Self::toggle_key) is
 /// pressed.
 ///
-/// The inspector only walks the world while the entity tree panel is showing.
+/// The inspector only walks the world while a view of it is showing.
 pub struct InspectorOverlayPlugin {
     /// The key that shows and hides the overlay.
     pub toggle_key: KeyCode,
@@ -73,7 +74,7 @@ impl Plugin for InspectorOverlayPlugin {
                     .after(InputSystems)
                     .before(PickingSystems::Last),
             )
-            .add_systems(Update, sync_panel_toggles);
+            .add_systems(Update, (sync_panel_toggles, sync_mode_toggles));
         app.world_mut()
             .resource_mut::<DetailsCollapsed>()
             .by_default = true;
@@ -83,6 +84,8 @@ impl Plugin for InspectorOverlayPlugin {
 #[derive(Resource)]
 struct InspectorOverlayKey(KeyCode);
 
+const OVERLAY_Z: i32 = 40;
+
 /// Marker for the root entity of the inspector overlay.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct InspectorOverlay;
@@ -90,9 +93,9 @@ pub struct InspectorOverlay;
 /// A panel of the inspector overlay, shown and hidden independently from the toolbar.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InspectorOverlayPanel {
-    /// The entity tree.
+    /// The tabbed views of the inspected world.
     #[default]
-    Tree,
+    Overview,
     /// The details of the selected entity.
     Details,
 }
@@ -100,6 +103,9 @@ pub enum InspectorOverlayPanel {
 /// A toolbar button that shows and hides a panel.
 #[derive(Component, Clone, Copy, Debug, Default)]
 struct PanelToggle(InspectorOverlayPanel);
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+struct ModeToggle(InspectorMode);
 
 fn toggle_inspector_overlay(
     key: Res<InspectorOverlayKey>,
@@ -154,6 +160,25 @@ fn on_panel_close(mut close: On<RequestClose>, mut visibilities: Query<&mut Visi
     }
 }
 
+fn on_mode_toggle(
+    activate: On<Activate>,
+    toggles: Query<&ModeToggle>,
+    mut mode: ResMut<InspectorMode>,
+) {
+    if let Ok(toggle) = toggles.get(activate.event_target()) {
+        mode.set_if_neq(toggle.0);
+    }
+}
+
+fn sync_mode_toggles(
+    mode: Res<InspectorMode>,
+    mut toggles: Query<(&ModeToggle, &mut ButtonVariant)>,
+) {
+    for (toggle, mut variant) in &mut toggles {
+        variant.set_if_neq(ButtonVariant::selected(toggle.0 == *mode));
+    }
+}
+
 fn sync_panel_toggles(
     panels: Query<(&InspectorOverlayPanel, &Visibility), Changed<Visibility>>,
     mut toggles: Query<(&PanelToggle, &mut ButtonVariant)>,
@@ -172,6 +197,7 @@ fn overlay_scene() -> impl Scene {
         InspectorOverlay
         InspectorUi
         Name::new("Inspector")
+        GlobalZIndex(OVERLAY_Z)
         Node {
             position_type: PositionType::Absolute,
             width: percent(100),
@@ -182,14 +208,14 @@ fn overlay_scene() -> impl Scene {
             @toolbar()
             --
             @panel_window(px(12), px(220))
-            InspectorOverlayPanel::Tree
+            InspectorOverlayPanel::Overview
             Children [
-                @panel_header("Entities")
+                @panel_header("Overview")
                 --
-                @entity_tree_body()
+                @world_tabs()
             ]
             --
-            @panel_window(px(240), px(280))
+            @panel_window(px(240), px(320))
             InspectorOverlayPanel::Details
             Children [
                 @panel_header("Details")
@@ -219,10 +245,10 @@ fn toolbar() -> impl Scene {
         InheritableThemeTextColor(tokens::DIALOG_TEXT)
         Children [
             @FeathersToolButton {
-                @caption: bsn! { @caption("Entities") },
+                @caption: bsn! { @caption("Overview") },
                 @variant: {ButtonVariant::Primary},
             }
-            PanelToggle(InspectorOverlayPanel::Tree)
+            PanelToggle(InspectorOverlayPanel::Overview)
             on(on_panel_toggle)
             --
             @FeathersToolButton {
@@ -231,6 +257,18 @@ fn toolbar() -> impl Scene {
             }
             PanelToggle(InspectorOverlayPanel::Details)
             on(on_panel_toggle)
+            --
+            @FeathersToolButton {
+                @caption: bsn! { @caption("Edit") },
+            }
+            ModeToggle(InspectorMode::Edit)
+            on(on_mode_toggle)
+            --
+            @FeathersToolButton {
+                @caption: bsn! { @caption("Preview") },
+            }
+            ModeToggle(InspectorMode::Preview)
+            on(on_mode_toggle)
             --
             DialogDragHandle
             EntityCursor::System(SystemCursorIcon::Grab)
@@ -282,8 +320,12 @@ mod tests {
     use super::*;
     use crate::{
         details_panel_visible,
-        entity_tree::{EntityTreeSync, InspectorEntityRow, InspectorTreeView},
+        entity_tree::{EntityTreeSync, InspectorEntityRow, InspectorHeaderRow, InspectorTreeView},
         entity_tree_visible,
+        resource_list::{InspectorResourceList, InspectorResourceRow, ResourceListSync},
+        resource_list_visible,
+        world_tabs::{InspectorPage, InspectorPageTab},
+        InspectableEntity, InspectorSelection, InspectorSource,
     };
     use bevy_app::TaskPoolPlugin;
     use bevy_asset::{AssetApp, AssetPlugin};
@@ -291,6 +333,7 @@ mod tests {
         entity::Entity, hierarchy::ChildOf, name::Name, prelude::*, system::RunSystemOnce,
     };
     use bevy_feathers::theme::UiTheme;
+    use bevy_ui_widgets::{SelectedTreeItem, ValueChange};
 
     fn test_app() -> App {
         let mut app = App::new();
@@ -308,7 +351,12 @@ mod tests {
         app.insert_resource(InspectorOverlayKey(KeyCode::F12));
         app.add_systems(
             Update,
-            (toggle_inspector_overlay, sync_panel_toggles).chain(),
+            (
+                toggle_inspector_overlay,
+                sync_panel_toggles,
+                sync_mode_toggles,
+            )
+                .chain(),
         );
         app
     }
@@ -444,9 +492,9 @@ mod tests {
     fn toolbar_toggles_each_panel_independently() {
         let mut app = test_app();
         press(&mut app);
-        let tree = panel(&mut app, InspectorOverlayPanel::Tree);
+        let tree = panel(&mut app, InspectorOverlayPanel::Overview);
         let details = panel(&mut app, InspectorOverlayPanel::Details);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         assert_eq!(
             app.world().get::<ButtonVariant>(button),
             Some(&ButtonVariant::Primary)
@@ -489,8 +537,8 @@ mod tests {
     fn closing_a_panel_keeps_it_and_the_toolbar_reopens_it() {
         let mut app = test_app();
         press(&mut app);
-        let tree = panel(&mut app, InspectorOverlayPanel::Tree);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let tree = panel(&mut app, InspectorOverlayPanel::Overview);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         app.world_mut().trigger(RequestClose { source: tree });
         app.update();
         assert_eq!(
@@ -513,7 +561,7 @@ mod tests {
     fn hiding_the_overlay_keeps_closed_panels_closed() {
         let mut app = test_app();
         press(&mut app);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         click(&mut app, button);
         press(&mut app);
         press(&mut app);
@@ -531,7 +579,7 @@ mod tests {
     fn closing_the_tree_stops_it_syncing_and_reopening_catches_up() {
         let mut app = test_app();
         press(&mut app);
-        let button = toggle_button(&mut app, InspectorOverlayPanel::Tree);
+        let button = toggle_button(&mut app, InspectorOverlayPanel::Overview);
         click(&mut app, button);
         let subject = app.world_mut().spawn(Name::new("Late")).id();
         app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
@@ -539,6 +587,187 @@ mod tests {
         assert_eq!(row_count(&mut app, subject), 0);
         click(&mut app, button);
         assert_eq!(row_count(&mut app, subject), 1);
+    }
+
+    fn select_page(app: &mut App, page: InspectorPage) {
+        let world = app.world_mut();
+        let (tab, strip) = world
+            .query::<(Entity, &InspectorPageTab, &ChildOf)>()
+            .iter(world)
+            .find(|(_, tab, _)| tab.0 == page)
+            .map(|(tab, _, strip)| (tab, strip.parent()))
+            .unwrap();
+        world.trigger(ValueChange {
+            source: strip,
+            value: Some(tab),
+            is_final: true,
+        });
+        app.update();
+    }
+
+    #[test]
+    fn tabs_switch_between_the_entity_tree_and_the_resource_list() {
+        let mut app = test_app();
+        press(&mut app);
+        assert!(app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        assert!(!app
+            .world_mut()
+            .run_system_once(resource_list_visible)
+            .unwrap());
+
+        select_page(&mut app, InspectorPage::Resources);
+        assert!(!app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        assert!(app
+            .world_mut()
+            .run_system_once(resource_list_visible)
+            .unwrap());
+        let world = app.world_mut();
+        assert!(world
+            .query::<&InspectorResourceRow>()
+            .iter(world)
+            .next()
+            .is_some());
+
+        select_page(&mut app, InspectorPage::Entities);
+        assert!(app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        assert!(!app
+            .world_mut()
+            .run_system_once(resource_list_visible)
+            .unwrap());
+    }
+
+    #[test]
+    fn selecting_a_resource_clears_the_entity_tree_highlight() {
+        let mut app = test_app();
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        app.insert_resource(Marker);
+        press(&mut app);
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
+        app.update();
+        let world = app.world_mut();
+        let tree = world
+            .query_filtered::<Entity, With<InspectorTreeView>>()
+            .single(world)
+            .unwrap();
+        assert!(app
+            .world()
+            .get::<SelectedTreeItem>(tree)
+            .unwrap()
+            .0
+            .is_some());
+
+        select_page(&mut app, InspectorPage::Resources);
+        let list = single::<With<InspectorResourceList>>(&mut app);
+        let row = resource_row(&mut app).unwrap();
+        select_row(&mut app, list, row);
+        assert_eq!(app.world().get::<SelectedTreeItem>(tree).unwrap().0, None);
+        assert_eq!(
+            app.world().get::<SelectedTreeItem>(list).unwrap().0,
+            Some(row)
+        );
+    }
+
+    #[derive(Resource)]
+    struct Marker;
+
+    fn single<F: bevy_ecs::query::QueryFilter>(app: &mut App) -> Entity {
+        let world = app.world_mut();
+        world.query_filtered::<Entity, F>().single(world).unwrap()
+    }
+
+    fn resource_row(app: &mut App) -> Option<Entity> {
+        let world = app.world_mut();
+        let id = world.component_id::<Marker>()?;
+        let inspected = world.resource_entities().get(id)?;
+        world
+            .query::<(Entity, &InspectorResourceRow)>()
+            .iter(world)
+            .find_map(|(row, shown)| (shown.inspected == inspected).then_some(row))
+    }
+
+    fn sync_resources(app: &mut App) {
+        app.world_mut()
+            .resource_mut::<ResourceListSync>()
+            .set_dirty();
+        app.update();
+    }
+
+    fn select_row(app: &mut App, list: Entity, row: Entity) {
+        app.world_mut().trigger(ValueChange {
+            source: list,
+            value: Some(row),
+            is_final: true,
+        });
+        app.update();
+    }
+
+    #[test]
+    fn a_selected_header_stays_highlighted_until_a_resource_is_selected() {
+        let mut app = test_app();
+        app.insert_resource(Marker);
+        press(&mut app);
+        let tree = single::<With<InspectorTreeView>>(&mut app);
+        let header = single::<With<InspectorHeaderRow>>(&mut app);
+        select_row(&mut app, tree, header);
+        assert_eq!(app.world().resource::<InspectorSelection>().0, None);
+        assert_eq!(
+            app.world().get::<SelectedTreeItem>(tree).unwrap().0,
+            Some(header)
+        );
+
+        select_page(&mut app, InspectorPage::Resources);
+        let list = single::<With<InspectorResourceList>>(&mut app);
+        let row = resource_row(&mut app).unwrap();
+        select_row(&mut app, list, row);
+        assert_eq!(app.world().get::<SelectedTreeItem>(tree).unwrap().0, None);
+    }
+
+    #[test]
+    fn a_reinserted_resource_keeps_its_highlight() {
+        let mut app = test_app();
+        app.insert_resource(Marker);
+        press(&mut app);
+        select_page(&mut app, InspectorPage::Resources);
+        let list = single::<With<InspectorResourceList>>(&mut app);
+        let row = resource_row(&mut app).unwrap();
+        select_row(&mut app, list, row);
+
+        app.world_mut().remove_resource::<Marker>();
+        sync_resources(&mut app);
+        assert!(resource_row(&mut app).is_none());
+
+        app.insert_resource(Marker);
+        sync_resources(&mut app);
+        let respawned = resource_row(&mut app).unwrap();
+        assert_ne!(respawned, row);
+        assert_eq!(
+            app.world().get::<SelectedTreeItem>(list).unwrap().0,
+            Some(respawned)
+        );
+    }
+
+    #[test]
+    fn a_hidden_resource_tab_does_not_sync_and_catches_up_when_shown() {
+        let mut app = test_app();
+        press(&mut app);
+        select_page(&mut app, InspectorPage::Resources);
+        select_page(&mut app, InspectorPage::Entities);
+        app.insert_resource(Marker);
+        sync_resources(&mut app);
+        assert!(resource_row(&mut app).is_none());
+
+        select_page(&mut app, InspectorPage::Resources);
+        assert!(resource_row(&mut app).is_some());
     }
 
     #[test]
@@ -570,5 +799,113 @@ mod tests {
 
         world.entity_mut(panel).insert(Visibility::Hidden);
         assert!(!world.run_system_once(entity_tree_visible).unwrap());
+    }
+
+    fn mode_button(app: &mut App, mode: InspectorMode) -> Entity {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &ModeToggle)>()
+            .iter(world)
+            .find(|(_, toggle)| toggle.0 == mode)
+            .unwrap()
+            .0
+    }
+
+    #[test]
+    fn the_toolbar_switches_and_shows_the_mode() {
+        let mut app = test_app();
+        press(&mut app);
+        let edit = mode_button(&mut app, InspectorMode::Edit);
+        let preview = mode_button(&mut app, InspectorMode::Preview);
+        assert_eq!(
+            app.world().get::<ButtonVariant>(edit),
+            Some(&ButtonVariant::Primary)
+        );
+        assert_eq!(
+            app.world().get::<ButtonVariant>(preview),
+            Some(&ButtonVariant::Normal)
+        );
+
+        click(&mut app, preview);
+        assert_eq!(
+            *app.world().resource::<InspectorMode>(),
+            InspectorMode::Preview
+        );
+        assert_eq!(
+            app.world().get::<ButtonVariant>(preview),
+            Some(&ButtonVariant::Primary)
+        );
+
+        *app.world_mut().resource_mut::<InspectorMode>() = InspectorMode::Edit;
+        app.update();
+        assert_eq!(
+            app.world().get::<ButtonVariant>(edit),
+            Some(&ButtonVariant::Primary)
+        );
+        assert_eq!(
+            app.world().get::<ButtonVariant>(preview),
+            Some(&ButtonVariant::Normal)
+        );
+    }
+
+    #[test]
+    fn picking_from_the_resources_tab_selects_and_shows_the_entity_tree() {
+        use bevy_picking::{
+            backend::{HitData, PointerHits},
+            pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput},
+        };
+
+        let mut app = test_app();
+        press(&mut app);
+        select_page(&mut app, InspectorPage::Resources);
+        assert!(!app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        let root = app.world_mut().spawn(Name::new("Root")).id();
+        let subject = app
+            .world_mut()
+            .spawn((Name::new("Subject"), ChildOf(root)))
+            .id();
+        let camera = app.world_mut().spawn_empty().id();
+        for action in [
+            PointerAction::Press(PointerButton::Primary),
+            PointerAction::Release(PointerButton::Primary),
+        ] {
+            app.world_mut().write_message(PointerHits::new(
+                PointerId::Mouse,
+                alloc::vec![(subject, HitData::new(camera, 1.0, None, None))],
+                0.0,
+            ));
+            app.world_mut().write_message(PointerInput::new(
+                PointerId::Mouse,
+                Location {
+                    target: bevy_camera::NormalizedRenderTarget::None {
+                        width: 1,
+                        height: 1,
+                    },
+                    position: bevy_math::Vec2::ZERO,
+                },
+                action,
+            ));
+            app.update();
+        }
+        assert_eq!(
+            app.world().resource::<InspectorSelection>().0,
+            Some(InspectableEntity::new(subject, InspectorSource::Local))
+        );
+        app.update();
+        assert!(app
+            .world_mut()
+            .run_system_once(entity_tree_visible)
+            .unwrap());
+        app.update();
+        let tree = single::<With<InspectorTreeView>>(&mut app);
+        let row = app
+            .world()
+            .resource::<crate::entity_tree::TreeRowIndex>()
+            .row(subject, InspectorSource::Local);
+        assert!(row.is_some());
+        assert_eq!(app.world().get::<SelectedTreeItem>(tree).unwrap().0, row);
     }
 }
