@@ -1,5 +1,3 @@
-//! Loading SVG files as [`Image`]s. See [`SvgLoader`].
-
 use std::path::Path;
 
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
@@ -16,7 +14,7 @@ use crate::{Image, ImageSampler};
 ///
 /// Registered by [`ImagePlugin`](crate::ImagePlugin) when the `svg` feature is enabled.
 ///
-/// An SVG is rasterized once, when it is loaded, at the size chosen by
+/// An SVG is rasterized once at the size chosen by
 /// [`SvgLoaderSettings::size`]. The result is an ordinary [`Image`] in
 /// [`TextureFormat::Rgba8UnormSrgb`].
 ///
@@ -147,8 +145,6 @@ impl AssetLoader for SvgLoader {
 }
 
 /// Parses `bytes` as an SVG and renders it into an [`Image`].
-///
-/// `path` is only used in log messages.
 fn rasterize(bytes: &[u8], settings: &SvgLoaderSettings, path: &Path) -> Result<Image, SvgError> {
     let options = usvg_options(path);
     let tree = usvg::Tree::from_data(bytes, &options)
@@ -207,8 +203,7 @@ fn usvg_options(path: &Path) -> usvg::Options<'_> {
     options
 }
 
-/// Works out the pixel size to rasterize at, from the requested size and the SVG's intrinsic
-/// size
+/// Determine final raster size from the requested size
 fn raster_size(
     requested: SvgRasterSize,
     intrinsic_width: f32,
@@ -265,8 +260,7 @@ fn raster_size(
     Ok((to_pixels(width), to_pixels(height)))
 }
 
-/// Whether the SVG source appears to contain a `<text>` element, which is not drawn
-/// without text support.
+/// Check the SVG source for <text> elements
 fn contains_text_element(bytes: &[u8]) -> bool {
     bytes.windows(5).any(|window| window == b"<text")
 }
