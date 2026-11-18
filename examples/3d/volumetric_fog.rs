@@ -20,6 +20,8 @@ struct AppSettings {
     volumetric_spotlight: bool,
     /// Whether volumetric point light is on.
     volumetric_pointlight: bool,
+    /// Whether the non-volumetric directional light is on.
+    non_volumetric_directional_light: bool,
 }
 
 impl Default for AppSettings {
@@ -27,6 +29,7 @@ impl Default for AppSettings {
         Self {
             volumetric_spotlight: true,
             volumetric_pointlight: true,
+            non_volumetric_directional_light: false,
         }
     }
 }
@@ -38,6 +41,10 @@ struct MoveBackAndForthHorizontally {
     max_x: f32,
     speed: f32,
 }
+
+// Marks the non-volumetric directional light.
+#[derive(Component)]
+struct NonVolumetricDirectionalLight;
 
 fn main() {
     App::new()
@@ -115,6 +122,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         VolumetricLight,
     ));
 
+    // Add the non-volumetric directional light, spawned before the glTF sun so it sorts ahead of it without the fix
+    commands.spawn((
+        Transform::from_xyz(2.0, 4.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        NonVolumetricDirectionalLight,
+    ));
+
     // Add the fog volume.
     commands.spawn((
         FogVolume::default(),
@@ -135,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
 fn create_text(app_settings: &AppSettings) -> Text {
     format!(
-        "{}\n{}\n{}",
+        "{}\n{}\n{}\n{}",
         "Press WASD or the arrow keys to change the direction of the directional light",
         if app_settings.volumetric_pointlight {
             "Press P to turn volumetric point light off"
@@ -146,6 +159,11 @@ fn create_text(app_settings: &AppSettings) -> Text {
             "Press L to turn volumetric spot light off"
         } else {
             "Press L to turn volumetric spot light on"
+        },
+        if app_settings.non_volumetric_directional_light {
+            "Press N to turn non-volumetric directional light off"
+        } else {
+            "Press N to turn non-volumetric directional light on"
         }
     )
     .into()
@@ -155,7 +173,13 @@ fn create_text(app_settings: &AppSettings) -> Text {
 /// lights with shadows.
 fn tweak_scene(
     mut commands: Commands,
-    mut lights: Query<(Entity, &mut DirectionalLight), Changed<DirectionalLight>>,
+    mut lights: Query<
+        (Entity, &mut DirectionalLight),
+        (
+            Changed<DirectionalLight>,
+            Without<NonVolumetricDirectionalLight>,
+        ),
+    >,
 ) {
     for (light, mut directional_light) in lights.iter_mut() {
         // Shadows are needed for volumetric lights to work.
@@ -223,6 +247,7 @@ fn adjust_app_settings(
     mut app_settings: ResMut<AppSettings>,
     mut point_lights: Query<Entity, With<PointLight>>,
     mut spot_lights: Query<Entity, With<SpotLight>>,
+    non_volumetric_directional_lights: Query<Entity, With<NonVolumetricDirectionalLight>>,
     mut text: Query<&mut Text>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
@@ -237,6 +262,13 @@ fn adjust_app_settings(
     // If the user pressed L, toggle volumetric state of the spot light.
     if keyboard_input.just_pressed(KeyCode::KeyL) {
         app_settings.volumetric_spotlight.toggle();
+        any_changes = true;
+    }
+
+    // If the user pressed N, toggle the non-volumetric directional light.
+    if keyboard_input.just_pressed(KeyCode::KeyN) {
+        app_settings.non_volumetric_directional_light =
+            !app_settings.non_volumetric_directional_light;
         any_changes = true;
     }
 
@@ -258,6 +290,18 @@ fn adjust_app_settings(
             commands.entity(spot_light).insert(VolumetricLight);
         } else {
             commands.entity(spot_light).remove::<VolumetricLight>();
+        }
+    }
+
+    for light in non_volumetric_directional_lights.iter() {
+        if app_settings.non_volumetric_directional_light {
+            commands.entity(light).insert(DirectionalLight {
+                color: Color::srgb(0.4, 0.5, 1.0),
+                illuminance: 2_000.0,
+                ..default()
+            });
+        } else {
+            commands.entity(light).remove::<DirectionalLight>();
         }
     }
 
