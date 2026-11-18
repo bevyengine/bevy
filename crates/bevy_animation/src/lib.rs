@@ -38,7 +38,7 @@ use crate::{
 };
 
 use bevy_app::{AnimationUpdate, App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
+use bevy_asset::{Asset, AssetApp, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
@@ -1320,7 +1320,7 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 AnimationUpdate,
                 (
-                    graph::thread_blend_graphs.before(AssetEventSystems),
+                    graph::thread_blend_graphs,
                     advance_transitions,
                     advance_animations,
                     animate_targets,
