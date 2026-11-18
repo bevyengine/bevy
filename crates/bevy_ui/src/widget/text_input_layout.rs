@@ -755,7 +755,7 @@ mod tests {
                         if let PositionedLayoutItem::GlyphRun(glyph_run) = item
                             && glyph_run.style().underline.is_some()
                         {
-                            let metrics = glyph_run.run().metrics();
+                            let metrics = glyph_run.run().font_metrics();
                             let y = glyph_run.baseline() - metrics.underline_offset;
                             expected.push(Rect {
                                 min: Vec2::new(glyph_run.offset(), y),
