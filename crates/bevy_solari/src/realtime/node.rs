@@ -66,9 +66,10 @@ pub struct SolariLightingPipelines {
 }
 
 struct RestirPipelines {
-    initial_and_temporal: CachedComputePipelineId,
+    initial: CachedComputePipelineId,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    initial_and_temporal_with_psr: CachedComputePipelineId,
+    initial_with_psr: CachedComputePipelineId,
+    temporal: CachedComputePipelineId,
     spatial_and_shade: CachedComputePipelineId,
 }
 
@@ -165,25 +166,34 @@ pub fn solari_lighting(
     );
 
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (initial_pipeline_id, spatial_pipeline_id) = if restir.is_some() {
+    let (initial_pipeline_id, reuse_pipeline_ids) = if restir.is_some() {
         (
-            pipelines.restir.initial_and_temporal,
-            Some(pipelines.restir.spatial_and_shade),
+            pipelines.restir.initial,
+            Some((
+                pipelines.restir.temporal,
+                pipelines.restir.spatial_and_shade,
+            )),
         )
     } else {
         (pipelines.no_restir.initial_and_shade, None)
     };
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (initial_pipeline_id, spatial_pipeline_id) =
+    let (initial_pipeline_id, reuse_pipeline_ids) =
         match (restir.is_some(), view_dlss_rr_textures.is_some()) {
             (true, true) => (
-                pipelines.restir.initial_and_temporal_with_psr,
-                Some(pipelines.restir.spatial_and_shade),
+                pipelines.restir.initial_with_psr,
+                Some((
+                    pipelines.restir.temporal,
+                    pipelines.restir.spatial_and_shade,
+                )),
             ),
             (true, false) => (
-                pipelines.restir.initial_and_temporal,
-                Some(pipelines.restir.spatial_and_shade),
+                pipelines.restir.initial,
+                Some((
+                    pipelines.restir.temporal,
+                    pipelines.restir.spatial_and_shade,
+                )),
             ),
             (false, true) => (pipelines.no_restir.initial_and_shade_with_psr, None),
             (false, false) => (pipelines.no_restir.initial_and_shade, None),
@@ -244,10 +254,13 @@ pub fn solari_lighting(
         ),
     };
 
-    let spatial_and_shade_pipeline = match spatial_pipeline_id {
-        Some(id) => match pipeline_cache.get_compute_pipeline(id) {
-            None => return,
-            pipeline => pipeline,
+    let reuse_pipelines = match reuse_pipeline_ids {
+        Some((temporal_id, spatial_and_shade_id)) => match (
+            pipeline_cache.get_compute_pipeline(temporal_id),
+            pipeline_cache.get_compute_pipeline(spatial_and_shade_id),
+        ) {
+            (Some(temporal), Some(spatial_and_shade)) => Some((temporal, spatial_and_shade)),
+            _ => return,
         },
         None => None,
     };
@@ -444,7 +457,10 @@ pub fn solari_lighting(
     pass.set_pipeline(initial_pipeline);
     pass.dispatch_workgroups(dx, dy, 1);
 
-    if let Some(spatial_and_shade_pipeline) = spatial_and_shade_pipeline {
+    if let Some((temporal_pipeline, spatial_and_shade_pipeline)) = reuse_pipelines {
+        pass.set_pipeline(temporal_pipeline);
+        pass.dispatch_workgroups(dx, dy, 1);
+
         pass.set_pipeline(spatial_and_shade_pipeline);
         pass.dispatch_workgroups(dx, dy, 1);
     }
@@ -704,25 +720,33 @@ pub fn init_solari_lighting_pipelines(
             vec![],
         ),
         restir: RestirPipelines {
-            initial_and_temporal: create_pipeline(
-                "solari_lighting_initial_and_temporal_pipeline",
-                "initial_and_temporal",
+            initial: create_pipeline(
+                "solari_lighting_restir_initial_pipeline",
+                "initial",
                 load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
                 true,
                 ExtraBindGroup::None,
                 vec![],
             ),
             #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            initial_and_temporal_with_psr: create_pipeline(
-                "solari_lighting_initial_and_temporal_with_psr_pipeline",
-                "initial_and_temporal",
+            initial_with_psr: create_pipeline(
+                "solari_lighting_restir_initial_with_psr_pipeline",
+                "initial",
                 load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
                 true,
                 ExtraBindGroup::DlssRrGuideBuffers,
                 vec![],
             ),
+            temporal: create_pipeline(
+                "solari_lighting_restir_temporal_pipeline",
+                "temporal",
+                load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
+                true,
+                ExtraBindGroup::None,
+                vec![],
+            ),
             spatial_and_shade: create_pipeline(
-                "solari_lighting_spatial_and_shade_pipeline",
+                "solari_lighting_restir_spatial_and_shade_pipeline",
                 "spatial_and_shade",
                 load_embedded_asset!(asset_server.as_ref(), "restir.wesl"),
                 true,
