@@ -260,7 +260,7 @@ fn raster_size(
     Ok((to_pixels(width), to_pixels(height)))
 }
 
-/// Check the SVG source for <text> elements
+/// Check the SVG source for `<text>` elements
 fn contains_text_element(bytes: &[u8]) -> bool {
     bytes.windows(5).any(|window| window == b"<text")
 }
