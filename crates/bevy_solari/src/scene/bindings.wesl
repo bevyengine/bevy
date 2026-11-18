@@ -359,17 +359,17 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     );
 }
 
+fn resolve_previous_frame_world_position(hit: ResolvedRayHitFull) -> vec3<f32> {
+    let vertices = load_vertices(geometry_ids[hit.instance_id], hit.triangle_id);
+    let previous_frame_transform = affine3_to_square(previous_frame_transforms[hit.instance_id]);
+    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
+    return mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * hit.barycentrics;
+}
+
 /// The BRDF only reflects light toward viewers on the side the normal points to, and returns zero otherwise.
 /// At grazing angles, interpolated or normal-mapped normals can point away from the viewer even though
 /// the triangle faces the viewer, which renders as a black outline. Bend the normal just enough to face the viewer.
 fn bend_normal_towards_viewer(world_normal: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
     let NdotV = dot(world_normal, wo);
     return normalize(world_normal + max(MIN_SHADING_NDOTV - NdotV, 0.0) * wo);
-}
-
-fn resolve_previous_frame_world_position(hit: ResolvedRayHitFull) -> vec3<f32> {
-    let vertices = load_vertices(geometry_ids[hit.instance_id], hit.triangle_id);
-    let previous_frame_transform = affine3_to_square(previous_frame_transforms[hit.instance_id]);
-    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
-    return mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * hit.barycentrics;
 }
