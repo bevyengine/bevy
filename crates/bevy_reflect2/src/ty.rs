@@ -170,8 +170,8 @@ impl Type {
     ///
     /// After this function, `dst` holds a fully-initialized value of this type.
     ///
-    /// Consider using [`initialize_struct`] or [`construct_struct`] for versions that perform the
-    /// allocation of the destination for you (and have fewer safety requirements).
+    /// Consider using [`Self::initialize_struct`] or [`Self::construct_struct`] for versions that
+    /// perform the allocation of the destination for you (and have fewer safety requirements).
     ///
     /// # Safety
     ///
