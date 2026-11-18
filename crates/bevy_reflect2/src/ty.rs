@@ -10,7 +10,6 @@ use crate::{
 use alloc::{
     alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error},
     boxed::Box,
-    vec::Vec,
 };
 use core::{
     alloc::Layout,
@@ -305,43 +304,28 @@ impl Type {
     /// the number of fields, a value has the wrong type, or an ignored field has no default.
     ///
     /// This is a type-checked and safe version of [`Self::initialize_struct_raw`].
-    pub fn construct_struct(&self, mut values: Vec<Box<dyn Reflect>>) -> Option<Box<dyn Reflect>> {
+    pub fn construct_struct(
+        &self,
+        values: impl IntoIterator<Item = Box<dyn Reflect>>,
+    ) -> Option<Box<dyn Reflect>> {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
         };
-        if values.len() != struct_type.fields().len() {
-            return None;
-        }
-        for (field, value) in struct_type.fields().iter().zip(values.iter()) {
-            if field.ty.get().type_id != value.as_ref().type_id() {
-                return None;
-            }
-        }
-
         let ptr = self.alloc_struct(struct_type)?;
-        let mut values = values.drain(..);
-        // SAFETY:
-        // 1) We've checked the type is a struct.
-        // 2) `alloc_struct` returns None if the layout is missing, therefore the layout must be
-        //    Some here.
-        // 3) We just allocated `ptr`, and with the layout of this type, so it is valid for writes.
-        // 4) We've checked that there are the correct number of values for the number of fields,
-        //    and that the values in field-order match the types of each field.
-        // 5) `alloc_struct` returns `None` if any ignored fields don't have a default impl.
-        // 6) `alloc_struct` allocates the pointer based on the struct's `Struct::uncovered_bytes`.
-        unsafe {
-            self.initialize_struct_raw(
-                |_, field_ptr| {
-                    // SAFETY: We've checked the types match for each field, and we own the original
-                    // `ptr`, so the field_ptr is also owned.
-                    move_box_into(values.next().unwrap(), field_ptr.as_ptr());
-                },
-                /*uncovered_initialized=*/ true,
-                ptr,
-            );
-        }
-        // SAFETY: `initialize_struct_raw` guarantees that the type is fully initialized.
-        // `alloc_struct` also allocated `ptr` with the global allocator (or the type is a ZST).
+        let fields = struct_type
+            .fields()
+            .iter()
+            .map(|field| (field.offset, field.ty.get()));
+        // SAFETY: `ptr` was allocated by `alloc_struct` (which uses `Type::alloc`), and
+        // `Struct::new` guarantees that each field is at its offset in it, with its type
+        unsafe { self.move_values_into(ptr, fields, values)? };
+        // SAFETY: `alloc_struct` returns a valid allocation of this type, and `alloc_struct` checks
+        // that all ignored fields have reflected default impls.
+        unsafe { initialize_ignored_fields(struct_type, ptr) }
+        // SAFETY: We've initialized the regular fields and the ignored fields, and `Struct::new`
+        // ensures this covers all fields, and `alloc_struct` ensures all uncovered bytes are
+        // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
+        // the global allocator (or the type is a ZST).
         Some(unsafe { self.box_from_raw(ptr) })
     }
 
