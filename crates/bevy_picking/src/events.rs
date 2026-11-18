@@ -817,7 +817,7 @@ pub fn pointer_events(
     // Input
     mut input_events: MessageReader<PointerInput>,
     // ECS State
-    pointers: Query<&PointerLocation>,
+    pointers: Query<(&PointerId, &PointerLocation)>,
     ancestors_query: Query<&ChildOf>,
     pointer_map: Res<PointerMap>,
     hover_map: Res<HoverMap>,
@@ -827,17 +827,28 @@ pub fn pointer_events(
     mut hovered_entity_ancestors: Local<HoveredEntityAncestors>,
     mut sent_leave: Local<HashSet<(PointerId, Entity)>>,
     mut sent_enter: Local<HashSet<(PointerId, Entity)>>,
+    mut last_known_locations: Local<HashMap<PointerId, Location>>,
     // Output
     mut commands: Commands,
     mut message_writers: PickingMessageWriters,
 ) {
     // Setup utilities
     let now = Instant::now();
+    // Track last known locations so despawned pointers can still send `Out` and `Leave` events.
+    last_known_locations.retain(|pointer_id, _| {
+        pointer_map.get_entity(*pointer_id).is_some() || previous_hover_map.contains_key(pointer_id)
+    });
+    for (pointer_id, pointer) in &pointers {
+        if let Some(location) = &pointer.location {
+            last_known_locations.insert(*pointer_id, location.clone());
+        }
+    }
     let pointer_location = |pointer_id: PointerId| {
         pointer_map
             .get_entity(pointer_id)
             .and_then(|entity| pointers.get(entity).ok())
-            .and_then(|pointer| pointer.location.clone())
+            .and_then(|(_, pointer)| pointer.location.clone())
+            .or_else(|| last_known_locations.get(&pointer_id).cloned())
     };
     hovered_entity_ancestors.rebuild(&hover_map, &pointer_state, &ancestors_query);
     sent_leave.clear();
@@ -1566,5 +1577,49 @@ mod tests {
         assert_observer_event_counts(&app, child_two, 2, 0, 2, 0);
         app.world_mut().increment_change_tick();
         // ---
+    }
+
+    #[test]
+    fn despawned_pointer_sends_out_and_leave_events() {
+        #[derive(Resource, Default)]
+        struct Counts {
+            out: usize,
+            leave: usize,
+        }
+
+        let mut app = App::new();
+        initialize_app_for_test(&mut app);
+        app.init_resource::<Counts>();
+
+        let camera = app.world_mut().spawn(Camera::default()).id();
+        let hovered = app
+            .world_mut()
+            .spawn_empty()
+            .observe(|_: On<PointerOut>, mut counts: ResMut<Counts>| counts.out += 1)
+            .observe(|_: On<PointerLeave>, mut counts: ResMut<Counts>| counts.leave += 1)
+            .id();
+
+        // The mouse pointer hovers the entity.
+        update_hover_map_with_hovered_entities(&mut app, camera, &[hovered]);
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+        assert_eq!(app.world().resource::<Messages<PointerEnter>>().len(), 1);
+
+        // The mouse pointer is despawned. `generate_hovermap` then drops it from the hover map.
+        let pointer = app
+            .world()
+            .resource::<PointerMap>()
+            .get_entity(POINTER_ID)
+            .unwrap();
+        app.world_mut().despawn(pointer);
+        let previous_hover_map = app.world().resource::<HoverMap>().0.clone();
+        app.world_mut()
+            .insert_resource(PreviousHoverMap(previous_hover_map));
+        app.world_mut().insert_resource(HoverMap::default());
+        assert!(app.world_mut().run_system_cached(pointer_events).is_ok());
+
+        let counts = app.world().resource::<Counts>();
+        assert_eq!(counts.out, 1);
+        assert_eq!(counts.leave, 1);
+        assert_eq!(app.world().resource::<Messages<PointerLeave>>().len(), 1);
     }
 }
