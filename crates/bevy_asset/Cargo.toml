@@ -49,7 +49,6 @@ async-channel = { version = "2", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = [
   "std",
 ] }
-downcast-rs = { version = "2", default-features = false }
 disqualified = { version = "1.0", default-features = false }
 either = { version = "1.13", default-features = false }
 futures-util = { version = "0.3", default-features = false, features = [
