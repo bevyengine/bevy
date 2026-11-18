@@ -197,7 +197,6 @@ struct ResolvedMaterial {
 
 struct ResolvedRayHitFull {
     world_position: vec3<f32>,
-    previous_frame_world_position: vec3<f32>,
     world_normal: vec3<f32>,
     geometric_world_normal: vec3<f32>,
     world_tangent: vec4<f32>,
@@ -206,6 +205,9 @@ struct ResolvedRayHitFull {
     triangle_count: u32,
     material: ResolvedMaterial,
     double_sided: bool,
+    instance_id: u32,
+    triangle_id: u32,
+    barycentrics: vec3<f32>,
 }
 
 fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
@@ -299,16 +301,12 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let material = materials[material_id];
 
     let transform = affine3_to_square(transforms[instance_id]);
-    let previous_frame_transform = affine3_to_square(previous_frame_transforms[instance_id]);
 
     let instance_geometry_ids = geometry_ids[instance_id];
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
 
     let world_vertices = transform_positions(transform, vertices);
     let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
-
-    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
-    let previous_frame_world_position = mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * barycentrics;
 
     let mesh_uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
     let uv = material.uv_transform * mesh_uv + material.uv_translation;
@@ -347,7 +345,6 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     return ResolvedRayHitFull(
         world_position,
-        previous_frame_world_position,
         world_normal,
         geometric_world_normal,
         world_tangent,
@@ -356,6 +353,9 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         instance_geometry_ids.triangle_count,
         resolved_material,
         (material.flags & MATERIAL_FLAG_DOUBLE_SIDED) != 0u,
+        instance_id,
+        triangle_id,
+        barycentrics,
     );
 }
 
@@ -365,4 +365,11 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 fn bend_normal_towards_viewer(world_normal: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
     let NdotV = dot(world_normal, wo);
     return normalize(world_normal + max(MIN_SHADING_NDOTV - NdotV, 0.0) * wo);
+}
+
+fn resolve_previous_frame_world_position(hit: ResolvedRayHitFull) -> vec3<f32> {
+    let vertices = load_vertices(geometry_ids[hit.instance_id], hit.triangle_id);
+    let previous_frame_transform = affine3_to_square(previous_frame_transforms[hit.instance_id]);
+    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
+    return mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * hit.barycentrics;
 }

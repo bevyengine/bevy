@@ -1367,19 +1367,52 @@ fn emit_drag_value_change(
     drag_state: &mut DragState,
     is_final: bool,
 ) {
+    let value = drag_value_with_limits(
+        units,
+        soft_limit,
+        hard_limit,
+        precision,
+        step,
+        snap_to_step,
+        wrap,
+        drag_state,
+    );
+
+    trigger_value_change(commands, value, source, is_final);
+}
+
+/// Compute the final value of a drag: the [`dragged_value`] with the hard limit applied.
+///
+/// Dragging is normally confined to the [`SoftLimit`]. When the input wraps at a [`HardLimit`],
+/// the soft limit is skipped so the value can wrap around instead of stopping at its ends.
+fn drag_value_with_limits(
+    units: &dyn UnitsFormat,
+    soft_limit: Option<&SoftLimit>,
+    hard_limit: Option<&HardLimit>,
+    precision: Option<&NumberInputPrecision>,
+    step: Option<&NumberInputStep>,
+    snap_to_step: bool,
+    wrap: Option<&NumberInputWrap>,
+    drag_state: &DragState,
+) -> NumericValue {
+    let effective_soft_limit =
+        if matches!(wrap, Some(NumberInputWrap::Wrap)) && hard_limit.is_some() {
+            None
+        } else {
+            soft_limit
+        };
+
     let value = dragged_value(
         units,
         drag_state.base_value,
         drag_state.value_offset,
-        soft_limit,
+        effective_soft_limit,
         step,
         snap_to_step,
         precision,
     );
     // Hard limit is absolute and always applied last.
-    let value = apply_hard_limit(value, hard_limit, wrap);
-
-    trigger_value_change(commands, value, source, is_final);
+    apply_hard_limit(value, hard_limit, wrap)
 }
 
 /// Compute a scrubbed value from the value at drag start and an offset in display units, before
@@ -2533,6 +2566,51 @@ mod tests {
             None,
         );
         assert_eq!(value, NumericValue::F64(78.2));
+    }
+
+    #[test]
+    fn drag_wraps_past_soft_limit() {
+        let soft_limit = SoftLimit::f64(0.0..=360.0);
+        let hard_limit = HardLimit::f64(0.0..=360.0);
+        let drag_state = DragState {
+            base_value: NumericValue::F64(350.0),
+            value_offset: 20.0,
+            ..Default::default()
+        };
+
+        let value = drag_value_with_limits(
+            &Dimensionless,
+            Some(&soft_limit),
+            Some(&hard_limit),
+            None,
+            None,
+            false,
+            Some(&NumberInputWrap::Wrap),
+            &drag_state,
+        );
+        assert_eq!(value, NumericValue::F64(10.0));
+    }
+
+    #[test]
+    fn drag_wrap_without_hard_limit_keeps_soft_limit() {
+        let soft_limit = SoftLimit::f64(0.0..=360.0);
+        let drag_state = DragState {
+            base_value: NumericValue::F64(350.0),
+            value_offset: 20.0,
+            ..Default::default()
+        };
+
+        let value = drag_value_with_limits(
+            &Dimensionless,
+            Some(&soft_limit),
+            None,
+            None,
+            None,
+            false,
+            Some(&NumberInputWrap::Wrap),
+            &drag_state,
+        );
+        assert_eq!(value, NumericValue::F64(360.0));
     }
 
     #[test]
