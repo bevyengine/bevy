@@ -38,13 +38,13 @@ pub mod prelude {
     pub use crate::Reflect;
 }
 
-pub mod attributes;
 #[cfg(feature = "auto_register")]
 mod auto_register;
 pub mod builtin;
 #[cfg(doctest)]
 mod compile_fail;
 pub mod kind;
+pub mod metadata;
 mod reflect;
 mod ty;
 pub mod type_path;
@@ -1780,7 +1780,7 @@ mod tests {
     }
 
     #[test]
-    fn custom_attributes() {
+    fn metadata() {
         use core::marker::PhantomData;
 
         #[derive(Reflect, Debug, PartialEq)]
@@ -1817,54 +1817,51 @@ mod tests {
         struct Opaque;
 
         let ty = Foo::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("type")));
-        assert_eq!(ty.get_attribute::<u8>(), Some(&3));
-        assert!(ty.has_attribute_by_id(TypeId::of::<u8>()));
-        assert!(!ty.has_attribute::<u32>());
-        assert_eq!(ty.custom_attributes().len(), 2);
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("type")));
+        assert_eq!(ty.get_metadata::<u8>(), Some(&3));
+        assert!(ty.has_metadata_by_id(TypeId::of::<u8>()));
+        assert!(!ty.has_metadata::<u32>());
+        assert_eq!(ty.metadata().len(), 2);
         let Kind::Struct(struct_type) = ty.kind() else {
             panic!("expected struct");
         };
         let field = &struct_type.fields()[0];
-        assert_eq!(field.get_attribute::<Tooltip>(), Some(&Tooltip("field")));
-        assert_eq!(field.get_attribute::<Range>(), Some(&Range(0.0, 1.0)));
-        assert!(struct_type.fields()[1].custom_attributes.is_empty());
+        assert_eq!(field.get_metadata::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_metadata::<Range>(), Some(&Range(0.0, 1.0)));
+        assert!(struct_type.fields()[1].metadata.is_empty());
         assert_eq!(
-            format!("{:?}", field.custom_attributes),
+            format!("{:?}", field.metadata),
             "[Tooltip(\"field\"), Range(0.0, 1.0)]"
         );
 
         let ty = Generic::<u32>::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("generic")));
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("generic")));
         let Kind::Struct(struct_type) = ty.kind() else {
             panic!("expected struct");
         };
-        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&4));
+        assert_eq!(struct_type.fields()[0].get_metadata::<u32>(), Some(&4));
         let Kind::Struct(struct_type) = Generic::<u8>::TYPE.kind() else {
             panic!("expected struct");
         };
-        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&1));
+        assert_eq!(struct_type.fields()[0].get_metadata::<u32>(), Some(&1));
 
         let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
             panic!("expected enum");
         };
         let variant = &enum_type.variants()[0];
+        assert_eq!(variant.get_metadata::<Tooltip>(), Some(&Tooltip("variant")));
         assert_eq!(
-            variant.get_attribute::<Tooltip>(),
-            Some(&Tooltip("variant"))
-        );
-        assert_eq!(
-            variant.fields[0].get_attribute::<Tooltip>(),
+            variant.fields[0].get_metadata::<Tooltip>(),
             Some(&Tooltip("enum field"))
         );
-        assert!(enum_type.variants()[1].custom_attributes.is_empty());
+        assert!(enum_type.variants()[1].metadata.is_empty());
 
         let ty = Opaque::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("opaque")));
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("opaque")));
     }
 
     #[test]
-    fn custom_attributes_primitive() {
+    fn metadata_primitive() {
         #[derive(Reflect, Debug, PartialEq)]
         struct Tooltip(&'static str);
 
@@ -1879,12 +1876,12 @@ mod tests {
         );
 
         let ty = other::Foo::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("reflect")));
-        assert_eq!(ty.get_attribute::<u8>(), Some(&3));
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("reflect")));
+        assert_eq!(ty.get_metadata::<u8>(), Some(&3));
     }
 
     #[test]
-    fn custom_attributes_meta() {
+    fn metadata_meta_attribute() {
         #[derive(Reflect, Debug, PartialEq)]
         struct Tooltip(&'static str);
 
@@ -1909,27 +1906,24 @@ mod tests {
         // `#[meta(...)]` and `#[reflect(@...)]` attributes are combined in declaration order
         let ty = Foo::TYPE;
         assert_eq!(
-            format!("{:?}", ty.custom_attributes()),
+            format!("{:?}", ty.metadata()),
             "[Tooltip(\"type\"), Step(1.0), 3, 4]"
         );
-        assert_eq!(ty.get_attribute::<u16>(), Some(&4));
+        assert_eq!(ty.get_metadata::<u16>(), Some(&4));
         let Kind::Struct(struct_type) = ty.kind() else {
             panic!("expected struct");
         };
         let field = &struct_type.fields()[0];
-        assert_eq!(field.get_attribute::<Tooltip>(), Some(&Tooltip("field")));
-        assert_eq!(field.get_attribute::<Step>(), Some(&Step(0.5)));
+        assert_eq!(field.get_metadata::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_metadata::<Step>(), Some(&Step(0.5)));
 
         let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
             panic!("expected enum");
         };
         let variant = &enum_type.variants()[0];
+        assert_eq!(variant.get_metadata::<Tooltip>(), Some(&Tooltip("variant")));
         assert_eq!(
-            variant.get_attribute::<Tooltip>(),
-            Some(&Tooltip("variant"))
-        );
-        assert_eq!(
-            variant.fields[0].get_attribute::<Tooltip>(),
+            variant.fields[0].get_metadata::<Tooltip>(),
             Some(&Tooltip("enum field"))
         );
     }

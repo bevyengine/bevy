@@ -16,8 +16,8 @@ pub(crate) struct ContainerAttributes {
     pub(crate) hash: TraitImpl,
     pub(crate) partial_eq: TraitImpl,
     pub(crate) partial_ord: TraitImpl,
-    /// Custom attributes (`#[reflect(@expr)]`).
-    pub(crate) custom_attributes: CustomAttributes,
+    /// Metadata (`#[reflect(@expr)]` or `#[meta(expr)]`).
+    pub(crate) metadata: Metadata,
     pub(crate) type_data: Vec<TypeDataRegistration>,
     pub(crate) no_auto_register: bool,
     /// Reflects the type as a `Kind::Primitive` with this `Primitive` variant, without reflecting
@@ -59,7 +59,7 @@ impl ContainerAttributes {
             return self.parse_where(input);
         }
         if input.peek(Token![@]) {
-            return self.custom_attributes.parse_custom_attribute(input);
+            return self.metadata.parse_metadata_expr(input);
         }
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::Default) {
@@ -356,21 +356,21 @@ impl ContainerAttributes {
     }
 }
 
-/// Custom attributes, registered with `#[reflect(@expr)]` or `#[meta(expr)]` on types, fields, and
+/// Metadata values, registered with `#[reflect(@expr)]` or `#[meta(expr)]` on types, fields, and
 /// variants.
 ///
 /// Examples:
 /// - `#[reflect(@Tooltip("hello"))]`
 /// - `#[reflect(@0.0..=1.0, @Step(0.5))]`
 #[derive(Default)]
-pub(crate) struct CustomAttributes {
-    attributes: Vec<Expr>,
+pub(crate) struct Metadata {
+    values: Vec<Expr>,
 }
 
-impl CustomAttributes {
-    pub(crate) fn parse_custom_attribute(&mut self, input: ParseStream) -> Result<()> {
+impl Metadata {
+    pub(crate) fn parse_metadata_expr(&mut self, input: ParseStream) -> Result<()> {
         input.parse::<Token![@]>()?;
-        self.attributes.push(input.parse::<Expr>()?);
+        self.values.push(input.parse::<Expr>()?);
         Ok(())
     }
 
@@ -379,25 +379,25 @@ impl CustomAttributes {
             return Ok(false);
         }
         let exprs = attr.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
-        self.attributes.extend(exprs);
+        self.values.extend(exprs);
         Ok(true)
     }
 
     pub(crate) fn first(&self) -> Option<&Expr> {
-        self.attributes.first()
+        self.values.first()
     }
 
     pub(crate) fn to_tokens(&self, bevy_reflect: &Path) -> TokenStream {
-        if self.attributes.is_empty() {
-            return quote! { #bevy_reflect::attributes::CustomAttributes::EMPTY };
+        if self.values.is_empty() {
+            return quote! { #bevy_reflect::metadata::Metadata::EMPTY };
         }
-        let attributes = self.attributes.iter().map(|expr| {
+        let values = self.values.iter().map(|expr| {
             quote_spanned! {expr.span()=>
-                &(#expr) as #bevy_reflect::attributes::CustomAttribute
+                &(#expr) as #bevy_reflect::metadata::MetadataValue
             }
         });
         quote! {
-            #bevy_reflect::attributes::CustomAttributes::new(&[#(#attributes),*])
+            #bevy_reflect::metadata::Metadata::new(&[#(#values),*])
         }
     }
 }

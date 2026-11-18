@@ -7,7 +7,7 @@ use syn::{
 };
 
 use crate::reflect::{
-    attributes::{CustomAttributes, TraitImpl},
+    attributes::{Metadata, TraitImpl},
     REFLECT_ATTRIBUTE_NAME,
 };
 
@@ -31,8 +31,8 @@ pub(crate) struct FieldAttributes {
     pub(crate) default: TraitImpl,
     /// Clones an ignored field when the value is cloned structurally.
     pub(crate) clone: TraitImpl,
-    /// Custom attributes (`#[reflect(@expr)]`).
-    pub(crate) custom_attributes: CustomAttributes,
+    /// Metadata (`#[reflect(@expr)]` or `#[meta(expr)]`).
+    pub(crate) metadata: Metadata,
 }
 
 impl FieldAttributes {
@@ -40,7 +40,7 @@ impl FieldAttributes {
     pub(crate) fn parse(field: &Field) -> Result<Self> {
         let mut attributes = Self::default();
         for attr in &field.attrs {
-            if attributes.custom_attributes.parse_meta_attribute(attr)? {
+            if attributes.metadata.parse_meta_attribute(attr)? {
                 continue;
             }
             if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
@@ -53,11 +53,11 @@ impl FieldAttributes {
         }
 
         if attributes.ignore
-            && let Some(attribute) = attributes.custom_attributes.first()
+            && let Some(expr) = attributes.metadata.first()
         {
             return Err(syn::Error::new(
-                attribute.span(),
-                "custom attributes (`@expr` or `#[meta(...)]`) are not supported on ignored fields",
+                expr.span(),
+                "metadata (`@expr` or `#[meta(...)]`) is not supported on ignored fields",
             ));
         }
         if !attributes.ignore {
@@ -78,7 +78,7 @@ impl FieldAttributes {
     /// Parses a single field attribute.
     fn parse_field_attribute(&mut self, input: ParseStream) -> Result<()> {
         if input.peek(Token![@]) {
-            return self.custom_attributes.parse_custom_attribute(input);
+            return self.metadata.parse_metadata_expr(input);
         }
         let ident = input.call(Ident::parse_any)?;
         let span = ident.span();

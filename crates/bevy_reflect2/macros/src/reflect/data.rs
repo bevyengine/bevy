@@ -7,7 +7,7 @@ use syn::{
 };
 
 use crate::reflect::{
-    attributes::CustomAttributes, field_attributes::FieldAttributes, REFLECT_ATTRIBUTE_NAME,
+    attributes::Metadata, field_attributes::FieldAttributes, REFLECT_ATTRIBUTE_NAME,
 };
 
 /// The fields or variants of a reflected type, parsed once from its definition.
@@ -58,14 +58,14 @@ impl<'a> ReflectData<'a> {
 pub(crate) struct ReflectVariant<'a> {
     pub(crate) variant: &'a Variant,
     pub(crate) fields: ReflectFields<'a>,
-    pub(crate) custom_attributes: CustomAttributes,
+    pub(crate) metadata: Metadata,
 }
 
 impl<'a> ReflectVariant<'a> {
     fn parse(variant: &'a Variant) -> Result<Self> {
-        let mut custom_attributes = CustomAttributes::default();
+        let mut metadata = Metadata::default();
         for attr in &variant.attrs {
-            if custom_attributes.parse_meta_attribute(attr)? {
+            if metadata.parse_meta_attribute(attr)? {
                 continue;
             }
             if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
@@ -74,11 +74,10 @@ impl<'a> ReflectVariant<'a> {
             attr.parse_args_with(|input: ParseStream| {
                 terminated_parser(Token![,], |input| {
                     if !input.peek(Token![@]) {
-                        return Err(input.error(
-                            "unsupported variant attribute, expected a custom attribute (`@expr`)",
-                        ));
+                        return Err(input
+                            .error("unsupported variant attribute, expected metadata (`@expr`)"));
                     }
-                    custom_attributes.parse_custom_attribute(input)
+                    metadata.parse_metadata_expr(input)
                 })(input)
                 .map(drop)
             })?;
@@ -86,7 +85,7 @@ impl<'a> ReflectVariant<'a> {
         Ok(Self {
             variant,
             fields: ReflectFields::parse(&variant.fields)?,
-            custom_attributes,
+            metadata,
         })
     }
 }

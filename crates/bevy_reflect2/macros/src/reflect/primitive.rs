@@ -155,9 +155,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
         };
     let (impl_generics, _, _) = generics.split_for_impl();
     let vtable = container_attributes.vtable(&bevy_reflect);
-    let custom_attributes = container_attributes
-        .custom_attributes
-        .to_tokens(&bevy_reflect);
+    let metadata = container_attributes.metadata.to_tokens(&bevy_reflect);
     let type_registration = type_registration(
         &target,
         &generics,
@@ -171,7 +169,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
         unsafe impl #impl_generics #bevy_reflect::Typed for #target #extended_where_clause {
             const TYPE: &'static #bevy_reflect::Type = &{
                 let vtable = #vtable;
-                let custom_attributes = #custom_attributes;
+                let metadata = #metadata;
                 unsafe {
                     #bevy_reflect::Type::new(
                         ::core::any::TypeId::of::<Self>(),
@@ -181,7 +179,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                         #type_path_tokens,
                     )
                 }
-                .with_custom_attributes(custom_attributes)
+                .with_metadata(metadata)
             };
         }
 
