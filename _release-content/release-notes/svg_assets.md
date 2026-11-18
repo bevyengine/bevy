@@ -1,7 +1,7 @@
 ---
 title: SVG Assets
 authors: ["@rossleonardy"]
-pull_requests: [#26602]
+pull_requests: [26602]
 ---
 
 Bevy can now load `.svg` files as images with the `svg` feature enabled.
