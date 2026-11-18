@@ -187,9 +187,9 @@ impl Type {
     ///    correctly initialized according to [`Struct::uncovered_bytes`].
     pub unsafe fn initialize_struct_raw(
         &self,
-        mut func: impl FnMut(&StructField, NonNull<u8>),
-        uncovered_initialized: bool,
         dst: NonNull<u8>,
+        uncovered_initialized: bool,
+        mut func: impl FnMut(&StructField, NonNull<u8>),
     ) {
         let Kind::Struct(struct_type) = &self.kind else {
             // SAFETY: The safety precondition guarantees the type is a struct.
@@ -269,7 +269,7 @@ impl Type {
         // 5) `alloc_struct` returns `None` if any ignored fields don't have a default impl.
         // 6) `alloc_struct` allocates the pointer based on the struct's `Struct::uncovered_bytes`.
         unsafe {
-            self.initialize_struct_raw(func, /*uncovered_initialized=*/ true, ptr);
+            self.initialize_struct_raw(ptr, /*uncovered_initialized=*/ true, func);
         }
         // SAFETY: `initialize_struct_raw` guarantees that the type is fully initialized.
         // `alloc_struct` also allocated `ptr` with the global allocator (or the type is a ZST).

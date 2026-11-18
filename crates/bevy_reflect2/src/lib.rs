@@ -912,6 +912,8 @@ mod tests {
         // 6) uncovered_initialized is false.
         unsafe {
             Foo::TYPE.initialize_struct_raw(
+                non_null_from_maybe_uninit(&mut value),
+                /*uncovered_initialized=*/ false,
                 |field, ptr| {
                     if field.ty.get().type_id() == TypeId::of::<u32>() {
                         // SAFETY: We've checked the type matches, and we have write access.
@@ -922,8 +924,6 @@ mod tests {
                         ptr.as_ptr().cast::<String>().write(String::from("hello"));
                     }
                 },
-                /*uncovered_initialized=*/ false,
-                non_null_from_maybe_uninit(&mut value),
             );
         }
 
@@ -964,12 +964,12 @@ mod tests {
         // 6) `uncovered_initialized` is false.
         unsafe {
             Foo::TYPE.initialize_struct_raw(
+                non_null_from_maybe_uninit(&mut value),
+                /*uncovered_initialized=*/ false,
                 |field, ptr| {
                     assert_eq!(field.name, "a");
                     ptr.as_ptr().cast::<u32>().write(10);
                 },
-                /*uncovered_initialized=*/ false,
-                non_null_from_maybe_uninit(&mut value),
             );
         }
         // SAFETY: initialize_struct_raw guarantees `value` is fully initialized.
