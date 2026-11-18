@@ -532,6 +532,9 @@ pnm = ["bevy_internal/pnm"]
 # QOI image format support
 qoi = ["bevy_internal/qoi"]
 
+# SVG image support, rasterized to an `Image` when loaded. Enabled by `bevy_feathers`.
+svg = ["bevy_internal/svg"]
+
 # TGA image format support
 tga = ["bevy_internal/tga"]
 

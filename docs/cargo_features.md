@@ -194,6 +194,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |sprite_picking|Provides an implementation for picking sprites|
 |statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
 |std|Allows access to the `std` crate.|
+|svg|SVG image support. Automatically enabled by `bevy_feathers`.|
 |symphonia-flac|FLAC audio format support (through `symphonia`)|
 |symphonia-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
 |symphonia-wav|WAV audio format support (through `symphonia`)|
