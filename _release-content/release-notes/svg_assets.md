@@ -18,7 +18,7 @@ bsn! {
 }
 ```
 
-By default, SVGs are rasterized at their intrinsic size. If you want to rasterize them at another size, use `SvgLoaderSettings`: 
+By default, SVGs are rasterized at their intrinsic size. If you want to rasterize them at another size, use `SvgLoaderSettings`:
 
 ```rust
 let icon = asset_server
