@@ -30,9 +30,7 @@ pub struct SvgLoader;
 
 /// The largest width or height, in pixels, that an SVG is rasterized at.
 ///
-/// This is the texture size every wgpu backend except WebGL2 supports by default. It guards
-/// against mistakes such as a huge `viewBox` or scale factor, which would otherwise try to
-/// allocate gigabytes.
+/// Guards against mistakes such as a huge `viewBox` or scale factor.
 const MAX_DIMENSION: u32 = 8192;
 
 /// The pixel size to rasterize an SVG at.
@@ -71,9 +69,6 @@ pub struct SvgLoaderSettings {
     /// The pixel size of the resulting [`Image`].
     pub size: SvgRasterSize,
     /// The [`ImageSampler`] to use when rendering.
-    ///
-    /// Defaults to linear filtering rather than [`ImageSampler::Default`], so SVGs stay smooth in
-    /// apps that use nearest filtering for pixel art.
     pub sampler: ImageSampler,
     /// Where the asset will be used. See [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
