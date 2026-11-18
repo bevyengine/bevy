@@ -180,6 +180,18 @@ macro_rules! define_label {
 
             $($trait_extra_methods)*
 
+            /// Returns `true` if the [`Debug`](::core::fmt::Debug) output of this label already
+            /// includes its type name.
+            ///
+            /// The derived [`Debug`](::core::fmt::Debug) output of an enum only contains the variant name,
+            /// so diagnostics use this to decide whether to prefix the type name (e.g. `MyEnum::Variant`).
+            ///
+            /// Deriving the label trait returns `true` for structs and `false` for enums.
+            /// Defaults to `true`.
+            fn debug_includes_type_name(&self) -> bool {
+                true
+            }
+
             /// Clones this `
             #[doc = ::core::stringify!($label_trait_name)]
             ///`.
@@ -199,6 +211,10 @@ macro_rules! define_label {
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
             $($interned_extra_methods_impl)*
+
+            fn debug_includes_type_name(&self) -> bool {
+                (**self).debug_includes_type_name()
+            }
 
             fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
