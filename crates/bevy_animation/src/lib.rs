@@ -1341,14 +1341,13 @@ impl Plugin for AnimationPlugin {
                 AnimationUpdate,
                 (
                     graph::thread_blend_graphs.in_set(AnimationSystems::Prepare),
-                    (advance_transitions, advance_animations)
-                        .chain()
-                        .in_set(AnimationSystems::Advance),
-                    (animate_targets, trigger_untargeted_animation_events)
-                        .chain()
-                        .in_set(AnimationSystems::Apply),
+                    advance_transitions.in_set(AnimationSystems::Advance),
+                    advance_animations.in_set(AnimationSystems::Advance),
+                    animate_targets.in_set(AnimationSystems::Apply),
+                    trigger_untargeted_animation_events.in_set(AnimationSystems::Apply),
                     expire_completed_transitions.in_set(AnimationSystems::Cleanup),
-                ),
+                )
+                    .chain(),
             );
     }
 }
