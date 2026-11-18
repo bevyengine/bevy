@@ -9,6 +9,7 @@ Bevy can now load `.svg` files as images with the `svg` feature enabled.
 We want to support vector graphics for specific use cases, like UI icons.
 
 In bsn! templates, you can use svg files like any other image:
+
 ```rust
 bsn! {
     ImageNode {
@@ -18,6 +19,7 @@ bsn! {
 ```
 
 By default, SVGs are rasterized at their intrinsic size. If you want to rasterize them at another size, use `SvgLoaderSettings`: 
+
 ```rust
 let icon = asset_server
     .load_builder()
