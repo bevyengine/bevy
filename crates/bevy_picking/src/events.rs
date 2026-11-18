@@ -802,11 +802,11 @@ pub struct PickingMessageWriters<'w> {
 /// the case of [`PointerEnter`] → [`PointerLeave`], shared parent entities will not receive [`PointerEnter`]
 /// or [`PointerLeave`].
 ///
-/// Both [`PointerClick`] and [`PointerRelease`] target the entity hovered in the *previous frame*,
-/// rather than the current frame. This is because touch pointers hover nothing
-/// on the frame they are released. The end effect is that these two events can
-/// be received sequentially after an [`PointerOut`] event (but always on the same frame
-/// as the [`PointerOut`] event).
+/// Both [`PointerClick`] and [`PointerRelease`] target entities hovered in the *previous frame*,
+/// unless the same pointer button has an unmatched press earlier in this frame. In that case, they use the
+/// current hover map, like [`PointerPress`]. This includes touch pointers that begin and end in the
+/// same frame. These events can be received sequentially after a [`PointerOut`] event (but always
+/// on the same frame as the [`PointerOut`] event).
 ///
 /// Note: Though it is common for the [`PointerInput`] stream may contain
 /// multiple pointer movements and presses each frame, the hover state is
@@ -827,6 +827,7 @@ pub fn pointer_events(
     mut hovered_entity_ancestors: Local<HoveredEntityAncestors>,
     mut sent_leave: Local<HashSet<(PointerId, Entity)>>,
     mut sent_enter: Local<HashSet<(PointerId, Entity)>>,
+    mut just_pressed: Local<HashSet<(PointerId, PointerButton)>>,
     // Output
     mut commands: Commands,
     mut message_writers: PickingMessageWriters,
@@ -842,6 +843,7 @@ pub fn pointer_events(
     hovered_entity_ancestors.rebuild(&hover_map, &pointer_state, &ancestors_query);
     sent_leave.clear();
     sent_enter.clear();
+    just_pressed.clear();
 
     // If the entity was hovered by a specific pointer last frame...
     for (pointer_id, hovered_entity, hit) in previous_hover_map
@@ -1051,6 +1053,7 @@ pub fn pointer_events(
         let pointer = Pointer::new(pointer_id, location.clone());
         match action {
             PointerAction::Press(button) => {
+                just_pressed.insert((pointer_id, button));
                 let state = pointer_state.get_mut(pointer_id, button);
                 state.clicking.retain(|_, (last_click, _)| {
                     now - *last_click <= picking_settings.multi_click_interval
@@ -1088,12 +1091,12 @@ pub fn pointer_events(
                     now - *last_click <= picking_settings.multi_click_interval
                 });
 
-                // Emit Click and Release events on all the previously hovered entities.
-                for (hovered_entity, hit) in previous_hover_map
-                    .get(&pointer_id)
-                    .iter()
-                    .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
-                {
+                let targets = if just_pressed.remove(&(pointer_id, button)) {
+                    hover_map.get(&pointer_id)
+                } else {
+                    previous_hover_map.get(&pointer_id)
+                };
+                for (&hovered_entity, hit) in targets.into_iter().flat_map(|hits| hits.iter()) {
                     // If this pointer previously pressed the hovered entity, emit a Click event
                     if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity) {
                         let count = state
@@ -1378,6 +1381,131 @@ mod tests {
         app.world_mut()
             .insert_resource(PreviousHoverMap(previous_hover_map));
         app.world_mut().insert_resource(hover_map);
+    }
+
+    #[test]
+    fn touch_started_and_ended_in_one_frame() {
+        use bevy_app::PreUpdate;
+        use bevy_input::{touch::TouchInput, InputPlugin};
+        use bevy_math::Rect;
+        use bevy_window::{PrimaryWindow, WindowEvent, WindowPlugin};
+
+        use crate::{backend::PointerHits, DefaultPickingPlugins, PickingSystems};
+
+        for seed_previous_hover in [false, true] {
+            for separate_frames in [false, true] {
+                let mut app = App::new();
+                app.add_plugins((InputPlugin, WindowPlugin::default(), DefaultPickingPlugins));
+                app.world_mut()
+                    .resource_mut::<PickingSettings>()
+                    .is_window_picking_enabled = false;
+                app.update();
+                let window = app
+                    .world_mut()
+                    .query_filtered::<Entity, With<PrimaryWindow>>()
+                    .single(app.world())
+                    .unwrap();
+                let first = app.world_mut().spawn_empty().id();
+                let second = app.world_mut().spawn_empty().id();
+                let targets = [
+                    (first, Rect::from_corners(Vec2::ZERO, Vec2::splat(100.))),
+                    (
+                        second,
+                        Rect::from_corners(Vec2::new(200., 0.), Vec2::new(300., 100.)),
+                    ),
+                ];
+                app.add_systems(
+                    PreUpdate,
+                    (move |pointers: Query<(&PointerId, &PointerLocation)>,
+                           mut hits: MessageWriter<PointerHits>| {
+                        for (id, location) in &pointers {
+                            let Some(location) = location.location() else {
+                                continue;
+                            };
+                            for (entity, bounds) in &targets {
+                                if bounds.contains(location.position) {
+                                    hits.write(PointerHits::new(
+                                        *id,
+                                        vec![(*entity, HitData::new(window, 0., None, None))],
+                                        0.,
+                                    ));
+                                }
+                            }
+                        }
+                    })
+                    .in_set(PickingSystems::Backend),
+                );
+                let touch = |app: &mut App, phase, position| {
+                    app.world_mut()
+                        .write_message(WindowEvent::TouchInput(TouchInput {
+                            window,
+                            phase,
+                            position,
+                            force: None,
+                            id: 42,
+                        }));
+                };
+                if seed_previous_hover {
+                    for phase in [TouchPhase::Started, TouchPhase::Ended] {
+                        touch(&mut app, phase, Vec2::splat(50.));
+                        app.update();
+                    }
+                    assert!(app
+                        .world()
+                        .resource::<HoverMap>()
+                        .get(&PointerId::Touch(42))
+                        .unwrap()
+                        .contains_key(&first));
+                    app.world_mut()
+                        .resource_mut::<Messages<PointerPress>>()
+                        .clear();
+                    app.world_mut()
+                        .resource_mut::<Messages<PointerClick>>()
+                        .clear();
+                    app.world_mut()
+                        .resource_mut::<Messages<PointerRelease>>()
+                        .clear();
+                }
+                touch(&mut app, TouchPhase::Started, Vec2::new(250., 50.));
+                if separate_frames {
+                    app.update();
+                }
+                touch(&mut app, TouchPhase::Ended, Vec2::new(250., 50.));
+                app.update();
+
+                let pressed: Vec<_> = app
+                    .world_mut()
+                    .resource_mut::<Messages<PointerPress>>()
+                    .drain()
+                    .map(|event| (event.entity, event.pointer.id))
+                    .collect();
+                let clicked: Vec<_> = app
+                    .world_mut()
+                    .resource_mut::<Messages<PointerClick>>()
+                    .drain()
+                    .map(|event| (event.entity, event.pointer.id))
+                    .collect();
+                let released: Vec<_> = app
+                    .world_mut()
+                    .resource_mut::<Messages<PointerRelease>>()
+                    .drain()
+                    .map(|event| (event.entity, event.pointer.id))
+                    .collect();
+                let expected = [(second, PointerId::Touch(42))];
+                assert_eq!(
+                    pressed, expected,
+                    "seed_previous_hover={seed_previous_hover}, separate_frames={separate_frames}"
+                );
+                assert_eq!(
+                    clicked, expected,
+                    "seed_previous_hover={seed_previous_hover}, separate_frames={separate_frames}"
+                );
+                assert_eq!(
+                    released, expected,
+                    "seed_previous_hover={seed_previous_hover}, separate_frames={separate_frames}"
+                );
+            }
+        }
     }
 
     #[test]
