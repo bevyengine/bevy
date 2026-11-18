@@ -6,7 +6,7 @@ use syn::{
     token::Paren, Attribute, Expr, Ident, MetaList, Path, Result, Token, WherePredicate,
 };
 
-use crate::reflect::{type_data::TypeDataRegistration, INFO_ATTRIBUTE_NAME};
+use crate::reflect::{type_data::TypeDataRegistration, META_ATTRIBUTE_NAME};
 
 #[derive(Default)]
 pub(crate) struct ContainerAttributes {
@@ -356,7 +356,7 @@ impl ContainerAttributes {
     }
 }
 
-/// Custom attributes, registered with `#[reflect(@expr)]` or `#[info(expr)]` on types, fields, and
+/// Custom attributes, registered with `#[reflect(@expr)]` or `#[meta(expr)]` on types, fields, and
 /// variants.
 ///
 /// Examples:
@@ -374,8 +374,8 @@ impl CustomAttributes {
         Ok(())
     }
 
-    pub(crate) fn parse_info_attribute(&mut self, attr: &Attribute) -> Result<bool> {
-        if !attr.path().is_ident(INFO_ATTRIBUTE_NAME) {
+    pub(crate) fn parse_meta_attribute(&mut self, attr: &Attribute) -> Result<bool> {
+        if !attr.path().is_ident(META_ATTRIBUTE_NAME) {
             return Ok(false);
         }
         let exprs = attr.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;

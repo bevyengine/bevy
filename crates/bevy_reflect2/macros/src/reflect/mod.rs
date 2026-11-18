@@ -30,7 +30,7 @@ pub(crate) use auto_register::load_type_registrations;
 pub(crate) const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) const TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
 pub(crate) const FULL_TYPE_PATH_ATTRIBUTE_NAME: &str = "full_type_path";
-pub(crate) const INFO_ATTRIBUTE_NAME: &str = "info";
+pub(crate) const META_ATTRIBUTE_NAME: &str = "meta";
 
 /// Implements reflection for a type defined in the calling crate.
 pub(crate) fn derive_reflect(ast: DeriveInput) -> Result<TokenStream, syn::Error> {
@@ -528,7 +528,7 @@ pub(crate) fn parse_container_attributes(
     for attr in attrs {
         if container_attributes
             .custom_attributes
-            .parse_info_attribute(attr)?
+            .parse_meta_attribute(attr)?
         {
             continue;
         }

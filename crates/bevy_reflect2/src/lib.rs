@@ -1874,7 +1874,7 @@ mod tests {
 
         crate::impl_reflect!(
             #[reflect(@Tooltip("reflect"))]
-            #[info(3u8)]
+            #[meta(3u8)]
             other::Foo
         );
 
@@ -1884,7 +1884,7 @@ mod tests {
     }
 
     #[test]
-    fn custom_attributes_info() {
+    fn custom_attributes_meta() {
         #[derive(Reflect, Debug, PartialEq)]
         struct Tooltip(&'static str);
 
@@ -1892,21 +1892,21 @@ mod tests {
         struct Step(f32);
 
         #[derive(Reflect)]
-        #[info(Tooltip("type"))]
+        #[meta(Tooltip("type"))]
         #[reflect(@Step(1.0))]
-        #[info(3u8, 4u16)]
+        #[meta(3u8, 4u16)]
         struct Foo {
-            #[info(Tooltip("field"), Step(0.5))]
+            #[meta(Tooltip("field"), Step(0.5))]
             value: f32,
         }
 
         #[derive(Reflect)]
         enum Bar {
-            #[info(Tooltip("variant"))]
-            A(#[info(Tooltip("enum field"))] u32),
+            #[meta(Tooltip("variant"))]
+            A(#[meta(Tooltip("enum field"))] u32),
         }
 
-        // `#[info(...)]` and `#[reflect(@...)]` attributes are combined in declaration order
+        // `#[meta(...)]` and `#[reflect(@...)]` attributes are combined in declaration order
         let ty = Foo::TYPE;
         assert_eq!(
             format!("{:?}", ty.custom_attributes()),

@@ -22,7 +22,7 @@ const CLONE: &str = "clone";
 /// - `#[reflect(ignore, default, clone)]`
 /// - `#[reflect(ignore, default(custom_default_fn), clone(|value| value.clone()))]`
 /// - `#[reflect(@Tooltip("hello"), @0.0..=1.0)]`
-/// - `#[info(Tooltip("hello"), 0.0..=1.0)]`
+/// - `#[meta(Tooltip("hello"), 0.0..=1.0)]`
 #[derive(Default)]
 pub(crate) struct FieldAttributes {
     /// Excludes the field from reflection.
@@ -40,7 +40,7 @@ impl FieldAttributes {
     pub(crate) fn parse(field: &Field) -> Result<Self> {
         let mut attributes = Self::default();
         for attr in &field.attrs {
-            if attributes.custom_attributes.parse_info_attribute(attr)? {
+            if attributes.custom_attributes.parse_meta_attribute(attr)? {
                 continue;
             }
             if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
@@ -57,7 +57,7 @@ impl FieldAttributes {
         {
             return Err(syn::Error::new(
                 attribute.span(),
-                "custom attributes (`@expr` or `#[info(...)]`) are not supported on ignored fields",
+                "custom attributes (`@expr` or `#[meta(...)]`) are not supported on ignored fields",
             ));
         }
         if !attributes.ignore {

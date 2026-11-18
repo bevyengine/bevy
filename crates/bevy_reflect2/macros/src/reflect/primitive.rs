@@ -11,7 +11,7 @@ use crate::reflect::{
     extend_where_clause, ignored_params, parse_container_attributes, take_string_attribute,
     type_path::{type_path, type_path_strings},
     type_registration::type_registration,
-    FULL_TYPE_PATH_ATTRIBUTE_NAME, INFO_ATTRIBUTE_NAME, REFLECT_ATTRIBUTE_NAME,
+    FULL_TYPE_PATH_ATTRIBUTE_NAME, META_ATTRIBUTE_NAME, REFLECT_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
 };
 
@@ -54,7 +54,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
         ));
     }
     if let Some(attr) = attrs.iter().find(|attr| {
-        !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) && !attr.path().is_ident(INFO_ATTRIBUTE_NAME)
+        !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) && !attr.path().is_ident(META_ATTRIBUTE_NAME)
     }) {
         return Err(syn::Error::new_spanned(attr, "unsupported attribute"));
     }
