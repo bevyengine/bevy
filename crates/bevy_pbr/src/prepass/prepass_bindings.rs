@@ -8,10 +8,14 @@ use bevy_render::render_resource::{
 
 use crate::MeshPipelineViewLayoutKey;
 
+/// Returns the layout entries for the prepass bindings of the mesh view bind group.
+///
+/// `deferred_specular_tint` is whether the view has a deferred specular tint texture.
 pub fn get_bind_group_layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
-) -> [Option<BindGroupLayoutEntryBuilder>; 4] {
-    let mut entries: [Option<BindGroupLayoutEntryBuilder>; 4] = [None; 4];
+    deferred_specular_tint: bool,
+) -> [Option<BindGroupLayoutEntryBuilder>; 5] {
+    let mut entries: [Option<BindGroupLayoutEntryBuilder>; 5] = [None; 5];
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
@@ -49,16 +53,21 @@ pub fn get_bind_group_layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
         // Deferred texture
         entries[3] = Some(texture_2d(TextureSampleType::Uint));
+        if deferred_specular_tint {
+            // Deferred specular tint texture
+            entries[4] = Some(texture_2d(TextureSampleType::Uint));
+        }
     }
 
     entries
 }
 
-pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 4] {
+pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 5] {
     [
         prepass_textures.and_then(|pt| pt.depth_only_view().cloned()),
         prepass_textures.and_then(|pt| pt.normal_view().cloned()),
         prepass_textures.and_then(|pt| pt.motion_vectors_view().cloned()),
         prepass_textures.and_then(|pt| pt.deferred_view().cloned()),
+        prepass_textures.and_then(|pt| pt.deferred_specular_tint_view().cloned()),
     ]
 }

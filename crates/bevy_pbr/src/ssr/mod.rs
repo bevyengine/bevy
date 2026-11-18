@@ -519,6 +519,12 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         #[cfg(not(target_arch = "wasm32"))]
         shader_defs.push("USE_DEPTH_SAMPLERS".into());
+        if self
+            .mesh_view_layouts
+            .has_deferred_specular_tint(key.mesh_pipeline_view_key)
+        {
+            shader_defs.push("DEFERRED_SPECULAR_TINT".into());
+        }
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),

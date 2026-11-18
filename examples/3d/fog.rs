@@ -78,7 +78,7 @@ fn setup_pyramid_scene(
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("126212CC").unwrap().into(),
-            reflectance: 1.0,
+            ior: 2.33,
             perceptual_roughness: 0.0,
             metallic: 0.5,
             alpha_mode: AlphaMode::Blend,

@@ -3,6 +3,7 @@ doc-valid-idents = [
   "GilRs",
   "glTF",
   "NVidia",
+  "OpenPBR",
   "OpenXR",
   "VSync",
   "..",

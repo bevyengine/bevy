@@ -269,7 +269,7 @@ pub fn meshlet_deferred_gbuffer_prepass(
         return;
     };
 
-    let color_attachments = vec![
+    let mut color_attachments = vec![
         view_prepass_textures
             .normal
             .as_ref()
@@ -287,6 +287,9 @@ pub fn meshlet_deferred_gbuffer_prepass(
             .as_ref()
             .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
     ];
+    if let Some(deferred_specular_tint) = &view_prepass_textures.deferred_specular_tint {
+        color_attachments.push(Some(deferred_specular_tint.get_attachment()));
+    }
 
     let diagnostics = ctx.diagnostic_recorder();
     let diagnostics = diagnostics.as_deref();

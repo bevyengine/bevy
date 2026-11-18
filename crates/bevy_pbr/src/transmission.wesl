@@ -57,7 +57,7 @@ fn refracted_ray(world_position: vec4<f32>, N: vec3<f32>, V: vec3<f32>, ior: f32
     return RefractedRay(T, offset_position);
 }
 
-fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, dispersion: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
+fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: f32, F90: f32, ior: f32, thickness: f32, perceptual_roughness: f32, dispersion: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     let refracted = refracted_ray(world_position, N, V, ior, thickness);
     let T = refracted.direction;
     let offset_position = refracted.offset_position;
@@ -102,8 +102,8 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     // Dot product of the refracted direction with the exit normal (Note: We assume the exit normal is the entry normal but inverted)
     let MinusNdotT = dot(-N, T);
 
-    // Calculate 1.0 - fresnel factor (how much light is _NOT_ reflected, i.e. how much is transmitted)
-    let F = vec3(1.0) - lighting::fresnel(F0, MinusNdotT);
+    // Fraction of light that isn't reflected, from the untinted dielectric Fresnel.
+    let F = 1.0 - lighting::F_Schlick(F0, F90, MinusNdotT);
 
     // Calculate final color by applying fresnel multiplied specular transmissive color to a mix of background color and transmitted specular environment light
     return F * specular_transmissive_color * mix(transmitted_environment_light_specular, background_color.rgb, background_color.a);

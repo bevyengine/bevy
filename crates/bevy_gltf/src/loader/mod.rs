@@ -1503,7 +1503,12 @@ fn load_material(
                 )
             });
 
-    let ior = material.ior().unwrap_or(1.5);
+    // KHR_materials_ior allows an IOR of 0 or at least 1. Other values, NaN and infinity use the
+    // default of 1.5.
+    let ior = material
+        .ior()
+        .filter(|&ior| ior == 0.0 || (ior >= 1.0 && ior.is_finite()))
+        .unwrap_or(1.5);
 
     // Parse the `KHR_materials_clearcoat` extension data if necessary.
     let clearcoat =
@@ -1589,9 +1594,7 @@ fn load_material(
         anisotropy_channel: anisotropy.anisotropy_channel,
         #[cfg(feature = "pbr_anisotropy_texture")]
         anisotropy_texture: anisotropy.anisotropy_texture,
-        // From the `KHR_materials_specular` spec:
-        // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-        reflectance: specular.specular_factor * 0.5,
+        specular: specular.specular_factor,
         #[cfg(feature = "pbr_specular_textures")]
         specular_channel: specular.specular_channel,
         #[cfg(feature = "pbr_specular_textures")]

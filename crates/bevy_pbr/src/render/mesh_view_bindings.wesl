@@ -74,6 +74,8 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 
 @if(DEFERRED_PREPASS)
 @group(0) @binding(20) var deferred_prepass_texture: texture_2d<u32>;
+@if(DEFERRED_SPECULAR_TINT)
+@group(0) @binding(33) var deferred_specular_tint_texture: texture_2d<u32>;
 
 @if(VIEW_TRANSMISSION_TEXTURE)
 @group(0) @binding(21) var view_transmission_texture: texture_2d<f32>;
