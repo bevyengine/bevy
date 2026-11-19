@@ -469,6 +469,8 @@ impl Plugin for InspectorPlugin {
             app.add_plugins(ColumnSplitPlugin);
         }
 
+        embedded_asset!(app, "assets/icons/eye.png");
+        embedded_asset!(app, "assets/icons/eye-closed.png");
         embedded_asset!(app, "assets/icons/filter.png");
 
         app.init_resource::<InspectorSources>()

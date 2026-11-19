@@ -30,6 +30,7 @@ pub(crate) use auto_register::load_type_registrations;
 pub(crate) const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) const TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
 pub(crate) const FULL_TYPE_PATH_ATTRIBUTE_NAME: &str = "full_type_path";
+pub(crate) const META_ATTRIBUTE_NAME: &str = "meta";
 
 /// Implements reflection for a type defined in the calling crate.
 pub(crate) fn derive_reflect(ast: DeriveInput) -> Result<TokenStream, syn::Error> {
@@ -165,9 +166,7 @@ fn reflect_impl(
     );
 
     let vtable = container_attributes.vtable(&bevy_reflect);
-    let custom_attributes = container_attributes
-        .custom_attributes
-        .to_tokens(&bevy_reflect);
+    let metadata = container_attributes.metadata.to_tokens(&bevy_reflect);
     // Registering a type registers the types of its reflected fields, so the registration requires
     // the field types that depend on type parameters to be registrable (the type parameters
     // themselves only need to be `Typed`). Primitive types don't register their fields.
@@ -215,7 +214,7 @@ fn reflect_impl(
                 #definition_check
                 let kind = #kind;
                 let vtable = #vtable;
-                let custom_attributes = #custom_attributes;
+                let metadata = #metadata;
                 unsafe {
                     #bevy_reflect::Type::new(
                         ::core::any::TypeId::of::<Self>(),
@@ -225,7 +224,7 @@ fn reflect_impl(
                         #type_path,
                     )
                 }
-                .with_custom_attributes(custom_attributes)
+                .with_metadata(metadata)
             };
         }
 
@@ -256,13 +255,13 @@ fn struct_kind(struct_fields: &ReflectFields, bevy_reflect: &Path) -> TokenStrea
             });
         } else {
             let field_ty = &field.field.ty;
-            let custom_attributes = field.attributes.custom_attributes.to_tokens(bevy_reflect);
+            let metadata = field.attributes.metadata.to_tokens(bevy_reflect);
             fields.push(quote! {
                 #bevy_reflect::kind::StructField {
                     name: #name,
                     offset: ::core::mem::offset_of!(Self, #member),
                     ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
-                    custom_attributes: #custom_attributes,
+                    metadata: #metadata,
                 }
             });
         }
@@ -335,12 +334,12 @@ fn enum_kind(
                 }
             } else {
                 let field_ty = &field.field.ty;
-                let custom_attributes = field.attributes.custom_attributes.to_tokens(bevy_reflect);
+                let metadata = field.attributes.metadata.to_tokens(bevy_reflect);
                 fields.push(quote! {
                     #bevy_reflect::kind::EnumField {
                         name: #name,
                         ty: #bevy_reflect::TypeRef(#bevy_reflect::Type::of::<#field_ty>),
-                        custom_attributes: #custom_attributes,
+                        metadata: #metadata,
                     }
                 });
                 let field_index = field_offsets.len();
@@ -374,14 +373,14 @@ fn enum_kind(
 
         let field_kind = variant.fields.field_kind(bevy_reflect);
         let name = variant_ident.to_string();
-        let custom_attributes = variant.custom_attributes.to_tokens(bevy_reflect);
+        let metadata = variant.metadata.to_tokens(bevy_reflect);
         variants.push(quote! {
             #bevy_reflect::kind::Variant {
                 name: #name,
                 field_kind: #field_kind,
                 fields: &[#(#fields),*],
                 ignored_fields: &[#(#ignored_fields),*],
-                custom_attributes: #custom_attributes,
+                metadata: #metadata,
             }
         });
     }
@@ -525,6 +524,9 @@ pub(crate) fn parse_container_attributes(
 ) -> Result<ContainerAttributes, syn::Error> {
     let mut container_attributes = ContainerAttributes::default();
     for attr in attrs {
+        if container_attributes.metadata.parse_meta_attribute(attr)? {
+            continue;
+        }
         match &attr.meta {
             Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
                 if let MacroDelimiter::Paren(_) = meta_list.delimiter {
