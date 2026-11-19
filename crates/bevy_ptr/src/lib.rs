@@ -11,7 +11,7 @@ use core::{
     cell::UnsafeCell,
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
-    mem::{self, ManuallyDrop, MaybeUninit},
+    mem::{self, DropGuard, ManuallyDrop, MaybeUninit},
     ops::{Deref, DerefMut, Range},
     ptr::{self, NonNull},
 };
@@ -607,38 +607,18 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         // ```
         //
         // However the above might codegen to multiple `memcpy`s, while the code below will avoid that.
-
-        struct DropGuard<'a, 'b, T, A: IsAligned> {
-            src: ManuallyDrop<MovingPtr<'a, T, A>>,
-            dst: &'b mut T,
-        }
-
-        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
-            fn drop(&mut self) {
-                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
-                // in drop. No other code can observe the invalid `self.src` after this point.
-                let src = unsafe { ManuallyDrop::take(&mut self.src) };
-
-                // SAFETY:
-                // - `dst` is a mutable borrow, it must be valid for writes.
-                // - `dst` is a mutable borrow, it must always be aligned.
-                unsafe { src.write_to(self.dst) };
-            }
-        }
-
-        let guard = DropGuard {
-            src: ManuallyDrop::new(self),
-            dst,
-        };
+        let dst: *mut T = dst;
+        // SAFETY:
+        // - `dst` is a mutable borrow, it must be valid for writes.
+        // - `dst` is a mutable borrow, it must always be aligned.
+        let _guard = DropGuard::new((), |()| unsafe { self.write_to(dst) });
 
         // SAFETY:
-        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `guard.dst` is a mutable borrow, it must not alias any other access.
-        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
-        unsafe {
-            ptr::drop_in_place(guard.dst);
-        }
+        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `dst` is a mutable borrow, it must not alias any other access.
+        // - `dst` will be overwritten when `_guard` is dropped, so no other code can observe it being dropped.
+        unsafe { ptr::drop_in_place(dst) };
     }
 
     /// Creates a [`MovingPtr`] for a specific field within `self`.

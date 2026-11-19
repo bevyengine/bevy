@@ -18,7 +18,7 @@ use core::{
     any::{Any, TypeId},
     fmt::Debug,
     hint::unreachable_unchecked,
-    mem,
+    mem::DropGuard,
     ptr::{self, NonNull},
 };
 
@@ -388,12 +388,20 @@ impl Type {
         parts: impl Iterator<Item = (usize, &'static Type)> + Clone,
         values: impl IntoIterator<Item = Box<dyn Reflect>>,
     ) -> Option<()> {
-        let mut guard = PartialConstruct {
-            ty: self,
-            dst,
-            parts: parts.clone(),
-            initialized: 0,
-        };
+        // Cleans up a partially constructed value: drops the first
+        // `initialized` `parts`, which were moved into `dst`, and frees `dst`.
+        let parts_clone = parts.clone();
+        let mut guard = DropGuard::new(0, |initialized| {
+            for (offset, ty) in parts_clone.take(initialized) {
+                let part_ptr = ty.as_reflect_ptr(dst.as_ptr().wrapping_add(offset));
+                // SAFETY: the first `initialized` parts were moved into `dst` at their offset, with
+                // their type, and are owned by `dst`
+                unsafe { ptr::drop_in_place(part_ptr.cast_mut()) };
+            }
+            // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
+            unsafe { self.dealloc(dst) };
+        });
+
         let mut values = values.into_iter();
         for (offset, ty) in parts {
             let value = values.next()?;
@@ -403,13 +411,13 @@ impl Type {
             // SAFETY: the caller guarantees that `offset` is in bounds of `dst` and can hold a
             // value of `ty`, which `value` was checked to be
             unsafe { move_box_into(value, dst.as_ptr().add(offset)) };
-            guard.initialized += 1;
+            *guard += 1;
         }
         if values.next().is_some() {
             return None;
         }
         // Every part was initialized, so the caller now owns them
-        mem::forget(guard);
+        DropGuard::dismiss(guard);
         Some(())
     }
 
@@ -496,28 +504,6 @@ impl Debug for TypeRef {
         f.debug_tuple("TypeRef")
             .field(&self.get().type_path().short())
             .finish()
-    }
-}
-
-/// Cleans up a partially constructed value (see [`Type::move_values_into`]): drops the first
-/// `initialized` `parts`, which were moved into `dst`, and frees `dst`.
-struct PartialConstruct<'a, I: Iterator<Item = (usize, &'static Type)>> {
-    ty: &'a Type,
-    dst: NonNull<u8>,
-    parts: I,
-    initialized: usize,
-}
-
-impl<I: Iterator<Item = (usize, &'static Type)>> Drop for PartialConstruct<'_, I> {
-    fn drop(&mut self) {
-        for (offset, ty) in self.parts.by_ref().take(self.initialized) {
-            let part_ptr = ty.as_reflect_ptr(self.dst.as_ptr().wrapping_add(offset));
-            // SAFETY: the first `initialized` parts were moved into `dst` at their offset, with
-            // their type, and are owned by `dst`
-            unsafe { ptr::drop_in_place(part_ptr.cast_mut()) };
-        }
-        // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
-        unsafe { self.ty.dealloc(self.dst) };
     }
 }
 
