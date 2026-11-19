@@ -52,6 +52,7 @@ impl dyn Reflect {
             (KindRef::Set(a), KindRef::Set(b)) => {
                 Ok(a.len() == b.len() && a.iter().all(|value| b.contains(value)))
             }
+            (KindRef::Pointer(a), KindRef::Pointer(b)) => a.get().reflect_partial_eq(b.get()),
             _ => Err(ReflectPartialEqError { ty }),
         }
     }
