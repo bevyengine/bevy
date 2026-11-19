@@ -1,19 +1,22 @@
 //! Shows how to create a loading screen that waits for assets to load and render.
-use bevy::{ecs::system::SystemId, prelude::*};
+use bevy::{
+    asset::await_loads::{
+        AwaitDependencies, AwaitLoads, AwaitLoadsBuilder, AwaitReadyFrames, LoadFinished, ReadyFlag,
+    },
+    ecs::system::SystemId,
+    prelude::*,
+};
 
 use pipelines_ready::*;
 
-// The way we'll go about doing this in this example is to
-// keep track of all assets that we want to have loaded before
-// we transition to the desired scene.
+// We'll use the `AwaitLoadsBuilder` to keep track of all the assets we need for each scene, and
+// spawn a corresponding `AwaitLoads` entity. Once the assets have been loaded, we'll spawn the
+// scene.
 //
-// In order to ensure that visual assets are fully rendered
-// before transitioning to the scene, we need to get the
-// current status of cached pipelines.
+// In order to ensure that visual assets are fully rendered before transitioning to the scene, we
+// need to get the current status of cached pipelines.
 //
-// While loading and pipelines compilation is happening, we
-// will show a loading screen. Once loading is complete, we
-// will transition to the scene we just loaded.
+// While loading and pipelines compilation is happening, we will show a loading screen.
 
 fn main() {
     App::new()
@@ -21,11 +24,14 @@ fn main() {
         // `PipelinesReadyPlugin` is declared in the `pipelines_ready` module below.
         .add_plugins(PipelinesReadyPlugin)
         .insert_resource(LoadingState::default())
-        .insert_resource(LoadingData::new(5))
         .add_systems(Startup, (setup, load_loading_screen))
         .add_systems(
             Update,
-            (update_loading_data, level_selection, display_loading_screen),
+            (
+                track_pipelines_ready,
+                level_selection,
+                display_loading_screen,
+            ),
         )
         .run();
 }
@@ -36,29 +42,6 @@ enum LoadingState {
     #[default]
     LevelReady,
     LevelLoading,
-}
-
-// A resource that holds the current loading data.
-#[derive(Resource, Debug, Default)]
-struct LoadingData {
-    // This will hold the currently unloaded/loading assets.
-    loading_assets: Vec<UntypedHandle>,
-    // Number of frames that everything needs to be ready for.
-    // This is to prevent going into the fully loaded state in instances
-    // where there might be a some frames between certain loading/pipelines action.
-    confirmation_frames_target: usize,
-    // Current number of confirmation frames.
-    confirmation_frames_count: usize,
-}
-
-impl LoadingData {
-    fn new(confirmation_frames_target: usize) -> Self {
-        Self {
-            loading_assets: Vec::new(),
-            confirmation_frames_target,
-            confirmation_frames_count: 0,
-        }
-    }
 }
 
 // This resource will hold the level related systems ID for later use.
@@ -106,9 +89,11 @@ fn level_selection(
         if keyboard.just_pressed(KeyCode::Digit1) {
             commands.run_system(level_data.unload_level_id);
             commands.run_system(level_data.level_1_id);
+            commands.run_system_cached(spawn_pipeline_ready_loader);
         } else if keyboard.just_pressed(KeyCode::Digit2) {
             commands.run_system(level_data.unload_level_id);
             commands.run_system(level_data.level_2_id);
+            commands.run_system_cached(spawn_pipeline_ready_loader);
         }
     }
 }
@@ -118,108 +103,111 @@ fn level_selection(
 struct LevelComponents;
 
 // Removes all currently loaded level assets from the game World.
-fn unload_current_level(
-    mut commands: Commands,
-    mut loading_state: ResMut<LoadingState>,
-    entities: Query<Entity, With<LevelComponents>>,
-) {
-    *loading_state = LoadingState::LevelLoading;
+fn unload_current_level(mut commands: Commands, entities: Query<Entity, With<LevelComponents>>) {
     for entity in entities.iter() {
         commands.entity(entity).despawn();
     }
 }
 
-fn load_level_1(
-    mut commands: Commands,
-    mut loading_data: ResMut<LoadingData>,
-    asset_server: Res<AssetServer>,
-) {
-    // Spawn the camera.
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(155.0, 155.0, 155.0).looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
-        LevelComponents,
-    ));
+fn load_level_1(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut load_builder = AwaitLoadsBuilder::from(asset_server);
+    let fox = load_builder.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
-    // Save the asset into the `loading_assets` vector.
-    let fox = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
-    loading_data.loading_assets.push(fox.clone().into());
-    // Spawn the fox.
-    commands.spawn((
-        WorldAssetRoot(fox.clone()),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        LevelComponents,
-    ));
+    let mut loader = commands.spawn(load_builder.build());
 
-    // Spawn the light.
-    commands.spawn((
-        DirectionalLight {
-            shadow_maps_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-        LevelComponents,
-    ));
+    // Only spawn the level once the loader finishes loading. This avoids cases where the player
+    // falls through the floor because the level hasn't spawned in yet!
+    loader.observe(move |_: On<Insert<LoadFinished>>, mut commands: Commands| {
+        // Spawn the camera.
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(155.0, 155.0, 155.0).looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
+            LevelComponents,
+        ));
+
+        // Spawn the fox.
+        commands.spawn((
+            WorldAssetRoot(fox.clone()),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            LevelComponents,
+        ));
+
+        // Spawn the light.
+        commands.spawn((
+            DirectionalLight {
+                shadow_maps_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            LevelComponents,
+        ));
+    });
 }
 
-fn load_level_2(
-    mut commands: Commands,
-    mut loading_data: ResMut<LoadingData>,
-    asset_server: Res<AssetServer>,
-) {
-    // Spawn the camera.
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
-        LevelComponents,
-    ));
-
-    // Spawn the helmet.
-    let helmet_scene = asset_server
+fn load_level_2(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut load_builder = AwaitLoadsBuilder::from(asset_server);
+    let helmet_scene = load_builder
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
-    loading_data
-        .loading_assets
-        .push(helmet_scene.clone().into());
-    commands.spawn((WorldAssetRoot(helmet_scene.clone()), LevelComponents));
 
-    // Spawn the light.
-    commands.spawn((
-        DirectionalLight {
-            shadow_maps_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-        LevelComponents,
-    ));
+    let mut loader = commands.spawn(load_builder.build());
+
+    loader.observe(move |_: On<Insert<LoadFinished>>, mut commands: Commands| {
+        // Spawn the camera.
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
+            LevelComponents,
+        ));
+
+        // Spawn the helmet.
+        commands.spawn((WorldAssetRoot(helmet_scene.clone()), LevelComponents));
+
+        // Spawn the light.
+        commands.spawn((
+            DirectionalLight {
+                shadow_maps_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            LevelComponents,
+        ));
+    });
 }
 
-// Monitors current loading status of assets.
-fn update_loading_data(
-    mut loading_data: ResMut<LoadingData>,
-    mut loading_state: ResMut<LoadingState>,
-    asset_server: Res<AssetServer>,
+// This system controls the loading screen. While each level spawns its scene when the assets load,
+// their render pipelines might not be ready. So before we drop the loading screen, make sure the
+// render pipelines are ready (and a few extra frames after).
+fn spawn_pipeline_ready_loader(mut commands: Commands, loaders: Query<Entity, With<AwaitLoads>>) {
+    // Set the state to loading. This is what makes the loading screen pop up.
+    commands.insert_resource(LoadingState::LevelLoading);
+    // Create the loader that will drop the loading screen. It waits for all loaders in the scene,
+    // and an additional few frames, so long as the render pipelines are ready.
+    commands
+        .spawn((
+            AwaitDependencies(loaders.iter().collect()),
+            AwaitReadyFrames(5),
+            ReadyFlag::default(),
+            TrackPipelinesReady,
+        ))
+        // Add the loaders we depend on as children, so that when this loader despawns, so do these
+        // loaders.
+        .add_children(&loaders.iter().collect::<Vec<_>>())
+        .observe(|event: On<Insert<LoadFinished>>, mut commands: Commands| {
+            commands.entity(event.entity).despawn();
+
+            commands.insert_resource(LoadingState::LevelReady);
+        });
+}
+
+#[derive(Component)]
+struct TrackPipelinesReady;
+
+fn track_pipelines_ready(
+    mut trackers: Populated<&mut ReadyFlag, With<TrackPipelinesReady>>,
     pipelines_ready: Res<PipelinesReady>,
 ) {
-    if !loading_data.loading_assets.is_empty() || !pipelines_ready.0 {
-        // If we are still loading assets / pipelines are not fully compiled,
-        // we reset the confirmation frame count.
-        loading_data.confirmation_frames_count = 0;
-
-        loading_data.loading_assets.retain(|asset| {
-            asset_server
-                .get_recursive_dependency_load_state(asset)
-                .is_none_or(|state| !state.is_loaded())
-        });
-
-        // If there are no more assets being monitored, and pipelines
-        // are compiled, then start counting confirmation frames.
-        // Once enough confirmations have passed, everything will be
-        // considered to be fully loaded.
-    } else {
-        loading_data.confirmation_frames_count += 1;
-        if loading_data.confirmation_frames_count == loading_data.confirmation_frames_target {
-            *loading_state = LoadingState::LevelReady;
-        }
+    for mut ready_flag in trackers.iter_mut() {
+        ready_flag.0 = pipelines_ready.0;
     }
 }
 
