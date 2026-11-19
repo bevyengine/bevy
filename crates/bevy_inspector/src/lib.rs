@@ -42,6 +42,7 @@ use alloc::string::{String, ToString};
 use core::{fmt::Display, marker::PhantomData};
 
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
+use bevy_asset::embedded_asset;
 use bevy_camera::visibility::{Visibility, VisibilitySystems};
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionPlugin;
 use bevy_ecs::{
@@ -62,6 +63,7 @@ use bevy_feathers::FeathersSystems;
 use bevy_picking::{backend::PointerHits, pointer::PointerInput};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::EditableTextSystems;
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
 use bevy_ui_widgets::SelectedTreeItem;
@@ -72,7 +74,8 @@ use crate::details_panel::{
     DetailsColumnSplits, DetailsIndex, DetailsPanelSync, InspectorDetailsBody,
 };
 use crate::entity_tree::{
-    reveal_in_tree, sync_entity_tree, update_tree_guides, EntityTreeSync, InspectorEntityRow,
+    reveal_in_tree, sync_entity_tree, sync_entity_tree_filter_input, update_tree_guides,
+    EntityTreeFilter, EntityTreeFilterState, EntityTreeSync, InspectorEntityRow,
     InspectorHeaderRow, InspectorTreeView, TreeReveal, TreeRowIndex,
 };
 use crate::overlay::InspectorOverlay;
@@ -172,7 +175,7 @@ pub enum InspectorSource {
 /// NOTE: we currently restrict to at most 1x main app and 1x render app.
 pub(crate) fn world_to_inspect<'a>(
     world: &'a World,
-    inspector_source: &'a InspectorSource,
+    inspector_source: &InspectorSource,
 ) -> &'a World {
     #[cfg(feature = "remote")]
     if let InspectorSource::Remote(rem) = inspector_source
@@ -466,11 +469,15 @@ impl Plugin for InspectorPlugin {
             app.add_plugins(ColumnSplitPlugin);
         }
 
+        embedded_asset!(app, "assets/icons/filter.png");
+
         app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
             .init_resource::<InspectorMode>()
             .init_resource::<TreeRowIndex>()
             .init_resource::<EntityTreeSync>()
+            .init_resource::<EntityTreeFilter>()
+            .init_resource::<EntityTreeFilterState>()
             .init_resource::<TreeReveal>()
             .init_resource::<ResourceListSync>()
             .init_resource::<DetailsIndex>()
@@ -523,6 +530,10 @@ impl Plugin for InspectorPlugin {
             )
             .add_systems(
                 PostUpdate,
+                sync_entity_tree_filter_input.before(EditableTextSystems),
+            )
+            .add_systems(
+                PostUpdate,
                 update_tree_guides
                     .run_if(entity_tree_visible)
                     .in_set(UiSystems::Content)
@@ -556,6 +567,9 @@ impl Plugin for InspectorPlugin {
                         .after(remote::stepping::poll_remote_stepping),
                 )
                     .after(remote::poll_remote_connections)
+                    // These conflict on `EditableText` and should be disjoint, but squashing
+                    // the ambiguity is good.
+                    .after(sync_entity_tree_filter_input)
                     .before(UiSystems::Prepare),
             );
     }
