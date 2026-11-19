@@ -767,7 +767,7 @@ mod tests {
     };
     use bevy_reflect::{Reflect, TypePath};
     use bevy_tasks::{block_on, futures::check_ready, AsyncComputeTaskPool};
-    use core::{any::TypeId, assert_matches, time::Duration};
+    use core::{any::TypeId, assert_matches, mem::DropGuard, time::Duration};
     use crossbeam_channel::TryRecvError;
     use futures_lite::{future::yield_now, AsyncReadExt};
     use ron::ser::PrettyConfig;
@@ -2435,18 +2435,11 @@ mod tests {
             _settings: &Self::Settings,
             _load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
-            struct SendOnDrop {
-                sender: crossbeam_channel::Sender<u32>,
-            }
-            impl Drop for SendOnDrop {
-                fn drop(&mut self) {
-                    let _ = self.sender.send(999);
-                }
-            }
-            let _on_drop = self
-                .finished_sender
-                .clone()
-                .map(|sender| SendOnDrop { sender });
+            let _on_drop = self.finished_sender.clone().map(|sender| {
+                DropGuard::new((), move |()| {
+                    let _ = sender.send(999);
+                })
+            });
 
             self.in_loader_sender.send_blocking(()).unwrap();
             let _ = self.gate_receiver.recv().await;
