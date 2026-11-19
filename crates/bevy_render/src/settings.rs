@@ -131,8 +131,13 @@ impl Default for WgpuSettings {
         #[cfg(not(debug_assertions))]
         {
             // wgpu executes additional necessary logic during validation passes for the DX12 backend,
-            // so the `VALIDATION_INDIRECT_CALL` flag should stay for DX12.
-            if !backends.is_some_and(|backends| backends.contains(Backends::DX12)) {
+            // so the `VALIDATION_INDIRECT_CALL` flag should stay for DX12. `Backends::all()` contains
+            // DX12 on every platform, so only check the backends this build can use.
+            if !backends.is_some_and(|backends| {
+                backends
+                    .intersection(wgpu::Instance::enabled_backend_features())
+                    .contains(Backends::DX12)
+            }) {
                 // Removing this flag improves performance.
                 instance_flags.remove(InstanceFlags::VALIDATION_INDIRECT_CALL);
             }
