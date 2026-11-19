@@ -690,10 +690,13 @@ fn apply_pbr_lighting(
     //
     // When we find a source of diffuse indirect lighting, we stop accumulating
     // any more diffuse indirect light. This avoids double-counting if, for
-    // example, both lightmaps and irradiance volumes are present.
+    // example, both lightmaps and irradiance volumes are present. Irradiance
+    // volumes that cover a fragment only partly, within their falloff, leave
+    // the rest to the environment map.
 
     var indirect_light = vec3(0.0f);
     var found_diffuse_indirect = false;
+    var environment_diffuse_weight = 1.0f;
 
 @if(LIGHTMAP) {
     indirect_light += in.lightmap_light * diffuse_color;
@@ -708,8 +711,10 @@ fn apply_pbr_lighting(
             in.N,
             &clusterable_object_index_ranges,
         );
-        indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
-        found_diffuse_indirect = true;
+        let coverage = irradiance_volume_light.coverage;
+        indirect_light += irradiance_volume_light.irradiance * coverage * diffuse_color * diffuse_occlusion;
+        environment_diffuse_weight = 1.0 - coverage;
+        found_diffuse_indirect = coverage >= 0.9999;
     }
 
     // Environment map light (indirect)
@@ -739,7 +744,7 @@ fn apply_pbr_lighting(
         found_diffuse_indirect,
     );
 
-    indirect_light += environment_light.diffuse * diffuse_occlusion;
+    indirect_light += environment_light.diffuse * environment_diffuse_weight * diffuse_occlusion;
     if (!use_ssr) {
         indirect_light += environment_light.specular * specular_occlusion;
     }
