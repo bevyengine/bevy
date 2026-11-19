@@ -5,7 +5,6 @@ use crate::{
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
 use bevy_platform::collections::HashMap;
-use bevy_tasks::IoTaskPool;
 use bevy_utils::TypeIdHashMap;
 use core::any::TypeId;
 use thiserror::Error;
@@ -83,11 +82,8 @@ impl AssetLoaders {
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
                 MaybeAssetLoader::Pending { sender, .. } => {
-                    IoTaskPool::get()
-                        .spawn(async move {
-                            let _ = sender.broadcast(loader).await;
-                        })
-                        .detach();
+                    // The channel is empty and its original receiver is still alive.
+                    sender.try_broadcast(loader).unwrap();
                 }
             }
         }
@@ -393,6 +389,20 @@ mod tests {
 
         assert!(rx.try_recv().is_ok());
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn preregistered_loader_without_pending_loads() {
+        let mut loaders = AssetLoaders::default();
+        loaders.reserve::<Loader<A, 1, 0>>(&[]);
+        let (loader, _rx) = Loader::<A, 1, 0>::new();
+
+        loaders.push(loader);
+
+        assert!(matches!(
+            loaders.get_by_name(<Loader<A, 1, 0> as TypePath>::type_path()),
+            Some(MaybeAssetLoader::Ready(_))
+        ));
     }
 
     /// Ensure that if multiple loaders have different types but no extensions, they can be found
