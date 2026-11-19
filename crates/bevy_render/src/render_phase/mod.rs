@@ -1940,6 +1940,20 @@ where
         self.items.swap_remove(&(render_entity, main_entity));
     }
 
+    /// Returns the item for `main_entity` whose render entity is
+    /// [`Entity::PLACEHOLDER`], if there is one.
+    ///
+    /// Items are keyed by `(render entity, main entity)`, but an item doesn't
+    /// always have a usable render entity. An entity only gets a render entity
+    /// if it has [`SyncToRenderWorld`](crate::sync_world::SyncToRenderWorld).
+    /// Even if it has one, the system that removes the item later may only know
+    /// the main entity. In both cases, the item uses `Entity::PLACEHOLDER` as
+    /// its render entity.
+    #[inline]
+    pub fn get_main_mut(&mut self, main_entity: MainEntity) -> Option<&mut I> {
+        self.items.get_mut(&(Entity::PLACEHOLDER, main_entity))
+    }
+
     /// Removes all [`PhaseItem`]s from this render phase.
     #[inline]
     pub fn clear(&mut self) {
