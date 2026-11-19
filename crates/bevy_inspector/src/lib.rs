@@ -81,7 +81,8 @@ use crate::entity_tree::{
 use crate::overlay::InspectorOverlay;
 use crate::picking::pick_for_inspector;
 use crate::resource_list::{
-    sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
+    sync_resource_filter_input, sync_resource_list, InspectorResourceList, InspectorResourceRow,
+    ResourceListFilter, ResourceListSync,
 };
 
 /// Where the inspector reads its data from.
@@ -480,6 +481,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<EntityTreeFilterState>()
             .init_resource::<TreeReveal>()
             .init_resource::<ResourceListSync>()
+            .init_resource::<ResourceListFilter>()
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsColumnSplits>()
@@ -530,7 +532,9 @@ impl Plugin for InspectorPlugin {
             )
             .add_systems(
                 PostUpdate,
-                sync_entity_tree_filter_input.before(EditableTextSystems),
+                (sync_entity_tree_filter_input, sync_resource_filter_input)
+                    .chain()
+                    .before(EditableTextSystems),
             )
             .add_systems(
                 PostUpdate,
@@ -569,7 +573,7 @@ impl Plugin for InspectorPlugin {
                     .after(remote::poll_remote_connections)
                     // These conflict on `EditableText` and should be disjoint, but squashing
                     // the ambiguity is good.
-                    .after(sync_entity_tree_filter_input)
+                    .after(sync_resource_filter_input)
                     .before(UiSystems::Prepare),
             );
     }

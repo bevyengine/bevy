@@ -109,7 +109,7 @@ pub struct EntityTreeFilterNote;
 /// The maximum number of matching entities the filtered entity tree lists.
 pub const MAX_FILTER_RESULTS: usize = 500;
 
-const FILTER_ICON: &str = "embedded://bevy_inspector/assets/icons/filter.png";
+pub(crate) const FILTER_ICON: &str = "embedded://bevy_inspector/assets/icons/filter.png";
 
 /// The query filtering the entity tree.
 ///
@@ -1051,8 +1051,16 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
     }
 
     for (label_entity, hidden) in plan.dim {
-        if let Ok(mut label) = world.get_entity_mut(label_entity) {
-            label.insert(ThemeTextColor(row_label_color(hidden)));
+        let Ok(mut entity) = world.get_entity_mut(label_entity) else {
+            continue;
+        };
+        entity.insert(ThemeTextColor(row_label_color(hidden)));
+        if let Some(label) = entity
+            .get::<InspectorRowLabel>()
+            .filter(|label| !label.matched.is_empty())
+            .cloned()
+        {
+            write_label(world, label_entity, label);
         }
     }
 
@@ -1185,10 +1193,13 @@ fn reorder_rows(world: &mut World, container: Entity, expected: Vec<InspectableE
 }
 
 /// Shows `label` on the `label_entity` of a row, rebuilding its highlighted spans.
-fn write_label(world: &mut World, label_entity: Entity, label: InspectorRowLabel) {
+///
+/// The spans that are not highlighted take the label entity's [`ThemeTextColor`].
+pub(crate) fn write_label(world: &mut World, label_entity: Entity, label: InspectorRowLabel) {
     let Ok(mut entity) = world.get_entity_mut(label_entity) else {
         return;
     };
+    let color = entity.get::<ThemeTextColor>().map(|color| color.0.clone());
     entity.despawn_children();
     let text = match label.matched.is_empty() {
         true => label.text.clone(),
@@ -1198,7 +1209,12 @@ fn write_label(world: &mut World, label_entity: Entity, label: InspectorRowLabel
                     match matched {
                         true => spans
                             .spawn((TextSpan::new(segment), ThemeTextColor(tokens::TEXT_ACCENT))),
-                        false => spans.spawn((TextSpan::new(segment), ThemedText)),
+                        false => match &color {
+                            Some(color) => {
+                                spans.spawn((TextSpan::new(segment), ThemeTextColor(color.clone())))
+                            }
+                            None => spans.spawn((TextSpan::new(segment), ThemedText)),
+                        },
                     };
                 }
             });
@@ -1673,7 +1689,7 @@ fn has_known_name(world: &World, component_id: ComponentId) -> bool {
             .is_some_and(|(type_id, registry)| registry.read().contains(type_id))
 }
 
-fn row_label_entity(world: &World, row: Entity) -> Option<Entity> {
+pub(crate) fn row_label_entity(world: &World, row: Entity) -> Option<Entity> {
     let header = child_with::<FeathersTreeItemHeader>(world, row)?;
     child_with::<InspectorRowLabel>(world, header)
 }
@@ -2056,7 +2072,8 @@ mod tests {
                         let span = app.world().entity(*span);
                         (
                             span.get::<TextSpan>().unwrap().0.clone(),
-                            span.contains::<ThemeTextColor>(),
+                            span.get::<ThemeTextColor>()
+                                .is_some_and(|color| color.0 == tokens::TEXT_ACCENT),
                         )
                     })
                     .collect()
