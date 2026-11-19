@@ -844,6 +844,7 @@ mod tests {
                     // SAFETY: `initialize_array_raw` guarantees that `item_ptr` is valid for
                     // writes of the item type.
                     item_ptr.as_ptr().cast::<Counted>().write(item);
+                    true
                 },
             );
         }
@@ -923,6 +924,7 @@ mod tests {
                 let (name, value) = values.next().unwrap();
                 assert_eq!(*name, field.name);
                 ptr.as_ptr().cast::<u32>().write(*value);
+                true
             })
         }
         .unwrap();
@@ -964,6 +966,7 @@ mod tests {
                         // SAFETY: We've checked the type matches, and we have write access.
                         ptr.as_ptr().cast::<String>().write(String::from("hello"));
                     }
+                    true
                 },
             );
         }
@@ -1010,6 +1013,7 @@ mod tests {
                 |field, ptr| {
                     assert_eq!(field.name, "a");
                     ptr.as_ptr().cast::<u32>().write(10);
+                    true
                 },
             );
         }
@@ -1421,7 +1425,7 @@ mod tests {
         // Ignored fields can't be initialized or cloned structurally
         assert!(reflect.reflect_clone().is_err());
         // SAFETY: `func` is never called with an invalid pointer, because this returns `None`
-        assert!(unsafe { Foo::TYPE.initialize_struct(|_, _| {}) }.is_none());
+        assert!(unsafe { Foo::TYPE.initialize_struct(|_, _| panic!("Fail!")) }.is_none());
 
         #[derive(Reflect)]
         struct Tuple(#[reflect(ignore)] NotReflect, u32);
@@ -1551,6 +1555,7 @@ mod tests {
             Foo::TYPE.initialize_struct(|field, ptr| {
                 assert_eq!(field.name, "a");
                 ptr.as_ptr().cast::<u32>().write(10);
+                true
             })
         }
         .unwrap();
@@ -1578,7 +1583,7 @@ mod tests {
             ignored: String,
         }
         // SAFETY: there are no reflected fields
-        assert!(unsafe { DefaultOnly::TYPE.initialize_struct(|_, _| {}) }.is_some());
+        assert!(unsafe { DefaultOnly::TYPE.initialize_struct(|_, _| panic!()) }.is_some());
         let value = DefaultOnly {
             ignored: String::new(),
         };
@@ -1588,7 +1593,7 @@ mod tests {
         #[derive(Reflect)]
         struct CloneOnly(#[reflect(ignore, clone)] String);
         // SAFETY: this returns `None`, so `func` is never called
-        assert!(unsafe { CloneOnly::TYPE.initialize_struct(|_, _| {}) }.is_none());
+        assert!(unsafe { CloneOnly::TYPE.initialize_struct(|_, _| panic!()) }.is_none());
         let value = CloneOnly(String::from("x"));
         let clone = (&value as &dyn Reflect).reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<CloneOnly>().unwrap().0, "x");
