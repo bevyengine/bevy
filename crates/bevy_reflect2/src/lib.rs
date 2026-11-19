@@ -38,13 +38,13 @@ pub mod prelude {
     pub use crate::Reflect;
 }
 
-pub mod attributes;
 #[cfg(feature = "auto_register")]
 mod auto_register;
 pub mod builtin;
 #[cfg(doctest)]
 mod compile_fail;
 pub mod kind;
+pub mod metadata;
 mod reflect;
 mod ty;
 pub mod type_path;
@@ -814,6 +814,46 @@ mod tests {
             .is_none());
     }
 
+    #[test]
+    fn initialize_array_raw() {
+        use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Counted(u32);
+
+        impl Drop for Counted {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Relaxed);
+            }
+        }
+
+        let mut items = vec![Counted(1), Counted(2), Counted(3)].into_iter();
+        let mut array = MaybeUninit::<[Counted; 3]>::uninit();
+        // SAFETY:
+        // 1) [Counted; 3] is an array type.
+        // 2) We own `array` and we aren't accessing it. MaybeUninit guarantees it can hold a valid
+        //    value of [Counted; 3]. So the `array` pointer is valid for writes of the type.
+        // 3) The function initializes every pointer with a value of the item type `Counted`.
+        unsafe {
+            <[Counted; 3] as Typed>::TYPE.initialize_array_raw(
+                non_null_from_maybe_uninit(&mut array),
+                |_, _, item_ptr| {
+                    let item = items.next().unwrap();
+                    // SAFETY: `initialize_array_raw` guarantees that `item_ptr` is valid for
+                    // writes of the item type.
+                    item_ptr.as_ptr().cast::<Counted>().write(item);
+                },
+            );
+        }
+        // SAFETY: `initialize_array_raw` guarantees that `array` is fully initialized.
+        let array = unsafe { array.assume_init() };
+        assert_eq!(array, [Counted(1), Counted(2), Counted(3)]);
+        drop(array);
+        // 3 assert values + 3 array values dropped.
+        assert_eq!(DROPS.swap(0, Relaxed), 6);
+    }
     #[test]
     fn custom_type_data() {
         #[derive(Clone)]
@@ -1875,8 +1915,9 @@ mod tests {
         assert_eq!(enum_ref.field(0).unwrap().downcast_ref::<u32>(), Some(&1));
         assert_eq!(enum_ref.field(1).unwrap().downcast_ref::<u64>(), Some(&2));
     }
+
     #[test]
-    fn custom_attributes() {
+    fn metadata() {
         use core::marker::PhantomData;
 
         #[derive(Reflect, Debug, PartialEq)]
@@ -1913,49 +1954,114 @@ mod tests {
         struct Opaque;
 
         let ty = Foo::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("type")));
-        assert_eq!(ty.get_attribute::<u8>(), Some(&3));
-        assert!(ty.has_attribute_by_id(TypeId::of::<u8>()));
-        assert!(!ty.has_attribute::<u32>());
-        assert_eq!(ty.custom_attributes().len(), 2);
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("type")));
+        assert_eq!(ty.get_metadata::<u8>(), Some(&3));
+        assert!(ty.has_metadata_by_id(TypeId::of::<u8>()));
+        assert!(!ty.has_metadata::<u32>());
+        assert_eq!(ty.metadata().len(), 2);
         let Kind::Struct(struct_type) = ty.kind() else {
             panic!("expected struct");
         };
         let field = &struct_type.fields()[0];
-        assert_eq!(field.get_attribute::<Tooltip>(), Some(&Tooltip("field")));
-        assert_eq!(field.get_attribute::<Range>(), Some(&Range(0.0, 1.0)));
-        assert!(struct_type.fields()[1].custom_attributes.is_empty());
+        assert_eq!(field.get_metadata::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_metadata::<Range>(), Some(&Range(0.0, 1.0)));
+        assert!(struct_type.fields()[1].metadata.is_empty());
         assert_eq!(
-            format!("{:?}", field.custom_attributes),
+            format!("{:?}", field.metadata),
             "[Tooltip(\"field\"), Range(0.0, 1.0)]"
         );
 
         let ty = Generic::<u32>::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("generic")));
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("generic")));
         let Kind::Struct(struct_type) = ty.kind() else {
             panic!("expected struct");
         };
-        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&4));
+        assert_eq!(struct_type.fields()[0].get_metadata::<u32>(), Some(&4));
         let Kind::Struct(struct_type) = Generic::<u8>::TYPE.kind() else {
             panic!("expected struct");
         };
-        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&1));
+        assert_eq!(struct_type.fields()[0].get_metadata::<u32>(), Some(&1));
 
         let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
             panic!("expected enum");
         };
         let variant = &enum_type.variants()[0];
+        assert_eq!(variant.get_metadata::<Tooltip>(), Some(&Tooltip("variant")));
         assert_eq!(
-            variant.get_attribute::<Tooltip>(),
-            Some(&Tooltip("variant"))
-        );
-        assert_eq!(
-            variant.fields[0].get_attribute::<Tooltip>(),
+            variant.fields[0].get_metadata::<Tooltip>(),
             Some(&Tooltip("enum field"))
         );
-        assert!(enum_type.variants()[1].custom_attributes.is_empty());
+        assert!(enum_type.variants()[1].metadata.is_empty());
 
         let ty = Opaque::TYPE;
-        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("opaque")));
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("opaque")));
+    }
+
+    #[test]
+    fn metadata_primitive() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Tooltip(&'static str);
+
+        mod other {
+            pub struct Foo;
+        }
+
+        crate::impl_reflect!(
+            #[reflect(@Tooltip("reflect"))]
+            #[meta(3u8)]
+            other::Foo
+        );
+
+        let ty = other::Foo::TYPE;
+        assert_eq!(ty.get_metadata::<Tooltip>(), Some(&Tooltip("reflect")));
+        assert_eq!(ty.get_metadata::<u8>(), Some(&3));
+    }
+
+    #[test]
+    fn metadata_meta_attribute() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Tooltip(&'static str);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Step(f32);
+
+        #[derive(Reflect)]
+        #[meta(Tooltip("type"))]
+        #[reflect(@Step(1.0))]
+        #[meta(3u8, 4u16)]
+        struct Foo {
+            #[meta(Tooltip("field"), Step(0.5))]
+            value: f32,
+        }
+
+        #[derive(Reflect)]
+        enum Bar {
+            #[meta(Tooltip("variant"))]
+            A(#[meta(Tooltip("enum field"))] u32),
+        }
+
+        // `#[meta(...)]` and `#[reflect(@...)]` attributes are combined in declaration order
+        let ty = Foo::TYPE;
+        assert_eq!(
+            format!("{:?}", ty.metadata()),
+            "[Tooltip(\"type\"), Step(1.0), 3, 4]"
+        );
+        assert_eq!(ty.get_metadata::<u16>(), Some(&4));
+        let Kind::Struct(struct_type) = ty.kind() else {
+            panic!("expected struct");
+        };
+        let field = &struct_type.fields()[0];
+        assert_eq!(field.get_metadata::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_metadata::<Step>(), Some(&Step(0.5)));
+
+        let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
+            panic!("expected enum");
+        };
+        let variant = &enum_type.variants()[0];
+        assert_eq!(variant.get_metadata::<Tooltip>(), Some(&Tooltip("variant")));
+        assert_eq!(
+            variant.fields[0].get_metadata::<Tooltip>(),
+            Some(&Tooltip("enum field"))
+        );
     }
 }

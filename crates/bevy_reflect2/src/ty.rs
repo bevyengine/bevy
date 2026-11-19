@@ -1,10 +1,10 @@
 use bevy_ptr::{Ptr, PtrMut};
 
 use crate::{
-    attributes::impl_custom_attribute_methods,
-    attributes::CustomAttributes,
     builtin::move_box_into,
     kind::{Kind, Struct, StructField, UncoveredBytes},
+    metadata::impl_metadata_methods,
+    metadata::Metadata,
     reflect::Reflect,
     type_path::TypePath,
     type_vtable::TypeVTable,
@@ -44,7 +44,7 @@ pub struct Type {
     layout: Option<Layout>,
     vtable: TypeVTable,
     type_path: TypePath,
-    custom_attributes: CustomAttributes,
+    metadata: Metadata,
 }
 
 impl Type {
@@ -69,14 +69,14 @@ impl Type {
             layout,
             vtable,
             type_path,
-            custom_attributes: CustomAttributes::EMPTY,
+            metadata: Metadata::EMPTY,
         }
     }
 
-    /// Sets the [`CustomAttributes`] of this type (registered with `#[reflect(@expr)]`).
+    /// Sets the [`Metadata`] of this type (registered with `#[reflect(@expr)]`).
     #[inline]
-    pub const fn with_custom_attributes(mut self, custom_attributes: CustomAttributes) -> Self {
-        self.custom_attributes = custom_attributes;
+    pub const fn with_metadata(mut self, metadata: Metadata) -> Self {
+        self.metadata = metadata;
         self
     }
 
@@ -115,13 +115,13 @@ impl Type {
         &self.type_path
     }
 
-    /// Returns the [`CustomAttributes`] of this type (registered with `#[reflect(@expr)]`).
+    /// Returns the [`Metadata`] of this type (registered with `#[reflect(@expr)]`).
     #[inline]
-    pub const fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
+    pub const fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
-    impl_custom_attribute_methods!(self, self.custom_attributes, "type");
+    impl_metadata_methods!(self, self.metadata, "type");
 
     /// Allocates uninitialized memory for a value of this type. Returns `None` if the type is unsized.
     ///
@@ -346,6 +346,50 @@ impl Type {
         // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
         // the global allocator (or the type is a ZST).
         Some(unsafe { self.box_from_raw(ptr) })
+    }
+
+    /// Initializes a new value of this array type into `dst`, initializing each element of the
+    /// array with `func`.
+    ///
+    /// `func` is called exactly once for each element in the array, and in the order of the
+    /// elements.
+    ///
+    /// The value in `dst` is overwritten and **will not** be dropped. If `func` panics, all
+    /// previously written elements are leaked.
+    ///
+    /// After this function, `dst` holds a fully-initialized value of this type.
+    ///
+    /// # Safety
+    ///
+    /// 1) This type must be a [`Kind::Array`].
+    /// 2) `dst` must be valid for writes of this type.
+    /// 3) `func` must initialize every pointer to a valid value that matches the [`Array::item`] of
+    ///    this array. `func` may not read/drop the previous valid (as the pointer may point to an
+    ///    uninitialized or overwritten location).
+    ///
+    /// [`Array::item`]: crate::kind::Array::item
+    pub unsafe fn initialize_array_raw(
+        &self,
+        dst: NonNull<u8>,
+        mut func: impl FnMut(usize, &Type, NonNull<u8>),
+    ) {
+        let Kind::Array(array_ty) = &self.kind else {
+            // SAFETY: The safety precondition guarantees the type is an array.
+            unsafe { unreachable_unchecked() }
+        };
+        let item_ty = array_ty.item().get();
+        let stride = array_ty.stride();
+        for i in 0..array_ty.len() {
+            // SAFETY: We know that `dst` is valid for writes of this type, and we know
+            // `i < array_ty.len()`. By `Array::new`, we also know the stride is accurate.
+            // Therefore, this pointer does not exceed the bounds of the array's memory. If the item
+            // type is a ZST, `dst` always adds zero, which is still a valid pointer.
+            let item_ptr = unsafe { dst.byte_add(i * stride) };
+            (func)(i, item_ty, item_ptr);
+        }
+        // At this point, we've called `func` on the memory locations of all the elements of the
+        // array. By the safety precondition, `func` guarantees it will initialize the ptr. So we
+        // must have a fully-initialized value of this array.
     }
 
     /// Constructs a new value of this array type from its items.
