@@ -237,7 +237,7 @@ pub struct EventLoopProxyWrapper(EventLoopProxy<WinitUserEvent>);
 /// access to the display handle
 ///
 /// Use `Res<DisplayHandleWrapper>` to receive this resource.
-#[derive(Resource, Deref)]
+#[derive(Resource, Clone, Deref)]
 pub struct DisplayHandleWrapper(pub winit::event_loop::OwnedDisplayHandle);
 
 trait AppSendEvent {
