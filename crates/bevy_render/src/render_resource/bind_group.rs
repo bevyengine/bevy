@@ -360,6 +360,7 @@ impl Deref for BindGroup {
 ///   as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
 ///   the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
 ///   is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+/// * `DataType` can be any type, including a path such as `my_module::MyKey`, so it does not need to be imported.
 ///
 /// ## `bindless`
 ///
@@ -505,6 +506,29 @@ impl Deref for BindGroup {
 ///             is_shaded: material.is_shaded,
 ///         }
 ///     }
+/// }
+/// ```
+///
+/// The type can also be given as a path:
+/// ```
+/// # use bevy_render::{render_resource::AsBindGroup};
+/// # use bevy_color::LinearRgba;
+/// mod keys {
+///     #[derive(Copy, Clone, Hash, Eq, PartialEq)]
+///     pub struct PathKey;
+/// }
+///
+/// impl From<&PathMaterial> for keys::PathKey {
+///     fn from(_: &PathMaterial) -> Self {
+///         keys::PathKey
+///     }
+/// }
+///
+/// #[derive(AsBindGroup)]
+/// #[bind_group_data(keys::PathKey)]
+/// struct PathMaterial {
+///     #[uniform(0)]
+///     color: LinearRgba,
 /// }
 /// ```
 pub trait AsBindGroup {
