@@ -525,5 +525,5 @@ unsafe fn initialize_ignored_fields(struct_type: &Struct, ptr: NonNull<u8>) {
         // SAFETY: `Struct::new` guarantees that `field.offset` is the location of the field in
         // this allocation, and that `default` is valid for the field's type
         unsafe { default(ptr.as_ptr().add(field.offset)) };
-     }
+    }
 }
