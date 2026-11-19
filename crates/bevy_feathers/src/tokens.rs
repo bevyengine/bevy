@@ -16,6 +16,8 @@ pub const FOCUS_RING: ThemeToken = ThemeToken::new_static("feathers.focus.ring")
 pub const TEXT_MAIN: ThemeToken = ThemeToken::new_static("feathers.text.main");
 /// Dim text
 pub const TEXT_DIM: ThemeToken = ThemeToken::new_static("feathers.text.dim");
+/// Accented text, such as the matched characters of a search result
+pub const TEXT_ACCENT: ThemeToken = ThemeToken::new_static("feathers.text.accent");
 
 // Normal buttons
 
@@ -518,6 +520,8 @@ pub mod semantic {
     pub const TEXT_DEFAULT: SemanticToken = SemanticToken::new_static("text.default");
     /// Secondary / dim labels
     pub const TEXT_DIM: SemanticToken = SemanticToken::new_static("text.dim");
+    /// Accented labels, such as highlighted search matches
+    pub const TEXT_ACCENT: SemanticToken = SemanticToken::new_static("text.accent");
     /// Text on accent or saturated fills
     pub const TEXT_ON_ACCENT: SemanticToken = SemanticToken::new_static("text.onAccent");
     /// Disabled text

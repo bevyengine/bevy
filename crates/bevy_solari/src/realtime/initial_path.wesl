@@ -115,7 +115,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
             break;
         }
 
-        let ray_hit = resolve_ray_hit_full(ray);
+        let ray_hit = resolve_ray_hit_full(ray, -next_bounce.wi);
         let p_brdf = next_bounce.pdf;
 
         @if(DLSS_RR_GUIDE_BUFFERS)
