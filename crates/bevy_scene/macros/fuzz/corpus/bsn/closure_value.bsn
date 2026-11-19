@@ -1,0 +1,1 @@
+Callback { f: |x: u32| { x + 1 } }
