@@ -4,7 +4,7 @@ authors: ["@rossleonardy"]
 pull_requests: [26602]
 ---
 
-Bevy can now load `.svg` files as images with the `svg` feature enabled.
+Bevy can now load `.svg` files as rasterized images with the `svg` feature enabled.
 
 We want to support vector graphics for specific use cases, like UI icons.
 
