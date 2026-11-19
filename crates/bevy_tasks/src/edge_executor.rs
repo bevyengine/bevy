@@ -524,7 +524,7 @@ mod different_executor_tests {
 #[cfg(test)]
 mod drop_tests {
     use alloc::string::String;
-    use core::mem;
+    use core::mem::{self, DropGuard};
     use core::sync::atomic::{AtomicUsize, Ordering};
     use core::task::{Poll, Waker};
     use std::sync::Mutex;
@@ -542,7 +542,7 @@ mod drop_tests {
         let ex: Executor = Default::default();
 
         let task = ex.spawn(async {
-            let _guard = CallOnDrop(|| {
+            let _guard = DropGuard::new((), |()| {
                 DROP.fetch_add(1, Ordering::SeqCst);
             });
 
@@ -583,7 +583,7 @@ mod drop_tests {
 
         let ex: Executor = Default::default();
         let task = ex.spawn(async {
-            CallOnDrop(|| {
+            DropGuard::new((), |()| {
                 DROP.fetch_add(1, Ordering::SeqCst);
             })
         });
@@ -602,7 +602,7 @@ mod drop_tests {
 
         let ex: Executor = Default::default();
         let task = ex.spawn(async {
-            CallOnDrop(|| {
+            DropGuard::new((), |()| {
                 DROP.fetch_add(1, Ordering::SeqCst);
             })
         });
@@ -613,14 +613,6 @@ mod drop_tests {
         assert_eq!(DROP.load(Ordering::SeqCst), 1);
         drop(ex);
         assert_eq!(DROP.load(Ordering::SeqCst), 1);
-    }
-
-    struct CallOnDrop<F: Fn()>(F);
-
-    impl<F: Fn()> Drop for CallOnDrop<F> {
-        fn drop(&mut self) {
-            (self.0)();
-        }
     }
 }
 
