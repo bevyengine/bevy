@@ -37,7 +37,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -56,9 +56,17 @@ impl Default for Name {
 }
 
 /// A wrapper over Hashed. This exists to make Name("value".into()) possible, which plays nicely with contexts like the `bsn!` macro.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct HashedStr(Hashed<Cow<'static, str>>);
+
+impl Deref for HashedStr {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<&'static str> for HashedStr {
     fn from(value: &'static str) -> Self {
@@ -215,19 +223,6 @@ impl Hash for Name {
         Hash::hash(&self.0 .0, state);
     }
 }
-
-impl PartialEq for Name {
-    fn eq(&self, other: &Self) -> bool {
-        if self.0 .0.hash() != other.0 .0.hash() {
-            // Makes the common case of two strings not been equal very fast
-            return false;
-        }
-
-        self.0 .0.eq(&other.0 .0)
-    }
-}
-
-impl Eq for Name {}
 
 impl PartialOrd for Name {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
