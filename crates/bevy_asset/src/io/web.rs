@@ -131,7 +131,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
     use blocking::unblock;
-    use std::io::{self, BufReader, Read};
+    use std::io::{self, Read};
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -142,9 +142,12 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     #[cfg(target_os = "windows")]
     let str_path = &str_path.replace(std::path::MAIN_SEPARATOR, "/");
 
+    // The cache is an optimization, a broken entry should not stop the asset from being downloaded.
     #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-    if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
-        return Ok(Box::new(VecReader::new(data)));
+    match web_asset_cache::try_load_from_cache(str_path).await {
+        Ok(Some(data)) => return Ok(Box::new(VecReader::new(data))),
+        Ok(None) => {}
+        Err(err) => warn!("Failed to read {str_path} from the web asset cache: {err}"),
     }
     use ureq::tls::{RootCerts, TlsConfig};
     use ureq::Agent;
@@ -162,18 +165,26 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 
     let uri = str_path.to_owned();
     // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
-    // async executor.
-    let response = unblock(|| AGENT.get(uri).call()).await;
+    // async executor. Reading the body blocks for as long as the download takes, so it has to
+    // happen on that thread too.
+    let response = unblock(|| {
+        let mut response = AGENT.get(uri).call()?;
+        let mut buffer = Vec::new();
+        response
+            .body_mut()
+            .with_config()
+            .reader()
+            .read_to_end(&mut buffer)?;
+        Ok::<_, ureq::Error>(buffer)
+    })
+    .await;
 
     match response {
-        Ok(mut response) => {
-            let mut reader = BufReader::new(response.body_mut().with_config().reader());
-
-            let mut buffer = Vec::new();
-            reader.read_to_end(&mut buffer)?;
-
+        Ok(buffer) => {
             #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-            web_asset_cache::save_to_cache(str_path, &buffer).await?;
+            if let Err(err) = web_asset_cache::save_to_cache(str_path, &buffer).await {
+                warn!("Failed to save {str_path} to the web asset cache: {err}");
+            }
 
             Ok(Box::new(VecReader::new(buffer)))
         }
@@ -271,11 +282,21 @@ mod web_asset_cache {
 
         async_fs::create_dir_all(CACHE_DIR).await.ok();
 
-        let mut cache_file = async_fs::File::create(&cache_path).await?;
-        cache_file.write_all(data).await?;
-        cache_file.close().await?;
+        // Entries are never invalidated, so a partially written one would be served forever.
+        // Write to a temporary file and only move it into place once it is complete.
+        let temp_path = cache_path.with_extension("tmp");
+        let written = async {
+            let mut cache_file = async_fs::File::create(&temp_path).await?;
+            cache_file.write_all(data).await?;
+            cache_file.close().await?;
+            async_fs::rename(&temp_path, &cache_path).await
+        }
+        .await;
 
-        Ok(())
+        if written.is_err() {
+            async_fs::remove_file(&temp_path).await.ok();
+        }
+        written
     }
 }
 
@@ -336,5 +357,87 @@ mod tests {
                 .unwrap(),
             "https://example.com/favicon.meta"
         );
+    }
+
+    /// Serves `response` once on a local port and returns the port.
+    #[cfg(all(
+        feature = "http",
+        not(feature = "web_asset_cache"),
+        not(target_arch = "wasm32")
+    ))]
+    fn serve_once(response: &'static [u8]) -> u16 {
+        use std::io::{Read, Write};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = alloc::vec::Vec::new();
+            let mut chunk = [0; 1024];
+            while !request.ends_with(b"\r\n\r\n") {
+                let read = stream.read(&mut chunk).unwrap();
+                request.extend_from_slice(&chunk[..read]);
+            }
+            stream.write_all(response).unwrap();
+        });
+        port
+    }
+
+    #[cfg(all(
+        feature = "http",
+        not(feature = "web_asset_cache"),
+        not(target_arch = "wasm32")
+    ))]
+    async fn read_from_local_server(
+        response: &'static [u8],
+    ) -> Result<alloc::vec::Vec<u8>, AssetReaderError> {
+        let port = serve_once(response);
+        let path = std::format!("127.0.0.1:{port}/asset.txt");
+        let mut reader = WebAssetReader::Http
+            .read(CowArc::Borrowed(Path::new(&path)))
+            .await?;
+        let mut bytes = alloc::vec::Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        Ok(bytes)
+    }
+
+    #[cfg(all(
+        feature = "http",
+        not(feature = "web_asset_cache"),
+        not(target_arch = "wasm32")
+    ))]
+    #[test]
+    fn reads_the_response_body() {
+        let bytes = bevy_tasks::block_on(read_from_local_server(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello",
+        ))
+        .unwrap();
+        assert_eq!(bytes, b"hello");
+    }
+
+    #[cfg(all(
+        feature = "http",
+        not(feature = "web_asset_cache"),
+        not(target_arch = "wasm32")
+    ))]
+    #[test]
+    fn a_missing_asset_is_not_found() {
+        let result = bevy_tasks::block_on(read_from_local_server(
+            b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+        ));
+        assert!(matches!(result, Err(AssetReaderError::NotFound(_))));
+    }
+
+    #[cfg(all(
+        feature = "http",
+        not(feature = "web_asset_cache"),
+        not(target_arch = "wasm32")
+    ))]
+    #[test]
+    fn a_body_cut_short_is_an_error() {
+        let result = bevy_tasks::block_on(read_from_local_server(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 50\r\nConnection: close\r\n\r\nhello",
+        ));
+        assert!(matches!(result, Err(AssetReaderError::Io(_))));
     }
 }
