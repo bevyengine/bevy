@@ -41,8 +41,8 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     loop {
         let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind != RAY_QUERY_INTERSECTION_NONE {
-            let ray_hit = resolve_ray_hit_full(ray);
             let wo = -ray_direction;
+            let ray_hit = resolve_ray_hit_full(ray, wo);
             let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
             let F_ab = F_AB(ray_hit.material.perceptual_roughness, NdotV);
 
