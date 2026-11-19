@@ -78,8 +78,10 @@ bevy_android = { path = "../bevy_android", version = "0.20.0-dev", default-featu
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [
-  "Window",
+  "Headers",
+  "RequestInit",
   "Response",
+  "Window",
   "WorkerGlobalScope",
 ] }
 wasm-bindgen-futures = "0.4"

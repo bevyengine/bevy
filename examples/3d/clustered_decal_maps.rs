@@ -141,6 +141,7 @@ fn main() {
             DefaultPlugins
                 .set(WebAssetPlugin {
                     silence_startup_warning: true,
+                    ..default()
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
