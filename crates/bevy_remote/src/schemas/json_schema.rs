@@ -1,15 +1,17 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use alloc::{borrow::Cow, collections::BTreeMap};
-use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit};
+use bevy_annotations::{DisplayName, ReadOnly, SerializedAs, Step, Tooltip, Unit};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
+use bevy_log::warn;
 use bevy_reflect::{
     attributes::CustomAttributes,
     enums::VariantInfo,
     serde::{SerializationData, TypedReflectSerializer},
     std_traits::ReflectDefault,
-    GetTypeRegistration, NamedField, OpaqueInfo, TypeInfo, TypeRegistration, TypeRegistry,
+    GetTypeRegistration, NamedField, OpaqueInfo, ReflectSerialize, TypeInfo, TypeRegistration,
+    TypeRegistry,
 };
 use core::any::TypeId;
 use serde::{Deserialize, Serialize};
@@ -59,6 +61,114 @@ pub fn export_type(
         reg.type_info().type_path().into(),
         (reg, metadata, components, registry).into(),
     )
+}
+
+/// The custom attributes of `info`, for the kinds of types that have them.
+fn type_attributes(info: &TypeInfo) -> Option<&CustomAttributes> {
+    match info {
+        TypeInfo::Struct(info) => Some(info.custom_attributes()),
+        TypeInfo::TupleStruct(info) => Some(info.custom_attributes()),
+        TypeInfo::Enum(info) => Some(info.custom_attributes()),
+        TypeInfo::Opaque(info) => Some(info.custom_attributes()),
+        _ => None,
+    }
+}
+
+/// The declared serialized form of the type described by `info`.
+fn serialized_as(info: &TypeInfo) -> Option<&SerializedAs> {
+    type_attributes(info)?.get::<SerializedAs>()
+}
+
+/// Appends the titled items of `info` to `items`, inlining fields that are [`SerializedAs::Seq`].
+fn seq_items(info: &TypeInfo, prefix: &str, items: &mut Vec<Value>) {
+    let mut add = |name: &str, type_path: &str, field: Option<&'static TypeInfo>| {
+        let title = format!("{prefix}{name}");
+        match field {
+            Some(field) if serialized_as(field) == Some(&SerializedAs::Seq) => {
+                seq_items(field, &format!("{title}."), items);
+            }
+            _ => items.push(json!({ "$ref": type_ref(type_path), "title": title })),
+        }
+    };
+    match info {
+        TypeInfo::Struct(info) => {
+            for field in info.iter() {
+                add(field.name(), field.type_path(), field.type_info());
+            }
+        }
+        TypeInfo::TupleStruct(info) => {
+            for field in info.iter() {
+                add(
+                    &field.index().to_string(),
+                    field.type_path(),
+                    field.type_info(),
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+/// A fixed-length array of `items`.
+fn fixed_array(items: Vec<Value>) -> Value {
+    let len = items.len();
+    json!({
+        "type": "array",
+        "prefixItems": items,
+        "items": false,
+        "minItems": len,
+        "maxItems": len,
+    })
+}
+
+/// The JSON Schema keywords of a type's declared serialized form.
+fn wire_keywords(serialized_as: &SerializedAs, info: &TypeInfo) -> Map<String, Value> {
+    let schema = match *serialized_as {
+        SerializedAs::Seq => {
+            let mut items = Vec::new();
+            seq_items(info, "", &mut items);
+            fixed_array(items)
+        }
+        SerializedAs::Array { item, labels } => fixed_array(
+            labels
+                .iter()
+                .map(|label| json!({ "$ref": type_ref(item), "title": label }))
+                .collect(),
+        ),
+        SerializedAs::Object { fields } => json!({
+            "type": "object",
+            "properties": fields
+                .iter()
+                .map(|(name, type_path)| ((*name).to_owned(), json!({ "$ref": type_ref(type_path) })))
+                .collect::<Map<_, _>>(),
+            "required": fields.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            "additionalProperties": false,
+        }),
+        SerializedAs::String { format, pattern } => {
+            let mut schema = json!({ "type": "string" });
+            if let Some(format) = format {
+                schema["format"] = format.into();
+            }
+            if let Some(pattern) = pattern {
+                schema["pattern"] = pattern.into();
+            }
+            schema
+        }
+        SerializedAs::Integer { minimum, non_zero } => {
+            let mut schema = json!({ "type": "integer" });
+            if let Some(minimum) = minimum {
+                schema["minimum"] = minimum.into();
+            }
+            if non_zero {
+                schema["not"] = json!({ "const": 0 });
+            }
+            schema
+        }
+    };
+    match schema {
+        Value::Object(map) => map,
+        _ => Map::new(),
+    }
 }
 
 /// Serializes the [`ReflectDefault`] value of a type, if it has one and it can be serialized.
@@ -343,8 +453,14 @@ impl
                 typed_schema.schema_type = info.map_json_type();
                 typed_schema.minimum = UNSIGNED_INTEGERS.contains(&info.type_path()).then_some(0.0);
                 typed_schema.kind = SchemaKind::Value;
+                typed_schema.raw_json = typed_schema.schema_type.is_none()
+                    && reg.data::<ReflectSerialize>().is_some()
+                    && serialized_as(t).is_none();
             }
         };
+        if let Some(serialized_as) = serialized_as(t) {
+            typed_schema.apply_wire_schema(wire_keywords(serialized_as, t));
+        }
         typed_schema
     }
 }
@@ -479,9 +595,63 @@ pub struct JsonSchemaBevyType {
     /// Whether array items must be unique, as with sets.
     #[serde(skip_serializing_if = "is_false", default)]
     pub unique_items: bool,
+    /// Bevy specific field, set on opaque types that serialize with their own `Serialize`
+    /// implementation into JSON whose shape is not known.
+    ///
+    /// Such schemas have no `type`. Add a [`SerializedAs`] annotation to describe them.
+    #[serde(skip_serializing_if = "is_false", default)]
+    pub raw_json: bool,
+    /// Bevy specific field, set when the type has a [`SerializedAs`] annotation.
+    ///
+    /// Holds the structural keywords (`type`, `$ref`, `properties`, `prefixItems`, ...) of the
+    /// type's reflected structure, while the top-level keywords describe its serialized form.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub reflect_schema: Option<Map<String, Value>>,
+    /// Other JSON Schema keywords, such as `format` or `not`, from [`SerializedAs`].
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
+/// Keywords that describe a type's structure, moved into
+/// [`reflect_schema`](JsonSchemaBevyType::reflect_schema) when a type declares its serialized form.
+pub(crate) const STRUCTURAL_KEYWORDS: [&str; 11] = [
+    "type",
+    "$ref",
+    "properties",
+    "required",
+    "additionalProperties",
+    "prefixItems",
+    "items",
+    "minItems",
+    "maxItems",
+    "oneOf",
+    "uniqueItems",
+];
+
 impl JsonSchemaBevyType {
+    /// Moves the structural keywords into [`reflect_schema`](Self::reflect_schema) and applies
+    /// the declared `wire` keywords at the top level.
+    fn apply_wire_schema(&mut self, wire: Map<String, Value>) {
+        let Ok(Value::Object(mut schema)) = serde_json::to_value(&*self) else {
+            return;
+        };
+        let reflected: Map<String, Value> = STRUCTURAL_KEYWORDS
+            .iter()
+            .filter_map(|keyword| Some(((*keyword).to_owned(), schema.remove(*keyword)?)))
+            .collect();
+        schema.extend(wire);
+        match serde_json::from_value::<Self>(Value::Object(schema)) {
+            Ok(wire_schema) => {
+                *self = wire_schema;
+                self.reflect_schema = (!reflected.is_empty()).then_some(reflected);
+            }
+            Err(error) => warn!(
+                "Ignoring the `SerializedAs` annotation of `{}`: {error}",
+                self.type_path
+            ),
+        }
+    }
+
     /// Sets [`annotations`](Self::annotations) and the standard keywords derived from them.
     fn set_annotations(&mut self, annotations: Option<SchemaAnnotations>) {
         if let Some(annotations) = &annotations {
@@ -1521,6 +1691,9 @@ mod tests {
         assert_eq!(value, json!([1, 2]));
         assert_eq!(schema["kind"], "Value");
         assert!(schema.get("type").is_none());
+        assert_eq!(schema["rawJson"], true);
+        let (schema, _) = export_schema_and_value(&7_u8);
+        assert!(schema.get("rawJson").is_none());
     }
 
     #[test]
@@ -1682,6 +1855,415 @@ mod tests {
         assert_eq!(schema["minItems"], 4);
         assert_eq!(schema["maxItems"], 4);
         assert_eq!(serialize(&[0.0f32; 4]).as_array().map(Vec::len), Some(4));
+    }
+
+    /// Checks `value` against the subset of JSON Schema that `registry.schema` emits.
+    fn validate(schema: &Value, value: &Value, schemas: &Map<String, Value>) -> Result<(), String> {
+        if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
+            let path = reference.trim_start_matches("#/");
+            let target = schemas.get(path).ok_or(format!("unknown {reference}"))?;
+            validate(target, value, schemas)?;
+        }
+        if let Some(ty) = schema.get("type").and_then(Value::as_str) {
+            let matches = match ty {
+                "string" => value.is_string(),
+                "number" => value.is_number(),
+                "integer" => value.is_i64() || value.is_u64(),
+                "boolean" => value.is_boolean(),
+                "array" => value.is_array(),
+                "object" => value.is_object(),
+                "null" => value.is_null(),
+                _ => false,
+            };
+            if !matches {
+                return Err(format!("{value} is not of type {ty}"));
+            }
+        }
+        if let (Some(minimum), Some(number)) = (
+            schema.get("minimum").and_then(Value::as_f64),
+            value.as_f64(),
+        ) && number < minimum
+        {
+            return Err(format!("{value} is below {minimum}"));
+        }
+        if let Some(constant) = schema.get("const")
+            && value != constant
+        {
+            return Err(format!("{value} is not {constant}"));
+        }
+        if let Some(not) = schema.get("not")
+            && validate(not, value, schemas).is_ok()
+        {
+            return Err(format!("{value} matches {not}"));
+        }
+        if let Value::Array(items) = value {
+            let len = items.len() as u64;
+            if schema["minItems"].as_u64().is_some_and(|min| len < min)
+                || schema["maxItems"].as_u64().is_some_and(|max| len > max)
+            {
+                return Err(format!("{value} has the wrong length"));
+            }
+            let prefix = schema["prefixItems"].as_array();
+            for (index, item) in items.iter().enumerate() {
+                match (
+                    prefix.and_then(|prefix| prefix.get(index)),
+                    schema.get("items"),
+                ) {
+                    (None, Some(Value::Bool(false))) => {
+                        return Err(format!("{value} has too many items"));
+                    }
+                    (Some(item_schema), _) | (None, Some(item_schema)) => {
+                        validate(item_schema, item, schemas)?;
+                    }
+                    (None, None) => {}
+                }
+            }
+        }
+        if let Value::Object(fields) = value {
+            for name in schema["required"].as_array().into_iter().flatten() {
+                if !fields.contains_key(name.as_str().unwrap_or_default()) {
+                    return Err(format!("{value} is missing {name}"));
+                }
+            }
+            for (name, field) in fields {
+                match schema["properties"].get(name) {
+                    Some(property) => validate(property, field, schemas)?,
+                    None if schema.get("additionalProperties") == Some(&Value::Bool(false)) => {
+                        return Err(format!("{value} has unexpected {name}"));
+                    }
+                    None => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn wire_registry() -> AppTypeRegistry {
+        let atr = AppTypeRegistry::default();
+        {
+            let mut registry = atr.write();
+            macro_rules! register {
+                ($($ty:ty),* $(,)?) => { $(registry.register::<$ty>();)* };
+            }
+            {
+                use alloc::borrow::Cow;
+                use bevy_ecs::{entity::Entity, name::Name};
+                use bevy_math::*;
+                use core::num::*;
+                register!(
+                    Vec2,
+                    Vec3,
+                    Vec3A,
+                    Vec4,
+                    DVec2,
+                    DVec3,
+                    DVec4,
+                    IVec2,
+                    IVec3,
+                    IVec4,
+                    I8Vec2,
+                    I8Vec3,
+                    I8Vec4,
+                    I16Vec2,
+                    I16Vec3,
+                    I16Vec4,
+                    I64Vec2,
+                    I64Vec3,
+                    I64Vec4,
+                    UVec2,
+                    UVec3,
+                    UVec4,
+                    U8Vec2,
+                    U8Vec3,
+                    U8Vec4,
+                    U16Vec2,
+                    U16Vec3,
+                    U16Vec4,
+                    U64Vec2,
+                    U64Vec3,
+                    U64Vec4,
+                    BVec2,
+                    BVec3,
+                    BVec3A,
+                    BVec4,
+                    BVec4A,
+                    Quat,
+                    DQuat,
+                    Mat2,
+                    Mat3,
+                    Mat3A,
+                    Mat4,
+                    DMat2,
+                    DMat3,
+                    DMat4,
+                    Affine2,
+                    Affine3,
+                    Affine3A,
+                    DAffine2,
+                    DAffine3,
+                    NonZeroU8,
+                    NonZeroU16,
+                    NonZeroU32,
+                    NonZeroU64,
+                    NonZeroU128,
+                    NonZeroUsize,
+                    NonZeroI8,
+                    NonZeroI16,
+                    NonZeroI32,
+                    NonZeroI64,
+                    NonZeroI128,
+                    NonZeroIsize,
+                    core::time::Duration,
+                    Entity,
+                    Name,
+                    Cow<'static, str>,
+                    std::path::PathBuf,
+                    core::net::SocketAddr,
+                    u32,
+                    u64,
+                );
+            }
+            #[cfg(feature = "bevy_asset")]
+            register!(
+                bevy_asset::AssetPath<'static>,
+                bevy_asset::uuid::Uuid,
+                bevy_asset::uuid::NonNilUuid,
+            );
+        }
+        atr
+    }
+
+    fn export_all(registry: &TypeRegistry) -> Map<String, Value> {
+        registry
+            .iter()
+            .map(|reg| {
+                let (path, schema) = export_type(
+                    reg,
+                    &SchemaTypesMetadata::default(),
+                    &Components::default(),
+                    registry,
+                );
+                (
+                    path.into_owned(),
+                    serde_json::to_value(schema).expect("Should serialize"),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn brp_json_schema_vec3_describes_array() {
+        let atr = wire_registry();
+        let registry = atr.read();
+        let schemas = export_all(&registry);
+        let schema = &schemas["glam::Vec3"];
+        assert_eq!(schema["type"], "array");
+        assert_eq!(schema["kind"], "Struct");
+        assert_eq!(
+            schema["prefixItems"],
+            json!([
+                { "$ref": "#/f32", "title": "x" },
+                { "$ref": "#/f32", "title": "y" },
+                { "$ref": "#/f32", "title": "z" },
+            ])
+        );
+        assert_eq!(schema["items"], false);
+        assert_eq!(schema["minItems"], 3);
+        assert_eq!(schema["maxItems"], 3);
+        assert_eq!(schema["default"], json!([0.0, 0.0, 0.0]));
+        assert!(schema.get("properties").is_none());
+        let reflected = &schema["reflectSchema"];
+        assert_eq!(reflected["type"], "object");
+        assert_eq!(reflected["required"], json!(["x", "y", "z"]));
+        assert_eq!(reflected["properties"]["y"]["fieldIndex"], 1);
+        assert!(schema.get("rawJson").is_none());
+        assert_eq!(
+            schemas["bevy_ecs::name::Name"]["reflectSchema"]["$ref"],
+            "#/bevy_ecs::name::HashedStr"
+        );
+        assert_eq!(schemas["bevy_ecs::name::Name"]["type"], "string");
+        assert!(schemas["core::time::Duration"]
+            .get("reflectSchema")
+            .is_none());
+    }
+
+    #[test]
+    fn brp_json_schema_builtins_match_serialized_values() {
+        use alloc::borrow::Cow;
+        use bevy_ecs::{entity::Entity, name::Name};
+        use bevy_math::{Affine2, Affine3A, BVec3A, DMat3, Mat4, Quat, Vec3};
+        use bevy_reflect::{serde::TypedReflectDeserializer, GetPath, PartialReflect};
+        use core::num::{
+            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+            NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+        };
+        use serde::de::DeserializeSeed;
+
+        let atr = wire_registry();
+        let registry = atr.read();
+        let schemas = export_all(&registry);
+        let serialize = |value: &dyn PartialReflect| {
+            serde_json::to_value(TypedReflectSerializer::new(value, &registry))
+                .expect("Should serialize")
+        };
+        let check = |value: &dyn PartialReflect| {
+            let path = value.reflect_type_path();
+            let serialized = serialize(value);
+            validate(&schemas[path], &serialized, &schemas)
+                .unwrap_or_else(|error| panic!("{path}: {error}"));
+            assert!(validate(&schemas[path], &json!({ "unexpected": [] }), &schemas).is_err());
+        };
+
+        let mut values: Vec<Box<dyn PartialReflect>> = vec![
+            Box::new(Vec3::new(1.0, 2.0, 3.0)),
+            Box::new(Quat::from_xyzw(0.0, 0.5, 0.5, 0.5)),
+            Box::new(Mat4::from_cols_array(&core::array::from_fn(|i| i as f32))),
+            Box::new(DMat3::from_cols_array(&core::array::from_fn(|i| i as f64))),
+            Box::new(Affine2::from_cols_array(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0])),
+            Box::new(Affine3A::from_cols_array(&core::array::from_fn(|i| {
+                i as f32
+            }))),
+            Box::new(BVec3A::new(true, false, true)),
+            Box::new(core::time::Duration::new(5, 7)),
+            Box::new(Entity::from_raw_u32(3).unwrap()),
+            Box::new(Entity::PLACEHOLDER),
+            Box::new(Name::new("cube")),
+            Box::new(Cow::<'static, str>::Borrowed("text")),
+            Box::new(std::path::PathBuf::from("assets/cube.glb")),
+            Box::new(core::net::SocketAddr::from(([127, 0, 0, 1], 15702))),
+            Box::new(NonZeroU8::new(3).unwrap()),
+            Box::new(NonZeroU16::new(3).unwrap()),
+            Box::new(NonZeroU32::new(3).unwrap()),
+            Box::new(NonZeroU64::new(u64::MAX).unwrap()),
+            Box::new(NonZeroU128::new(3).unwrap()),
+            Box::new(NonZeroUsize::new(3).unwrap()),
+            Box::new(NonZeroI8::new(-4).unwrap()),
+            Box::new(NonZeroI16::new(-4).unwrap()),
+            Box::new(NonZeroI32::new(-4).unwrap()),
+            Box::new(NonZeroI64::new(-4).unwrap()),
+            Box::new(NonZeroI128::new(-4).unwrap()),
+            Box::new(NonZeroIsize::new(-4).unwrap()),
+        ];
+        #[cfg(feature = "bevy_asset")]
+        {
+            use bevy_asset::uuid::{NonNilUuid, Uuid};
+            values.push(Box::new(bevy_asset::AssetPath::from("textures/cube.png")));
+            values.push(Box::new(Uuid::from_u128(7)));
+            values.push(Box::new(NonNilUuid::new(Uuid::from_u128(7)).unwrap()));
+        }
+        assert_eq!(serialize(values[0].as_ref()), json!([1.0, 2.0, 3.0]));
+        assert_eq!(serialize(values[1].as_ref()), json!([0.0, 0.5, 0.5, 0.5]));
+        assert_eq!(
+            serialize(values[7].as_ref()),
+            json!({ "secs": 5, "nanos": 7 })
+        );
+        assert_eq!(serialize(values[8].as_ref()), json!("3v0"));
+        assert_eq!(serialize(values[10].as_ref()), json!("cube"));
+        let mut checked = Vec::new();
+        for value in &values {
+            check(value.as_ref());
+            checked.push(value.reflect_type_path().to_owned());
+        }
+        assert!(validate(&schemas["core::num::NonZeroI16"], &json!(0), &schemas).is_err());
+
+        for reg in registry.iter() {
+            if serialized_as(reg.type_info()).is_none() {
+                continue;
+            }
+            let path = reg.type_info().type_path();
+            let schema = &schemas[path];
+            let Some(prefix_items) = schema["prefixItems"].as_array() else {
+                assert!(checked.iter().any(|checked| checked == path), "{path}");
+                continue;
+            };
+            let sample: Vec<Value> = prefix_items
+                .iter()
+                .enumerate()
+                .map(|(index, item)| match item["$ref"].as_str() {
+                    Some("#/bool") => json!(index % 2 == 0),
+                    Some("#/f32" | "#/f64") => json!(index as f64 + 0.5),
+                    _ => json!(index + 1),
+                })
+                .collect();
+            let value = TypedReflectDeserializer::new(reg, &registry)
+                .deserialize(Value::Array(sample.clone()))
+                .unwrap_or_else(|error| panic!("{path}: {error}"));
+            check(value.as_ref());
+            let Some(reflected) = value.try_as_reflect() else {
+                continue;
+            };
+            for (item, expected) in prefix_items.iter().zip(&sample) {
+                let label = item["title"].as_str().expect("Items should be labeled");
+                if let Ok(field) = reflected.reflect_path(label) {
+                    assert_eq!(&serialize(field), expected, "{path}.{label}");
+                } else {
+                    assert_eq!(schema["kind"], "Value", "{path}.{label}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn brp_json_schema_on_user_type() {
+        #[derive(Reflect)]
+        #[reflect(Serialize, @Tooltip("A closed range"), @SerializedAs::Seq)]
+        struct Span {
+            min: f32,
+            max: f32,
+        }
+
+        impl Serialize for Span {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                (self.min, self.max).serialize(serializer)
+            }
+        }
+
+        let (schema, value) = export_schema_and_value(&Span { min: 1.0, max: 2.0 });
+        assert_eq!(value, json!([1.0, 2.0]));
+        assert_eq!(schema["type"], "array");
+        assert_eq!(schema["description"], "A closed range");
+        assert_eq!(schema["prefixItems"][1]["title"], "max");
+        assert_eq!(schema["reflectSchema"]["type"], "object");
+        assert_eq!(schema["reflectSchema"]["required"], json!(["min", "max"]));
+    }
+
+    #[test]
+    fn brp_json_schema_inlines_nested_seq_fields() {
+        let atr = wire_registry();
+        let registry = atr.read();
+        let schemas = export_all(&registry);
+        let affine = &schemas["glam::Affine2"];
+        assert_eq!(affine["minItems"], 6);
+        let titles: Vec<_> = affine["prefixItems"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["title"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            titles,
+            [
+                "matrix2.x_axis.x",
+                "matrix2.x_axis.y",
+                "matrix2.y_axis.x",
+                "matrix2.y_axis.y",
+                "translation.x",
+                "translation.y",
+            ]
+        );
+    }
+
+    #[test]
+    fn brp_json_schema_extra_keywords_round_trip() {
+        let atr = wire_registry();
+        let registry = atr.read();
+        let schemas = export_all(&registry);
+        let non_zero = &schemas["core::num::NonZeroI32"];
+        assert_eq!(non_zero["not"], json!({ "const": 0 }));
+        let parsed: JsonSchemaBevyType =
+            serde_json::from_value(non_zero.clone()).expect("Should deserialize");
+        assert_eq!(parsed.extra["not"], json!({ "const": 0 }));
+        assert_eq!(&serde_json::to_value(&parsed).unwrap(), non_zero);
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.

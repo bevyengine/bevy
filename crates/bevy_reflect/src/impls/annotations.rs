@@ -1,6 +1,6 @@
 use crate::{attributes::CustomAttributes, std_traits::ReflectDefault};
 use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange};
-use bevy_reflect_derive::impl_reflect;
+use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use core::ops::RangeInclusive;
 
 impl_reflect!(
@@ -34,6 +34,8 @@ impl_reflect!(
     struct DisplayName(&'static str);
 );
 
+impl_reflect_opaque!(::bevy_annotations::SerializedAs(Clone, Debug, PartialEq));
+
 impl CustomAttributes {
     /// Reads a numeric range from these attributes.
     ///
@@ -63,6 +65,7 @@ impl CustomAttributes {
 mod tests {
     use super::*;
     use crate::{Reflect, TypeInfo, Typed};
+    use bevy_annotations::SerializedAs;
 
     #[derive(Reflect)]
     struct Named {
@@ -88,6 +91,17 @@ mod tests {
         grounded: bool,
     }
 
+    #[derive(Reflect)]
+    #[reflect(@SerializedAs::Seq)]
+    struct Span {
+        min: f32,
+        max: f32,
+    }
+
+    #[derive(Reflect, Clone)]
+    #[reflect(opaque, @SerializedAs::STRING)]
+    struct Tag;
+
     #[test]
     fn annotations_on_types_and_fields() {
         let TypeInfo::Struct(info) = Movement::type_info() else {
@@ -107,6 +121,24 @@ mod tests {
         );
         assert!(info.field("grounded").unwrap().has_attribute::<ReadOnly>());
         assert!(info.has_attribute::<Tooltip>());
+    }
+
+    #[test]
+    fn serialized_as_on_struct_and_opaque() {
+        let TypeInfo::Struct(span) = Span::type_info() else {
+            panic!("expected struct info");
+        };
+        assert_eq!(
+            span.get_attribute::<SerializedAs>(),
+            Some(&SerializedAs::Seq)
+        );
+        let TypeInfo::Opaque(tag) = Tag::type_info() else {
+            panic!("expected opaque info");
+        };
+        assert_eq!(
+            tag.get_attribute::<SerializedAs>(),
+            Some(&SerializedAs::STRING)
+        );
     }
 
     #[test]
