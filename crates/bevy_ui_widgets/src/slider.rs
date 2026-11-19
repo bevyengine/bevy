@@ -19,10 +19,12 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{
-    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
+    hover::PointerCaptureMap,
 };
-use bevy_picking::hover::PointerCaptureMap;
 
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
@@ -31,7 +33,7 @@ use bevy_ui::{
 };
 use core::ops::RangeInclusive;
 
-use crate::ValueChange;
+use crate::{ActivateInput, ValueChange};
 use bevy_ecs::entity::Entity;
 
 /// Controls the orientation of the slider.
@@ -279,9 +281,13 @@ pub(crate) fn slider_on_pointer_down(
     )>,
     q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
+    input: ActivateInput,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
+    if !input.allows_pointer_button(press.button) {
+        return;
+    }
     if q_thumb.contains(press.entity) {
         // Thumb click, stop propagation to prevent track click.
         press.propagate(false);
@@ -385,8 +391,12 @@ pub(crate) fn slider_on_drag_start(
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
+    input: ActivateInput,
     mut capture_map: ResMut<PointerCaptureMap>,
 ) {
+    if !input.allows_pointer_button(drag_start.button) {
+        return;
+    }
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
         drag_start.propagate(false);
         if !disabled {
@@ -559,8 +569,12 @@ fn emit_slider_drag_value_change(
 fn slider_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(release.button) {
+        return;
+    }
     if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {
@@ -764,6 +778,7 @@ impl Plugin for SliderPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ActivateInputMapPlugin;
     use bevy_camera::NormalizedRenderTarget;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_input::keyboard::Key;
@@ -791,6 +806,7 @@ mod tests {
             InputDispatchPlugin,
             TabNavigationPlugin,
             SliderPlugin,
+            ActivateInputMapPlugin,
         ));
         app.add_observer(slider_self_update);
         let window = app

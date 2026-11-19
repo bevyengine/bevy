@@ -19,7 +19,7 @@ use bevy_picking::events::{
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::{ActivateOnPress, ValueChange};
+use crate::{ActivateInput, ActivateOnPress, ValueChange};
 use bevy_ecs::entity::Entity;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
@@ -76,8 +76,12 @@ fn checkbox_on_pointer_click(
         (Has<Checked>, Has<InteractionDisabled>),
         (With<Checkbox>, Without<ActivateOnPress>),
     >,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(click.button) {
+        return;
+    }
     if let Ok((is_checked, disabled)) = q_checkbox.get(click.entity) {
         click.propagate(false);
         if !disabled {
@@ -104,8 +108,12 @@ fn checkbox_on_pointer_down(
     >,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(press.button) {
+        return;
+    }
     if let Ok((checkbox, disabled, checked, pressed, activate_on_press)) =
         q_checkbox.get_mut(press.entity)
     {
@@ -135,8 +143,12 @@ fn checkbox_on_pointer_down(
 fn checkbox_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(release.button) {
+        return;
+    }
     if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {
@@ -294,6 +306,7 @@ pub fn checkbox_self_update(value_change: On<ValueChange<bool>>, mut commands: C
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ActivateInputMapPlugin;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
@@ -324,6 +337,7 @@ mod tests {
             InputDispatchPlugin,
             TabNavigationPlugin,
             CheckboxPlugin,
+            ActivateInputMapPlugin,
         ));
         app.add_observer(checkbox_self_update);
         let window = app

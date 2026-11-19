@@ -19,7 +19,7 @@ use bevy_picking::events::{
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed};
 
-use crate::Activate;
+use crate::{Activate, ActivateInput};
 
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
@@ -65,8 +65,12 @@ fn button_on_pointer_click(
         (Has<Pressed>, Has<InteractionDisabled>, Has<ActivateOnPress>),
         With<Button>,
     >,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(click.button) {
+        return;
+    }
     if let Ok((pressed, disabled, activate_on_press)) = q_state.get_mut(click.entity) {
         click.propagate(false);
         if pressed && !disabled && !activate_on_press {
@@ -88,8 +92,12 @@ fn button_on_pointer_down(
         ),
         With<Button>,
     >,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(press.button) {
+        return;
+    }
     if let Ok((button, disabled, pressed, activate_on_press)) = q_state.get_mut(press.entity) {
         press.propagate(false);
         if !disabled && !pressed {
@@ -104,8 +112,12 @@ fn button_on_pointer_down(
 fn button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(release.button) {
+        return;
+    }
     if let Ok((button, disabled, pressed)) = q_state.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {

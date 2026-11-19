@@ -19,7 +19,7 @@ use bevy_picking::events::{
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
 
-use crate::{ActivateOnPress, ValueChange};
+use crate::{ActivateInput, ActivateOnPress, ValueChange};
 
 /// Headless widget implementation for a "radio button group". This component is used to group
 /// multiple [`RadioButton`] components together, allowing them to behave as a single unit. It
@@ -207,8 +207,12 @@ fn radio_button_on_click(
         (With<RadioButton>, Without<ActivateOnPress>),
     >,
     q_parents: Query<&ChildOf>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(click.button) {
+        return;
+    }
     let Ok((disabled, checked)) = q_radio.get(click.entity) else {
         // Not a radio button
         return;
@@ -243,8 +247,12 @@ fn radio_button_on_pointer_down(
         With<RadioButton>,
     >,
     q_parents: Query<&ChildOf>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(press.button) {
+        return;
+    }
     if let Ok((radio, disabled, checked, pressed, activate_on_press)) =
         q_radio.get_mut(press.entity)
     {
@@ -266,8 +274,12 @@ fn radio_button_on_pointer_down(
 fn radio_button_on_pointer_up(
     mut release: On<PointerRelease>,
     mut q_radio: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<RadioButton>>,
+    input: ActivateInput,
     mut commands: Commands,
 ) {
+    if !input.allows_pointer_button(release.button) {
+        return;
+    }
     if let Ok((radio, disabled, pressed)) = q_radio.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {
@@ -373,6 +385,7 @@ pub fn radio_self_update(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ActivateInputMapPlugin;
     use bevy_app::App;
     use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
@@ -396,6 +409,7 @@ mod tests {
             InputDispatchPlugin,
             TabNavigationPlugin,
             RadioGroupPlugin,
+            ActivateInputMapPlugin,
         ));
         app.add_observer(radio_self_update);
         let window = app
