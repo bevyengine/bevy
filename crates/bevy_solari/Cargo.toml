@@ -40,7 +40,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.20.0-dev" }
 bytemuck = { version = "1" }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-wgpu = { version = "30", default-features = false }
+# Needs the eager Send/Sync impls added in 30.0.2 (gfx-rs/wgpu#9953).
+wgpu = { version = "30.0.2", default-features = false }
 
 [features]
 dlss = ["bevy_anti_alias/dlss"]
