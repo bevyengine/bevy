@@ -1,5 +1,5 @@
 ---
-title: `FontSize::default()` is now `Rem(1.)`
+title: "`FontSize::default()` is now `Rem(1.)`"
 pull_requests: [26611]
 ---
 
