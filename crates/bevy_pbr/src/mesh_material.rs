@@ -3,6 +3,7 @@ use bevy_asset::{AsAssetId, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, template::FromTemplate};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::hash::{Hash, Hasher};
 use derive_more::derive::From;
 
 /// A [material](Material) used for rendering a [`Mesh3d`].
@@ -53,6 +54,12 @@ impl<M: Material> PartialEq for MeshMaterial3d<M> {
 }
 
 impl<M: Material> Eq for MeshMaterial3d<M> {}
+
+impl<M: Material> Hash for MeshMaterial3d<M> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
 
 impl<M: Material> From<MeshMaterial3d<M>> for AssetId<M> {
     fn from(material: MeshMaterial3d<M>) -> Self {

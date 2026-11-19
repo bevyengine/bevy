@@ -11,7 +11,8 @@ use crate::reflect::{
     extend_where_clause, ignored_params, parse_container_attributes, take_string_attribute,
     type_path::{type_path, type_path_strings},
     type_registration::type_registration,
-    FULL_TYPE_PATH_ATTRIBUTE_NAME, REFLECT_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
+    FULL_TYPE_PATH_ATTRIBUTE_NAME, META_ATTRIBUTE_NAME, REFLECT_ATTRIBUTE_NAME,
+    TYPE_PATH_ATTRIBUTE_NAME,
 };
 
 /// Implements reflection for a type as a `Kind::Primitive`, whose internals are not reflected. This
@@ -52,10 +53,9 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
             ),
         ));
     }
-    if let Some(attr) = attrs
-        .iter()
-        .find(|attr| !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME))
-    {
+    if let Some(attr) = attrs.iter().find(|attr| {
+        !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) && !attr.path().is_ident(META_ATTRIBUTE_NAME)
+    }) {
         return Err(syn::Error::new_spanned(attr, "unsupported attribute"));
     }
     let container_attributes = parse_container_attributes(&attrs)?;
@@ -155,6 +155,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
         };
     let (impl_generics, _, _) = generics.split_for_impl();
     let vtable = container_attributes.vtable(&bevy_reflect);
+    let metadata = container_attributes.metadata.to_tokens(&bevy_reflect);
     let type_registration = type_registration(
         &target,
         &generics,
@@ -168,6 +169,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
         unsafe impl #impl_generics #bevy_reflect::Typed for #target #extended_where_clause {
             const TYPE: &'static #bevy_reflect::Type = &{
                 let vtable = #vtable;
+                let metadata = #metadata;
                 unsafe {
                     #bevy_reflect::Type::new(
                         ::core::any::TypeId::of::<Self>(),
@@ -177,6 +179,7 @@ pub(crate) fn impl_reflect_primitive(input: TokenStream) -> Result<TokenStream, 
                         #type_path_tokens,
                     )
                 }
+                .with_metadata(metadata)
             };
         }
 

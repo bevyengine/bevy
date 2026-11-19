@@ -43,7 +43,7 @@ use bevy_feathers::{
 };
 use bevy_fuzzy::{segments, FuzzyPattern};
 use bevy_log::warn;
-use bevy_picking::Pickable;
+use bevy_picking::{events::PointerClick, pointer::PointerButton, Pickable};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
@@ -51,8 +51,8 @@ use bevy_text::{
     EditableText, FontSource, FontWeight, Placeholder, TextEdit, TextEditChange, TextFont, TextSpan,
 };
 use bevy_ui::{
-    percent, px, widget::Text, BorderRadius, ComputedNode, Display, Expanded, Node, PositionType,
-    ScrollIntoView, Selected, UiRect, Val,
+    percent, px, widget::Text, BorderRadius, ComputedNode, Display, Expanded, Node, Overflow,
+    PositionType, ScrollIntoView, Selected, UiRect, Val,
 };
 use bevy_ui_widgets::{
     tree_view_expand_self_update, tree_view_self_update, SelectedTreeItem, TreeItem,
@@ -66,6 +66,9 @@ use crate::{InspectableEntity, InspectorSelection, InspectorSource, InspectorSou
 const ROW_HEIGHT: f32 = 21.0;
 /// The width of an [`InspectorTreeGuide`], in logical pixels.
 const GUIDE_WIDTH: f32 = 3.0;
+
+const EYE: &str = "embedded://bevy_inspector/assets/icons/eye.png";
+const EYE_CLOSED: &str = "embedded://bevy_inspector/assets/icons/eye-closed.png";
 
 /// Marker for root entities spawned by the inspector. An `InspectorUi` entity and its descendants
 /// are hidden from the entity tree, and clicks on them do not select entities.
@@ -143,6 +146,17 @@ pub struct InspectorTreeGuide;
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorLeafDot;
+
+/// The eye at the end of a row whose entity has a [`Visibility`]. Clicking it hides or shows that
+/// entity.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Clone)]
+pub struct InspectorVisibilityToggle {
+    /// The entity whose visibility the eye toggles.
+    pub inspected: Entity,
+    /// Whether the entity's own [`Visibility`] is [`Visibility::Hidden`].
+    pub hidden: bool,
+}
 
 /// Marker for rows whose child rows are kept in sync, added the first time a row is expanded.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -530,6 +544,13 @@ struct RowSpawn {
     expandable: bool,
     expanded: bool,
     hidden: bool,
+    eye: Option<bool>,
+}
+
+struct EyeUpdate {
+    row: Entity,
+    inspected: Entity,
+    hidden: Option<bool>,
 }
 
 /// The set of changes a single synchronization pass needs to apply.
@@ -556,6 +577,7 @@ struct SyncPlan {
     relabel: Vec<(Entity, InspectorRowLabel)>,
     dim: Vec<(Entity, bool)>,
     expandable: Vec<(Entity, bool)>,
+    eyes: Vec<EyeUpdate>,
     expand: Vec<Entity>,
     collapse: Vec<Entity>,
     reorder: Vec<(Entity, Vec<InspectableEntity>)>,
@@ -975,6 +997,10 @@ fn diff_container(
         let expandable = !shown.children(inspected).is_empty();
         let label = shown.label(inspected_world, inspected);
         let hidden = is_hidden(inspected_world, inspected.entity);
+        let eye = (inspected.source == InspectorSource::Local)
+            .then(|| inspected_world.get::<Visibility>(inspected.entity))
+            .flatten()
+            .map(|visibility| *visibility == Visibility::Hidden);
         let Some(row) = existing.get(inspected).copied() else {
             plan.spawn.push(RowSpawn {
                 container,
@@ -984,9 +1010,18 @@ fn diff_container(
                 expandable,
                 expanded: expandable && shown.expands(inspected),
                 hidden,
+                eye,
             });
             continue;
         };
+
+        if eye_state(world, row) != eye {
+            plan.eyes.push(EyeUpdate {
+                row,
+                inspected: inspected.entity,
+                hidden: eye,
+            });
+        }
 
         if let Some(label_entity) = row_label_entity(world, row) {
             if world.get::<InspectorRowLabel>(label_entity) != Some(&label) {
@@ -1061,6 +1096,15 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
             .cloned()
         {
             write_label(world, label_entity, label);
+        }
+    }
+
+    for update in plan.eyes {
+        if let Some(eye) = row_eye(world, update.row) {
+            world.entity_mut(eye).despawn();
+        }
+        if let Some(hidden) = update.hidden {
+            spawn_eye(world, update.row, update.inspected, hidden);
         }
     }
 
@@ -1143,6 +1187,9 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
             }
         };
         style_row(world, row, spawn.expandable);
+        if let Some(hidden) = spawn.eye {
+            spawn_eye(world, row, spawn.inspected, hidden);
+        }
         if let Some(label_entity) = row_label_entity(world, row) {
             write_label(world, label_entity, spawn.label);
         }
@@ -1357,6 +1404,10 @@ pub(crate) fn row_label(text: String) -> impl Scene {
     bsn! {
         InspectorRowLabel { text: {text.clone()} }
         @caption(text)
+        Node {
+            min_width: px(0),
+            overflow: Overflow::clip(),
+        }
     }
 }
 
@@ -1503,7 +1554,9 @@ pub fn update_tree_guides(
         let (Ok(header), Ok(toggle)) = (nodes.get(header), nodes.get(toggle)) else {
             continue;
         };
-        let left = px(px_value(header.padding.left) + 0.5 * (px_value(toggle.width) - GUIDE_WIDTH));
+        let left = px(px_value(header.margin.left)
+            + px_value(header.padding.left)
+            + 0.5 * (px_value(toggle.width) - GUIDE_WIDTH));
         if let Ok(mut node) = nodes.get_mut(guide)
             && node.left != left
         {
@@ -1625,6 +1678,68 @@ pub(crate) fn entity_label(
     resolve_label(world, entity, &label_data)
         .map(|label| label.label.as_str().to_string())
         .unwrap_or_else(|| entity.to_string())
+}
+
+fn row_eye(world: &World, row: Entity) -> Option<Entity> {
+    let header = child_with::<FeathersTreeItemHeader>(world, row)?;
+    child_with::<InspectorVisibilityToggle>(world, header)
+}
+
+fn eye_state(world: &World, row: Entity) -> Option<bool> {
+    row_eye(world, row)
+        .and_then(|eye| world.get::<InspectorVisibilityToggle>(eye))
+        .map(|toggle| toggle.hidden)
+}
+
+fn eye(hidden: bool) -> impl Scene {
+    let image = if hidden { EYE_CLOSED } else { EYE };
+    bsn! {
+        @icon(image)
+        Node {
+            margin: UiRect::left(Val::Auto),
+            flex_shrink: 0.0,
+        }
+    }
+}
+
+fn spawn_eye(world: &mut World, row: Entity, inspected: Entity, hidden: bool) {
+    let Some(header) = child_with::<FeathersTreeItemHeader>(world, row) else {
+        return;
+    };
+    match world.spawn_scene(eye(hidden)) {
+        Ok(mut eye) => {
+            eye.insert((
+                InspectorVisibilityToggle { inspected, hidden },
+                ChildOf(header),
+            ))
+            .observe(toggle_visibility);
+        }
+        Err(error) => warn!("failed to spawn an inspector visibility toggle: {error}"),
+    }
+}
+
+fn toggle_visibility(
+    mut click: On<PointerClick>,
+    toggles: Query<&InspectorVisibilityToggle>,
+    mut visibilities: Query<&mut Visibility>,
+    mut sync: ResMut<EntityTreeSync>,
+) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
+    click.propagate(false);
+    let Ok(toggle) = toggles.get(click.entity) else {
+        return;
+    };
+    let Ok(mut visibility) = visibilities.get_mut(toggle.inspected) else {
+        return;
+    };
+    *visibility = if *visibility == Visibility::Hidden {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    sync.set_dirty();
 }
 
 /// The components of `entity` the inspector shows, see [`entity_label`].
@@ -2652,6 +2767,110 @@ mod tests {
     fn label_color(app: &App, entity: Entity) -> ThemeToken {
         let label = row_label_entity(app.world(), row_of(app, entity)).unwrap();
         app.world().get::<ThemeTextColor>(label).unwrap().0.clone()
+    }
+
+    fn eye_of(app: &App, entity: Entity) -> Option<InspectorVisibilityToggle> {
+        row_eye(app.world(), row_of(app, entity))
+            .and_then(|eye| app.world().get::<InspectorVisibilityToggle>(eye))
+            .copied()
+    }
+
+    fn click_eye(app: &mut App, entity: Entity) {
+        click_eye_with(app, entity, PointerButton::Primary);
+    }
+
+    fn click_eye_with(app: &mut App, entity: Entity, button: PointerButton) {
+        use bevy_camera::NormalizedRenderTarget;
+        use bevy_picking::{
+            backend::HitData,
+            events::Pointer,
+            pointer::{Location, PointerId},
+        };
+
+        app.world_mut().register_component::<bevy_window::Window>();
+        let eye = row_eye(app.world(), row_of(app, entity)).unwrap();
+        let location = Location {
+            target: NormalizedRenderTarget::None {
+                width: 1,
+                height: 1,
+            },
+            position: bevy_math::Vec2::ZERO,
+        };
+        app.world_mut().trigger(PointerClick {
+            entity: eye,
+            pointer: Pointer::new(PointerId::Mouse, location),
+            button,
+            hit: HitData::new(eye, 0.0, None, None),
+            duration: core::time::Duration::from_millis(10),
+            count: 1,
+        });
+        app.update();
+    }
+
+    #[test]
+    fn rows_with_visibility_show_an_eye() {
+        let (mut app, _) = tree_app();
+        let shown = app.world_mut().spawn(Visibility::Inherited).id();
+        let hidden = app.world_mut().spawn(Visibility::Hidden).id();
+        let plain = app.world_mut().spawn(Name::new("Plain")).id();
+        sync(&mut app);
+
+        assert!(eye_of(&app, shown).is_some_and(|eye| !eye.hidden && eye.inspected == shown));
+        assert!(eye_of(&app, hidden).is_some_and(|eye| eye.hidden));
+        assert!(eye_of(&app, plain).is_none());
+    }
+
+    #[test]
+    fn clicking_the_eye_toggles_visibility_without_selecting_the_row() {
+        let (mut app, tree) = tree_app();
+        app.world_mut()
+            .entity_mut(tree)
+            .observe(tree_view_self_update)
+            .observe(inspector_tree_selected);
+        let entity = app.world_mut().spawn(Visibility::Visible).id();
+        sync(&mut app);
+
+        click_eye_with(&mut app, entity, PointerButton::Secondary);
+        assert_eq!(
+            app.world().get::<Visibility>(entity),
+            Some(&Visibility::Visible)
+        );
+
+        click_eye(&mut app, entity);
+        assert_eq!(
+            app.world().get::<Visibility>(entity),
+            Some(&Visibility::Hidden)
+        );
+        assert_eq!(app.world().resource::<InspectorSelection>().0, None);
+        sync(&mut app);
+        assert!(eye_of(&app, entity).is_some_and(|eye| eye.hidden));
+        assert_eq!(label_color(&app, entity), tokens::LISTROW_TEXT_DISABLED);
+
+        click_eye(&mut app, entity);
+        assert_eq!(
+            app.world().get::<Visibility>(entity),
+            Some(&Visibility::Inherited)
+        );
+        sync(&mut app);
+        assert!(eye_of(&app, entity).is_some_and(|eye| !eye.hidden));
+    }
+
+    #[test]
+    fn the_eye_follows_visibility_added_or_changed_elsewhere() {
+        let (mut app, _) = tree_app();
+        let entity = app.world_mut().spawn(Name::new("Later")).id();
+        sync(&mut app);
+        assert!(eye_of(&app, entity).is_none());
+
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(Visibility::Hidden);
+        sync(&mut app);
+        assert!(eye_of(&app, entity).is_some_and(|eye| eye.hidden));
+
+        app.world_mut().entity_mut(entity).remove::<Visibility>();
+        sync(&mut app);
+        assert!(eye_of(&app, entity).is_none());
     }
 
     #[test]
