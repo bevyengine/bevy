@@ -37,14 +37,13 @@ use crate::{
     prelude::{BlendableProperty, EvaluatorId},
 };
 
-use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
+use bevy_app::{AnimationUpdate, App, Plugin};
+use bevy_asset::{Asset, AssetApp, Assets};
 use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::TransformSystems;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdHashMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -59,7 +58,7 @@ pub mod prelude {
     pub use crate::{
         animated_field, animation_curves::*, blendable::*, graph::*, transition::*,
         ActiveAnimation, AnimatedBy, AnimationClip, AnimationEvent, AnimationPlayer,
-        AnimationPlugin, AnimationTargetId, RepeatAnimation, VariableCurve,
+        AnimationPlugin, AnimationSystems, AnimationTargetId, RepeatAnimation, VariableCurve,
     };
 }
 
@@ -1302,6 +1301,20 @@ pub fn animate_targets(
         });
 }
 
+/// Animation system set.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AnimationSystems {
+    /// Systems that extract, process or rebuild data or data structures to ensure they are ready
+    /// for the update.
+    Prepare,
+    /// Systems that move state forward.
+    Advance,
+    /// Systems that catch up state changes and put them in action.
+    Apply,
+    /// Systems that have to run last and complete the update cycle.
+    Cleanup,
+}
+
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
@@ -1314,25 +1327,27 @@ impl Plugin for AnimationPlugin {
             .register_asset_reflect::<AnimationClip>()
             .register_asset_reflect::<BlendGraph>()
             .init_resource::<ThreadedBlendGraphs>()
-            .add_systems(
-                PostUpdate,
+            .configure_sets(
+                AnimationUpdate,
                 (
-                    graph::thread_blend_graphs.before(AssetEventSystems),
-                    advance_transitions,
-                    advance_animations,
-                    // TODO: `animate_targets` can animate anything, so
-                    // ambiguity testing currently considers it ambiguous with
-                    // every other system in `PostUpdate`. We may want to move
-                    // it to its own system set after `Update` but before
-                    // `PostUpdate`. For now, we just disable ambiguity testing
-                    // for this system.
-                    animate_targets.ambiguous_with_all(),
-                    trigger_untargeted_animation_events,
-                    expire_completed_transitions,
+                    AnimationSystems::Prepare,
+                    AnimationSystems::Advance,
+                    AnimationSystems::Apply,
+                    AnimationSystems::Cleanup,
                 )
-                    .chain()
-                    .in_set(AnimationSystems)
-                    .before(TransformSystems::Propagate),
+                    .chain(),
+            )
+            .add_systems(
+                AnimationUpdate,
+                (
+                    graph::thread_blend_graphs.in_set(AnimationSystems::Prepare),
+                    advance_transitions.in_set(AnimationSystems::Advance),
+                    advance_animations.in_set(AnimationSystems::Advance),
+                    animate_targets.in_set(AnimationSystems::Apply),
+                    trigger_untargeted_animation_events.in_set(AnimationSystems::Apply),
+                    expire_completed_transitions.in_set(AnimationSystems::Cleanup),
+                )
+                    .chain(),
             );
     }
 }
