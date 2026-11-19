@@ -244,7 +244,37 @@ pub trait AssetReader: Send + Sync + 'static {
             Ok(meta_bytes)
         }
     }
+    /// Returns the results of [`AssetReader::read_meta`] and [`AssetReader::read`] for `path`, meta
+    /// first, as a pair.
+    ///
+    /// A source that writes an asset and its meta together (such as the processed source while the
+    /// asset processor runs) can override this so both reads see the same version, for example by
+    /// holding a single lock across both. The default implementation calls `read_meta`, then
+    /// `read`.
+    fn read_meta_and_asset<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> impl ConditionalSendFuture<Output = MetaAndAssetReaders<'a>> {
+        async move {
+            let meta_reader = self
+                .read_meta(path.clone())
+                .await
+                .map(|reader| Box::new(reader) as Box<dyn Reader + 'a>);
+            let reader = self
+                .read(path)
+                .await
+                .map(|reader| Box::new(reader) as Box<dyn Reader + 'a>);
+            (meta_reader, reader)
+        }
+    }
 }
+
+/// The result of [`AssetReader::read_meta_and_asset`]: the meta reader first, then the asset
+/// reader, each as its own [`Result`].
+pub type MetaAndAssetReaders<'a> = (
+    Result<Box<dyn Reader + 'a>, AssetReaderError>,
+    Result<Box<dyn Reader + 'a>, AssetReaderError>,
+);
 
 /// Equivalent to an [`AssetReader`] but using boxed futures, necessary eg. when using a `dyn AssetReader`,
 /// as [`AssetReader`] isn't currently object safe.
@@ -275,6 +305,19 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>>;
+    /// The [`ErasedAssetReader`] version of [`AssetReader::read_meta_and_asset`], see that method
+    /// for details.
+    /// The default implementation calls this trait's `read_meta`, then `read`.
+    fn read_meta_and_asset<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> BoxedFuture<'a, MetaAndAssetReaders<'a>> {
+        Box::pin(async move {
+            let meta_reader = self.read_meta(path.clone()).await;
+            let reader = self.read(path).await;
+            (meta_reader, reader)
+        })
+    }
 }
 
 impl<T: AssetReader> ErasedAssetReader for T {
@@ -313,6 +356,12 @@ impl<T: AssetReader> ErasedAssetReader for T {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>> {
         Box::pin(Self::read_meta_bytes(self, path))
+    }
+    fn read_meta_and_asset<'a>(
+        &'a self,
+        path: CowArc<'a, Path>,
+    ) -> BoxedFuture<'a, MetaAndAssetReaders<'a>> {
+        Box::pin(Self::read_meta_and_asset(self, path))
     }
 }
 

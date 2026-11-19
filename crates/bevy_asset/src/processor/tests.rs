@@ -13,8 +13,8 @@ use bevy_platform::{
     sync::{Mutex, PoisonError},
 };
 use bevy_reflect::TypePath;
-use core::marker::PhantomData;
-use futures_lite::AsyncWriteExt;
+use core::{marker::PhantomData, pin::pin};
+use futures_lite::{future::poll_once, AsyncWriteExt};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -26,12 +26,14 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
+        processor_gated::ProcessorGatedReader,
         AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
         AssetSourceId, AssetWatcher, PathStream, Reader,
     },
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
-        ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
+        ProcessError, ProcessStatus, ProcessingState, ProcessorState, ProcessorTransactionLog,
+        ProcessorTransactionLogFactory,
     },
     saver::{tests::CoolTextSaver, AssetSaver},
     tests::{
@@ -1824,4 +1826,66 @@ fn write_default_meta_does_not_overwrite() {
         read_meta_as_string(&source, Path::new(ASSET_PATH)),
         META_TEXT
     );
+}
+
+/// Regression test for <https://github.com/bevyengine/bevy/issues/26407>.
+///
+/// Reading meta and asset through the processor-gated reader takes the transaction lock only once,
+/// so a processor write queued in the middle of the read can't deadlock it.
+#[test]
+fn read_meta_and_asset_does_not_deadlock_with_waiting_writer() {
+    let path = Path::new("a.txt");
+    let dir = Dir::default();
+    dir.insert_asset_text(path, "asset");
+    dir.insert_meta_text(path, "meta");
+
+    // While the test holds the gate, the inner reader freezes inside `read_meta`, after the gated
+    // reader has already taken the transaction lock. This stops the read at the worst moment.
+    let gate = Arc::new(RwLock::new(()));
+    let inner_reader = LockGatedReader::new(gate.clone(), MemoryAssetReader { root: dir });
+
+    let processing_state = Arc::new(ProcessingState::new());
+    let asset_path = AssetPath::from(path.to_path_buf()).with_source(AssetSourceId::Default);
+    let transaction_lock = bevy_tasks::block_on(async {
+        processing_state.set_state(ProcessorState::Finished).await;
+        let mut infos = processing_state.asset_infos.write().await;
+        let info = infos.get_or_insert(asset_path);
+        info.update_status(ProcessStatus::Processed).await;
+        info.file_transaction_lock.clone()
+    });
+    let reader = ProcessorGatedReader::new(
+        AssetSourceId::Default,
+        Arc::new(inner_reader),
+        processing_state,
+    );
+
+    let gate_guard = bevy_tasks::block_on(gate.write());
+    let mut read = pin!(reader.read_meta_and_asset(CowArc::Borrowed(path)));
+    assert!(bevy_tasks::block_on(poll_once(&mut read)).is_none());
+
+    // Simulate the processor starting to rewrite the asset mid-read. It has to wait, because the
+    // read holds the lock.
+    let mut write = pin!(transaction_lock.write_arc());
+    assert!(bevy_tasks::block_on(poll_once(&mut write)).is_none());
+
+    drop(gate_guard);
+    let (meta_reader, asset_reader) = (0..10)
+        .find_map(|_| bevy_tasks::block_on(poll_once(&mut read)))
+        .expect("reading the meta and the asset deadlocked with the waiting writer");
+    let mut meta_reader = meta_reader.unwrap();
+    let mut asset_reader = asset_reader.unwrap();
+
+    let mut bytes = Vec::new();
+    bevy_tasks::block_on(meta_reader.read_to_end(&mut bytes)).unwrap();
+    assert_eq!(bytes, b"meta");
+    bytes.clear();
+    bevy_tasks::block_on(asset_reader.read_to_end(&mut bytes)).unwrap();
+    assert_eq!(bytes, b"asset");
+
+    // The writer should only get the lock once both readers are dropped, which shows they share one
+    // lock.
+    drop(meta_reader);
+    assert!(bevy_tasks::block_on(poll_once(&mut write)).is_none());
+    drop(asset_reader);
+    assert!(bevy_tasks::block_on(poll_once(&mut write)).is_some());
 }

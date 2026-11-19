@@ -5,8 +5,8 @@
 
 use crate::{
     io::{
-        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderNotSeekableError,
-        SeekableReader,
+        AssetReader, AssetReaderError, AssetSourceId, MetaAndAssetReaders, PathStream, Reader,
+        ReaderNotSeekableError, SeekableReader,
     },
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
@@ -69,7 +69,7 @@ impl AssetReader for ProcessorGatedReader {
             .get_transaction_lock(&asset_path)
             .await?;
         let asset_reader = self.reader.read(path).await?;
-        let reader = TransactionLockedReader::new(asset_reader, lock);
+        let reader = TransactionLockedReader::new(asset_reader, Arc::new(lock));
         Ok(reader)
     }
 
@@ -95,8 +95,46 @@ impl AssetReader for ProcessorGatedReader {
             .get_transaction_lock(&asset_path)
             .await?;
         let meta_reader = self.reader.read_meta(path).await?;
-        let reader = TransactionLockedReader::new(meta_reader, lock);
+        let reader = TransactionLockedReader::new(meta_reader, Arc::new(lock));
         Ok(reader)
+    }
+
+    async fn read_meta_and_asset<'a>(&'a self, path: CowArc<'a, Path>) -> MetaAndAssetReaders<'a> {
+        let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
+        trace!("Waiting for processing to finish before reading meta and asset for {asset_path}");
+        let process_result = self
+            .processing_state
+            .wait_until_processed(asset_path.clone())
+            .await;
+        match process_result {
+            ProcessStatus::Processed => {}
+            ProcessStatus::Failed | ProcessStatus::NonExistent => {
+                let err = AssetReaderError::NotFound(path.to_path_buf());
+                return (Err(err.clone()), Err(err));
+            }
+        }
+        trace!(
+            "Processing finished with {process_result:?}, reading meta and asset for {asset_path}"
+        );
+        // Take the transaction lock once and share it between both readers. `async_lock` makes new
+        // readers wait behind a waiting writer, so locking once per reader can deadlock: if the
+        // processor queues a write between the two reads, the second read waits for the writer,
+        // which waits for the first read.
+        let lock = match self
+            .processing_state
+            .get_transaction_lock(&asset_path)
+            .await
+        {
+            Ok(lock) => Arc::new(lock),
+            Err(err) => return (Err(err.clone()), Err(err)),
+        };
+        let meta_reader = self.reader.read_meta(path.clone()).await.map(|reader| {
+            Box::new(TransactionLockedReader::new(reader, lock.clone())) as Box<dyn Reader + 'a>
+        });
+        let reader = self.reader.read(path).await.map(|reader| {
+            Box::new(TransactionLockedReader::new(reader, lock)) as Box<dyn Reader + 'a>
+        });
+        (meta_reader, reader)
     }
 
     async fn read_directory<'a>(
@@ -126,13 +164,19 @@ impl AssetReader for ProcessorGatedReader {
 }
 
 /// An [`AsyncRead`] impl that will hold its asset's transaction lock until [`TransactionLockedReader`] is dropped.
+///
+/// The guard can be shared by several readers (for example an asset and its meta file). The lock is
+/// only released once all of them have been dropped.
 pub struct TransactionLockedReader<'a> {
     reader: Box<dyn Reader + 'a>,
-    _file_transaction_lock: RwLockReadGuardArc<()>,
+    _file_transaction_lock: Arc<RwLockReadGuardArc<()>>,
 }
 
 impl<'a> TransactionLockedReader<'a> {
-    fn new(reader: Box<dyn Reader + 'a>, file_transaction_lock: RwLockReadGuardArc<()>) -> Self {
+    fn new(
+        reader: Box<dyn Reader + 'a>,
+        file_transaction_lock: Arc<RwLockReadGuardArc<()>>,
+    ) -> Self {
         Self {
             reader,
             _file_transaction_lock: file_transaction_lock,
