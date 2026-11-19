@@ -1262,6 +1262,10 @@ fn demo_column_3() -> impl Scene {
                     on(populate_demo_branch)
                 ]
             ]
+            --
+            ImageNode {
+                image: "branding/bevy_logo_dark.svg"
+            }
         ]
     }
 }
