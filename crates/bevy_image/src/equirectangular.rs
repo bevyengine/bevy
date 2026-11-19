@@ -171,6 +171,7 @@ impl Image {
             self.asset_usage,
         );
         cubemap.sampler = self.sampler.clone();
+        cubemap.source_color_primaries = self.source_color_primaries;
         cubemap.texture_view_descriptor = Some(TextureViewDescriptor {
             dimension: Some(TextureViewDimension::Cube),
             ..Default::default()
