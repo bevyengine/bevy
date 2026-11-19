@@ -1316,6 +1316,53 @@ mod tests {
             );
         }
 
+        // Test that enum set names keep the enum name, and struct set names are unchanged
+        // Related issue https://github.com/bevyengine/bevy/issues/23908
+        #[test]
+        #[cfg(feature = "debug")]
+        fn enum_set_name() {
+            #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+            enum EnumSet {
+                Variant,
+            }
+
+            #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+            struct StructSet;
+
+            assert!(!EnumSet::Variant.debug_includes_type_name());
+            assert!(StructSet.debug_includes_type_name());
+
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.add_systems((
+                resmut_system.in_set(EnumSet::Variant),
+                resmut_system.in_set(StructSet),
+            ));
+
+            let mut world = World::new();
+            schedule.graph_mut().initialize(&mut world);
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
+
+            let ambiguities: Vec<_> = schedule
+                .graph()
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
+                .map(|item| (item.0, item.1))
+                .collect();
+
+            let enum_system = "resmut_system (in set EnumSet::Variant)";
+            let struct_system = "resmut_system (in set StructSet)";
+            assert_eq!(ambiguities.len(), 1);
+            let (first, second) = &ambiguities[0];
+            // The two systems can be reported in either order.
+            assert!(
+                (first == enum_system && second == struct_system)
+                    || (first == struct_system && second == enum_system),
+                "unexpected ambiguity names: {first:?}, {second:?}",
+            );
+        }
+
         #[test]
         fn ignore_component_resource_ambiguities() {
             let mut world = World::new();

@@ -724,6 +724,12 @@ mod tests {
             app.world().get::<SelectedTreeItem>(tree).unwrap().0,
             Some(header)
         );
+        app.world_mut().resource_mut::<EntityTreeSync>().set_dirty();
+        app.update();
+        assert_eq!(
+            app.world().get::<SelectedTreeItem>(tree).unwrap().0,
+            Some(header)
+        );
 
         select_page(&mut app, InspectorPage::Resources);
         let list = single::<With<InspectorResourceList>>(&mut app);
