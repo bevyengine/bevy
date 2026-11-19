@@ -226,27 +226,14 @@ impl TextPipeline {
                 }
             }
 
-            let root_family = root_style
-                .and_then(|(text_font, ..)| {
-                    text_font
-                        .font
-                        .resolve_font_family(fonts, default_font_source)
-                        .ok()
-                })
-                .or_else(|| {
-                    FontSource::Default
-                        .resolve_font_family(fonts, default_font_source)
-                        .ok()
-                });
-
-            if let Some(family) = root_family {
-                builder.push_default(StyleProperty::FontFamily(family));
+            if let Ok(root_family) = root_style
+                .map_or(&FontSource::Default, |(f, ..)| &f.font)
+                .resolve_font_family(fonts, default_font_source) {
+                builder.push_default(StyleProperty::FontFamily(root_family));
             }
 
-            if let Some((_, logical_font_size, line_height)) = root_style {
-                builder.push_default(StyleProperty::FontSize(logical_font_size));
-                builder.push_default(StyleProperty::LineHeight(line_height.eval()));
-            }
+            builder.push_default(StyleProperty::FontSize(0.0));
+            builder.push_default(StyleProperty::LineHeight(parley::LineHeight::Absolute(0.0)));
 
             let mut start = 0;
             for section in sections.drain(..) {
