@@ -27,7 +27,11 @@ use crate::{
 
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr};
-use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
+use core::{
+    any::TypeId,
+    marker::PhantomData,
+    mem::{DropGuard, MaybeUninit},
+};
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -1948,22 +1952,11 @@ impl<'w> EntityWorldMut<'w> {
     /// # assert_eq!(new_r.0, 1);
     /// ```
     pub fn world_scope<U>(&mut self, f: impl FnOnce(&mut World) -> U) -> U {
-        struct Guard<'w, 'a> {
-            entity_mut: &'a mut EntityWorldMut<'w>,
-        }
-
-        impl Drop for Guard<'_, '_> {
-            #[inline]
-            fn drop(&mut self) {
-                self.entity_mut.update_location();
-            }
-        }
-
         // When `guard` is dropped at the end of this scope,
         // it will update the cached `EntityLocation` for this instance.
         // This will run even in case the closure `f` unwinds.
-        let guard = Guard { entity_mut: self };
-        f(guard.entity_mut.world)
+        let mut guard = DropGuard::new(self, EntityWorldMut::update_location);
+        f(guard.world)
     }
 
     /// Creates a new [`EntityCommands`] instance that writes commands
