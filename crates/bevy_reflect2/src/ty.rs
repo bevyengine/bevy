@@ -1,10 +1,10 @@
 use bevy_ptr::{Ptr, PtrMut};
 
 use crate::{
-    attributes::impl_custom_attribute_methods,
-    attributes::CustomAttributes,
     builtin::move_box_into,
     kind::{Kind, Struct, StructField, UncoveredBytes},
+    metadata::impl_metadata_methods,
+    metadata::Metadata,
     reflect::Reflect,
     type_path::TypePath,
     type_vtable::TypeVTable,
@@ -44,7 +44,7 @@ pub struct Type {
     layout: Option<Layout>,
     vtable: TypeVTable,
     type_path: TypePath,
-    custom_attributes: CustomAttributes,
+    metadata: Metadata,
 }
 
 impl Type {
@@ -69,14 +69,14 @@ impl Type {
             layout,
             vtable,
             type_path,
-            custom_attributes: CustomAttributes::EMPTY,
+            metadata: Metadata::EMPTY,
         }
     }
 
-    /// Sets the [`CustomAttributes`] of this type (registered with `#[reflect(@expr)]`).
+    /// Sets the [`Metadata`] of this type (registered with `#[reflect(@expr)]`).
     #[inline]
-    pub const fn with_custom_attributes(mut self, custom_attributes: CustomAttributes) -> Self {
-        self.custom_attributes = custom_attributes;
+    pub const fn with_metadata(mut self, metadata: Metadata) -> Self {
+        self.metadata = metadata;
         self
     }
 
@@ -115,13 +115,13 @@ impl Type {
         &self.type_path
     }
 
-    /// Returns the [`CustomAttributes`] of this type (registered with `#[reflect(@expr)]`).
+    /// Returns the [`Metadata`] of this type (registered with `#[reflect(@expr)]`).
     #[inline]
-    pub const fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
+    pub const fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
-    impl_custom_attribute_methods!(self, self.custom_attributes, "type");
+    impl_metadata_methods!(self, self.metadata, "type");
 
     /// Allocates uninitialized memory for a value of this type. Returns `None` if the type is unsized.
     ///

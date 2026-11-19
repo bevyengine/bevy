@@ -3,8 +3,8 @@ use alloc::boxed::Box;
 use bevy_ptr::{Ptr, PtrMut};
 
 use crate::{
-    attributes::{impl_custom_attribute_methods, CustomAttributes},
     kind::{FieldKind, IgnoredFieldVTable},
+    metadata::{impl_metadata_methods, Metadata},
     Reflect, TypeRef,
 };
 
@@ -107,12 +107,12 @@ pub struct Variant {
     /// The fields that are not reflected (ex: fields marked `#[reflect(ignore)]`), which are missing
     /// from [`Variant::fields`].
     pub ignored_fields: &'static [EnumIgnoredField],
-    /// The custom attributes of the variant (registered with `#[reflect(@expr)]`).
-    pub custom_attributes: CustomAttributes,
+    /// The metadata of the variant (registered with `#[reflect(@expr)]`).
+    pub metadata: Metadata,
 }
 
 impl Variant {
-    impl_custom_attribute_methods!(self, self.custom_attributes, "variant");
+    impl_metadata_methods!(self, self.metadata, "variant");
 
     /// Returns the index of the reflected field with `name` (in [`Variant::fields`]), or `None`
     /// if there is no such field. Unnamed fields are named by their index (ex: `"0"`), and
@@ -130,12 +130,12 @@ pub struct EnumField {
     pub name: &'static str,
     /// A reference to the [`Type`](crate::Type) of the field.
     pub ty: TypeRef,
-    /// The custom attributes of the field (registered with `#[reflect(@expr)]`).
-    pub custom_attributes: CustomAttributes,
+    /// The metadata of the field (registered with `#[reflect(@expr)]`).
+    pub metadata: Metadata,
 }
 
 impl EnumField {
-    impl_custom_attribute_methods!(self, self.custom_attributes, "field");
+    impl_metadata_methods!(self, self.metadata, "field");
 }
 
 /// Describes the field of an [`Enum`] [`Variant`] that is not reflected (ex: a field marked `#[reflect(ignore)]`). Its
