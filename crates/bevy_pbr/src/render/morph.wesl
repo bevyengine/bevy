@@ -33,6 +33,12 @@ fn layer_count(descriptor_index: u32) -> u32 {
 @if(SKINS_USE_UNIFORM_BUFFERS)
     return u32(dimensions.z);
 @if(!SKINS_USE_UNIFORM_BUFFERS)
+    let descriptor_count = arrayLength(&morph_descriptors);
+@if(!SKINS_USE_UNIFORM_BUFFERS)
+    if (descriptor_index >= descriptor_count) {
+        return 0u;
+    }
+@if(!SKINS_USE_UNIFORM_BUFFERS)
     return morph_descriptors[descriptor_index].weight_count;
 }
 
