@@ -810,29 +810,19 @@ fn early_sweep_material_instances<M>(
     }
 }
 
-/// Removes mesh materials from [`RenderMaterialInstances`] when their
-/// [`ViewVisibility`] components are removed.
+/// Bumps [`RenderMaterialInstances::current_change_tick`] in preparation for a
+/// new frame.
 ///
-/// This runs after all invocations of `early_sweep_material_instances` and is
-/// responsible for bumping [`RenderMaterialInstances::current_change_tick`] in
-/// preparation for a new frame.
-pub fn late_sweep_material_instances(
-    mut material_instances: ResMut<RenderMaterialInstances>,
-    mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-) {
+/// This runs after all invocations of `early_sweep_material_instances`, which
+/// remove the entries of entities that lost their material, including despawned
+/// ones.
+///
+/// Removing [`Mesh3d`] deliberately leaves the entry in place: the entity is
+/// not drawn without a mesh, and `extract_mesh_materials` would not restore the
+/// entry if the [`Mesh3d`] were added again, because neither the material nor
+/// the [`ViewVisibility`] has to change for that.
+pub fn late_sweep_material_instances(mut material_instances: ResMut<RenderMaterialInstances>) {
     let last_change_tick = material_instances.current_change_tick;
-
-    for entity in removed_meshes_query.read() {
-        if let Entry::Occupied(occupied_entry) = material_instances.instances.entry(entity.into()) {
-            // Only sweep the entry if it wasn't updated this frame. It's
-            // possible that a `ViewVisibility` component was removed and
-            // re-added in the same frame.
-            if occupied_entry.get().last_change_tick != last_change_tick {
-                occupied_entry.remove();
-            }
-        }
-    }
-
     material_instances
         .current_change_tick
         .set(last_change_tick.get() + 1);
@@ -1947,5 +1937,135 @@ mod tests {
 
         app.update();
         assert!(listed(&app).is_empty());
+    }
+
+    /// Extraction of [`RenderMaterialInstances`] into a test sub-app, without a
+    /// GPU.
+    mod material_instances {
+        use bevy_app::{App, AppLabel, TaskPoolPlugin};
+        use bevy_camera::visibility::ViewVisibility;
+        use bevy_ecs::{
+            entity::Entity,
+            schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, SystemSet},
+        };
+        use bevy_extract::{ExtractPlugin, ExtractSchedule};
+        use bevy_mesh::Mesh3d;
+        use bevy_render::sync_world::MainEntity;
+
+        use crate::material::{
+            early_sweep_material_instances, extract_mesh_materials, late_sweep_material_instances,
+            MaterialExtractionSystems, RenderMaterialInstances,
+        };
+        use crate::{MeshMaterial3d, StandardMaterial};
+
+        #[derive(AppLabel, Debug, Hash, PartialEq, Eq, Clone, Default, Copy)]
+        struct TestRenderApp;
+
+        #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+        struct TestRender;
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        enum TestRenderSystems {
+            ExtractCommands,
+            Cleanup,
+        }
+
+        fn app() -> App {
+            let mut app = App::new();
+            app.add_plugins((
+                TaskPoolPlugin::default(),
+                ExtractPlugin::<TestRenderApp>::new(
+                    |_, _| {},
+                    || Schedule::new(TestRender),
+                    TestRender.intern(),
+                    TestRenderSystems::ExtractCommands.intern(),
+                    TestRenderSystems::Cleanup.intern(),
+                ),
+            ));
+            let sub_app = app.get_sub_app_mut(TestRenderApp).unwrap();
+            sub_app.update_schedule = Some(TestRender.intern());
+            sub_app
+                .init_resource::<RenderMaterialInstances>()
+                .add_systems(
+                    ExtractSchedule,
+                    (
+                        extract_mesh_materials::<StandardMaterial>
+                            .in_set(MaterialExtractionSystems),
+                        early_sweep_material_instances::<StandardMaterial>
+                            .after(MaterialExtractionSystems)
+                            .before(late_sweep_material_instances),
+                        late_sweep_material_instances,
+                    ),
+                );
+            app
+        }
+
+        fn has_material(app: &App, entity: Entity) -> bool {
+            app.get_sub_app(TestRenderApp)
+                .unwrap()
+                .world()
+                .resource::<RenderMaterialInstances>()
+                .instances
+                .contains_key(&MainEntity::from(entity))
+        }
+
+        /// Spawns a visible mesh and extracts it once.
+        fn spawn_mesh(app: &mut App) -> Entity {
+            let entity = app
+                .world_mut()
+                .spawn((
+                    Mesh3d::default(),
+                    MeshMaterial3d::<StandardMaterial>::default(),
+                    ViewVisibility::VISIBLE,
+                ))
+                .id();
+            app.update();
+            assert!(has_material(app, entity));
+            entity
+        }
+
+        #[test]
+        fn mesh_added_again_on_a_later_frame_keeps_its_material() {
+            let mut app = app();
+            let entity = spawn_mesh(&mut app);
+
+            // Neither `ViewVisibility` nor the material changes here, so
+            // nothing would bring the entry back if it were removed.
+            app.world_mut().entity_mut(entity).remove::<Mesh3d>();
+            app.update();
+            assert!(has_material(&app, entity));
+
+            app.world_mut().entity_mut(entity).insert(Mesh3d::default());
+            app.update();
+            assert!(has_material(&app, entity));
+        }
+
+        #[test]
+        fn removed_material_and_despawned_mesh_lose_their_material() {
+            let mut app = app();
+            let stripped = spawn_mesh(&mut app);
+            let despawned = spawn_mesh(&mut app);
+
+            app.world_mut()
+                .entity_mut(stripped)
+                .remove::<MeshMaterial3d<StandardMaterial>>();
+            app.world_mut().despawn(despawned);
+            app.update();
+            assert!(!has_material(&app, stripped));
+            assert!(!has_material(&app, despawned));
+        }
+
+        #[test]
+        fn mesh_removed_and_added_in_one_frame_keeps_its_material() {
+            let mut app = app();
+            let entity = spawn_mesh(&mut app);
+
+            app.world_mut()
+                .entity_mut(entity)
+                .remove::<Mesh3d>()
+                .insert(Mesh3d::default());
+            app.update();
+            assert!(has_material(&app, entity));
+        }
     }
 }
