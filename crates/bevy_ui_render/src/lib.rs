@@ -7,6 +7,7 @@
 
 //! Provides rendering functionality for `bevy_ui`.
 
+mod blur;
 pub mod box_shadow;
 pub mod clipping;
 mod gradient;
@@ -72,9 +73,9 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
-    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
-    UnderlineColor,
+    ComputedTextBlock, EditableText, InlineBox, PlaceholderColor, PositionedGlyph, Strikethrough,
+    StrikethroughColor, TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan,
+    Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -82,6 +83,9 @@ use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 use std::mem;
 
+pub use blur::{
+    BlurRegion, BlurRegionCamera, BlurSetting, BlurShaderPlugin, DEFAULT_MAX_BLUR_REGIONS_COUNT,
+};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -309,6 +313,7 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
+        app.add_plugins(BlurShaderPlugin::<DEFAULT_MAX_BLUR_REGIONS_COUNT>);
     }
 }
 
@@ -484,6 +489,7 @@ pub fn extract_uinode_changes(
                         Changed<StrikethroughColor>,
                         Changed<UnderlineColor>,
                         Changed<BorderStyle>,
+                        Changed<PlaceholderColor>,
                     )>,
                 )>,
             ),
@@ -573,11 +579,13 @@ pub fn extract_uinode_changes(
         mut removed_underline_color_query,
         mut removed_inline_image_query,
         mut removed_border_style_query,
+        mut removed_placeholder_color_query,
     ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
         Extract<RemovedComponents<InlineImage>>,
         Extract<RemovedComponents<BorderStyle>>,
+        Extract<RemovedComponents<PlaceholderColor>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -640,6 +648,7 @@ pub fn extract_uinode_changes(
             .chain(removed_underline_color_query.read())
             .chain(removed_inline_image_query.read())
             .chain(removed_border_style_query.read())
+            .chain(removed_placeholder_color_query.read())
         {
             process_changed_entity(
                 main_entity.into(),

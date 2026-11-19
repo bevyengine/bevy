@@ -156,6 +156,10 @@ pub fn basic_example_theme(text_color: Color) -> ThemeProps {
         bevy::feathers::tokens::LISTROW_BG_SELECTED,
         bevy::feathers::palette::BLACK,
     );
+    color.insert(
+        bevy::feathers::tokens::TREE_ROW_BG_SELECTED,
+        bevy::feathers::palette::BLACK,
+    );
     color.insert(bevy::feathers::tokens::BUTTON_TEXT, text_color);
     color.insert(bevy::feathers::tokens::LISTROW_TEXT, text_color);
 

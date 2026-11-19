@@ -38,6 +38,7 @@ pub mod prelude {
     pub use crate::Reflect;
 }
 
+pub mod attributes;
 #[cfg(feature = "auto_register")]
 mod auto_register;
 pub mod builtin;
@@ -105,6 +106,8 @@ mod tests {
         any::{Any, TypeId},
         cmp::Ordering,
         fmt,
+        mem::MaybeUninit,
+        ptr::NonNull,
     };
 
     #[test]
@@ -885,6 +888,101 @@ mod tests {
         .unwrap();
 
         assert_eq!(value.downcast_ref::<Foo>().unwrap(), &Foo { a: 10, b: 20 });
+    }
+
+    fn non_null_from_maybe_uninit<T>(value: &mut MaybeUninit<T>) -> NonNull<u8> {
+        NonNull::new(value.as_mut_ptr().cast()).unwrap()
+    }
+
+    #[test]
+    fn initialize_raw() {
+        #[derive(Reflect, PartialEq, Eq, Debug)]
+        struct Foo {
+            a: u32,
+            b: String,
+        }
+
+        let mut value = MaybeUninit::<Foo>::uninit();
+
+        // SAFETY:
+        // 1) Foo is a struct.
+        // 2) Foo is sized, so the layout is some.
+        // 3) `value` is mutable, and has the correct layout for `Foo`.
+        // 4) We initialize every field with a valid value of the appropriate type.
+        // 5) There are no ignored fields.
+        // 6) uncovered_initialized is false.
+        unsafe {
+            Foo::TYPE.initialize_struct_raw(
+                non_null_from_maybe_uninit(&mut value),
+                /*uncovered_initialized=*/ false,
+                |field, ptr| {
+                    if field.ty.get().type_id() == TypeId::of::<u32>() {
+                        // SAFETY: We've checked the type matches, and we have write access.
+                        ptr.as_ptr().cast::<u32>().write(10);
+                    } else {
+                        assert_eq!(field.ty.get().type_id(), TypeId::of::<String>());
+                        // SAFETY: We've checked the type matches, and we have write access.
+                        ptr.as_ptr().cast::<String>().write(String::from("hello"));
+                    }
+                },
+            );
+        }
+
+        // SAFETY: initialize_struct_raw guarantees `value` is fully initialized.
+        let value = unsafe { value.assume_init() };
+
+        assert_eq!(
+            value,
+            Foo {
+                a: 10,
+                b: String::from("hello")
+            }
+        );
+    }
+
+    #[test]
+    fn ignored_fields_initialize() {
+        #[derive(PartialEq, Debug)]
+        struct NotDefault(u32);
+
+        #[derive(Reflect, PartialEq, Debug)]
+        struct Foo {
+            a: u32,
+            #[reflect(ignore, default)]
+            cache: String,
+            #[reflect(ignore, default(|| NotDefault(5)))]
+            custom: NotDefault,
+        }
+
+        let mut value = MaybeUninit::<Foo>::uninit();
+
+        // SAFETY:
+        // 1) Foo is a struct.
+        // 2) Foo is sized.
+        // 3) `value` is mutable, and has the correct layout for `Foo`.
+        // 4) the only reflected field is a `u32`, which is initialized
+        // 5) All ignored fields of the struct have reflected default impls.
+        // 6) `uncovered_initialized` is false.
+        unsafe {
+            Foo::TYPE.initialize_struct_raw(
+                non_null_from_maybe_uninit(&mut value),
+                /*uncovered_initialized=*/ false,
+                |field, ptr| {
+                    assert_eq!(field.name, "a");
+                    ptr.as_ptr().cast::<u32>().write(10);
+                },
+            );
+        }
+        // SAFETY: initialize_struct_raw guarantees `value` is fully initialized.
+        let foo = unsafe { value.assume_init() };
+        assert_eq!(
+            foo,
+            Foo {
+                a: 10,
+                cache: String::new(),
+                custom: NotDefault(5),
+            }
+        );
     }
 
     #[test]
@@ -1776,5 +1874,88 @@ mod tests {
         let enum_ref = (&foo as &dyn Reflect).enum_ref().unwrap();
         assert_eq!(enum_ref.field(0).unwrap().downcast_ref::<u32>(), Some(&1));
         assert_eq!(enum_ref.field(1).unwrap().downcast_ref::<u64>(), Some(&2));
+    }
+    #[test]
+    fn custom_attributes() {
+        use core::marker::PhantomData;
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Tooltip(&'static str);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Debug)]
+        struct Range(f32, f32);
+
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("type"), @3u8)]
+        struct Foo {
+            #[reflect(@Tooltip("field"), @Range(0.0, 1.0))]
+            value: f32,
+            other: u32,
+        }
+
+        #[derive(Reflect)]
+        #[reflect(@Tooltip("generic"))]
+        struct Generic<T>(
+            #[reflect(@(size_of::<T>() as u32))] u8,
+            #[reflect(ignore)] PhantomData<T>,
+        );
+
+        #[derive(Reflect)]
+        enum Bar {
+            #[reflect(@Tooltip("variant"))]
+            A(#[reflect(@Tooltip("enum field"))] u32),
+            B,
+        }
+
+        #[derive(Reflect)]
+        #[reflect(opaque, @Tooltip("opaque"))]
+        struct Opaque;
+
+        let ty = Foo::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("type")));
+        assert_eq!(ty.get_attribute::<u8>(), Some(&3));
+        assert!(ty.has_attribute_by_id(TypeId::of::<u8>()));
+        assert!(!ty.has_attribute::<u32>());
+        assert_eq!(ty.custom_attributes().len(), 2);
+        let Kind::Struct(struct_type) = ty.kind() else {
+            panic!("expected struct");
+        };
+        let field = &struct_type.fields()[0];
+        assert_eq!(field.get_attribute::<Tooltip>(), Some(&Tooltip("field")));
+        assert_eq!(field.get_attribute::<Range>(), Some(&Range(0.0, 1.0)));
+        assert!(struct_type.fields()[1].custom_attributes.is_empty());
+        assert_eq!(
+            format!("{:?}", field.custom_attributes),
+            "[Tooltip(\"field\"), Range(0.0, 1.0)]"
+        );
+
+        let ty = Generic::<u32>::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("generic")));
+        let Kind::Struct(struct_type) = ty.kind() else {
+            panic!("expected struct");
+        };
+        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&4));
+        let Kind::Struct(struct_type) = Generic::<u8>::TYPE.kind() else {
+            panic!("expected struct");
+        };
+        assert_eq!(struct_type.fields()[0].get_attribute::<u32>(), Some(&1));
+
+        let Kind::Enum(enum_type) = Bar::TYPE.kind() else {
+            panic!("expected enum");
+        };
+        let variant = &enum_type.variants()[0];
+        assert_eq!(
+            variant.get_attribute::<Tooltip>(),
+            Some(&Tooltip("variant"))
+        );
+        assert_eq!(
+            variant.fields[0].get_attribute::<Tooltip>(),
+            Some(&Tooltip("enum field"))
+        );
+        assert!(enum_type.variants()[1].custom_attributes.is_empty());
+
+        let ty = Opaque::TYPE;
+        assert_eq!(ty.get_attribute::<Tooltip>(), Some(&Tooltip("opaque")));
     }
 }
