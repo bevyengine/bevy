@@ -184,6 +184,14 @@ unsafe impl<'w, 's, M: Message> SystemParam for PopulatedMessageReader<'w, 's, M
             .map_err(SystemParamAccessConflict::with_param::<Self>)
     }
 
+    fn configure(
+        state: &mut Self::State,
+        system_meta: &mut crate::system::SystemMeta,
+        config: &mut dyn core::any::Any,
+    ) {
+        MessageReader::<M>::configure(state, system_meta, config);
+    }
+
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &crate::system::SystemMeta,

@@ -1,6 +1,7 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
 use core::{
+    any::Any,
     iter,
     marker::PhantomData,
     mem,
@@ -220,6 +221,10 @@ where
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         GizmosState::<Config, Clear>::queue(&mut state.state, system_meta, world);
+    }
+
+    fn configure(state: &mut Self::State, system_meta: &mut SystemMeta, config: &mut dyn Any) {
+        GizmosState::<Config, Clear>::configure(&mut state.state, system_meta, config);
     }
 
     #[inline]

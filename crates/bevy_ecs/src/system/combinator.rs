@@ -244,6 +244,12 @@ where
         a_access
     }
 
+    #[inline]
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configure(config);
+        self.b.configure(config);
+    }
+
     fn check_change_tick(&mut self, check: CheckChangeTicks) {
         self.a.check_change_tick(check);
         self.b.check_change_tick(check);
@@ -537,6 +543,11 @@ where
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
         a_access
+    }
+
+    fn configure(&mut self, config: &mut dyn core::any::Any) {
+        self.a.configure(config);
+        self.b.configure(config);
     }
 
     fn check_change_tick(&mut self, check: CheckChangeTicks) {

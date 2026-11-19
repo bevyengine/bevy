@@ -4,7 +4,7 @@
 )]
 use bevy_utils::prelude::DebugName;
 use bitflags::bitflags;
-use core::fmt::{Debug, Display};
+use core::{any::Any, any::TypeId, fmt::Debug, fmt::Display};
 use log::warn;
 
 use crate::{
@@ -16,7 +16,6 @@ use crate::{
 };
 
 use alloc::{boxed::Box, vec::Vec};
-use core::any::{Any, TypeId};
 
 use super::{IntoSystem, SystemParamValidationError};
 
@@ -147,6 +146,12 @@ pub trait System: Send + Sync + 'static {
     ///
     /// Returns a [`SystemAccess`] with the access required to run the system.
     fn initialize(&mut self, _world: &mut World) -> SystemAccess;
+
+    /// Provides a mechanism for custom system implementations to interact with custom schedule build passes.
+    ///
+    /// Implementations **must** ensure that if the provided `config` argument cannot be downcasted to the
+    /// expected type, the function behaves as a no-op.
+    fn configure(&mut self, _config: &mut dyn Any) {}
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
