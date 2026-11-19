@@ -815,6 +815,46 @@ mod tests {
     }
 
     #[test]
+    fn initialize_array_raw() {
+        use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Counted(u32);
+
+        impl Drop for Counted {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Relaxed);
+            }
+        }
+
+        let mut items = vec![Counted(1), Counted(2), Counted(3)].into_iter();
+        let mut array = MaybeUninit::<[Counted; 3]>::uninit();
+        // SAFETY:
+        // 1) [Counted; 3] is an array type.
+        // 2) We own `array` and we aren't accessing it. MaybeUninit guarantees it can hold a valid
+        //    value of [Counted; 3]. So the `array` pointer is valid for writes of the type.
+        // 3) The function initializes every pointer with a value of the item type `Counted`.
+        unsafe {
+            <[Counted; 3] as Typed>::TYPE.initialize_array_raw(
+                non_null_from_maybe_uninit(&mut array),
+                |_, _, item_ptr| {
+                    let item = items.next().unwrap();
+                    // SAFETY: `initialize_array_raw` guarantees that `item_ptr` is valid for
+                    // writes of the item type.
+                    item_ptr.as_ptr().cast::<Counted>().write(item);
+                },
+            );
+        }
+        // SAFETY: `initialize_array_raw` guarantees that `array` is fully initialized.
+        let array = unsafe { array.assume_init() };
+        assert_eq!(array, [Counted(1), Counted(2), Counted(3)]);
+        drop(array);
+        // 3 assert values + 3 array values dropped.
+        assert_eq!(DROPS.swap(0, Relaxed), 6);
+    }
+    #[test]
     fn custom_type_data() {
         #[derive(Clone)]
         struct ReflectThing(TypeId);
