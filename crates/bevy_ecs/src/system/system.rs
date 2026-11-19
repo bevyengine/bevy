@@ -5,7 +5,6 @@
 use bevy_utils::prelude::DebugName;
 use bitflags::bitflags;
 use core::fmt::{Debug, Display};
-use log::warn;
 
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
@@ -148,11 +147,11 @@ pub trait System: Send + Sync + 'static {
     /// Returns a [`SystemAccess`] with the access required to run the system.
     fn initialize(&mut self, _world: &mut World) -> SystemAccess;
 
-    /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
+    /// Checks any [`Tick`]s stored on this system with [`Tick::check_tick`].
     ///
     /// This method must be called periodically to ensure that change detection behaves correctly.
     /// When using bevy's default configuration, this will be called for you as needed.
-    fn check_change_tick(&mut self, check: CheckChangeTicks);
+    fn check_change_tick(&mut self, check: &CheckChangeTicks);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     ///
@@ -212,21 +211,6 @@ pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
 /// A convenience type alias for a boxed [`ReadOnlySystem`] trait object.
 pub type BoxedReadOnlySystem<In = (), Out = ()> = Box<dyn ReadOnlySystem<In = In, Out = Out>>;
-
-pub(crate) fn check_system_change_tick(
-    last_run: &mut Tick,
-    check: CheckChangeTicks,
-    system_name: DebugName,
-) {
-    if last_run.check_tick(check) {
-        let age = check.present_tick().relative_to(*last_run).get();
-        warn!(
-            "System '{system_name}' has not run for {age} ticks. \
-            Changes older than {} ticks will not be detected.",
-            Tick::MAX.get() - 1,
-        );
-    }
-}
 
 impl<In, Out> Debug for dyn System<In = In, Out = Out>
 where

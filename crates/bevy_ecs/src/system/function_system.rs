@@ -4,8 +4,8 @@ use crate::{
     prelude::FromWorld,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn,
-        SystemInput, SystemParam, SystemParamAccessConflict, SystemParamItem,
+        FromInput, ReadOnlySystemParam, System, SystemAccess, SystemIn, SystemInput, SystemParam,
+        SystemParamAccessConflict, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -805,6 +805,7 @@ where
                 // when this drop occurs.
                 let world = unsafe { self.world.world_mut() };
                 world.last_change_tick = self.last_tick;
+                world.tick_holders -= 1;
             }
         }
 
@@ -822,6 +823,7 @@ where
             let change_tick = exclusive_world.change_tick();
             let previous_tick = exclusive_world.last_change_tick();
             exclusive_world.last_change_tick = self.system_meta.last_run;
+            exclusive_world.tick_holders += 1;
 
             (
                 change_tick,
@@ -921,12 +923,8 @@ where
     }
 
     #[inline]
-    fn check_change_tick(&mut self, check: CheckChangeTicks) {
-        check_system_change_tick(
-            &mut self.system_meta.last_run,
-            check,
-            self.system_meta.name.clone(),
-        );
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
+        self.system_meta.last_run.check_tick(check);
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {

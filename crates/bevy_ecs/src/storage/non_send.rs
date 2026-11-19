@@ -239,7 +239,7 @@ impl NonSendData {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         self.added_ticks.get_mut().check_tick(check);
         self.changed_ticks.get_mut().check_tick(check);
     }
@@ -324,7 +324,7 @@ impl NonSends {
         })
     }
 
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
         for info in self.non_sends.values_mut() {
             info.check_change_ticks(check);
         }

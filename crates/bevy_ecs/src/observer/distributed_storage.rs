@@ -14,6 +14,7 @@ use core::any::Any;
 use core::marker::PhantomData;
 
 use crate::{
+    change_detection::CheckChangeTicks,
     component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
     error::{ErrorContext, ErrorHandler},
     event::{EventKey, EventPattern},
@@ -356,6 +357,15 @@ impl Observer {
             AnyNamedSystem::system_name,
         )
     }
+
+    pub(crate) fn check_change_ticks(&mut self, check: &CheckChangeTicks) {
+        if let Some(system) = &mut self.system {
+            system.check_change_tick(check);
+        }
+        for condition in &mut self.conditions {
+            condition.check_change_tick(check);
+        }
+    }
 }
 
 impl Component for Observer {
@@ -546,11 +556,16 @@ impl Component for ObservedBy {
 
 pub(crate) trait AnyNamedSystem: Any + Send + Sync + 'static {
     fn system_name(&self) -> DebugName;
+    fn check_change_tick(&mut self, check: &CheckChangeTicks);
 }
 
 impl<T: Any + System> AnyNamedSystem for T {
     fn system_name(&self) -> DebugName {
         self.name()
+    }
+
+    fn check_change_tick(&mut self, check: &CheckChangeTicks) {
+        System::check_change_tick(self, check);
     }
 }
 

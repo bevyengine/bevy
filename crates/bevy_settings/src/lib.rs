@@ -22,7 +22,8 @@ use std::collections::HashMap;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    change_detection::Tick,
+    change_detection::{CheckChangeTicks, Tick},
+    observer::On,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Command, Commands, Res, ResMut},
@@ -169,7 +170,14 @@ impl Plugin for SettingsPlugin {
         drop(types);
         world.insert_resource::<SettingsFileRegistry>(file_index);
 
-        app.add_systems(PostUpdate, handle_delayed_save);
+        app.add_systems(PostUpdate, handle_delayed_save)
+            .add_observer(check_last_save_ticks);
+    }
+}
+
+fn check_last_save_ticks(check: On<CheckChangeTicks>, mut registry: ResMut<SettingsFileRegistry>) {
+    for manifest in registry.files.values_mut() {
+        manifest.last_save.check_tick(&check);
     }
 }
 

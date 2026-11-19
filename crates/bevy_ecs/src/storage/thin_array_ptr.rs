@@ -318,4 +318,14 @@ impl<T> ThinArrayPtr<T> {
         // - we have a shared reference to self - the data will not be mutated during 'a
         unsafe { core::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
     }
+
+    /// Get the [`ThinArrayPtr`] as a mutable slice with a given length.
+    ///
+    /// # Safety
+    /// - `slice_len` must match the actual length of the array
+    #[inline]
+    pub unsafe fn as_mut_slice(&mut self, slice_len: usize) -> &mut [T] {
+        // SAFETY: Same as `as_slice`, and we have a mutable reference to self.
+        unsafe { core::slice::from_raw_parts_mut(self.data.as_ptr(), slice_len) }
+    }
 }
