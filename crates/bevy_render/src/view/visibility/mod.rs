@@ -209,6 +209,10 @@ impl RenderVisibleEntitiesClass {
             #[cfg(feature = "trace")]
             let _old_entity_cpu_culling_span =
                 info_span!("old_entity_cpu_culling", name = "old_entity_cpu_culling").entered();
+
+            self.entities_cpu_culling
+                .reserve(visible_mesh_entities_cpu_culling.len());
+
             for (render_entity, visible_main_entity) in visible_mesh_entities_cpu_culling {
                 // Mark entities as removed until we see the one we're looking at.
                 while old_entity_cpu_culling_iter

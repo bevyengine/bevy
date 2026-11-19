@@ -35,7 +35,7 @@ use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity, EntityHashMap, EntityHashSet},
     error::BevyError,
-    lifecycle::HookContext,
+    lifecycle::{HookContext, RemovedComponents},
     message::MessageReader,
     prelude::With,
     query::{Has, QueryItem},
@@ -511,6 +511,7 @@ pub fn extract_cameras(
             ),
         )>,
     >,
+    mut removed_cameras: Extract<RemovedComponents<Camera>>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     manual_display_targets: Res<ManualDisplayTargets>,
     manual_texture_views: Res<ManualTextureViews>,
@@ -524,6 +525,22 @@ pub fn extract_cameras(
     extracted_swap_chains: Query<(MainEntity, &ExtractedWindow)>,
     mut active_cameras_per_target: Local<HashMap<NormalizedRenderTarget, usize>>,
 ) {
+    for entity in removed_cameras.read() {
+        if query.contains(entity) {
+            // Camera removed and re-added this frame, the main loop handles it.
+            continue;
+        }
+
+        let Ok(render_entity) = visibility_extraction_system_param.mapper.get(entity) else {
+            // Entity despawned.
+            continue;
+        };
+
+        commands
+            .entity(render_entity.entity())
+            .remove::<(ExtractedCameraComponents, RenderVisibleEntities)>();
+    }
+
     main_pass_formats.clear();
     let primary_window = primary_window.iter().next();
 
