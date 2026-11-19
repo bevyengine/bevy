@@ -22,7 +22,7 @@ use crate::{
     system::Commands,
 };
 use bevy_platform::sync::atomic::Ordering;
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::Ptr;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr::NonNull};
 use thiserror::Error;
 
@@ -1457,7 +1457,7 @@ unsafe fn get_changed_by(
         caller
             .transpose()?
             // SAFETY: Caller ensures there are no mutable aliases
-            .map(|changed_by| unsafe { *changed_by.deref() }),
+            .map(|changed_by| unsafe { *changed_by.as_ref_unchecked() }),
     )
 }
 

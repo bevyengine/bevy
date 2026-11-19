@@ -1227,15 +1227,21 @@ mod private {
 }
 
 /// Extension trait for helper methods on [`UnsafeCell`]
+#[deprecated(
+    since = "0.21.0",
+    note = "Use `UnsafeCell::as_ref_unchecked` or `UnsafeCell::as_mut_unchecked`"
+)]
 pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
     /// - The returned value must be unique and not alias any mutable or immutable references to the contents of the [`UnsafeCell`].
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    #[deprecated(since = "0.21.0", note = "Use `UnsafeCell::as_mut_unchecked`")]
     unsafe fn deref_mut(self) -> &'a mut T;
 
     /// # Safety
     /// - For the lifetime `'a` of the returned value you must not construct a mutable reference to the contents of the [`UnsafeCell`].
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    #[deprecated(since = "0.21.0", note = "Use `UnsafeCell::as_ref_unchecked`")]
     unsafe fn deref(self) -> &'a T;
 
     /// Returns a copy of the contained value.
@@ -1243,11 +1249,13 @@ pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
     /// - The [`UnsafeCell`] must not currently have a mutable reference to its content.
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    #[deprecated(since = "0.21.0", note = "Use `UnsafeCell::as_ref_unchecked`")]
     unsafe fn read(self) -> T
     where
         T: Copy;
 }
 
+#[expect(deprecated, reason = "impl for trait being deprecated")]
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     #[inline]
     unsafe fn deref_mut(self) -> &'a mut T {
