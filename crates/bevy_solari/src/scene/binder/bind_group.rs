@@ -5,7 +5,7 @@ use super::{
 use crate::scene::extract::ExtractedEnvironmentMapLight;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_math::Mat3;
-use bevy_pbr::DfgLut;
+use bevy_pbr::{environment_map::EnvironmentMapExposures, DfgLut};
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -245,6 +245,7 @@ pub fn prepare_raytracing_scene_bind_group(
     fallback_texture: Res<FallbackImage>,
     dfg_lut: Res<DfgLut>,
     extracted_environment_map_light: Res<ExtractedEnvironmentMapLight>,
+    environment_map_exposures: Res<EnvironmentMapExposures>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
@@ -290,6 +291,7 @@ pub fn prepare_raytracing_scene_bind_group(
 
     let environment_map_light = prepare_environment_map_light(
         &extracted_environment_map_light,
+        &environment_map_exposures,
         &texture_assets,
         &fallback_texture,
         &mut bindings.environment_map_light_buffer,
@@ -321,6 +323,7 @@ pub struct GpuEnvironmentMapLight {
 
 fn prepare_environment_map_light<'a>(
     extracted_environment_map_light: &ExtractedEnvironmentMapLight,
+    exposures: &EnvironmentMapExposures,
     texture_assets: &'a RenderAssets<GpuImage>,
     fallback_texture: &'a FallbackImage,
     buffer: &mut StorageBuffer<GpuEnvironmentMapLight>,
@@ -330,16 +333,16 @@ fn prepare_environment_map_light<'a>(
     let cubemap = extracted_environment_map_light
         .cubemap
         .as_ref()
-        .and_then(|cubemap| texture_assets.get(cubemap));
+        .and_then(|cubemap| Some((cubemap.id(), texture_assets.get(cubemap)?)));
 
     let (texture, uniform) = match cubemap {
-        Some(cubemap) => (
+        Some((cubemap_id, cubemap)) => (
             &cubemap.texture_view,
             GpuEnvironmentMapLight {
                 light_from_world: Mat3::from_quat(
                     extracted_environment_map_light.rotation.inverse(),
                 ),
-                intensity: extracted_environment_map_light.intensity,
+                intensity: extracted_environment_map_light.intensity / exposures.get(cubemap_id),
             },
         ),
         None => (

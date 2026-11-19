@@ -1,5 +1,6 @@
 import package::{
     atmosphere::{
+        bindings::view,
         functions::{direction_world_to_atmosphere, sample_sky_view_lut, get_view_position},
     },
     render::utils::sample_cube_dir
@@ -31,7 +32,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let r = length(world_pos);
 
     let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
-    let inscattering = sample_sky_view_lut(r, ray_dir_as);
+    // Pre-exposed like the sky-view LUT; `EnvironmentMapExposures` records the exposure.
+    let inscattering = sample_sky_view_lut(r, ray_dir_as) * view.exposure;
     let color = vec4<f32>(inscattering, 1.0);
 
     textureStore(output, vec2<i32>(global_id.xy), i32(slice_index), color);
