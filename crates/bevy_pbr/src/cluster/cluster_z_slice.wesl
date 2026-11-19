@@ -35,6 +35,11 @@ import bevy_render::view::View;
 @group(0) @binding(5) var<uniform> lights: Lights;
 /// Information about the view.
 @group(0) @binding(6) var<uniform> view: View;
+/// The clustered lights that the view's render layers exclude.
+///
+/// Word 0 is the number of lights that the following words cover. Each
+/// remaining word holds 32 lights' bits, with a set bit excluding the light.
+@group(0) @binding(7) var<storage> light_layer_mask: array<u32>;
 
 /// A temporary workgroup-local buffer used to accelerate the "farthest depth of
 /// any object" calculation.
@@ -76,19 +81,24 @@ fn z_slice_main(
     // We use a sphere to conservatively construct our AABB.
     if (id < last_clustered_light_id) {
         // We're a light (point, spot, or rect light).
-        object_index = id;
-        let flags = clustered_lights.data[object_index].flags;
-        if ((flags & POINT_LIGHT_FLAGS_RECT_LIGHT_BIT) != 0u) {
-            object_type = CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT;
-        } else {
-            object_type = select(
-                CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
-                CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
-                (flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT) != 0u
-            );
+        // An excluded light keeps the invalid object type instead of
+        // returning, because every thread must reach the workgroup barriers
+        // below.
+        if (light_is_visible(id)) {
+            object_index = id;
+            let flags = clustered_lights.data[object_index].flags;
+            if ((flags & POINT_LIGHT_FLAGS_RECT_LIGHT_BIT) != 0u) {
+                object_type = CLUSTERABLE_OBJECT_TYPE_RECT_LIGHT;
+            } else {
+                object_type = select(
+                    CLUSTERABLE_OBJECT_TYPE_POINT_LIGHT,
+                    CLUSTERABLE_OBJECT_TYPE_SPOT_LIGHT,
+                    (flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_BIT) != 0u
+                );
+            }
+            position = clustered_lights.data[object_index].position_radius.xyz;
+            radius = clustered_lights.data[object_index].range;
         }
-        position = clustered_lights.data[object_index].position_radius.xyz;
-        radius = clustered_lights.data[object_index].range;
     } else if (id < last_reflection_probe_id) {
         // We're a reflection probe.
         object_index = id - last_clustered_light_id;
@@ -137,6 +147,15 @@ fn z_slice_main(
     for (var z_slice = cluster_bounds.min.z; z_slice <= cluster_bounds.max.z; z_slice += 1u) {
         try_write_z_slice(object_index, object_type, z_slice);
     }
+}
+
+/// Returns true if the view's render layers don't exclude the clustered light
+/// with the given index.
+fn light_is_visible(light_index: u32) -> bool {
+    if (light_index >= light_layer_mask[0]) {
+        return true;
+    }
+    return (light_layer_mask[1u + light_index / 32u] & (1u << (light_index % 32u))) == 0u;
 }
 
 /// Writes a Z slice to the list.

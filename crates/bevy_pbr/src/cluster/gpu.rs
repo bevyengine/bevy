@@ -52,14 +52,14 @@ use std::sync::Mutex;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::Camera;
+use bevy_camera::{visibility::RenderLayers, Camera};
 use bevy_color::Color;
 use bevy_core_pipeline::{prepass::node::early_prepass, Core3d, Core3dSystems};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
+    query::{Or, With},
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{Commands, Query, Res, ResMut},
@@ -84,8 +84,8 @@ use bevy_render::{
         BindGroup, BindGroupEntry, BindGroupLayoutEntries, Buffer, BufferBindingType,
         BufferDescriptor, BufferInitDescriptor, BufferUsages, ColorTargetState, ColorWrites,
         CommandEncoder, ComputePassDescriptor, ComputePipeline, Extent3d, IndexFormat, LoadOp,
-        MapMode, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipeline, ShaderStages, ShaderType, SpecializedComputePipeline,
+        MapMode, Operations, PipelineCache, RawBufferVec, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipeline, ShaderStages, ShaderType, SpecializedComputePipeline,
         SpecializedComputePipelines, SpecializedRenderPipeline, SpecializedRenderPipelines,
         StorageBuffer, StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         UninitBufferVec, VertexAttribute, VertexStepMode,
@@ -107,9 +107,9 @@ use crate::{
         GpuClusterableObjectIndexListsStorage, ViewClusterBuffers,
     },
     decal::clustered::{DecalsBuffer, RenderClusteredDecal, RenderClusteredDecals},
-    gpu_clustering_is_enabled, ExtractedClusterConfig, GlobalClusterableObjectMeta,
-    GpuClusteredLight, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    RenderViewLightProbes, ViewClusterBindings, ViewLightProbesUniformOffset,
+    gpu_clustering_is_enabled, ExtractedClusterConfig, ExtractedPointLight, ExtractedRectLight,
+    GlobalClusterableObjectMeta, GpuClusteredLight, GpuLights, LightMeta, LightProbesBuffer,
+    LightProbesUniform, RenderViewLightProbes, ViewClusterBindings, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
 };
 
@@ -298,6 +298,15 @@ pub struct ViewGpuClusteringBuffers {
     ///
     /// Since this buffer is small, [`StorageBuffer`] is fine to use.
     cluster_metadata_buffer: StorageBuffer<ClusterMetadata>,
+    /// The buffer that tells the `cluster_z_slice.wesl` shader which clustered
+    /// lights this view's [`RenderLayers`] exclude.
+    ///
+    /// Word 0 is the number of lights that the following words cover, or 0 if
+    /// the view excludes no lights. Each remaining word holds 32 lights' bits,
+    /// in order of index into the global clustered light list, with a set bit
+    /// excluding the light. Lights at indices at or past word 0 are visible, so
+    /// that lights that plugins append on the GPU need no bits.
+    light_layer_mask: RawBufferVec<u32>,
 }
 
 impl ViewGpuClusteringBuffers {
@@ -308,27 +317,65 @@ impl ViewGpuClusteringBuffers {
         cluster_metadata_buffer.add_usages(BufferUsages::COPY_SRC | BufferUsages::INDIRECT);
         cluster_metadata_buffer.set_label(Some("clustering Z slicing metadata buffer"));
 
+        let mut light_layer_mask = RawBufferVec::new(BufferUsages::STORAGE);
+        light_layer_mask.set_label(Some("clustering light layer mask buffer"));
+
         ViewGpuClusteringBuffers {
             cluster_metadata_buffer,
             z_slices_buffer: UninitBufferVec::new(BufferUsages::STORAGE | BufferUsages::COPY_DST),
             scratchpad_offsets_and_counts_buffer: UninitBufferVec::new(
                 BufferUsages::STORAGE | BufferUsages::COPY_DST,
             ),
+            light_layer_mask,
         }
     }
 
     pub(crate) fn update(
         &mut self,
         metadata: ClusterMetadata,
+        view_layers: &RenderLayers,
+        light_layers: &[(usize, &RenderLayers)],
         z_slice_list_capacity: usize,
         cluster_count: usize,
     ) {
+        build_light_layer_mask(
+            self.light_layer_mask.values_mut(),
+            metadata.clustered_light_count as usize,
+            view_layers,
+            light_layers.iter().copied(),
+        );
         *self.cluster_metadata_buffer.get_mut() = metadata;
         self.z_slices_buffer.clear();
         self.z_slices_buffer.add_multiple(z_slice_list_capacity);
         self.scratchpad_offsets_and_counts_buffer.clear();
         self.scratchpad_offsets_and_counts_buffer
             .add_multiple(cluster_count);
+    }
+}
+
+/// Writes into `out` the contents of the light layer mask buffer for a view
+/// with the given [`RenderLayers`].
+///
+/// `lights` yields the index into the global clustered light list and the
+/// layers of each light that has [`RenderLayers`]. Lights that it doesn't yield
+/// stay visible to the view.
+fn build_light_layer_mask<'a>(
+    out: &mut Vec<u32>,
+    light_count: usize,
+    view_layers: &RenderLayers,
+    lights: impl Iterator<Item = (usize, &'a RenderLayers)>,
+) {
+    out.clear();
+    out.push(0);
+    for (light_index, light_layers) in lights {
+        if light_index >= light_count || view_layers.intersects(light_layers) {
+            continue;
+        }
+        if out[0] == 0 {
+            out[0] = light_count as u32;
+            out.resize(1 + light_count.div_ceil(32), 0);
+        }
+        out[1 + light_index / 32] |= 1 << (light_index % 32);
     }
 }
 
@@ -672,6 +719,9 @@ impl FromWorld for ClusteringZSlicingPipeline {
                     binding_types::uniform_buffer::<GpuLights>(true),
                     // @group(0) @binding(6) var<uniform> view: View;
                     binding_types::uniform_buffer::<ViewUniform>(true),
+                    // @group(0) @binding(7) var<storage> light_layer_mask:
+                    // array<u32>;
+                    binding_types::storage_buffer_read_only::<u32>(false),
                 ),
             ),
         );
@@ -1250,6 +1300,7 @@ fn prepare_clustering_bind_groups(
             Some(z_slices_buffer),
             Some(cluster_metadata_buffer),
             Some(scratchpad_offsets_and_counts_buffer),
+            Some(light_layer_mask_buffer),
             Some(clusterable_object_index_lists),
             Some(cluster_offsets_and_counts),
         ) = (
@@ -1258,6 +1309,7 @@ fn prepare_clustering_bind_groups(
             view_gpu_clustering_buffers
                 .scratchpad_offsets_and_counts_buffer
                 .buffer(),
+            view_gpu_clustering_buffers.light_layer_mask.buffer(),
             maybe_clusterable_object_index_lists.buffer(),
             maybe_cluster_offsets_and_counts.buffer(),
         )
@@ -1304,6 +1356,11 @@ fn prepare_clustering_bind_groups(
             BindGroupEntry {
                 binding: 6,
                 resource: view_binding.clone(),
+            },
+            // @group(0) @binding(7) var<storage> light_layer_mask: array<u32>;
+            BindGroupEntry {
+                binding: 7,
+                resource: light_layer_mask_buffer.as_entire_binding(),
             },
         ];
 
@@ -1564,6 +1621,10 @@ fn upload_view_gpu_clustering_buffers(
         view_gpu_clustering_buffers
             .scratchpad_offsets_and_counts_buffer
             .write_buffer(&render_device);
+
+        view_gpu_clustering_buffers
+            .light_layer_mask
+            .write_buffer(&render_device, &render_queue);
     }
 }
 
@@ -1621,11 +1682,16 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         Entity,
         &MainEntity,
         &ExtractedClusterConfig,
+        Option<&RenderLayers>,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Option<&mut ViewGpuClusteringBuffers>,
         Option<&mut ViewClusterBindings>,
     )>,
+    lights_query: Query<
+        (Entity, &RenderLayers),
+        Or<(With<ExtractedPointLight>, With<ExtractedRectLight>)>,
+    >,
     render_clustered_decals: Res<RenderClusteredDecals>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -1642,12 +1708,23 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
 
     let gpu_clustered_lights_storage = &global_clusterable_object_meta.gpu_clustered_lights;
 
+    let light_layers: Vec<_> = lights_query
+        .iter()
+        .filter_map(|(light_entity, light_layers)| {
+            let light_index = global_clusterable_object_meta
+                .entity_to_index
+                .get(&light_entity)?;
+            Some((*light_index, light_layers))
+        })
+        .collect();
+
     let mut all_view_main_entities = MainEntityHashSet::default();
 
     for (
         view_entity,
         view_main_entity,
         extracted_cluster_config,
+        maybe_view_layers,
         maybe_environment_maps,
         maybe_irradiance_volumes,
         maybe_existing_buffers,
@@ -1706,6 +1783,8 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             farthest_z: 0,
         };
 
+        let view_layers = maybe_view_layers.unwrap_or_default();
+
         let mut entity_commands = commands.entity(view_entity);
 
         if let Some(mut bindings) = maybe_existing_cluster_bindings {
@@ -1725,6 +1804,8 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
         if let Some(mut b) = maybe_existing_buffers {
             b.update(
                 new_metadata,
+                view_layers,
+                &light_layers,
                 view_clustering_buffer_size_data.z_slice_list_capacity,
                 cluster_count,
             );
@@ -1732,6 +1813,8 @@ pub(crate) fn prepare_clusters_for_gpu_clustering(
             let mut b = ViewGpuClusteringBuffers::new();
             b.update(
                 new_metadata,
+                view_layers,
+                &light_layers,
                 view_clustering_buffer_size_data.z_slice_list_capacity,
                 cluster_count,
             );
@@ -1751,5 +1834,91 @@ impl ExtractResource<RenderApp, GpuClusteringPlugin> for GlobalClusterSettings {
 
     fn extract_resource(source: &Self::Source) -> Self {
         source.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn light_layer_mask(
+        light_count: usize,
+        view_layers: &RenderLayers,
+        lights: &[(usize, RenderLayers)],
+    ) -> Vec<u32> {
+        let mut mask = vec![0xdeadbeef; 4];
+        build_light_layer_mask(
+            &mut mask,
+            light_count,
+            view_layers,
+            lights.iter().map(|(index, layers)| (*index, layers)),
+        );
+        mask
+    }
+
+    #[test]
+    fn light_layer_mask_is_one_zero_word_when_every_light_is_visible() {
+        let lights = [
+            (0, RenderLayers::layer(0)),
+            (1, RenderLayers::layer(0).with(3)),
+            (2, RenderLayers::default()),
+        ];
+        assert_eq!(light_layer_mask(3, &RenderLayers::layer(0), &lights), [0]);
+        assert_eq!(light_layer_mask(0, &RenderLayers::layer(0), &[]), [0]);
+    }
+
+    #[test]
+    fn light_layer_mask_excludes_lights_past_the_first_word() {
+        let lights: Vec<_> = (0..33)
+            .map(|index| (index, RenderLayers::layer(index % 2)))
+            .collect();
+        assert_eq!(
+            light_layer_mask(33, &RenderLayers::layer(1), &lights),
+            [33, 0x55555555, 1]
+        );
+        assert_eq!(
+            light_layer_mask(33, &RenderLayers::layer(0), &lights),
+            [33, 0xaaaaaaaa, 0]
+        );
+    }
+
+    #[test]
+    fn light_layer_mask_compares_layers_above_64() {
+        let lights = [
+            (0, RenderLayers::none().with(70)),
+            (1, RenderLayers::none().with(71)),
+            (2, RenderLayers::layer(6)),
+        ];
+        assert_eq!(
+            light_layer_mask(3, &RenderLayers::none().with(70), &lights),
+            [3, 0b110]
+        );
+    }
+
+    #[test]
+    fn light_without_layers_stays_visible() {
+        let lights = [(0, RenderLayers::layer(1)), (2, RenderLayers::layer(1))];
+        assert_eq!(
+            light_layer_mask(3, &RenderLayers::layer(0), &lights),
+            [3, 0b101]
+        );
+    }
+
+    #[test]
+    fn view_on_no_layers_excludes_every_light_that_has_layers() {
+        let lights = [(0, RenderLayers::layer(0)), (1, RenderLayers::layer(5))];
+        assert_eq!(
+            light_layer_mask(2, &RenderLayers::none(), &lights),
+            [2, 0b11]
+        );
+    }
+
+    #[test]
+    fn light_layer_mask_ignores_indices_past_the_light_count() {
+        let lights = [(1, RenderLayers::layer(1)), (40, RenderLayers::layer(1))];
+        assert_eq!(
+            light_layer_mask(2, &RenderLayers::layer(0), &lights),
+            [2, 0b10]
+        );
     }
 }
