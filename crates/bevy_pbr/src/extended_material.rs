@@ -258,6 +258,10 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         B::reads_view_transmission_texture(&self.base)
     }
 
+    fn cull_mode(&self) -> Option<bevy_render::render_resource::Face> {
+        B::cull_mode(&self.base)
+    }
+
     fn enable_prepass() -> bool {
         E::enable_prepass()
     }
