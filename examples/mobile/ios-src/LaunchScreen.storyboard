@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23094" targetRuntime="iOS.CocoaTouch" useAutolayout="YES" launchScreen="YES" initialViewController="launch-vc">
+    <device id="retina6_12" orientation="portrait" appearance="dark"/>
+    <scenes>
+        <scene sceneID="launch-scene">
+            <objects>
+                <viewController id="launch-vc" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="launch-root">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="BEVY MOBILE" textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-title">
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="28"/>
+                                <color key="textColor" red="0.94" green="0.96" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="STARTING..." textAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="launch-status">
+                                <rect key="frame" x="96" y="453" width="201" height="56"/>
+                                <color key="backgroundColor" red="0.16" green="0.37" blue="0.75" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="201" id="status-width"/>
+                                    <constraint firstAttribute="height" constant="56" id="status-height"/>
+                                </constraints>
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="16"/>
+                                <color key="textColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </label>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="launch-safe-area"/>
+                        <color key="backgroundColor" red="0.055" green="0.075" blue="0.13" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="launch-title" firstAttribute="centerX" secondItem="launch-root" secondAttribute="centerX" id="title-center-x"/>
+                            <constraint firstItem="launch-title" firstAttribute="centerY" secondItem="launch-root" secondAttribute="centerY" constant="-58" id="title-center-y"/>
+                            <constraint firstItem="launch-status" firstAttribute="centerX" secondItem="launch-root" secondAttribute="centerX" id="status-center-x"/>
+                            <constraint firstItem="launch-status" firstAttribute="top" secondItem="launch-title" secondAttribute="bottom" constant="28" id="status-top"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="launch-first-responder" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+    </scenes>
+</document>
