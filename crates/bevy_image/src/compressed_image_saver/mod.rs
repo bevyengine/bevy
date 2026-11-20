@@ -23,6 +23,7 @@ use bevy_asset::{
     AssetPath,
 };
 use bevy_reflect::TypePath;
+use image::imageops::FilterType;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::TextureFormat;
@@ -103,7 +104,7 @@ use wgpu_types::TextureFormat;
 /// # Settings
 ///
 /// Per-texture behavior is configured via [`CompressedImageSaverSettings`] (`is_normal_map`,
-/// `input_alpha_mode`, `output_alpha_mode`, `generate_mipmaps`). The defaults are tuned for color textures; you
+/// `input_alpha_mode`, `output_alpha_mode`, `generate_mipmaps`, `max_texture_size`). The defaults are tuned for color textures; you
 /// **must** review these for every texture you compress — `is_normal_map` must be set to true
 /// for normal maps, and the wrong alpha mode produces colored fringes at transparent
 /// edges. See the field docs for details.
@@ -140,7 +141,16 @@ impl AssetSaver for CompressedImageSaver {
             ));
         }
 
-        self.inner.save(writer, asset, settings, asset_path).await
+        let downscaled;
+        let image = match downscale_to_max_size(&asset, settings)? {
+            Some(image) => {
+                downscaled = image;
+                &downscaled
+            }
+            None => &asset,
+        };
+
+        self.inner.save(writer, image, settings, asset_path).await
     }
 }
 
@@ -177,6 +187,12 @@ pub struct CompressedImageSaverSettings {
     /// Defaults to `true`. Mipmaps prevent aliasing when textures are minified and improve GPU
     /// cache locality, so they are almost always wanted for material textures.
     pub generate_mipmaps: bool,
+    /// The maximum size, in pixels, of the largest dimension of the compressed output.
+    ///
+    /// Defaults to `None` (no resizing). When set, images whose width or height exceeds this
+    /// value are downscaled with aspect ratio preserved before compression, which saves install
+    /// size and memory when the full resolution of the source asset is not needed.
+    pub max_texture_size: Option<u32>,
 }
 
 impl Default for CompressedImageSaverSettings {
@@ -186,8 +202,52 @@ impl Default for CompressedImageSaverSettings {
             input_alpha_mode: ImageCompressorAlphaMode::Straight,
             output_alpha_mode: ImageCompressorAlphaMode::Premultiplied,
             generate_mipmaps: true,
+            max_texture_size: None,
         }
     }
+}
+
+/// Downscales `image` so its largest dimension fits within `settings.max_texture_size`,
+/// preserving the aspect ratio.
+///
+/// Returns `None` when no resizing is needed. Both compression backends share this so the
+/// setting behaves identically regardless of the active backend.
+fn downscale_to_max_size(
+    image: &Image,
+    settings: &CompressedImageSaverSettings,
+) -> Result<Option<Image>, CompressedImageSaverError> {
+    let Some(max_size) = settings.max_texture_size else {
+        return Ok(None);
+    };
+
+    let width = image.width();
+    let height = image.height();
+    if width.max(height) <= max_size {
+        return Ok(None);
+    }
+
+    let scale = max_size as f32 / width.max(height) as f32;
+    let new_width = ((width as f32 * scale).round() as u32).max(1);
+    let new_height = ((height as f32 * scale).round() as u32).max(1);
+
+    let dynamic = image
+        .clone()
+        .try_into_dynamic()
+        .map_err(|e| CompressedImageSaverError::CompressionFailed(format!("{e:?}").into()))?;
+    let filter = if settings.is_normal_map {
+        FilterType::Triangle
+    } else {
+        FilterType::Lanczos3
+    };
+    let resized = dynamic.resize(new_width, new_height, filter);
+
+    let mut output = Image::from_dynamic(
+        resized,
+        image.texture_descriptor.format.is_srgb(),
+        image.asset_usage,
+    );
+    output.sampler = image.sampler.clone();
+    Ok(Some(output))
 }
 
 /// Alpha mode of an [`Image`] for use with [`CompressedImageSaver`].
@@ -225,4 +285,60 @@ pub enum CompressedImageSaverError {
          the input Image's texture_descriptor.format must be a non-sRGB (linear) variant"
     )]
     NormalMapMustBeLinear(TextureFormat),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_asset::RenderAssetUsages;
+    use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
+
+    fn test_image(width: u32, height: u32) -> Image {
+        Image::new(
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            vec![255; (width * height * 4) as usize],
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        )
+    }
+
+    #[test]
+    fn downscale_caps_largest_dimension() {
+        let image = test_image(64, 32);
+        let settings = CompressedImageSaverSettings {
+            max_texture_size: Some(16),
+            ..Default::default()
+        };
+
+        let resized = downscale_to_max_size(&image, &settings).unwrap().unwrap();
+        assert_eq!(resized.width(), 16);
+        assert_eq!(resized.height(), 8);
+    }
+
+    #[test]
+    fn downscale_skipped_when_small_enough() {
+        let image = test_image(16, 8);
+        let settings = CompressedImageSaverSettings {
+            max_texture_size: Some(32),
+            ..Default::default()
+        };
+
+        assert!(downscale_to_max_size(&image, &settings).unwrap().is_none());
+    }
+
+    #[test]
+    fn downscale_skipped_when_unset() {
+        let image = test_image(64, 32);
+
+        assert!(
+            downscale_to_max_size(&image, &CompressedImageSaverSettings::default())
+                .unwrap()
+                .is_none()
+        );
+    }
 }
