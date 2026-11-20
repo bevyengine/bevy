@@ -162,6 +162,16 @@ impl ArchetypeAfterBundleInsert {
     }
 }
 
+/// Used in [`Edges`] to cache the result of removing a bundle from the source archetype.
+pub(crate) struct ArchetypeAfterBundleRemove {
+    /// The target archetype after the bundle is removed from the source archetype.
+    pub archetype_id: ArchetypeId,
+    /// The explicit components of the bundle that the source archetype contains.
+    ///
+    /// This **must** be in the same order as the source [`Bundle`](crate::bundle::Bundle).
+    pub removed: Box<[ComponentId]>,
+}
+
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
 /// being inserted into a given entity, relative to that entity's original archetype.
 /// See [`BundleInfo::write_components`](`crate::bundle::BundleInfo::write_components`) for more info.
@@ -209,8 +219,8 @@ impl BundleComponentStatus for SpawnBundleStatus {
 #[derive(Default)]
 pub struct Edges {
     insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
-    remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
+    remove_bundle: SparseArray<BundleId, Option<ArchetypeAfterBundleRemove>>,
+    take_bundle: SparseArray<BundleId, Option<ArchetypeAfterBundleRemove>>,
 }
 
 impl Edges {
@@ -275,17 +285,29 @@ impl Edges {
         &self,
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle.get(bundle_id).cloned()
+        self.get_archetype_after_bundle_remove_internal(bundle_id)
+            .map(|after_remove| after_remove.map(|after_remove| after_remove.archetype_id))
     }
 
-    /// Caches the target archetype when removing a bundle from the source archetype.
+    /// Internal version of `get_archetype_after_bundle_remove` that
+    /// fetches the full `ArchetypeAfterBundleRemove`.
+    #[inline]
+    pub(crate) fn get_archetype_after_bundle_remove_internal(
+        &self,
+        bundle_id: BundleId,
+    ) -> Option<Option<&ArchetypeAfterBundleRemove>> {
+        self.remove_bundle.get(bundle_id).map(Option::as_ref)
+    }
+
+    /// Caches the target archetype when removing a bundle from the source archetype,
+    /// and returns the cached value.
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_remove(
         &mut self,
         bundle_id: BundleId,
-        archetype_id: Option<ArchetypeId>,
-    ) {
-        self.remove_bundle.insert(bundle_id, archetype_id);
+        after_remove: Option<ArchetypeAfterBundleRemove>,
+    ) -> Option<&ArchetypeAfterBundleRemove> {
+        self.remove_bundle.insert(bundle_id, after_remove).as_ref()
     }
 
     /// Checks the cache for the target archetype when taking a bundle from the
@@ -304,10 +326,22 @@ impl Edges {
         &self,
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
-        self.take_bundle.get(bundle_id).cloned()
+        self.get_archetype_after_bundle_take_internal(bundle_id)
+            .map(|after_take| after_take.map(|after_take| after_take.archetype_id))
     }
 
-    /// Caches the target archetype when taking a bundle from the source archetype.
+    /// Internal version of `get_archetype_after_bundle_take` that
+    /// fetches the full `ArchetypeAfterBundleRemove`.
+    #[inline]
+    pub(crate) fn get_archetype_after_bundle_take_internal(
+        &self,
+        bundle_id: BundleId,
+    ) -> Option<Option<&ArchetypeAfterBundleRemove>> {
+        self.take_bundle.get(bundle_id).map(Option::as_ref)
+    }
+
+    /// Caches the target archetype when taking a bundle from the source archetype,
+    /// and returns the cached value.
     ///
     /// Unlike `remove`, `take` will only succeed if the source archetype
     /// contains all of the components in the bundle.
@@ -315,9 +349,9 @@ impl Edges {
     pub(crate) fn cache_archetype_after_bundle_take(
         &mut self,
         bundle_id: BundleId,
-        archetype_id: Option<ArchetypeId>,
-    ) {
-        self.take_bundle.insert(bundle_id, archetype_id);
+        after_take: Option<ArchetypeAfterBundleRemove>,
+    ) -> Option<&ArchetypeAfterBundleRemove> {
+        self.take_bundle.insert(bundle_id, after_take).as_ref()
     }
 }
 
