@@ -13,6 +13,9 @@ pub struct RayMeshHit {
     pub point: Vec3,
     /// The normal vector of the triangle at the point of intersection. Not guaranteed to be normalized for scaled meshes.
     pub normal: Vec3,
+    /// The tangent vector of the triangle at the point of intersection, if the mesh has tangent attributes.
+    /// Not guaranteed to be normalized for scaled meshes.
+    pub tangent: Option<Vec3>,
     /// The barycentric coordinates of the intersection.
     pub barycentric_coords: Vec3,
     /// The distance from the ray origin to the intersection point.
@@ -58,6 +61,15 @@ pub(super) fn ray_intersection_over_mesh(
         .ok()
         .and_then(|normal_values| normal_values.as_float3());
 
+    // Tangents are optional
+    let tangents = mesh
+        .try_attribute(Mesh::ATTRIBUTE_TANGENT)
+        .ok()
+        .and_then(|tangent_values| match tangent_values {
+            VertexAttributeValues::Float32x4(values) => Some(values.as_slice()),
+            _ => None,
+        });
+
     let uvs = mesh
         .try_attribute(Mesh::ATTRIBUTE_UV_0)
         .ok()
@@ -67,13 +79,29 @@ pub(super) fn ray_intersection_over_mesh(
         });
 
     match mesh.try_indices().ok() {
-        Some(Indices::U16(indices)) => {
-            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
-        }
-        Some(Indices::U32(indices)) => {
-            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), uvs, cull)
-        }
-        None => ray_mesh_intersection::<u32>(ray, transform, positions, normals, None, uvs, cull),
+        Some(Indices::U16(indices)) => ray_mesh_intersection(
+            ray,
+            transform,
+            positions,
+            normals,
+            tangents,
+            Some(indices),
+            uvs,
+            cull,
+        ),
+        Some(Indices::U32(indices)) => ray_mesh_intersection(
+            ray,
+            transform,
+            positions,
+            normals,
+            tangents,
+            Some(indices),
+            uvs,
+            cull,
+        ),
+        None => ray_mesh_intersection::<u32>(
+            ray, transform, positions, normals, tangents, None, uvs, cull,
+        ),
     }
 }
 
@@ -83,6 +111,7 @@ pub fn ray_mesh_intersection<I>(
     mesh_transform: &Affine3A,
     positions: &[[f32; 3]],
     vertex_normals: Option<&[[f32; 3]]>,
+    vertex_tangents: Option<&[[f32; 4]]>,
     indices: Option<&[I]>,
     uvs: Option<&[[f32; 2]]>,
     backface_culling: Backfaces,
@@ -180,6 +209,18 @@ where
             Some([Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)])
         });
 
+        let tri_tangents = vertex_tangents.and_then(|tangents| {
+            let [Some(a), Some(b), Some(c)] = [tangents.get(a), tangents.get(b), tangents.get(c)]
+            else {
+                return None;
+            };
+            Some([
+                Vec3::from_slice(a),
+                Vec3::from_slice(b),
+                Vec3::from_slice(c),
+            ])
+        });
+
         let point = ray.get_point(hit.distance);
         // Note that we need to convert from the Möller-Trumbore convention to the more common
         // P = uA + vB + (1 - u - v)C convention.
@@ -195,6 +236,9 @@ where
                 .cross(tri_vertices[2] - tri_vertices[0])
                 .normalize()
         };
+
+        let tangent =
+            tri_tangents.map(|tangents| tangents[1] * u + tangents[2] * v + tangents[0] * w);
 
         let uv = uvs.and_then(|uvs| {
             let tri_uvs = if let Some(indices) = indices {
@@ -218,6 +262,7 @@ where
         Some(RayMeshHit {
             point: mesh_transform.transform_point3(point),
             normal: mesh_transform.transform_vector3(normal),
+            tangent: tangent.map(|tangent| mesh_transform.transform_vector3(tangent)),
             uv,
             barycentric_coords: barycentric,
             distance: mesh_transform
@@ -367,6 +412,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -389,6 +435,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -412,6 +459,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -435,6 +483,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -457,6 +506,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -479,6 +529,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -501,6 +552,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
@@ -523,6 +575,7 @@ mod tests {
             &mesh_transform,
             positions,
             vertex_normals,
+            None,
             indices,
             None,
             backface_culling,
