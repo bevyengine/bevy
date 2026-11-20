@@ -17,7 +17,7 @@ fn create_world() -> World {
         // SAFETY: Uses zero-sized value, never drops
         unsafe {
             let resource_id =
-                world.register_component_with_descriptor(ComponentDescriptor::new_with_layout(
+                world.register_resource_with_descriptor(ComponentDescriptor::new_with_layout(
                     "",
                     StorageType::SparseSet,
                     Layout::new::<()>(),
