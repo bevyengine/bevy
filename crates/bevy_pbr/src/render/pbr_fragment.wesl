@@ -231,6 +231,17 @@ pbr_input.material.uv_transform = uv_transform;
     pbr_input.material.flags = flags;
     pbr_input.material.alpha_cutoff = alpha_cutoff;
 
+@if(MAY_DISCARD && !MESHLET_MESH_MATERIAL_PASS) {
+    let alpha_mode = flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_DITHER {
+        pbr_input.material.base_color.a = pbr_functions::dither_mask(
+            pbr_input.material.base_color.a,
+            in.position.xy,
+            mesh[in.instance_index].instance_seed,
+        );
+    }
+}
+
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 @if(BINDLESS) {

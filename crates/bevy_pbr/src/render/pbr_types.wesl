@@ -62,7 +62,7 @@ const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED: u32          = 3u << 29u
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD: u32                    = 4u << 29u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32               = 5u << 29u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE: u32      = 6u << 29u;
-
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_DITHER: u32                 = 7u << 29u;
 
 /// Creates a StandardMaterial with default values
 fn standard_material_new() -> StandardMaterial {

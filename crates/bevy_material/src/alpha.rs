@@ -33,18 +33,49 @@ pub enum AlphaMode {
     /// Can be used to avoid “border” or “outline” artifacts that can occur
     /// when using plain alpha-blended textures.
     Premultiplied,
-    /// Spreads the fragment out over a hardware-dependent number of sample
+    /// Uses [alpha to coverage] to render anti-aliased cutouts: an
+    /// anti-aliased version of [`AlphaMode::Mask`] with a threshold of 0.5.
+    ///
+    /// The fragment is spread out over a hardware-dependent number of sample
     /// locations proportional to the alpha value. This requires multisample
     /// antialiasing; if MSAA isn't on, this is identical to
     /// [`AlphaMode::Mask`] with a value of 0.5.
     ///
+    /// This mode is designed for textures whose alpha channel describes a
+    /// shape, like leaves, grass or fences. When the material has a base color
+    /// texture, [`StandardMaterial`] "sharpens" the alpha value around 0.5 so
+    /// that the transition from fully transparent to fully opaque spans roughly
+    /// one pixel, producing crisp edges that are smoothed by MSAA. As a
+    /// consequence, partial transparency in the texture is *not* preserved: use
+    /// [`AlphaMode::Dither`] or [`AlphaMode::Blend`] for that instead. See
+    /// ["Anti-aliased Alpha Test: The Esoteric Alpha To Coverage"] for details.
+    ///
     /// Alpha to coverage provides improved performance and better visual
     /// fidelity over [`AlphaMode::Blend`], as Bevy doesn't have to sort objects
-    /// when it's in use. It's especially useful for complex transparent objects
-    /// like foliage.
+    /// when it's in use.
     ///
     /// [alpha to coverage]: https://en.wikipedia.org/wiki/Alpha_to_coverage
+    /// [`StandardMaterial`]: https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html
+    /// ["Anti-aliased Alpha Test: The Esoteric Alpha To Coverage"]: https://bgolus.medium.com/anti-aliased-alpha-test-the-esoteric-alpha-to-coverage-8b177335ae4f
     AlphaToCoverage,
+    /// Approximates transparency by discarding a fraction of the fragments
+    /// proportional to the alpha value, following a 4x4 [ordered dithering]
+    /// pattern in screen space (also known as "screen-door transparency").
+    ///
+    /// Dithered objects are rendered in the opaque pass: they write depth,
+    /// cast (dithered) shadows, and work with the depth prepass and deferred
+    /// rendering. Unlike [`AlphaMode::AlphaToCoverage`], it doesn't require MSAA.
+    ///
+    /// Each mesh instance uses one of 16 variations of the pattern, so
+    /// overlapping dithered objects don't discard the same pixels, and can be
+    /// seen through one another. The pattern is fixed in screen space and
+    /// doesn't change between frames.
+    ///
+    /// Useful for cheaply fading objects in and out, e.g. when they occlude the
+    /// camera or when they spawn and despawn.
+    ///
+    /// [ordered dithering]: https://en.wikipedia.org/wiki/Ordered_dithering
+    Dither,
     /// Combines the color of the fragments with the colors behind them in an
     /// additive process, (i.e. like light) producing lighter results.
     ///
