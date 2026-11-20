@@ -6,7 +6,7 @@ use resvg::{tiny_skia, usvg};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_types::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat};
 
 use crate::{Image, ImageSampler};
 
@@ -61,11 +61,25 @@ pub enum SvgRasterSize {
     },
 }
 
+/// How many mip levels to rasterize for an SVG.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SvgMipmaps {
+    /// Only raster full-size image.
+    Off,
+    /// Rasterize every mipmap level down to 1x1
+    #[default]
+    Full,
+    /// Rasterize the full-size image and the specified number of mipmap levels.
+    Count(u32),
+}
+
 /// Settings for loading an SVG with [`SvgLoader`].
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SvgLoaderSettings {
     /// The pixel size of the resulting [`Image`].
     pub size: SvgRasterSize,
+    /// The mip levels to rasterize.
+    pub mipmaps: SvgMipmaps,
     /// The [`ImageSampler`] to use when rendering.
     pub sampler: ImageSampler,
     /// Where the asset will be used. See [`RenderAssetUsages`] for details.
@@ -76,6 +90,7 @@ impl Default for SvgLoaderSettings {
     fn default() -> Self {
         Self {
             size: SvgRasterSize::default(),
+            mipmaps: SvgMipmaps::default(),
             sampler: ImageSampler::linear(),
             asset_usage: RenderAssetUsages::default(),
         }
@@ -159,31 +174,105 @@ fn rasterize(bytes: &[u8], settings: &SvgLoaderSettings, path: &Path) -> Result<
 
     let intrinsic = tree.size();
     let (width, height) = raster_size(settings.size, intrinsic.width(), intrinsic.height(), path)?;
+    let size = Extent3d {
+        width,
+        height,
+        depth_or_array_layers: 1,
+    };
+    let max_mips = size.max_mips(TextureDimension::D2);
+    let mip_level_count = match settings.mipmaps {
+        SvgMipmaps::Off => 1,
+        SvgMipmaps::Full => max_mips,
+        SvgMipmaps::Count(count) => count.clamp(1, max_mips),
+    };
 
-    let mut pixmap =
-        tiny_skia::Pixmap::new(width, height).ok_or(SvgError::Allocation { width, height })?;
-    let transform = tiny_skia::Transform::from_scale(
-        width as f32 / intrinsic.width(),
-        height as f32 / intrinsic.height(),
+    // Precalculate the width and height of each mipmap level
+    let level_sizes: Vec<_> = (0..mip_level_count)
+        .map(|level| size.mip_level_size(level, TextureDimension::D2))
+        .collect();
+
+    let mut data = Vec::with_capacity(
+        level_sizes
+            .iter()
+            .map(|s| s.width as usize * s.height as usize * 4)
+            .sum(),
     );
-    resvg::render(&tree, transform, &mut pixmap.as_mut());
 
-    // The rasterizer produces premultiplied alpha, but images are expected to be straight alpha.
-    let data = pixmap.take_demultiplied();
+    // Rasterize each mipmap into the pixel buffer
+    for level_size in level_sizes {
+        data.extend(render_level(&tree, level_size.width, level_size.height)?);
+    }
 
-    let mut image = Image::new(
-        Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
+    let mut image = Image::new_uninit(
+        size,
         TextureDimension::D2,
-        data,
         TextureFormat::Rgba8UnormSrgb,
         settings.asset_usage,
     );
+    image.data = Some(data);
+    image.data_order = TextureDataOrder::MipMajor;
+    image.texture_descriptor.mip_level_count = mip_level_count;
     image.sampler = settings.sampler.clone();
     Ok(image)
+}
+
+/// Renders the SVG to `width` x `height`.
+fn render_level(tree: &usvg::Tree, width: u32, height: u32) -> Result<Vec<u8>, SvgError> {
+    let mut pixmap =
+        tiny_skia::Pixmap::new(width, height).ok_or(SvgError::Allocation { width, height })?;
+    let transform = tiny_skia::Transform::from_scale(
+        width as f32 / tree.size().width(),
+        height as f32 / tree.size().height(),
+    );
+    resvg::render(tree, transform, &mut pixmap.as_mut());
+
+    // The rasterizer produces premultiplied alpha, but images are expected to be straight alpha.
+    let mut data = pixmap.take_demultiplied();
+    bleed_edges(&mut data, width as usize, height as usize);
+    Ok(data)
+}
+
+/// Gives fully transparent pixels the average color of their visible neighbors.
+///
+/// Transparent pixels rasterize with color channels set to zero,
+/// and filters read that as black. Here we use a 3x3 sample to blend
+/// the color channels into transparent pixels to prevent that.
+fn bleed_edges(data: &mut [u8], width: usize, height: usize) {
+    // Works in place: only transparent texels are written, and they carry no weight when read.
+    for y in 0..height {
+        for x in 0..width {
+            let index = (y * width + x) * 4;
+            if data[index + 3] != 0 {
+                // Skip the pixel if it isn't fully transparent.
+                continue;
+            }
+            // Sum of the sample's channels
+            let mut sum = [0u32; 3];
+            // Weight of the sample's alpha
+            let mut weight = 0;
+            let (prev_row, next_row_end) = (y.saturating_sub(1), (y + 2).min(height));
+            for tex_y in prev_row..next_row_end {
+                let (prev_column, next_column_end) = (x.saturating_sub(1), (x + 2).min(width));
+                for tex_x in prev_column..next_column_end {
+                    // Iterate the 3x3 sample
+                    let texel = &data[(tex_y * width + tex_x) * 4..][..4];
+                    let alpha = u32::from(texel[3]);
+                    for (sum, channel) in sum.iter_mut().zip(texel) {
+                        *sum += u32::from(*channel) * alpha;
+                    }
+                    weight += alpha;
+                }
+            }
+            // Skip writing for fully transparent 3x3 samples
+            if weight == 0 {
+                continue;
+            }
+            // Write out channel averages
+            for (channel, sum) in data[index..index + 3].iter_mut().zip(sum) {
+                *channel = (sum / weight) as u8;
+            }
+        }
+    }
 }
 
 fn usvg_options(path: &Path) -> usvg::Options<'_> {
@@ -297,10 +386,70 @@ mod tests {
             image.texture_descriptor.format,
             TextureFormat::Rgba8UnormSrgb
         );
-        assert_eq!(image.texture_descriptor.mip_level_count, 1);
-        assert_eq!(image.data.as_ref().unwrap().len(), 10 * 20 * 4);
         assert_eq!(rgba(&image, 5, 2), [255, 0, 0, 255]);
         assert_eq!(rgba(&image, 5, 17), [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn full_mip_chain_by_default() {
+        let image = load_default(HALF_RED);
+        assert_eq!(image.data_order, TextureDataOrder::MipMajor);
+        // 10x20, 5x10, 2x5, 1x2, 1x1
+        assert_eq!(image.texture_descriptor.mip_level_count, 5);
+        assert_eq!(
+            image.data.as_ref().unwrap().len(),
+            (200 + 50 + 10 + 2 + 1) * 4
+        );
+    }
+
+    #[test]
+    fn mip_level_count_follows_settings() {
+        for (mipmaps, expected) in [
+            (SvgMipmaps::Off, 1),
+            (SvgMipmaps::Count(0), 1),
+            (SvgMipmaps::Count(2), 2),
+            (SvgMipmaps::Count(100), 5),
+        ] {
+            let settings = SvgLoaderSettings {
+                mipmaps,
+                ..Default::default()
+            };
+            let image = load(HALF_RED, &settings).unwrap();
+            assert_eq!(
+                image.texture_descriptor.mip_level_count, expected,
+                "{mipmaps:?}"
+            );
+        }
+        let settings = SvgLoaderSettings {
+            mipmaps: SvgMipmaps::Off,
+            ..Default::default()
+        };
+        assert_eq!(
+            load(HALF_RED, &settings).unwrap().data.unwrap().len(),
+            10 * 20 * 4
+        );
+    }
+
+    #[test]
+    fn mip_levels_hold_the_whole_image() {
+        // 8x8 image with a red 4x8 rectangle on the left side.
+        // Mip level 2 starts after level 0 (offset 64) and level 1 (offset 16)
+        // Its top row should have a opaque red pixel and a transparent pixel with red bled into it.
+        let image = load_default(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">
+                <rect width="4" height="8" fill="red"/>
+            </svg>"#,
+        );
+        let level_2 = &image.data.as_ref().unwrap()[(64 + 16) * 4..][..2 * 2 * 4];
+        assert_eq!(&level_2[..4], &[255, 0, 0, 255]);
+        assert_eq!(&level_2[4..8], &[255, 0, 0, 0]);
+    }
+
+    #[test]
+    fn transparent_edges_take_neighbor_color() {
+        let image = load_default(HALF_RED);
+        assert_eq!(rgba(&image, 5, 10), [255, 0, 0, 0]);
+        assert_eq!(rgba(&image, 5, 11), [0, 0, 0, 0]);
     }
 
     #[test]
@@ -372,17 +521,11 @@ mod tests {
 
     #[test]
     fn oversized_requests_are_clamped() {
-        let settings = SvgLoaderSettings {
-            size: SvgRasterSize::Height(100_000),
-            ..Default::default()
-        };
-        let image = load(HALF_RED, &settings).unwrap();
-        assert_eq!((image.width(), image.height()), (4096, 8192));
-
-        let image = load_default(
-            r#"<svg xmlns="http://www.w3.org/2000/svg" width="1000000" height="1"></svg>"#,
-        );
-        assert_eq!((image.width(), image.height()), (8192, 1));
+        let path = Path::new("test.svg");
+        let size = raster_size(SvgRasterSize::Height(100_000), 10.0, 20.0, path).unwrap();
+        assert_eq!(size, (4096, 8192));
+        let size = raster_size(SvgRasterSize::Intrinsic, 1_000_000.0, 1.0, path).unwrap();
+        assert_eq!(size, (8192, 1));
     }
 
     #[test]
@@ -460,7 +603,8 @@ mod tests {
     fn default_sampler_is_linear() {
         assert!(matches!(
             load_default(HALF_RED).sampler,
-            ImageSampler::Descriptor(_)
+            ImageSampler::Descriptor(descriptor)
+                if descriptor.mipmap_filter == crate::ImageFilterMode::Linear
         ));
     }
 
@@ -514,10 +658,12 @@ mod tests {
                 width: 32,
                 height: 16,
             },
+            mipmaps: SvgMipmaps::Count(3),
             ..Default::default()
         };
         let json = serde_json::to_string(&settings).unwrap();
         let back: SvgLoaderSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(back.size, settings.size);
+        assert_eq!(back.mipmaps, settings.mipmaps);
     }
 }
