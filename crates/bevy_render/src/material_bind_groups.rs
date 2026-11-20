@@ -2833,7 +2833,11 @@ impl RenderMaterialBindings {
                         // Store the resulting bind group directly in the slot.
                         let material_binding_id = bind_group_allocator
                             .allocate_prepared(prepared_bind_group, material_layout.clone());
-                        self.insert(material_id.into(), material_binding_id);
+                        if let Some(old_binding) =
+                            self.insert(material_id.into(), material_binding_id)
+                        {
+                            bind_group_allocator.free(old_binding);
+                        }
                         Ok(material_binding_id)
                     }
                     Err(AsBindGroupError::RetryNextUpdate) => {
