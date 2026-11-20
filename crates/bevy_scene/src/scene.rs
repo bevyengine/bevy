@@ -417,6 +417,7 @@ impl Scene for CachedSceneAsset {
     ) -> Result<(), ResolveSceneError> {
         if let Some(handle) = context.assets.get_handle::<ScenePatch>(&self.0)
             && let Some(scene_patch) = context.patches.get(&handle)
+            && scene_patch.resolved.is_some()
         {
             scene.include_cached(handle)?;
             context.cached = Some(scene_patch);
