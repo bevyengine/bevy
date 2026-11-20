@@ -4320,6 +4320,120 @@ mod calc {
                     }
                     BackgroundColor(RED_500)
                 ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                        width: { vw(5) * 2. },
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: { 3. * vmin(5) },
+                    }
+                    BackgroundColor(GREEN)
+                    --
+                    Node {
+                        width: { (px(100) + vw(10)) / 2. },
+                    }
+                    BackgroundColor(BLUE)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                        width: { px(300) - vw(10) },
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: { vmax(20) - vmin(10) - px(20) },
+                    }
+                    BackgroundColor(VIOLET)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                        width: { vw(20).clamp(px(100), px(200)) },
+                    }
+                    BackgroundColor(ORANGE)
+                    --
+                    Node {
+                        width: { vw(5).clamp(px(100), px(200)) },
+                    }
+                    BackgroundColor(GREEN)
+                    --
+                    Node {
+                        width: { vw(50).clamp(px(100), px(200)) },
+                    }
+                    BackgroundColor(BLUE)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    width: px(400),
+                }
+                Children [
+                    Node {
+                        width: { percent(50) - px(20) },
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: { percent(25) + px(20) },
+                    }
+                    BackgroundColor(GREEN)
+                    --
+                    Node {
+                        width: { percent(25) },
+                    }
+                    BackgroundColor(VIOLET)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                }
+                Children [
+                    Node {
+                        width: { rem(5) + px(20) },
+                    }
+                    BackgroundColor(YELLOW)
+                    --
+                    Node {
+                        width: { em(3) + vw(2) },
+                    }
+                    BackgroundColor(ORANGE)
+                    --
+                    Node {
+                        width: { rem(10) - em(2) },
+                    }
+                    BackgroundColor(BLUE)
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    padding: { (px(5) + vmin(1)).all() },
+                }
+                BackgroundColor(SNOW)
+                Children [
+                    Node {
+                        width: px(100),
+                        margin: { (px(10) + vw(1)).right() },
+                    }
+                    BackgroundColor(RED_500)
+                    --
+                    Node {
+                        width: px(100),
+                    }
+                    BackgroundColor(GREEN)
+                ]
             ]
 
         }
