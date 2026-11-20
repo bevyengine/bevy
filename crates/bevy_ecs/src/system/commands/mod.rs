@@ -430,7 +430,7 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         entity: Entity,
     ) -> Result<EntityCommands<'_>, EntityNotSpawnedError> {
-        let _location = self.entities.get_spawned(entity)?;
+        let _location = self.entities.try_location(entity)?;
         Ok(EntityCommands {
             entity,
             commands: self.reborrow(),
