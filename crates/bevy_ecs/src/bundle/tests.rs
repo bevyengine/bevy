@@ -309,3 +309,81 @@ struct Ignore {
 #[derive(Bundle)]
 #[expect(unused, reason = "tests the derive macro does not leak private type")]
 pub struct Exported(A);
+
+#[derive(Resource, Default)]
+struct HookLog(Vec<&'static str>);
+
+fn log_hook<T: 'static>() -> impl Fn(DeferredWorld, HookContext) {
+    |mut world, _| {
+        world
+            .resource_mut::<HookLog>()
+            .0
+            .push(core::any::type_name::<T>());
+    }
+}
+
+#[derive(Component)]
+#[component(on_add = log_hook::<T>(), on_insert = log_hook::<Self>())]
+struct GenericCallHooks<T: Send + Sync + 'static>(T);
+
+#[derive(Component)]
+#[relationship(relationship_target = CallHookTargets)]
+#[component(on_insert = log_hook::<u8>(), on_discard = log_hook::<u16>())]
+struct CallHookRelationship(Entity);
+
+#[derive(Component)]
+#[relationship_target(relationship = CallHookRelationship, linked_spawn)]
+#[component(on_discard = log_hook::<u32>(), on_despawn = log_hook::<u64>())]
+struct CallHookTargets(Vec<Entity>);
+
+#[test]
+fn call_hooks_can_use_generics_and_self() {
+    let mut world = World::new();
+    world.init_resource::<HookLog>();
+
+    world.spawn(GenericCallHooks(1u8));
+    world.spawn(GenericCallHooks("a"));
+
+    assert_eq!(
+        world.resource::<HookLog>().0,
+        vec![
+            core::any::type_name::<u8>(),
+            core::any::type_name::<GenericCallHooks<u8>>(),
+            core::any::type_name::<&'static str>(),
+            core::any::type_name::<GenericCallHooks<&'static str>>(),
+        ]
+    );
+}
+
+#[test]
+fn call_hooks_combine_with_relationship_hooks() {
+    let mut world = World::new();
+    world.init_resource::<HookLog>();
+
+    let target = world.spawn_empty().id();
+    let source = world.spawn(CallHookRelationship(target)).id();
+
+    // The user hook ran, and so did the relationship's own `on_insert` hook.
+    assert_eq!(
+        world.resource::<HookLog>().0,
+        vec![core::any::type_name::<u8>()]
+    );
+    assert_eq!(
+        world.entity(target).get::<CallHookTargets>().unwrap().0,
+        vec![source]
+    );
+
+    world.resource_mut::<HookLog>().0.clear();
+    world.entity_mut(target).despawn();
+
+    // `linked_spawn` despawned the source through the target's own `on_despawn` hook.
+    assert!(world.get_entity(source).is_err());
+    let log = &world.resource::<HookLog>().0;
+    for ty in [
+        core::any::type_name::<u16>(),
+        core::any::type_name::<u32>(),
+        core::any::type_name::<u64>(),
+    ] {
+        assert!(log.contains(&ty), "missing hook {ty} in {log:?}");
+    }
+}
