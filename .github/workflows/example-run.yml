@@ -81,6 +81,55 @@ jobs:
           name: example-run-macos
           path: example-run/
 
+  run-bevy-mobile-example-ios:
+    # name: Run Bevy mobile example in iOS Simulator
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/install-rust
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
+          restore-keys: |
+            ${{ runner.os }}-stable-aarch64-apple-ios-sim-${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable-aarch64-apple-ios-sim-
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+      - name: Add iOS simulator target
+        run: rustup target add aarch64-apple-ios-sim
+      - name: Select iPhone simulator
+        run: |
+          device_id="$(xcrun simctl list devices --json | python3 -c 'import json, sys; devices = json.load(sys.stdin)["devices"].values(); print(next((device["udid"] for runtime in devices for device in runtime if device["isAvailable"] and device["name"].startswith("iPhone")), ""))')"
+          if [ -z "$device_id" ]; then
+            echo "No available iPhone simulator found" >&2
+            exit 1
+          fi
+          echo "DEVICE_ID=$device_id" >> "$GITHUB_ENV"
+      - name: Build and install app
+        run: cd examples/mobile && make install
+      - name: Launch, capture screenshot, and exit
+        run: |
+          mkdir -p artifacts/ios-simulator
+          xcrun simctl launch "$DEVICE_ID" org.bevyengine.example
+          sleep 30
+          xcrun simctl io "$DEVICE_ID" screenshot artifacts/ios-simulator/bevy_mobile_example.png
+          xcrun simctl terminate "$DEVICE_ID" org.bevyengine.example
+          xcrun simctl shutdown "$DEVICE_ID"
+      - name: Upload iOS simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bevy-mobile-example-ios-simulator
+          path: artifacts/ios-simulator/
+          if-no-files-found: error
+
   compare-macos-screenshots:
     if: ${{ github.event_name != 'pull_request' }}
     name: Compare Macos screenshots
