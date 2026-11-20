@@ -1,7 +1,7 @@
-use bevy_ecs::entity::{Entity, EntityGeneration, EntityHashSet};
+use bevy_ecs::entity::{Entity, EntityGeneration, EntityHashSet, EntityIndex};
 use chacha20::ChaCha8Rng;
 use criterion::{BenchmarkId, Criterion, Throughput};
-use rand::{RngExt, SeedableRng};
+use rand::{seq::SliceRandom, RngExt, SeedableRng};
 
 const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
 
@@ -72,5 +72,54 @@ pub fn entity_set_build_and_lookup(c: &mut Criterion) {
                 });
             },
         );
+    }
+}
+
+const CONTIGUOUS_SIZES: [u32; 3] = [1_000, 10_000, 100_000];
+
+fn contiguous_entity(index: u32, versions: u32) -> Entity {
+    Entity::from_index_and_generation(
+        EntityIndex::from_raw_u32(index).unwrap(),
+        EntityGeneration::FIRST.after_versions(versions),
+    )
+}
+
+/// Freshly spawned entities have contiguous indices, which `EntityHash` keeps
+/// in contiguous buckets. This benches lookups into such a densely packed set.
+pub fn entity_set_contiguous(c: &mut Criterion) {
+    let mut group = c.benchmark_group("entity_hash_contiguous");
+    for size in CONTIGUOUS_SIZES {
+        let entities = Vec::from_iter((0..size).map(|index| contiguous_entity(index, 0)));
+        let set = EntityHashSet::from_iter(entities.iter().copied());
+
+        // Look up in a random order, so this doesn't just measure locality.
+        let mut rng = ChaCha8Rng::seed_from_u64(size as u64);
+        let mut indices = Vec::from_iter(0..size);
+        indices.shuffle(&mut rng);
+
+        // Same indices as the set, but a later generation (despawned and reused entities).
+        let stale = Vec::from_iter(indices.iter().map(|&index| contiguous_entity(index, 1)));
+        // Indices that were never inserted. Some start probing inside the densely packed
+        // buckets; others land on empty buckets and miss immediately.
+        let absent = Vec::from_iter(
+            indices
+                .iter()
+                .map(|&index| contiguous_entity(index + size, 0)),
+        );
+        let hits = Vec::from_iter(indices.iter().map(|&index| contiguous_entity(index, 0)));
+
+        group.throughput(Throughput::Elements(size as u64));
+        group.bench_function(BenchmarkId::new("build", size), |bencher| {
+            bencher.iter_with_large_drop(|| EntityHashSet::from_iter(entities.iter().copied()));
+        });
+        for (name, lookups) in [
+            ("lookup_hit", &hits),
+            ("lookup_miss_gen", &stale),
+            ("lookup_miss_id", &absent),
+        ] {
+            group.bench_function(BenchmarkId::new(name, size), |bencher| {
+                bencher.iter(|| lookups.iter().filter(|e| set.contains(*e)).count());
+            });
+        }
     }
 }

@@ -1488,38 +1488,66 @@ mod tests {
     // part of the best-case performance changes in PR#9903.
     #[test]
     fn entity_hash_keeps_similar_ids_together() {
-        use core::hash::BuildHasher;
-        let hash = EntityHash;
+        // On 32-bit targets, bits 25 and up hold H2 instead of the index.
+        const SLOT_BITS_32: u32 = (1 << 25) - 1;
 
-        let first_id = 0xC0FFEE << 8;
-        let first_hash = hash.hash_one(Entity::from_index(
-            EntityIndex::from_raw_u32(first_id).unwrap(),
-        ));
-
+        let first = entity(0xC0FFEE << 8).to_bits();
         for i in 1..=255 {
-            let id = first_id + i;
-            let hash = hash.hash_one(Entity::from_index(EntityIndex::from_raw_u32(id).unwrap()));
-            assert_eq!(first_hash.wrapping_sub(hash) as u32, i);
+            let next = entity((0xC0FFEE << 8) + i).to_bits();
+            let diff_64 = EntityHasher::hash_for_64_bit(first)
+                .wrapping_sub(EntityHasher::hash_for_64_bit(next));
+            let diff_32 = EntityHasher::hash_for_32_bit(first)
+                .wrapping_sub(EntityHasher::hash_for_32_bit(next));
+            assert_eq!(diff_64 as u32, i);
+            assert_eq!(diff_32 as u32 & SLOT_BITS_32, i);
         }
+    }
+
+    fn entity(id: u32) -> Entity {
+        Entity::from_index(EntityIndex::from_raw_u32(id).unwrap())
+    }
+
+    /// H2 as `hashbrown` takes it on 64-bit targets: the top 7 bits.
+    fn h2_64(id: u32) -> u64 {
+        EntityHasher::hash_for_64_bit(entity(id).to_bits()) >> 57
+    }
+
+    /// H2 as `hashbrown` takes it on 32-bit targets: the top 7 bits after truncating to `usize`.
+    fn h2_32(id: u32) -> u64 {
+        (EntityHasher::hash_for_32_bit(entity(id).to_bits()) as u32 >> 25) as u64
+    }
+
+    /// Similar ids sit in neighboring slots, so they need distinct H2s, or
+    /// probing compares more keys than it should.
+    fn distinct_h2s_of_similar_ids(h2: impl Fn(u32) -> u64) -> usize {
+        let mut seen = [false; 128];
+        for id in 0..1024 {
+            seen[h2(id) as usize] = true;
+        }
+        seen.iter().filter(|seen| **seen).count()
     }
 
     #[test]
     fn entity_hash_id_bitflip_affects_high_7_bits() {
-        use core::hash::BuildHasher;
-
-        let hash = EntityHash;
-
         let first_id = 0xC0FFEE;
-        let first_hash = hash.hash_one(Entity::from_index(
-            EntityIndex::from_raw_u32(first_id).unwrap(),
-        )) >> 57;
-
         for bit in 0..u32::BITS {
             let id = first_id ^ (1 << bit);
-            let hash =
-                hash.hash_one(Entity::from_index(EntityIndex::from_raw_u32(id).unwrap())) >> 57;
-            assert_ne!(hash, first_hash);
+            assert_ne!(h2_64(id), h2_64(first_id), "64-bit H2, bit {bit}");
+            assert_ne!(h2_32(id), h2_32(first_id), "32-bit H2, bit {bit}");
         }
+    }
+
+    #[test]
+    fn entity_hash_spreads_high_7_bits_of_similar_ids() {
+        use core::hash::BuildHasher;
+
+        assert_eq!(distinct_h2s_of_similar_ids(h2_64), 128, "64-bit H2");
+        assert_eq!(distinct_h2s_of_similar_ids(h2_32), 128, "32-bit H2");
+
+        // `EntityHash` itself, with H2 taken the way `hashbrown` does on this target.
+        let hash_bits = usize::BITS.min(u64::BITS);
+        let h2 = |id| (EntityHash.hash_one(entity(id)) >> (hash_bits - 7)) & 0x7f;
+        assert_eq!(distinct_h2s_of_similar_ids(h2), 128, "this target's H2");
     }
 
     #[test]
