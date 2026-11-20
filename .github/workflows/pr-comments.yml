@@ -1,0 +1,98 @@
+name: PR Comments
+
+# This workflow has write permissions on the repo.
+# It must not checkout a PR and run untrusted code!
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] no checkout or artifacts, PR data never interpolated, static comment bodies
+    workflows: ["PR Events"]
+    types:
+      - completed
+
+concurrency:
+  group: pr-comments-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    permissions:
+      pull-requests: "write"
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const run = context.payload.workflow_run
+            const { owner, repo } = context.repo
+
+            const pulls = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              base: 'main',
+              head: `${run.head_repository.owner.login}:${run.head_branch}`,
+            })
+            if (pulls.data.length === 0) {
+              core.info(`No PR found matching ${run.head_repository.owner.login}:${run.head_branch}, skipping`)
+              return
+            }
+            const pr = pulls.data[0]
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pr.number,
+            })
+            const alreadyCommented = (text) => comments.some(
+              (comment) => comment.user.login === 'github-actions[bot]' && comment.body.includes(text)
+            )
+            const comment = async (body) => {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body })
+            }
+
+            // Welcome new contributors
+            if (!alreadyCommented('**Welcome**, new contributor!')) {
+              // See: https://octokit.github.io/rest.js/#pagination
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                creator: pr.user.login,
+                state: 'all',
+              })
+              const isContributor = issues.some(
+                (issue) => issue.number !== pr.number && issue.pull_request
+              )
+              if (!isContributor) {
+                await comment(`**Welcome**, new contributor!
+
+                Please make sure you've read our [contributing guide](https://bevy.org/learn/contribute/introduction), as well as our [policy regarding AI usage](https://bevy.org/learn/contribute/policies/ai/), and we look forward to reviewing your pull request shortly ✨`)
+              }
+            }
+
+            // Check for release content required by labels
+            const labels = pr.labels.map((label) => label.name)
+            const needsMigrationGuide = labels.includes('M-Migration-Guide')
+              && !alreadyCommented("you didn't provide a migration guide")
+            const needsReleaseNote = labels.includes('M-Release-Note')
+              && !alreadyCommented("you didn't provide a release note")
+            if (!needsMigrationGuide && !needsReleaseNote) {
+              return
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+            })
+            const changes = (dir) => files.some((file) => file.filename.startsWith(dir))
+
+            if (needsMigrationGuide && !changes('_release-content/migration-guides/')) {
+              await comment(`It looks like your PR is a breaking change, but **you didn't provide a migration guide**.
+
+              Please review the [instructions for writing migration guides](https://github.com/bevyengine/bevy/tree/main/_release-content/migration_guides.md), then expand or revise the content in the [migration guides directory](https://github.com/bevyengine/bevy/tree/main/_release-content/migration-guides) to reflect your changes.`)
+            }
+            if (needsReleaseNote && !changes('_release-content/release-notes/')) {
+              await comment(`It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
+
+              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/_release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/_release-content/release-notes) to showcase your changes.`)
+            }

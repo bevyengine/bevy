@@ -1,0 +1,17 @@
+name: PR Events
+
+on:
+  pull_request:
+    types:
+      - opened
+      - labeled
+    branches:
+      - "main"
+
+permissions: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Triggering PR Comments"
