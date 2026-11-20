@@ -206,10 +206,12 @@ impl RenderResources {
         }
 
         render_world.insert_resource(instance);
-        render_world.insert_resource(PipelineCache::new(
-            device.clone(),
-            synchronous_pipeline_compilation,
-        ));
+        let mut pipeline_cache =
+            PipelineCache::new(device.clone(), synchronous_pipeline_compilation);
+        if !renderer::supports_cube_array_textures(&render_adapter) {
+            pipeline_cache.disable_cube_array_textures();
+        }
+        render_world.insert_resource(pipeline_cache);
         render_world.insert_resource(DeviceErrorHandler::new(&device));
         render_world.insert_resource(device);
         render_world.insert_resource(queue);

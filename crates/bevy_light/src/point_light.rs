@@ -68,6 +68,9 @@ pub struct PointLight {
     pub radius: f32,
 
     /// Whether this light casts shadows.
+    ///
+    /// On devices without cube array texture support, at most one point light
+    /// can cast shadows.
     pub shadow_maps_enabled: bool,
 
     /// Whether this light casts contact shadows.
