@@ -741,7 +741,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 if let #FQOption::Some(handle) = handle {
                                     let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
-                                    let #FQOption::Some(sample_type) = image.texture_descriptor.format.sample_type(#FQOption::None, #FQOption::Some(render_device.features())) else {
+                                    let #FQOption::Some(sample_type) = image.texture_descriptor.format.sample_type(#FQOption::None, #FQOption::Some(*render_device.features())) else {
                                         return #FQResult::Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
                                             #binding_index,
                                             "None".to_string(),
