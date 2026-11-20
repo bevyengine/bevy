@@ -110,6 +110,30 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
+    /// Frees the memory of the array, leaving it unallocated, as if it had been created with a
+    /// capacity of 0. [`Self::alloc`] may then allocate it again.
+    ///
+    /// # Safety
+    /// - `current_capacity` is indeed the capacity of the array
+    /// - The array holds no initialized elements: any it held were dropped or moved out
+    /// - The caller should update their saved `capacity` value to 0
+    pub unsafe fn dealloc(&mut self, current_capacity: NonZeroUsize) {
+        #[cfg(debug_assertions)]
+        assert_eq!(self.capacity, current_capacity.get());
+
+        if size_of::<T>() != 0 {
+            // SAFETY: We can use `unwrap_unchecked` because this is the Layout of the current allocation, it must be valid
+            let layout = unsafe { Layout::array::<T>(current_capacity.get()).unwrap_unchecked() };
+            // SAFETY:
+            // - `data` was allocated by this allocator, with `layout`: `current_capacity` is the
+            //   capacity of the array, as the caller guarantees
+            // - The array holds no initialized elements that would need dropping
+            unsafe { alloc::alloc::dealloc(self.data.as_ptr().cast(), layout) };
+        }
+
+        *self = Self::empty();
+    }
+
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
     ///
     /// # Safety
