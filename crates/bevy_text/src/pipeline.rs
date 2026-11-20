@@ -226,7 +226,8 @@ impl TextPipeline {
 
             if let Ok(root_family) = root_style
                 .map_or(&FontSource::Default, |(f, ..)| &f.font)
-                .resolve_font_family(fonts, default_font_source) {
+                .resolve_font_family(fonts, default_font_source)
+            {
                 builder.push_default(StyleProperty::FontFamily(root_family));
             }
 
