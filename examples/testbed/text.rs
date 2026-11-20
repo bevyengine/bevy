@@ -23,18 +23,9 @@ fn main() {
     let args: Args = Args::from_args(&[], &[]).unwrap();
 
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            // Some scenes use viewport relative font sizes,
-            // so let's explicitly define the viewport dimensions and set resizable to false
-            resolution: (1280, 720).into(),
-            resizable: false,
-            ..Default::default()
-        }),
-        ..Default::default()
-    }))
-    .add_systems(OnEnter(Scene::FontSize), font_size::scene.spawn())
-    .add_systems(Update, switch_scene);
+    app.add_plugins(DefaultPlugins)
+        .add_systems(OnEnter(Scene::FontSize), font_size::scene.spawn())
+        .add_systems(Update, switch_scene);
 
     match args.scene {
         None => app.init_state::<Scene>(),
@@ -110,15 +101,25 @@ mod font_size {
         });
 
         let relative_sizes = [
-            ("Rem(2.)", FontSize::Rem(2.)),
-            ("Vw(2.)", FontSize::Vw(2.)),
-            ("Vh(4.)", FontSize::Vh(4.)),
-            ("VMin(4.)", FontSize::VMin(4.)),
-            ("VMax(2.)", FontSize::VMax(2.)),
+            FontSize::Rem(1.),
+            FontSize::Rem(1.5),
+            FontSize::Rem(2.),
+            FontSize::Vw(1.),
+            FontSize::Vw(1.5),
+            FontSize::Vw(2.),
+            FontSize::Vh(1.),
+            FontSize::Vh(1.5),
+            FontSize::Vh(2.),
+            FontSize::VMin(1.),
+            FontSize::VMin(1.5),
+            FontSize::VMin(2.),
+            FontSize::VMax(1.),
+            FontSize::VMax(1.5),
+            FontSize::VMax(2.),
         ]
-        .map(|(label, font_size)| {
+        .map(|font_size| {
             bsn! {
-                Text({format!("FontSize::{label}")})
+                Text({format!("{font_size:?}")})
                 TextFont { font_size: font_size }
             }
         });
