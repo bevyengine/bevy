@@ -269,9 +269,12 @@ impl SurfaceColorSpace {
 /// A [`DisplayTarget`] after surface negotiation: the color space the output
 /// uses and the luminance values the renderer encodes for.
 ///
-/// [`DisplayTarget::resolve`] builds it. Each luminance is the calibrated
-/// value when the app set one, else the default for the color space. The
-/// default is SDR sRGB at 100 nits.
+/// Each luminance is the calibrated value when the app set one, else what
+/// the window's display reports, else the default for the color space.
+///
+/// The renderer inserts and updates this component on each
+/// [`Window`](crate::Window). Writing to it has no effect. It is one frame
+/// behind the surface and is absent until the surface is configured.
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
