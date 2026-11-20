@@ -468,7 +468,7 @@ pub fn extract_lights(
     {
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
-                entity_commands.remove::<ExtractedPointLight>();
+                entity_commands.remove::<(ExtractedPointLight, PointAndSpotLightViewEntities)>();
             }
             continue;
         }
@@ -600,7 +600,7 @@ pub fn extract_lights(
     {
         if !view_visibility.get() {
             if let Ok(mut entity_commands) = commands.get_entity(render_entity) {
-                entity_commands.remove::<ExtractedPointLight>();
+                entity_commands.remove::<(ExtractedPointLight, PointAndSpotLightViewEntities)>();
             }
             continue;
         }
@@ -3160,5 +3160,41 @@ pub fn extract_shadow_lod_origin(
             render_shadow_lod_origin.0 = global_transform.translation();
         }
         None => render_shadow_lod_origin.0 = Default::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::system::RunSystemOnce;
+    use bevy_render::MainWorld;
+
+    fn hiding_light_despawns_shadow_views(light: impl Bundle) {
+        let mut render_world = World::new();
+        render_world.add_observer(remove_point_and_spot_light_view_entities);
+        let views: Vec<_> = (0..6).map(|_| render_world.spawn_empty().id()).collect();
+        let render_entity = render_world
+            .spawn(PointAndSpotLightViewEntities(views.clone()))
+            .id();
+
+        let mut main_world = MainWorld::default();
+        main_world.init_resource::<PointLightShadowMap>();
+        main_world.init_resource::<DirectionalLightShadowMap>();
+        main_world.spawn((light, RenderEntity::from(render_entity)));
+        render_world.insert_resource(main_world);
+
+        render_world.run_system_once(extract_lights).unwrap();
+
+        assert!(views.iter().all(|&e| render_world.get_entity(e).is_err()));
+    }
+
+    #[test]
+    fn hiding_point_light_despawns_shadow_views() {
+        hiding_light_despawns_shadow_views(PointLight::default());
+    }
+
+    #[test]
+    fn hiding_spot_light_despawns_shadow_views() {
+        hiding_light_despawns_shadow_views(SpotLight::default());
     }
 }
