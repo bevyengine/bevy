@@ -8,6 +8,7 @@ use core::array;
 use crate::mip_generation::DownsampleShaders;
 
 use bevy_asset::Handle;
+use bevy_camera::MainPassResolutionOverride;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -18,7 +19,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_log::debug;
-use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
+use bevy_math::{uvec2, URect, UVec2, Vec4Swizzles as _};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     diagnostic::RecordDiagnostics,
@@ -42,12 +43,26 @@ use bevy_render::{
 use bevy_shader::Shader;
 use bevy_utils::default;
 use bitflags::bitflags;
+use bytemuck::{Pod, Zeroable};
 
 /// The maximum number of mip levels that we can produce.
 ///
 /// 2^12 is 4096, so that's the maximum size of the depth buffer that we
 /// support.
 pub const DEPTH_PYRAMID_MIP_COUNT: usize = 12;
+
+/// The size of the immediates that `downsample_depth.wesl` takes.
+pub const DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE: u32 = size_of::<DownsampleDepthConstants>() as u32;
+
+/// Matches `Constants` in `downsample_depth.wesl`.
+#[derive(Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+struct DownsampleDepthConstants {
+    source_origin: UVec2,
+    source_size: UVec2,
+    max_mip_level: u32,
+    _padding: u32,
+}
 
 /// Produces a hierarchical Z-buffer (depth pyramid) for occlusion culling.
 ///
@@ -68,11 +83,10 @@ pub fn early_downsample_depth(
         &ViewDepthStencilTexture,
         Option<&OcclusionCullingSubviewEntities>,
     )>,
-    shadow_view_query: Query<(
-        &ViewDepthPyramid,
-        &ViewDownsampleDepthBindGroup,
-        &OcclusionCullingSubview,
-    )>,
+    shadow_view_query: Query<
+        (&ViewDepthPyramid, &ViewDownsampleDepthBindGroup),
+        With<OcclusionCullingSubview>,
+    >,
     downsample_depth_pipelines: Option<Res<DownsampleDepthPipelines>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
@@ -103,17 +117,13 @@ pub fn early_downsample_depth(
         &pipeline_cache,
         view_depth_pyramid,
         view_downsample_depth_bind_group,
-        uvec2(
-            view_depth_texture.texture().width(),
-            view_depth_texture.texture().height(),
-        ),
         view_depth_texture.texture().sample_count(),
     );
 
     // Downsample depth for shadow maps that have occlusion culling enabled.
     if let Some(view_light_entities) = maybe_view_light_entities {
         for &view_light_entity in &view_light_entities.0 {
-            let Ok((view_depth_pyramid, view_downsample_depth_bind_group, occlusion_culling)) =
+            let Ok((view_depth_pyramid, view_downsample_depth_bind_group)) =
                 shadow_view_query.get(view_light_entity)
             else {
                 continue;
@@ -125,7 +135,6 @@ pub fn early_downsample_depth(
                 &pipeline_cache,
                 view_depth_pyramid,
                 view_downsample_depth_bind_group,
-                UVec2::splat(occlusion_culling.depth_texture_size),
                 1,
             );
         }
@@ -151,11 +160,10 @@ pub fn late_downsample_depth(
         &ViewDepthStencilTexture,
         Option<&OcclusionCullingSubviewEntities>,
     )>,
-    shadow_view_query: Query<(
-        &ViewDepthPyramid,
-        &ViewDownsampleDepthBindGroup,
-        &OcclusionCullingSubview,
-    )>,
+    shadow_view_query: Query<
+        (&ViewDepthPyramid, &ViewDownsampleDepthBindGroup),
+        With<OcclusionCullingSubview>,
+    >,
     downsample_depth_pipelines: Option<Res<DownsampleDepthPipelines>>,
     pipeline_cache: Res<PipelineCache>,
     mut ctx: RenderContext,
@@ -179,17 +187,13 @@ pub fn late_downsample_depth(
         &pipeline_cache,
         view_depth_pyramid,
         view_downsample_depth_bind_group,
-        uvec2(
-            view_depth_texture.texture().width(),
-            view_depth_texture.texture().height(),
-        ),
         view_depth_texture.texture().sample_count(),
     );
 
     // Downsample depth for shadow maps that have occlusion culling enabled.
     if let Some(view_light_entities) = maybe_view_light_entities {
         for &view_light_entity in &view_light_entities.0 {
-            let Ok((view_depth_pyramid, view_downsample_depth_bind_group, occlusion_culling)) =
+            let Ok((view_depth_pyramid, view_downsample_depth_bind_group)) =
                 shadow_view_query.get(view_light_entity)
             else {
                 continue;
@@ -201,7 +205,6 @@ pub fn late_downsample_depth(
                 &pipeline_cache,
                 view_depth_pyramid,
                 view_downsample_depth_bind_group,
-                UVec2::splat(occlusion_culling.depth_texture_size),
                 1,
             );
         }
@@ -217,7 +220,6 @@ fn downsample_depth(
     pipeline_cache: &PipelineCache,
     view_depth_pyramid: &ViewDepthPyramid,
     view_downsample_depth_bind_group: &ViewDownsampleDepthBindGroup,
-    view_size: UVec2,
     sample_count: u32,
 ) {
     // Despite the name "single-pass downsampling", we actually need two
@@ -254,7 +256,6 @@ fn downsample_depth(
     view_depth_pyramid.downsample_depth_with_ctx(
         label,
         ctx,
-        view_size,
         view_downsample_depth_bind_group,
         first_downsample_depth_pipeline,
         second_downsample_depth_pipeline,
@@ -476,7 +477,7 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
         ComputePipelineDescriptor {
             label: Some(label),
             layout: vec![self.bind_group_layout.clone()],
-            immediate_size: 4,
+            immediate_size: DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE,
             shader: self.shader.clone(),
             shader_defs,
             entry_point: Some(if key.contains(DownsampleDepthPipelineKey::SECOND_PHASE) {
@@ -547,23 +548,26 @@ pub struct ViewDepthPyramid {
     pub mips: [TextureView; DEPTH_PYRAMID_MIP_COUNT],
     /// The total number of mipmap levels.
     ///
-    /// This is the base-2 logarithm of the greatest dimension of the depth
-    /// buffer, rounded up.
+    /// This is the base-2 logarithm of the greatest dimension of the pyramid,
+    /// rounded up.
     pub mip_count: u32,
+    /// The region of the depth buffer that the pyramid covers.
+    source_rect: URect,
 }
 
 impl ViewDepthPyramid {
-    /// Allocates a new depth pyramid for a depth buffer with the given size.
+    /// Allocates a new depth pyramid covering the given region of a depth buffer.
     pub fn new(
         render_device: &RenderDevice,
         texture_cache: &mut TextureCache,
         depth_pyramid_dummy_texture: &TextureView,
-        size: UVec2,
+        source_rect: URect,
         texture_label: &'static str,
         texture_view_label: &'static str,
     ) -> ViewDepthPyramid {
         // Calculate the size of the depth pyramid. This is the size of the
-        // depth buffer rounded down to the previous power of two.
+        // source region rounded down to the previous power of two.
+        let size = source_rect.size();
         let depth_pyramid_size = Extent3d {
             width: previous_power_of_two(size.x),
             height: previous_power_of_two(size.y),
@@ -614,6 +618,7 @@ impl ViewDepthPyramid {
             all_mips: depth_pyramid_all_mips,
             mips: depth_pyramid_mips,
             mip_count: depth_pyramid_mip_count,
+            source_rect,
         }
     }
 
@@ -656,7 +661,6 @@ impl ViewDepthPyramid {
         &self,
         label: &str,
         ctx: &mut RenderContext,
-        view_size: UVec2,
         downsample_depth_bind_group: &BindGroup,
         downsample_depth_first_pipeline: &ComputePipeline,
         downsample_depth_second_pipeline: &ComputePipeline,
@@ -672,9 +676,10 @@ impl ViewDepthPyramid {
         // `downsample_depth` shader's `load_mip_0` function returns the value
         // that sampling such a depth buffer would yield, without actually
         // having to construct such a scaled depth buffer.
+        let source_size = self.source_rect.size();
         let virtual_view_size = uvec2(
-            (view_size.x + 1).next_power_of_two(),
-            (view_size.y + 1).next_power_of_two(),
+            (source_size.x + 1).next_power_of_two(),
+            (source_size.y + 1).next_power_of_two(),
         );
 
         let command_encoder = ctx.command_encoder();
@@ -683,8 +688,15 @@ impl ViewDepthPyramid {
             timestamp_writes: None,
         });
         downsample_pass.set_pipeline(downsample_depth_first_pipeline);
-        // Pass the mip count as an immediate, for simplicity.
-        downsample_pass.set_immediates(0, &self.mip_count.to_le_bytes());
+        downsample_pass.set_immediates(
+            0,
+            bytemuck::bytes_of(&DownsampleDepthConstants {
+                source_origin: self.source_rect.min,
+                source_size,
+                max_mip_level: self.mip_count,
+                _padding: 0,
+            }),
+        );
         downsample_pass.set_bind_group(0, downsample_depth_bind_group, &[]);
         downsample_pass.dispatch_workgroups(
             virtual_view_size.x.div_ceil(64),
@@ -705,7 +717,10 @@ pub fn prepare_view_depth_pyramids(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
-    views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, Without<NoIndirectDrawing>)>,
+    views: Query<
+        (Entity, &ExtractedView, Option<&MainPassResolutionOverride>),
+        (With<OcclusionCulling>, Without<NoIndirectDrawing>),
+    >,
     stale_views: Query<Entity, (With<ViewDepthPyramid>, Without<OcclusionCulling>)>,
 ) {
     // Remove old resources when occlusion culling gets disabled
@@ -715,12 +730,14 @@ pub fn prepare_view_depth_pyramids(
             .remove::<(ViewDepthPyramid, ViewDownsampleDepthBindGroup)>();
     }
 
-    for (view_entity, view) in &views {
+    for (view_entity, view, resolution_override) in &views {
+        // The pyramid covers only the region the main pass renders to.
+        let viewport = view.main_pass_viewport(resolution_override);
         commands.entity(view_entity).insert(ViewDepthPyramid::new(
             &render_device,
             &mut texture_cache,
             &depth_pyramid_dummy_texture,
-            view.viewport.zw(),
+            URect::from_corners(viewport.xy(), viewport.xy() + viewport.zw()),
             "view depth pyramid texture",
             "view depth pyramid texture view",
         ));

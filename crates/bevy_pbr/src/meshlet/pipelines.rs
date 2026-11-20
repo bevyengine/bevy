@@ -2,7 +2,9 @@ use super::resource_manager::ResourceManager;
 use crate::render::CORE_3D_SHADOW_MAP_FORMAT;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, mip_generation::DownsampleShaders, FullscreenShader,
+    core_3d::CORE_3D_DEPTH_FORMAT,
+    mip_generation::{experimental::depth::DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE, DownsampleShaders},
+    FullscreenShader,
 };
 use bevy_ecs::{
     resource::Resource,
@@ -211,7 +213,7 @@ pub fn init_meshlet_pipelines(
         downsample_depth_first: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_downsample_depth_first_pipeline".into()),
             layout: vec![downsample_depth_layout.clone()],
-            immediate_size: 4,
+            immediate_size: DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE,
             shader: downsample_depth_shader.clone(),
             shader_defs: vec![
                 "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -224,7 +226,7 @@ pub fn init_meshlet_pipelines(
         downsample_depth_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("meshlet_downsample_depth_second_pipeline".into()),
             layout: vec![downsample_depth_layout.clone()],
-            immediate_size: 4,
+            immediate_size: DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE,
             shader: downsample_depth_shader.clone(),
             shader_defs: vec![
                 "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -238,7 +240,7 @@ pub fn init_meshlet_pipelines(
             ComputePipelineDescriptor {
                 label: Some("meshlet_downsample_depth_first_pipeline".into()),
                 layout: vec![downsample_depth_shadow_view_layout.clone()],
-                immediate_size: 4,
+                immediate_size: DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE,
                 shader: downsample_depth_shader.clone(),
                 shader_defs: vec!["MESHLET".into()],
                 entry_point: Some("downsample_depth_first".into()),
@@ -250,7 +252,7 @@ pub fn init_meshlet_pipelines(
             ComputePipelineDescriptor {
                 label: Some("meshlet_downsample_depth_second_pipeline".into()),
                 layout: vec![downsample_depth_shadow_view_layout],
-                immediate_size: 4,
+                immediate_size: DOWNSAMPLE_DEPTH_IMMEDIATE_SIZE,
                 shader: downsample_depth_shader,
                 shader_defs: vec!["MESHLET".into()],
                 entry_point: Some("downsample_depth_second".into()),
