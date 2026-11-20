@@ -63,6 +63,10 @@ impl ComponentInfo {
         &self.descriptor.clone_behavior
     }
 
+    pub(crate) fn has_entities(&self) -> bool {
+        self.descriptor.has_entities
+    }
+
     /// Returns the [`TypeId`] of the underlying component type.
     /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
@@ -228,6 +232,7 @@ pub struct ComponentDescriptor {
     mutable: bool,
     summary_tick: bool,
     clone_behavior: ComponentCloneBehavior,
+    has_entities: bool,
     relationship_accessor: MaybeRelationshipAccessor,
 }
 
@@ -243,6 +248,7 @@ impl Debug for ComponentDescriptor {
             .field("mutable", &self.mutable)
             .field("summary_tick", &self.summary_tick)
             .field("clone_behavior", &self.clone_behavior)
+            .field("has_entities", &self.has_entities)
             .field("relationship_accessor", &self.relationship_accessor)
             .finish()
     }
@@ -278,6 +284,7 @@ impl ComponentDescriptor {
             mutable: T::Mutability::MUTABLE,
             summary_tick,
             clone_behavior: T::clone_behavior(),
+            has_entities: T::MAP_ENTITIES,
             relationship_accessor: T::relationship_accessor().map(|v| v.initializer).into(),
         }
     }
@@ -322,6 +329,7 @@ impl ComponentDescriptor {
             mutable,
             summary_tick,
             clone_behavior,
+            has_entities: true,
             relationship_accessor: relationship_accessor.into(),
         }
     }
@@ -338,6 +346,7 @@ impl ComponentDescriptor {
             mutable: true,
             summary_tick: false,
             clone_behavior: ComponentCloneBehavior::Default,
+            has_entities: false,
             relationship_accessor: None.into(),
         }
     }
