@@ -432,7 +432,9 @@ mod tests {
 
     #[test]
     fn mip_levels_hold_the_whole_image() {
-        // Left half red on an 8x8 canvas; level 2 is 2x2 and follows levels of 64 and 16 texels.
+        // 8x8 image with a red 4x8 rectangle on the left side.
+        // Mip level 2 starts after level 0 (offset 64) and level 1 (offset 16)
+        // Its top row should have a opaque red pixel and a transparent pixel with red bled into it.
         let image = load_default(
             r#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">
                 <rect width="4" height="8" fill="red"/>
