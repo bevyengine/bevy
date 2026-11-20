@@ -2032,10 +2032,7 @@ pub fn prepare_lights(
                 if light.occlusion_culling {
                     commands.entity(view_light_entity).insert((
                         OcclusionCulling,
-                        OcclusionCullingSubview {
-                            depth_texture_view,
-                            depth_texture_size: directional_light_shadow_map.size as u32,
-                        },
+                        OcclusionCullingSubview { depth_texture_view },
                     ));
                     view_occlusion_culling_lights.push(view_light_entity);
                 }

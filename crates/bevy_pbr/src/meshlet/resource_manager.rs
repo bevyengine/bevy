@@ -13,7 +13,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::ToExtents;
-use bevy_math::{UVec2, Vec4Swizzles};
+use bevy_math::{URect, UVec2, Vec4Swizzles};
 use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -730,7 +730,7 @@ pub fn prepare_meshlet_per_frame_resources(
             &render_device,
             &mut texture_cache,
             &resource_manager.depth_pyramid_dummy_texture,
-            view.viewport.zw(),
+            URect::from_corners(UVec2::ZERO, view.viewport.zw()),
             "meshlet_depth_pyramid",
             "meshlet_depth_pyramid_texture_view",
         );

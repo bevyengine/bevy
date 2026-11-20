@@ -130,7 +130,6 @@ pub fn meshlet_visibility_buffer_raster(
         .downsample_depth_with_ctx(
             "downsample_depth",
             &mut ctx,
-            meshlet_view_resources.view_size,
             &meshlet_view_bind_groups.downsample_depth,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
@@ -184,7 +183,6 @@ pub fn meshlet_visibility_buffer_raster(
         .downsample_depth_with_ctx(
             "downsample_depth",
             &mut ctx,
-            meshlet_view_resources.view_size,
             &meshlet_view_bind_groups.downsample_depth,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
@@ -255,7 +253,6 @@ pub fn meshlet_visibility_buffer_raster(
             .downsample_depth_with_ctx(
                 "downsample_depth",
                 &mut ctx,
-                meshlet_view_resources.view_size,
                 &meshlet_view_bind_groups.downsample_depth,
                 downsample_depth_first_shadow_view_pipeline,
                 downsample_depth_second_shadow_view_pipeline,
@@ -302,7 +299,6 @@ pub fn meshlet_visibility_buffer_raster(
             .downsample_depth_with_ctx(
                 "downsample_depth",
                 &mut ctx,
-                meshlet_view_resources.view_size,
                 &meshlet_view_bind_groups.downsample_depth,
                 downsample_depth_first_shadow_view_pipeline,
                 downsample_depth_second_shadow_view_pipeline,
