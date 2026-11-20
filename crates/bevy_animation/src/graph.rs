@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
-use crate::{AnimationClip, AnimationTargetId};
+use crate::{AnimationClip, AnimationEventTarget, AnimationTargetId};
 
 /// A graph structure that describes how animation clips are to be blended
 /// together.
@@ -1103,7 +1103,15 @@ impl ThreadedBlendGraph {
                 BlendNodeType::Blend | BlendNodeType::Add => continue,
             };
 
-            for animation_target_id in animation_clip.curves().keys() {
+            let animation_clip_curve_target_ids = animation_clip.curves().keys();
+            let animation_clip_event_target_ids =
+                animation_clip.events.keys().filter_map(|k| match k {
+                    AnimationEventTarget::Root => None,
+                    AnimationEventTarget::Node(id) => Some(id),
+                });
+            for animation_target_id in
+                animation_clip_curve_target_ids.chain(animation_clip_event_target_ids)
+            {
                 if self
                     .animation_target_to_threaded_subgraph
                     .contains_key(animation_target_id)
