@@ -7,7 +7,7 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableId, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_ptr::ThinSlicePtr;
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
@@ -1002,7 +1002,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
@@ -1013,7 +1014,8 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
                         .unwrap_unchecked()
                 };
 
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }
@@ -1262,7 +1264,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get_unchecked(table_row.index()) };
 
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
@@ -1273,7 +1276,8 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
                         .unwrap_unchecked()
                 };
 
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { tick.as_ref_unchecked() }.is_newer_than(fetch.last_run, fetch.this_run)
             },
         )
     }

@@ -6,9 +6,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
-use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
 use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
@@ -404,16 +402,8 @@ impl TextPipeline {
                         let font_size = run.font_size();
                         let coords = run.normalized_coords();
                         let synthetic_skew = run.synthesis().skew();
-                        let variations_hash = FixedHasher.hash_one(coords);
-                        let font_atlas_key = FontAtlasKey {
-                            id: font.data.id() as u32,
-                            index: font.index,
-                            font_size_bits: font_size.to_bits(),
-                            variations_hash,
-                            synthetic_skew_bits: synthetic_skew.unwrap_or_default().to_bits(),
-                            hinting,
-                            font_smoothing,
-                        };
+                        let font_atlas_key = FontAtlasKey::new(&glyph_run, hinting);
+                        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
                         let Some(font_ref) =
                             FontRef::from_index(font.data.as_ref(), font.index as usize)
@@ -433,8 +423,6 @@ impl TextPipeline {
                                 Vec2::new(glyph.x, glyph.y),
                                 font_smoothing,
                             );
-
-                            let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
                             let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
                                 Some(info) => info,
