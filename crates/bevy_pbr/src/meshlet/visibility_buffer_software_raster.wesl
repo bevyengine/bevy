@@ -73,13 +73,22 @@ fn rasterize_cluster(
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(get_meshlet_vertex_id(index_ids[0]), get_meshlet_vertex_id(index_ids[1]), get_meshlet_vertex_id(index_ids[2]));
     let vertex_0 = viewport_vertices[vertex_ids[2]];
-    let vertex_1 = viewport_vertices[vertex_ids[1]];
-    let vertex_2 = viewport_vertices[vertex_ids[0]];
+    var vertex_1 = viewport_vertices[vertex_ids[1]];
+    var vertex_2 = viewport_vertices[vertex_ids[0]];
     let packed_ids = (cluster_id << 7u) | triangle_id;
 
-    // Backface culling
-    let triangle_double_area = edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
-    if triangle_double_area <= 0.0 { return; }
+    // Skip degenerate triangles.
+    var triangle_double_area = edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
+    if triangle_double_area == 0.0 { return; }
+
+    // Rasterize both faces to match the hardware rasterizer.
+    // The edge equations below require positive winding, so reverse backfaces.
+    if triangle_double_area < 0.0 {
+        let backface_vertex = vertex_1;
+        vertex_1 = vertex_2;
+        vertex_2 = backface_vertex;
+        triangle_double_area = -triangle_double_area;
+    }
 
     // Setup triangle gradients
     let w_x = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
