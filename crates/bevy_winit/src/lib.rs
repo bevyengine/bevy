@@ -21,7 +21,7 @@ use core::cell::RefCell;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
-use bevy_app::{App, Last, OnAppExitSystems, Plugin};
+use bevy_app::{App, AppExit, Last, OnAppExitSystems, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::{CursorOptions, Window, WindowCreated};
 use system::{changed_cursor_options, changed_windows, check_keyboard_focus_lost, despawn_windows};
@@ -134,9 +134,16 @@ impl Plugin for WinitPlugin {
                 .with_android_app(bevy_android::ANDROID_APP.get().expect(msg).clone());
         }
 
-        let event_loop = event_loop_builder
-            .build()
-            .expect("Failed to build event loop");
+        let event_loop = match event_loop_builder.build() {
+            Ok(event_loop) => event_loop,
+            Err(err) => {
+                tracing::error!(
+                    "Failed to build the winit event loop, so no window can be opened: {err}"
+                );
+                app.set_runner(|_| AppExit::error());
+                return;
+            }
+        };
 
         let event_loop_proxy = event_loop.create_proxy();
 
