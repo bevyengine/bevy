@@ -79,20 +79,11 @@ fn create_empty_asset_processor() -> AssetProcessor {
 #[test]
 fn get_asset_processor_by_name() {
     let asset_processor = create_empty_asset_processor();
-    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+    asset_processor.register_processor("my processor", MyProcessor::<Marker>(PhantomData));
 
-    let long_processor = asset_processor
-        .get_processor(
-            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
-        )
+    asset_processor
+        .get_processor("my processor")
         .expect("Processor was previously registered");
-    let short_processor = asset_processor
-        .get_processor("MyProcessor<Marker>")
-        .expect("Processor was previously registered");
-
-    // We can use either the long or short processor name and we will get the same processor
-    // out.
-    assert!(Arc::ptr_eq(&long_processor, &short_processor));
 }
 
 #[test]
@@ -134,8 +125,8 @@ mod sneaky {
 #[test]
 fn ambiguous_short_path_returns_error() {
     let asset_processor = create_empty_asset_processor();
-    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
-    asset_processor.register_processor(MyProcessor::<sneaky::Marker>(PhantomData));
+    asset_processor.register_processor("direct", MyProcessor::<Marker>(PhantomData));
+    asset_processor.register_processor("sneaky", MyProcessor::<sneaky::Marker>(PhantomData));
 
     let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
         panic!("Processor was returned even though the short path is ambiguous.");
@@ -513,16 +504,15 @@ fn asset_processor_transforms_asset_default_processor() {
         ..
     } = create_app_with_asset_processor(&[]);
 
-    app.register_asset_processor(LoadTransformAndSave::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(AddText("_def".into())),
-        CoolTextSaver,
-    ))
-    .set_default_asset_processor::<LoadTransformAndSave<
-        CoolTextLoader,
-        RootAssetTransformer<AddText, CoolText>,
-        CoolTextSaver,
-    >>("cool.ron");
+    app.register_asset_processor(
+        "AddStuffToCoolText",
+        LoadTransformAndSave::new(
+            CoolTextLoader,
+            RootAssetTransformer::new(AddText("_def".into())),
+            CoolTextSaver,
+        ),
+    )
+    .set_default_asset_processor("cool.ron", "AddStuffToCoolText");
 
     let guard = source_gate.write_blocking();
 
@@ -566,11 +556,14 @@ fn asset_processor_transforms_asset_with_meta() {
         ..
     } = create_app_with_asset_processor(&[]);
 
-    app.register_asset_processor(LoadTransformAndSave::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(AddText("_def".into())),
-        CoolTextSaver,
-    ));
+    app.register_asset_processor(
+        "AddStuffToCoolText",
+        LoadTransformAndSave::new(
+            CoolTextLoader,
+            RootAssetTransformer::new(AddText("_def".into())),
+            CoolTextSaver,
+        ),
+    );
 
     let guard = source_gate.write_blocking();
 
@@ -625,11 +618,14 @@ fn asset_processor_transforms_asset_with_short_path_meta() {
         ..
     } = create_app_with_asset_processor(&[]);
 
-    app.register_asset_processor(LoadTransformAndSave::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(AddText("_def".into())),
-        CoolTextSaver,
-    ));
+    app.register_asset_processor(
+        "AddText",
+        LoadTransformAndSave::new(
+            CoolTextLoader,
+            RootAssetTransformer::new(AddText("_def".into())),
+            CoolTextSaver,
+        ),
+    );
 
     let guard = source_gate.write_blocking();
 
@@ -824,13 +820,16 @@ fn asset_processor_loading_can_read_processed_assets() {
     type BsnProcessor =
         LoadTransformAndSave<FakeBsnLoader, IdentityAssetTransformer<FakeBsn>, FakeBsnSaver>;
     app.register_asset_loader(FakeBsnLoader)
-        .register_asset_processor(LoadTransformAndSave::new(FakeGltfLoader, GltfToBsn, FakeBsnSaver))
-        .register_asset_processor(BsnProcessor::with_implicit_loader(
-            IdentityAssetTransformer::new(),
-            FakeBsnSaver,
-        ))
-        .set_default_asset_processor::<LoadTransformAndSave<FakeGltfLoader, GltfToBsn, FakeBsnSaver>>("gltf")
-        .set_default_asset_processor::<BsnProcessor>("bsn");
+        .register_asset_processor(
+            "GltfToBsn",
+            LoadTransformAndSave::new(FakeGltfLoader, GltfToBsn, FakeBsnSaver),
+        )
+        .register_asset_processor(
+            "BsnLoadAndSave",
+            BsnProcessor::with_implicit_loader(IdentityAssetTransformer::new(), FakeBsnSaver),
+        )
+        .set_default_asset_processor("gltf", "GltfToBsn")
+        .set_default_asset_processor("bsn", "BsnLoadAndSave");
 
     let guard = source_gate.write_blocking();
 
@@ -978,14 +977,16 @@ fn asset_processor_loading_can_read_source_assets() {
     }
 
     app.register_asset_loader(FakeBsnLoader)
-        .register_asset_processor(LoadTransformAndSave::new(FakeGltfLoader, GltfToBsn, FakeBsnSaver))
-        .register_asset_processor(LoadTransformAndSave::new(
-            FakeGltfxLoader,
-            GltfxToBsn,
-            FakeBsnSaver,
-        ))
-        .set_default_asset_processor::<LoadTransformAndSave<FakeGltfLoader, GltfToBsn, FakeBsnSaver>>("gltf")
-        .set_default_asset_processor::<LoadTransformAndSave<FakeGltfxLoader, GltfxToBsn, FakeBsnSaver>>("gltfx");
+        .register_asset_processor(
+            "GltfToBsn",
+            LoadTransformAndSave::new(FakeGltfLoader, GltfToBsn, FakeBsnSaver),
+        )
+        .register_asset_processor(
+            "GltfxToBsn",
+            LoadTransformAndSave::new(FakeGltfxLoader, GltfxToBsn, FakeBsnSaver),
+        )
+        .set_default_asset_processor("gltf", "GltfToBsn")
+        .set_default_asset_processor("gltfx", "GltfxToBsn");
 
     let guard = source_gate.write_blocking();
 
@@ -1101,12 +1102,15 @@ fn asset_processor_processes_all_sources() {
     app.init_asset::<CoolText>()
         .init_asset::<SubText>()
         .register_asset_loader(CoolTextLoader)
-        .register_asset_processor(AddTextProcessor::new(
-            CoolTextLoader,
-            RootAssetTransformer::new(AddText(" processed".into())),
-            CoolTextSaver,
-        ))
-        .set_default_asset_processor::<AddTextProcessor>("cool.ron");
+        .register_asset_processor(
+            "AddStuffToCoolText",
+            AddTextProcessor::new(
+                CoolTextLoader,
+                RootAssetTransformer::new(AddText(" processed".into())),
+                CoolTextSaver,
+            ),
+        )
+        .set_default_asset_processor("cool.ron", "AddStuffToCoolText");
 
     let guard = source_gate.write_blocking();
 
@@ -1287,19 +1291,17 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
 
     let process_counter = Arc::new(Mutex::new(0));
 
-    type NesterProcessor = LoadTransformAndSave<
-        NesterLoader,
-        RootAssetTransformer<AddTextToNested, Nester>,
-        NesterSaver,
-    >;
     app.init_asset::<Nester>()
         .register_asset_loader(NesterLoader)
-        .register_asset_processor(NesterProcessor::new(
-            NesterLoader,
-            RootAssetTransformer::new(AddTextToNested("-ref".into(), process_counter.clone())),
-            NesterSaver,
-        ))
-        .set_default_asset_processor::<NesterProcessor>("nest");
+        .register_asset_processor(
+            "Nested",
+            LoadTransformAndSave::new(
+                NesterLoader,
+                RootAssetTransformer::new(AddTextToNested("-ref".into(), process_counter.clone())),
+                NesterSaver,
+            ),
+        )
+        .set_default_asset_processor("nest", "Nested");
 
     let guard = source_gate.write_blocking();
 
@@ -1431,12 +1433,15 @@ fn clears_invalid_data_from_processed_dir() {
     app.init_asset::<CoolText>()
         .init_asset::<SubText>()
         .register_asset_loader(CoolTextLoader)
-        .register_asset_processor(CoolTextProcessor::new(
-            CoolTextLoader,
-            RootAssetTransformer::new(AddText(" processed".to_string())),
-            CoolTextSaver,
-        ))
-        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+        .register_asset_processor(
+            "AddText",
+            CoolTextProcessor::new(
+                CoolTextLoader,
+                RootAssetTransformer::new(AddText(" processed".to_string())),
+                CoolTextSaver,
+            ),
+        )
+        .set_default_asset_processor("cool.ron", "AddText");
 
     let guard = source_gate.write_blocking();
 
@@ -1537,12 +1542,15 @@ fn only_reprocesses_wrong_hash_on_startup() {
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader)
-            .register_asset_processor(CoolTextProcessor::new(
-                CoolTextLoader,
-                RootAssetTransformer::new(transformer.clone()),
-                CoolTextSaver,
-            ))
-            .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+            .register_asset_processor(
+                "Counter",
+                CoolTextProcessor::new(
+                    CoolTextLoader,
+                    RootAssetTransformer::new(transformer.clone()),
+                    CoolTextSaver,
+                ),
+            )
+            .set_default_asset_processor("cool.ron", "Counter");
 
         let guard = source_gate.write_blocking();
 
@@ -1635,12 +1643,15 @@ fn only_reprocesses_wrong_hash_on_startup() {
     app.init_asset::<CoolText>()
         .init_asset::<SubText>()
         .register_asset_loader(CoolTextLoader)
-        .register_asset_processor(CoolTextProcessor::new(
-            CoolTextLoader,
-            RootAssetTransformer::new(transformer.clone()),
-            CoolTextSaver,
-        ))
-        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+        .register_asset_processor(
+            "Counter",
+            CoolTextProcessor::new(
+                CoolTextLoader,
+                RootAssetTransformer::new(transformer.clone()),
+                CoolTextSaver,
+            ),
+        )
+        .set_default_asset_processor("cool.ron", "Counter");
 
     let guard = source_gate.write_blocking();
 
@@ -1676,7 +1687,7 @@ fn only_reprocesses_wrong_hash_on_startup() {
 }
 
 #[test]
-fn writes_short_default_meta_for_processor() {
+fn writes_default_meta_for_processor() {
     let AppWithProcessor {
         mut app,
         default_source_dirs: ProcessingDirs { source, .. },
@@ -1689,84 +1700,15 @@ fn writes_short_default_meta_for_processor() {
         CoolTextSaver,
     >;
 
-    app.register_asset_processor(CoolTextProcessor::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(AddText("blah".to_string())),
-        CoolTextSaver,
-    ))
-    .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
-
-    const ASSET_PATH: &str = "abc.cool.ron";
-    source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
-
-    let processor = app.world().resource::<AssetProcessor>().clone();
-    bevy_tasks::block_on(processor.write_default_meta_file_for_path(ASSET_PATH)).unwrap();
-
-    assert_eq!(
-        read_meta_as_string(&source, Path::new(ASSET_PATH)),
-        r#"(
-    meta_format_version: "1.0",
-    asset: Process(
-        processor: "LoadTransformAndSave<CoolTextLoader, RootAssetTransformer<AddText, CoolText>, CoolTextSaver>",
-        settings: (
-            loader_settings: (),
-            transformer_settings: (),
-            saver_settings: (),
+    app.register_asset_processor(
+        "AddText",
+        CoolTextProcessor::new(
+            CoolTextLoader,
+            RootAssetTransformer::new(AddText("blah".to_string())),
+            CoolTextSaver,
         ),
-    ),
-)"#
-    );
-}
-
-mod ambiguous {
-    use super::{CoolText, MutateAsset, TypePath};
-
-    /// This is ambiguous with [`super::AddText`] for short-type paths.
-    #[derive(TypePath)]
-    pub(crate) struct AddText;
-
-    // Add a dummy MutateAsset impl so we can use it as a processor.
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, _: &mut CoolText) {}
-    }
-}
-
-#[test]
-fn writes_long_default_meta_for_ambiguous_processor() {
-    let AppWithProcessor {
-        mut app,
-        default_source_dirs: ProcessingDirs { source, .. },
-        ..
-    } = create_app_with_asset_processor(&[]);
-
-    type CoolTextProcessor1 = LoadTransformAndSave<
-        CoolTextLoader,
-        RootAssetTransformer<AddText, CoolText>,
-        CoolTextSaver,
-    >;
-    type CoolTextProcessor2 = LoadTransformAndSave<
-        CoolTextLoader,
-        RootAssetTransformer<ambiguous::AddText, CoolText>,
-        CoolTextSaver,
-    >;
-    // Verify that these two processors actually have the same short_type_path.
-    assert_eq!(
-        CoolTextProcessor1::short_type_path(),
-        CoolTextProcessor2::short_type_path()
-    );
-
-    app.register_asset_processor(CoolTextProcessor1::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(AddText("blah".to_string())),
-        CoolTextSaver,
-    ))
-    .set_default_asset_processor::<CoolTextProcessor1>("cool.ron")
-    // Add another processor with the same short type path to make the short type name ambiguous.
-    .register_asset_processor(CoolTextProcessor2::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(ambiguous::AddText),
-        CoolTextSaver,
-    ));
+    )
+    .set_default_asset_processor("cool.ron", "AddText");
 
     const ASSET_PATH: &str = "abc.cool.ron";
     source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
@@ -1779,7 +1721,7 @@ fn writes_long_default_meta_for_ambiguous_processor() {
         r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::saver::tests::CoolTextSaver>",
+        processor: "AddText",
         settings: (
             loader_settings: (),
             transformer_settings: (),
@@ -1798,16 +1740,15 @@ fn write_default_meta_does_not_overwrite() {
         ..
     } = create_app_with_asset_processor(&[]);
 
-    app.register_asset_processor(LoadTransformAndSave::new(
-        CoolTextLoader,
-        RootAssetTransformer::new(AddText("blah".to_string())),
-        CoolTextSaver,
-    ))
-    .set_default_asset_processor::<LoadTransformAndSave<
-        CoolTextLoader,
-        RootAssetTransformer<AddText, CoolText>,
-        CoolTextSaver,
-    >>("cool.ron");
+    app.register_asset_processor(
+        "AddText",
+        LoadTransformAndSave::new(
+            CoolTextLoader,
+            RootAssetTransformer::new(AddText("blah".to_string())),
+            CoolTextSaver,
+        ),
+    )
+    .set_default_asset_processor("cool.ron", "AddText");
 
     const ASSET_PATH: &str = "abc.cool.ron";
     source.insert_asset_text(Path::new(ASSET_PATH), &serialize_as_cool_text("blah"));
