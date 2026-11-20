@@ -110,7 +110,7 @@ impl AsAssetId for Mesh2d {
     From,
 )]
 #[reflect(Component, Default, Clone, PartialEq)]
-#[require(Transform)]
+#[require(Transform, Mesh3dVisibility)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
 impl From<Mesh3d> for AssetId<Mesh> {
@@ -303,3 +303,9 @@ impl MeshTag {
         true
     }
 }
+
+/// The visibility class of 3D mesh draws. Entities with this component are
+/// collected into the mesh render phases and the light visibility queries.
+#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct Mesh3dVisibility;
