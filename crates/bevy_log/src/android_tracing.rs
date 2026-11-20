@@ -10,14 +10,32 @@ use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Lay
 #[derive(Default)]
 pub(crate) struct AndroidLayer;
 
-struct StringRecorder(String, bool);
+/// Accumulates the fields of a span or event into a single string for the
+/// Android log output.
+///
+/// The first element holds the recorded message and fields. The second element
+/// holds the value of the synthesized `log.target` field, if present (see
+/// `record_str`).
+struct StringRecorder(String, Option<String>);
 impl StringRecorder {
     fn new() -> Self {
-        StringRecorder(String::new(), false)
+        StringRecorder(String::new(), None)
     }
 }
 
 impl Visit for StringRecorder {
+    fn record_str(&mut self, field: &Field, value: &str) {
+        // `tracing-log` emits events forwarded from the `log` crate with a fixed
+        // metadata target of "log"; the record's real target is only available in
+        // the synthesized `log.target` field. Capture it so it can be used as the
+        // logcat tag. `str` values are dispatched to `record_str`, so this captures
+        // the target exactly as-is.
+        if field.name() == "log.target" {
+            self.1 = Some(value.to_owned());
+        }
+        self.record_debug(field, &value);
+    }
+
     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
         if field.name() == "message" {
             if !self.0.is_empty() {
@@ -26,12 +44,10 @@ impl Visit for StringRecorder {
                 self.0 = format!("{:?}", value)
             }
         } else {
-            if self.1 {
-                // following args
+            // Separate fields from anything already recorded (e.g. the message),
+            // so that the first field does not get glued to it.
+            if !self.0.is_empty() {
                 write!(self.0, " ").unwrap();
-            } else {
-                // first arg
-                self.1 = true;
             }
             write!(self.0, "{} = {:?};", field.name(), value).unwrap();
         }
@@ -86,12 +102,18 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
             Level::WARN => android_log_sys::LogPriority::WARN,
             Level::ERROR => android_log_sys::LogPriority::ERROR,
         };
+        // Use the record's target as the logcat tag so that logs are grouped by the
+        // crate or module that emitted them. Prefer the target captured from the
+        // synthesized `log.target` field, because `tracing-log` emits events forwarded
+        // from the `log` crate with a fixed metadata target of "log". The event name
+        // would be useless as a tag too: it is "log event" for all bridged records.
+        let tag = recorder.1.as_deref().unwrap_or(meta.target());
         // SAFETY: Called only on Android platforms. priority is guaranteed to be in range of c_int.
         // The provided tag and message are null terminated properly.
         unsafe {
             android_log_sys::__android_log_write(
                 priority as android_log_sys::c_int,
-                sanitize(meta.name()).as_ptr(),
+                sanitize(tag).as_ptr(),
                 sanitize(&recorder.0).as_ptr(),
             );
         }
