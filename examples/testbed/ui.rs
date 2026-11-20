@@ -4224,7 +4224,9 @@ mod inline_image {
 mod calc {
     use super::Scene;
     use bevy::color::palettes::css::BLUE;
+    use bevy::color::palettes::css::DEEP_SKY_BLUE;
     use bevy::color::palettes::css::GREEN;
+    use bevy::color::palettes::css::HOT_PINK;
     use bevy::color::palettes::css::ORANGE;
     use bevy::color::palettes::css::SNOW;
     use bevy::color::palettes::css::VIOLET;
@@ -4232,210 +4234,258 @@ mod calc {
     use bevy::color::palettes::tailwind::RED_500;
     use bevy::prelude::*;
 
+    // Each case draws a track built from separate plain nodes, with the calc node (red) on the track below.
+    // The two tracks should be the same length.
     pub fn scene() -> impl SceneList {
+        let px_ = |v: f32| (px(v), YELLOW);
+        let vw_ = |v: f32| (vw(v), GREEN);
+        let vh_ = |v: f32| (vh(v), VIOLET);
+        let vmin_ = |v: f32| (vmin(v), ORANGE);
+        let vmax_ = |v: f32| (vmax(v), BLUE);
+        let percent_ = |v: f32| (percent(v), SNOW);
+        let rem_ = |v: f32| (rem(v), DEEP_SKY_BLUE);
+        let em_ = |v: f32| (em(v), HOT_PINK);
+        let calc = |v: Val| (v, RED_500);
+        let cases = vec![
+            case(
+                "px(100) + vw(5)",
+                vec![vec![px_(100.), vw_(5.)], vec![calc(px(100) + vw(5))]],
+            ),
+            case(
+                "vh(5) + vmin(5) + vmax(5)",
+                vec![
+                    vec![vh_(5.), vmin_(5.), vmax_(5.)],
+                    vec![calc(vh(5) + vmin(5) + vmax(5))],
+                ],
+            ),
+            case(
+                "px(100) + vw(5) + vh(5) + vmin(5) + vmax(5)",
+                vec![
+                    vec![px_(100.), vw_(5.), vh_(5.), vmin_(5.), vmax_(5.)],
+                    vec![calc(px(100) + vw(5) + vh(5) + vmin(5) + vmax(5))],
+                ],
+            ),
+            case(
+                "vw(5) * 2.",
+                vec![vec![vw_(5.), vw_(5.)], vec![calc(vw(5) * 2.)]],
+            ),
+            case(
+                "3. * vmin(5)",
+                vec![
+                    vec![vmin_(5.), vmin_(5.), vmin_(5.)],
+                    vec![calc(3. * vmin(5))],
+                ],
+            ),
+            case(
+                "(px(100) + vw(10)) / 2.",
+                vec![
+                    vec![px_(50.), vw_(5.)],
+                    vec![calc((px(100) + vw(10)) / 2.)],
+                ],
+            ),
+            case(
+                "px(300) - vw(10)",
+                vec![vec![px_(300.)], vec![calc(px(300) - vw(10)), vw_(10.)]],
+            ),
+            case(
+                "vmax(20) - vmin(10) - px(20)",
+                vec![
+                    vec![vmax_(20.)],
+                    vec![calc(vmax(20) - vmin(10) - px(20)), vmin_(10.), px_(20.)],
+                ],
+            ),
+            case(
+                "percent(50) - px(20)",
+                vec![
+                    vec![percent_(50.)],
+                    vec![calc(percent(50) - px(20)), px_(20.)],
+                ],
+            ),
+            case(
+                "vw(10).min(vh(10))",
+                vec![
+                    vec![vw_(10.)],
+                    vec![vh_(10.)],
+                    vec![calc(vw(10).min(vh(10)))],
+                ],
+            ),
+            case(
+                "vw(10).max(vh(10))",
+                vec![
+                    vec![vw_(10.)],
+                    vec![vh_(10.)],
+                    vec![calc(vw(10).max(vh(10)))],
+                ],
+            ),
+            case(
+                "percent(25) + px(20)",
+                vec![
+                    vec![percent_(25.), px_(20.)],
+                    vec![calc(percent(25) + px(20))],
+                ],
+            ),
+            case(
+                "vw(20).clamp(px(100), px(200))",
+                vec![
+                    vec![px_(100.)],
+                    vec![px_(200.)],
+                    vec![vw_(20.)],
+                    vec![calc(vw(20).clamp(px(100), px(200)))],
+                ],
+            ),
+            case(
+                "vw(5).clamp(px(100), px(200))",
+                vec![
+                    vec![px_(100.)],
+                    vec![px_(200.)],
+                    vec![vw_(5.)],
+                    vec![calc(vw(5).clamp(px(100), px(200)))],
+                ],
+            ),
+            case(
+                "vw(25).clamp(px(100), px(200))",
+                vec![
+                    vec![px_(100.)],
+                    vec![px_(200.)],
+                    vec![vw_(25.)],
+                    vec![calc(vw(25).clamp(px(100), px(200)))],
+                ],
+            ),
+            case(
+                "rem(5) + px(20)",
+                vec![vec![rem_(5.), px_(20.)], vec![calc(rem(5) + px(20))]],
+            ),
+            case(
+                "em(3) + vw(2)",
+                vec![vec![em_(3.), vw_(2.)], vec![calc(em(3) + vw(2))]],
+            ),
+            case(
+                "rem(10) - em(2)",
+                vec![vec![rem_(10.)], vec![calc(rem(10) - em(2)), em_(2.)]],
+            ),
+        ];
         bsn_list! {
             Camera2d
             DespawnOnExit<Scene>(Scene::Calc)
             --
             Node {
                 display: Display::Grid,
+                grid_template_columns: vec![RepeatedGridTrack::auto(3)],
+                column_gap: px(20),
+                row_gap: px(10),
                 margin: auto(),
+                padding: {px(8).all()},
                 border: { px(1) + vmin(1) },
-                grid_auto_rows: vec![GridTrack::px(50.)],
             }
             BorderColor::all(SNOW)
             DespawnOnExit<Scene>(Scene::Calc)
             Children [
+                {cases}
+                --
                 Node {
-                    flex_direction: FlexDirection::Row,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(2),
                 }
                 Children [
-                    Node {
-                        width: px(100),
+                    Text("padding: (px(10) + vmin(1)).horizontal()")
+                    TextFont {
+                        font_size: FontSize::Px(12.0),
                     }
-                    BackgroundColor(YELLOW)
+                    --
+                    @bar(vec![px_(10.), vmin_(1.), px_(100.), px_(10.), vmin_(1.)])
                     --
                     Node {
-                        width: vw(5),
+                        width: px(TRACK_WIDTH),
                     }
-                    BackgroundColor(GREEN)
-                    --
-                    Node {
-                        width: vh(5),
-                    }
-                    BackgroundColor(VIOLET)
-                    --
-                    Node {
-                        width: vmin(5),
-                    }
-                    BackgroundColor(ORANGE)
-                    --
-                    Node {
-                        width: vmax(5),
-                    }
-                    BackgroundColor(BLUE)
+                    BackgroundColor(TRACK)
+                    Children [
+                        Node {
+                            padding: { (px(10) + vmin(1)).horizontal() },
+                        }
+                        BackgroundColor(RED_500)
+                        Children [
+                            Node {
+                                width: px(100),
+                                height: px(BAR_HEIGHT),
+                            }
+                            BackgroundColor(YELLOW)
+                        ]
+                    ]
                 ]
                 --
                 Node {
-                    flex_direction: FlexDirection::Row,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(2),
                 }
                 Children [
-                    Node {
-                        width: { px(100) + vw(5) },
+                    Text("margin: (px(10) + vw(1)).left()")
+                    TextFont {
+                        font_size: FontSize::Px(12.0),
                     }
-                    BackgroundColor(YELLOW)
+                    --
+                    @bar(vec![px_(10.), vw_(1.), px_(100.)])
                     --
                     Node {
-                        width: { vh(5) + vmin(5) + vmax(5) },
+                        width: px(TRACK_WIDTH),
                     }
-                    BackgroundColor(GREEN)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                }
-                Children [
-                    Node {
-                        width: { px(100) },
-                    }
-                    BackgroundColor(YELLOW)
-                    --
-                    Node {
-                        width: { vw(10).min(vh(10)) },
-                    }
-                    BackgroundColor(GREEN)
-                    --
-                    Node {
-                        width: { vw(10).max(vh(10)) },
-                    }
-                    BackgroundColor(BLUE)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                }
-                Children [
-                    Node {
-                    width: { px(100) + vw(5) + vh(5) + vmin(5) + vmax(5) },
-                    }
-                    BackgroundColor(RED_500)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                }
-                Children [
-                    Node {
-                        width: { vw(5) * 2. },
-                    }
-                    BackgroundColor(YELLOW)
-                    --
-                    Node {
-                        width: { 3. * vmin(5) },
-                    }
-                    BackgroundColor(GREEN)
-                    --
-                    Node {
-                        width: { (px(100) + vw(10)) / 2. },
-                    }
-                    BackgroundColor(BLUE)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                }
-                Children [
-                    Node {
-                        width: { px(300) - vw(10) },
-                    }
-                    BackgroundColor(YELLOW)
-                    --
-                    Node {
-                        width: { vmax(20) - vmin(10) - px(20) },
-                    }
-                    BackgroundColor(VIOLET)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                }
-                Children [
-                    Node {
-                        width: { vw(20).clamp(px(100), px(200)) },
-                    }
-                    BackgroundColor(ORANGE)
-                    --
-                    Node {
-                        width: { vw(5).clamp(px(100), px(200)) },
-                    }
-                    BackgroundColor(GREEN)
-                    --
-                    Node {
-                        width: { vw(50).clamp(px(100), px(200)) },
-                    }
-                    BackgroundColor(BLUE)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    width: px(400),
-                }
-                Children [
-                    Node {
-                        width: { percent(50) - px(20) },
-                    }
-                    BackgroundColor(YELLOW)
-                    --
-                    Node {
-                        width: { percent(25) + px(20) },
-                    }
-                    BackgroundColor(GREEN)
-                    --
-                    Node {
-                        width: { percent(25) },
-                    }
-                    BackgroundColor(VIOLET)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                }
-                Children [
-                    Node {
-                        width: { rem(5) + px(20) },
-                    }
-                    BackgroundColor(YELLOW)
-                    --
-                    Node {
-                        width: { em(3) + vw(2) },
-                    }
-                    BackgroundColor(ORANGE)
-                    --
-                    Node {
-                        width: { rem(10) - em(2) },
-                    }
-                    BackgroundColor(BLUE)
-                ]
-                --
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    padding: { (px(5) + vmin(1)).all() },
-                }
-                BackgroundColor(SNOW)
-                Children [
-                    Node {
-                        width: px(100),
-                        margin: { (px(10) + vw(1)).right() },
-                    }
-                    BackgroundColor(RED_500)
-                    --
-                    Node {
-                        width: px(100),
-                    }
-                    BackgroundColor(GREEN)
+                    BackgroundColor(TRACK)
+                    Children [
+                        Node {
+                            width: px(100),
+                            height: px(BAR_HEIGHT),
+                            margin: { (px(10) + vw(1)).left() },
+                        }
+                        BackgroundColor(RED_500)
+                    ]
                 ]
             ]
+        }
+    }
 
+    const TRACK: Color = Color::srgb(0.15, 0.15, 0.15);
+    const TRACK_WIDTH: f32 = 320.;
+    const BAR_HEIGHT: f32 = 12.;
+
+    fn case(label: &'static str, bars: Vec<Vec<(Val, Srgba)>>) -> impl bevy::prelude::Scene {
+        let bars = bars.into_iter().map(bar).collect::<Vec<_>>();
+        bsn! {
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+            }
+            Children [
+                Text(label)
+                TextFont {
+                    font_size: FontSize::Px(12.0),
+                }
+                --
+                {bars}
+            ]
+        }
+    }
+
+    fn bar(segments: Vec<(Val, Srgba)>) -> impl bevy::prelude::Scene {
+        let segments = segments
+            .into_iter()
+            .map(|(width, color)| {
+                bsn! {
+                    Node {
+                        width: {width.clone()},
+                        height: px(BAR_HEIGHT),
+                        flex_shrink: 0.,
+                    }
+                    BackgroundColor(color)
+                }
+            })
+            .collect::<Vec<_>>();
+        bsn! {
+            Node {
+                width: px(TRACK_WIDTH),
+            }
+            BackgroundColor(TRACK)
+            Children [
+                {segments}
+            ]
         }
     }
 }
