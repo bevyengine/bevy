@@ -295,7 +295,6 @@ fn enum_kind(
     let mut variants = Vec::with_capacity(reflect_variants.len());
     let mut variant_field_offsets = Vec::with_capacity(reflect_variants.len());
     let mut variant_indices = Vec::with_capacity(reflect_variants.len());
-    let mut variant_constructors = Vec::with_capacity(reflect_variants.len());
     for (index, variant) in reflect_variants.iter().enumerate() {
         let variant_ident = &variant.variant.ident;
 
@@ -346,8 +345,20 @@ fn enum_kind(
                 field_offsets.push(offset);
                 // Fields are initialized in declaration order, so `__fields` is called in the
                 // order of `Variant::fields`
+
+                // SAFETY: We gave the appropriate index for this field in this variant, and `func`
+                // expects to initialize the correct type. By the safety precondition of calling
+                // the `init` function, `func` satisfies `InitializeEnumVariant`'s safety
+                // requirements.
                 field_initializers.push(quote! {
-                    #member: <dyn #bevy_reflect::Reflect>::take::<#field_ty>(__fields(#field_index)?).ok()?
+                    #member: {
+                        let Some(__value) = (unsafe {
+                            #bevy_reflect::kind::create_enum_field_value_from_init(#field_index, __fields)
+                        }) else {
+                            return false;
+                        };
+                        __value
+                    }
                 });
             }
         }
@@ -365,11 +376,21 @@ fn enum_kind(
         variant_indices.push(quote! {
             Self::#variant_ident { .. } => #index
         });
-        variant_constructors.push(if constructible {
-            quote! { #index => #FQOption::Some(Self::#variant_ident { #(#field_initializers),* }) }
+        // SAFETY: By the safety precondition of `InitializeEnumVariantFn`, we know `__dst` is valid
+        // for writes of this enum type.
+        let init = if constructible {
+            quote! {
+                #FQOption::Some(|__fields, __dst| {
+                    let __value = Self::#variant_ident {
+                        #(#field_initializers,)*
+                    };
+                    unsafe { __dst.as_ptr().cast::<Self>().write(__value) };
+                    true
+                })
+            }
         } else {
-            quote! { #index => #FQOption::None }
-        });
+            quote! { #FQOption::None }
+        };
 
         let field_kind = variant.fields.field_kind(bevy_reflect);
         let name = variant_ident.to_string();
@@ -381,6 +402,7 @@ fn enum_kind(
                 fields: &[#(#fields),*],
                 ignored_fields: &[#(#ignored_fields),*],
                 metadata: #metadata,
+                init: #init,
             }
         });
     }
@@ -393,18 +415,8 @@ fn enum_kind(
     // with the requested variant
     let kind = quote! {{
         let variants = &[#(#variants),*];
-        let construct: #bevy_reflect::kind::ConstructEnumFn = |__variant, __fields| {
-            let value: #FQOption<Self> = match __variant {
-                #(#variant_constructors,)*
-                _ => #FQOption::None,
-            };
-            value.map(|value| {
-                #bevy_reflect::__macro_exports::Box::new(value)
-                    as #bevy_reflect::__macro_exports::Box<dyn #bevy_reflect::Reflect>
-            })
-        };
         #bevy_reflect::kind::Kind::Enum(unsafe {
-            #bevy_reflect::kind::Enum::new(variants, #bevy_reflect::kind::cast_enum_access::<Self>, construct)
+            #bevy_reflect::kind::Enum::new(variants, #bevy_reflect::kind::cast_enum_access::<Self>)
         })
     }};
     let self_access = if reflect_variants.is_empty() {
