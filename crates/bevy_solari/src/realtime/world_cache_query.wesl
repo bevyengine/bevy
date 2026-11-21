@@ -41,10 +41,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 
         // Cell already exists or is empty - reset lifetime
         if existing_checksum == checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
-            @if(!WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME)
-            atomicStore(&world_cache.life[key], cell_lifetime);
-            @else
-            atomicMax(&world_cache.life[key], cell_lifetime);
+            reset_cell_lifetime(key, cell_lifetime);
         }
 
         if existing_checksum == checksum {
@@ -62,6 +59,14 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     }
 
     return vec3(0.0);
+}
+
+@if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
+fn reset_cell_lifetime(key: u32, cell_lifetime: u32) {
+    @if(!WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME)
+    atomicStore(&world_cache.life[key], cell_lifetime);
+    @else
+    atomicMax(&world_cache.life[key], cell_lifetime);
 }
 
 fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> f32 {
