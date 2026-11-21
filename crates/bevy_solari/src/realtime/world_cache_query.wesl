@@ -17,9 +17,9 @@ const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 
 @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
-fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, ray_t: f32, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
+fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
     var world_position = world_position_in;
-    var cell_size = get_cell_size(world_position, view_position, ray_t, rng);
+    var cell_size = get_cell_size(world_position, view_position, rng);
 
 @if(!NO_JITTER_WORLD_CACHE) {
     // Jitter query point, which essentially blurs the cache a bit so it's not so grid-like
@@ -27,7 +27,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
     world_position += offset.x * TBN[0] + offset.y * TBN[1];
-    cell_size = get_cell_size(world_position, view_position, ray_t, rng);
+    cell_size = get_cell_size(world_position, view_position, rng);
 }
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
@@ -64,7 +64,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     return vec3(0.0);
 }
 
-fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, ray_t: f32, rng: ptr<function, u32>) -> f32 {
+fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> f32 {
     let camera_distance = distance(view_position, world_position) / constants.world_cache_position_lod_scale;
     let lod_f = log2(1.0 + camera_distance);
     let lod_fract = fract(lod_f);
