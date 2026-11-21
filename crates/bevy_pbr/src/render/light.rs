@@ -62,7 +62,10 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue, ViewQuery},
+    renderer::{
+        supports_cube_array_textures, RenderAdapter, RenderContext, RenderDevice, RenderQueue,
+        ViewQuery,
+    },
     texture::*,
     view::ExtractedView,
     Extract,
@@ -1038,7 +1041,11 @@ pub enum LightEntity {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    (render_device, render_queue): (Res<RenderDevice>, Res<RenderQueue>),
+    (render_device, render_queue, render_adapter): (
+        Res<RenderDevice>,
+        Res<RenderQueue>,
+        Res<RenderAdapter>,
+    ),
     mut global_clusterable_object_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
@@ -1154,7 +1161,11 @@ pub fn prepare_lights(
         not(target_arch = "wasm32"),
         feature = "webgpu"
     ))]
-    let max_texture_cubes = max_texture_array_layers / 6;
+    let max_texture_cubes = if supports_cube_array_textures(&render_adapter) {
+        max_texture_array_layers / 6
+    } else {
+        1
+    };
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     let max_texture_array_layers = 1;
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -1497,22 +1508,11 @@ pub fn prepare_lights(
             .create_view(&TextureViewDescriptor {
                 label: Some("point_light_shadow_map_array_texture_view"),
                 format: None,
-                // NOTE: iOS Simulator is missing CubeArray support so we use Cube instead.
-                // See https://github.com/bevyengine/bevy/pull/12052 - remove if support is added.
-                #[cfg(all(
-                    not(target_abi = "sim"),
-                    any(
-                        not(feature = "webgl"),
-                        not(target_arch = "wasm32"),
-                        feature = "webgpu"
-                    )
-                ))]
-                dimension: Some(TextureViewDimension::CubeArray),
-                #[cfg(any(
-                    target_abi = "sim",
-                    all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
-                ))]
-                dimension: Some(TextureViewDimension::Cube),
+                dimension: Some(if supports_cube_array_textures(&render_adapter) {
+                    TextureViewDimension::CubeArray
+                } else {
+                    TextureViewDimension::Cube
+                }),
                 usage: None,
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
@@ -2956,6 +2956,7 @@ pub fn per_view_shadow_pass<const IS_LATE: bool>(
     )>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     preprocess_pipelines: Option<Res<PreprocessPipelines>>,
+    preprocessing_support: Res<GpuPreprocessingSupport>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
@@ -2989,6 +2990,7 @@ pub fn per_view_shadow_pass<const IS_LATE: bool>(
             && !has_no_indirect_drawing
             && let (Some(preprocess_pipelines), Some(build_indirect_parameters_metadata)) =
                 (&preprocess_pipelines, &build_indirect_parameters_metadata)
+            && preprocess_pipelines.pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
         {
             run_build_indirect_parameters(
                 &mut ctx,
