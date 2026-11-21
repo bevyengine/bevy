@@ -1,6 +1,7 @@
 //! Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 
 use bevy::{
+    feathers::{display::label, theme::UiTheme, FeathersPlugins},
     input_focus::tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
     picking::hover::Hovered,
     prelude::*,
@@ -10,12 +11,16 @@ use bevy::{
     },
 };
 
+#[path = "../../helpers/theme.rs"]
+mod theme;
+
 const SLIDER_TRACK: Color = Color::srgb(0.05, 0.05, 0.05);
 const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TabNavigationPlugin))
+        .add_plugins((DefaultPlugins, TabNavigationPlugin, FeathersPlugins))
+        .insert_resource(UiTheme(theme::basic_example_theme(Color::WHITE)))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_slider_visuals, update_value_labels))
         .run();
@@ -56,14 +61,11 @@ fn setup(mut commands: Commands) {
                 row_gap: px(10),
             }
             Children [
-                Text::new("Vertical")
-                TextFont { font_size: px(20) }
-                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                @label("Vertical")
                 --
                 #VerticalValueLabel
-                Text::new("50")
+                @label("50")
                 TextFont { font_size: px(24) }
-                TextColor(Color::srgb(0.9, 0.9, 0.9))
                 --
                 @vertical_slider()
                 ValueLabel(#VerticalValueLabel)
@@ -78,14 +80,11 @@ fn setup(mut commands: Commands) {
                 row_gap: px(10),
             }
             Children [
-                Text::new("Horizontal")
-                TextFont { font_size: px(20) }
-                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                @label("Horizontal")
                 --
                 #HorizontalValueLabel
-                Text::new("50")
+                @label("50")
                 TextFont { font_size: px(24) }
-                TextColor(Color::srgb(0.9, 0.9, 0.9))
                 --
                 @horizontal_slider()
                 ValueLabel(#HorizontalValueLabel)
