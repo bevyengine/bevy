@@ -2956,6 +2956,7 @@ pub fn per_view_shadow_pass<const IS_LATE: bool>(
     )>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     preprocess_pipelines: Option<Res<PreprocessPipelines>>,
+    preprocessing_support: Res<GpuPreprocessingSupport>,
     build_indirect_params_bind_groups: Option<Res<BuildIndirectParametersBindGroups>>,
     pipeline_cache: Res<PipelineCache>,
     indirect_parameters_buffers: Option<Res<IndirectParametersBuffers>>,
@@ -2989,6 +2990,7 @@ pub fn per_view_shadow_pass<const IS_LATE: bool>(
             && !has_no_indirect_drawing
             && let (Some(preprocess_pipelines), Some(build_indirect_parameters_metadata)) =
                 (&preprocess_pipelines, &build_indirect_parameters_metadata)
+            && preprocess_pipelines.pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
         {
             run_build_indirect_parameters(
                 &mut ctx,

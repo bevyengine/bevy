@@ -552,6 +552,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
                         )>),
                     )
                         .chain()
+                        .run_if(preprocessing_pipelines_are_loaded)
                         .before(early_prepass),
                     (
                         late_gpu_preprocess,
@@ -564,9 +565,11 @@ impl Plugin for GpuMeshPreprocessPlugin {
                         )>),
                     )
                         .chain()
+                        .run_if(preprocessing_pipelines_are_loaded)
                         .after(early_downsample_depth)
                         .before(late_prepass),
                     main_build_indirect_parameters
+                        .run_if(preprocessing_pipelines_are_loaded)
                         .run_if(any_match_filter::<(
                             With<PreprocessBindGroups>,
                             Without<SkipGpuPreprocess>,
@@ -578,6 +581,14 @@ impl Plugin for GpuMeshPreprocessPlugin {
                 ),
             );
     }
+}
+
+fn preprocessing_pipelines_are_loaded(
+    preprocess_pipelines: Res<PreprocessPipelines>,
+    pipeline_cache: Res<PipelineCache>,
+    preprocessing_support: Res<GpuPreprocessingSupport>,
+) -> bool {
+    preprocess_pipelines.pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
 }
 
 /// A rendering system that invokes a compute shader for each batch set in order
