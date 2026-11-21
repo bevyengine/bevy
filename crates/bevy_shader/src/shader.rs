@@ -317,7 +317,7 @@ impl AssetLoader for ShaderLoader {
                     .collect();
                 for file_path in candidates {
                     if load_context
-                        .read_asset_bytes(AssetPath::from(file_path.clone()))
+                        .read_asset(AssetPath::from(file_path.clone()))
                         .await
                         .is_ok()
                     {

@@ -35,6 +35,13 @@ fn main() {
         }
     }
 
+    // Opting out of `FromReflect` means this type never registers `ReflectFromReflect`.
+    #[derive(Reflect)]
+    #[reflect(from_reflect = false)]
+    struct Settings {
+        volume: u32,
+    }
+
     // Normally, when instantiating a type, you get back exactly that type.
     // This is because the type is known at compile time.
     // We call this the "concrete" or "canonical" type.
@@ -76,44 +83,57 @@ fn main() {
     // It also enables us to create a representation of a type without having compile-time
     // access to the actual type. This is how the reflection deserializers work.
     // They generally can't know how to construct a type ahead of time,
-    // so they instead build and return these dynamic representations.
-    let input = "(id: 123)";
+    // so they first build one of these dynamic representations.
+    // If the type registers `ReflectFromReflect` (which `#[derive(Reflect)]` does by default),
+    // the deserializer then converts it into the concrete type.
     let mut registry = TypeRegistry::default();
     registry.register::<Player>();
+    registry.register::<Settings>();
+
     let registration = registry.get(std::any::TypeId::of::<Player>()).unwrap();
-    let deserialized = TypedReflectDeserializer::new(registration, &registry)
-        .deserialize(&mut ron::Deserializer::from_str(input).unwrap())
+    let deserialized_player = TypedReflectDeserializer::new(registration, &registry)
+        .deserialize(&mut ron::Deserializer::from_str("(id: 123)").unwrap())
         .unwrap();
+    assert_eq!(
+        deserialized_player.try_downcast_ref::<Player>(),
+        Some(&Player { id: 123 })
+    );
 
-    // Our deserialized output is a `DynamicStruct` that proxies/represents a `Player`.
-    assert!(deserialized.represents::<Player>());
+    // But `Settings` opted out of `FromReflect`, so we get back a `DynamicStruct`
+    // that proxies/represents a `Settings`.
+    let deserialized_settings = TypedReflectDeserializer::of::<Settings>(&registry)
+        .deserialize(&mut ron::Deserializer::from_str("(volume: 11)").unwrap())
+        .unwrap();
+    assert!(deserialized_settings.is_dynamic());
+    assert!(deserialized_settings.represents::<Settings>());
 
-    // And while this does allow us to access the fields and structure of the type,
+    // And while dynamic types do allow us to access the fields and structure of the type,
     // there may be instances where we need the actual type.
     // For example, if we want to convert our `dyn Reflect` into a `dyn Identifiable`,
-    // we can't use the `DynamicStruct` proxy.
+    // we can't use the `DynamicStruct` proxy we made from our `Player` earlier.
     let reflect_identifiable = registration
         .data::<ReflectIdentifiable>()
         .expect("`ReflectIdentifiable` should be registered");
 
-    // Trying to access the registry with our `deserialized` will give a compile error
+    // Trying to access the registry with our `dynamic` will give a compile error
     // since it doesn't implement `Reflect`, only `PartialReflect`.
     // Similarly, trying to force the operation will fail.
-    // This fails since the underlying type of `deserialized` is `DynamicStruct` and not `Player`.
-    assert!(deserialized
+    // This fails since the underlying type of `dynamic` is `DynamicStruct` and not `Player`.
+    assert!(dynamic
         .try_as_reflect()
         .and_then(|reflect_trait_obj| reflect_identifiable.get(reflect_trait_obj))
         .is_none());
 
     // So how can we go from a dynamic type to a concrete type?
-    // There are two ways:
+    // There are two ways, shown here with our `Player` proxy,
+    // since `Settings` can't use the second one.
 
     // 1. Using `PartialReflect::apply`.
     {
         // If you know the type at compile time, you can construct a new value and apply the dynamic
         // value to it.
         let mut value = Player::default();
-        value.apply(deserialized.as_ref());
+        value.apply(dynamic.as_ref());
         assert_eq!(value.id, 123);
 
         // If you don't know the type at compile time, you need a dynamic way of constructing
@@ -123,7 +143,7 @@ fn main() {
             .expect("`ReflectDefault` should be registered");
 
         let mut value: Box<dyn Reflect> = reflect_default.default();
-        value.apply(deserialized.as_ref());
+        value.apply(dynamic.as_ref());
 
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
         assert_eq!(identifiable.id(), 123);
@@ -133,7 +153,7 @@ fn main() {
     {
         // If you know the type at compile time, you can use the `FromReflect` trait to convert the
         // dynamic value into the concrete type directly.
-        let value: Player = Player::from_reflect(deserialized.as_ref()).unwrap();
+        let value: Player = Player::from_reflect(dynamic.as_ref()).unwrap();
         assert_eq!(value.id, 123);
 
         // If you don't know the type at compile time, you can use the `ReflectFromReflect` type data
@@ -142,14 +162,12 @@ fn main() {
             .data::<ReflectFromReflect>()
             .expect("`ReflectFromReflect` should be registered");
 
-        let value: Box<dyn Reflect> = reflect_from_reflect
-            .from_reflect(deserialized.as_ref())
-            .unwrap();
+        let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(dynamic.as_ref()).unwrap();
         let identifiable: &dyn Identifiable = reflect_identifiable.get(value.as_reflect()).unwrap();
         assert_eq!(identifiable.id(), 123);
     }
 
-    // Lastly, while dynamic types are commonly generated via reflection methods like
+    // Lastly, while dynamic types can be generated via reflection methods like
     // `PartialReflect::to_dynamic` or via the reflection deserializers,
     // you can also construct them manually.
     let mut my_dynamic_list = DynamicList::from_iter([1u32, 2u32, 3u32]);

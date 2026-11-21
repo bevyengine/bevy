@@ -32,7 +32,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    mesh::allocator::MeshAllocator,
+    mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{ExtractedAssets, RenderAssets},
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
@@ -161,6 +161,7 @@ pub fn prepare_raytracing_scene_resources(
     ),
     needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
     mesh_allocator: Res<MeshAllocator>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     blas_manager: Res<BlasManager>,
     material_assets: Res<StandardMaterialAssets>,
     texture_assets: Res<RenderAssets<GpuImage>>,
@@ -197,6 +198,7 @@ pub fn prepare_raytracing_scene_resources(
         assets: &bindings.assets,
         blas_manager: &blas_manager,
         mesh_allocator: &mesh_allocator,
+        render_meshes: &render_meshes,
     };
     bindings.instances.refresh_instances(
         &inputs,

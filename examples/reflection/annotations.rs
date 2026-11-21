@@ -52,7 +52,7 @@ fn describe<T: Typed>(registry: &TypeRegistry) {
             .map_or(field.name(), |display| display.0);
         println!("- {name}");
 
-        if let Some(range) = ValueRange::from_attributes(field.custom_attributes()) {
+        if let Some(range) = field.custom_attributes().value_range() {
             println!("    range: {}..={}", range.min(), range.max());
         }
         if let Some(step) = field.get_attribute::<Step>() {

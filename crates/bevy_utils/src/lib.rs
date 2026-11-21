@@ -107,10 +107,12 @@ use core::mem::ManuallyDrop;
 /// # }));
 /// # assert!(did_log);
 /// ```
+#[deprecated(since = "0.21.0", note = "Use `core::mem::DropGuard`")]
 pub struct OnDrop<F: FnOnce()> {
     callback: ManuallyDrop<F>,
 }
 
+#[expect(deprecated, reason = "impl for deprecated type")]
 impl<F: FnOnce()> OnDrop<F> {
     /// Returns an object that will invoke the specified callback when dropped.
     pub fn new(callback: F) -> Self {
@@ -120,6 +122,7 @@ impl<F: FnOnce()> OnDrop<F> {
     }
 }
 
+#[expect(deprecated, reason = "impl for deprecated type")]
 impl<F: FnOnce()> Drop for OnDrop<F> {
     fn drop(&mut self) {
         #![expect(

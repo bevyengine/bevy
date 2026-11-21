@@ -1,5 +1,6 @@
 use crate::Val;
 use crate::ValArithmeticError;
+use crate::ValContext;
 use crate::ValNum;
 use bevy_derive::Deref;
 use bevy_ecs::component::Component;
@@ -9,7 +10,6 @@ use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_text::{EmSize, RemSize};
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
@@ -57,25 +57,13 @@ impl Val2 {
         Self::new(Val::Percent(x.val_num_f32()), Val::Percent(y.val_num_f32()))
     }
 
-    /// Resolves this [`Val2`] from the given `scale_factor`, `parent_size`,
-    /// and `viewport_size`.
+    /// Resolves this [`Val2`] from the given context and `base_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
-    pub fn resolve(
-        &self,
-        scale_factor: f32,
-        base_size: Vec2,
-        viewport_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Vec2 {
+    pub fn resolve(&self, context: &ValContext, base_size: Vec2) -> Vec2 {
         Vec2::new(
-            self.x
-                .resolve(scale_factor, base_size.x, viewport_size, em_size, rem_size)
-                .unwrap_or(0.),
-            self.y
-                .resolve(scale_factor, base_size.y, viewport_size, em_size, rem_size)
-                .unwrap_or(0.),
+            self.x.resolve(context, base_size.x).unwrap_or(0.),
+            self.y.resolve(context, base_size.y).unwrap_or(0.),
         )
     }
 
@@ -189,20 +177,12 @@ impl UiTransform {
         }
     }
 
-    /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
+    /// Resolves the translation from the given context and `base_size`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
-    pub fn compute_affine(
-        &self,
-        scale_factor: f32,
-        base_size: Vec2,
-        target_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> Affine2 {
+    pub fn compute_affine(&self, context: &ValContext, base_size: Vec2) -> Affine2 {
         Affine2::from_mat2_translation(
             Mat2::from(self.rotation) * Mat2::from_diagonal(self.scale),
-            self.translation
-                .resolve(scale_factor, base_size, target_size, em_size, rem_size),
+            self.translation.resolve(context, base_size),
         )
     }
 }

@@ -55,7 +55,7 @@ fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {
-        config.fancy = !config.fancy;
+        config.fancy.toggle();
     }
 }
 

@@ -10,7 +10,7 @@
 //! in a stack must use the same compositing space. This module picks that
 //! space each frame and stores it in each view's [`ResolvedCompositingSpace`].
 
-use bevy_camera::{Camera2d, CameraMainTextureUsages, ClearColorConfig, CompositingSpace};
+use bevy_camera::{Camera2d, ClearColorConfig, CompositingSpace};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
@@ -70,7 +70,6 @@ pub fn resolve_composition_spaces(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
-        &CameraMainTextureUsages,
         &Msaa,
         Has<Camera2d>,
         &mut ResolvedCompositingSpace,
@@ -90,23 +89,21 @@ pub fn resolve_composition_spaces(
 
     let inputs: Vec<(MainTextureKey, SpaceInput)> = views
         .iter()
-        .map(
-            |(entity, camera, view, texture_usage, msaa, is_camera_2d, resolved)| {
-                (
-                    main_texture_key(camera, view, texture_usage, *msaa),
-                    SpaceInput {
-                        entity,
-                        sorted_index: camera.sorted_camera_index_for_target,
-                        // Extraction seeded each component with the camera's
-                        // own request.
-                        request: resolved.0,
-                        clears: !matches!(camera.clear_color, ClearColorConfig::None),
-                        is_camera_2d,
-                        signed_storage: stores_signed_values(view.target_format),
-                    },
-                )
-            },
-        )
+        .map(|(entity, camera, view, msaa, is_camera_2d, resolved)| {
+            (
+                main_texture_key(camera, view, *msaa),
+                SpaceInput {
+                    entity,
+                    sorted_index: camera.sorted_camera_index_for_target,
+                    // Extraction seeded each component with the camera's
+                    // own request.
+                    request: resolved.0,
+                    clears: !matches!(camera.clear_color, ClearColorConfig::None),
+                    is_camera_2d,
+                    signed_storage: stores_signed_values(view.target_format),
+                },
+            )
+        })
         .collect();
 
     let (spaces, diagnostics) = resolve_spaces(inputs);
@@ -325,7 +322,6 @@ fn resolve_members(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wgpu::TextureUsages;
 
     const SRGB: Option<CompositingSpace> = Some(CompositingSpace::Srgb);
     const OKLAB: Option<CompositingSpace> = Some(CompositingSpace::Oklab);
@@ -347,12 +343,7 @@ mod tests {
     ) -> (MainTextureKey, SpaceInput) {
         let msaa = [Msaa::Off, Msaa::Sample4][texture];
         (
-            (
-                None,
-                TextureUsages::RENDER_ATTACHMENT,
-                TextureFormat::Rgba16Float,
-                msaa,
-            ),
+            (None, TextureFormat::Rgba16Float, msaa),
             SpaceInput {
                 entity: entity(raw),
                 sorted_index: index,
