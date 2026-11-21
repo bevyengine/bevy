@@ -13,12 +13,11 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::prelude::*;
 use bevy_ui::{
     px, AlignItems, Display, FlexDirection, InteractionDisabled, JustifyContent, Node, Overflow,
-    UiSystems,
 };
 use bevy_ui_widgets::{ControlOrientation, Pane, SplitPane, SplitPaneDragState, SplitPaneHandle};
 use bevy_window::SystemCursorIcon;
 
-use crate::{theme::ThemeBackgroundColor, tokens};
+use crate::{theme::ThemeBackgroundColor, tokens, FeathersSystems};
 
 const HANDLE_SIZE: f32 = 5.0;
 const HANDLE_LINE_SIZE: f32 = 1.0;
@@ -204,7 +203,7 @@ impl Plugin for SplitPanePlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PostUpdate,
-            update_split_pane_handle_styles.in_set(UiSystems::Content),
+            update_split_pane_handle_styles.in_set(FeathersSystems),
         );
     }
 }

@@ -31,8 +31,8 @@ fn main() {
 
 #[derive(Resource)]
 struct Animations {
-    animations: Vec<AnimationNodeIndex>,
-    graph_handle: Handle<AnimationGraph>,
+    animations: Vec<BlendNodeIndex>,
+    graph_handle: Handle<BlendGraph>,
 }
 
 #[derive(Resource)]
@@ -99,7 +99,7 @@ fn spawn_fox_asset_when_ready(
     fox_handle: Res<Fox>,
     asset_server: Res<AssetServer>,
     gltfs: Res<Assets<Gltf>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     if !asset_server.is_loaded_with_dependencies(&fox_handle.0) {
         // fox is not loaded yet
@@ -110,14 +110,14 @@ fn spawn_fox_asset_when_ready(
         .get(&fox_handle.0)
         .expect("a loaded asset should exist in the glTF assets collection");
 
-    // Build the animation graph
-    let (graph, node_indices) = AnimationGraph::from_clips([
+    // Build the blend graph
+    let (graph, node_indices) = BlendGraph::from_clips([
         fox.named_animations["Run"].clone(),
         fox.named_animations["Walk"].clone(),
         fox.named_animations["Survey"].clone(),
     ]);
 
-    // Keep our animation graph in a Resource so that it can be inserted onto
+    // Keep our blend graph in a Resource so that it can be inserted onto
     // the correct entity once the scene actually loads.
     let graph_handle = graphs.add(graph);
     commands.insert_resource(Animations {
@@ -158,7 +158,7 @@ fn setup_scene(
 
     commands
         .entity(entity)
-        .insert(AnimationGraphHandle(animations.graph_handle.clone()))
+        .insert(BlendGraphHandle(animations.graph_handle.clone()))
         .insert(transitions);
 }
 

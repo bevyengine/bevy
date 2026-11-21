@@ -57,10 +57,9 @@ impl Plugin for TextPlugin {
         embedded_asset!(app, "examples/asset/processing/", "e.txt");
         app.init_asset::<CoolText>()
             .init_asset::<Text>()
-            .register_asset_loader(CoolTextLoader)
             .register_asset_loader(TextLoader)
-            .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
-                LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
+            .register_asset_processor(
+                LoadTransformAndSave::new(CoolTextLoader, CoolTextTransformer, CoolTextSaver)
             )
             .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
     }

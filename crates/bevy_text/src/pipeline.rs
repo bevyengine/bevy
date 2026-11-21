@@ -6,9 +6,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
-use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
 use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
@@ -19,8 +17,8 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
-    TextFont, TextLayout,
+    GlyphCacheKey, Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 use crate::{RemSize, TextBrush};
 
@@ -375,15 +373,9 @@ impl TextPipeline {
                         let font = run.font();
                         let font_size = run.font_size();
                         let coords = run.normalized_coords();
-                        let variations_hash = FixedHasher.hash_one(coords);
-                        let font_atlas_key = FontAtlasKey {
-                            id: font.data.id() as u32,
-                            index: font.index,
-                            font_size_bits: font_size.to_bits(),
-                            variations_hash,
-                            hinting,
-                            font_smoothing,
-                        };
+                        let synthetic_skew = run.synthesis().skew();
+                        let font_atlas_key = FontAtlasKey::new(&glyph_run, hinting);
+                        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
                         let Some(font_ref) =
                             FontRef::from_index(font.data.as_ref(), font.index as usize)
@@ -398,12 +390,13 @@ impl TextPipeline {
                                 continue;
                             };
 
-                            let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
+                            let (cache_key, glyph_pos) = GlyphCacheKey::new(
+                                glyph_id,
+                                Vec2::new(glyph.x, glyph.y),
+                                font_smoothing,
+                            );
 
-                            let atlas_info = match get_glyph_atlas_info(
-                                font_atlases,
-                                crate::GlyphCacheKey { glyph_id },
-                            ) {
+                            let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
                                 Some(info) => info,
                                 None => {
                                     if maybe_scaler.is_none() {
@@ -425,22 +418,16 @@ impl TextPipeline {
                                         textures,
                                         maybe_scaler.as_mut().unwrap(),
                                         font_smoothing,
-                                        glyph_id,
+                                        synthetic_skew,
+                                        cache_key,
                                     )?
                                 }
                             };
 
-                            let glyph_pos = Vec2::new(glyph.x, glyph.y);
                             let size = atlas_info.rect.size();
 
                             layout_info.glyphs.push(PositionedGlyph {
-                                position: size / 2.
-                                    + if font_smoothing == FontSmoothing::None {
-                                        glyph_pos.floor()
-                                    } else {
-                                        glyph_pos
-                                    }
-                                    + atlas_info.offset,
+                                position: size / 2. + glyph_pos + atlas_info.offset,
                                 atlas_info,
                                 section_index,
                                 line_index: line_index as u32,
@@ -509,6 +496,9 @@ pub struct TextLayoutInfo {
     /// Underline rects for the active IME preedit/compose region.
     /// Should only have values when composition is in progress.
     pub preedit_underline_rects: Vec<Rect>,
+    /// Glyphs of an editable text's [`Placeholder`](crate::Placeholder), laid out
+    /// like [`glyphs`](Self::glyphs). Empty unless the placeholder is shown.
+    pub placeholder_glyphs: Vec<PositionedGlyph>,
     /// inline boxes
     pub inline_boxes: Vec<(Entity, crate::InlineBoxKind, Rect)>,
 }
@@ -524,6 +514,7 @@ impl TextLayoutInfo {
         self.cursor = None;
         self.selection_rects.clear();
         self.preedit_underline_rects.clear();
+        self.placeholder_glyphs.clear();
     }
 }
 
@@ -537,6 +528,7 @@ impl Default for TextLayoutInfo {
             cursor: None,
             selection_rects: Default::default(),
             preedit_underline_rects: Default::default(),
+            placeholder_glyphs: Default::default(),
             inline_boxes: Default::default(),
         }
     }

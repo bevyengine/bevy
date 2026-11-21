@@ -683,7 +683,9 @@ impl TypeRegistration {
             .data
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(get_data()));
-        boxed_data.downcast_mut::<T>().unwrap()
+        (&mut **boxed_data as &mut dyn Any)
+            .downcast_mut::<T>()
+            .unwrap()
     }
 
     /// Inserts the [`TypeData`] instance of `T` created for `V`, and inserts any
@@ -720,7 +722,7 @@ impl TypeRegistration {
     pub fn data<T: TypeData>(&self) -> Option<&T> {
         self.data
             .get(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_ref())
+            .and_then(|value| (&**value as &dyn Any).downcast_ref())
     }
 
     /// Returns a reference to the value with the given [`TypeId`] in this registration's
@@ -748,7 +750,7 @@ impl TypeRegistration {
     pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
         self.data
             .get_mut(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_mut())
+            .and_then(|value| (&mut **value as &mut dyn Any).downcast_mut())
     }
 
     /// Returns a mutable reference to the value with the given [`TypeId`] in this registration's
@@ -1266,7 +1268,7 @@ mod test {
 
         let (id, data) = iter.next().unwrap();
         assert_eq!(id, TypeId::of::<DataA>());
-        assert_eq!(data.downcast_ref::<DataA>().unwrap().0, 123);
+        assert_eq!((data as &dyn Any).downcast_ref::<DataA>().unwrap().0, 123);
 
         assert!(iter.next().is_none());
     }
@@ -1286,7 +1288,7 @@ mod test {
             let mut iter = registration.iter_mut();
 
             let (_, data) = iter.next().unwrap();
-            data.downcast_mut::<DataA>().unwrap().0 = 456;
+            (data as &mut dyn Any).downcast_mut::<DataA>().unwrap().0 = 456;
 
             assert!(iter.next().is_none());
         }

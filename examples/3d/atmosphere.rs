@@ -115,7 +115,7 @@ fn atmosphere_controls(
     }
 
     if keyboard_input.just_pressed(KeyCode::Enter) {
-        game_state.paused = !game_state.paused;
+        game_state.paused.toggle();
     }
 
     if keyboard_input.pressed(KeyCode::ArrowUp) {

@@ -16,8 +16,11 @@ use bevy_pbr::{MeshMaterial3d, PreviousGlobalTransform, StandardMaterial};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     impl_atomic_pod,
-    mesh::allocator::MeshAllocator,
-    render_resource::{AtomicPod, AtomicSparseBufferVec, Buffer, BufferId, BufferUsages},
+    mesh::{allocator::MeshAllocator, RenderMesh},
+    render_asset::RenderAssets,
+    render_resource::{
+        AtomicPod, AtomicSparseBufferVec, Buffer, BufferId, BufferUsages, IndexFormat,
+    },
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::once;
@@ -36,6 +39,9 @@ pub struct GpuInstanceGeometryIds {
     index_buffer_offset: u32,
     triangle_count: u32,
 }
+
+/// Set in `index_buffer_offset` when the indices are 16-bit.
+const INDEX_BUFFER_FLAG_U16: u32 = 1 << 31;
 
 /// A world-from-local affine transform, stored transposed as three rows.
 #[derive(Clone, Copy, Default, PartialEq, Pod, Zeroable)]
@@ -168,6 +174,7 @@ pub struct InstanceInputs<'a> {
     pub assets: &'a AssetState,
     pub blas_manager: &'a BlasManager,
     pub mesh_allocator: &'a MeshAllocator,
+    pub render_meshes: &'a RenderAssets<RenderMesh>,
 }
 
 fn unlink<K: Eq + Hash>(map: &mut HashMap<K, EntityHashSet>, key: &K, entity: Entity) {
@@ -342,12 +349,23 @@ impl InstanceState {
             ));
         }
 
-        let (Some(vertex_slice), Some(index_slice), Some(material_slot), Some(blas_address)) = (
+        let (
+            Some(vertex_slice),
+            Some(index_slice),
+            Some(index_format),
+            Some(material_slot),
+            Some(blas_address),
+        ) = (
             inputs.mesh_allocator.mesh_vertex_slice(&instance.mesh),
             inputs.mesh_allocator.mesh_index_slice(&instance.mesh),
+            inputs
+                .render_meshes
+                .get(instance.mesh)
+                .and_then(RenderMesh::index_format),
             material_slot,
             blas_address,
-        ) else {
+        )
+        else {
             self.deactivate_instance(lights, entity, instance);
             return false;
         };
@@ -380,13 +398,17 @@ impl InstanceState {
         self.release_buffers(previous_buffers);
 
         let triangle_count = (index_slice.range.len() / 3) as u32;
+        let index_format_flag = match index_format {
+            IndexFormat::Uint16 => INDEX_BUFFER_FLAG_U16,
+            IndexFormat::Uint32 => 0,
+        };
         self.geometry_ids.grow_and_set(
             slot,
             GpuInstanceGeometryIds {
                 vertex_buffer_id,
                 vertex_buffer_offset: vertex_slice.range.start,
                 index_buffer_id,
-                index_buffer_offset: index_slice.range.start,
+                index_buffer_offset: index_slice.range.start | index_format_flag,
                 triangle_count,
             },
         );

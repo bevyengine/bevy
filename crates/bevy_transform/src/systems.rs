@@ -629,6 +629,18 @@ mod test {
 
     use crate::systems::*;
 
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn traversal_task_count_leaves_one_thread_and_keeps_one_task() {
+        // 8 threads - 1 = 7 traversal tasks.
+        assert_eq!(traversal_task_count(8), 7);
+        // 2 - 1 = 1, and 1 - 1 = 0 rises to 1.
+        assert_eq!(traversal_task_count(2), 1);
+        assert_eq!(traversal_task_count(1), 1);
+        // No worker threads: 0 - 1 must not underflow.
+        assert_eq!(traversal_task_count(0), 1);
+    }
+
     #[test]
     fn correct_parent_removed() {
         ComputeTaskPool::get_or_init(TaskPool::default);
