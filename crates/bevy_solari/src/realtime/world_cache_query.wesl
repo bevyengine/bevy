@@ -10,11 +10,13 @@ enable wgpu_ray_query;
 
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 10u;
-/// Maximum amount of attempts to find a cache entry after a hash collision
-const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
+/// Number of slots to search for a cell
+const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 16u;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
+/// Marker for a cell that isn't in the cache
+const WORLD_CACHE_CELL_NOT_FOUND: u32 = 0xFFFFFFFFu;
 
 @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
 fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
@@ -32,10 +34,19 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
-    var key = compute_key(world_position_quantized, world_normal_quantized, cell_size);
+    let base_key = compute_key(world_position_quantized, world_normal_quantized, cell_size);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized, cell_size);
 
+    let key = find_cell_slot(base_key, checksum);
+    if key != WORLD_CACHE_CELL_NOT_FOUND {
+        // Cache entry already exists - get radiance
+        reset_cell_lifetime(key, cell_lifetime);
+        return world_cache.radiance[key].rgb;
+    }
+
+    // Not found - insert into the first empty slot
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
+        let key = wrap_key(base_key + i);
         let cas = atomicCompareExchangeWeak(&world_cache.checksums[key], WORLD_CACHE_EMPTY_CELL, checksum);
         let existing_checksum = cas.old_value;
 
@@ -52,13 +63,21 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
             world_cache.geometry_data[key].world_position = world_position;
             world_cache.geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
-        } else {
-            // Collision - linear probe to next entry
-            key = wrap_key(key + 1u);
         }
     }
 
     return vec3(0.0);
+}
+
+@if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
+fn find_cell_slot(base_key: u32, checksum: u32) -> u32 {
+    for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
+        let key = wrap_key(base_key + i);
+        if atomicLoad(&world_cache.checksums[key]) == checksum {
+            return key;
+        }
+    }
+    return WORLD_CACHE_CELL_NOT_FOUND;
 }
 
 @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
