@@ -58,7 +58,7 @@ pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 =
     WORLD_CACHE_SIZE * WORLD_CACHE_ENTRY_SIZE + WORLD_CACHE_B_SIZE;
 /// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
 pub const WORLD_CACHE_BUFFER_SIZE: u64 =
-    (WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64).next_multiple_of(16);
+    (WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + 2 * size_of::<u32>() as u64).next_multiple_of(16);
 
 /// GPU representation of the user-configurable [`SolariLighting`] settings, plus
 /// per-frame state.
@@ -75,7 +75,7 @@ struct SolariLightingUniforms {
     world_cache_max_temporal_samples: f32,
     world_cache_direct_light_sample_count: u32,
     world_cache_max_gi_ray_distance: f32,
-    world_cache_cell_updates_soft_target: u32,
+    world_cache_max_cell_updates_per_frame: u32,
     world_cache_position_base_cell_size: f32,
     world_cache_position_lod_scale: f32,
     frame_rng: u32,
@@ -92,7 +92,7 @@ impl SolariLightingUniforms {
             world_cache_max_temporal_samples: settings.world_cache_max_temporal_samples,
             world_cache_direct_light_sample_count: settings.world_cache_direct_light_sample_count,
             world_cache_max_gi_ray_distance: settings.world_cache_max_gi_ray_distance,
-            world_cache_cell_updates_soft_target: settings.world_cache_cell_updates_soft_target,
+            world_cache_max_cell_updates_per_frame: settings.world_cache_max_cell_updates_per_frame,
             world_cache_position_base_cell_size: settings.world_cache_position_base_cell_size,
             world_cache_position_lod_scale: settings.world_cache_position_lod_scale,
             frame_rng: frame_count.wrapping_mul(5782582),

@@ -29,8 +29,6 @@ fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     let geometry_data = world_cache.geometry_data[cell_index];
     var rng = cell_index + constants.frame_rng;
 
-    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache.active_cells_count) { return; }
-
     let new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
 
     world_cache.active_cells_new_radiance[active_cell_id] = new_radiance;
@@ -44,8 +42,6 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
     let cell_index = world_cache.active_cell_indices[active_cell_id];
     let geometry_data = world_cache.geometry_data[cell_index];
     var rng = cell_index + constants.frame_rng;
-
-    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache.active_cells_count) { return; }
 
     let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
     let ray = trace_ray(geometry_data.world_position + (geometry_data.world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, constants.world_cache_max_gi_ray_distance, WORLD_CACHE_RAY_FLAG);
@@ -70,9 +66,6 @@ fn blend_new_samples(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     if active_cell_id == NO_ACTIVE_CELL { return; }
 
     let cell_index = world_cache.active_cell_indices[active_cell_id];
-    var rng = cell_index + constants.frame_rng;
-
-    if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache.active_cells_count) { return; }
 
     let old_radiance = world_cache.radiance[cell_index];
     let new_radiance = world_cache.active_cells_new_radiance[active_cell_id];
@@ -97,8 +90,10 @@ fn blend_new_samples(@builtin(global_invocation_id) thread_id: vec3<u32>) {
 const NO_ACTIVE_CELL = 0xFFFFFFFFu;
 
 fn get_active_cell(thread_id: u32) -> u32 {
-    if thread_id >= world_cache.active_cells_count { return NO_ACTIVE_CELL; }
-    return thread_id;
+    let active_cells_count = world_cache.active_cells_count;
+    if thread_id >= min(active_cells_count, constants.world_cache_max_cell_updates_per_frame) { return NO_ACTIVE_CELL; }
+
+    return (world_cache.update_window_start + thread_id) % active_cells_count;
 }
 
 fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> vec3<f32> {

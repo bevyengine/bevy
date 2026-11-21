@@ -1,6 +1,7 @@
 import constants::WORLD_CACHE_SIZE;
 import package::realtime::world_cache_query::WORLD_CACHE_EMPTY_CELL;
 import package::realtime::bindings::{
+    constants,
     world_cache,
 };
 
@@ -81,7 +82,18 @@ fn compact_world_cache_write_active_cells(
 
     if cell_id.x == WORLD_CACHE_SIZE - 1u {
         let active_cell_count = compacted_index + u32(cell_active);
+        let previous_active_cell_count = world_cache.active_cells_count;
         world_cache.active_cells_count = active_cell_count;
-        world_cache_active_cells_dispatch = DispatchIndirectArgs((active_cell_count + 63u) / 64u, 1u, 1u);
+
+        let max_updates = constants.world_cache_max_cell_updates_per_frame;
+        let update_count = min(active_cell_count, max_updates);
+        world_cache_active_cells_dispatch = DispatchIndirectArgs((update_count + 63u) / 64u, 1u, 1u);
+
+        var window_start = 0u;
+        if active_cell_count > max_updates {
+            let rescaled_start = u32(f32(world_cache.update_window_start) * f32(active_cell_count) / max(f32(previous_active_cell_count), 1.0));
+            window_start = (rescaled_start + max_updates) % active_cell_count;
+        }
+        world_cache.update_window_start = window_start;
     }
 }

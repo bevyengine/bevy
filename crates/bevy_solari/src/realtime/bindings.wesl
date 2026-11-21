@@ -55,7 +55,7 @@ struct SolariLightingSettings {
     world_cache_max_temporal_samples: f32,
     world_cache_direct_light_sample_count: u32,
     world_cache_max_gi_ray_distance: f32,
-    world_cache_cell_updates_soft_target: u32,
+    world_cache_max_cell_updates_per_frame: u32,
     world_cache_position_base_cell_size: f32,
     world_cache_position_lod_scale: f32,
     frame_rng: u32,
@@ -111,4 +111,5 @@ struct WorldCache {
     b: array<u32, constants::WORLD_CACHE_SIZE / 1024u>,
     active_cell_indices: array<u32, constants::WORLD_CACHE_SIZE>,
     active_cells_count: u32,
+    update_window_start: u32,
 }
