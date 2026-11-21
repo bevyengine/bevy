@@ -47,22 +47,26 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
     // Not found - insert into the first empty slot
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
         let key = wrap_key(base_key + i);
-        let cas = atomicCompareExchangeWeak(&world_cache.checksums[key], WORLD_CACHE_EMPTY_CELL, checksum);
-        let existing_checksum = cas.old_value;
-
-        // Cell already exists or is empty - reset lifetime
-        if existing_checksum == checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
-            reset_cell_lifetime(key, cell_lifetime);
-        }
-
+        let existing_checksum = atomicLoad(&world_cache.checksums[key]);
         if existing_checksum == checksum {
-            // Cache entry already exists - get radiance
+            // find_cell_slot didn't find this cell, but another thread has since inserted it
+            reset_cell_lifetime(key, cell_lifetime);
             return world_cache.radiance[key].rgb;
-        } else if existing_checksum == WORLD_CACHE_EMPTY_CELL && cas.exchanged {
+        }
+        if existing_checksum != WORLD_CACHE_EMPTY_CELL { continue; }
+
+        let cas = atomicCompareExchangeWeak(&world_cache.checksums[key], WORLD_CACHE_EMPTY_CELL, checksum);
+        if cas.exchanged {
             // Cell is empty - initialize it
+            reset_cell_lifetime(key, cell_lifetime);
             world_cache.geometry_data[key].world_position = world_position;
             world_cache.geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
+        }
+        if cas.old_value == checksum {
+            // Another thread inserted the same cell first
+            reset_cell_lifetime(key, cell_lifetime);
+            return world_cache.radiance[key].rgb;
         }
     }
 
