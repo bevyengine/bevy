@@ -22,7 +22,7 @@ var<workgroup> w2: array<u32, 1024u>;
 fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var life = world_cache.life[global_id.x];
     if life > 0u {
-        life -= 1u;
+        life = select(life - 1u, 0u, bool(constants.reset));
         world_cache.life[global_id.x] = life;
 
         if life == 0u {
