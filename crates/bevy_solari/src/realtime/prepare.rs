@@ -42,9 +42,14 @@ const RESERVOIR_STRUCT_SIZE: u64 = 48;
 pub const LIGHT_TILE_BLOCKS: u64 = 128;
 pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 
-/// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
+/// Amount of entries in the world cache (must be a power of 2 between 2^10 and 2^20)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
-/// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `realtime_bindings.wgsl`.
+const _: () = assert!(
+    WORLD_CACHE_SIZE.is_power_of_two()
+        && WORLD_CACHE_SIZE >= 2u64.pow(10)
+        && WORLD_CACHE_SIZE <= 2u64.pow(20)
+);
+/// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `bindings.wesl`.
 const WORLD_CACHE_ENTRY_SIZE: u64 = 84;
 /// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`).
 const WORLD_CACHE_B_SIZE: u64 = (WORLD_CACHE_SIZE / 1024) * size_of::<u32>() as u64;
@@ -59,7 +64,7 @@ pub const WORLD_CACHE_BUFFER_SIZE: u64 =
 /// per-frame state.
 ///
 /// Field order and types must match the `SolariLightingSettings` struct in
-/// `realtime_bindings.wgsl`.
+/// `bindings.wesl`.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct SolariLightingUniforms {

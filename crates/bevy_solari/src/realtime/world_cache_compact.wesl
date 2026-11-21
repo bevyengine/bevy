@@ -1,3 +1,4 @@
+import constants::WORLD_CACHE_SIZE;
 import package::realtime::world_cache_query::WORLD_CACHE_EMPTY_CELL;
 import package::realtime::bindings::{
     world_cache,
@@ -51,7 +52,8 @@ fn compact_world_cache_single_block(
 
 @compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
-    if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache.a[t * 1024u - 1u] + u32(world_cache.life[t * 1024u - 1u] != 0u); }; workgroupBarrier();
+    let block_count = WORLD_CACHE_SIZE / 1024u;
+    if t == 0u || t >= block_count { w1[t] = 0u; } else { w1[t] = world_cache.a[t * 1024u - 1u] + u32(world_cache.life[t * 1024u - 1u] != 0u); }; workgroupBarrier();
     if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
     if t < 2u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 2u]; } workgroupBarrier();
     if t < 4u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 4u]; } workgroupBarrier();
@@ -61,6 +63,7 @@ fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
     if t < 64u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 64u]; } workgroupBarrier();
     if t < 128u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 128u]; } workgroupBarrier();
     if t < 256u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 256u]; } workgroupBarrier();
+    if t >= block_count { return; }
     if t < 512u { world_cache.b[t] = w2[t]; } else { world_cache.b[t] = w2[t] + w2[t - 512u]; }
 }
 
@@ -68,7 +71,6 @@ fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
 fn compact_world_cache_write_active_cells(
     @builtin(global_invocation_id) cell_id: vec3<u32>,
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(local_invocation_index) thread_index: u32,
 ) {
     let compacted_index = world_cache.a[cell_id.x] + world_cache.b[workgroup_id.x];
     let cell_active = world_cache.life[cell_id.x] != 0u;
@@ -77,7 +79,7 @@ fn compact_world_cache_write_active_cells(
         world_cache.active_cell_indices[compacted_index] = cell_id.x;
     }
 
-    if thread_index == 1023u && workgroup_id.x == 1023u {
+    if cell_id.x == WORLD_CACHE_SIZE - 1u {
         let active_cell_count = compacted_index + u32(cell_active);
         world_cache.active_cells_count = active_cell_count;
         world_cache_active_cells_dispatch = DispatchIndirectArgs((active_cell_count + 63u) / 64u, 1u, 1u);
