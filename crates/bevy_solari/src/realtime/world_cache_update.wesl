@@ -21,10 +21,11 @@ const WORLD_CACHE_RAY_FLAG = RAY_FLAG_FORCE_OPAQUE;
 const WORLD_CACHE_RAY_FLAG = RAY_FLAG_NONE;
 
 @compute @workgroup_size(64, 1, 1)
-fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
-    if active_cell_id.x >= world_cache.active_cells_count { return; }
+fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) thread_id: vec3<u32>) {
+    let active_cell_id = get_active_cell(thread_id.x);
+    if active_cell_id == NO_ACTIVE_CELL { return; }
 
-    let cell_index = world_cache.active_cell_indices[active_cell_id.x];
+    let cell_index = world_cache.active_cell_indices[active_cell_id];
     let geometry_data = world_cache.geometry_data[cell_index];
     var rng = cell_index + constants.frame_rng;
 
@@ -32,14 +33,15 @@ fn sample_di(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
 
     let new_radiance = sample_random_light_ris(geometry_data.world_position, geometry_data.world_normal, workgroup_id.xy, &rng);
 
-    world_cache.active_cells_new_radiance[active_cell_id.x] = new_radiance;
+    world_cache.active_cells_new_radiance[active_cell_id] = new_radiance;
 }
 
 @compute @workgroup_size(64, 1, 1)
-fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
-    if active_cell_id.x >= world_cache.active_cells_count { return; }
+fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) thread_id: vec3<u32>) {
+    let active_cell_id = get_active_cell(thread_id.x);
+    if active_cell_id == NO_ACTIVE_CELL { return; }
 
-    let cell_index = world_cache.active_cell_indices[active_cell_id.x];
+    let cell_index = world_cache.active_cell_indices[active_cell_id];
     let geometry_data = world_cache.geometry_data[cell_index];
     var rng = cell_index + constants.frame_rng;
 
@@ -52,27 +54,28 @@ fn sample_gi(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_inv
         if ray.front_face || ray_hit.double_sided {
             let cell_life = atomicLoad(&world_cache.life[cell_index]);
             let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, cell_life, &rng);
-            world_cache.active_cells_new_radiance[active_cell_id.x] += ray_hit.material.base_color * radiance;
+            world_cache.active_cells_new_radiance[active_cell_id] += ray_hit.material.base_color * radiance;
         }
     } else {
         // The ray is cut short at world_cache_max_gi_ray_distance to save on traversal costs.
         // A miss here may actually have been a surface further away if we kept tracing, and not actually have been a miss.
         // We could be leaking sky light due to this if world_cache_max_gi_ray_distance is too small.
-        world_cache.active_cells_new_radiance[active_cell_id.x] += PI * sample_environment_map_light(ray_direction);
+        world_cache.active_cells_new_radiance[active_cell_id] += PI * sample_environment_map_light(ray_direction);
     }
 }
 
 @compute @workgroup_size(64, 1, 1)
-fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
-    if active_cell_id.x >= world_cache.active_cells_count { return; }
+fn blend_new_samples(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+    let active_cell_id = get_active_cell(thread_id.x);
+    if active_cell_id == NO_ACTIVE_CELL { return; }
 
-    let cell_index = world_cache.active_cell_indices[active_cell_id.x];
+    let cell_index = world_cache.active_cell_indices[active_cell_id];
     var rng = cell_index + constants.frame_rng;
 
     if rand_f(&rng) >= f32(constants.world_cache_cell_updates_soft_target) / f32(world_cache.active_cells_count) { return; }
 
     let old_radiance = world_cache.radiance[cell_index];
-    let new_radiance = world_cache.active_cells_new_radiance[active_cell_id.x];
+    let new_radiance = world_cache.active_cells_new_radiance[active_cell_id];
     let luminance_delta = world_cache.luminance_deltas[cell_index];
 
     // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
@@ -89,6 +92,13 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
     world_cache.radiance[cell_index] = vec4(blended_radiance, sample_count);
     world_cache.luminance_deltas[cell_index] = blended_luminance_delta;
+}
+
+const NO_ACTIVE_CELL = 0xFFFFFFFFu;
+
+fn get_active_cell(thread_id: u32) -> u32 {
+    if thread_id >= world_cache.active_cells_count { return NO_ACTIVE_CELL; }
+    return thread_id;
 }
 
 fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> vec3<f32> {
