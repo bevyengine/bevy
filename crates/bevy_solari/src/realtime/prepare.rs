@@ -50,7 +50,7 @@ const _: () = assert!(
         && WORLD_CACHE_SIZE <= 2u64.pow(20)
 );
 /// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `bindings.wesl`.
-const WORLD_CACHE_ENTRY_SIZE: u64 = 84;
+const WORLD_CACHE_ENTRY_SIZE: u64 = 68;
 /// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`).
 const WORLD_CACHE_B_SIZE: u64 = (WORLD_CACHE_SIZE / 1024) * size_of::<u32>() as u64;
 /// Offset of `active_cells_count`.

@@ -106,7 +106,6 @@ struct WorldCache {
     radiance: array<vec4<f32>, constants::WORLD_CACHE_SIZE>,
     geometry_data: array<WorldCacheGeometryData, constants::WORLD_CACHE_SIZE>,
     luminance_deltas: array<f32, constants::WORLD_CACHE_SIZE>,
-    active_cells_new_radiance: array<vec3<f32>, constants::WORLD_CACHE_SIZE>,
     a: array<u32, constants::WORLD_CACHE_SIZE>,
     b: array<u32, constants::WORLD_CACHE_SIZE / 1024u>,
     active_cell_indices: array<u32, constants::WORLD_CACHE_SIZE>,
