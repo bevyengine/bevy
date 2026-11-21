@@ -1,7 +1,7 @@
 ---
 title: Feathers dock
 authors: ["@jbuehler23"]
-pull_requests: []
+pull_requests: [26627]
 ---
 
 A dock can now use feathers styles. Add `FeathersDock` to the entity holding the `DockTree`, and its tab groups, tabs and splitters look like `FeathersTabList`, `FeathersTab` and `FeathersSplitPaneHandle`. While a tab is dragged, the drop zone under the pointer is highlighted, and the tab drag proxy shows when an ancestor has `DragOverlayRoot`.
