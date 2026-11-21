@@ -32,8 +32,8 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
-    var key = compute_key(world_position_quantized, world_normal_quantized);
-    let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
+    var key = compute_key(world_position_quantized, world_normal_quantized, cell_size);
+    let checksum = compute_checksum(world_position_quantized, world_normal_quantized, cell_size);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
         let cas = atomicCompareExchangeWeak(&world_cache.checksums[key], WORLD_CACHE_EMPTY_CELL, checksum);
@@ -80,23 +80,25 @@ fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
     return floor(world_normal + 0.0001);
 }
 
-fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
+fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>, cell_size: f32) -> u32 {
     var key = pcg_hash(world_position.x);
     key = pcg_hash(key + world_position.y);
     key = pcg_hash(key + world_position.z);
     key = pcg_hash(key + world_normal.x);
     key = pcg_hash(key + world_normal.y);
     key = pcg_hash(key + world_normal.z);
+    key = pcg_hash(key + bitcast<u32>(cell_size));
     return wrap_key(key);
 }
 
-fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
-    var key = iqint_hash(world_position.x);
-    key = iqint_hash(key + world_position.y);
-    key = iqint_hash(key + world_position.z);
-    key = iqint_hash(key + world_normal.x);
-    key = iqint_hash(key + world_normal.y);
-    key = iqint_hash(key + world_normal.z);
+fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>, cell_size: f32) -> u32 {
+    var key = jenkins_hash(world_position.x);
+    key = jenkins_hash(key + world_position.y);
+    key = jenkins_hash(key + world_position.z);
+    key = jenkins_hash(key + world_normal.x);
+    key = jenkins_hash(key + world_normal.y);
+    key = jenkins_hash(key + world_normal.z);
+    key = jenkins_hash(key + bitcast<u32>(cell_size));
     return max(key, 1u); // 0u is reserved for WORLD_CACHE_EMPTY_CELL
 }
 
@@ -106,9 +108,16 @@ fn pcg_hash(input: u32) -> u32 {
     return (word >> 22u) ^ word;
 }
 
-fn iqint_hash(input: u32) -> u32 {
-    let n = (input << 13u) ^ input;
-    return n * (n * n * 15731u + 789221u) + 1376312589u;
+// http://burtleburtle.net/bob/hash/integer.html
+fn jenkins_hash(input: u32) -> u32 {
+    var a = input;
+    a = (a + 0x7ed55d16u) + (a << 12u);
+    a = (a ^ 0xc761c23cu) ^ (a >> 19u);
+    a = (a + 0x165667b1u) + (a << 5u);
+    a = (a + 0xd3a2646cu) ^ (a << 9u);
+    a = (a + 0xfd7046c5u) + (a << 3u);
+    a = (a ^ 0xb55a4f09u) ^ (a >> 16u);
+    return a;
 }
 
 fn wrap_key(key: u32) -> u32 {
