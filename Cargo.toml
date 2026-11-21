@@ -5755,6 +5755,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "feathers_dock"
+path = "examples/ui/widgets/feathers_dock.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.feathers_dock]
+name = "Feathers Dock"
+description = "A dock layout styled with Feathers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "feathers_gallery"
 path = "examples/ui/widgets/feathers_gallery.rs"
 doc-scrape-examples = true
