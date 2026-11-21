@@ -19,21 +19,32 @@ const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 const WORLD_CACHE_CELL_NOT_FOUND: u32 = 0xFFFFFFFFu;
 
 @if(!WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER)
-fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
-    var world_position = world_position_in;
-    var cell_size = get_cell_size(world_position, view_position, rng);
+fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
+    let cell_size = get_cell_size(world_position, view_position, rng);
+    let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
 
 @if(!NO_JITTER_WORLD_CACHE) {
     // Jitter query point, which essentially blurs the cache a bit so it's not so grid-like
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
     let TBN = orthonormalize(world_normal);
     let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
-    world_position += offset.x * TBN[0] + offset.y * TBN[1];
-    cell_size = get_cell_size(world_position, view_position, rng);
+    let jittered_world_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+    let jittered_cell_size = get_cell_size(jittered_world_position, view_position, rng);
+
+    // Only look up cells at the jittered point - don't create new ones
+    // Misses fall back to the non-jittered point
+    let jittered_position_quantized = bitcast<vec3<u32>>(quantize_position(jittered_world_position, jittered_cell_size));
+    let jittered_key = find_cell_slot(
+        compute_key(jittered_position_quantized, world_normal_quantized, jittered_cell_size),
+        compute_checksum(jittered_position_quantized, world_normal_quantized, jittered_cell_size),
+    );
+    if jittered_key != WORLD_CACHE_CELL_NOT_FOUND {
+        reset_cell_lifetime(jittered_key, cell_lifetime);
+        return world_cache.radiance[jittered_key].rgb;
+    }
 }
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
-    let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
     let base_key = compute_key(world_position_quantized, world_normal_quantized, cell_size);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized, cell_size);
 
