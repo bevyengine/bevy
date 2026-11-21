@@ -57,7 +57,7 @@ fn query_world_cache(world_position_in: vec3<f32>, world_normal: vec3<f32>, view
             return vec3(0.0);
         } else {
             // Collision - linear probe to next entry
-            key += 1u;
+            key = wrap_key(key + 1u);
         }
     }
 
