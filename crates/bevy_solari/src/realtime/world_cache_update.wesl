@@ -75,7 +75,8 @@ fn blend_new_samples(@builtin(global_invocation_id) thread_id: vec3<u32>) {
     let sample_count = min(old_radiance.a + 1.0, constants.world_cache_max_temporal_samples);
     let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
     let max_sample_count = mix(constants.world_cache_max_temporal_samples, 1.0, pow(saturate(alpha), 1.0 / 8.0));
-    var blend_amount = 1.0 / min(sample_count, max_sample_count);
+    let frames_between_updates = ceil(f32(world_cache.active_cells_count) / f32(constants.world_cache_max_cell_updates_per_frame));
+    var blend_amount = max(1.0 / min(sample_count, max_sample_count), saturate(frames_between_updates / constants.world_cache_max_temporal_samples));
     if bool(constants.reset) {
         blend_amount = 1.0;
     }
