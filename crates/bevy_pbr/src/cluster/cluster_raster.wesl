@@ -399,11 +399,11 @@ fn cull_spot_light(
     );
     let world_light_direction_rev = vec3(
         world_light_direction_rev_xz.x,
-        world_light_direction_rev_y_sign * sqrt(
+        world_light_direction_rev_y_sign * sqrt(max(0.0,
             1.0 -
                 world_light_direction_rev_xz.x * world_light_direction_rev_xz.x -
                 world_light_direction_rev_xz.y * world_light_direction_rev_xz.y
-        ),
+        )),
         world_light_direction_rev_xz.y
     );
     let world_light_direction = -world_light_direction_rev;
