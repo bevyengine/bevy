@@ -8,10 +8,9 @@ import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_d
 import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult, nee_probability};
 import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, load_motion_vector, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
 import package::realtime::atmosphere::calculate_light_contribution;
-import package::scene::sampling::{balance_heuristic, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
+import package::scene::sampling::{balance_heuristic, isinf, isnan, LightSample, local_light_count, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
 import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
 import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
-import package::realtime::light_candidates::{light_candidate_split, local_light_selection_pdf};
 
 enable wgpu_ray_query;
 
@@ -340,7 +339,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         // nee_mis_weight in generate_nee_candidate and generate_emissive_candidate, which puts the same factor in the target.
         var nee_mis_weight = 1.0;
         if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
-            let selection_pdf = local_light_selection_pdf(light_candidate_split(constants.primary_local_light_samples));
+            let selection_pdf = f32(constants.primary_local_light_samples) / f32(local_light_count());
             let p_nee = nee_probability(material);
             let p_nee_strategy = selection_pdf * (1.0 / light_contribution.inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
@@ -369,8 +368,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
                 let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
                 let p_nee = nee_probability(material);
                 let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
-                let local_candidates = light_candidate_split(constants.primary_local_light_samples).local;
-                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(local_candidates));
+                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_local_light_samples));
             }
         }
 

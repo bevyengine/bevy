@@ -20,10 +20,6 @@ fn light_candidate_split(candidate_count: u32) -> LightCandidateSplit {
     return LightCandidateSplit(directional, local);
 }
 
-fn local_light_selection_pdf(split: LightCandidateSplit) -> f32 {
-    return f32(split.local) / f32(max(local_light_count(), 1u));
-}
-
 /// Light tile slot of directional light candidates, which don't come from the light tiles
 const NO_LIGHT_TILE_SLOT: u32 = 0xFFFFFFFFu;
 
@@ -47,7 +43,7 @@ fn generate_directional_light_candidate(split: LightCandidateSplit, rng: ptr<fun
 fn generate_local_light_candidate(split: LightCandidateSplit, light_tile_start: u32, rng: ptr<function, u32>) -> LightCandidate {
     let tile_sample = light_tile_start + rand_range_u(1024u, rng);
     var resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
-    resolved_light_sample.inverse_pdf /= local_light_selection_pdf(split);
+    resolved_light_sample.inverse_pdf *= f32(local_light_count()) / f32(split.local);
     return LightCandidate(LightSample(NULL_LIGHT_ID, 0u), tile_sample, resolved_light_sample);
 }
 

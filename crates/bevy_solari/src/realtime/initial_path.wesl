@@ -3,7 +3,7 @@ import bevy_pbr::render::utils::{rand_f, rand_range_u};
 import bevy_render::maths::PI;
 import bevy_render::utils::octahedral_encode;
 import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, EvaluateAndSampleBrdfResult, F_AB};
-import package::realtime::light_candidates::{candidate_light_sample, generate_directional_light_candidate, generate_local_light_candidate, light_candidate_split, LightCandidate, LightCandidateSplit};
+import package::realtime::light_candidates::{candidate_light_sample, generate_directional_light_candidate, generate_local_light_candidate, light_candidate_split, LightCandidate};
 import package::realtime::bindings::{empty_reservoir, Reservoir, constants, view};
 import package::realtime::atmosphere::calculate_light_contribution;
 import package::scene::sampling::{isinf, local_light_count, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
@@ -223,7 +223,7 @@ fn generate_nee_candidate(
     let p_nee = nee_probability((*path).material);
     if p_nee == 0.0 { return; }
 
-    var di = sample_light_ris((*path).ray_origin, (*path).normal, (*path).wo, (*path).material, F_ab, light_candidate_split(di_samples), workgroup_id, bounce, rng);
+    var di = sample_light_ris((*path).ray_origin, (*path).normal, (*path).wo, (*path).material, F_ab, di_samples, workgroup_id, bounce, rng);
     let di_target_function = luminance(di.brdf_radiance);
     if di_target_function <= 0.0 { return; }
 
@@ -284,7 +284,8 @@ struct DiSample {
 }
 
 /// RIS over the directional and local light candidates, see `LightCandidateSplit`.
-fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, split: LightCandidateSplit, workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>) -> DiSample {
+fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, di_samples: u32, workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>) -> DiSample {
+    let split = light_candidate_split(di_samples);
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y + bounce;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
@@ -352,11 +353,10 @@ fn generate_emissive_candidate(
     rng: ptr<function, u32>,
 ) {
     let NdotV_hit = max(dot(ray_hit.world_normal, -wi), 0.0001);
-    let area_pdf = 1.0 / (f32(max(local_light_count(), 1u)) * f32(ray_hit.triangle_count) * ray_hit.triangle_area);
+    let area_pdf = 1.0 / (f32(local_light_count()) * f32(ray_hit.triangle_count) * ray_hit.triangle_area);
     let p_light = area_pdf * ray_t * ray_t / NdotV_hit;
     let p_nee = nee_probability((*path).material);
-    let local_candidates = light_candidate_split(di_samples).local;
-    let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(local_candidates));
+    let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(di_samples));
 
     @if(RESTIR) {
         if !(*path).x2_reusable {
