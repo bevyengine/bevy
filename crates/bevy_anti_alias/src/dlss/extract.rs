@@ -23,6 +23,7 @@ pub fn extract_dlss<F: DlssFeature>(
             dlss.as_mut().unwrap().reset = false;
         } else if cleanup_query.get(entity) == Ok(true) {
             entity_commands.remove::<(Dlss<F>, DlssRenderContext<F>, MainPassResolutionOverride)>();
+            F::remove_view_components(&mut entity_commands);
         }
     }
 }
