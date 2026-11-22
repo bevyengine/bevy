@@ -4278,10 +4278,7 @@ mod calc {
             ),
             case(
                 "(px(100) + vw(10)) / 2.",
-                vec![
-                    vec![px_(50.), vw_(5.)],
-                    vec![calc((px(100) + vw(10)) / 2.)],
-                ],
+                vec![vec![px_(50.), vw_(5.)], vec![calc((px(100) + vw(10)) / 2.)]],
             ),
             case(
                 "px(300) - vw(10)",
