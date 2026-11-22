@@ -69,8 +69,8 @@ pub enum SvgMipmaps {
     /// Rasterize every mipmap level down to 1x1
     #[default]
     Full,
-    /// Rasterize the full-size image and the specified number of mipmap levels.
-    Count(u32),
+    /// Rasterize a maximum of this many mipmap levels.
+    Max(u32),
 }
 
 /// Settings for loading an SVG with [`SvgLoader`].
@@ -183,7 +183,7 @@ fn rasterize(bytes: &[u8], settings: &SvgLoaderSettings, path: &Path) -> Result<
     let mip_level_count = match settings.mipmaps {
         SvgMipmaps::Off => 1,
         SvgMipmaps::Full => max_mips,
-        SvgMipmaps::Count(count) => count.clamp(1, max_mips),
+        SvgMipmaps::Max(count) => count.clamp(1, max_mips),
     };
 
     // Precalculate the width and height of each mipmap level
@@ -406,9 +406,9 @@ mod tests {
     fn mip_level_count_follows_settings() {
         for (mipmaps, expected) in [
             (SvgMipmaps::Off, 1),
-            (SvgMipmaps::Count(0), 1),
-            (SvgMipmaps::Count(2), 2),
-            (SvgMipmaps::Count(100), 5),
+            (SvgMipmaps::Max(0), 1),
+            (SvgMipmaps::Max(2), 2),
+            (SvgMipmaps::Max(100), 5),
         ] {
             let settings = SvgLoaderSettings {
                 mipmaps,
@@ -658,7 +658,7 @@ mod tests {
                 width: 32,
                 height: 16,
             },
-            mipmaps: SvgMipmaps::Count(3),
+            mipmaps: SvgMipmaps::Max(3),
             ..Default::default()
         };
         let json = serde_json::to_string(&settings).unwrap();
