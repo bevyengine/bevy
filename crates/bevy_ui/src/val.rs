@@ -884,7 +884,7 @@ pub(crate) struct ClampOp {
     /// negate the clamped result
     ///
     /// This is needed for the reduction of expressions multiplying a negative scalar and a `ClampOp`.
-    /// Unlike with min and max, we can't just negate the inner `Val`s as the bounds may cross over.
+    /// If the bounds and self are all the same units, the clamped value of `self` is returned immediately.
     /// Instead, without the `negate` flag, we would have to expand the clamp operation into a
     /// composition of min and max operations.
     pub(crate) negate: bool,
@@ -900,11 +900,7 @@ impl ClampOp {
         }
     }
 
-    fn resolve(
-        &self,
-        context: &ValContext,
-        percent_basis: f32,
-    ) -> Result<f32, ValArithmeticError> {
+    fn resolve(&self, context: &ValContext, percent_basis: f32) -> Result<f32, ValArithmeticError> {
         let min = self.min.resolve(context, percent_basis)?;
         let value = self.value.resolve(context, percent_basis)?;
         let max = self.max.resolve(context, percent_basis)?;
