@@ -144,6 +144,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 @group(0) @binding(18) var environment_map_sampler: sampler;
 @group(0) @binding(19) var<storage> environment_map_light: EnvironmentMapLight;
 @group(0) @binding(20) var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(21) var<storage> directional_light_count: u32;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;

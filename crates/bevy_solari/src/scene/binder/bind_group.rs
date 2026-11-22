@@ -23,7 +23,7 @@ use tracing::info_span;
 pub struct BindGroupCacheState {
     cached: [Option<BindGroup>; 2],
     pub invalid: bool,
-    last_buffer_ids: Option<[BufferId; 11]>,
+    last_buffer_ids: Option<[BufferId; 12]>,
     last_dfg_ids: Option<(TextureViewId, SamplerId)>,
     last_light_count: u32,
     last_environment_map_light_id: Option<TextureViewId>,
@@ -64,19 +64,20 @@ fn buffer_bindings<'a>(
 
 impl RaytracingSceneBindings {
     /// The id of each buffer in the bind group.
-    fn buffer_ids(&self) -> [BufferId; 11] {
+    fn buffer_ids(&self) -> [BufferId; 12] {
         [
             self.assets.materials.buffer(),
             self.instances.transforms.buffer(),
             self.instances.previous_frame_transforms.buffer(),
             self.instances.geometry_ids.buffer(),
             self.instances.material_ids.buffer(),
-            self.lights.sources.buffer(),
+            self.lights.tracker.sources.buffer(),
             self.lights.directional_lights.buffer(),
             self.lights.point_lights.buffer(),
             self.lights.rect_lights.buffer(),
             self.environment_map_light_buffer.buffer(),
             self.lights.previous_frame_id_translations.buffer(),
+            self.directional_light_count_buffer.buffer(),
         ]
         .map(|buffer| {
             buffer
@@ -114,7 +115,7 @@ impl RaytracingSceneBindings {
             invalid = true;
         }
 
-        let light_count = self.lights.index.len() as u32;
+        let light_count = self.lights.tracker.len() as u32;
         if self.bind_groups.last_light_count != light_count {
             self.bind_groups.last_light_count = light_count;
             invalid = true;
@@ -162,10 +163,10 @@ impl RaytracingSceneBindings {
         }
 
         let light_sources = BufferBinding {
-            buffer: self.lights.sources.buffer().unwrap(),
+            buffer: self.lights.tracker.sources.buffer().unwrap(),
             offset: 0,
             size: BufferSize::new(
-                self.lights.index.len() as u64 * size_of::<GpuLightSource>() as u64,
+                self.lights.tracker.len() as u64 * size_of::<GpuLightSource>() as u64,
             ),
         };
 
@@ -203,6 +204,7 @@ impl RaytracingSceneBindings {
                     .previous_frame_id_translations
                     .binding()
                     .unwrap(),
+                &self.directional_light_count_buffer,
             )),
         )
     }
@@ -273,7 +275,7 @@ pub fn prepare_raytracing_scene_bind_group(
     );
     bindings.bind_group = None;
 
-    if bindings.instances.live_count == 0 || bindings.lights.index.is_empty() {
+    if bindings.instances.live_count == 0 || bindings.lights.tracker.is_empty() {
         return;
     }
     if bindings.tlas.structures[bindings.tlas.current_index].is_none() {
@@ -296,6 +298,13 @@ pub fn prepare_raytracing_scene_bind_group(
         &render_device,
         &render_queue,
     );
+
+    bindings
+        .directional_light_count_buffer
+        .set(bindings.lights.tracker.directional_light_count());
+    bindings
+        .directional_light_count_buffer
+        .write_buffer(&render_device, &render_queue);
 
     if bindings.take_bind_group_invalidation(dfg_view, dfg_sampler, environment_map_light) {
         bindings.bind_groups.cached = [None, None];
@@ -390,6 +399,7 @@ fn prepare_sparse_uploads(
 
     let lights = &mut bindings.lights;
     lights
+        .tracker
         .sources
         .prepare_to_populate_buffers(device, cache, jobs, groups, pipelines);
     lights

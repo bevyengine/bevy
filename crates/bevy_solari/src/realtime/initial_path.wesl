@@ -3,11 +3,11 @@ import bevy_pbr::render::utils::{rand_f, rand_range_u};
 import bevy_render::maths::PI;
 import bevy_render::utils::octahedral_encode;
 import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, EvaluateAndSampleBrdfResult, F_AB};
-import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
-import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
+import package::realtime::light_candidates::{candidate_light_sample, generate_directional_light_candidate, generate_local_light_candidate, light_candidate_split, LightCandidate, LightCandidateSplit};
+import package::realtime::bindings::{empty_reservoir, Reservoir, constants, view};
 import package::realtime::atmosphere::calculate_light_contribution;
-import package::scene::sampling::{isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
-import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
+import package::scene::sampling::{isinf, local_light_count, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
+import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
 @if(DLSS_RR_GUIDE_BUFFERS)
@@ -91,7 +91,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
         let F_ab = F_AB(path.material.perceptual_roughness, NdotV);
 
         // Sample lights via NEE
-        let di_samples = select(constants.secondary_di_samples, constants.primary_di_samples, bounce == 0u);
+        let di_samples = select(constants.secondary_local_light_samples, constants.primary_local_light_samples, bounce == 0u);
         generate_nee_candidate(&path, F_ab, di_samples, workgroup_id, bounce, rng);
 
         // Sample the BRDF and trace the next ray
@@ -223,7 +223,7 @@ fn generate_nee_candidate(
     let p_nee = nee_probability((*path).material);
     if p_nee == 0.0 { return; }
 
-    var di = sample_light_ris((*path).ray_origin, (*path).normal, (*path).wo, (*path).material, F_ab, di_samples, workgroup_id, bounce, rng);
+    var di = sample_light_ris((*path).ray_origin, (*path).normal, (*path).wo, (*path).material, F_ab, light_candidate_split(di_samples), workgroup_id, bounce, rng);
     let di_target_function = luminance(di.brdf_radiance);
     if di_target_function <= 0.0 { return; }
 
@@ -237,10 +237,11 @@ fn generate_nee_candidate(
     if di.unbiased_contribution_weight <= 0.0 { return; }
 
     // MIS against the BRDF strategy. RIS over N candidates makes the effective NEE pdf at the
-    // winner roughly N * light_pdf(winner), so scale by p_nee for the stochastic gate.
+    // winner roughly N * light_pdf(winner), which inverse_solid_angle_pdf already sums over the
+    // candidates, so scale by p_nee for the stochastic gate.
     var nee_mis_weight = 1.0;
     if di.brdf_rays_can_hit && di.inverse_solid_angle_pdf > 0.0 {
-        let p_nee_strategy = f32(di_samples) * (1.0 / di.inverse_solid_angle_pdf) * p_nee;
+        let p_nee_strategy = (1.0 / di.inverse_solid_angle_pdf) * p_nee;
         let p_brdf_at_nee = brdf_pdf((*path).wo, di.wi, (*path).normal, (*path).material, F_ab);
         nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
     }
@@ -282,48 +283,62 @@ struct DiSample {
     brdf_rays_can_hit: bool,
 }
 
-fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, di_samples: u32, workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>) -> DiSample {
+/// RIS over the directional and local light candidates, see `LightCandidateSplit`.
+fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, split: LightCandidateSplit, workgroup_id: vec2<u32>, bounce: u32, rng: ptr<function, u32>) -> DiSample {
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y + bounce;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
-    var weight_sum = 0.0;
-    var selected_target_function = 0.0;
-    var selected_tile_sample = 0u;
-    var selected_world_position = vec4(0.0);
-    var selected_wi = vec3(0.0);
-    var selected_brdf_radiance = vec3(0.0);
-    var selected_inverse_solid_angle_pdf = 0.0;
-    var selected_brdf_rays_can_hit = false;
-    let mis_weight = 1.0 / f32(di_samples);
-    for (var i = 0u; i < di_samples; i++) {
-        let tile_sample = light_tile_start + rand_range_u(1024u, rng);
-        let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
-        let light_contribution = calculate_light_contribution(resolved_light_sample, ray_origin, normal);
-        let brdf_current = evaluate_brdf(wo, light_contribution.wi, normal, material, F_ab);
-        let brdf_radiance = brdf_current * light_contribution.radiance;
-
-        let target_function = luminance(brdf_radiance);
-        let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
-
-        weight_sum += resampling_weight;
-
-        if rand_f(rng) * weight_sum < resampling_weight {
-            selected_target_function = target_function;
-            selected_tile_sample = tile_sample;
-            selected_world_position = resolved_light_sample.world_position;
-            selected_wi = light_contribution.wi;
-            selected_inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf;
-            selected_brdf_rays_can_hit = light_contribution.brdf_rays_can_hit;
-            selected_brdf_radiance = brdf_radiance;
-        }
+    var ris: LightRisState;
+    ris.selected_light_sample = LightSample(NULL_LIGHT_ID, 0u);
+    for (var i = 0u; i < split.directional; i++) {
+        add_light_ris_candidate(&ris, generate_directional_light_candidate(split, rng), ray_origin, normal, wo, material, F_ab, rng);
+    }
+    for (var i = 0u; i < split.local; i++) {
+        add_light_ris_candidate(&ris, generate_local_light_candidate(split, light_tile_start, rng), ray_origin, normal, wo, material, F_ab, rng);
     }
 
     var unbiased_contribution_weight = 0.0;
-    if selected_target_function > 0.0 {
-        unbiased_contribution_weight = weight_sum / selected_target_function;
+    if ris.selected_target_function > 0.0 {
+        unbiased_contribution_weight = ris.weight_sum / ris.selected_target_function;
+        ris.selected_light_sample = candidate_light_sample(ris.selected_light_sample, ris.selected_light_tile_slot);
     }
 
-    return DiSample(unbiased_contribution_weight, light_tile_samples[selected_tile_sample], selected_world_position, selected_wi, selected_brdf_radiance, selected_inverse_solid_angle_pdf, selected_brdf_rays_can_hit);
+    return DiSample(unbiased_contribution_weight, ris.selected_light_sample, ris.selected_world_position, ris.selected_wi, ris.selected_brdf_radiance, ris.selected_inverse_solid_angle_pdf, ris.selected_brdf_rays_can_hit);
+}
+
+struct LightRisState {
+    weight_sum: f32,
+    selected_target_function: f32,
+    selected_light_sample: LightSample,
+    selected_light_tile_slot: u32,
+    selected_world_position: vec4<f32>,
+    selected_wi: vec3<f32>,
+    selected_brdf_radiance: vec3<f32>,
+    selected_inverse_solid_angle_pdf: f32,
+    selected_brdf_rays_can_hit: bool,
+}
+
+fn add_light_ris_candidate(ris: ptr<function, LightRisState>, candidate: LightCandidate, ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>, rng: ptr<function, u32>) {
+    let resolved_light_sample = candidate.resolved_light_sample;
+    let light_contribution = calculate_light_contribution(resolved_light_sample, ray_origin, normal);
+    let brdf_current = evaluate_brdf(wo, light_contribution.wi, normal, material, F_ab);
+    let brdf_radiance = brdf_current * light_contribution.radiance;
+
+    let target_function = luminance(brdf_radiance);
+    let resampling_weight = target_function * light_contribution.inverse_pdf;
+
+    (*ris).weight_sum += resampling_weight;
+
+    if rand_f(rng) * (*ris).weight_sum < resampling_weight {
+        (*ris).selected_target_function = target_function;
+        (*ris).selected_light_sample = candidate.light_sample;
+        (*ris).selected_light_tile_slot = candidate.light_tile_slot;
+        (*ris).selected_world_position = resolved_light_sample.world_position;
+        (*ris).selected_wi = light_contribution.wi;
+        (*ris).selected_inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf;
+        (*ris).selected_brdf_rays_can_hit = light_contribution.brdf_rays_can_hit;
+        (*ris).selected_brdf_radiance = brdf_radiance;
+    }
 }
 
 fn generate_emissive_candidate(
@@ -337,11 +352,11 @@ fn generate_emissive_candidate(
     rng: ptr<function, u32>,
 ) {
     let NdotV_hit = max(dot(ray_hit.world_normal, -wi), 0.0001);
-    let light_count = arrayLength(&light_sources);
-    let area_pdf = 1.0 / (f32(light_count) * f32(ray_hit.triangle_count) * ray_hit.triangle_area);
+    let area_pdf = 1.0 / (f32(max(local_light_count(), 1u)) * f32(ray_hit.triangle_count) * ray_hit.triangle_area);
     let p_light = area_pdf * ray_t * ray_t / NdotV_hit;
     let p_nee = nee_probability((*path).material);
-    let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(di_samples));
+    let local_candidates = light_candidate_split(di_samples).local;
+    let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(local_candidates));
 
     @if(RESTIR) {
         if !(*path).x2_reusable {

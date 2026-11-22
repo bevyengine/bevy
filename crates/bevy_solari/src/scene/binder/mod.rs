@@ -57,6 +57,7 @@ pub struct RaytracingSceneBindings {
     lights: LightState,
     environment_map_light_sampler: Sampler,
     environment_map_light_buffer: StorageBuffer<GpuEnvironmentMapLight>,
+    directional_light_count_buffer: StorageBuffer<u32>,
     tlas: TlasState,
     bind_groups: BindGroupCacheState,
 }
@@ -100,6 +101,7 @@ impl FromWorld for RaytracingSceneBindings {
                     sampler(SamplerBindingType::Filtering),
                     storage_buffer_read_only_sized(false, None),
                     storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only::<u32>(false),
                 ),
             ),
         );
@@ -118,6 +120,9 @@ impl FromWorld for RaytracingSceneBindings {
         let mut environment_map_light_buffer = StorageBuffer::<GpuEnvironmentMapLight>::default();
         environment_map_light_buffer.set_label(Some("solari_environment_map_light"));
 
+        let mut directional_light_count_buffer = StorageBuffer::<u32>::default();
+        directional_light_count_buffer.set_label(Some("solari_directional_light_count"));
+
         Self {
             bind_group: None,
             bind_group_layout,
@@ -126,6 +131,7 @@ impl FromWorld for RaytracingSceneBindings {
             lights: LightState::new(),
             environment_map_light_sampler,
             environment_map_light_buffer,
+            directional_light_count_buffer,
             tlas: TlasState::new(render_device),
             bind_groups: BindGroupCacheState::new(render_device),
         }
@@ -267,7 +273,10 @@ fn write_sparse_buffers(
     }
 
     let lights = &mut bindings.lights;
-    lights.sources.write_buffers_non_empty(device, queue);
+    lights
+        .tracker
+        .sources
+        .write_buffers_non_empty(device, queue);
     lights
         .directional_lights
         .write_buffers_non_empty(device, queue);

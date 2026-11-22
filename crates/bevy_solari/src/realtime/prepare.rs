@@ -64,11 +64,11 @@ pub const WORLD_CACHE_BUFFER_SIZE: u64 =
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct SolariLightingUniforms {
     confidence_weight_cap: f32,
-    primary_di_samples: u32,
-    secondary_di_samples: u32,
+    primary_local_light_samples: u32,
+    secondary_local_light_samples: u32,
     max_bounces: u32,
     world_cache_max_temporal_samples: f32,
-    world_cache_direct_light_sample_count: u32,
+    world_cache_local_light_sample_count: u32,
     world_cache_max_gi_ray_distance: f32,
     world_cache_cell_updates_soft_target: u32,
     world_cache_position_base_cell_size: f32,
@@ -81,11 +81,11 @@ impl SolariLightingUniforms {
     fn new(settings: &SolariLighting, frame_count: u32, force_reset: bool) -> Self {
         Self {
             confidence_weight_cap: settings.confidence_weight_cap,
-            primary_di_samples: settings.primary_di_samples,
-            secondary_di_samples: settings.secondary_di_samples,
+            primary_local_light_samples: settings.primary_local_light_samples,
+            secondary_local_light_samples: settings.secondary_local_light_samples,
             max_bounces: settings.max_bounces,
             world_cache_max_temporal_samples: settings.world_cache_max_temporal_samples,
-            world_cache_direct_light_sample_count: settings.world_cache_direct_light_sample_count,
+            world_cache_local_light_sample_count: settings.world_cache_local_light_sample_count,
             world_cache_max_gi_ray_distance: settings.world_cache_max_gi_ray_distance,
             world_cache_cell_updates_soft_target: settings.world_cache_cell_updates_soft_target,
             world_cache_position_base_cell_size: settings.world_cache_position_base_cell_size,

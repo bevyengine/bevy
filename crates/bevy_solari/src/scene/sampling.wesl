@@ -1,7 +1,7 @@
 import bevy_pbr::render::pbr_lighting::D_GGX;
 import bevy_pbr::render::utils::{rand_vec2f, rand_u, rand_range_u, sample_uniform_sphere};
 import bevy_render::maths::{PI_2, orthonormalize};
-import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, point_lights, rect_lights, environment_map, environment_map_sampler, environment_map_light, LightSource, light_source_kind, emissive_mesh_triangle_count, LIGHT_SOURCE_KIND_EMISSIVE_MESH, LIGHT_SOURCE_KIND_DIRECTIONAL, LIGHT_SOURCE_KIND_POINT, LIGHT_SOURCE_KIND_RECT, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::bindings::{trace_ray, trace_ray_previous_frame, RAY_T_MIN, RAY_T_MAX, light_sources, directional_light_count, directional_lights, point_lights, rect_lights, environment_map, environment_map_sampler, environment_map_light, LightSource, light_source_kind, emissive_mesh_triangle_count, LIGHT_SOURCE_KIND_EMISSIVE_MESH, LIGHT_SOURCE_KIND_DIRECTIONAL, LIGHT_SOURCE_KIND_POINT, LIGHT_SOURCE_KIND_RECT, resolve_triangle_data_full, ResolvedRayHitFull, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 
@@ -163,10 +163,33 @@ fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(environment_map, environment_map_sampler, sample_direction, 0.0).rgb * environment_map_light.intensity;
 }
 
+/// The number of local (point, spot, rect, and emissive mesh) lights in the scene.
+fn local_light_count() -> u32 {
+    return arrayLength(&light_sources) - directional_light_count;
+}
+
+fn generate_directional_light_sample(light_id: u32, rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
+    let light_source = light_sources[light_id];
+    let light_sample = LightSample(light_id << 16u, rand_u(rng));
+    return GenerateRandomLightSampleResult(light_sample, resolve_directional_light_sample(light_sample, light_source));
+}
+
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
     let light_count = arrayLength(&light_sources);
     let light_id = rand_range_u(light_count, rng);
 
+    var sample = generate_light_sample(light_id, rng);
+    sample.resolved_light_sample.inverse_pdf *= f32(light_count);
+    return sample;
+}
+
+fn generate_random_local_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
+    let light_id = directional_light_count + rand_range_u(local_light_count(), rng);
+    return generate_light_sample(light_id, rng);
+}
+
+/// Picks a random point on a light
+fn generate_light_sample(light_id: u32, rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
     let light_source = light_sources[light_id];
 
     var triangle_id = 0u;
@@ -177,47 +200,48 @@ fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightS
     let seed = rand_u(rng);
     let light_sample = LightSample((light_id << 16u) | triangle_id, seed);
 
-    var resolved_light_sample = resolve_light_sample(light_sample, light_source);
-    resolved_light_sample.inverse_pdf *= f32(light_count);
+    return GenerateRandomLightSampleResult(light_sample, resolve_light_sample(light_sample, light_source));
+}
 
-    return GenerateRandomLightSampleResult(light_sample, resolved_light_sample);
+fn resolve_directional_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
+    let directional_light = directional_lights[light_source.id];
+
+    var direction_to_light: vec3<f32>;
+@if(!NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS) {
+    // Sample a random direction within a cone whose base is the sun approximated as a disk
+    // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
+    var rng = light_sample.seed;
+    let random = rand_vec2f(&rng);
+    let cos_theta = (1.0 - random.x) + random.x * directional_light.cos_theta_max;
+    let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    let phi = random.y * PI_2;
+    let x = cos(phi) * sin_theta;
+    let y = sin(phi) * sin_theta;
+    direction_to_light = vec3(x, y, cos_theta);
+
+    // Rotate the ray so that the cone it was sampled from is aligned with the light direction
+    direction_to_light = orthonormalize(directional_light.direction_to_light) * direction_to_light;
+} @else {
+    direction_to_light = directional_light.direction_to_light;
+}
+
+    return ResolvedLightSample(
+        vec4(direction_to_light, 0.0),
+        -direction_to_light,
+        directional_light.luminance,
+        directional_light.inverse_pdf,
+        -direction_to_light,
+        NO_EMISSION_CONE,
+        NO_EMISSION_CONE,
+        1.0,
+        false,
+    );
 }
 
 fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) -> ResolvedLightSample {
     let kind = light_source_kind(light_source);
     if kind == LIGHT_SOURCE_KIND_DIRECTIONAL {
-        let directional_light = directional_lights[light_source.id];
-
-        var direction_to_light: vec3<f32>;
-@if(!NO_DIRECTIONAL_LIGHT_SOFT_SHADOWS) {
-        // Sample a random direction within a cone whose base is the sun approximated as a disk
-        // https://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.9.pdf#0004286901.INDD%3ASec30%3A305
-        var rng = light_sample.seed;
-        let random = rand_vec2f(&rng);
-        let cos_theta = (1.0 - random.x) + random.x * directional_light.cos_theta_max;
-        let sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-        let phi = random.y * PI_2;
-        let x = cos(phi) * sin_theta;
-        let y = sin(phi) * sin_theta;
-        direction_to_light = vec3(x, y, cos_theta);
-
-        // Rotate the ray so that the cone it was sampled from is aligned with the light direction
-        direction_to_light = orthonormalize(directional_light.direction_to_light) * direction_to_light;
-} @else {
-        direction_to_light = directional_light.direction_to_light;
-}
-
-        return ResolvedLightSample(
-            vec4(direction_to_light, 0.0),
-            -direction_to_light,
-            directional_light.luminance,
-            directional_light.inverse_pdf,
-            -direction_to_light,
-            NO_EMISSION_CONE,
-            NO_EMISSION_CONE,
-            1.0,
-            false,
-        );
+        return resolve_directional_light_sample(light_sample, light_source);
     } else if kind == LIGHT_SOURCE_KIND_POINT {
         let point_light = point_lights[light_source.id];
 

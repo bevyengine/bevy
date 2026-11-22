@@ -11,6 +11,7 @@ import package::realtime::atmosphere::calculate_light_contribution;
 import package::scene::sampling::{balance_heuristic, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
 import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
 import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
+import package::realtime::light_candidates::{light_candidate_split, local_light_selection_pdf};
 
 enable wgpu_ray_query;
 
@@ -339,10 +340,9 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         // nee_mis_weight in generate_nee_candidate and generate_emissive_candidate, which puts the same factor in the target.
         var nee_mis_weight = 1.0;
         if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
-            let light_count = arrayLength(&light_sources);
-            let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
+            let selection_pdf = local_light_selection_pdf(light_candidate_split(constants.primary_local_light_samples));
             let p_nee = nee_probability(material);
-            let p_nee_strategy = f32(constants.primary_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
+            let p_nee_strategy = selection_pdf * (1.0 / light_contribution.inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
             nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
         }
@@ -369,7 +369,8 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
                 let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
                 let p_nee = nee_probability(material);
                 let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
-                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
+                let local_candidates = light_candidate_split(constants.primary_local_light_samples).local;
+                brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(local_candidates));
             }
         }
 
