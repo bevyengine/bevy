@@ -4,7 +4,7 @@ use crate::{
     ptr::PtrMut,
     resource::Resource,
 };
-use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, ThinSlicePtr};
 use core::{
     cell::UnsafeCell,
     ops::{Deref, DerefMut, Range},
@@ -33,11 +33,13 @@ impl<'w> ComponentTicksRef<'w> {
     ) -> Self {
         Self {
             // SAFETY: Caller ensures there is no mutable access to the cell.
-            added: unsafe { cells.added.deref() },
+            added: unsafe { cells.added.as_ref_unchecked() },
             // SAFETY: Caller ensures there is no mutable access to the cell.
-            changed: unsafe { cells.changed.deref() },
+            changed: unsafe { cells.changed.as_ref_unchecked() },
             // SAFETY: Caller ensures there is no mutable access to the cell.
-            changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref()) },
+            changed_by: cells
+                .changed_by
+                .map(|changed_by| unsafe { changed_by.as_ref_unchecked() }),
             last_run,
             this_run,
         }
@@ -269,11 +271,13 @@ impl<'w> ComponentTicksMut<'w> {
     ) -> Self {
         Self {
             // SAFETY: Caller ensures there is no alias to the cell.
-            added: unsafe { cells.added.deref_mut() },
+            added: unsafe { cells.added.as_mut_unchecked() },
             // SAFETY: Caller ensures there is no alias to the cell.
-            changed: unsafe { cells.changed.deref_mut() },
+            changed: unsafe { cells.changed.as_mut_unchecked() },
             // SAFETY: Caller ensures there is no alias to the cell.
-            changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
+            changed_by: cells
+                .changed_by
+                .map(|changed_by| unsafe { changed_by.as_mut_unchecked() }),
             last_run,
             this_run,
             summary_tick: cells.summary_tick,

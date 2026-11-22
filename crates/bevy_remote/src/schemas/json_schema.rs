@@ -1,7 +1,7 @@
 //! Module with JSON Schema type for Bevy Registry Types.
 //!  It tries to follow this standard: <https://json-schema.org/specification>
 use alloc::{borrow::Cow, collections::BTreeMap};
-use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit, ValueRange};
+use bevy_annotations::{DisplayName, ReadOnly, Step, Tooltip, Unit};
 use bevy_ecs::component::{Components, StorageType};
 use bevy_ecs::{component::ComponentInfo, relationship::RelationshipAccessor};
 use bevy_reflect::{
@@ -264,6 +264,8 @@ impl
                                             .map(SchemaJsonReference::ref_type)
                                             .collect::<Vec<_>>(),
                                         "items": false,
+                                        "minItems": v.field_len(),
+                                        "maxItems": v.field_len(),
                                     }),
                                 ),
                                 Some("Tuple"),
@@ -298,6 +300,8 @@ impl
                     .map(|(_, field)| field.ref_type())
                     .collect::<Vec<_>>();
                 typed_schema.items = Some(false.into());
+                typed_schema.min_items = Some(typed_schema.prefix_items.len());
+                typed_schema.max_items = Some(typed_schema.prefix_items.len());
             }
             TypeInfo::List(info) => {
                 typed_schema.schema_type = Some(SchemaType::Array);
@@ -308,6 +312,8 @@ impl
                 typed_schema.schema_type = Some(SchemaType::Array);
                 typed_schema.kind = SchemaKind::Array;
                 typed_schema.items = info.item_ty().ref_type().into();
+                typed_schema.min_items = Some(info.capacity());
+                typed_schema.max_items = Some(info.capacity());
             }
             TypeInfo::Map(info) => {
                 typed_schema.schema_type = Some(SchemaType::Object);
@@ -324,6 +330,8 @@ impl
                     .map(SchemaJsonReference::ref_type)
                     .collect::<Vec<_>>();
                 typed_schema.items = Some(false.into());
+                typed_schema.min_items = Some(info.field_len());
+                typed_schema.max_items = Some(info.field_len());
             }
             TypeInfo::Set(info) => {
                 typed_schema.schema_type = Some(SchemaType::Array);
@@ -430,6 +438,14 @@ pub struct JsonSchemaBevyType {
     /// array elements have been evaluated against this keyword's subschema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub items: Option<Value>,
+    /// The minimum number of items in an array-like value: a tuple, tuple struct,
+    /// tuple variant or fixed-size array.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub min_items: Option<usize>,
+    /// The maximum number of items in an array-like value: a tuple, tuple struct,
+    /// tuple variant or fixed-size array.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_items: Option<usize>,
     /// The default value of the type, serialized the same way as BRP component values.
     ///
     /// Only present when the type registers [`ReflectDefault`].
@@ -483,7 +499,7 @@ impl JsonSchemaBevyType {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SchemaAnnotations {
-    /// Inclusive `[min, max]` bounds, from [`ValueRange`] or a bare numeric range.
+    /// Inclusive `[min, max]` bounds, from [`ValueRange`](bevy_annotations::ValueRange) or a bare numeric range.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub range: Option<[f64; 2]>,
     /// Increment per step, from [`Step`].
@@ -507,7 +523,9 @@ impl SchemaAnnotations {
     /// Reads the annotations from `attributes`, returning `None` when no annotation is present.
     pub fn from_attributes(attributes: &CustomAttributes) -> Option<Self> {
         let annotations = Self {
-            range: ValueRange::from_attributes(attributes).map(|range| [range.min(), range.max()]),
+            range: attributes
+                .value_range()
+                .map(|range| [range.min(), range.max()]),
             step: attributes.get::<Step>().map(|step| step.0),
             unit: attributes.get::<Unit>().map(|unit| unit.0.to_owned()),
             read_only: attributes.contains::<ReadOnly>(),
@@ -730,7 +748,7 @@ mod tests {
 
     use bevy_ecs::{component::Component, reflect::AppTypeRegistry, resource::Resource};
     use bevy_reflect::prelude::ReflectDefault;
-    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+    use bevy_reflect::{PartialReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 
     #[test]
     fn reflect_export_struct() {
@@ -1408,6 +1426,8 @@ mod tests {
                             "type": "array",
                             "prefixItems": [{ "$ref": "#/f32" }, { "$ref": "#/f32" }],
                             "items": false,
+                            "minItems": 2,
+                            "maxItems": 2,
                         },
                     },
                     "required": ["Pair"],
@@ -1583,6 +1603,85 @@ mod tests {
         assert_eq!(first["minimum"], 0.0);
         assert_eq!(first["maximum"], 9.0);
         assert!(schema["prefixItems"][1].get("readOnly").is_none());
+    }
+
+    #[test]
+    fn reflect_export_fixed_lengths() {
+        #[derive(Reflect)]
+        struct Pair(f32, u8, bool);
+
+        #[derive(Reflect)]
+        struct Skipped(f32, #[reflect(skip_serializing)] u8, bool);
+
+        #[derive(Reflect)]
+        enum Event {
+            Moved(f32, f32),
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<(f32, u8)>();
+            register.register::<Pair>();
+            register.register::<Skipped>();
+            register.register::<Event>();
+            register.register::<[f32; 4]>();
+        }
+        let type_registry = atr.read();
+        let export = |type_id| {
+            let schema = export_type(
+                type_registry.get(type_id).expect("SHOULD BE REGISTERED"),
+                &SchemaTypesMetadata::default(),
+                &Components::default(),
+                &type_registry,
+            )
+            .1;
+            serde_json::to_value(&schema).expect("Should serialize")
+        };
+        let serialize = |value: &dyn PartialReflect| {
+            serde_json::to_value(TypedReflectSerializer::new(value, &type_registry))
+                .expect("Should serialize")
+        };
+
+        let schema = export(TypeId::of::<(f32, u8)>());
+        assert_eq!(schema["minItems"], 2);
+        assert_eq!(schema["maxItems"], 2);
+        assert_eq!(schema["items"], false);
+        assert_eq!(serialize(&(1.0f32, 2u8)).as_array().map(Vec::len), Some(2));
+
+        let schema = export(TypeId::of::<Pair>());
+        assert_eq!(schema["minItems"], 3);
+        assert_eq!(schema["maxItems"], 3);
+        assert_eq!(schema["items"], false);
+        assert_eq!(
+            serialize(&Pair(1.0, 2, true)).as_array().map(Vec::len),
+            Some(3)
+        );
+
+        let schema = export(TypeId::of::<Skipped>());
+        assert_eq!(schema["minItems"], 2);
+        assert_eq!(schema["maxItems"], 2);
+        assert_eq!(
+            serialize(&Skipped(1.0, 2, true)).as_array().map(Vec::len),
+            Some(2)
+        );
+
+        let schema = export(TypeId::of::<Event>());
+        let moved = &schema["oneOf"][0]["properties"]["Moved"];
+        assert_eq!(moved["minItems"], 2);
+        assert_eq!(moved["maxItems"], 2);
+        assert_eq!(moved["items"], false);
+        assert_eq!(
+            serialize(&Event::Moved(1.0, 2.0))["Moved"]
+                .as_array()
+                .map(Vec::len),
+            Some(2)
+        );
+
+        let schema = export(TypeId::of::<[f32; 4]>());
+        assert_eq!(schema["minItems"], 4);
+        assert_eq!(schema["maxItems"], 4);
+        assert_eq!(serialize(&[0.0f32; 4]).as_array().map(Vec::len), Some(4));
     }
 
     /// This function exist to avoid false failures due to ordering differences between `serde_json` values.

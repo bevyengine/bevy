@@ -21,8 +21,6 @@ fn main() {
                     name: Some("bevy.app".into()),
                     resolution: (500, 300).into(),
                     present_mode: PresentMode::AutoVsync,
-                    // Tells Wasm to resize the window according to the available canvas
-                    fit_canvas_to_parent: true,
                     // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.
                     prevent_default_event_handling: false,
                     window_theme: Some(WindowTheme::Dark),
@@ -111,13 +109,13 @@ fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut window: Single<&
 
     if toggle_minimize || toggle_maximize || toggle_close {
         if toggle_minimize {
-            window.enabled_buttons.minimize = !window.enabled_buttons.minimize;
+            window.enabled_buttons.minimize.toggle();
         }
         if toggle_maximize {
-            window.enabled_buttons.maximize = !window.enabled_buttons.maximize;
+            window.enabled_buttons.maximize.toggle();
         }
         if toggle_close {
-            window.enabled_buttons.close = !window.enabled_buttons.close;
+            window.enabled_buttons.close.toggle();
         }
     }
 }
@@ -132,7 +130,7 @@ fn change_title(mut window: Single<&mut Window>, time: Res<Time>) {
 
 fn toggle_cursor(mut cursor_options: Single<&mut CursorOptions>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
-        cursor_options.visible = !cursor_options.visible;
+        cursor_options.visible.toggle();
         cursor_options.grab_mode = match cursor_options.grab_mode {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,

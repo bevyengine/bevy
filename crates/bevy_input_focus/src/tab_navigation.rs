@@ -372,7 +372,14 @@ impl TabNavigation<'_, '_> {
 pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut App) {
+        if app.is_plugin_added::<Self>() {
+            return;
+        }
         app.add_systems(Startup, setup_tab_navigation);
     }
 }

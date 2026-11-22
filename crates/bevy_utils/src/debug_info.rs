@@ -82,7 +82,7 @@ impl DebugName {
     /// Create a new `DebugName` from a type by using its [`core::any::type_name`]
     ///
     /// The value will be ignored if the `debug` feature is not enabled
-    pub fn type_name<T>() -> Self {
+    pub fn type_name<T: ?Sized>() -> Self {
         DebugName {
             #[cfg(feature = "debug")]
             name: Cow::Borrowed(type_name::<T>()),

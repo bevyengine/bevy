@@ -20,7 +20,7 @@ use bevy_ecs::{
     system::{Commands, Res},
 };
 use bevy_image::{Image, ToExtents};
-use bevy_log::warn;
+use bevy_log::warn_once;
 use bevy_math::UVec2;
 #[cfg(feature = "bevy_picking")]
 use bevy_picking::{
@@ -191,7 +191,7 @@ pub fn update_viewport_render_target_size(
         if let Some(mut image) = images.get_mut(image_handle) {
             image.resize(size);
         } else {
-            warn!(
+            warn_once!(
                 "Skipping ViewportNode render target resize for camera {camera:?}: image {:?} is missing from Assets<Image>.",
                 image_handle.id()
             );

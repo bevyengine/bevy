@@ -941,7 +941,7 @@ impl core::ops::Mul<FontSize> for f32 {
 
 impl Default for FontSize {
     fn default() -> Self {
-        Self::Px(20.)
+        Self::Rem(1.)
     }
 }
 

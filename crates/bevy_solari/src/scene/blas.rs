@@ -4,7 +4,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_mesh::{Indices, Mesh, MeshRaytracingFlags};
+use bevy_mesh::{Mesh, MeshRaytracingFlags};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     diagnostic::{DiagnosticsRecorder, RecordDiagnostics},
@@ -202,16 +202,26 @@ pub fn prepare_raytracing_blas(
         .iter()
         .filter(|(_, mesh)| is_mesh_raytracing_compatible(mesh))
         .flat_map(|(asset_id, mesh)| {
-            BlasOpacity::declared(mesh.raytracing).map(|opacity| BlasKey {
-                mesh: *asset_id,
-                opacity,
+            let index_format = IndexFormat::from(mesh.indices().unwrap());
+            BlasOpacity::declared(mesh.raytracing).map(move |opacity| {
+                let key = BlasKey {
+                    mesh: *asset_id,
+                    opacity,
+                };
+                (key, index_format)
             })
         })
-        .map(|key| {
+        .map(|(key, index_format)| {
             let vertex_slice = mesh_allocator.mesh_vertex_slice(&key.mesh).unwrap();
             let index_slice = mesh_allocator.mesh_index_slice(&key.mesh).unwrap();
 
-            let (blas, blas_size) = allocate_blas(&vertex_slice, &index_slice, key, &render_device);
+            let (blas, blas_size) = allocate_blas(
+                &vertex_slice,
+                &index_slice,
+                index_format,
+                key,
+                &render_device,
+            );
 
             blas_manager.insert(key, blas);
             blas_manager
@@ -316,13 +326,14 @@ pub fn delete_raytracing_blas(
 fn allocate_blas(
     vertex_slice: &MeshBufferSlice,
     index_slice: &MeshBufferSlice,
+    index_format: IndexFormat,
     key: BlasKey,
     render_device: &RenderDevice,
 ) -> (Blas, BlasTriangleGeometrySizeDescriptor) {
     let blas_size = BlasTriangleGeometrySizeDescriptor {
         vertex_format: Mesh::ATTRIBUTE_POSITION.format,
         vertex_count: vertex_slice.range.len() as u32,
-        index_format: Some(IndexFormat::Uint32),
+        index_format: Some(index_format),
         index_count: Some(index_slice.range.len() as u32),
         flags: key.opacity.geometry_flags(),
     };
@@ -355,6 +366,6 @@ fn is_mesh_raytracing_compatible(mesh: &Mesh) -> bool {
             (Mesh::ATTRIBUTE_UV_0.id, Mesh::ATTRIBUTE_UV_0.format),
             (Mesh::ATTRIBUTE_TANGENT.id, Mesh::ATTRIBUTE_TANGENT.format),
         ]);
-    let indexed_32 = matches!(mesh.indices(), Some(Indices::U32(..)));
-    triangle_list && vertex_attributes && indexed_32
+    let indexed = mesh.indices().is_some();
+    triangle_list && vertex_attributes && indexed
 }

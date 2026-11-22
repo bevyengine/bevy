@@ -1,7 +1,7 @@
 use alloc::{format, vec::Vec};
 use bevy_platform::{collections::HashMap, hash::FixedHasher, sync::Arc};
 use bevy_ptr::OwningPtr;
-use core::{fmt::Debug, iter};
+use core::{fmt::Debug, iter, mem::DropGuard};
 use indexmap::{IndexMap, IndexSet};
 use thiserror::Error;
 
@@ -505,39 +505,29 @@ impl Components {
         component_id: ComponentId,
         f: impl FnOnce(&mut Self, &mut RequiredComponents) -> R,
     ) -> R {
-        struct DropGuard<'a> {
-            components: &'a mut Components,
-            component_id: ComponentId,
-            required_components: RequiredComponents,
-        }
-
-        impl Drop for DropGuard<'_> {
-            fn drop(&mut self) {
+        // SAFETY: The caller ensures that the `component_id` is valid.
+        let taken_required_components = core::mem::take(unsafe {
+            self.get_required_components_mut(component_id)
+                .unwrap_unchecked()
+        });
+        let (components, taken_required_components) = &mut *DropGuard::new(
+            (self, taken_required_components),
+            |(components, taken_required_components)| {
                 // SAFETY: The caller ensures that the `component_id` is valid.
                 let required_components = unsafe {
-                    self.components
-                        .get_required_components_mut(self.component_id)
+                    components
+                        .get_required_components_mut(component_id)
                         .unwrap_unchecked()
                 };
 
                 debug_assert!(required_components.direct.is_empty());
                 debug_assert!(required_components.all.is_empty());
 
-                *required_components = core::mem::take(&mut self.required_components);
-            }
-        }
+                *required_components = taken_required_components;
+            },
+        );
 
-        let mut guard = DropGuard {
-            component_id,
-            // SAFETY: The caller ensures that the `component_id` is valid.
-            required_components: core::mem::take(unsafe {
-                self.get_required_components_mut(component_id)
-                    .unwrap_unchecked()
-            }),
-            components: self,
-        };
-
-        f(guard.components, &mut guard.required_components)
+        f(components, taken_required_components)
     }
 }
 

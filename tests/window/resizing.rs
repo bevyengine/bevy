@@ -102,7 +102,7 @@ fn sync_dimensions(dim: Res<Dimensions>, mut window: Single<&mut Window>) {
     }
 }
 
-/// A simple 3d scene, taken from the `3d_scene` example
+/// A simple 3d scene, taken from the [`3d_scene` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/3d_scene.rs)
 fn setup_3d(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -134,7 +134,7 @@ fn setup_3d(
     ));
 }
 
-/// A simple 2d scene, taken from the `rect` example
+/// A simple 2d scene
 fn setup_2d(mut commands: Commands) {
     commands.spawn((
         Camera2d,

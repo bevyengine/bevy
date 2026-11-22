@@ -24,6 +24,19 @@ concurrency:
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
 jobs:
+  # Fail fast when Cargo.toml / features are broken so later jobs (and the
+  # missing-examples bot comment) are not blamed for a dependency resolution error.
+  check-cargo-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/install-rust
+      - name: Verify Cargo.toml resolves
+        run: cargo metadata --format-version 1 --all-features > /dev/null
+
   build:
     strategy:
       matrix:
@@ -324,7 +337,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
+        uses: super-linter/super-linter/slim@2da136927bd4a73596db63044b504547c62cb854 # v9.0.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -361,7 +374,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check for typos
-        uses: crate-ci/typos@7f9d0819ca1c008ade73f4b41fa9d258d48f605b # v1.51.1
+        uses: crate-ci/typos@4c8b7f51ca60df14e3c5ca82770dfbbe6c3dae85 # v1.52.0
       - name: Typos info
         if: failure()
         run: |
@@ -414,6 +427,7 @@ jobs:
   check-missing-examples-in-docs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: check-cargo-metadata
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

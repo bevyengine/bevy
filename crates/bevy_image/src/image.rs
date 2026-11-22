@@ -219,6 +219,9 @@ impl Plugin for ImagePlugin {
         #[cfg(feature = "hdr")]
         app.init_asset_loader::<crate::HdrTextureLoader>();
 
+        #[cfg(feature = "svg")]
+        app.init_asset_loader::<crate::SvgLoader>();
+
         app.init_asset::<Image>();
         #[cfg(feature = "bevy_reflect")]
         app.register_asset_reflect::<Image>();
@@ -643,6 +646,10 @@ pub struct Image {
     /// If the image is being used as a storage texture which doesn't need to be initialized by the
     /// CPU, then this should be `None`.
     /// Otherwise, it should always be `Some`.
+    ///
+    /// Holds every mip level and array layer of [`Self::texture_descriptor`], tightly packed
+    /// in [`Self::data_order`]. All of them are uploaded whenever the image changes, so
+    /// editing one mip level doesn't update the others.
     pub data: Option<Vec<u8>>,
     /// For texture data with layers and mips, this field controls how wgpu interprets the buffer layout.
     ///

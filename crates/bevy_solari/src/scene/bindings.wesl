@@ -12,6 +12,8 @@ struct InstanceGeometryIds {
     triangle_count: u32,
 }
 
+const INDEX_BUFFER_FLAG_U16 = 1u << 31u;
+
 struct VertexBuffer { vertices: array<PackedVertex> }
 
 struct IndexBuffer { indices: array<u32> }
@@ -62,6 +64,8 @@ const MATERIAL_FLAG_DOUBLE_SIDED = 1u << 0u;
 const MATERIAL_FLAG_FLIP_NORMAL_MAP_Y = 1u << 1u;
 
 const MIRROR_ROUGHNESS_THRESHOLD = 0.001f;
+
+const MIN_SHADING_NDOTV = 0.01f;
 
 struct LightSource {
     kind: u32, // LIGHT_SOURCE_KIND_BITS bits for kind, rest of the bits for extra data
@@ -193,7 +197,6 @@ struct ResolvedMaterial {
 
 struct ResolvedRayHitFull {
     world_position: vec3<f32>,
-    previous_frame_world_position: vec3<f32>,
     world_normal: vec3<f32>,
     geometric_world_normal: vec3<f32>,
     world_tangent: vec4<f32>,
@@ -202,6 +205,9 @@ struct ResolvedRayHitFull {
     triangle_count: u32,
     material: ResolvedMaterial,
     double_sided: bool,
+    instance_id: u32,
+    triangle_id: u32,
+    barycentrics: vec3<f32>,
 }
 
 fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
@@ -239,7 +245,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     return m;
 }
 
-fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
+fn resolve_ray_hit_full(ray_hit: RayIntersection, wo: vec3<f32>) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
     var resolved = resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
 
@@ -252,6 +258,11 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
         resolved.material.emissive = vec3(0.0);
     }
 
+    // Only bend the normal when hitting the front of a triangle
+    if ray_hit.front_face || resolved.double_sided {
+        resolved.world_normal = bend_normal_towards_viewer(resolved.world_normal, wo);
+    }
+
     return resolved;
 }
 
@@ -259,8 +270,16 @@ fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
 
-    let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
-    let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
+    let index_offset = instance_geometry_ids.index_buffer_offset;
+    let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + (index_offset & ~INDEX_BUFFER_FLAG_U16);
+    var indices: vec3<u32>;
+    if (index_offset & INDEX_BUFFER_FLAG_U16) != 0u {
+        let words = vec3((*index_buffer)[indices_i.x >> 1u], (*index_buffer)[indices_i.y >> 1u], (*index_buffer)[indices_i.z >> 1u]);
+        indices = (words >> ((indices_i & vec3(1u)) * 16u)) & vec3(0xFFFFu);
+    } else {
+        indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]);
+    }
+    indices += instance_geometry_ids.vertex_buffer_offset;
 
     return array<Vertex, 3>(
         unpack_vertex((*vertex_buffer)[indices.x]),
@@ -282,16 +301,12 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let material = materials[material_id];
 
     let transform = affine3_to_square(transforms[instance_id]);
-    let previous_frame_transform = affine3_to_square(previous_frame_transforms[instance_id]);
 
     let instance_geometry_ids = geometry_ids[instance_id];
     let vertices = load_vertices(instance_geometry_ids, triangle_id);
 
     let world_vertices = transform_positions(transform, vertices);
     let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
-
-    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
-    let previous_frame_world_position = mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * barycentrics;
 
     let mesh_uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
     let uv = material.uv_transform * mesh_uv + material.uv_translation;
@@ -330,7 +345,6 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     return ResolvedRayHitFull(
         world_position,
-        previous_frame_world_position,
         world_normal,
         geometric_world_normal,
         world_tangent,
@@ -339,5 +353,23 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         instance_geometry_ids.triangle_count,
         resolved_material,
         (material.flags & MATERIAL_FLAG_DOUBLE_SIDED) != 0u,
+        instance_id,
+        triangle_id,
+        barycentrics,
     );
+}
+
+fn resolve_previous_frame_world_position(hit: ResolvedRayHitFull) -> vec3<f32> {
+    let vertices = load_vertices(geometry_ids[hit.instance_id], hit.triangle_id);
+    let previous_frame_transform = affine3_to_square(previous_frame_transforms[hit.instance_id]);
+    let previous_frame_world_vertices = transform_positions(previous_frame_transform, vertices);
+    return mat3x3(previous_frame_world_vertices[0], previous_frame_world_vertices[1], previous_frame_world_vertices[2]) * hit.barycentrics;
+}
+
+/// The BRDF only reflects light toward viewers on the side the normal points to, and returns zero otherwise.
+/// At grazing angles, interpolated or normal-mapped normals can point away from the viewer even though
+/// the triangle faces the viewer, which renders as a black outline. Bend the normal just enough to face the viewer.
+fn bend_normal_towards_viewer(world_normal: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
+    let NdotV = dot(world_normal, wo);
+    return normalize(world_normal + max(MIN_SHADING_NDOTV - NdotV, 0.0) * wo);
 }

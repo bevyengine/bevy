@@ -24,6 +24,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::BORDER_DEFAULT, palette::WARM_GRAY_1),
             (semantic::TEXT_DEFAULT, palette::LIGHT_GRAY_1),
             (semantic::TEXT_DIM, palette::LIGHT_GRAY_2),
+            (semantic::TEXT_ACCENT, palette::ACCENT.lighter(0.15)),
             (
                 semantic::TEXT_DISABLED,
                 palette::LIGHT_GRAY_1.with_alpha(0.4),
@@ -46,6 +47,10 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::FILL_ITEM_DEFAULT, Color::NONE),
             (semantic::FILL_ITEM_HOVER, palette::GRAY_1.lighter(0.05)),
             (semantic::FILL_ITEM_PRESSED, palette::GRAY_1.lighter(0.1)),
+            (
+                semantic::FILL_ITEM_SELECTED,
+                palette::ACCENT.with_alpha(0.3),
+            ),
             (semantic::FILL_FIELD_DEFAULT, palette::GRAY_2),
             (semantic::FILL_FIELD_HOVER, palette::GRAY_2.lighter(0.05)),
             (semantic::FILL_FIELD_PRESSED, palette::GRAY_2.lighter(0.1)),
@@ -100,6 +105,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::FOCUS_RING, semantic::FOCUS_RING),
             (tokens::TEXT_MAIN, semantic::TEXT_DEFAULT),
             (tokens::TEXT_DIM, semantic::TEXT_DIM),
+            (tokens::TEXT_ACCENT, semantic::TEXT_ACCENT),
             // Button (normal)
             (tokens::BUTTON_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::BUTTON_BG_HOVER, semantic::FILL_SOLID_HOVER),
@@ -378,6 +384,9 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::LISTROW_BG_SELECTED, semantic::FILL_ITEM_PRESSED),
             (tokens::LISTROW_TEXT, semantic::TEXT_ON_ACCENT),
             (tokens::LISTROW_TEXT_DISABLED, semantic::TEXT_DISABLED),
+            (tokens::TREE_ROW_BG_SELECTED, semantic::FILL_ITEM_SELECTED),
+            (tokens::TREE_GUIDE, semantic::BORDER_DEFAULT),
+            (tokens::TREE_GUIDE_SELECTED, semantic::FILL_ACCENT_DEFAULT),
             (tokens::DIALOG_BG, semantic::SURFACE_DIALOG),
             (tokens::DIALOG_BORDER, semantic::BORDER_DEFAULT),
             (tokens::DIALOG_HEADER_BG, semantic::SURFACE_WINDOW),

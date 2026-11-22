@@ -12,6 +12,7 @@ struct StandardMaterial {
     specular_transmission: f32,
     thickness: f32,
     ior: f32,
+    dispersion: f32,
     attenuation_distance: f32,
     clearcoat: f32,
     clearcoat_perceptual_roughness: f32,
@@ -77,6 +78,7 @@ fn standard_material_new() -> StandardMaterial {
     material.specular_transmission = 0.0;
     material.thickness = 0.0;
     material.ior = 1.5;
+    material.dispersion = 0.0;
     material.attenuation_distance = 1.0;
     material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     material.clearcoat = 0.0;
@@ -118,8 +120,8 @@ struct PbrInput {
     anisotropy_B: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
-    /// Multiplier applied to all directional lights before cascade and contact shadows,
-    /// use this for custom shadow maps. Defaults to 1.0.
+    /// Multiplier applied to all directional lights, even those without shadow maps.
+    /// Use this to supply your own shadows. Defaults to 1.0.
     directional_shadow_factor: f32,
 };
 

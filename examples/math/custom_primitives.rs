@@ -387,7 +387,7 @@ fn switch_shapes(
 
 #[cfg(not(target_family = "wasm"))]
 fn toggle_wireframes(mut wireframe_config: ResMut<WireframeConfig>) {
-    wireframe_config.global = !wireframe_config.global;
+    wireframe_config.global.toggle();
 }
 
 /// A custom 2D heart primitive. The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same `radius`.

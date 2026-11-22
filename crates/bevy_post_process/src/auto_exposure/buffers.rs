@@ -37,20 +37,17 @@ pub(super) struct AutoExposureBuffer {
 #[derive(Resource)]
 pub(super) struct ExtractedStateBuffers {
     changed: Vec<(Entity, AutoExposure)>,
-    removed: Vec<Entity>,
 }
 
 pub(super) fn extract_buffers(
     mut commands: Commands,
     changed: Extract<Query<(RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
-    mut removed: Extract<RemovedComponents<AutoExposure>>,
 ) {
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
             .iter()
             .map(|(entity, settings)| (entity, settings.clone()))
             .collect(),
-        removed: removed.read().collect(),
     });
 }
 
@@ -59,6 +56,7 @@ pub(super) fn prepare_buffers(
     queue: Res<RenderQueue>,
     mut extracted: ResMut<ExtractedStateBuffers>,
     mut buffers: ResMut<AutoExposureBuffers>,
+    views: Query<(), With<AutoExposure>>,
 ) {
     for (entity, settings) in extracted.changed.drain(..) {
         let (correction_min, correction_max) = correction_bounds(&settings);
@@ -102,9 +100,7 @@ pub(super) fn prepare_buffers(
         }
     }
 
-    for entity in extracted.removed.drain(..) {
-        buffers.buffers.remove(&entity);
-    }
+    buffers.buffers.retain(|entity, _| views.contains(*entity));
 }
 
 #[cfg(test)]
