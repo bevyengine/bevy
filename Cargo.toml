@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.97.1"
+rust-version = "1.100.0"
 
 [workspace]
 resolver = "3"
@@ -161,6 +161,7 @@ dev = [
   "bevy_dev_tools",
   "render_dev_tools",
   "file_watcher",
+  "inspector",
 ]
 
 # COLLECTION: Features used to build audio Bevy apps.
@@ -361,6 +362,9 @@ bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
 
+# Adds frame pacing diagnostics and logs
+framepace_debug = ["bevy_render", "bevy_internal/framepace_debug"]
+
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
@@ -439,6 +443,14 @@ bevy_feathers = ["bevy_internal/bevy_feathers", "bevy_ui_widgets"]
 
 # Entity inspector built on bevy_ui and bevy_feathers.
 bevy_inspector = ["bevy_internal/bevy_inspector", "bevy_feathers"]
+
+# Adds an entity inspector to `DefaultPlugins`, hidden until F12 is pressed.
+inspector = [
+  "bevy_internal/inspector",
+  "bevy_inspector",
+  "ui_bevy_render",
+  "picking",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -519,6 +531,9 @@ pnm = ["bevy_internal/pnm"]
 
 # QOI image format support
 qoi = ["bevy_internal/qoi"]
+
+# SVG image support, rasterized to an `Image` when loaded. Enabled by `bevy_feathers`.
+svg = ["bevy_internal/svg"]
 
 # TGA image format support
 tga = ["bevy_internal/tga"]
@@ -1674,6 +1689,18 @@ doc-scrape-examples = true
 [package.metadata.example.two_passes]
 name = "Two Passes"
 description = "Renders two 3d passes to the same window from different perspectives"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blur"
+path = "examples/3d/blur.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.blur]
+name = "Blur"
+description = "Demonstrates blurring selected UI panels over a live 3D scene"
 category = "3D Rendering"
 wasm = true
 
@@ -4393,6 +4420,18 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "framepace"
+path = "examples/window/framepace.rs"
+doc-scrape-examples = true
+required-features = ["framepace_debug"]
+
+[package.metadata.example.framepace]
+name = "Framepace"
+description = "Demonstrates frame pacing"
+category = "Window"
+wasm = false
+
+[[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
 doc-scrape-examples = true
@@ -5620,6 +5659,17 @@ doc-scrape-examples = true
 [package.metadata.example.headless_tabs]
 name = "Headless Tabs"
 description = "Demonstrates controlled and self-updating headless tab lists"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "dock"
+path = "examples/ui/widgets/dock.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dock]
+name = "Dock"
+description = "Builds split panes and tab groups from a dock tree and edits the tree at runtime"
 category = "UI (User Interface)"
 wasm = true
 

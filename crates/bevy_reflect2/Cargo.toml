@@ -7,7 +7,7 @@ homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.95.0"
+rust-version = "1.100.0"
 publish = false
 
 [features]

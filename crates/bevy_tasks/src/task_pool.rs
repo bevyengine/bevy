@@ -1,5 +1,10 @@
 use alloc::{boxed::Box, format, string::String, vec::Vec};
-use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
+use core::{
+    future::Future,
+    marker::PhantomData,
+    mem::{self, DropGuard},
+    panic::AssertUnwindSafe,
+};
 use std::{
     thread::{self, JoinHandle},
     thread_local,
@@ -15,16 +20,6 @@ use crate::{
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
-
-struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
-
-impl Drop for CallOnDrop {
-    fn drop(&mut self) {
-        if let Some(call) = self.0.as_ref() {
-            call();
-        }
-    }
-}
 
 /// Used to create a [`TaskPool`]
 #[derive(Default)]
@@ -199,7 +194,8 @@ impl TaskPool {
                                 on_thread_spawn();
                                 drop(on_thread_spawn);
                             }
-                            let _destructor = CallOnDrop(on_thread_destroy);
+                            let _destructor =
+                                on_thread_destroy.map(|f| DropGuard::new((), move |()| f()));
                             loop {
                                 let res = std::panic::catch_unwind(|| {
                                     let tick_forever = async move {
