@@ -7,7 +7,7 @@ use crate::{
 use bevy_ptr::{Ptr, ThinSlicePtr};
 use core::{
     cell::UnsafeCell,
-    ops::{Deref, DerefMut, Range},
+    ops::{Deref, DerefMut, Index, IndexMut, Range},
     panic::Location,
 };
 
@@ -492,6 +492,19 @@ impl<'w> ContiguousComponentTicksMut<'w> {
 
         if let Some(summary_tick) = self.summary_tick {
             summary_tick.set(this_run);
+        }
+    }
+
+    /// Marks one row as changed.
+    #[inline]
+    #[track_caller]
+    fn mark_changed(&mut self, index: usize) {
+        self.changed[index] = self.this_run;
+        self.changed_by
+            .as_mut()
+            .map(|v| v[index] = Location::caller());
+        if let Some(summary_tick) = self.summary_tick {
+            summary_tick.set(self.this_run);
         }
     }
 
@@ -1090,7 +1103,9 @@ impl<'w, T: ?Sized> Mut<'w, T> {
 /// for [`Mut<T>`] and `&mut T`
 ///
 /// # Warning
-/// Implementations of [`DerefMut`], [`AsMut`] and [`IntoIterator`] update change ticks, which may effect performance.
+/// Implementations of [`DerefMut`], [`AsMut`] and [`IntoIterator`] update the
+/// change ticks of every row, which may affect performance. [`IndexMut`]
+/// updates only the accessed row.
 pub struct ContiguousMut<'w, T> {
     pub(crate) value: &'w mut [T],
     pub(crate) ticks: ContiguousComponentTicksMut<'w>,
@@ -1272,6 +1287,24 @@ impl<'w, T> ContiguousMut<'w, T> {
             value: &mut self.value[(range.start as usize)..(range.end as usize)],
             ticks: self.ticks.slice(range),
         }
+    }
+}
+
+impl<T> Index<usize> for ContiguousMut<'_, T> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.value[index]
+    }
+}
+
+impl<T> IndexMut<usize> for ContiguousMut<'_, T> {
+    #[inline]
+    #[track_caller]
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.ticks.mark_changed(index);
+        &mut self.value[index]
     }
 }
 
@@ -1591,5 +1624,63 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
             value: value.value.into(),
             ticks: value.ticks,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn contiguous_mut_index_marks_only_the_accessed_row() {
+        let mut values = [1u32, 2, 3];
+        let mut added = [Tick::new(0); 3];
+        let mut changed = [Tick::new(0); 3];
+        let mut callers = [Location::caller(); 3];
+        let this_run = Tick::new(10);
+
+        let mut values = ContiguousMut::new(
+            &mut values,
+            &mut added,
+            &mut changed,
+            None,
+            Tick::new(0),
+            this_run,
+            MaybeLocation::new_with(|| &mut callers[..]),
+        )
+        .unwrap();
+
+        values[1] = 20;
+
+        assert_eq!(values[1], 20);
+        assert_eq!(
+            values.changed_ticks_slice(),
+            &[Tick::new(0), this_run, Tick::new(0)]
+        );
+    }
+
+    #[test]
+    fn contiguous_mut_deref_marks_every_row() {
+        let mut values = [1u32, 2, 3];
+        let mut added = [Tick::new(0); 3];
+        let mut changed = [Tick::new(0); 3];
+        let mut callers = [Location::caller(); 3];
+        let this_run = Tick::new(10);
+
+        let mut values = ContiguousMut::new(
+            &mut values,
+            &mut added,
+            &mut changed,
+            None,
+            Tick::new(0),
+            this_run,
+            MaybeLocation::new_with(|| &mut callers[..]),
+        )
+        .unwrap();
+
+        let slice = &mut *values;
+        slice[1] = 20;
+
+        assert_eq!(values.changed_ticks_slice(), &[this_run; 3]);
     }
 }

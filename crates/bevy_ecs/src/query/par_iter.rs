@@ -317,23 +317,25 @@ where
     /// current batching strategy.
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> u32 {
-        let max_items = || {
-            let id_iter = self.state.matched_storage_ids.iter();
+        // A contiguous batch accumulates row ranges across tables.
+        // Size it from the total rows, not the largest table.
+        // Otherwise a fragmented world produces a batch per table fragment.
+        let total_items = || {
             // SAFETY: We only access table metadata.
             let tables = unsafe { &self.world.storages().tables };
-            id_iter
+            self.state
+                .matched_storage_ids
+                .iter()
                 .map(|id| {
                     // SAFETY: Contiguous iteration can only process tables, so
                     // we must have a table here.
                     let table_id = unsafe { id.table_id };
-                    tables[table_id].entity_count()
+                    tables[table_id].entity_count() as usize
                 })
-                .max()
-                .map(|v| v as usize)
-                .unwrap_or(0)
+                .sum::<usize>()
         };
         self.batching_strategy
-            .calc_batch_size(max_items, thread_count) as u32
+            .calc_batch_size(total_items, thread_count) as u32
     }
 }
 

@@ -26,11 +26,12 @@ mod iter_simple_summary_tick;
 mod iter_simple_system;
 mod iter_simple_wide;
 mod iter_simple_wide_sparse_set;
+mod par_iter_compare;
 mod par_iter_simple;
 mod par_iter_simple_foreach_hybrid;
 mod par_iter_simple_summary_tick;
 
-use criterion::{criterion_group, Criterion};
+use criterion::{criterion_group, BenchmarkId, Criterion};
 use heavy_compute::*;
 
 criterion_group!(
@@ -40,6 +41,8 @@ criterion_group!(
     iter_simple,
     heavy_compute,
     par_iter_simple,
+    par_iter_compare,
+    contiguous_par_iter_simple,
     iter_changed,
 );
 
@@ -189,14 +192,44 @@ fn contiguous_par_iter_simple(c: &mut Criterion) {
     group.measurement_time(core::time::Duration::from_secs(4));
     for f in [0, 10, 100, 1000] {
         group.bench_function(format!("with_{f}_fragment"), |b| {
-            let mut bench = par_iter_simple::Benchmark::new(f);
+            let mut bench = contiguous_par_iter_simple::Benchmark::new(f);
             b.iter(move || bench.run());
         });
     }
-    group.bench_function("hybrid".to_string(), |b| {
-        let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
-        b.iter(move || bench.run());
-    });
+}
+
+fn par_iter_compare(c: &mut Criterion) {
+    let mut group = c.benchmark_group("par_iter_compare");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+    for (name, mode) in [
+        ("per_entity", par_iter_compare::Mode::PerEntity),
+        ("contiguous", par_iter_compare::Mode::Contiguous),
+        (
+            "contiguous_indexed",
+            par_iter_compare::Mode::ContiguousIndexed,
+        ),
+    ] {
+        for batches in [1, 2, 4] {
+            group.bench_with_input(BenchmarkId::new(name, batches), &batches, |b, &batches| {
+                let mut bench = par_iter_compare::Benchmark::new(mode, batches);
+                b.iter(move || bench.run());
+            });
+        }
+    }
+    for (name, mode) in [
+        ("fragmented_per_entity", par_iter_compare::Mode::PerEntity),
+        ("fragmented_contiguous", par_iter_compare::Mode::Contiguous),
+        (
+            "fragmented_contiguous_indexed",
+            par_iter_compare::Mode::ContiguousIndexed,
+        ),
+    ] {
+        group.bench_with_input(BenchmarkId::from_parameter(name), &mode, |b, &mode| {
+            let mut bench = par_iter_compare::Benchmark::fragmented(mode);
+            b.iter(move || bench.run());
+        });
+    }
 }
 
 fn iter_changed(c: &mut Criterion) {
