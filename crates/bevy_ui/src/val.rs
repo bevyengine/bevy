@@ -4,6 +4,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use smallvec::SmallVec;
+use std::ops::AddAssign;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -682,6 +683,18 @@ impl Sub for Val {
 
     fn sub(self, rhs: Self) -> Self {
         self.combine(-rhs, ReduceOp::Sum)
+    }
+}
+
+impl AddAssign for Val {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = core::mem::take(self) + rhs;
+    }
+}
+
+impl SubAssign for Val {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = core::mem::take(self) - rhs;
     }
 }
 
