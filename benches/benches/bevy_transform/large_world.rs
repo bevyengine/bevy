@@ -83,8 +83,55 @@ impl PipelineBench {
     }
 }
 
+// Different component sets, so children land in different archetypes and
+// tables like entities in a real scene rather than one uniform archetype. The
+// payloads are never read; they exist only to give each archetype a distinct
+// table layout.
+#[derive(Component)]
+struct Lod0;
+#[derive(Component)]
+struct RenderData(#[expect(dead_code, reason = "payload only affects table layout")] u32);
+#[derive(Component)]
+struct Interactable(#[expect(dead_code, reason = "payload only affects table layout")] u32);
+#[derive(Component)]
+struct Collider(#[expect(dead_code, reason = "payload only affects table layout")] f32);
+
 fn spawn_flat_roots(world: &mut World) {
     world.spawn_batch((0..ENTITIES).map(|i| Transform::from_xyz(i as f32 * 0.001, 0.0, 0.0)));
+}
+
+fn spawn_tree_child(
+    world: &mut World,
+    transform: Transform,
+    parent: Entity,
+    index: usize,
+) -> Entity {
+    match index % 4 {
+        0 => world.spawn((transform, ChildOf(parent))),
+        1 => world.spawn((transform, ChildOf(parent), Lod0)),
+        2 => world.spawn((transform, ChildOf(parent), RenderData(index as u32))),
+        _ => world.spawn((transform, ChildOf(parent), Interactable(index as u32))),
+    }
+    .id()
+}
+
+fn spawn_tree_grandchild(
+    world: &mut World,
+    transform: Transform,
+    parent: Entity,
+    index: usize,
+) -> Entity {
+    match index % 3 {
+        0 => world.spawn((transform, ChildOf(parent), Collider(0.5))),
+        1 => world.spawn((transform, ChildOf(parent), Lod0, RenderData(index as u32))),
+        _ => world.spawn((
+            transform,
+            ChildOf(parent),
+            Interactable(index as u32),
+            Collider(0.25),
+        )),
+    }
+    .id()
 }
 
 fn spawn_mixed_world(world: &mut World) {
@@ -98,18 +145,20 @@ fn spawn_mixed_world(world: &mut World) {
             .id();
         let children = 4 + (t % 13);
         for c in 0..children {
-            let child = world
-                .spawn((
-                    Transform::from_xyz(c as f32 * 0.01, 10.0, 0.0),
-                    ChildOf(root),
-                ))
-                .id();
+            let child = spawn_tree_child(
+                world,
+                Transform::from_xyz(c as f32 * 0.01, 10.0, 0.0),
+                root,
+                c,
+            );
             if c % 5 == 0 {
                 for g in 0..2 {
-                    world.spawn((
+                    spawn_tree_grandchild(
+                        world,
                         Transform::from_xyz(g as f32 * 0.004, 10.0, 0.0),
-                        ChildOf(child),
-                    ));
+                        child,
+                        c + g,
+                    );
                 }
             }
         }
