@@ -532,6 +532,9 @@ pnm = ["bevy_internal/pnm"]
 # QOI image format support
 qoi = ["bevy_internal/qoi"]
 
+# SVG image support, rasterized to an `Image` when loaded. Enabled by `bevy_feathers`.
+svg = ["bevy_internal/svg"]
+
 # TGA image format support
 tga = ["bevy_internal/tga"]
 
@@ -1686,6 +1689,18 @@ doc-scrape-examples = true
 [package.metadata.example.two_passes]
 name = "Two Passes"
 description = "Renders two 3d passes to the same window from different perspectives"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blur"
+path = "examples/3d/blur.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.blur]
+name = "Blur"
+description = "Demonstrates blurring selected UI panels over a live 3D scene"
 category = "3D Rendering"
 wasm = true
 

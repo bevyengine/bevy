@@ -47,6 +47,8 @@ mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
 mod saver;
+#[cfg(feature = "svg")]
+mod svg;
 mod texture_atlas;
 mod texture_atlas_builder;
 
@@ -68,6 +70,8 @@ pub use image_loader::*;
 #[cfg(feature = "ktx2")]
 pub use ktx2::*;
 pub use saver::*;
+#[cfg(feature = "svg")]
+pub use svg::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 

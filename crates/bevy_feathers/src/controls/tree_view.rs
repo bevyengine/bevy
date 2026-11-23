@@ -35,8 +35,8 @@ use crate::{
     tokens, FeathersSystems,
 };
 
-const INDENT_STEP: f32 = 14.0;
-const ROW_PADDING: f32 = 8.0;
+const INDENT_STEP: f32 = 20.0;
+const ROW_PADDING: f32 = 4.0;
 
 /// A container that displays a hierarchy of expandable rows.
 ///
@@ -494,10 +494,10 @@ fn update_row_indent(
     mut headers: Query<&mut Node, With<FeathersTreeItemHeader>>,
 ) {
     for (item, row_children) in rows.iter() {
-        let left = px(ROW_PADDING + INDENT_STEP * item.level as f32);
+        let left = px(INDENT_STEP * item.level as f32);
         for child in row_children.iter().copied() {
             if let Ok(mut node) = headers.get_mut(child)
-                && node.padding.left != left
+                && node.margin.left != left
             {
                 node.padding.left = left.clone();
             }
@@ -550,5 +550,37 @@ impl Plugin for TreeViewPlugin {
                 .after(MenuFocusSystem)
                 .in_set(FeathersSystems),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
+
+    #[test]
+    fn rows_indent_with_a_margin_so_the_background_starts_at_the_row() {
+        let mut world = World::new();
+        let row = world
+            .spawn(TreeItem {
+                expandable: false,
+                level: 2,
+            })
+            .id();
+        let header = world
+            .spawn((
+                FeathersTreeItemHeader,
+                Node {
+                    padding: UiRect::left(px(ROW_PADDING)),
+                    ..Default::default()
+                },
+                ChildOf(row),
+            ))
+            .id();
+        world.run_system_once(update_row_indent).unwrap();
+
+        let node = world.get::<Node>(header).unwrap();
+        assert_eq!(node.margin.left, px(2.0 * INDENT_STEP));
+        assert_eq!(node.padding.left, px(ROW_PADDING));
     }
 }

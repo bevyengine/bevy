@@ -87,10 +87,14 @@
 //!
 //! # Usage
 //!
-//! This plugin only requires three things to work. The `bevy_picking` plugin for hit tests, the
-//! [`DefaultPanOrbitCameraPlugins`] plugin group, and the [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera)
-//! component. Controller settings are configured per-camera in the
+//! This plugin requires four things to work: the `bevy_picking` plugin for hit tests, the
+//! [`DefaultPanOrbitCameraPlugins`] plugin group, the [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera)
+//! component, and an input plugin. Controller settings are configured per-camera in the
 //! [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera) component.
+//!
+//! Since Bevy doesn't provide an input plugin at this time (see
+//! [#25458](https://github.com/bevyengine/bevy/issues/25458)), you will need to provide your
+//! own. See step 4 below.
 //!
 //! ## Getting Started
 //!
@@ -103,8 +107,8 @@
 //! #### 2. Add `DefaultPanOrbitCameraPlugins`
 //!
 //! This is a plugin group that adds the camera controller, as well as all the [extensions]. You can
-//! instead add [`controller::MinimalPanOrbitCameraPlugin`], though you will need to add your own input
-//! plugin if you do.
+//! instead add [`controller::MinimalPanOrbitCameraPlugin`] if you don't want the extensions. You
+//! will still need an input plugin (step 4).
 //!
 //! ```
 //! # let mut app = bevy_app::App::new();
@@ -113,7 +117,7 @@
 //!
 //! #### 3. Insert the `PanOrbitCamera` component
 //!
-//! Finally, insert [`controller::component::PanOrbitCamera`] onto any cameras that you want to control.
+//! Insert [`controller::component::PanOrbitCamera`] onto any cameras that you want to control.
 //! This marks the cameras as controllable and holds all camera controller settings.
 //!
 //! ```
@@ -126,6 +130,13 @@
 //! ));
 //! # }
 //! ```
+//!
+//! #### 4. Add an input plugin
+//!
+//! The controller doesn't read user input itself. An input plugin is needed to read input and tell
+//! [`controller::component::PanOrbitCamera`] how to move. Until Bevy has its own input plugin, you
+//! can copy `CustomInputPlugin` from the
+//! [`pan_orbit_camera_custom_input_plugin` example](https://github.com/bevyengine/bevy/blob/latest/examples/camera/pan_orbit_camera_custom_input_plugin.rs).
 //!
 //! # Other notable features
 //!
@@ -175,7 +186,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::SystemSet;
 
-/// Adds [`pan_orbit_camera`](crate::pan_orbit_camera) functionality with all extensions and the default input plugin.
+/// Adds [`pan_orbit_camera`](crate::pan_orbit_camera) functionality with all extensions.
 ///
 /// This is intended for a quick and easy setup. You can add the individual plugins yourself if you
 /// want more control over the setup.

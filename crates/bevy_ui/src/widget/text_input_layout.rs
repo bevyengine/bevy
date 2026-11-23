@@ -1,4 +1,3 @@
-use core::hash::BuildHasher;
 use core::time::Duration;
 
 use crate::{ComputedNode, ComputedUiRenderTargetInfo, ContentSize, NodeMeasure};
@@ -14,7 +13,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_input_focus::InputFocus;
 use bevy_math::{Rect, Vec2};
-use bevy_platform::hash::FixedHasher;
 
 use bevy_text::{
     add_glyph_to_atlas, cursor_reveal_rect, get_glyph_atlas_info, scrollable_text_layout_width,
@@ -607,51 +605,50 @@ fn push_run_glyphs(
     let font_size = run.font_size();
     let coords = run.normalized_coords();
     let synthetic_skew = run.synthesis().skew();
+    let font_atlas_key = FontAtlasKey::new(glyph_run, hinting);
+    let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
-    let font_atlas_key = FontAtlasKey {
-        id: font_data.data.id() as u32,
-        index: font_data.index,
-        font_size_bits: font_size.to_bits(),
-        variations_hash: FixedHasher.hash_one(coords),
-        synthetic_skew_bits: synthetic_skew.unwrap_or_default().to_bits(),
-        hinting,
-        font_smoothing: brush.font_smoothing,
-    };
+    let font_ref = FontRef::from_index(font_data.data.as_ref(), font_data.index as usize).unwrap();
+    let mut maybe_scaler = None;
 
     for glyph in glyph_run.positioned_glyphs() {
-        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
-        let Ok(atlas_info) = get_glyph_atlas_info(
-            font_atlases,
-            GlyphCacheKey {
-                glyph_id: glyph.id as u16,
-            },
-        )
-        .map(Ok)
-        .unwrap_or_else(|| {
-            let font_ref =
-                FontRef::from_index(font_data.data.as_ref(), font_data.index as usize).unwrap();
-            let font_id = [font_data.data.id(), font_data.index.into()];
-
-            let mut scaler = scale_cx
-                .builder_with_id(font_ref, font_id)
-                .size(font_size)
-                .hint(matches!(hinting, FontHinting::Enabled))
-                .normalized_coords(coords)
-                .build();
-            add_glyph_to_atlas(
-                font_atlases,
-                textures,
-                &mut scaler,
-                font_smoothing,
-                synthetic_skew,
-                glyph.id as u16,
-            )
-        }) else {
-            continue;
+        let (cache_key, glyph_pos) = GlyphCacheKey::new(
+            glyph.id as u16,
+            Vec2::new(glyph.x, glyph.y),
+            brush.font_smoothing,
+        );
+        let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
+            Some(atlas_info) => atlas_info,
+            None => {
+                if maybe_scaler.is_none() {
+                    let font_id = [font_data.data.id(), font_data.index.into()];
+                    let hint = hinting.is_enabled() && font_smoothing == FontSmoothing::AntiAliased;
+                    maybe_scaler = Some(
+                        scale_cx
+                            .0
+                            .builder_with_id(font_ref, font_id)
+                            .size(font_size)
+                            .hint(hint)
+                            .normalized_coords(coords)
+                            .build(),
+                    );
+                }
+                let Ok(atlas_info) = add_glyph_to_atlas(
+                    font_atlases,
+                    textures,
+                    maybe_scaler.as_mut().unwrap(),
+                    font_smoothing,
+                    synthetic_skew,
+                    cache_key,
+                ) else {
+                    continue;
+                };
+                atlas_info
+            }
         };
 
         glyphs.push(PositionedGlyph {
-            position: Vec2::new(glyph.x, glyph.y) + atlas_info.rect.size() / 2. + atlas_info.offset,
+            position: glyph_pos + atlas_info.rect.size() / 2. + atlas_info.offset,
             atlas_info,
             section_index: brush.section_index,
             line_index: line_index as u32,
@@ -678,7 +675,7 @@ mod tests {
     use alloc::borrow::Cow;
     use bevy_app::{App, Update};
     use bevy_ecs::{change_detection::Mut, world::World};
-    use bevy_text::TextColor;
+    use bevy_text::{PlaceholderColor, TextColor};
     use parley::{FontFamilyName, PlainEditorDriver};
 
     struct Fixture {
@@ -1056,17 +1053,55 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_color() {
+    fn resolve_placeholder_color() {
         let field = TextColor(bevy_color::Color::srgba(1., 1., 1., 0.5)).0;
-        let derived = Placeholder::new("x").resolve_color(field);
+        let derived = PlaceholderColor::resolve(None, field);
         assert_eq!(
             bevy_color::Alpha::alpha(&derived),
-            0.5 * Placeholder::DEFAULT_ALPHA
+            0.5 * PlaceholderColor::DEFAULT_ALPHA
         );
-        let explicit = Placeholder {
-            color: Some(bevy_color::Color::BLACK),
-            ..Placeholder::new("x")
-        };
-        assert_eq!(explicit.resolve_color(field), bevy_color::Color::BLACK);
+        let explicit = PlaceholderColor(bevy_color::Color::BLACK);
+        assert_eq!(
+            PlaceholderColor::resolve(Some(&explicit), field),
+            bevy_color::Color::BLACK
+        );
+        // The default looks like having no `PlaceholderColor` at all.
+        assert_eq!(
+            PlaceholderColor::default().0,
+            PlaceholderColor::resolve(None, TextColor::default().0)
+        );
+        assert_eq!(
+            bevy_color::Alpha::alpha(&PlaceholderColor::default().0),
+            PlaceholderColor::DEFAULT_ALPHA
+        );
+    }
+
+    #[test]
+    fn changes_to_placeholder_color_dont_relayout() {
+        let (mut app, entity) = app_with_field(Placeholder::new("Search"));
+        // Clear the hint glyphs, if they are replaced it means there was a relayout.
+        app.world_mut()
+            .get_mut::<TextLayoutInfo>(entity)
+            .unwrap()
+            .placeholder_glyphs
+            .clear();
+
+        let mut field = app.world_mut().entity_mut(entity);
+        field.insert(PlaceholderColor(bevy_color::Color::BLACK));
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+
+        app.world_mut()
+            .get_mut::<PlaceholderColor>(entity)
+            .unwrap()
+            .0 = bevy_color::Color::WHITE;
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
+
+        app.world_mut()
+            .entity_mut(entity)
+            .remove::<PlaceholderColor>();
+        app.update();
+        assert!(info(&app, entity).placeholder_glyphs.is_empty());
     }
 }

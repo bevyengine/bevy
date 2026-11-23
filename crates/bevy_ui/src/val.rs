@@ -888,7 +888,6 @@ pub struct Calc(pub(crate) Box<CalcOp>);
 
 /// An operation performed on two or more `Val`s.
 #[derive(Clone, Debug, PartialEq)]
-#[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -946,7 +945,6 @@ impl From<CalcOp> for Val {
 
 /// The operation a [`CalcOp`] applies to its terms.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-#[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

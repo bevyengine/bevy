@@ -24,6 +24,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::BORDER_DEFAULT, palette::WARM_GRAY_1),
             (semantic::TEXT_DEFAULT, palette::LIGHT_GRAY_1),
             (semantic::TEXT_DIM, palette::LIGHT_GRAY_2),
+            (semantic::TEXT_ACCENT, palette::ACCENT.lighter(0.15)),
             (
                 semantic::TEXT_DISABLED,
                 palette::LIGHT_GRAY_1.with_alpha(0.4),
@@ -104,6 +105,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::FOCUS_RING, semantic::FOCUS_RING),
             (tokens::TEXT_MAIN, semantic::TEXT_DEFAULT),
             (tokens::TEXT_DIM, semantic::TEXT_DIM),
+            (tokens::TEXT_ACCENT, semantic::TEXT_ACCENT),
             // Button (normal)
             (tokens::BUTTON_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::BUTTON_BG_HOVER, semantic::FILL_SOLID_HOVER),

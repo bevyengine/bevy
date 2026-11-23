@@ -546,7 +546,7 @@ impl TypeRegistryArc {
     }
 }
 
-/// Runtime storage for type metadata, registered into the [`TypeRegistry`].
+/// Runtime storage for a type's [type data](TypeData), registered into the [`TypeRegistry`].
 ///
 /// An instance of `TypeRegistration` can be created using the [`TypeRegistration::of`] method,
 /// but is more often automatically generated using [`#[derive(Reflect)]`](derive@crate::Reflect) which itself generates
