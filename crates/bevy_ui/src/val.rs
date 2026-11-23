@@ -5,6 +5,7 @@ use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::ops::{Add, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 use smallvec::SmallVec;
 use std::ops::AddAssign;
+use std::ops::SubAssign;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
