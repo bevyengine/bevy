@@ -4012,7 +4012,6 @@ wasm = false
 name = "vertical_slider"
 path = "examples/ui/widgets/vertical_slider.rs"
 doc-scrape-examples = true
-required-features = ["bevy_feathers"]
 
 [package.metadata.example.vertical_slider]
 name = "Vertical Slider"
