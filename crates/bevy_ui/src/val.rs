@@ -628,7 +628,7 @@ impl Val {
             val => match val.unit_value() {
                 Ok((unit, value)) => {
                     let leaf = &mut leaves[unit as usize];
-                    *leaf = Some(leaf.map_or(value, |folded| op.apply()(folded, value)));
+                    *leaf = Some(leaf.map_or(value, |folded| op.apply(folded, value)));
                 }
                 _ => rest.push(val),
             },
@@ -915,7 +915,7 @@ impl CalcOp {
             ReduceOp::Max => f32::NEG_INFINITY,
         };
         self.terms.iter().try_fold(init, |acc, val| {
-            Ok(self.op.apply()(acc, val.resolve(context, basis)?))
+            Ok(self.op.apply(acc, val.resolve(context, basis)?))
         })
     }
 
@@ -960,11 +960,11 @@ pub(crate) enum ReduceOp {
 
 impl ReduceOp {
     /// Apply the operation to unitless values
-    const fn apply(self) -> fn(f32, f32) -> f32 {
+    const fn apply(self, a: f32, b: f32) -> f32 {
         match self {
-            Self::Sum => |a, b| a + b,
-            Self::Min => f32::min,
-            Self::Max => f32::max,
+            Self::Sum => a + b,
+            Self::Min => a.min(b),
+            Self::Max => a.max(b),
         }
     }
 }
