@@ -607,7 +607,7 @@ impl Val {
             // There is only one `Val` term in the list, so remove it from the list and return it
             1 => terms.remove(0),
             // Return a `Val` wrapping the remaining terms in a `CalcOp`
-            _ => op.calc(terms),
+            _ => Val::Calc(Calc(Box::new(CalcOp { op, terms }))),
         }
     }
 
@@ -933,7 +933,7 @@ pub(crate) enum ReduceOp {
 
 impl ReduceOp {
     /// Apply the operation to unitless values
-    fn apply(self) -> fn(f32, f32) -> f32 {
+    const fn apply(self) -> fn(f32, f32) -> f32 {
         match self {
             Self::Sum => |a, b| a + b,
             Self::Min => f32::min,
