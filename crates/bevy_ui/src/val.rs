@@ -905,7 +905,6 @@ pub struct Calc(pub(crate) Box<CalcOp>);
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
 )]
 #[repr(align(8))]
 pub(crate) struct CalcOp {
@@ -961,8 +960,7 @@ impl From<CalcOp> for Val {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[cfg_attr(
     feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
+    derive(serde::Serialize, serde::Deserialize),    
 )]
 pub(crate) enum ReduceOp {
     Sum,
