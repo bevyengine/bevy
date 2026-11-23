@@ -32,7 +32,7 @@ impl CalcOps {
     }
 
     /// Invalidates all the pointers returned by `Store`.
-    /// Every field of the corresponding `Style` must be overwitten or dropped.
+    /// Every field of the corresponding `Style` must be overwritten or dropped.
     fn clear(&mut self) {
         self.0.clear()
     }
