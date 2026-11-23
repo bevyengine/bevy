@@ -8,17 +8,12 @@ import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear};
 @if(COMPOSITING_SPACE_OKLAB)
 import bevy_render::color_operations::{linear_rgb_to_oklab, oklab_to_linear_rgb};
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
-@group(0) @binding(1)
-var hdr_texture: texture_2d<f32>;
-@group(0) @binding(2)
-var hdr_sampler: sampler;
-@group(0) @binding(3)
-var dt_lut_texture: texture_3d<f32>;
-@group(0) @binding(4)
-var dt_lut_sampler: sampler;
+@group(0) @binding(1) var hdr_texture: texture_2d<f32>;
+@group(0) @binding(2) var hdr_sampler: sampler;
+@group(0) @binding(3) var dt_lut_texture: texture_3d<f32>;
+@group(0) @binding(4) var dt_lut_sampler: sampler;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {

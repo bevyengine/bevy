@@ -29,12 +29,9 @@ struct ColorMaterial {
     @group(constants::MATERIAL_BIND_GROUP) @binding(10)
     var<storage> color_materials: array<ColorMaterial>;
 } @else {
-    @group(constants::MATERIAL_BIND_GROUP) @binding(0)
-    var<uniform> material: ColorMaterial;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(1)
-    var texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(2)
-    var texture_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: ColorMaterial;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(1) var texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(2) var texture_sampler: sampler;
 }
 
 const COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;

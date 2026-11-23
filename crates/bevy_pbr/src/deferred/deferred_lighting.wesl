@@ -29,8 +29,7 @@ struct PbrDeferredLightingDepthId {
     @if(SIXTEEN_BYTE_ALIGNMENT)
     _webgl2_padding_2: f32,
 }
-@group(2) @binding(0)
-var<uniform> depth_id: PbrDeferredLightingDepthId;
+@group(2) @binding(0) var<uniform> depth_id: PbrDeferredLightingDepthId;
 
 @vertex
 fn vertex(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutput {

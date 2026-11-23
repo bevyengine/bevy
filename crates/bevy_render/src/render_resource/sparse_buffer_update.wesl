@@ -17,18 +17,14 @@ struct SparseBufferUpdateMetadata {
 }
 
 /// The buffer we're copying to.
-@group(0) @binding(0)
-var<storage, read_write> dest_buffer: array<u32>;
+@group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
 /// The buffer we're copying from.
-@group(0) @binding(1)
-var<storage> src_buffer: array<u32>;
+@group(0) @binding(1) var<storage> src_buffer: array<u32>;
 /// For each element in `src_buffer`, the element in `dest_buffer` that we should
 /// copy it to.
-@group(0) @binding(2)
-var<storage> indices: array<u32>;
+@group(0) @binding(2) var<storage> indices: array<u32>;
 /// Metadata that describes the operation.
-@group(0) @binding(3)
-var<uniform> metadata: SparseBufferUpdateMetadata;
+@group(0) @binding(3) var<uniform> metadata: SparseBufferUpdateMetadata;
 
 @compute @workgroup_size(256, 1, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {

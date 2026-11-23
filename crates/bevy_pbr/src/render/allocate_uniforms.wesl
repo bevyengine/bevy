@@ -57,13 +57,11 @@ struct UniformAllocationMetadata {
 const WORKGROUP_SIZE: u32 = 256u;
 
 /// Information needed to allocate `MeshUniform`s.
-@group(0) @binding(0)
-var<uniform> allocate_uniforms_metadata: UniformAllocationMetadata;
+@group(0) @binding(0) var<uniform> allocate_uniforms_metadata: UniformAllocationMetadata;
 
 /// Information for each bin, including the indirect parameters offset and the
 /// instance count.
-@group(0) @binding(1)
-var<storage> bin_metadata: array<BinMetadata>;
+@group(0) @binding(1) var<storage> bin_metadata: array<BinMetadata>;
 
 /// The array of indirect parameters metadata that we fill out, one for each
 /// batch.
@@ -74,8 +72,7 @@ var<storage, read_write> indirect_parameters_metadata: array<IndirectParametersM
 /// plus one for each workgroup (i.e. for each 256-bin chunk).
 ///
 /// This is accumulated in the second stage and written out in the third.
-@group(0) @binding(3)
-var<storage, read_write> fan_buffer: array<u32>;
+@group(0) @binding(3) var<storage, read_write> fan_buffer: array<u32>;
 
 /// Scratch memory that stores the prefix sum for every element in our chunk.
 var<workgroup> output_offsets: array<u32, 256>;

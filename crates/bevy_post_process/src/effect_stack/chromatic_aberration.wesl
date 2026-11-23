@@ -12,17 +12,13 @@ struct ChromaticAberrationSettings {
 }
 
 /// The source framebuffer texture.
-@group(0) @binding(0)
-var source_texture: texture_2d<f32>;
+@group(0) @binding(0) var source_texture: texture_2d<f32>;
 /// The sampler used to sample the source framebuffer texture.
-@group(0) @binding(1)
-var common_sampler: sampler;
+@group(0) @binding(1) var common_sampler: sampler;
 /// The 1D lookup table for chromatic aberration.
-@group(0) @binding(2)
-var chromatic_aberration_lut_texture: texture_2d<f32>;
+@group(0) @binding(2) var chromatic_aberration_lut_texture: texture_2d<f32>;
 /// The settings supplied by the developer.
-@group(0) @binding(3)
-var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
+@group(0) @binding(3) var<uniform> chromatic_aberration_settings: ChromaticAberrationSettings;
 
 /// Radial chromatic aberration implemented using the *Inside* technique:
 ///

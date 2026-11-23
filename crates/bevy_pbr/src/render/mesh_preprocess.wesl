@@ -95,19 +95,15 @@ struct Immediates {
 }
 
 /// The current frame's `MeshInput`.
-@group(0) @binding(3)
-var<storage> current_input: array<MeshInput>;
+@group(0) @binding(3) var<storage> current_input: array<MeshInput>;
 /// The `MeshInput` values from the previous frame.
-@group(0) @binding(4)
-var<storage> previous_input: array<PreviousMeshInput>;
+@group(0) @binding(4) var<storage> previous_input: array<PreviousMeshInput>;
 /// Indices into the `MeshInput` buffer.
 ///
 /// There may be many indices that map to the same `MeshInput`.
-@group(0) @binding(5)
-var<storage> work_items: array<PreprocessWorkItem>;
+@group(0) @binding(5) var<storage> work_items: array<PreprocessWorkItem>;
 /// The output array of `Mesh`es.
-@group(0) @binding(6)
-var<storage, read_write> output: array<Mesh>;
+@group(0) @binding(6) var<storage, read_write> output: array<Mesh>;
 
 @if(INDIRECT)
 /// The array of indirect parameters for drawcalls.
@@ -118,16 +114,13 @@ var<storage, read_write> indirect_parameters_metadata: array<IndirectParametersM
     /// Data needed to cull the meshes.
     ///
     /// At the moment, this consists only of AABBs.
-    @group(0) @binding(9)
-    var<storage> mesh_culling_data: array<MeshCullingData>;
+    @group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
 
-    @group(0) @binding(10)
-    var<storage> visibility_ranges: array<vec4<f32>>;
+    @group(0) @binding(10) var<storage> visibility_ranges: array<vec4<f32>>;
 }
 
 @if(OCCLUSION_CULLING)
-@group(0) @binding(11)
-var depth_pyramid: texture_2d<f32>;
+@group(0) @binding(11) var depth_pyramid: texture_2d<f32>;
 
 @if(OCCLUSION_CULLING && EARLY_PHASE) {
     @group(0) @binding(12)

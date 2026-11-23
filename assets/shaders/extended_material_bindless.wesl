@@ -51,10 +51,8 @@ struct ExampleBindlessExtendedMaterial {
 @else {
     @group(constants::MATERIAL_BIND_GROUP) @binding(50)
     var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(51)
-    var modulate_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(52)
-    var modulate_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(51) var modulate_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(52) var modulate_sampler: sampler;
 }
 
 @fragment

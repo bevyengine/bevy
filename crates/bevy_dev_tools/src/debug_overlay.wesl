@@ -15,18 +15,13 @@ struct DebugBufferConfig {
     mip_level: u32,
 }
 
-@group(1) @binding(0)
-var<uniform> config: DebugBufferConfig;
-@group(1) @binding(1)
-var background_texture: texture_2d<f32>;
-@group(1) @binding(2)
-var background_sampler: sampler;
+@group(1) @binding(0) var<uniform> config: DebugBufferConfig;
+@group(1) @binding(1) var background_texture: texture_2d<f32>;
+@group(1) @binding(2) var background_sampler: sampler;
 
 @if(DEBUG_DEPTH_PYRAMID) {
-    @group(1) @binding(3)
-    var depth_pyramid_texture: texture_2d<f32>;
-    @group(1) @binding(4)
-    var depth_pyramid_sampler: sampler;
+    @group(1) @binding(3) var depth_pyramid_texture: texture_2d<f32>;
+    @group(1) @binding(4) var depth_pyramid_sampler: sampler;
 }
 
 @fragment

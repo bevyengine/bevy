@@ -22,11 +22,9 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 enable dual_source_blending;
 
 @if(MULTISAMPLED)
-@group(0) @binding(13)
-var depth_texture: texture_depth_multisampled_2d;
+@group(0) @binding(13) var depth_texture: texture_depth_multisampled_2d;
 @else
-@group(0) @binding(13)
-var depth_texture: texture_depth_2d;
+@group(0) @binding(13) var depth_texture: texture_depth_2d;
 
 struct RenderSkyOutput {
     @if(DUAL_SOURCE_BLENDING)

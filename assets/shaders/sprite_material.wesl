@@ -15,8 +15,7 @@ struct DissolveMaterial {
     _webgl2_padding_16b: u32,
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(20)
-var<uniform> material: DissolveMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(20) var<uniform> material: DissolveMaterial;
 
 @fragment
 fn fragment(input: VertexOutput) -> @location(0) vec4<f32> {

@@ -1,7 +1,6 @@
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 
-@group(1) @binding(0)
-var<storage> values: array<f32>;
+@group(1) @binding(0) var<storage> values: array<f32>;
 struct Config {
     dt_min: f32,
     dt_max: f32,
@@ -9,8 +8,7 @@ struct Config {
     dt_max_log2: f32,
     proportional_width: u32,
 }
-@group(1) @binding(1)
-var<uniform> config: Config;
+@group(1) @binding(1) var<uniform> config: Config;
 
 const RED: vec4<f32> = vec4(1.0, 0.0, 0.0, 1.0);
 const GREEN: vec4<f32> = vec4(0.0, 1.0, 0.0, 1.0);

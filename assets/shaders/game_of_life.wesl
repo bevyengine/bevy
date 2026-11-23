@@ -4,14 +4,11 @@
 // Two textures are needed for the game of life as each pixel of step N depends on the state of its
 // neighbors at step N-1.
 
-@group(0) @binding(0)
-var input: texture_storage_2d<rgba32float, read>;
+@group(0) @binding(0) var input: texture_storage_2d<rgba32float, read>;
 
-@group(0) @binding(1)
-var output: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(1) var output: texture_storage_2d<rgba32float, write>;
 
-@group(0) @binding(2)
-var<uniform> config: GameOfLifeUniforms;
+@group(0) @binding(2) var<uniform> config: GameOfLifeUniforms;
 
 struct GameOfLifeUniforms {
     alive_color: vec4<f32>,

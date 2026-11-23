@@ -1,9 +1,6 @@
-@group(0) @binding(0)
-var<storage, read> transforms: array<array<vec4<f32>, 3>>;
-@group(0) @binding(1)
-var<storage, read> blas_refs: array<vec2<u32>>;
-@group(0) @binding(2)
-var<storage, read_write> instances: array<TlasInstance>;
+@group(0) @binding(0) var<storage, read> transforms: array<array<vec4<f32>, 3>>;
+@group(0) @binding(1) var<storage, read> blas_refs: array<vec2<u32>>;
+@group(0) @binding(2) var<storage, read_write> instances: array<TlasInstance>;
 
 struct TlasInstance {
     transform: array<vec4<f32>, 3>,

@@ -14,34 +14,23 @@ import bevy_render::maths::fast_acos;
 
 import bevy_render::{globals::Globals, maths::{HALF_PI, PI}, view::View};
 
-@group(0) @binding(0)
-var preprocessed_depth: texture_2d<f32>;
-@group(0) @binding(1)
-var normals: texture_2d<f32>;
-@group(0) @binding(2)
-var hilbert_index_lut: texture_2d<u32>;
+@group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
+@group(0) @binding(1) var normals: texture_2d<f32>;
+@group(0) @binding(2) var hilbert_index_lut: texture_2d<u32>;
 @if(USE_R16FLOAT)
-@group(0) @binding(3)
-var ambient_occlusion: texture_storage_2d<r16float, write>;
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r16float, write>;
 @else
-@group(0) @binding(3)
-var ambient_occlusion: texture_storage_2d<r32float, write>;
-@group(0) @binding(4)
-var depth_differences: texture_storage_2d<r32uint, write>;
-@group(0) @binding(5)
-var<uniform> globals: Globals;
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32float, write>;
+@group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
+@group(0) @binding(5) var<uniform> globals: Globals;
 struct SsaoSettings {
     radius: f32,
     thickness: f32,
 }
-@group(0) @binding(6)
-var<uniform> settings: SsaoSettings;
-@group(1) @binding(0)
-var point_clamp_sampler: sampler;
-@group(1) @binding(1)
-var linear_clamp_sampler: sampler;
-@group(1) @binding(2)
-var<uniform> view: View;
+@group(0) @binding(6) var<uniform> settings: SsaoSettings;
+@group(1) @binding(0) var point_clamp_sampler: sampler;
+@group(1) @binding(1) var linear_clamp_sampler: sampler;
+@group(1) @binding(2) var<uniform> view: View;
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;

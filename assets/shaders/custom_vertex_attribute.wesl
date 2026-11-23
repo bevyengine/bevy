@@ -5,8 +5,7 @@ import bevy_pbr::render::mesh_functions::{get_world_from_local, mesh_position_lo
 struct CustomMaterial {
     color: vec4<f32>,
 }
-@group(constants::MATERIAL_BIND_GROUP) @binding(0)
-var<uniform> material: CustomMaterial;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material: CustomMaterial;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

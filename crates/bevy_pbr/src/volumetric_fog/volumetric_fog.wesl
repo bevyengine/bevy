@@ -73,21 +73,16 @@ struct VolumetricFog {
     jitter_strength: f32,
 }
 
-@group(1) @binding(0)
-var<uniform> volumetric_fog: VolumetricFog;
+@group(1) @binding(0) var<uniform> volumetric_fog: VolumetricFog;
 
 @if(MULTISAMPLED)
-@group(1) @binding(1)
-var depth_texture: texture_depth_multisampled_2d;
+@group(1) @binding(1) var depth_texture: texture_depth_multisampled_2d;
 @else
-@group(1) @binding(1)
-var depth_texture: texture_depth_2d;
+@group(1) @binding(1) var depth_texture: texture_depth_2d;
 
 @if(DENSITY_TEXTURE) {
-    @group(1) @binding(2)
-    var density_texture: texture_3d<f32>;
-    @group(1) @binding(3)
-    var density_sampler: sampler;
+    @group(1) @binding(2) var density_texture: texture_3d<f32>;
+    @group(1) @binding(3) var density_sampler: sampler;
 }
 
 /// 1 / (4π)

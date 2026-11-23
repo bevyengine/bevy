@@ -2,8 +2,7 @@
 import bevy_render::view::View;
 import bevy_render::maths::affine3_to_square;
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
 struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
@@ -18,8 +17,7 @@ struct LineGizmoUniform {
     _padding: vec2<f32>,
 }
 
-@group(1) @binding(0)
-var<uniform> line_gizmo: LineGizmoUniform;
+@group(1) @binding(0) var<uniform> line_gizmo: LineGizmoUniform;
 
 struct VertexInput {
     @location(0) position_a: vec3<f32>,

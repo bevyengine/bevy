@@ -78,32 +78,24 @@ struct ClusterOffsetsAndCountsElementAtomic {
 }
 
 /// The list of clusterable object Z slices that we read from to.
-@group(0) @binding(0)
-var<storage> z_slices: array<ClusterableObjectZSlice>;
+@group(0) @binding(0) var<storage> z_slices: array<ClusterableObjectZSlice>;
 @if(!VERTEX_SHADER)
 /// The list of indices per cluster that we write to in the populate pass.
-@group(0) @binding(1)
-var<storage, read_write> index_lists: ClusterableObjectIndexLists;
+@group(0) @binding(1) var<storage, read_write> index_lists: ClusterableObjectIndexLists;
 /// Information about each light.
-@group(0) @binding(2)
-var<storage> clustered_lights: ClusteredLights;
+@group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
 /// Information about each light probe (reflection probe or irradiance volume).
-@group(0) @binding(3)
-var<uniform> light_probes: LightProbes;
+@group(0) @binding(3) var<uniform> light_probes: LightProbes;
 /// Information about each clustered decal.
-@group(0) @binding(4)
-var<storage> clustered_decals: ClusteredDecals;
+@group(0) @binding(4) var<storage> clustered_decals: ClusteredDecals;
 /// Information about the clusters as a whole, including the dimensions of the
 /// cluster grid.
-@group(0) @binding(5)
-var<uniform> lights: Lights;
+@group(0) @binding(5) var<uniform> lights: Lights;
 /// Information about the view.
-@group(0) @binding(6)
-var<uniform> view: View;
+@group(0) @binding(6) var<uniform> view: View;
 @if(!VERTEX_SHADER && POPULATE_PASS) {
     /// The number of objects in each cluster, and the offset of each list.
-    @group(0) @binding(7)
-    var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
+    @group(0) @binding(7) var<storage> offsets_and_counts: ClusterOffsetsAndCounts;
     /// For each cluster, the counts of objects written *so far* to it.
     ///
     /// We use this during the populate phase in order to write the ID of each object
@@ -115,8 +107,7 @@ var<uniform> view: View;
 /// The number of objects in each cluster.
 ///
 /// During the count pass, we write to this.
-@group(0) @binding(7)
-var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
+@group(0) @binding(7) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCountsAtomic;
 
 /// The vertex entry point.
 @vertex

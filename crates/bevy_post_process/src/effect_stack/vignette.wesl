@@ -18,8 +18,7 @@ struct VignetteSettings {
 const VISUAL_THRESHOLD: f32 = 1e-4;
 
 /// The settings supplied by the developer.
-@group(0) @binding(4)
-var<uniform> vignette_settings: VignetteSettings;
+@group(0) @binding(4) var<uniform> vignette_settings: VignetteSettings;
 
 fn vignette(uv: vec2<f32>, color: vec3<f32>) -> vec3<f32> {
     let intensity = vignette_settings.intensity;

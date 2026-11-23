@@ -4,22 +4,15 @@ import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import bevy_render::globals::Globals;
 
 @if(MULTISAMPLED) {
-    @group(0) @binding(0)
-    var screen_texture: texture_2d<f32>;
-    @group(0) @binding(1)
-    var motion_vectors: texture_multisampled_2d<f32>;
-    @group(0) @binding(2)
-    var depth: texture_multisampled_2d<f32>;
+    @group(0) @binding(0) var screen_texture: texture_2d<f32>;
+    @group(0) @binding(1) var motion_vectors: texture_multisampled_2d<f32>;
+    @group(0) @binding(2) var depth: texture_multisampled_2d<f32>;
 } @else {
-    @group(0) @binding(0)
-    var screen_texture: texture_2d<f32>;
-    @group(0) @binding(1)
-    var motion_vectors: texture_2d<f32>;
-    @group(0) @binding(2)
-    var depth: texture_2d<f32>;
+    @group(0) @binding(0) var screen_texture: texture_2d<f32>;
+    @group(0) @binding(1) var motion_vectors: texture_2d<f32>;
+    @group(0) @binding(2) var depth: texture_2d<f32>;
 }
-@group(0) @binding(3)
-var texture_sampler: sampler;
+@group(0) @binding(3) var texture_sampler: sampler;
 struct MotionBlur {
     shutter_angle: f32,
     samples: u32,
@@ -27,10 +20,8 @@ struct MotionBlur {
     // WebGL2 structs must be 16 byte aligned.
     _webgl2_padding: vec2<f32>,
 }
-@group(0) @binding(4)
-var<uniform> settings: MotionBlur;
-@group(0) @binding(5)
-var<uniform> globals: Globals;
+@group(0) @binding(4) var<uniform> settings: MotionBlur;
+@group(0) @binding(5) var<uniform> globals: Globals;
 
 @fragment
 fn fragment(

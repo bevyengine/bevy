@@ -1,9 +1,7 @@
 @if(MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT)
-@group(0) @binding(0)
-var meshlet_visibility_buffer: texture_storage_2d<r64uint, write>;
+@group(0) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, write>;
 @else
-@group(0) @binding(0)
-var meshlet_visibility_buffer: texture_storage_2d<r32uint, write>;
+@group(0) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r32uint, write>;
 var<immediate> view_size: vec2<u32>;
 
 @compute @workgroup_size(16, 16, 1)

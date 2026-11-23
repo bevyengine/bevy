@@ -28,12 +28,9 @@
 import package::cluster::ClusterMetadata;
 import package::render::mesh_view_types::{ClusterOffsetsAndCounts, Lights};
 
-@group(0) @binding(0)
-var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCounts;
-@group(0) @binding(1)
-var<uniform> lights: Lights;
-@group(0) @binding(2)
-var<storage, read_write> clustering_metadata: ClusterMetadata;
+@group(0) @binding(0) var<storage, read_write> offsets_and_counts: ClusterOffsetsAndCounts;
+@group(0) @binding(1) var<uniform> lights: Lights;
+@group(0) @binding(2) var<storage, read_write> clustering_metadata: ClusterMetadata;
 @group(0) @binding(3)
 var<storage, read_write> scratchpad_offsets_and_counts: ClusterOffsetsAndCounts;
 

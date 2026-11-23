@@ -2,11 +2,9 @@ import package::render::mesh_types::SkinnedMesh;
 import package::render::mesh_bindings::mesh;
 
 @if(SKINNED && SKINS_USE_UNIFORM_BUFFERS)
-@group(2) @binding(1)
-var<uniform> joint_matrices: SkinnedMesh;
+@group(2) @binding(1) var<uniform> joint_matrices: SkinnedMesh;
 @if(SKINNED && !SKINS_USE_UNIFORM_BUFFERS)
-@group(2) @binding(1)
-var<storage> joint_matrices: array<mat4x4<f32>>;
+@group(2) @binding(1) var<storage> joint_matrices: array<mat4x4<f32>>;
 
 /// An array of matrices specifying the joint positions from the previous frame.
 ///
@@ -15,11 +13,9 @@ var<storage> joint_matrices: array<mat4x4<f32>>;
 /// If this is the first frame, or we're otherwise prevented from using data from
 /// the previous frame, this is simply the same as `joint_matrices` above.
 @if(SKINNED && SKINS_USE_UNIFORM_BUFFERS)
-@group(2) @binding(6)
-var<uniform> prev_joint_matrices: SkinnedMesh;
+@group(2) @binding(6) var<uniform> prev_joint_matrices: SkinnedMesh;
 @if(SKINNED && !SKINS_USE_UNIFORM_BUFFERS)
-@group(2) @binding(6)
-var<storage> prev_joint_matrices: array<mat4x4<f32>>;
+@group(2) @binding(6) var<storage> prev_joint_matrices: array<mat4x4<f32>>;
 
 @if(SKINNED)
 fn skin_model(indexes: vec4<u32>, weights: vec4<f32>, instance_index: u32) -> mat4x4<f32> {

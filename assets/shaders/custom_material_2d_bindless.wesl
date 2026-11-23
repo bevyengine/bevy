@@ -22,12 +22,9 @@ struct MaterialBindings {
     @group(constants::MATERIAL_BIND_GROUP) @binding(10)
     var<storage> material_color: binding_array<Color>;
 } @else {
-    @group(constants::MATERIAL_BIND_GROUP) @binding(0)
-    var<uniform> material_color: Color;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(1)
-    var material_color_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(2)
-    var material_color_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material_color: Color;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(1) var material_color_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(2) var material_color_sampler: sampler;
 }
 
 @fragment

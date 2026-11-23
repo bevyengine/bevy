@@ -43,32 +43,23 @@ struct CompensationCurve {
     compensation_range: f32,
 }
 
-@group(0) @binding(0)
-var<uniform> globals: Globals;
+@group(0) @binding(0) var<uniform> globals: Globals;
 
-@group(0) @binding(1)
-var<uniform> settings: AutoExposure;
+@group(0) @binding(1) var<uniform> settings: AutoExposure;
 
-@group(0) @binding(2)
-var tex_color: texture_2d<f32>;
+@group(0) @binding(2) var tex_color: texture_2d<f32>;
 
-@group(0) @binding(3)
-var tex_mask: texture_2d<f32>;
+@group(0) @binding(3) var tex_mask: texture_2d<f32>;
 
-@group(0) @binding(4)
-var tex_compensation: texture_1d<f32>;
+@group(0) @binding(4) var tex_compensation: texture_1d<f32>;
 
-@group(0) @binding(5)
-var<uniform> compensation_curve: CompensationCurve;
+@group(0) @binding(5) var<uniform> compensation_curve: CompensationCurve;
 
-@group(0) @binding(6)
-var<storage, read_write> histogram: array<atomic<u32>, 64>;
+@group(0) @binding(6) var<storage, read_write> histogram: array<atomic<u32>, 64>;
 
-@group(0) @binding(7)
-var<storage, read_write> exposure: f32;
+@group(0) @binding(7) var<storage, read_write> exposure: f32;
 
-@group(0) @binding(8)
-var<storage, read_write> view: View;
+@group(0) @binding(8) var<storage, read_write> view: View;
 
 var<workgroup> histogram_shared: array<atomic<u32>, 64>;
 

@@ -8,8 +8,7 @@ struct ColorPlaneUniform {
     _webgl2_padding_12b: vec3<f32>,
 }
 
-@group(1) @binding(0)
-var<uniform> uniform_data: ColorPlaneUniform;
+@group(1) @binding(0) var<uniform> uniform_data: ColorPlaneUniform;
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {

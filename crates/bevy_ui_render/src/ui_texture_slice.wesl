@@ -1,15 +1,11 @@
 import bevy_render::view::View;
 import bevy_render::globals::Globals;
 
-@group(0) @binding(0)
-var<uniform> view: View;
-@group(0) @binding(1)
-var<uniform> globals: Globals;
+@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(1) var<uniform> globals: Globals;
 
-@group(1) @binding(0)
-var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1)
-var sprite_sampler: sampler;
+@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1) var sprite_sampler: sampler;
 
 struct UiVertexOutput {
     @location(0) uv: vec2<f32>,

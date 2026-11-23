@@ -10,8 +10,7 @@ import package::{
 };
 import bevy_render::maths::project_onto;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(200)
-var<uniform> inv_depth_fade_factor: f32;
+@group(constants::MATERIAL_BIND_GROUP) @binding(200) var<uniform> inv_depth_fade_factor: f32;
 
 struct ForwardDecalInformation {
     world_position: vec4<f32>,

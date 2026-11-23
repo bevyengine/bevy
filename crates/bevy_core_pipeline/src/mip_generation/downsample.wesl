@@ -1,10 +1,8 @@
 //! Single pass downsampling shader for creating the mip chain for a texture
 //! Ported from https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/c16b1d286b5b438b75da159ab51ff426bacea3d1/sdk/include/FidelityFX/gpu/spd/ffx_spd.h
 
-@group(0) @binding(0)
-var sampler_linear_clamp: sampler;
-@group(0) @binding(1)
-var<uniform> constants: Constants;
+@group(0) @binding(0) var sampler_linear_clamp: sampler;
+@group(0) @binding(1) var<uniform> constants: Constants;
 
 @if(TEXTURE_FORMAT_RGBA8UNORM) {
     alias MipWrite2d = texture_storage_2d<rgba8unorm, write>;
@@ -164,57 +162,36 @@ var<uniform> constants: Constants;
 }
 
 @if(COMBINE_BIND_GROUP || SPLIT_BIND_GROUP_FIRST) {
-    @group(0) @binding(2)
-    var mip_0: SourceTexture;
-    @group(0) @binding(3)
-    var mip_1: MipWrite;
-    @group(0) @binding(4)
-    var mip_2: MipWrite;
-    @group(0) @binding(5)
-    var mip_3: MipWrite;
-    @group(0) @binding(6)
-    var mip_4: MipWrite;
-    @group(0) @binding(7)
-    var mip_5: MipWrite;
+    @group(0) @binding(2) var mip_0: SourceTexture;
+    @group(0) @binding(3) var mip_1: MipWrite;
+    @group(0) @binding(4) var mip_2: MipWrite;
+    @group(0) @binding(5) var mip_3: MipWrite;
+    @group(0) @binding(6) var mip_4: MipWrite;
+    @group(0) @binding(7) var mip_5: MipWrite;
 }
 
 @if(COMBINE_BIND_GROUP) {
-    @group(0) @binding(8)
-    var mip_6: MipReadWrite;
-    @group(0) @binding(9)
-    var mip_7: MipWrite;
-    @group(0) @binding(10)
-    var mip_8: MipWrite;
-    @group(0) @binding(11)
-    var mip_9: MipWrite;
-    @group(0) @binding(12)
-    var mip_10: MipWrite;
-    @group(0) @binding(13)
-    var mip_11: MipWrite;
-    @group(0) @binding(14)
-    var mip_12: MipWrite;
+    @group(0) @binding(8) var mip_6: MipReadWrite;
+    @group(0) @binding(9) var mip_7: MipWrite;
+    @group(0) @binding(10) var mip_8: MipWrite;
+    @group(0) @binding(11) var mip_9: MipWrite;
+    @group(0) @binding(12) var mip_10: MipWrite;
+    @group(0) @binding(13) var mip_11: MipWrite;
+    @group(0) @binding(14) var mip_12: MipWrite;
 }
 
 @if(SPLIT_BIND_GROUP_FIRST) {
-    @group(0) @binding(8)
-    var mip_6: MipWrite;
+    @group(0) @binding(8) var mip_6: MipWrite;
 }
 
 @if(SPLIT_BIND_GROUP_SECOND) {
-    @group(0) @binding(2)
-    var mip_6: SourceTexture;
-    @group(0) @binding(3)
-    var mip_7: MipWrite;
-    @group(0) @binding(4)
-    var mip_8: MipWrite;
-    @group(0) @binding(5)
-    var mip_9: MipWrite;
-    @group(0) @binding(6)
-    var mip_10: MipWrite;
-    @group(0) @binding(7)
-    var mip_11: MipWrite;
-    @group(0) @binding(8)
-    var mip_12: MipWrite;
+    @group(0) @binding(2) var mip_6: SourceTexture;
+    @group(0) @binding(3) var mip_7: MipWrite;
+    @group(0) @binding(4) var mip_8: MipWrite;
+    @group(0) @binding(5) var mip_9: MipWrite;
+    @group(0) @binding(6) var mip_10: MipWrite;
+    @group(0) @binding(7) var mip_11: MipWrite;
+    @group(0) @binding(8) var mip_12: MipWrite;
 }
 
 struct Constants {

@@ -15,8 +15,7 @@ import package::{
 import bevy_render::{maths::HALF_PI, view::View};
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
-@group(0) @binding(13)
-var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13) var sky_view_lut_out: texture_storage_2d<rgba16float, write>;
 
 @compute @workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {

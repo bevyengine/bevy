@@ -43,31 +43,26 @@ struct BinnedMeshInstance {
 }
 
 /// Metadata for the entire batch set.
-@group(0) @binding(0)
-var<uniform> bin_unpacking_metadata: BinUnpackingMetadata;
+@group(0) @binding(0) var<uniform> bin_unpacking_metadata: BinUnpackingMetadata;
 
 /// The input array of `BinnedMeshInstance`s.
 ///
 /// Note that this array isn't sorted.
-@group(0) @binding(1)
-var<storage> binned_mesh_instances: array<BinnedMeshInstance>;
+@group(0) @binding(1) var<storage> binned_mesh_instances: array<BinnedMeshInstance>;
 
 /// The output list of `PreprocessWorkItem`s.
-@group(0) @binding(2)
-var<storage, read_write> preprocess_work_items: array<PreprocessWorkItem>;
+@group(0) @binding(2) var<storage, read_write> preprocess_work_items: array<PreprocessWorkItem>;
 
 /// The bin metadata, which contains the index of the GPU indirect parameters for
 /// this bin, relative to the start of the indirect parameters for this batch
 /// set.
 ///
 /// This is indexed by the bin metadata index below.
-@group(0) @binding(3)
-var<storage> bin_metadata: array<BinMetadata>;
+@group(0) @binding(3) var<storage> bin_metadata: array<BinMetadata>;
 
 /// A mapping from the bin index to the metadata index within the `bin_metadata`
 /// buffer.
-@group(0) @binding(4)
-var<storage> bin_index_to_bin_metadata_index: array<u32>;
+@group(0) @binding(4) var<storage> bin_index_to_bin_metadata_index: array<u32>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {

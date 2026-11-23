@@ -7,8 +7,7 @@ struct ShowPrepassSettings {
     padding_1: u32,
     padding_2: u32,
 }
-@group(constants::MATERIAL_BIND_GROUP) @binding(0)
-var<uniform> settings: ShowPrepassSettings;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> settings: ShowPrepassSettings;
 
 @fragment
 fn fragment(

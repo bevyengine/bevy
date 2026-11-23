@@ -18,8 +18,7 @@ import bevy_pbr::render::pbr_types::{STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE, 
 import bevy_pbr::render::mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT;
 import bevy_render::globals::Globals;
 
-@group(0) @binding(1)
-var<uniform> globals: Globals;
+@group(0) @binding(1) var<uniform> globals: Globals;
 
 const FAR: f32 = 100.0;
 const SURFACE_EPSILON: f32 = 0.001;

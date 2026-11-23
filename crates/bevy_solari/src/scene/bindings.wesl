@@ -127,48 +127,27 @@ struct EnvironmentMapLight {
 
 const LIGHT_NOT_PRESENT_THIS_FRAME = 0xFFFFFFFFu;
 
-@group(0) @binding(0)
-var<storage> vertex_buffers: binding_array<VertexBuffer>;
-@group(0) @binding(1)
-var<storage> index_buffers: binding_array<IndexBuffer>;
-@group(0) @binding(2)
-var textures: binding_array<texture_2d<f32>>;
-@group(0) @binding(3)
-var samplers: binding_array<sampler>;
-@group(0) @binding(4)
-var<storage> materials: array<Material>;
-@group(0) @binding(5)
-var tlas: acceleration_structure;
-@group(0) @binding(6)
-var previous_frame_tlas: acceleration_structure;
-@group(0) @binding(7)
-var<storage> transforms: array<mat3x4<f32>>;
-@group(0) @binding(8)
-var<storage> previous_frame_transforms: array<mat3x4<f32>>;
-@group(0) @binding(9)
-var<storage> geometry_ids: array<InstanceGeometryIds>;
-@group(0) @binding(10)
-var<storage> material_ids: array<u32>;
-@group(0) @binding(11)
-var brdf_dfg_lut: texture_2d<f32>;
-@group(0) @binding(12)
-var brdf_dfg_lut_sampler: sampler;
-@group(0) @binding(13)
-var<storage> light_sources: array<LightSource>;
-@group(0) @binding(14)
-var<storage> directional_lights: array<DirectionalLight>;
-@group(0) @binding(15)
-var<storage> point_lights: array<PointLight>;
-@group(0) @binding(16)
-var<storage> rect_lights: array<RectLight>;
-@group(0) @binding(17)
-var environment_map: texture_cube<f32>;
-@group(0) @binding(18)
-var environment_map_sampler: sampler;
-@group(0) @binding(19)
-var<storage> environment_map_light: EnvironmentMapLight;
-@group(0) @binding(20)
-var<storage> previous_frame_light_id_translations: array<u32>;
+@group(0) @binding(0) var<storage> vertex_buffers: binding_array<VertexBuffer>;
+@group(0) @binding(1) var<storage> index_buffers: binding_array<IndexBuffer>;
+@group(0) @binding(2) var textures: binding_array<texture_2d<f32>>;
+@group(0) @binding(3) var samplers: binding_array<sampler>;
+@group(0) @binding(4) var<storage> materials: array<Material>;
+@group(0) @binding(5) var tlas: acceleration_structure;
+@group(0) @binding(6) var previous_frame_tlas: acceleration_structure;
+@group(0) @binding(7) var<storage> transforms: array<mat3x4<f32>>;
+@group(0) @binding(8) var<storage> previous_frame_transforms: array<mat3x4<f32>>;
+@group(0) @binding(9) var<storage> geometry_ids: array<InstanceGeometryIds>;
+@group(0) @binding(10) var<storage> material_ids: array<u32>;
+@group(0) @binding(11) var brdf_dfg_lut: texture_2d<f32>;
+@group(0) @binding(12) var brdf_dfg_lut_sampler: sampler;
+@group(0) @binding(13) var<storage> light_sources: array<LightSource>;
+@group(0) @binding(14) var<storage> directional_lights: array<DirectionalLight>;
+@group(0) @binding(15) var<storage> point_lights: array<PointLight>;
+@group(0) @binding(16) var<storage> rect_lights: array<RectLight>;
+@group(0) @binding(17) var environment_map: texture_cube<f32>;
+@group(0) @binding(18) var environment_map_sampler: sampler;
+@group(0) @binding(19) var<storage> environment_map_light: EnvironmentMapLight;
+@group(0) @binding(20) var<storage> previous_frame_light_id_translations: array<u32>;
 
 const RAY_T_MIN = 0.001f;
 const RAY_T_MAX = 100000.0f;

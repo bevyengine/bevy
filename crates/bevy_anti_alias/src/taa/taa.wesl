@@ -12,18 +12,12 @@ const DEFAULT_HISTORY_BLEND_RATE: f32 =
 const MIN_HISTORY_BLEND_RATE: f32 =
     0.015; // Minimum blend rate allowed, to ensure at least some of the current sample is used
 
-@group(0) @binding(0)
-var view_target: texture_2d<f32>;
-@group(0) @binding(1)
-var history: texture_2d<f32>;
-@group(0) @binding(2)
-var motion_vectors: texture_2d<f32>;
-@group(0) @binding(3)
-var depth: texture_depth_2d;
-@group(0) @binding(4)
-var nearest_sampler: sampler;
-@group(0) @binding(5)
-var linear_sampler: sampler;
+@group(0) @binding(0) var view_target: texture_2d<f32>;
+@group(0) @binding(1) var history: texture_2d<f32>;
+@group(0) @binding(2) var motion_vectors: texture_2d<f32>;
+@group(0) @binding(3) var depth: texture_depth_2d;
+@group(0) @binding(4) var nearest_sampler: sampler;
+@group(0) @binding(5) var linear_sampler: sampler;
 
 struct Output {
     @location(0) view_target: vec4<f32>,

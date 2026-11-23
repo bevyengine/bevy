@@ -19,8 +19,7 @@ struct ColorPlaneUniform {
     _webgl2_padding_8b: vec2<f32>,
 }
 
-@group(1) @binding(0)
-var<uniform> uniform_data: ColorPlaneUniform;
+@group(1) @binding(0) var<uniform> uniform_data: ColorPlaneUniform;
 
 // 2d cross product
 fn cross_2d(a: vec2<f32>, b: vec2<f32>) -> f32 {

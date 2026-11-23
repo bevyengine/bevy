@@ -27,24 +27,20 @@ struct IndirectParametersBuildJob {
 }
 
 /// The data for each mesh that the CPU supplied to the GPU.
-@group(0) @binding(0)
-var<storage> current_input: array<MeshInput>;
+@group(0) @binding(0) var<storage> current_input: array<MeshInput>;
 
 /// Data that we use to generate the indirect parameters.
 ///
 /// The `mesh_preprocess.wesl` shader emits these.
-@group(0) @binding(1)
-var<storage> indirect_parameters_metadata: array<IndirectParametersMetadata>;
+@group(0) @binding(1) var<storage> indirect_parameters_metadata: array<IndirectParametersMetadata>;
 
 /// Information about each batch set.
 ///
 /// A *batch set* is a set of meshes that might be multi-drawn together.
-@group(0) @binding(3)
-var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
+@group(0) @binding(3) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 
 /// Specifies the batches that this shader invocation is to process.
-@group(0) @binding(4)
-var<uniform> indirect_parameters_build_job: IndirectParametersBuildJob;
+@group(0) @binding(4) var<uniform> indirect_parameters_build_job: IndirectParametersBuildJob;
 
 @if(INDEXED)
 /// The buffer of indirect draw parameters that we generate, and that the GPU

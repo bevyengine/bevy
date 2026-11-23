@@ -32,27 +32,20 @@ import package::render::mesh_view_types::{
 import bevy_render::view::View;
 
 /// Metadata, including the indirect draw parameters that we write to.
-@group(0) @binding(0)
-var<storage, read_write> cluster_metadata: ClusterMetadata;
+@group(0) @binding(0) var<storage, read_write> cluster_metadata: ClusterMetadata;
 /// The list of clusterable object Z slices that we write to.
-@group(0) @binding(1)
-var<storage, read_write> z_slices: array<ClusterableObjectZSlice>;
+@group(0) @binding(1) var<storage, read_write> z_slices: array<ClusterableObjectZSlice>;
 /// Information about each light.
-@group(0) @binding(2)
-var<storage> clustered_lights: ClusteredLights;
+@group(0) @binding(2) var<storage> clustered_lights: ClusteredLights;
 /// Information about each light probe (reflection probe or irradiance volume).
-@group(0) @binding(3)
-var<uniform> light_probes: LightProbes;
+@group(0) @binding(3) var<uniform> light_probes: LightProbes;
 /// Information about each clustered decal.
-@group(0) @binding(4)
-var<storage> clustered_decals: ClusteredDecals;
+@group(0) @binding(4) var<storage> clustered_decals: ClusteredDecals;
 /// Information about the clusters as a whole, including the dimensions of the
 /// cluster grid.
-@group(0) @binding(5)
-var<uniform> lights: Lights;
+@group(0) @binding(5) var<uniform> lights: Lights;
 /// Information about the view.
-@group(0) @binding(6)
-var<uniform> view: View;
+@group(0) @binding(6) var<uniform> view: View;
 
 /// A temporary workgroup-local buffer used to accelerate the "farthest depth of
 /// any object" calculation.

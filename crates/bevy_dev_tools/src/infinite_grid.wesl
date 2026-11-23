@@ -21,13 +21,10 @@ struct InfiniteGridSettings {
     major_line_col: vec4<f32>,
 }
 
-@group(0) @binding(0)
-var<uniform> view: View;
+@group(0) @binding(0) var<uniform> view: View;
 
-@group(1) @binding(0)
-var<uniform> infinite_grid: InfiniteGridUniform;
-@group(1) @binding(1)
-var<uniform> grid_settings: InfiniteGridSettings;
+@group(1) @binding(0) var<uniform> infinite_grid: InfiniteGridUniform;
+@group(1) @binding(1) var<uniform> grid_settings: InfiniteGridSettings;
 
 /// Same as view_transformations::position_ndc_to_world but we can't use it since
 /// it relies on bevy's view bind group

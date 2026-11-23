@@ -63,33 +63,27 @@ struct DualOutput {
 
 /// The depth texture for the main view.
 @if(MULTISAMPLED)
-@group(0) @binding(1)
-var depth_texture: texture_depth_multisampled_2d;
+@group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
 @else
 // MULTISAMPLED
-@group(0) @binding(1)
-var depth_texture: texture_depth_2d;
+@group(0) @binding(1) var depth_texture: texture_depth_2d;
 
 /// The main color texture.
-@group(0) @binding(2)
-var color_texture_a: texture_2d<f32>;
+@group(0) @binding(2) var color_texture_a: texture_2d<f32>;
 
 /// The auxiliary color texture that we're sampling from. This is only used as
 /// part of the second bokeh pass.
 @if(DUAL_INPUT)
-@group(0) @binding(3)
-var color_texture_b: texture_2d<f32>;
+@group(0) @binding(3) var color_texture_b: texture_2d<f32>;
 
 // The global uniforms, representing data backed by buffers shared among all
 // views in the scene.
 
 /// The parameters that control the depth of field effect.
-@group(1) @binding(0)
-var<uniform> dof_params: DepthOfFieldParams;
+@group(1) @binding(0) var<uniform> dof_params: DepthOfFieldParams;
 
 /// The sampler that's used to fetch texels from the source color buffer.
-@group(1) @binding(1)
-var color_texture_sampler: sampler;
+@group(1) @binding(1) var color_texture_sampler: sampler;
 
 /// cos(-30°), used for the bokeh blur.
 const COS_NEG_FRAC_PI_6: f32 = 0.8660254037844387;

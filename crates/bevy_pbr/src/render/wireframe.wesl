@@ -28,12 +28,9 @@ import package::render::forward_io::VertexOutput;
         position_offset: u32,
     }
 
-    @group(3) @binding(0)
-    var<storage, read> vertex_data: array<u32>;
-    @group(3) @binding(1)
-    var<storage, read> index_data: array<u32>;
-    @group(3) @binding(2)
-    var<uniform> vp_params: VertexPullParams;
+    @group(3) @binding(0) var<storage, read> vertex_data: array<u32>;
+    @group(3) @binding(1) var<storage, read> index_data: array<u32>;
+    @group(3) @binding(2) var<uniform> vp_params: VertexPullParams;
 
     struct WireframeVertexOutput {
         @builtin(position) position: vec4<f32>,

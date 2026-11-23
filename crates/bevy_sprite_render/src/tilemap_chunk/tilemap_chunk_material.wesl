@@ -12,12 +12,9 @@ import package::mesh2d::{
     view_bindings::view
 };
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0)
-var tileset: texture_2d_array<f32>;
-@group(constants::MATERIAL_BIND_GROUP) @binding(1)
-var tileset_sampler: sampler;
-@group(constants::MATERIAL_BIND_GROUP) @binding(2)
-var tile_data: texture_2d<u32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var tileset: texture_2d_array<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(1) var tileset_sampler: sampler;
+@group(constants::MATERIAL_BIND_GROUP) @binding(2) var tile_data: texture_2d<u32>;
 
 struct TileData {
     tileset_index: u32,

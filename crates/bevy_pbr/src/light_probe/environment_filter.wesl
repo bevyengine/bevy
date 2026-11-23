@@ -11,16 +11,11 @@ struct FilteringConstants {
     noise_size_bits: vec2u,
 }
 
-@group(0) @binding(0)
-var input_texture: texture_2d_array<f32>;
-@group(0) @binding(1)
-var input_sampler: sampler;
-@group(0) @binding(2)
-var output_texture: texture_storage_2d_array<rgba16float, write>;
-@group(0) @binding(3)
-var<uniform> constants: FilteringConstants;
-@group(0) @binding(4)
-var blue_noise_texture: texture_2d_array<f32>;
+@group(0) @binding(0) var input_texture: texture_2d_array<f32>;
+@group(0) @binding(1) var input_sampler: sampler;
+@group(0) @binding(2) var output_texture: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(3) var<uniform> constants: FilteringConstants;
+@group(0) @binding(4) var blue_noise_texture: texture_2d_array<f32>;
 
 /// Sample an environment map with a specific LOD
 fn sample_environment(dir: vec3f, level: f32) -> vec4f {

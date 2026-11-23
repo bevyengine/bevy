@@ -9,8 +9,7 @@ import bevy_pbr::render::utils;
 @if(MATERIAL_OIT_ENABLED)
 import bevy_core_pipeline::oit::draw::oit_draw;
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(0)
-var<uniform> material_color: vec4<f32>;
+@group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> material_color: vec4<f32>;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

@@ -23,8 +23,7 @@ struct Colors {
     color2: vec4<f32>,
 }
 
-@group(constants::MATERIAL_BIND_GROUP) @binding(100)
-var<uniform> material: Colors;
+@group(constants::MATERIAL_BIND_GROUP) @binding(100) var<uniform> material: Colors;
 
 @fragment
 fn fragment(in: VertexOutput) -> FragmentOutput {

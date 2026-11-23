@@ -41,10 +41,8 @@ struct CustomMaterialDataArray {
 } @else {
     @group(constants::MATERIAL_BIND_GROUP) @binding(1)
     var<storage> material_data: CustomMaterialDataArray;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(2)
-    var color_texture: texture_2d<f32>;
-    @group(constants::MATERIAL_BIND_GROUP) @binding(3)
-    var color_texture_sampler: sampler;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(2) var color_texture: texture_2d<f32>;
+    @group(constants::MATERIAL_BIND_GROUP) @binding(3) var color_texture_sampler: sampler;
 }
 
 @fragment
