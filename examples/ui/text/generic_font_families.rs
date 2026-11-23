@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                     TextFont::from(source.clone()).with_font_size(FONT_SIZE),
                     TextColor(WHEAT.into()),
                     TextLayout::justify(Justify::Center),
-                    outline,
+                    outline.clone(),
                 ));
 
                 builder.spawn((
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                     TextFont::from_font_size(FONT_SIZE),
                     TextColor(YELLOW.into()),
                     TextLayout::justify(Justify::Center),
-                    outline,
+                    outline.clone(),
                 ));
 
                 // Get the family name for the `FontSource` from `FontCx`.
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, mut font_system: ResMut<FontCx>) {
                     Text::new(family_name),
                     TextFont::from_font_size(FONT_SIZE),
                     TextLayout::justify(Justify::Center),
-                    outline,
+                    outline.clone(),
                 ));
             }
         });

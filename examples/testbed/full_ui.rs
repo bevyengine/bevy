@@ -275,7 +275,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
-                            BoxShadow::from(shadow_style),
+                            BoxShadow::from(shadow_style.clone()),
                         ))
                         .with_children(|parent| {
                             parent.spawn((
@@ -289,7 +289,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
-                                BoxShadow::from(shadow_style),
+                                BoxShadow::from(shadow_style.clone()),
                             ));
                             parent.spawn((
                                 Node {
@@ -301,7 +301,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
-                                BoxShadow::from(shadow_style),
+                                BoxShadow::from(shadow_style.clone()),
                             ));
                             parent.spawn((
                                 Node {
@@ -313,7 +313,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
-                                BoxShadow::from(shadow_style),
+                                BoxShadow::from(shadow_style.clone()),
                             ));
                             // alpha test
                             parent.spawn((
@@ -328,7 +328,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
                                 BoxShadow::from(ShadowStyle {
                                     color: Color::BLACK.with_alpha(0.3),
-                                    ..shadow_style
+                                    ..shadow_style.clone()
                                 }),
                             ));
                         });

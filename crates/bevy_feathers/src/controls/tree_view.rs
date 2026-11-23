@@ -499,7 +499,7 @@ fn update_row_indent(
             if let Ok(mut node) = headers.get_mut(child)
                 && node.margin.left != left
             {
-                node.margin.left = left;
+                node.margin.left = left.clone();
             }
         }
     }

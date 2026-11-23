@@ -64,6 +64,7 @@ fn main() {
     .add_systems(OnEnter(Scene::NodeMaterial), node_material::setup)
     .add_systems(OnEnter(Scene::Block), block::setup)
     .add_systems(OnEnter(Scene::InlineImage), inline_image::scene.spawn())
+    .add_systems(OnEnter(Scene::Calc), calc::scene.spawn())
     .add_systems(OnEnter(Scene::ValKeywords), val_keywords::setup)
     .add_systems(
         OnEnter(Scene::FontRelativeUnits),
@@ -139,6 +140,7 @@ enum Scene {
     ChangeDetection,
     Block,
     InlineImage,
+    Calc,
     ValKeywords,
     UiScale70,
     UiScale100,
@@ -175,6 +177,7 @@ impl Scene {
         Scene::ChangeDetection,
         Scene::Block,
         Scene::InlineImage,
+        Scene::Calc,
         Scene::ValKeywords,
         Scene::UiScale70,
         Scene::UiScale100,
@@ -1099,7 +1102,10 @@ mod text_measurement {
                                                 BackgroundColor(Color::WHITE),
                                             ),
                                             (
-                                                Node { width, ..default() },
+                                                Node {
+                                                    width: width.clone(),
+                                                    ..default()
+                                                },
                                                 children![(
                                                     Text::new("+300 Some Long Item Title"),
                                                     TextFont {
@@ -1133,7 +1139,10 @@ mod text_measurement {
                                                 BackgroundColor(Color::WHITE),
                                             ),
                                             (
-                                                Node { width, ..default() },
+                                                Node {
+                                                    width: width.clone(),
+                                                    ..default()
+                                                },
                                                 Text::new("+300 Some Long Item Title"),
                                                 TextFont {
                                                     font_size: FontSize::Px(10.),
@@ -1264,8 +1273,8 @@ mod borders {
             },
         ];
 
-        let non_zero = |x, y| x != px(0) && y != px(0);
-        let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
+        let non_zero = |x: &Val, y: &Val| x != &px(0) && y != &px(0);
+        let border_size = |x: &Val, y: &Val| if non_zero(x, y) { f32::MAX } else { 0. };
 
         for border in borders {
             for rounded in [true, false] {
@@ -1274,16 +1283,16 @@ mod borders {
                         Node {
                             width: px(100),
                             height: px(100),
-                            border,
+                            border: border.clone(),
                             margin: UiRect::all(px(30)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
                             border_radius: if rounded {
                                 BorderRadius::px(
-                                    border_size(border.left, border.top),
-                                    border_size(border.right, border.top),
-                                    border_size(border.right, border.bottom),
-                                    border_size(border.left, border.bottom),
+                                    border_size(&border.left, &border.top),
+                                    border_size(&border.right, &border.top),
+                                    border_size(&border.right, &border.bottom),
+                                    border_size(&border.left, &border.bottom),
                                 )
                             } else {
                                 BorderRadius::ZERO
@@ -2356,8 +2365,8 @@ mod radial_gradient {
                                         },
                                         BackgroundGradient::from(RadialGradient {
                                             stops: color_stops.clone(),
-                                            position,
-                                            shape,
+                                            position: position.clone(),
+                                            shape: shape.clone(),
                                             ..default()
                                         }),
                                     ));
@@ -2870,14 +2879,42 @@ mod outer_color {
             ))
             .with_children(|builder| {
                 for (border, border_radius, invert) in [
-                    (UiRect::ZERO, BorderRadius::bottom_right(radius), true),
-                    (UiRect::top(width), BorderRadius::top(radius), false),
-                    (UiRect::ZERO, BorderRadius::bottom_left(radius), true),
-                    (UiRect::left(width), BorderRadius::left(radius), false),
-                    (UiRect::all(width), BorderRadius::all(radius.x), true),
-                    (UiRect::right(width), BorderRadius::right(radius), false),
-                    (UiRect::ZERO, BorderRadius::top_right(radius), true),
-                    (UiRect::bottom(width), BorderRadius::bottom(radius), false),
+                    (
+                        UiRect::ZERO,
+                        BorderRadius::bottom_right(radius.clone()),
+                        true,
+                    ),
+                    (
+                        UiRect::top(width.clone()),
+                        BorderRadius::top(radius.clone()),
+                        false,
+                    ),
+                    (
+                        UiRect::ZERO,
+                        BorderRadius::bottom_left(radius.clone()),
+                        true,
+                    ),
+                    (
+                        UiRect::left(width.clone()),
+                        BorderRadius::left(radius.clone()),
+                        false,
+                    ),
+                    (
+                        UiRect::all(width.clone()),
+                        BorderRadius::all(radius.x.clone()),
+                        true,
+                    ),
+                    (
+                        UiRect::right(width.clone()),
+                        BorderRadius::right(radius.clone()),
+                        false,
+                    ),
+                    (UiRect::ZERO, BorderRadius::top_right(radius.clone()), true),
+                    (
+                        UiRect::bottom(width),
+                        BorderRadius::bottom(radius.clone()),
+                        false,
+                    ),
                     (UiRect::ZERO, BorderRadius::top_left(radius), true),
                 ] {
                     builder
@@ -3648,7 +3685,7 @@ mod node_material {
             border_radius: BorderRadius::all(px(20)),
             ..default()
         };
-        let material_label = |text: &str| (Text::new(text), TextFont::from_font_size(px(10.)));
+        let material_label = |text: &str| (Text::new(text), TextFont::from_font_size(10.));
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::NodeMaterial)));
         commands.spawn((
@@ -3669,7 +3706,7 @@ mod node_material {
             children![
                 (
                     Text::new("MaterialNode"),
-                    TextFont::from_font_size(px(30.)),
+                    TextFont::from_font_size(30.),
                     TextLayout::justify(Justify::Center),
                     Node {
                         grid_column: GridPlacement::span(2),
@@ -3699,8 +3736,8 @@ mod node_material {
                 material_label("'custom_ui_material.wgsl' clipped vertically"),
                 (
                     Node {
-                        width: material_node.width,
-                        height: material_node.height,
+                        width: material_node.width.clone(),
+                        height: material_node.height.clone(),
                         ..default()
                     },
                     Outline {
@@ -3722,8 +3759,8 @@ mod node_material {
                 material_label("'custom_ui_material.wgsl' end clipped on both axis"),
                 (
                     Node {
-                        width: material_node.width,
-                        height: material_node.height,
+                        width: material_node.width.clone(),
+                        height: material_node.height.clone(),
                         ..default()
                     },
                     Outline {
@@ -3755,8 +3792,8 @@ mod node_material {
                 material_label("'custom_ui_material.wgsl' start clipped on both axis"),
                 (
                     Node {
-                        width: material_node.width,
-                        height: material_node.height,
+                        width: material_node.width.clone(),
+                        height: material_node.height.clone(),
                         align_items: AlignItems::End,
                         justify_content: JustifyContent::End,
                         ..default()
@@ -3909,7 +3946,7 @@ mod font_relative_units {
                                     ..default()
                                 },
                                 Text::new("px sizing"),
-                                TextFont::from_font_size(px(16)),
+                                TextFont::from_font_size(16.),
                                 TextColor(LAVENDER.into()),
                             ),
                             (
@@ -4200,6 +4237,272 @@ mod inline_image {
                 }
                 --
                 TextSpan::new(" after image")
+            ]
+        }
+    }
+}
+
+mod calc {
+    use super::Scene;
+    use bevy::color::palettes::css::BLUE;
+    use bevy::color::palettes::css::DEEP_SKY_BLUE;
+    use bevy::color::palettes::css::GREEN;
+    use bevy::color::palettes::css::HOT_PINK;
+    use bevy::color::palettes::css::ORANGE;
+    use bevy::color::palettes::css::SNOW;
+    use bevy::color::palettes::css::VIOLET;
+    use bevy::color::palettes::css::YELLOW;
+    use bevy::color::palettes::tailwind::RED_500;
+    use bevy::prelude::*;
+
+    // Each case draws a track built from separate plain nodes, with the calc node (red) on the track below.
+    // The two tracks should be the same length.
+    pub fn scene() -> impl SceneList {
+        let px_ = |v: f32| (px(v), YELLOW);
+        let vw_ = |v: f32| (vw(v), GREEN);
+        let vh_ = |v: f32| (vh(v), VIOLET);
+        let vmin_ = |v: f32| (vmin(v), ORANGE);
+        let vmax_ = |v: f32| (vmax(v), BLUE);
+        let percent_ = |v: f32| (percent(v), SNOW);
+        let rem_ = |v: f32| (rem(v), DEEP_SKY_BLUE);
+        let em_ = |v: f32| (em(v), HOT_PINK);
+        let calc = |v: Val| (v, RED_500);
+        let cases = vec![
+            case(
+                "px(100) + vw(5)",
+                vec![vec![px_(100.), vw_(5.)], vec![calc(px(100) + vw(5))]],
+            ),
+            case(
+                "vh(5) + vmin(5) + vmax(5)",
+                vec![
+                    vec![vh_(5.), vmin_(5.), vmax_(5.)],
+                    vec![calc(vh(5) + vmin(5) + vmax(5))],
+                ],
+            ),
+            case(
+                "px(100) + vw(5) + vh(5) + vmin(5) + vmax(5)",
+                vec![
+                    vec![px_(100.), vw_(5.), vh_(5.), vmin_(5.), vmax_(5.)],
+                    vec![calc(px(100) + vw(5) + vh(5) + vmin(5) + vmax(5))],
+                ],
+            ),
+            case(
+                "vw(5) * 2.",
+                vec![vec![vw_(5.), vw_(5.)], vec![calc(vw(5) * 2.)]],
+            ),
+            case(
+                "3. * vmin(5)",
+                vec![
+                    vec![vmin_(5.), vmin_(5.), vmin_(5.)],
+                    vec![calc(3. * vmin(5))],
+                ],
+            ),
+            case(
+                "(px(100) + vw(10)) / 2.",
+                vec![vec![px_(50.), vw_(5.)], vec![calc((px(100) + vw(10)) / 2.)]],
+            ),
+            case(
+                "px(300) - vw(10)",
+                vec![vec![px_(300.)], vec![calc(px(300) - vw(10)), vw_(10.)]],
+            ),
+            case(
+                "vmax(20) - vmin(10) - px(20)",
+                vec![
+                    vec![vmax_(20.)],
+                    vec![calc(vmax(20) - vmin(10) - px(20)), vmin_(10.), px_(20.)],
+                ],
+            ),
+            case(
+                "percent(50) - px(20)",
+                vec![
+                    vec![percent_(50.)],
+                    vec![calc(percent(50) - px(20)), px_(20.)],
+                ],
+            ),
+            case(
+                "vw(10).min(vh(10))",
+                vec![
+                    vec![vw_(10.)],
+                    vec![vh_(10.)],
+                    vec![calc(vw(10).min(vh(10)))],
+                ],
+            ),
+            case(
+                "vw(10).max(vh(10))",
+                vec![
+                    vec![vw_(10.)],
+                    vec![vh_(10.)],
+                    vec![calc(vw(10).max(vh(10)))],
+                ],
+            ),
+            case(
+                "percent(25) + px(20)",
+                vec![
+                    vec![percent_(25.), px_(20.)],
+                    vec![calc(percent(25) + px(20))],
+                ],
+            ),
+            case(
+                "vw(20).clamp(px(100), px(200))",
+                vec![
+                    vec![px_(100.)],
+                    vec![px_(200.)],
+                    vec![vw_(20.)],
+                    vec![calc(vw(20).clamp(px(100), px(200)))],
+                ],
+            ),
+            case(
+                "vw(5).clamp(px(100), px(200))",
+                vec![
+                    vec![px_(100.)],
+                    vec![px_(200.)],
+                    vec![vw_(5.)],
+                    vec![calc(vw(5).clamp(px(100), px(200)))],
+                ],
+            ),
+            case(
+                "vw(25).clamp(px(100), px(200))",
+                vec![
+                    vec![px_(100.)],
+                    vec![px_(200.)],
+                    vec![vw_(25.)],
+                    vec![calc(vw(25).clamp(px(100), px(200)))],
+                ],
+            ),
+            case(
+                "rem(5) + px(20)",
+                vec![vec![rem_(5.), px_(20.)], vec![calc(rem(5) + px(20))]],
+            ),
+            case(
+                "em(3) + vw(2)",
+                vec![vec![em_(3.), vw_(2.)], vec![calc(em(3) + vw(2))]],
+            ),
+            case(
+                "rem(10) - em(2)",
+                vec![vec![rem_(10.)], vec![calc(rem(10) - em(2)), em_(2.)]],
+            ),
+        ];
+        bsn_list! {
+            Camera2d
+            DespawnOnExit<Scene>(Scene::Calc)
+            --
+            Node {
+                display: Display::Grid,
+                grid_template_columns: vec![RepeatedGridTrack::auto(3)],
+                column_gap: px(20),
+                row_gap: px(10),
+                margin: auto(),
+                padding: {px(8).all()},
+                border: { px(1) + vmin(1) },
+            }
+            BorderColor::all(SNOW)
+            DespawnOnExit<Scene>(Scene::Calc)
+            Children [
+                {cases}
+                --
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(2),
+                }
+                Children [
+                    Text("padding: (px(10) + vmin(1)).horizontal()")
+                    TextFont {
+                        font_size: FontSize::Px(12.0),
+                    }
+                    --
+                    @bar(vec![px_(10.), vmin_(1.), px_(100.), px_(10.), vmin_(1.)])
+                    --
+                    Node {
+                        width: px(TRACK_WIDTH),
+                    }
+                    BackgroundColor(TRACK)
+                    Children [
+                        Node {
+                            padding: { (px(10) + vmin(1)).horizontal() },
+                        }
+                        BackgroundColor(RED_500)
+                        Children [
+                            Node {
+                                width: px(100),
+                                height: px(BAR_HEIGHT),
+                            }
+                            BackgroundColor(YELLOW)
+                        ]
+                    ]
+                ]
+                --
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(2),
+                }
+                Children [
+                    Text("margin: (px(10) + vw(1)).left()")
+                    TextFont {
+                        font_size: FontSize::Px(12.0),
+                    }
+                    --
+                    @bar(vec![px_(10.), vw_(1.), px_(100.)])
+                    --
+                    Node {
+                        width: px(TRACK_WIDTH),
+                    }
+                    BackgroundColor(TRACK)
+                    Children [
+                        Node {
+                            width: px(100),
+                            height: px(BAR_HEIGHT),
+                            margin: { (px(10) + vw(1)).left() },
+                        }
+                        BackgroundColor(RED_500)
+                    ]
+                ]
+            ]
+        }
+    }
+
+    const TRACK: Color = Color::srgb(0.15, 0.15, 0.15);
+    const TRACK_WIDTH: f32 = 320.;
+    const BAR_HEIGHT: f32 = 12.;
+
+    fn case(label: &'static str, bars: Vec<Vec<(Val, Srgba)>>) -> impl bevy::prelude::Scene {
+        let bars = bars.into_iter().map(bar).collect::<Vec<_>>();
+        bsn! {
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+            }
+            Children [
+                Text(label)
+                TextFont {
+                    font_size: FontSize::Px(12.0),
+                }
+                --
+                {bars}
+            ]
+        }
+    }
+
+    fn bar(segments: Vec<(Val, Srgba)>) -> impl bevy::prelude::Scene {
+        let segments = segments
+            .into_iter()
+            .map(|(width, color)| {
+                bsn! {
+                    Node {
+                        width: {width.clone()},
+                        height: px(BAR_HEIGHT),
+                        flex_shrink: 0.,
+                    }
+                    BackgroundColor(color)
+                }
+            })
+            .collect::<Vec<_>>();
+        bsn! {
+            Node {
+                width: px(TRACK_WIDTH),
+            }
+            BackgroundColor(TRACK)
+            Children [
+                {segments}
             ]
         }
     }
@@ -4596,7 +4899,7 @@ mod val_keywords {
                                                     display: Display::Block,
                                                     width: px(50),
                                                     min_width: px(0),
-                                                    flex_basis: keyword,
+                                                    flex_basis: keyword.clone(),
                                                     flex_shrink: 0.,
                                                     margin: UiRect::horizontal(px(10)),
                                                     ..default()

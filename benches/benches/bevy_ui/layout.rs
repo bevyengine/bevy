@@ -231,7 +231,7 @@ fn layout(c: &mut Criterion) {
                 for &leaf in &leaves {
                     let mut node = app.world_mut().get_mut::<Node>(leaf).unwrap();
                     let length = if node.width == px(1) { px(2) } else { px(1) };
-                    node.width = length;
+                    node.width = length.clone();
                     node.height = length;
                 }
                 app.update();
@@ -254,7 +254,7 @@ fn layout(c: &mut Criterion) {
                 b.iter(|| {
                     let mut node = app.world_mut().get_mut::<Node>(leaf).unwrap();
                     let length = if node.width == px(1) { px(2) } else { px(1) };
-                    node.width = length;
+                    node.width = length.clone();
                     node.height = length;
                     app.update();
                 });
