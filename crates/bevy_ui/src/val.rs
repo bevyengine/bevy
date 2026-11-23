@@ -902,10 +902,7 @@ pub struct Calc(pub(crate) Box<CalcOp>);
 
 /// An operation performed on two or more `Val`s.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(align(8))]
 pub(crate) struct CalcOp {
     /// The operation applied to the terms.
@@ -958,10 +955,7 @@ impl From<CalcOp> for Val {
 
 /// The operation a [`CalcOp`] applies to its terms.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),    
-)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) enum ReduceOp {
     Sum,
     Min,
