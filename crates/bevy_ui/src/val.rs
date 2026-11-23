@@ -887,7 +887,7 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 pub struct Calc(pub(crate) Box<CalcOp>);
 
 /// An operation performed on two or more `Val`s.
-#[derive(Clone, Debug, PartialEq, Reflect)]
+#[derive(Clone, Debug, PartialEq)]
 #[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -945,7 +945,7 @@ impl From<CalcOp> for Val {
 }
 
 /// The operation a [`CalcOp`] applies to its terms.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[reflect(PartialEq, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
