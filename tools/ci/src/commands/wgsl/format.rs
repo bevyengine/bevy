@@ -13,8 +13,10 @@ impl Prepare for WgslFormatCommand {
         // Collect all .wgsl files from the workspace
         let mut commands = vec![];
         // wgslfmt can take multiple runs to fully format a file
-        let format_command =
-            PreparedCommand::new::<Self>(cmd!(sh, "wgslfmt"), "wgslfmt failed unexpectedly.");
+        let format_command = PreparedCommand::new::<Self>(
+            cmd!(sh, "wgslfmt --config binding_group_style=inline"),
+            "wgslfmt failed unexpectedly.",
+        );
         commands.append(&mut WgslInstallCommand::default().prepare(sh, args));
         commands.push(format_command);
         commands

@@ -14,7 +14,7 @@ impl Prepare for WgslFormatCheckCommand {
         let mut commands = vec![];
         commands.append(&mut WgslInstallCommand::default().prepare(sh, args));
         commands.append(&mut vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "wgslfmt --check"),
+            cmd!(sh, "wgslfmt --check --config binding_group_style=inline"),
             "Please run 'cargo run -p ci -- wgsl-format' to format your code.",
         )]);
         commands
