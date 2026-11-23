@@ -4,6 +4,7 @@
 //! are disabled while the remote app reports that either is missing.
 
 use alloc::{format, string::String};
+use bevy_ecs::error::ErrorReport;
 use core::time::Duration;
 
 use bevy_ecs::{
@@ -270,7 +271,11 @@ fn finish_stepping_call(
             info!("the remote app cannot be stepped: {message}");
             *status = SteppingStatus::Unavailable;
         }
-        Err(error) => warn!("the remote app rejected `{}`: {error}", call.method()),
+        Err(error) => warn!(
+            "the remote app rejected `{}`: {}",
+            call.method(),
+            ErrorReport::new(&error)
+        ),
     }
     false
 }

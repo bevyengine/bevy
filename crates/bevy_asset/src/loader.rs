@@ -353,11 +353,12 @@ pub enum LoadDirectError {
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
     /// A general [`AssetLoadError`] for an asset dependency.
-    #[error("Failed to load dependency {dependency:?} {error}")]
+    #[error("Failed to load dependency {dependency:?}")]
     LoadError {
         /// Which dependency failed.
         dependency: AssetPath<'static>,
         /// The original error for that dependency.
+        #[source]
         error: Box<AssetLoadError>,
     },
 }

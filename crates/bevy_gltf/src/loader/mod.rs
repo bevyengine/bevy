@@ -2402,7 +2402,7 @@ mod test {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
             match load_state {
                 LoadState::Loaded => Some(()),
-                LoadState::Failed(err) => panic!("{err}"),
+                LoadState::Failed(err) => panic!("{}", bevy_ecs::error::ErrorReport::new(&err)),
                 _ => None,
             }
         });
@@ -2824,7 +2824,7 @@ mod test {
             let load_state = asset_server.get_load_state(handle.id()).unwrap();
             match load_state {
                 LoadState::Loaded => Some(()),
-                LoadState::Failed(err) => panic!("{err}"),
+                LoadState::Failed(err) => panic!("{}", bevy_ecs::error::ErrorReport::new(&err)),
                 _ => None,
             }
         });

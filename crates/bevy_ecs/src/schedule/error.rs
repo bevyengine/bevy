@@ -292,7 +292,7 @@ pub enum ScheduleError {
     #[error("Schedule not found.")]
     ScheduleNotFound,
     /// Error initializing schedule
-    #[error("{0}")]
+    #[error(transparent)]
     ScheduleBuildError(ScheduleBuildError),
 }
 

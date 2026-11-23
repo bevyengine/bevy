@@ -27,6 +27,7 @@ pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
+use crate::error::ErrorReport;
 use crate::{
     archetype::{ArchetypeCreated, ArchetypeId, Archetypes, ARCHETYPE_CREATED},
     bundle::{
@@ -751,7 +752,7 @@ impl World {
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
         match self.get_entity(entities) {
             Ok(res) => res,
-            Err(err) => panic!("{err}"),
+            Err(err) => panic!("{}", ErrorReport::new(&err)),
         }
     }
 
@@ -879,7 +880,7 @@ impl World {
         #[cold]
         #[track_caller]
         fn panic_on_err(e: EntityMutableFetchError) -> ! {
-            panic!("{e}");
+            panic!("{}", ErrorReport::new(&e));
         }
 
         match self.get_entity_mut(entities) {
@@ -1573,7 +1574,7 @@ impl World {
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
         if let Err(error) = self.despawn_with_caller(entity, MaybeLocation::caller()) {
-            warn!("{error}");
+            warn!("{}", ErrorReport::new(&error));
             false
         } else {
             true
@@ -1620,7 +1621,7 @@ impl World {
         match self.despawn_no_free_with_caller(entity, MaybeLocation::caller()) {
             Ok(entity) => Some(entity),
             Err(error) => {
-                warn!("{error}");
+                warn!("{}", ErrorReport::new(&error));
                 None
             }
         }
@@ -2599,7 +2600,7 @@ impl World {
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
             match self.entities().get_spawned(first_entity) {
                 Err(err) => {
-                    panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
+                    panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {}\nSee: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), ErrorReport::new(&err));
                 }
                 Ok(first_location) => {
                     let mut cache = InserterArchetypeCache {
@@ -2658,7 +2659,7 @@ impl World {
                                 };
                             }
                             Err(err) => {
-                                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
+                                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity} because: {}\nSee: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), ErrorReport::new(&err));
                             }
                         }
                     }

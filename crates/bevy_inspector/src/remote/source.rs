@@ -5,6 +5,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
+use bevy_ecs::error::ErrorReport;
 use core::{any::TypeId, cmp::*, time::Duration};
 
 use bevy_dev_tools::inspection::label_resolution::LabelResolutionRegistry;
@@ -800,7 +801,7 @@ fn finish_call(
     elapsed: Duration,
 ) {
     match result {
-        Err(error) => connection.fail(snapshot, error.to_string(), now),
+        Err(error) => connection.fail(snapshot, ErrorReport::new(&error).to_string(), now),
         Ok(Reply::Info(info)) => {
             info!(
                 "the remote inspector connected to {} ({} {})",

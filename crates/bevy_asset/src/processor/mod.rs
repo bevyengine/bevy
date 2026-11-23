@@ -41,6 +41,7 @@ mod log;
 mod process;
 
 use async_lock::RwLockReadGuardArc;
+use bevy_ecs::error::ErrorReport;
 pub use log::*;
 pub use process::*;
 
@@ -1334,7 +1335,7 @@ impl AssetProcessor {
                         .remove_assets_in_directory(Path::new(""))
                         .await
                     {
-                        panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
+                        panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {}", ErrorReport::new(&err));
                     }
                 }
             }
@@ -1681,7 +1682,10 @@ impl ProcessorAssetInfos {
                 trace!("No need to process asset {asset_path} because it does not exist");
             }
             Err(err) => {
-                error!("Failed to process asset {asset_path}: {err}");
+                error!(
+                    "Failed to process asset {asset_path}: {}",
+                    ErrorReport::new(&err)
+                );
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
                 if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError(dependency)) =
                     err

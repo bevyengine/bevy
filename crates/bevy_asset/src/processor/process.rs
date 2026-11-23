@@ -157,10 +157,11 @@ pub enum ProcessError {
         err: AssetReaderError,
     },
     /// Encountered an [`AssetWriterError`] for this path.
-    #[error("Encountered an AssetWriter error for '{path}': {err}")]
+    #[error("Encountered an AssetWriter error for '{path}'")]
     #[from(ignore)]
     AssetWriterError {
         path: AssetPath<'static>,
+        #[source]
         err: AssetWriterError,
     },
     #[error(transparent)]

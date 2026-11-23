@@ -24,6 +24,7 @@
 //! won't work on WASM because WASM typically doesn't have direct filesystem access.
 //!
 
+use bevy::ecs::error::ErrorReport;
 use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
 
 use core::time::Duration;
@@ -237,7 +238,7 @@ fn infotext_system(mut commands: Commands) {
 fn panic_on_fail(world_roots: Query<&DynamicWorldRoot>, asset_server: Res<AssetServer>) {
     for world_root in &world_roots {
         if let Some(LoadState::Failed(err)) = asset_server.get_load_state(&world_root.0) {
-            panic!("Failed to load world. {err}");
+            panic!("Failed to load world. {}", ErrorReport::new(&err));
         }
     }
 }

@@ -289,8 +289,9 @@ impl AssetLoader for ImageLoader {
 
 /// An error that occurs when loading a texture from a file.
 #[derive(Error, Debug)]
-#[error("Error reading image file {path}: {error}.")]
+#[error("Error reading image file {path}")]
 pub struct FileTextureError {
+    #[source]
     error: TextureError,
     path: String,
 }

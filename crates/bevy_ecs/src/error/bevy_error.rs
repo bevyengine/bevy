@@ -1,3 +1,4 @@
+use super::ErrorReport;
 use alloc::{
     borrow::Cow,
     boxed::Box,
@@ -245,8 +246,7 @@ impl BevyError {
     /// assert_eq!(messages, ["disk on fire"]);
     /// ```
     pub fn chain(&self) -> impl Iterator<Item = &(dyn Error + 'static)> {
-        let inner: &(dyn Error + 'static) = self.inner();
-        core::iter::successors(Some(inner), |&error| error.source())
+        ErrorReport::new(self.inner()).chain()
     }
 
     fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -609,19 +609,12 @@ impl Display for BevyError {
             .chain(self.chain().map(|error| error.to_string()))
             .collect();
         match messages.as_slice() {
-            [message] => writeln!(f, "{message}")?,
             [context, error] if self.inner.context.len() == 1 => {
-                writeln!(f, "{context}: {error}")?;
+                write!(f, "{context}: {error}")?;
             }
-            [first, causes @ ..] => {
-                writeln!(f, "{first}\n\nCaused by:")?;
-                for line in causes.iter().flat_map(|cause| cause.lines()) {
-                    writeln!(f, "\t{line}")?;
-                }
-            }
-            // `chain` always yields the wrapped error
-            [] => unreachable!(),
+            messages => ErrorReport::fmt_messages(f, messages)?,
         }
+        writeln!(f)?;
         self.format_backtrace(f)?;
         Ok(())
     }
