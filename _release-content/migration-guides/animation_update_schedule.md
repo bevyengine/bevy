@@ -12,6 +12,7 @@ The schedule is added to the `Main` schedule and placed into the `MainScheduleOr
 - PostUpdate
 
 # Reason
+
 Animations can change any animatable component and can run any event fn code. And that are changes
 one would do in the `Update` schedule, because many components need to be done updating before they
 are processed in the `PostUpdate` schedule. Because all animation systems run in `PostUpdate` this
@@ -22,5 +23,6 @@ many systems expect components do be done updating in there. With that ordering 
 forced into PostUpdate, even if you need them run before.
 
 # TODO
+
 You need to update the ordering of your systems that are ordered relative to `AnimationSystems` or
 any system in `bevy_animation`.
