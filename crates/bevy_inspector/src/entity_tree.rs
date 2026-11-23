@@ -1539,7 +1539,9 @@ pub fn update_tree_guides(
             continue;
         };
 
-        let left = header.margin.left + header.padding.left + 0.5 * toggle.width - px(GUIDE_WIDTH);
+        let left =
+            header.margin.left.clone() + header.padding.left.clone() + 0.5 * toggle.width.clone()
+                - px(GUIDE_WIDTH);
 
         if let Ok(mut node) = nodes.get_mut(guide)
             && node.left != left
