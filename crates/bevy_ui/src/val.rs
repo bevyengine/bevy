@@ -593,7 +593,7 @@ impl Val {
         let mut rest: SmallVec<[Val; 3]> = SmallVec::new();
         self.push_terms(op, &mut leaves, &mut rest);
         rhs.push_terms(op, &mut leaves, &mut rest);
-        let mut terms: CalcTerms = ValUnit::ALL
+        let mut terms: SmallVec<[Val; 3]> = ValUnit::ALL
             .into_iter()
             .zip(leaves)
             .filter_map(|(unit, value)| Some(unit.with_value(value?)))
@@ -939,11 +939,6 @@ impl ReduceOp {
             Self::Min => f32::min,
             Self::Max => f32::max,
         }
-    }
-
-    /// The [`Val`] applying this operation to `terms`.
-    fn calc(self, terms: CalcTerms) -> Val {
-        CalcOp { op: self, terms }.into()
     }
 }
 
@@ -1306,11 +1301,17 @@ mod tests {
         assert_eq!(value.clone() * 0.0, Val::ZERO);
         assert_eq!(resolve(&-value.clone()), Ok(-278.0));
         assert_eq!(
-            resolve(&ReduceOp::Min.calc(smallvec![value.clone(), Val::Px(100.0)])),
+            resolve(&Val::from(CalcOp {
+                op: ReduceOp::Min,
+                terms: smallvec![value.clone(), Val::Px(100.0)]
+            })),
             Ok(200.0)
         );
         assert_eq!(
-            resolve(&ReduceOp::Max.calc(smallvec![value.clone(), Val::Px(200.0)])),
+            resolve(&Val::from(CalcOp {
+                op: ReduceOp::Max,
+                terms: smallvec![value.clone(), Val::Px(200.0)]
+            })),
             Ok(400.0)
         );
         assert_eq!(
@@ -1339,17 +1340,29 @@ mod tests {
         };
         let (a, b) = (Val::Px(10.0), Val::Px(20.0));
         let clamp = |min: &Val, max: &Val| {
-            ReduceOp::Max.calc(smallvec![
-                min.clone(),
-                ReduceOp::Min.calc(smallvec![Val::Px(15.0), max.clone()])
-            ])
+            Val::from(CalcOp {
+                op: ReduceOp::Max,
+                terms: smallvec![
+                    min.clone(),
+                    Val::from(CalcOp {
+                        op: ReduceOp::Min,
+                        terms: smallvec![Val::Px(15.0), max.clone()]
+                    })
+                ],
+            })
         };
         assert_eq!(
-            resolve(-ReduceOp::Min.calc(smallvec![a.clone(), b.clone()])),
+            resolve(-Val::from(CalcOp {
+                op: ReduceOp::Min,
+                terms: smallvec![a.clone(), b.clone()]
+            })),
             Ok(-10.0)
         );
         assert_eq!(
-            resolve(-ReduceOp::Max.calc(smallvec![a.clone(), b.clone()])),
+            resolve(-Val::from(CalcOp {
+                op: ReduceOp::Max,
+                terms: smallvec![a.clone(), b.clone()]
+            })),
             Ok(-20.0)
         );
         assert_eq!(resolve(-clamp(&a, &b)), Ok(-15.0));
@@ -1389,7 +1402,10 @@ mod tests {
             Val::Percent(50.0) - Val::Px(10.0),
             Val::Px(10.0).min(Val::Percent(50.0)),
             Val::Percent(80.0).clamp(Val::Px(100.0), Val::Px(300.0)),
-            ReduceOp::Min.calc(smallvec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)]),
+            Val::from(CalcOp {
+                op: ReduceOp::Min,
+                terms: smallvec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)],
+            }),
         ];
         for value in values {
             let ron = ron::to_string(&value).unwrap();
@@ -1426,10 +1442,22 @@ mod tests {
         );
         // Nested sums are flattened and same-unit terms are folded away.
         let sum = (Val::Vw(10.0) + max.clone()) + (max.clone() - Val::Vw(10.0));
-        assert_eq!(sum, ReduceOp::Sum.calc(smallvec![max.clone(), max.clone()]));
+        assert_eq!(
+            sum,
+            Val::from(CalcOp {
+                op: ReduceOp::Sum,
+                terms: smallvec![max.clone(), max.clone()]
+            })
+        );
         // Minimums behave the same way.
         let min = Val::Px(1.0).min(max.clone()).min(Val::Px(2.0));
-        assert_eq!(min, ReduceOp::Min.calc(smallvec![Val::Px(1.0), max]));
+        assert_eq!(
+            min,
+            Val::from(CalcOp {
+                op: ReduceOp::Min,
+                terms: smallvec![Val::Px(1.0), max]
+            })
+        );
     }
 
     #[test]
