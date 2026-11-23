@@ -5,10 +5,10 @@ use taffy::style_helpers;
 
 use crate::{
     val::{CalcOp, ValContext},
-    AlignContent, AlignItems, AlignSelf, BoxSizing, ClampOp, Display, FlexDirection, FlexWrap,
-    GridAutoFlow, GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent,
-    JustifyItems, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis,
-    PositionType, RepeatedGridTrack, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
+    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
+    RepeatedGridTrack, UiRect, Val,
 };
 
 /// Owns the `CalcOp`s referenced by raw pointers in `style`.
@@ -162,21 +162,12 @@ impl Val {
             Val::Auto => Val::Auto,
             Val::Calc(calc) => {
                 let physical = |val: &Val| val.to_physical_and_percent(context);
-                match &*calc.0 {
-                    CalcOp::Sum(terms) => terms.iter().map(physical).reduce(|a, b| a + b),
-                    CalcOp::Min(terms) => terms.iter().map(physical).reduce(Val::min),
-                    CalcOp::Max(terms) => terms.iter().map(physical).reduce(Val::max),
-                    CalcOp::Clamp(ClampOp {
-                        min,
-                        value,
-                        max,
-                        negate: negated,
-                    }) => {
-                        let clamped = physical(value).clamp(physical(min), physical(max));
-                        Some(if *negated { -clamped } else { clamped })
-                    }
-                }
-                .unwrap_or(Val::ZERO)
+                calc.0
+                    .terms
+                    .iter()
+                    .map(physical)
+                    .reduce(|a, b| a.combine(b, calc.0.op))
+                    .unwrap_or(Val::ZERO)
             }
             leaf => match leaf.unit_value() {
                 Ok((unit, value)) => unit.resolve_physical_except_percent(value, context),
@@ -750,10 +741,10 @@ mod tests {
                 .to_physical_and_percent(&context),
             Val::Percent(80.0).clamp(Val::Px(200.0), Val::Px(600.0))
         );
-        let nested: Val = CalcOp::Min(smallvec::smallvec![
-            Val::Em(1.0) + Val::Percent(10.0),
-            Val::Rem(1.0)
-        ])
+        let nested: Val = CalcOp {
+            op: crate::val::ReduceOp::Min,
+            terms: smallvec::smallvec![Val::Em(1.0) + Val::Percent(10.0), Val::Rem(1.0)],
+        }
         .into();
         let physical = nested.to_physical_and_percent(&context);
         assert!(matches!(physical, Val::Calc(_)), "got {physical:?}");
