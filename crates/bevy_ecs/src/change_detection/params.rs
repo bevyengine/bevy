@@ -8,8 +8,8 @@ use bevy_ptr::{Ptr, ThinSlicePtr};
 use core::{
     cell::UnsafeCell,
     ops::{
-        Bound, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive,
-        RangeTo, RangeToInclusive,
+        Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
+        RangeInclusive, RangeTo, RangeToInclusive,
     },
     panic::Location,
 };
@@ -496,23 +496,9 @@ impl<'w> ContiguousComponentTicksMut<'w> {
         }
         self.marked_all = true;
 
-        let this_run = self.this_run;
-
-        // Note: this must not be a closure, or the recorded location is the
-        // closure body instead of this function's caller.
-        if let Some(changed_by) = self.changed_by.as_mut().into_option() {
-            let caller = Location::caller();
-            for v in changed_by.iter_mut() {
-                *v = caller;
-            }
-        }
-
-        for t in self.changed.iter_mut() {
-            *t = this_run;
-        }
-
-        if let Some(summary_tick) = self.summary_tick {
-            summary_tick.set(this_run);
+        let len = self.changed.len();
+        if len != 0 {
+            self.mark_range(0..len);
         }
     }
 
@@ -520,12 +506,50 @@ impl<'w> ContiguousComponentTicksMut<'w> {
     #[inline]
     #[track_caller]
     fn mark_changed(&mut self, index: usize) {
-        let this_run = self.this_run;
-        self.changed[index] = this_run;
+        self.mark_range_changed(index..index + 1);
+    }
 
-        // See `mark_all_as_changed` for why this is not a closure.
+    /// Marks the rows in `range` as changed.
+    #[inline]
+    #[track_caller]
+    fn mark_range_changed(&mut self, range: Range<usize>) {
+        let len = self.changed.len();
+        if range.is_empty() {
+            if len == 0 {
+                // All zero rows were marked.
+                self.marked_all = true;
+            }
+            return;
+        }
+
+        self.mark_range(range.clone());
+        // Marking every row is equivalent to `mark_all_as_changed`, so future
+        // full passes can be skipped. Unlike `mark_all_as_changed`, indexed
+        // access must still refresh `changed_by` on later calls.
+        if range.start == 0 && range.end == len {
+            self.marked_all = true;
+        }
+    }
+
+    /// Marks `range` as changed, updating `changed_by` and the summary tick.
+    ///
+    /// `range` must be non-empty and in bounds; the caller handles the
+    /// `marked_all` bookkeeping.
+    #[inline]
+    #[track_caller]
+    fn mark_range(&mut self, range: Range<usize>) {
+        let this_run = self.this_run;
+        for t in &mut self.changed[range.clone()] {
+            *t = this_run;
+        }
+
+        // Note: this must not be a closure, or the recorded location is the
+        // closure body instead of this function's caller.
         if let Some(changed_by) = self.changed_by.as_mut().into_option() {
-            changed_by[index] = Location::caller();
+            let caller = Location::caller();
+            for location in &mut changed_by[range] {
+                *location = caller;
+            }
         }
 
         if let Some(summary_tick) = self.summary_tick {
@@ -1133,7 +1157,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
 /// Implementations of [`DerefMut`], [`AsMut`] and [`IntoIterator`] update the
 /// change ticks of every row, which may affect performance. This happens at
 /// most once per system run; later dereferences are no-ops. [`IndexMut`]
-/// updates only the accessed row.
+/// updates only the accessed row or range.
 pub struct ContiguousMut<'w, T> {
     pub(crate) value: &'w mut [T],
     pub(crate) ticks: ContiguousComponentTicksMut<'w>,
@@ -1339,12 +1363,38 @@ impl<T> IndexMut<usize> for ContiguousMut<'_, T> {
     }
 }
 
+/// Resolves `index` to the half-open range of rows it covers, panicking with
+/// the same bounds checks as slice indexing.
+#[inline]
+fn index_range(index: impl RangeBounds<usize>, len: usize) -> Range<usize> {
+    let start = match index.start_bound() {
+        Bound::Included(&start) => start,
+        Bound::Excluded(&start) => start
+            .checked_add(1)
+            .expect("attempted to index slice from after maximum usize"),
+        Bound::Unbounded => 0,
+    };
+    let end = match index.end_bound() {
+        Bound::Included(&end) => end
+            .checked_add(1)
+            .expect("attempted to index slice up to maximum usize"),
+        Bound::Excluded(&end) => end,
+        Bound::Unbounded => len,
+    };
+    assert!(
+        start <= end && end <= len,
+        "range start index {start} and end index {end} out of range for slice of length {len}"
+    );
+    start..end
+}
+
 /// Forward range indexing to the underlying slice.
 ///
 /// Implementing [`Index`] for `usize` alone shadows the slice's range indexing
 /// impls (index expressions don't consider the index type when picking the
 /// autoderef step), so every index type the slice supports is implemented here.
-/// Mutable range access behaves like [`DerefMut`] and marks every row.
+/// Mutable range access marks only the rows covered by the index, like
+/// [`IndexMut`] for `usize`.
 ///
 /// This mirrors the index impls that
 /// [`UniqueEntityEquivalentSlice`](crate::entity::UniqueEntityEquivalentSlice)
@@ -1366,8 +1416,9 @@ macro_rules! impl_range_index {
                 #[inline]
                 #[track_caller]
                 fn index_mut(&mut self, index: $index) -> &mut Self::Output {
-                    self.mark_all_as_changed();
-                    &mut self.value[index]
+                    let range = index_range(index, self.value.len());
+                    self.ticks.mark_range_changed(range.clone());
+                    &mut self.value[range]
                 }
             }
         )*
@@ -1735,6 +1786,34 @@ mod tests {
         assert_eq!(
             values.changed_ticks_slice(),
             &[Tick::new(0), this_run, Tick::new(0)]
+        );
+    }
+
+    #[test]
+    fn contiguous_mut_range_index_marks_only_the_accessed_range() {
+        let mut values = [1u32, 2, 3];
+        let mut added = [Tick::new(0); 3];
+        let mut changed = [Tick::new(0); 3];
+        let mut callers = [Location::caller(); 3];
+        let this_run = Tick::new(10);
+
+        let mut values = ContiguousMut::new(
+            &mut values,
+            &mut added,
+            &mut changed,
+            None,
+            Tick::new(0),
+            this_run,
+            MaybeLocation::new_with(|| &mut callers[..]),
+        )
+        .unwrap();
+
+        values[1..].copy_from_slice(&[20, 30]);
+
+        assert_eq!(values.deref(), &[1, 20, 30]);
+        assert_eq!(
+            values.changed_ticks_slice(),
+            &[Tick::new(0), this_run, this_run]
         );
     }
 
