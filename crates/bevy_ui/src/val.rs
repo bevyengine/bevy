@@ -634,6 +634,34 @@ impl Val {
             },
         }
     }
+
+    /// Resolves every unit except `Percent` using the given context, so that only
+    /// `Px`, `Percent` and `Calc` values remain. Percentages are resolved later,
+    /// during layout, once their basis is known. Scale factor is applied so the returned `Px`
+    /// values are in physical pixels.
+    ///
+    /// All keywords are mapped to `Auto`.
+    ///
+    /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
+    /// collapse to a single `Px` or a `Px` and `Percent` sum.
+    pub fn to_physical_and_percent(&self, context: &ValContext) -> Val {
+        match self {
+            Val::Auto => Val::Auto,
+            Val::Calc(calc) => {
+                let physical = |val: &Val| val.to_physical_and_percent(context);
+                calc.0
+                    .terms
+                    .iter()
+                    .map(physical)
+                    .reduce(|a, b| a.combine(b, calc.0.op))
+                    .unwrap_or(Val::ZERO)
+            }
+            leaf => match leaf.unit_value() {
+                Ok((unit, value)) => unit.resolve_physical_except_percent(value, context),
+                _ => Val::Auto,
+            },
+        }
+    }
 }
 
 impl Default for Val {

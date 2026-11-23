@@ -151,31 +151,6 @@ static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyS
 });
 
 impl Val {
-    /// Taffy only supports lengths in pixels and percentages. So we convert `Val`s to pixels
-    /// before handing them over to Taffy for layout, which provides the percentage basis to finish
-    /// finish resolving them during layout.
-    ///
-    /// Rebuilding through the `Val` operators folds the resolved terms. Most expressions
-    /// collapse to a single `Px` or a `Px` and `Percent` sum.
-    fn to_physical_and_percent(&self, context: &ValContext) -> Val {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Calc(calc) => {
-                let physical = |val: &Val| val.to_physical_and_percent(context);
-                calc.0
-                    .terms
-                    .iter()
-                    .map(physical)
-                    .reduce(|a, b| a.combine(b, calc.0.op))
-                    .unwrap_or(Val::ZERO)
-            }
-            leaf => match leaf.unit_value() {
-                Ok((unit, value)) => unit.resolve_physical_except_percent(value, context),
-                _ => Val::Auto,
-            },
-        }
-    }
-
     /// Convert a `Val` to Taffy's packed `LengthPercentageAuto`.
     /// Every leaf that isn't a percentage is resolved using `to_physical`.
     /// Only store a calc length if a percent term remains, otherwise precalculate before layout.
