@@ -649,8 +649,8 @@ fn update_uinode_geometry_recursive(
         }
 
         let content_size = Vec2::new(
-            layout.scrollable_overflow_rect.right,
-            layout.scrollable_overflow_rect.bottom,
+            layout.scrollable_overflow_rect.right(),
+            layout.scrollable_overflow_rect.bottom(),
         );
         if computed_node.content_size != content_size {
             computed_node.content_size = content_size;
