@@ -646,7 +646,6 @@ impl Val {
     /// collapse to a single `Px` or a `Px` and `Percent` sum.
     pub fn to_physical_and_percent(&self, context: &ValContext) -> Val {
         match self {
-            Val::Auto => Val::Auto,
             Val::Calc(calc) => {
                 let physical = |val: &Val| val.to_physical_and_percent(context);
                 calc.0
