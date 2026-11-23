@@ -859,8 +859,6 @@ pub fn vmax<T: ValNum>(value: T) -> Val {
 )]
 pub struct Calc(pub(crate) Box<CalcOp>);
 
-type CalcTerms = SmallVec<[Val; 3]>;
-
 /// An operation performed on two or more `Val`s.
 #[derive(Clone, Debug, PartialEq, Reflect)]
 #[reflect(PartialEq, Debug, Clone)]
@@ -874,7 +872,7 @@ pub(crate) struct CalcOp {
     /// The operation applied to the terms.
     pub(crate) op: ReduceOp,
     /// The terms.
-    pub(crate) terms: CalcTerms,
+    pub(crate) terms: SmallVec<[Val; 3]>,
 }
 
 impl CalcOp {
