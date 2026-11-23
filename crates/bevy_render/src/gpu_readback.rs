@@ -2,7 +2,7 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
     render_resource::{
-        Buffer, BufferUsages, CommandEncoder, Extent3d, TexelCopyBufferLayout, Texture,
+        Buffer, BufferUsages, CommandEncoder, Extent3d, GpuElement, TexelCopyBufferLayout, Texture,
         TextureFormat,
     },
     renderer::RenderDevice,
@@ -167,6 +167,28 @@ impl ReadbackComplete {
         let mut reader = Reader::new::<T>(&self.data, 0).expect("Failed to create Reader");
         T::read_from(&mut val, &mut reader);
         val
+    }
+
+    /// Copies the raw bytes of the event out as `T` records, the read side of
+    /// [`ShaderBuffer::from_elements`].
+    ///
+    /// Panics if the data isn't a whole number of `T`.
+    pub fn to_elements<T: GpuElement>(&self) -> Vec<T> {
+        bytemuck::pod_collect_to_vec(&self.data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_elements_reads_records() {
+        let event = ReadbackComplete {
+            entity: Entity::PLACEHOLDER,
+            data: bytemuck::cast_slice(&[1u32, 2, 3]).to_vec(),
+        };
+        assert_eq!(event.to_elements::<u32>(), [1, 2, 3]);
     }
 }
 

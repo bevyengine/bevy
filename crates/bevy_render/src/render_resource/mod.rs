@@ -7,6 +7,7 @@ mod bindless;
 mod buffer;
 mod buffer_vec;
 mod gpu_array_buffer;
+mod gpu_element;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
@@ -73,6 +74,9 @@ pub mod encase {
 }
 
 pub use self::encase::{ShaderSize, ShaderType};
+pub use gpu_element::{
+    assert_std140_size, assert_std430_size, debug_assert_std140, debug_assert_std430, GpuElement,
+};
 
 pub use bevy_material::{
     bind_group_layout_entries::{
