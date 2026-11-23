@@ -61,12 +61,16 @@ pub enum SvgRasterSize {
     },
 }
 
-/// How many mip levels to rasterize for an SVG.
+/// SVGs can be rasterized into multiple mipmap levels.
+/// Mipmapping improves render performance by preparing lower resolution
+/// versions of an image ahead of time so renderers don't need to downscale a
+/// texture on the fly.
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SvgMipmaps {
     /// Only raster full-size image.
     Off,
-    /// Rasterize every mipmap level down to 1x1
+    /// Pre-rasterize all mipmap levels. Each level stores an additional image
+    /// smaller than the last by a factor of two, down to a final 1x1 level.
     #[default]
     Full,
     /// Rasterize a maximum of this many mipmap levels.
@@ -78,7 +82,9 @@ pub enum SvgMipmaps {
 pub struct SvgLoaderSettings {
     /// The pixel size of the resulting [`Image`].
     pub size: SvgRasterSize,
-    /// The mip levels to rasterize.
+    /// The mipmapping behavior for the SVG loader.
+    /// Mipmapping can improve render performance but increases memory usage.
+    /// By default, the loader rasterizes all mipmap levels.
     pub mipmaps: SvgMipmaps,
     /// The [`ImageSampler`] to use when rendering.
     pub sampler: ImageSampler,
