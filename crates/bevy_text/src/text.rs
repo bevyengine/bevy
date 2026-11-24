@@ -675,6 +675,11 @@ impl<const N: usize> From<[FontSource; N]> for FontSourceTemplate {
 
 /// The default font source used to resolve `FontSource::Default`.
 /// `DefaultFontSource(FontSource::Default)` is mapped to the default Font asset.
+///
+/// There are two ways to change the Default Font
+///
+/// 1: (Recommended) With asset handle default_font.0 = FontSource::Handle(font_handle); or font_handle.into(); and with font family name default_font.0 = FontSource::family("My Font");
+/// 2: (If you are unable to use method 1) add fonts.insert(AssetId::default(), custom_font); to `ResMut<Assets<Font>>`
 #[derive(Clone, Debug, Reflect, PartialEq, Default, Resource, Deref, DerefMut)]
 pub struct DefaultFontSource(pub FontSource);
 
