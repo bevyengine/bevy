@@ -61,31 +61,16 @@ pub enum SvgRasterSize {
     },
 }
 
-/// SVGs can be rasterized into multiple mipmap levels.
-/// Mipmapping improves render performance by preparing lower resolution
-/// versions of an image ahead of time so renderers don't need to downscale a
-/// texture on the fly.
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SvgMipmaps {
-    /// Only raster full-size image.
-    Off,
-    /// Pre-rasterize all mipmap levels. Each level stores an additional image
-    /// smaller than the last by a factor of two, down to a final 1x1 level.
-    #[default]
-    Full,
-    /// Rasterize a maximum of this many mipmap levels.
-    Max(u32),
-}
-
 /// Settings for loading an SVG with [`SvgLoader`].
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SvgLoaderSettings {
     /// The pixel size of the resulting [`Image`].
     pub size: SvgRasterSize,
-    /// The mipmapping behavior for the SVG loader.
-    /// Mipmapping can improve render performance but increases memory usage.
-    /// By default, the loader rasterizes all mipmap levels.
-    pub mipmaps: SvgMipmaps,
+    /// Whether to generate a full mip chain from the SVG.
+    /// Defaults to `true`.
+    /// Mipmaps prevent aliasing when textures are minified and improve GPU cache locality,
+    /// so they are almost always wanted for material textures.
+    pub generate_mipmap: bool,
     /// The [`ImageSampler`] to use when rendering.
     pub sampler: ImageSampler,
     /// Where the asset will be used. See [`RenderAssetUsages`] for details.
@@ -96,7 +81,7 @@ impl Default for SvgLoaderSettings {
     fn default() -> Self {
         Self {
             size: SvgRasterSize::default(),
-            mipmaps: SvgMipmaps::default(),
+            generate_mipmap: true,
             sampler: ImageSampler::linear(),
             asset_usage: RenderAssetUsages::default(),
         }
@@ -185,40 +170,48 @@ fn rasterize(bytes: &[u8], settings: &SvgLoaderSettings, path: &Path) -> Result<
         height,
         depth_or_array_layers: 1,
     };
+
     let max_mips = size.max_mips(TextureDimension::D2);
-    let mip_level_count = match settings.mipmaps {
-        SvgMipmaps::Off => 1,
-        SvgMipmaps::Full => max_mips,
-        SvgMipmaps::Max(count) => count.clamp(1, max_mips),
+
+    let image: Image = if settings.generate_mipmap {
+        // Calculate the size of each mip level
+        let sizes: Vec<_> = (0..max_mips)
+            .map(|level| size.mip_level_size(level, TextureDimension::D2))
+            .collect();
+
+        // Preallocate based on mip levels
+        let mut data = Vec::with_capacity(
+            sizes
+                .iter()
+                .map(|s| s.width as usize * s.height as usize * 4)
+                .sum(),
+        );
+
+        for size in sizes {
+            data.extend(render_level(&tree, size.width, size.height)?);
+        }
+
+        let mut image = Image::new_uninit(
+            size,
+            TextureDimension::D2,
+            TextureFormat::Rgba8UnormSrgb,
+            settings.asset_usage,
+        );
+        image.data = Some(data);
+        image.data_order = TextureDataOrder::MipMajor;
+        image.texture_descriptor.mip_level_count = max_mips;
+        image.sampler = settings.sampler.clone();
+        image
+    } else {
+        Image::new(
+            size,
+            TextureDimension::D2,
+            render_level(&tree, width, height)?,
+            TextureFormat::Rgba8UnormSrgb,
+            settings.asset_usage,
+        )
     };
 
-    // Precalculate the width and height of each mipmap level
-    let level_sizes: Vec<_> = (0..mip_level_count)
-        .map(|level| size.mip_level_size(level, TextureDimension::D2))
-        .collect();
-
-    let mut data = Vec::with_capacity(
-        level_sizes
-            .iter()
-            .map(|s| s.width as usize * s.height as usize * 4)
-            .sum(),
-    );
-
-    // Rasterize each mipmap into the pixel buffer
-    for level_size in level_sizes {
-        data.extend(render_level(&tree, level_size.width, level_size.height)?);
-    }
-
-    let mut image = Image::new_uninit(
-        size,
-        TextureDimension::D2,
-        TextureFormat::Rgba8UnormSrgb,
-        settings.asset_usage,
-    );
-    image.data = Some(data);
-    image.data_order = TextureDataOrder::MipMajor;
-    image.texture_descriptor.mip_level_count = mip_level_count;
-    image.sampler = settings.sampler.clone();
     Ok(image)
 }
 
@@ -410,24 +403,19 @@ mod tests {
 
     #[test]
     fn mip_level_count_follows_settings() {
-        for (mipmaps, expected) in [
-            (SvgMipmaps::Off, 1),
-            (SvgMipmaps::Max(0), 1),
-            (SvgMipmaps::Max(2), 2),
-            (SvgMipmaps::Max(100), 5),
-        ] {
+        for (mipmap, expected) in [(false, 1), (true, 5)] {
             let settings = SvgLoaderSettings {
-                mipmaps,
+                generate_mipmap: mipmap,
                 ..Default::default()
             };
             let image = load(HALF_RED, &settings).unwrap();
             assert_eq!(
                 image.texture_descriptor.mip_level_count, expected,
-                "{mipmaps:?}"
+                "{mipmap:?}"
             );
         }
         let settings = SvgLoaderSettings {
-            mipmaps: SvgMipmaps::Off,
+            generate_mipmap: false,
             ..Default::default()
         };
         assert_eq!(
@@ -664,12 +652,12 @@ mod tests {
                 width: 32,
                 height: 16,
             },
-            mipmaps: SvgMipmaps::Max(3),
+            generate_mipmap: true,
             ..Default::default()
         };
         let json = serde_json::to_string(&settings).unwrap();
         let back: SvgLoaderSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(back.size, settings.size);
-        assert_eq!(back.mipmaps, settings.mipmaps);
+        assert_eq!(back.generate_mipmap, settings.generate_mipmap);
     }
 }
