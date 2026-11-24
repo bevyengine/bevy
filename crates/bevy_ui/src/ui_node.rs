@@ -2846,7 +2846,7 @@ sure it's recognized as a markdown link."
 /// not siblings in a given UI hierarchy.
 ///
 /// Changing or re-inserting the `ZIndex` on a root node also reorders the node's hierarchy against other
-/// hierarchies on the same [`GlobalZIndex`] layer. and adding, Changing or removing it brings
+/// hierarchies on the same [`GlobalZIndex`] layer and adding, changing or removing it brings
 /// the hierarchy to the front of the hierarchies that share its `ZIndex`. See [`GlobalZIndex`]
 /// for details.
 ///
