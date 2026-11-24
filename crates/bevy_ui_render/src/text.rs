@@ -377,6 +377,10 @@ pub fn extract_text_placeholder(
             continue;
         }
 
+        let z_order = stack_index.get().map(|z| z as f32 + stack_z_offsets::TEXT) else {
+            continue;
+        };
+
         let Some(extracted_camera_entity) = camera_mapper.map(target_camera) else {
             continue;
         };
@@ -414,7 +418,7 @@ pub fn extract_text_placeholder(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order,
                             image: glyph.atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
