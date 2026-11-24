@@ -1,5 +1,5 @@
 ---
-title: Call-style component hooks can use `Self` and generic parameters
+title: Call-style component hooks can use the `Self` type and generic parameters
 pull_requests: [26608]
 ---
 
