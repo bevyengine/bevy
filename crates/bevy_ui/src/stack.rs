@@ -13,8 +13,8 @@ use core::ops::Range;
 /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
 ///
 /// Nodes that aren't part of the layout, such as [`GhostNode`]s, are given [`ComputedStackIndex::ABSENT`].
-#[derive(Component, PartialEq, Eq, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Debug, Clone, Copy, Component, PartialEq, Eq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct ComputedStackIndex(u32);
 
 impl ComputedStackIndex {
