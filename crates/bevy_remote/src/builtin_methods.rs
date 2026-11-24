@@ -2065,7 +2065,8 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
             }
             Err(err) => {
                 return Err(BrpError::internal(format!(
-                    "Failed to initialize schedule with label={label:?}: {err}"
+                    "Failed to initialize schedule with label={label:?}: {}",
+                    bevy_ecs::error::ErrorReport::new(&err)
                 )))
             }
         }

@@ -920,7 +920,7 @@ impl GltfLoader {
                         if let Err(err) = mesh.generate_tangents() {
                             warn!(
                                 "Failed to generate vertex tangents using the mikktspace algorithm: {}",
-                                err
+                                bevy_ecs::error::ErrorReport::new(&err)
                             );
                         }
                     });
@@ -2972,7 +2972,8 @@ mod test {
                     // Depending on the `image` crate's feature flags, we may get different errors.
                     // Specifically, either the `image/png` mime type is warned about, or the buffer
                     // is not big enough to be valid PNG data.
-                    err.contains("failed to load an image: unexpected end of file")
+                    (err.contains("failed to load an image")
+                        && err.contains("unexpected end of file"))
                         || err.contains("invalid image mime type: image/png"),
                     "incorrect error message: {err}"
                 );

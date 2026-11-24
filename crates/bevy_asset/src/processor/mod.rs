@@ -974,11 +974,17 @@ impl AssetProcessor {
     /// does it remove existing in-memory metadata.
     async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &Path) {
         if let Err(err) = source.processed_writer().unwrap().remove(path).await {
-            warn!("Failed to remove non-existent asset {path:?}: {err}");
+            warn!(
+                "Failed to remove non-existent asset {path:?}: {}",
+                ErrorReport::new(&err)
+            );
         }
 
         if let Err(err) = source.processed_writer().unwrap().remove_meta(path).await {
-            warn!("Failed to remove non-existent meta {path:?}: {err}");
+            warn!(
+                "Failed to remove non-existent meta {path:?}: {}",
+                ErrorReport::new(&err)
+            );
         }
 
         self.clean_empty_processed_ancestor_folders(source, path)

@@ -25,13 +25,13 @@ struct GzAssetLoader;
 #[derive(Debug, Error)]
 enum GzAssetLoaderError {
     /// An [IO](std::io) Error
-    #[error("Could not load asset: {0}")]
+    #[error("Could not load asset")]
     Io(#[from] std::io::Error),
     /// An error caused when the asset path cannot be used to determine the uncompressed asset type.
     #[error("Could not determine file path of uncompressed asset")]
     IndeterminateFilePath,
     /// An error caused by the internal asset loader.
-    #[error("Could not load contained asset: {0}")]
+    #[error("Could not load contained asset")]
     LoadDirectError(#[from] LoadDirectError),
 }
 

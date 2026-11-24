@@ -406,9 +406,10 @@ fn spawn_scene_when_ready(
     if let LoadState::Failed(err) = asset_server.load_state(&scene_gltf.0) {
         *done = true;
         error!(
-            "zero_day: failed to load `{}` ({err}). Check the network connection, or \
-             download the file by hand (see the example README).",
-            args.scene.url()
+            "zero_day: failed to load `{}`. Check the network connection, or \
+             download the file by hand (see the example README).\n{}",
+            args.scene.url(),
+            bevy::ecs::error::ErrorReport::new(&err)
         );
         return;
     }

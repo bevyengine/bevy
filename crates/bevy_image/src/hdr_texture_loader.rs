@@ -152,7 +152,9 @@ mod tests {
                         .unwrap()
                         .clone());
                 }
-                LoadState::Failed(error) => return Err(error.to_string()),
+                LoadState::Failed(error) => {
+                    return Err(bevy_ecs::error::ErrorReport::new(&error).to_string())
+                }
                 _ => std::thread::yield_now(),
             }
         }

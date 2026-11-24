@@ -1939,7 +1939,10 @@ mod tests {
                         }
                         _ => panic!("Unexpected error type {}", read_error),
                     },
-                    _ => panic!("Unexpected error type {}", error.error),
+                    _ => panic!(
+                        "Unexpected error type {}",
+                        bevy_ecs::error::ErrorReport::new(&error.error)
+                    ),
                 }
             }
         }

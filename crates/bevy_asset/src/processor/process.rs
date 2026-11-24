@@ -190,9 +190,9 @@ pub enum ProcessError {
     #[from(ignore)]
     AssetSaveError(BevyError),
     /// Encountered an error while transforming the asset.
-    #[error("Encountered an error while transforming the asset: {0}")]
+    #[error("Encountered an error while transforming the asset")]
     #[from(ignore)]
-    AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    AssetTransformError(#[source] Box<dyn core::error::Error + Send + Sync + 'static>),
     /// Assets without extensions are not supported.
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,

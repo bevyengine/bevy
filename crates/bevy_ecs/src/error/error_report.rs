@@ -65,3 +65,30 @@ impl Display for ErrorReport<'_> {
         Self::fmt_messages(f, &messages)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ErrorReport;
+    use crate::{error::BevyError, world::World};
+    use alloc::{format, string::ToString};
+
+    #[test]
+    fn without_source() {
+        let error = core::fmt::Error;
+        assert_eq!(ErrorReport::new(&error).to_string(), error.to_string());
+    }
+
+    #[test]
+    fn matches_bevy_error() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        world.despawn(entity);
+        let error = world.try_despawn(entity).unwrap_err();
+
+        let report = ErrorReport::new(&error).to_string();
+        assert!(report.contains(&entity.to_string()));
+        assert!(BevyError::from(error)
+            .to_string()
+            .starts_with(&format!("{report}\n")));
+    }
+}

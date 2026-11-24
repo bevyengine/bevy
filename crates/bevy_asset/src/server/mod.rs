@@ -2331,8 +2331,9 @@ impl AssetLoaderError {
 
 /// An error that occurs while resolving an asset added by `add_async`.
 #[derive(Error, Debug, Clone)]
-#[error("An error occurred while resolving an asset added by `add_async`: {error}")]
+#[error("An error occurred while resolving an asset added by `add_async`")]
 pub struct AddAsyncError {
+    #[source]
     error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
