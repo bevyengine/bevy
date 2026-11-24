@@ -101,7 +101,7 @@ impl<'w> EntityWorldMut<'w> {
                                 );
                                 true
                             } else {
-                                // SAFETY: We know what we're doing here.
+                                // SAFETY: TODO.
                                 let mut relationship =
                                     unsafe { entity_mut.get_mut_assume_mutable::<R>() }.unwrap();
                                 relationship.collection_mut_risky().add(id)
@@ -198,11 +198,56 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Removes the relation `R` between this entity and the given entities.
     pub fn remove_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
+        if !self.contains::<R::RelationshipTarget>() {
+            return self;
+        }
+        let target_collection = self.get::<R::RelationshipTarget>().unwrap().collection();
+        let to_remove = if <R::RelationshipTarget as RelationshipTarget>::Collection::SINGLE {
+            let source = target_collection.iter().next().unwrap(); // collection always contains one entity
+            if related.contains(&source) {
+                bevy_platform::prelude::vec![source]
+            } else {
+                return self; // no overlap so nothing happens
+            }
+        } else {
+            related
+                .iter()
+                .copied()
+                .filter(|&related| target_collection.contains(related))
+                .collect()
+        };
+        if to_remove.is_empty() {
+            return self;
+        }
+
+        // target:
+        let mut relationship_target = self.get_mut::<R::RelationshipTarget>().unwrap();
+        for &to_remove in &to_remove {
+            relationship_target.collection_mut_risky().remove(to_remove);
+        }
+        if relationship_target.collection().is_empty() {
+            self.remove::<R::RelationshipTarget>();
+        }
+
+        // sources
         let id = self.id();
         self.world_scope(|world| {
-            for &related in related {
-                if let Ok(mut source_entity_mut) = world.get_entity_mut(related) {
-                    source_entity_mut.remove_target_entity::<R>(id);
+            if R::Collection::SINGLE {
+                for to_remove in to_remove {
+                    // ideally we don't run the relationship hooks here too, but as of yet there's no remove_with_relationship_run_mode.
+                    world.entity_mut(to_remove).remove::<R>();
+                }
+            } else {
+                for to_remove in to_remove {
+                    let mut entity_mut = world.entity_mut(to_remove);
+                    // SAFETY: TODO.
+                    let mut relationship =
+                        unsafe { entity_mut.get_mut_assume_mutable::<R>() }.unwrap();
+                    relationship.collection_mut_risky().remove(id);
+                    if relationship.collection().is_empty() {
+                        // same here, we shouldn't use hooks here.
+                        entity_mut.remove::<R>(); // remove empty relationships.
+                    }
                 }
             }
         });
