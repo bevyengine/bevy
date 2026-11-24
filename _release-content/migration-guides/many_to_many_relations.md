@@ -15,4 +15,4 @@ In order to support many-to-many relationships, the `Relationship` trait has bee
 
 For existing users, you can migrate over to the new `SingleTargetRelationship = Relationship<Collection = Entity>` trait, which implements `SingleTargetRelationship::get` that returns an `Entity`.
 
-For dynamic access: `RelationshipAccessorInitializer` and `RelationshipAccessor` have been changed to take a function pointer that returns an iterator over entities, instead of a field offset .
+For dynamic access: `RelationshipAccessorInitializer` and `RelationshipAccessor` have been changed to take a function pointer that returns an iterator over entities, instead of a field offset.
