@@ -8,7 +8,7 @@ use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
     platform::collections::HashMap,
     prelude::*,
-    render::{pipelined_rendering::PipelinedRenderingPlugin, RenderPlugin},
+    render::pipelined_rendering::PipelinedRenderingPlugin,
 };
 
 #[derive(States, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -22,16 +22,9 @@ fn main() {
     app.add_plugins(
         DefaultPlugins
             .build()
-            .set(RenderPlugin {
-                // llvmpipe driver can cause segfaults when aborting the binary while pipelines are being
-                // compiled (which happens very quickly in this example since we only run for a single
-                // frame). Synchronous pipeline compilation helps prevent these segfaults as the
-                // rendering thread blocks on these pipeline compilations.
-                synchronous_pipeline_compilation: true,
-                ..Default::default()
-            })
-            // We also have to disable pipelined rendering to ensure the test doesn't end while the
-            // rendering frame is still executing in another thread.
+            // The PipelinedRenderingPlugin takes the RenderApp out of the app during cleanup to
+            // send it to another thread, but we still need access to it to count its ambiguities.
+            // So disable the plugin here.
             .disable::<PipelinedRenderingPlugin>(),
     );
     // Make sure that adding a state doesn't add ambiguities.
