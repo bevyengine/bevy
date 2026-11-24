@@ -126,7 +126,7 @@ pub fn ui_stack_system(
             global_z: global_zindex.as_ref().map_or(0, |z| z.0),
             local_z: zindex.as_ref().map_or(0, |z| z.0),
             new_or_changed: false,
-            previous_index: stack_roots.len(),
+            previous_index: 0,
             partition: None,
         };
         let lists_start = stack_lists.len();
