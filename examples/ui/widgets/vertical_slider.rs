@@ -5,8 +5,8 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
-        observe, slider_self_update, Slider, SliderDragState, SliderRange, SliderThumb,
-        SliderValue, TrackClick,
+        slider_self_update, Slider, SliderDragState, SliderRange, SliderThumb, SliderValue,
+        TrackClick,
     },
 };
 
@@ -21,118 +21,82 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
+#[derive(Component, FromTemplate, Clone)]
 struct ValueLabel(Entity);
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DemoSlider;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct DemoSliderThumb;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct VerticalSlider;
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    commands
-        .spawn((
+    commands.spawn_scene(bsn! {
+        Node {
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            column_gap: px(50),
+        }
+        TabGroup
+        Children [
+            #VerticalSlider
             Node {
-                width: percent(100),
-                height: percent(100),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
                 display: Display::Flex,
-                flex_direction: FlexDirection::Row,
-                column_gap: px(50),
-                ..default()
-            },
-            TabGroup::default(),
-        ))
-        .with_children(|parent| {
-            // Vertical slider
-            parent
-                .spawn(Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    row_gap: px(10),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Vertical"),
-                        TextFont {
-                            font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                    ));
-
-                    let label_id = parent
-                        .spawn((
-                            Text::new("50"),
-                            TextFont {
-                                font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                                font_size: FontSize::Px(24.0),
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        ))
-                        .id();
-
-                    parent.spawn((
-                        vertical_slider(),
-                        ValueLabel(label_id),
-                        observe(slider_self_update),
-                    ));
-                });
-
-            // Horizontal slider
-            parent
-                .spawn(Node {
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    row_gap: px(10),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Horizontal"),
-                        TextFont {
-                            font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                            font_size: FontSize::Px(20.0),
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                    ));
-
-                    let label_id = parent
-                        .spawn((
-                            Text::new("50"),
-                            TextFont {
-                                font: assets.load("fonts/FiraSans-Bold.ttf").into(),
-                                font_size: FontSize::Px(24.0),
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        ))
-                        .id();
-
-                    parent.spawn((
-                        horizontal_slider(),
-                        ValueLabel(label_id),
-                        observe(slider_self_update),
-                    ));
-                });
-        });
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(10),
+            }
+            Children [
+                Text::new("Vertical")
+                TextFont { font_size: px(20) }
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                --
+                #VerticalValueLabel
+                Text::new("50")
+                TextFont { font_size: px(24) }
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                --
+                @vertical_slider()
+                ValueLabel(#VerticalValueLabel)
+                on(slider_self_update)
+            ]
+            --
+            #HorizontalSlider
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(10),
+            }
+            Children [
+                Text::new("Horizontal")
+                TextFont { font_size: px(20) }
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                --
+                #HorizontalValueLabel
+                Text::new("50")
+                TextFont { font_size: px(24) }
+                TextColor(Color::srgb(0.9, 0.9, 0.9))
+                --
+                @horizontal_slider()
+                ValueLabel(#HorizontalValueLabel)
+                on(slider_self_update)
+            ]
+        ]
+    });
 }
 
-fn vertical_slider() -> impl Bundle {
-    (
+fn vertical_slider() -> impl Scene {
+    bsn! {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Row,
@@ -141,58 +105,48 @@ fn vertical_slider() -> impl Bundle {
             column_gap: px(4),
             width: px(12),
             height: px(200),
-            ..default()
-        },
-        DemoSlider,
-        VerticalSlider,
-        Hovered::default(),
-        Slider {
-            track_click: TrackClick::Snap,
-            ..Default::default()
-        },
-        SliderValue(50.0),
-        SliderRange::new(0.0, 100.0),
-        TabIndex(0),
-        Children::spawn((
-            Spawn((
-                Node {
-                    width: px(6),
-                    border_radius: BorderRadius::all(px(3)),
-                    ..default()
-                },
-                BackgroundColor(SLIDER_TRACK),
-            )),
-            Spawn((
+        }
+        DemoSlider
+        VerticalSlider
+        Hovered
+        Slider { track_click: TrackClick::Snap }
+        SliderValue(50.0)
+        SliderRange::new(0.0, 100.0)
+        TabIndex(0)
+        Children [
+            Node {
+                width: px(6),
+                border_radius: px(3),
+            }
+            BackgroundColor(SLIDER_TRACK)
+            --
+            Node {
+                display: Display::Flex,
+                position_type: PositionType::Absolute,
+                top: px(12),
+                bottom: px(0),
+                left: px(0),
+                right: px(0),
+            }
+            Children [
+                DemoSliderThumb
+                SliderThumb
                 Node {
                     display: Display::Flex,
+                    width: px(12),
+                    height: px(12),
                     position_type: PositionType::Absolute,
-                    top: px(12),
-                    bottom: px(0),
-                    left: px(0),
-                    right: px(0),
-                    ..default()
-                },
-                children![(
-                    DemoSliderThumb,
-                    SliderThumb,
-                    Node {
-                        display: Display::Flex,
-                        width: px(12),
-                        height: px(12),
-                        position_type: PositionType::Absolute,
-                        bottom: percent(0),
-                        border_radius: BorderRadius::MAX,
-                        ..default()
-                    },
-                    BackgroundColor(SLIDER_THUMB),
-                )],
-            )),
-        )),
-    )
+                    bottom: percent(0),
+                    border_radius: BorderRadius::MAX,
+                }
+                BackgroundColor(SLIDER_THUMB)
+            ]
+        ]
+    }
 }
 
-fn horizontal_slider() -> impl Bundle {
-    (
+fn horizontal_slider() -> impl Scene {
+    bsn! {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
@@ -201,53 +155,43 @@ fn horizontal_slider() -> impl Bundle {
             column_gap: px(4),
             height: px(12),
             width: px(200),
-            ..default()
-        },
-        DemoSlider,
-        Hovered::default(),
-        Slider {
-            track_click: TrackClick::Snap,
-            ..Default::default()
-        },
-        SliderValue(50.0),
-        SliderRange::new(0.0, 100.0),
-        TabIndex(0),
-        Children::spawn((
-            Spawn((
-                Node {
-                    height: px(6),
-                    border_radius: BorderRadius::all(px(3)),
-                    ..default()
-                },
-                BackgroundColor(SLIDER_TRACK),
-            )),
-            Spawn((
+        }
+        DemoSlider
+        Hovered
+        Slider { track_click: TrackClick::Snap }
+        SliderValue(50.0)
+        SliderRange::new(0.0, 100.0)
+        TabIndex(0)
+        Children [
+            Node {
+                height: px(6),
+                border_radius: px(3),
+            }
+            BackgroundColor(SLIDER_TRACK)
+            --
+            Node {
+                display: Display::Flex,
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(12),
+                top: px(0),
+                bottom: px(0),
+            }
+            Children [
+                DemoSliderThumb
+                SliderThumb
                 Node {
                     display: Display::Flex,
+                    width: px(12),
+                    height: px(12),
                     position_type: PositionType::Absolute,
-                    left: px(0),
-                    right: px(12),
-                    top: px(0),
-                    bottom: px(0),
-                    ..default()
-                },
-                children![(
-                    DemoSliderThumb,
-                    SliderThumb,
-                    Node {
-                        display: Display::Flex,
-                        width: px(12),
-                        height: px(12),
-                        position_type: PositionType::Absolute,
-                        left: percent(0),
-                        border_radius: BorderRadius::MAX,
-                        ..default()
-                    },
-                    BackgroundColor(SLIDER_THUMB),
-                )],
-            )),
-        )),
-    )
+                    left: percent(0),
+                    border_radius: BorderRadius::MAX,
+                }
+                BackgroundColor(SLIDER_THUMB)
+            ]
+        ]
+    }
 }
 
 fn update_slider_visuals(
