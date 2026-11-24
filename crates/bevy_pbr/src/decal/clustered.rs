@@ -16,7 +16,7 @@
 //! the built-in *tag* field to store additional application-specific data; by
 //! reading the tag in the shader, you can modify the appearance of a clustered
 //! decal arbitrarily. See the documentation in `clustered.wesl` for more
-//! information and the `clustered_decals` example for an example of use.
+//! information and the [`clustered_decals` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/clustered_decals.rs) for an example of use.
 
 use core::{num::NonZero, ops::Deref};
 

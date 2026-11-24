@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
 use bevy_utils::prelude::DebugName;
 use smallvec::SmallVec;
@@ -12,8 +12,8 @@ use crate::{
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
-        Local, ParamSet, Query, ReadOnlySystem, System, SystemAccess, SystemInput, SystemMeta,
-        SystemParam, SystemParamFunction, SystemParamValidationError,
+        Local, ParamSet, Query, ReadOnlySystem, System, SystemAccess, SystemInput, SystemParam,
+        SystemParamFunction, SystemParamValidationError,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -311,9 +311,47 @@ where
             inner: BuilderSystemInner::Uninitialized {
                 builder,
                 func,
-                meta: SystemMeta::new::<Func>(),
+                name: DebugName::type_name::<Func>(),
             },
         }
+    }
+
+    /// Return this system with a new name.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_utils::DebugName;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::{ParamBuilder, RunSystemOnce, SystemName};
+    /// # let mut world = World::new();
+    /// let builder = ParamBuilder;
+    /// let function = |name: SystemName| {
+    ///     assert_eq!(name.name(), DebugName::borrowed("system name"));
+    /// };
+    /// let system =
+    ///     IntoSystem::into_system(builder.build_system(function)).with_name("system name");
+    /// let name = world.run_system_once(system).unwrap();
+    /// ```
+    pub fn with_name(self, new_name: impl Into<Cow<'static, str>>) -> Self {
+        let inner = match self.inner {
+            BuilderSystemInner::Initialized { system } => BuilderSystemInner::Initialized {
+                system: system.with_name(new_name),
+            },
+            BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                name: _,
+            } => BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                name: new_name.into().into(),
+            },
+            BuilderSystemInner::Invalid => unreachable!(),
+        };
+        Self { inner }
     }
 }
 
@@ -331,7 +369,7 @@ where
     Uninitialized {
         builder: Builder,
         func: Func,
-        meta: SystemMeta,
+        name: DebugName,
     },
     /// This only exists as a variant to use with `mem::replace` in `initialize`.
     /// If this state is ever observed outside `initialize`, then a `panic!`
@@ -355,7 +393,7 @@ where
     fn name(&self) -> DebugName {
         match &self.inner {
             BuilderSystemInner::Initialized { system } => system.name(),
-            BuilderSystemInner::Uninitialized { meta, .. } => meta.name().clone(),
+            BuilderSystemInner::Uninitialized { name, .. } => name.clone(),
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
@@ -364,7 +402,7 @@ where
     fn flags(&self) -> SystemStateFlags {
         match &self.inner {
             BuilderSystemInner::Initialized { system, .. } => system.flags(),
-            BuilderSystemInner::Uninitialized { meta, .. } => meta.flags(),
+            BuilderSystemInner::Uninitialized { .. } => SystemStateFlags::empty(),
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
@@ -424,8 +462,16 @@ where
                 self.inner = BuilderSystemInner::Initialized { system };
                 access
             }
-            BuilderSystemInner::Uninitialized { builder, func, .. } => {
-                let mut system = builder.build_state(world).build_any_system(func);
+            BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                name,
+            } => {
+                // The state is named after its params, so keep the function's name.
+                let mut system = builder
+                    .build_state(world)
+                    .build_any_system(func)
+                    .with_name(name);
                 let access = system.initialize(world);
                 self.inner = BuilderSystemInner::Initialized { system };
                 access
@@ -447,7 +493,7 @@ where
     fn get_last_run(&self) -> Tick {
         match &self.inner {
             BuilderSystemInner::Initialized { system, .. } => system.get_last_run(),
-            BuilderSystemInner::Uninitialized { meta, .. } => meta.get_last_run(),
+            BuilderSystemInner::Uninitialized { .. } => Tick::new(0),
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
@@ -456,7 +502,7 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         match &mut self.inner {
             BuilderSystemInner::Initialized { system, .. } => system.set_last_run(last_run),
-            BuilderSystemInner::Uninitialized { meta, .. } => meta.set_last_run(last_run),
+            BuilderSystemInner::Uninitialized { .. } => {}
             BuilderSystemInner::Invalid => unreachable!(),
         }
     }
@@ -1007,6 +1053,20 @@ mod tests {
 
         let output = world.run_system_once(builder_system).unwrap();
         assert_eq!(output, 1);
+    }
+
+    #[test]
+    fn builder_system_name() {
+        let mut world = World::new();
+
+        let name = IntoSystem::into_system(local_system).name();
+        let mut builder_system =
+            IntoSystem::into_system((LocalBuilder(10),).build_system(local_system));
+        assert_eq!(builder_system.name(), name);
+
+        // `initialize` builds the system from a `SystemState`, which is named after its params.
+        builder_system.initialize(&mut world);
+        assert_eq!(builder_system.name(), name);
     }
 
     #[test]

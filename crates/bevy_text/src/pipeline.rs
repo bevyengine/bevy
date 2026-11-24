@@ -6,9 +6,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_log::warn_once;
 use bevy_math::{Rect, Vec2};
-use bevy_platform::hash::FixedHasher;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use core::hash::BuildHasher;
 use parley::style::{OverflowWrap, TextWrapMode, WordBreak};
 use parley::{Alignment, AlignmentOptions, Layout, PositionedLayoutItem, StyleProperty};
 use swash::FontRef;
@@ -19,10 +17,13 @@ use crate::{
     get_glyph_atlas_info,
     parley_context::{FontCx, LayoutCx, ScaleCx},
     ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontHinting, FontSmoothing, FontSource,
-    Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity,
-    TextFont, TextLayout,
+    GlyphCacheKey, Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
-use crate::{RemSize, TextBrush};
+use crate::{InlineBoxKind, RemSize, TextBrush};
+
+// Special character used to indicate embedded objects.
+const OBJECT_REPLACEMENT_CHARACTER: char = '\u{FFFC}';
 
 struct TextSectionView<'a> {
     index: usize,
@@ -99,11 +100,14 @@ impl TextPipeline {
             .collect();
 
         let result = {
+            // Font, font size, and line height for root entity
+            let mut root_style: Option<(&TextFont, f32, LineHeight)> = None;
             for (index, (entity, depth, item)) in text_spans.enumerate() {
                 match item {
                     TextElement::Text {
                         text,
                         font: text_font,
+                        line_height,
                         ..
                     } => {
                         match text_font.font_size {
@@ -121,6 +125,14 @@ impl TextPipeline {
                             font_smoothing: text_font.font_smoothing,
                         });
 
+                        let logical_font_size = text_font
+                            .font_size
+                            .eval(logical_viewport_size, base_rem_size);
+
+                        if index == 0 {
+                            root_style = Some((text_font, logical_font_size, line_height));
+                        }
+
                         if text.is_empty() {
                             continue;
                         }
@@ -133,10 +145,6 @@ impl TextPipeline {
                         {
                             return Err(TextError::NoSuchFont);
                         }
-
-                        let logical_font_size = text_font
-                            .font_size
-                            .eval(logical_viewport_size, base_rem_size);
 
                         if logical_font_size <= 0.0 {
                             warn_once!(
@@ -186,7 +194,11 @@ impl TextPipeline {
                     TextElement::Text { text, .. } => {
                         self.text_buffer.push_str(text);
                     }
-                    TextElement::Box(_inline_box) => {}
+                    TextElement::Box(inline_box) => {
+                        if inline_box.kind == InlineBoxKind::InFlow {
+                            self.text_buffer.push(OBJECT_REPLACEMENT_CHARACTER);
+                        }
+                    }
                 }
             }
 
@@ -211,6 +223,16 @@ impl TextPipeline {
                     builder.push_default(StyleProperty::WordBreak(WordBreak::Normal));
                 }
             }
+
+            if let Ok(root_family) = root_style
+                .map_or(&FontSource::Default, |(f, ..)| &f.font)
+                .resolve_font_family(fonts, default_font_source)
+            {
+                builder.push_default(StyleProperty::FontFamily(root_family));
+            }
+
+            builder.push_default(StyleProperty::FontSize(0.0));
+            builder.push_default(StyleProperty::LineHeight(parley::LineHeight::Absolute(0.0)));
 
             let mut start = 0;
             for section in sections.drain(..) {
@@ -280,7 +302,12 @@ impl TextPipeline {
                             index: start,
                             width: size.x,
                             height: size.y,
+                            baseline: None,
+                            vertical_align: Default::default(),
                         });
+                        if inline_box.kind == InlineBoxKind::InFlow {
+                            start += OBJECT_REPLACEMENT_CHARACTER.len_utf8();
+                        }
                     }
                 };
             }
@@ -375,15 +402,9 @@ impl TextPipeline {
                         let font = run.font();
                         let font_size = run.font_size();
                         let coords = run.normalized_coords();
-                        let variations_hash = FixedHasher.hash_one(coords);
-                        let font_atlas_key = FontAtlasKey {
-                            id: font.data.id() as u32,
-                            index: font.index,
-                            font_size_bits: font_size.to_bits(),
-                            variations_hash,
-                            hinting,
-                            font_smoothing,
-                        };
+                        let synthetic_skew = run.synthesis().skew();
+                        let font_atlas_key = FontAtlasKey::new(&glyph_run, hinting);
+                        let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
 
                         let Some(font_ref) =
                             FontRef::from_index(font.data.as_ref(), font.index as usize)
@@ -398,12 +419,13 @@ impl TextPipeline {
                                 continue;
                             };
 
-                            let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
+                            let (cache_key, glyph_pos) = GlyphCacheKey::new(
+                                glyph_id,
+                                Vec2::new(glyph.x, glyph.y),
+                                font_smoothing,
+                            );
 
-                            let atlas_info = match get_glyph_atlas_info(
-                                font_atlases,
-                                crate::GlyphCacheKey { glyph_id },
-                            ) {
+                            let atlas_info = match get_glyph_atlas_info(font_atlases, cache_key) {
                                 Some(info) => info,
                                 None => {
                                     if maybe_scaler.is_none() {
@@ -416,7 +438,9 @@ impl TextPipeline {
                                                 .builder_with_id(font_ref, font_id)
                                                 .size(font_size)
                                                 .hint(hint)
-                                                .normalized_coords(coords)
+                                                .normalized_coords(
+                                                    coords.iter().map(|c| c.to_bits()),
+                                                )
                                                 .build(),
                                         );
                                     }
@@ -425,22 +449,16 @@ impl TextPipeline {
                                         textures,
                                         maybe_scaler.as_mut().unwrap(),
                                         font_smoothing,
-                                        glyph_id,
+                                        synthetic_skew,
+                                        cache_key,
                                     )?
                                 }
                             };
 
-                            let glyph_pos = Vec2::new(glyph.x, glyph.y);
                             let size = atlas_info.rect.size();
 
                             layout_info.glyphs.push(PositionedGlyph {
-                                position: size / 2.
-                                    + if font_smoothing == FontSmoothing::None {
-                                        glyph_pos.floor()
-                                    } else {
-                                        glyph_pos
-                                    }
-                                    + atlas_info.offset,
+                                position: size / 2. + glyph_pos + atlas_info.offset,
                                 atlas_info,
                                 section_index,
                                 line_index: line_index as u32,
@@ -456,10 +474,10 @@ impl TextPipeline {
                                 line.metrics().block_max_coord,
                             ),
                             strikethrough_y: glyph_run.baseline()
-                                - run.metrics().strikethrough_offset,
-                            strikethrough_thickness: run.metrics().strikethrough_size,
-                            underline_y: glyph_run.baseline() - run.metrics().underline_offset,
-                            underline_thickness: run.metrics().underline_size,
+                                - run.font_metrics().strikethrough_offset,
+                            strikethrough_thickness: run.font_metrics().strikethrough_size,
+                            underline_y: glyph_run.baseline() - run.font_metrics().underline_offset,
+                            underline_thickness: run.font_metrics().underline_size,
                         });
                     }
                     PositionedLayoutItem::InlineBox(inline_box) => {
@@ -502,15 +520,18 @@ pub struct TextLayoutInfo {
     pub run_geometry: Vec<RunGeometry>,
     /// The size of the text layout in physical pixels
     pub size: Vec2,
-    /// Cursor visibility, size and position for editing
+    /// Cursor visibility, size, and position for editing
     pub cursor: Option<(bool, Rect)>,
     /// Selection rects
     pub selection_rects: Vec<Rect>,
     /// Underline rects for the active IME preedit/compose region.
     /// Should only have values when composition is in progress.
     pub preedit_underline_rects: Vec<Rect>,
+    /// Glyphs of an editable text's [`Placeholder`](crate::Placeholder), laid out
+    /// like [`glyphs`](Self::glyphs). Empty unless the placeholder is shown.
+    pub placeholder_glyphs: Vec<PositionedGlyph>,
     /// inline boxes
-    pub inline_boxes: Vec<(Entity, crate::InlineBoxKind, Rect)>,
+    pub inline_boxes: Vec<(Entity, InlineBoxKind, Rect)>,
 }
 
 impl TextLayoutInfo {
@@ -524,6 +545,7 @@ impl TextLayoutInfo {
         self.cursor = None;
         self.selection_rects.clear();
         self.preedit_underline_rects.clear();
+        self.placeholder_glyphs.clear();
     }
 }
 
@@ -537,6 +559,7 @@ impl Default for TextLayoutInfo {
             cursor: None,
             selection_rects: Default::default(),
             preedit_underline_rects: Default::default(),
+            placeholder_glyphs: Default::default(),
             inline_boxes: Default::default(),
         }
     }
@@ -613,15 +636,15 @@ impl TextMeasureInfo {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
         let layout = &mut computed.layout;
+        layout.set_alignment(Alignment::Start, AlignmentOptions::default());
         layout.break_all_lines(bounds.width);
-        layout.align(Alignment::Start, AlignmentOptions::default());
         buffer_dimensions(layout)
     }
 }
 
 fn layout_with_bounds(layout: &mut Layout<TextBrush>, bounds: TextBounds, justify: Justify) {
+    layout.set_alignment(justify.into(), AlignmentOptions::default());
     layout.break_all_lines(bounds.width);
-    layout.align(justify.into(), AlignmentOptions::default());
 }
 
 /// Calculate the size of the text area for the given buffer.

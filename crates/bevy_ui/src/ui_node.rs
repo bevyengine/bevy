@@ -1,10 +1,7 @@
 use crate::{
-    layout::{
-        layout_tree::{ComputedLayout, TaffyStyle},
-        UiTreeDirty,
-    },
+    layout::{layout_tree::ComputedLayout, TaffyStyle, UiTreeDirty},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedStackIndex, ContentSize, CornerRadius, FocusPolicy, UiRect, Val,
+    ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val, ValContext,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -457,10 +454,6 @@ impl From<BVec2> for IgnoreScroll {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
-///
-/// # See also
-///
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
@@ -474,7 +467,6 @@ impl From<BVec2> for IgnoreScroll {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    FocusPolicy,
     ScrollPosition,
     Visibility,
     EmSize,
@@ -827,12 +819,12 @@ impl Node {
         bottom: Val::Auto,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
-        align_items: AlignItems::DEFAULT,
-        justify_items: JustifyItems::DEFAULT,
+        align_items: AlignItems::Normal,
+        justify_items: JustifyItems::Normal,
         align_self: AlignSelf::DEFAULT,
         justify_self: JustifySelf::DEFAULT,
-        align_content: AlignContent::DEFAULT,
-        justify_content: JustifyContent::DEFAULT,
+        align_content: AlignContent::Normal,
+        justify_content: JustifyContent::Normal,
         direction: InlineDirection::Ltr,
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
@@ -895,7 +887,7 @@ pub enum InlineDirection {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -904,7 +896,8 @@ pub enum InlineDirection {
 )]
 pub enum AlignItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -934,7 +927,8 @@ pub enum AlignItems {
 }
 
 impl AlignItems {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -945,7 +939,7 @@ impl AlignItems {
             | AlignItems::FlexStartSafe
             | AlignItems::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            AlignItems::Default
+            AlignItems::Normal
             | AlignItems::Start
             | AlignItems::Center
             | AlignItems::End
@@ -965,7 +959,7 @@ impl AlignItems {
             AlignItems::End => AlignItems::EndSafe,
             AlignItems::FlexStart => AlignItems::FlexStartSafe,
             AlignItems::FlexEnd => AlignItems::FlexEndSafe,
-            AlignItems::Default
+            AlignItems::Normal
             | AlignItems::StartSafe
             | AlignItems::EndSafe
             | AlignItems::CenterSafe
@@ -974,12 +968,6 @@ impl AlignItems {
             | AlignItems::Baseline
             | AlignItems::Stretch => self,
         }
-    }
-}
-
-impl Default for AlignItems {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -993,7 +981,7 @@ impl Default for AlignItems {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1002,7 +990,8 @@ impl Default for AlignItems {
 )]
 pub enum JustifyItems {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1022,14 +1011,15 @@ pub enum JustifyItems {
 }
 
 impl JustifyItems {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
         match self {
             JustifyItems::StartSafe | JustifyItems::CenterSafe | JustifyItems::EndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            JustifyItems::Default
+            JustifyItems::Normal
             | JustifyItems::Start
             | JustifyItems::Center
             | JustifyItems::End
@@ -1045,19 +1035,13 @@ impl JustifyItems {
             JustifyItems::Start => JustifyItems::StartSafe,
             JustifyItems::Center => JustifyItems::CenterSafe,
             JustifyItems::End => JustifyItems::EndSafe,
-            JustifyItems::Default
+            JustifyItems::Normal
             | JustifyItems::StartSafe
             | JustifyItems::EndSafe
             | JustifyItems::CenterSafe
             | JustifyItems::Baseline
             | JustifyItems::Stretch => self,
         }
-    }
-}
-
-impl Default for JustifyItems {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -1247,7 +1231,7 @@ impl Default for JustifySelf {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1256,7 +1240,8 @@ impl Default for JustifySelf {
 )]
 pub enum AlignContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1290,7 +1275,8 @@ pub enum AlignContent {
 }
 
 impl AlignContent {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1301,7 +1287,7 @@ impl AlignContent {
             | AlignContent::FlexStartSafe
             | AlignContent::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            AlignContent::Default
+            AlignContent::Normal
             | AlignContent::Start
             | AlignContent::Center
             | AlignContent::End
@@ -1323,7 +1309,7 @@ impl AlignContent {
             AlignContent::End => AlignContent::EndSafe,
             AlignContent::FlexStart => AlignContent::FlexStartSafe,
             AlignContent::FlexEnd => AlignContent::FlexEndSafe,
-            AlignContent::Default
+            AlignContent::Normal
             | AlignContent::StartSafe
             | AlignContent::EndSafe
             | AlignContent::CenterSafe
@@ -1337,12 +1323,6 @@ impl AlignContent {
     }
 }
 
-impl Default for AlignContent {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
 /// Used to control how items are distributed.
 /// - For Flexbox containers, controls alignment of items in the main axis.
 /// - For CSS Grid containers, controls alignment of grid columns.
@@ -1353,7 +1333,7 @@ impl Default for AlignContent {
 /// the start of the content stays visible.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect)]
 #[reflect(Default, PartialEq, Clone)]
 #[cfg_attr(
     feature = "serialize",
@@ -1362,7 +1342,8 @@ impl Default for AlignContent {
 )]
 pub enum JustifyContent {
     /// The items are packed in their default position as if no alignment was applied.
-    Default,
+    #[default]
+    Normal,
     /// The items are packed towards the start of the axis.
     Start,
     /// Like [`Start`](Self::Start) but safe [`safe`](Self#safe-alignments)
@@ -1396,7 +1377,8 @@ pub enum JustifyContent {
 }
 
 impl JustifyContent {
-    pub const DEFAULT: Self = Self::Default;
+    #[deprecated]
+    pub const NORMAL: Self = Self::Normal;
 
     /// Returns `true` if this alignment is considered [`safe`](Self#safe-alignments).
     pub const fn is_safe(&self) -> bool {
@@ -1407,7 +1389,7 @@ impl JustifyContent {
             | JustifyContent::FlexStartSafe
             | JustifyContent::FlexEndSafe => true,
             // Explicitly enumerate variants so we don't forget to extend this when changing them.
-            JustifyContent::Default
+            JustifyContent::Normal
             | JustifyContent::Start
             | JustifyContent::Center
             | JustifyContent::End
@@ -1429,7 +1411,7 @@ impl JustifyContent {
             JustifyContent::End => JustifyContent::EndSafe,
             JustifyContent::FlexStart => JustifyContent::FlexStartSafe,
             JustifyContent::FlexEnd => JustifyContent::FlexEndSafe,
-            JustifyContent::Default
+            JustifyContent::Normal
             | JustifyContent::StartSafe
             | JustifyContent::EndSafe
             | JustifyContent::CenterSafe
@@ -1440,12 +1422,6 @@ impl JustifyContent {
             | JustifyContent::SpaceEvenly
             | JustifyContent::SpaceAround => self,
         }
-    }
-}
-
-impl Default for JustifyContent {
-    fn default() -> Self {
-        Self::DEFAULT
     }
 }
 
@@ -3219,43 +3195,12 @@ impl BorderRadius {
 
     /// Resolve the border radii for the corners from the given context values.
     /// Returns the radii of the each corner in physical pixels.
-    pub fn resolve(
-        &self,
-        scale_factor: f32,
-        node_size: Vec2,
-        viewport_size: Vec2,
-        em_size: EmSize,
-        rem_size: RemSize,
-    ) -> ResolvedBorderRadius {
+    pub fn resolve(&self, context: &ValContext, node_size: Vec2) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: self.top_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            top_right: self.top_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_left: self.bottom_left.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
-            bottom_right: self.bottom_right.resolve(
-                scale_factor,
-                node_size,
-                viewport_size,
-                em_size,
-                rem_size,
-            ),
+            top_left: self.top_left.resolve(context, node_size),
+            top_right: self.top_right.resolve(context, node_size),
+            bottom_left: self.bottom_left.resolve(context, node_size),
+            bottom_right: self.bottom_right.resolve(context, node_size),
         }
     }
 }

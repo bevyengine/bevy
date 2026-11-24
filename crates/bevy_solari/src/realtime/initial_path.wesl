@@ -5,7 +5,8 @@ import bevy_render::utils::octahedral_encode;
 import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf, EvaluateAndSampleBrdfResult, F_AB};
 import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
 import package::realtime::bindings::{empty_reservoir, light_tile_resolved_samples, light_tile_samples, Reservoir, constants, view};
-import package::scene::sampling::{calculate_resolved_light_contribution, isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
+import package::realtime::atmosphere::calculate_light_contribution;
+import package::scene::sampling::{isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
@@ -114,7 +115,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
             break;
         }
 
-        let ray_hit = resolve_ray_hit_full(ray);
+        let ray_hit = resolve_ray_hit_full(ray, -next_bounce.wi);
         let p_brdf = next_bounce.pdf;
 
         @if(DLSS_RR_GUIDE_BUFFERS)
@@ -166,7 +167,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
         }
 
         // Try terminating into the world cache
-        if terminate_into_cache(&path, ray_hit, ray.t, p_brdf, bounce, rng) {
+        if terminate_into_cache(&path, ray, ray_hit, p_brdf, bounce, rng) {
             break;
         }
 
@@ -232,7 +233,7 @@ fn generate_nee_candidate(
     if rand_f(rng) >= p_keep { return; }
 
     // Trace visibility
-    di.unbiased_contribution_weight *= trace_visibility((*path).ray_origin, di.world_position);
+    di.unbiased_contribution_weight *= trace_visibility((*path).ray_origin, di.world_position, RAY_FLAG_NONE);
     if di.unbiased_contribution_weight <= 0.0 { return; }
 
     // MIS against the BRDF strategy. RIS over N candidates makes the effective NEE pdf at the
@@ -297,7 +298,7 @@ fn sample_light_ris(ray_origin: vec3<f32>, normal: vec3<f32>, wo: vec3<f32>, mat
     for (var i = 0u; i < di_samples; i++) {
         let tile_sample = light_tile_start + rand_range_u(1024u, rng);
         let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
-        let light_contribution = calculate_resolved_light_contribution(resolved_light_sample, ray_origin, normal);
+        let light_contribution = calculate_light_contribution(resolved_light_sample, ray_origin, normal);
         let brdf_current = evaluate_brdf(wo, light_contribution.wi, normal, material, F_ab);
         let brdf_radiance = brdf_current * light_contribution.radiance;
 
@@ -415,12 +416,15 @@ fn generate_environment_map_light_candidate(
 
 fn terminate_into_cache(
     path: ptr<function, PathState>,
+    ray: RayIntersection,
     ray_hit: ResolvedRayHitFull,
-    ray_t: f32,
     p_brdf: f32,
     bounce: u32,
     rng: ptr<function, u32>,
 ) -> bool {
+    // Terminate the path if hitting the back face of a single-sided mesh
+    if !ray.front_face && !ray_hit.double_sided { return true; }
+
     // Only terminate into the world cache when the bounce was from a wide-enough BRDF sample
     // because the cache is less noisy than continuing the path for rough surfaces,
     // but less accurate for smooth surfaces
@@ -432,10 +436,10 @@ fn terminate_into_cache(
     // Only use the cache when the ray cleared the cache cell (diagonal = sqrt(3) * cell_size). Short
     // rays land in a cell that may straddle occluders and leak light through corners.
     var rng_copy = *rng;
-    let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position, ray_t, &rng_copy);
-    if ray_t <= sqrt(3.0) * world_cache_cell_size { return false; }
+    let world_cache_cell_size = get_cell_size(ray_hit.world_position, view.world_position, ray.t, &rng_copy);
+    if ray.t <= sqrt(3.0) * world_cache_cell_size { return false; }
 
-    let cached_radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray_t, WORLD_CACHE_CELL_LIFETIME, rng);
+    let cached_radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, ray.t, WORLD_CACHE_CELL_LIFETIME, rng);
 
     let cache_outgoing = (ray_hit.material.base_color / PI) * cached_radiance;
     let cache_L_at_reconnection = (*path).throughput_past_first_hit * cache_outgoing;

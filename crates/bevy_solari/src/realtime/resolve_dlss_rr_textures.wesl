@@ -5,7 +5,7 @@ import bevy_render::utils::octahedral_decode;
 import package::realtime::gbuffer_utils::gpixel_resolve;
 import package::realtime::bindings::{gbuffer, depth_buffer, load_motion_vector, motion_vectors, previous_view, view, diffuse_albedo, specular_albedo, normal_roughness, dlss_rr_depth, specular_motion_vectors};
 import package::scene::brdf::{evaluate_specular_brdf, F_AB, lobe_reflectances};
-import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, ResolvedMaterial, ResolvedRayHitFull};
+import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, resolve_previous_frame_world_position, ResolvedMaterial, ResolvedRayHitFull};
 
 enable wgpu_ray_query;
 
@@ -44,7 +44,7 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
         return;
     }
 
-    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, pixel_id, 0), depth, pixel_id, view.main_pass_viewport.zw, view.world_from_clip, view.world_position);
     let F0 = calculate_F0(surface.material.base_color, surface.material.metallic, vec3(surface.material.reflectance));
     let wo = normalize(view.world_position - surface.world_position);
 
@@ -139,7 +139,7 @@ fn replace_primary_surface(
     }
 
     let virtual_position = primary_world_position - (primary_wo * psr.reflection_length);
-    let world_motion = ray_hit.previous_frame_world_position - ray_hit.world_position;
+    let world_motion = resolve_previous_frame_world_position(ray_hit) - ray_hit.world_position;
     let virtual_previous_position = virtual_position + apply_mirror_chain(psr, world_motion);
     let specular_motion_vector = calculate_motion_vector(virtual_position, virtual_previous_position);
 

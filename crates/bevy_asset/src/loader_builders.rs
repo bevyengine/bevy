@@ -294,7 +294,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
             } else {
                 self.load_context
                     .asset_server
-                    .get_path_asset_loader(path)
+                    .get_asset_loader_with_path(path)
                     .await
                     .map_err(|error| LoadDirectError::LoadError {
                         dependency: path.clone(),

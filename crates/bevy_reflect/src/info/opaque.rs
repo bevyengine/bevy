@@ -1,5 +1,8 @@
 use crate::{
-    generics::impl_generic_info_methods, ty::impl_type_methods, Generics, Reflect, Type, TypePath,
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    generics::impl_generic_info_methods,
+    ty::impl_type_methods,
+    Generics, Reflect, Type, TypePath,
 };
 
 /// A container for compile-time info related to reflection-opaque types, including primitives.
@@ -16,6 +19,7 @@ use crate::{
 pub struct OpaqueInfo {
     ty: Type,
     generics: Generics,
+    custom_attributes: CustomAttributes,
     #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
@@ -26,6 +30,7 @@ impl OpaqueInfo {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
+            custom_attributes: CustomAttributes::default(),
             #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
@@ -37,6 +42,14 @@ impl OpaqueInfo {
         Self { docs: doc, ..self }
     }
 
+    /// Sets the custom attributes for this type.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes,
+            ..self
+        }
+    }
+
     impl_type_methods!(ty);
 
     /// The docstring of this dynamic type, if any.
@@ -44,6 +57,8 @@ impl OpaqueInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(self.custom_attributes, "type");
 
     impl_generic_info_methods!(generics);
 }

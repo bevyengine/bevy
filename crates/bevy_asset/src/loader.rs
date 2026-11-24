@@ -6,7 +6,7 @@ use crate::{
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
     Handle, UntypedAssetId, UntypedHandle,
 };
-use alloc::{boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, string::ToString, vec, vec::Vec};
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
@@ -16,7 +16,6 @@ use core::{
     any::{type_name, Any, TypeId},
     convert::Infallible,
 };
-use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -89,7 +88,7 @@ where
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>> {
         Box::pin(async move {
-            let settings = settings
+            let settings = (settings as &dyn Any)
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
@@ -249,12 +248,15 @@ impl ErasedLoadedAsset {
     /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return [`Some`] if
     /// the stored type matches `A` and [`None`] if it does not.
     pub fn take<A: Asset>(self) -> Option<A> {
-        self.value.downcast::<A>().map(|a| *a).ok()
+        (self.value as Box<dyn Any>)
+            .downcast::<A>()
+            .map(|a| *a)
+            .ok()
     }
 
     /// Retrieves a reference to the internal [`Asset`] type, if it matches the type `A`. Otherwise returns [`None`].
     pub fn get<A: Asset>(&self) -> Option<&A> {
-        self.value.downcast_ref::<A>()
+        (&*self.value as &dyn Any).downcast_ref::<A>()
     }
 
     /// Retrieves the [`TypeId`] of the stored [`Asset`] type.
@@ -299,31 +301,31 @@ impl ErasedLoadedAsset {
             reason = "Returning the passed in ErasedLoadedAsset"
         )
     )]
-    pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
-        match self.value.downcast::<A>() {
-            Ok(value) => Ok(LoadedAsset {
+    pub fn downcast<A: Asset>(self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
+        // Any::downcast() loses the type on failure, so check manually
+        if (&*self.value as &dyn Any).is::<A>() {
+            let value = (self.value as Box<dyn Any>)
+                .downcast::<A>()
+                .expect("type was just checked with `is`");
+            Ok(LoadedAsset {
                 value: *value,
                 dependencies: self.dependencies,
                 loader_dependencies: self.loader_dependencies,
                 labeled_assets: self.labeled_assets,
                 label_to_asset_index: self.label_to_asset_index,
                 asset_id_to_asset_index: self.asset_id_to_asset_index,
-            }),
-            Err(value) => {
-                self.value = value;
-                Err(self)
-            }
+            })
+        } else {
+            Err(self)
         }
     }
 }
 
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
-pub(crate) trait AssetContainer: Downcast + Any + Send + Sync + 'static {
+pub(crate) trait AssetContainer: Any + Send + Sync {
     fn insert(self: Box<Self>, id: AssetIndex, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
 }
-
-impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
     fn insert(self: Box<Self>, index: AssetIndex, world: &mut World) {
@@ -604,15 +606,35 @@ impl<'a> LoadContext<'a> {
         &self.asset_path
     }
 
-    /// Reads the asset at the given path and returns its bytes
+    /// Reads the asset at the given path and returns its bytes.
+    #[deprecated = "Use `LoadContext::read_asset` instead."]
+    #[expect(deprecated, reason = "Deprecated error type for deprecated function")]
     pub async fn read_asset_bytes<'b, 'c>(
         &'b mut self,
         path: impl Into<AssetPath<'c>>,
     ) -> Result<Vec<u8>, ReadAssetBytesError> {
         let path = path.into();
+        let mut reader = self.read_asset(path.clone()).await?;
+        let mut bytes = vec![];
+        reader
+            .read_to_end(&mut bytes)
+            .await
+            .map_err(|source| ReadAssetBytesError::Io {
+                path: path.path().to_path_buf(),
+                source,
+            })?;
+        Ok(bytes)
+    }
+
+    /// Reads the asset at the given path and returns its reader.
+    pub async fn read_asset<'b>(
+        &'b mut self,
+        path: impl Into<AssetPath<'b>>,
+    ) -> Result<Box<dyn Reader + 'b>, ReadAssetError> {
+        let path = path.into();
         if path.path() == Path::new("") {
             error!("Attempted to load an asset with an empty path \"{path}\"!");
-            return Err(ReadAssetBytesError::EmptyPath(path.into_owned()));
+            return Err(ReadAssetError::EmptyPath(path.into_owned()));
         }
 
         let source = self.asset_server.get_source(path.source())?;
@@ -620,7 +642,7 @@ impl<'a> LoadContext<'a> {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
         };
-        let mut reader = asset_reader.read(path.path()).await?;
+        let reader = asset_reader.read(path.path_cow()).await?;
         let hash = if self.populate_hashes {
             // NOTE: ensure meta is read while the asset bytes reader is still active to ensure transactionality
             // See `ProcessorGatedReader` for more info
@@ -629,21 +651,13 @@ impl<'a> LoadContext<'a> {
                 .map_err(DeserializeMetaError::DeserializeMinimal)?;
             let processed_info = minimal
                 .processed_info
-                .ok_or(ReadAssetBytesError::MissingAssetHash)?;
+                .ok_or(ReadAssetError::MissingAssetHash)?;
             processed_info.full_hash
         } else {
             Default::default()
         };
-        let mut bytes = Vec::new();
-        reader
-            .read_to_end(&mut bytes)
-            .await
-            .map_err(|source| ReadAssetBytesError::Io {
-                path: path.path().to_path_buf(),
-                source,
-            })?;
         self.loader_dependencies.insert(path.clone_owned(), hash);
-        Ok(bytes)
+        Ok(reader)
     }
 
     /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must produce an asset of the
@@ -725,9 +739,9 @@ impl<'a> LoadContext<'a> {
     }
 }
 
-/// An error produced when calling [`LoadContext::read_asset_bytes`]
+/// An error produced when calling [`LoadContext::read_asset`]
 #[derive(Error, Debug)]
-pub enum ReadAssetBytesError {
+pub enum ReadAssetError {
     #[error("Attempted to load an asset with an empty path \"{0}\"")]
     EmptyPath(AssetPath<'static>),
     #[error(transparent)]
@@ -738,12 +752,21 @@ pub enum ReadAssetBytesError {
     MissingAssetSourceError(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
+    #[error("The LoadContext for this read_asset call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
+    MissingAssetHash,
+}
+
+/// An error produced when calling [`LoadContext::read_asset_bytes`]
+#[deprecated = "Use `ReadAssetError` instead."]
+#[derive(Error, Debug)]
+pub enum ReadAssetBytesError {
+    /// Error while trying to get the reader for the asset.
+    #[error(transparent)]
+    ReadAssetError(#[from] ReadAssetError),
     /// Encountered an I/O error while loading an asset.
     #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
     Io {
         path: PathBuf,
         source: std::io::Error,
     },
-    #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
-    MissingAssetHash,
 }

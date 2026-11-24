@@ -1,12 +1,14 @@
 //! Connects to a running Bevy app via the BRP, takes a screenshot, finds a button, and clicks it
-//! with `input.click`. It then asks the app to exit. Run the `app_under_test` example on the same machine,
+//! with `input.click`. It then focuses the button with Tab and activates it with Space, using
+//! `input.key`, and asks the app to exit. Run the `app_under_test` example on the same machine,
 //! then:
 //!
 //! ```bash
 //! cargo run --example integration_test --features="bevy_remote_client bevy_feathers"
 //! ```
 //!
-//! It exits with an error if the button wasn't clicked after three tries.
+//! It exits with an error if the button wasn't clicked after three tries, or wasn't activated from
+//! the keyboard.
 
 use std::{
     any::type_name,
@@ -21,7 +23,7 @@ use bevy::{
     app::AppExit,
     ecs::entity::Entity,
     feathers::controls::FeathersButton,
-    input::mouse::MouseButton,
+    input::{keyboard::KeyCode, mouse::MouseButton},
     platform::collections::HashMap,
     remote::{
         builtin_methods::{
@@ -31,7 +33,7 @@ use bevy::{
         },
         client::BrpClient,
         http::{DEFAULT_ADDR, DEFAULT_PORT},
-        input_methods::{BrpClickParams, BrpClickResponse, BRP_CLICK_METHOD},
+        input_methods::{BrpClickParams, BrpKeyParams, BRP_CLICK_METHOD, BRP_KEY_METHOD},
         BrpRequest,
     },
     render::view::screenshot::{Screenshot, ScreenshotCaptured},
@@ -123,8 +125,8 @@ fn main() -> AnyhowResult<()> {
     for attempt in 1..=CLICK_TRIES {
         // The button moves, but the app finds its center when the cursor moves, so the click
         // follows it.
-        let frame = click(&client, button_entity)?;
-        println!("Click {attempt}/{CLICK_TRIES}, released on frame {frame}");
+        click(&client, button_entity)?;
+        println!("Click {attempt}/{CLICK_TRIES}");
 
         match activations.recv_timeout(CLICK_TIMEOUT) {
             Ok(_) => {
@@ -142,7 +144,22 @@ fn main() -> AnyhowResult<()> {
         bail!("Button not activated after {CLICK_TRIES} clicks");
     }
 
-    // Step 5: Ask the app to exit
+    // Step 5: Focus the button with Tab, and activate it with Space
+    // A click that was slow to land could still be on its way; only a new activation counts.
+    while activations.try_recv().is_ok() {}
+    println!("Pressing Tab, then Space...");
+    key(&client, KeyCode::Tab)?;
+    key(&client, KeyCode::Space)?;
+    println!("Space released");
+    match activations.recv_timeout(CLICK_TIMEOUT) {
+        Ok(_) => println!("Button activated from the keyboard!"),
+        Err(RecvTimeoutError::Timeout) => {
+            bail!("Button not activated from the keyboard after {CLICK_TIMEOUT:?}")
+        }
+        Err(RecvTimeoutError::Disconnected) => bail!("Activate stream closed"),
+    }
+
+    // Step 6: Ask the app to exit
     println!("Asking the app to exit...");
     brp_request(
         &client,
@@ -215,12 +232,13 @@ fn find_button(client: &BrpClient) -> AnyhowResult<Entity> {
     Ok(serde_json::from_value(button_result[0]["entity"].clone())?)
 }
 
-/// Clicks on a UI node with the left mouse button, and returns the frame that reads the release.
+/// Clicks on a UI node with the left mouse button, once the app has run the frame that reads the
+/// release.
 ///
 /// The app moves the cursor to the node's center, then presses and releases the button, each on
 /// its own frame, as a window backend would report a real click.
-fn click(client: &BrpClient, node: Entity) -> AnyhowResult<u32> {
-    let response = brp_request(
+fn click(client: &BrpClient, node: Entity) -> AnyhowResult<()> {
+    brp_request(
         client,
         BRP_CLICK_METHOD,
         &BrpClickParams {
@@ -231,8 +249,27 @@ fn click(client: &BrpClient, node: Entity) -> AnyhowResult<u32> {
             hold: 1,
         },
     )?;
-    let response: BrpClickResponse = serde_json::from_value(response)?;
-    Ok(response.frame)
+    Ok(())
+}
+
+/// Presses and releases a key in the primary window, once the app has run the frame that receives
+/// the release.
+///
+/// The app fills in the key's logical key and text from a US keyboard layout.
+fn key(client: &BrpClient, key_code: KeyCode) -> AnyhowResult<()> {
+    brp_request(
+        client,
+        BRP_KEY_METHOD,
+        &BrpKeyParams {
+            key_code,
+            logical_key: None,
+            text: None,
+            state: None,
+            hold: None,
+            window: None,
+        },
+    )?;
+    Ok(())
 }
 
 /// Starts watching for an event, and returns a channel receiving the events for each frame they

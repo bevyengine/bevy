@@ -44,7 +44,7 @@ use crate::{
         InheritableThemeTextColor, SurfaceLevel, ThemeBackgroundColor, ThemeBorderColor,
         ThemeContext, ThemedText, UiTheme,
     },
-    tokens,
+    tokens, FeathersSystems,
 };
 
 const TAB_PADDING: f32 = 10.0;
@@ -319,7 +319,7 @@ impl FeathersTab {
 /// The node that holds and clips a tab's caption.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Clone, Default)]
-struct TabCaption;
+pub(crate) struct TabCaption;
 
 /// One of the two flares at the base of a selected [`FeathersTab`].
 ///
@@ -723,7 +723,12 @@ fn update_insertion_indicators(
         With<FeathersTabList>,
     >,
     tabs: Query<(), With<Tab>>,
-    mut indicators: Query<(Entity, &FeathersTabInsertionIndicator, &ChildOf, &mut Node)>,
+    mut indicators: Query<(
+        Entity,
+        &FeathersTabInsertionIndicator,
+        Option<&ChildOf>,
+        &mut Node,
+    )>,
     mut commands: Commands,
 ) {
     for (entity, indicator, _, _) in &indicators {
@@ -760,10 +765,10 @@ fn update_insertion_indicators(
                 .find(|(_, indicator, _, _)| {
                     indicator.list == list && indicator.pointer_id == entry.pointer_id
                 })
-                .map(|(entity, _, parent, node)| (entity, parent.parent(), node));
+                .map(|(entity, _, parent, node)| (entity, parent.map(ChildOf::parent), node));
             match existing {
                 Some((entity, parent, mut current)) => {
-                    if parent != host {
+                    if parent != Some(host) {
                         commands.entity(entity).insert(ChildOf(host));
                     }
                     if *current != node {
@@ -979,13 +984,16 @@ impl Plugin for FeathersTabsPlugin {
         app.add_observer(spawn_tab_drag_proxy).add_systems(
             PostUpdate,
             (
-                arrange_tab_lists,
-                update_tab_styles,
-                keep_captions_on_one_line,
-                update_tab_fillets,
-                update_insertion_indicators,
-            )
-                .in_set(UiSystems::Content),
+                keep_captions_on_one_line.in_set(UiSystems::Prepare),
+                (
+                    arrange_tab_lists,
+                    update_tab_styles,
+                    update_tab_fillets,
+                    update_insertion_indicators,
+                )
+                    .chain()
+                    .in_set(FeathersSystems),
+            ),
         );
     }
 }
