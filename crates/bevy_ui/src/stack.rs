@@ -1,6 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{GhostNode, GlobalZIndex, Node, ZIndex};
+use crate::{GhostNode, GlobalZIndex, ZIndex};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -100,7 +100,7 @@ pub fn ui_stack_system(
             Has<GhostNode>,
             Option<Ref<GlobalZIndex>>,
             Option<Ref<ZIndex>>,
-            Option<Ref<Node>>,
+            Option<Ref<ChildOf>>,
         ),
         With<ComputedStackIndex>,
     >,
@@ -236,7 +236,7 @@ fn update_uistack_recursive<'a>(
             Has<GhostNode>,
             Option<Ref<GlobalZIndex>>,
             Option<Ref<ZIndex>>,
-            Option<Ref<Node>>,
+            Option<Ref<ChildOf>>,
         ),
         With<ComputedStackIndex>,
     >,
@@ -249,7 +249,8 @@ fn update_uistack_recursive<'a>(
     let mut changed = false;
     let start = child_buffer.len();
     for &child_entity in children {
-        let Ok((children, is_ghost, global_zindex, zindex, node)) = ui_children.get(child_entity)
+        let Ok((children, is_ghost, global_zindex, zindex, child_of)) =
+            ui_children.get(child_entity)
         else {
             continue;
         };
@@ -258,7 +259,7 @@ fn update_uistack_recursive<'a>(
             || (children_are_roots
                 && (zindex.as_ref().is_some_and(Ref::is_changed)
                     || removed_zindices.contains(&child_entity)
-                    || node.as_ref().is_some_and(Ref::is_added)));
+                    || child_of.as_ref().is_some_and(Ref::is_changed)));
         if is_ghost && global_zindex.is_none() && zindex.is_none() {
             changed |= child_changed;
             if let Some(children) = children {
