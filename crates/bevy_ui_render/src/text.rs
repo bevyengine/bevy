@@ -377,7 +377,7 @@ pub fn extract_text_placeholder(
             continue;
         }
 
-        let z_order = stack_index.get().map(|z| z as f32 + stack_z_offsets::TEXT) else {
+        let Some(z_order) = stack_index.get().map(|z| z as f32 + stack_z_offsets::TEXT) else {
             continue;
         };
 
@@ -394,7 +394,6 @@ pub fn extract_text_placeholder(
         let color = PlaceholderColor::resolve(placeholder_color, text_color.0).to_linear();
         // color glyphs (emoji) keep their colors but share the hint's alpha
         let color_glyph = LinearRgba::WHITE.with_alpha(color.alpha);
-        let z_order = stack_index.get() as f32 + stack_z_offsets::TEXT;
 
         for (i, glyph) in placeholder_glyphs.iter().enumerate() {
             glyphs.push(ExtractedGlyph {
