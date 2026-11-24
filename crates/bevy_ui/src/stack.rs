@@ -86,6 +86,7 @@ pub fn ui_stack_system(
     mut stack_root_order: Local<HashMap<(Entity, Option<i32>), usize>>,
     mut removed_zindices: Local<EntityHashSet>,
     mut removed_global_zindices: Local<EntityHashSet>,
+    mut changed_zindices: Local<Vec<i32>>,
     mut zindex_removals: RemovedComponents<ZIndex>,
     mut global_zindex_removals: RemovedComponents<GlobalZIndex>,
     mut ui_stack: ResMut<UiStack>,
@@ -145,6 +146,7 @@ pub fn ui_stack_system(
             || zindex.as_ref().is_some_and(Ref::is_changed)
             || removed_zindices.contains(&root_entity)
             || removed_global_zindices.contains(&root_entity);
+        changed_zindices.clear();
         if let Some(children) = children {
             changed |= update_uistack_recursive(
                 &mut child_buffer,
@@ -157,8 +159,10 @@ pub fn ui_stack_system(
                 &mut node_buffers,
                 &removed_zindices,
                 &removed_global_zindices,
+                &mut changed_zindices,
             );
         }
+        changed_zindices.sort_unstable();
         let mut start = lists_start;
         while start < stack_lists.len() {
             let local_z = stack_lists[start].0.local_z;
@@ -176,7 +180,9 @@ pub fn ui_stack_system(
                 .get(&order_key)
                 .copied()
                 .unwrap_or(usize::MAX);
-            stack_root.new_or_changed = changed || stack_root.previous_index == usize::MAX;
+            stack_root.new_or_changed = changed
+                || changed_zindices.binary_search(&local_z).is_ok()
+                || stack_root.previous_index == usize::MAX;
             stack_roots.push((order_key, stack_root, start..end));
             start = end;
         }
@@ -235,6 +241,7 @@ fn update_uistack_recursive<'a>(
     node_buffers: &mut Vec<Vec<Entity>>,
     removed_zindices: &EntityHashSet,
     removed_global_zindices: &EntityHashSet,
+    changed_zindices: &mut Vec<i32>,
 ) -> bool {
     let mut changed = false;
     let start = child_buffer.len();
@@ -243,13 +250,14 @@ fn update_uistack_recursive<'a>(
         else {
             continue;
         };
-        changed |= global_zindex.as_ref().is_some_and(Ref::is_changed)
+        let child_changed = global_zindex.as_ref().is_some_and(Ref::is_changed)
             || removed_global_zindices.contains(&child_entity)
             || (children_are_roots
                 && (zindex.as_ref().is_some_and(Ref::is_changed)
                     || removed_zindices.contains(&child_entity)
                     || node.as_ref().is_some_and(Ref::is_added)));
         if is_ghost && global_zindex.is_none() && zindex.is_none() {
+            changed |= child_changed;
             if let Some(children) = children {
                 changed |= update_uistack_recursive(
                     child_buffer,
@@ -262,9 +270,15 @@ fn update_uistack_recursive<'a>(
                     node_buffers,
                     removed_zindices,
                     removed_global_zindices,
+                    changed_zindices,
                 );
             }
         } else {
+            if child_changed && use_child_zindex {
+                changed_zindices.push(zindex.as_ref().map_or(0, |z| z.0));
+            } else {
+                changed |= child_changed;
+            }
             child_buffer.push((
                 child_entity,
                 zindex.as_ref().map_or(0, |z| z.0),
@@ -307,8 +321,8 @@ fn update_uistack_recursive<'a>(
                 stack_lists.push((child_root, order, nodes));
             }
         }
-        if let Some(children) = maybe_children {
-            changed |= update_uistack_recursive(
+        if let Some(children) = maybe_children
+            && update_uistack_recursive(
                 child_buffer,
                 children,
                 Some(child_root),
@@ -319,7 +333,14 @@ fn update_uistack_recursive<'a>(
                 node_buffers,
                 removed_zindices,
                 removed_global_zindices,
-            );
+                changed_zindices,
+            )
+        {
+            if use_child_zindex {
+                changed_zindices.push(zindex);
+            } else {
+                changed = true;
+            }
         }
     }
 
@@ -2132,6 +2153,56 @@ mod tests {
         assert_eq!(
             world.resource::<UiStack>().iter().collect::<Vec<_>>(),
             vec![child, root]
+        );
+    }
+
+    #[test]
+    fn changed_root_ghost_child_does_not_raise_siblings_with_a_different_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let g = world.spawn(GhostNode).id();
+        let a = world.spawn((Node::default(), ChildOf(g), ZIndex(0))).id();
+        let b = world.spawn((Node::default(), ChildOf(g), ZIndex(1))).id();
+
+        schedule.run(&mut world);
+
+        let r = world.spawn((Node::default(), ZIndex(1))).id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![a, b, r]
+        );
+
+        schedule.run(&mut world);
+
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![a, b, r]
+        );
+        world.entity_mut(a).insert(ZIndex(0));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![a, b, r]
+        );
+        world.entity_mut(b).insert(ZIndex(1));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
+            vec![a, r, b]
         );
     }
 }
