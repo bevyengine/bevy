@@ -1,6 +1,7 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use crate::{GhostNode, GlobalZIndex, ZIndex};
+use crate::{ComputedUiTargetCamera, GhostNode, GlobalZIndex, ZIndex};
+use bevy_camera::Camera;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -36,6 +37,7 @@ pub struct UiStack {
 /// The stack root and its descendants, up to any nested `StackRoots`, occupy a contiguous range in the render stack.
 #[derive(Ord, PartialOrd, PartialEq, Eq)]
 pub(crate) struct StackRoot {
+    camera_order: Option<(isize, Entity)>,
     global_z: i32,
     local_z: i32,
     new_or_changed: bool,
@@ -65,9 +67,19 @@ pub fn ui_stack_system(
         &Children,
         (With<ComputedStackIndex>, Without<ChildOf>, With<GhostNode>),
     >,
-    root_node_query: Query<(Entity, Option<Ref<GlobalZIndex>>, Option<Ref<ZIndex>>)>,
+    root_node_query: Query<(
+        Entity,
+        &ComputedUiTargetCamera,
+        Option<Ref<GlobalZIndex>>,
+        Option<Ref<ZIndex>>,
+    )>,
     zindex_global_node_query: Query<
-        (Entity, Ref<GlobalZIndex>, Option<Ref<ZIndex>>),
+        (
+            Entity,
+            &ComputedUiTargetCamera,
+            Ref<GlobalZIndex>,
+            Option<Ref<ZIndex>>,
+        ),
         (With<ComputedStackIndex>, Without<GhostNode>),
     >,
     ui_children: Query<
@@ -80,6 +92,7 @@ pub fn ui_stack_system(
         With<ComputedStackIndex>,
     >,
     mut update_query: Query<&mut ComputedStackIndex>,
+    camera_query: Query<&Camera>,
 ) {
     let mut child_buffer = core::mem::take(&mut *local_cache)
         .into_iter()
@@ -104,7 +117,7 @@ pub fn ui_stack_system(
         );
     }
 
-    for (id, maybe_global_zindex, maybe_zindex) in root_node_query
+    for (id, target_camera, maybe_global_zindex, maybe_zindex) in root_node_query
         .iter_many(
             ui_root_nodes
                 .iter()
@@ -113,9 +126,16 @@ pub fn ui_stack_system(
         .matched()
     {
         let previous = stack_root_order.get(&id).copied();
+        let camera_order = target_camera.get().and_then(|camera_entity| {
+            camera_query
+                .get(camera_entity)
+                .ok()
+                .map(|camera| (camera.order, camera_entity))
+        });
         stack_roots.push((
             id,
             StackRoot {
+                camera_order,
                 global_z: maybe_global_zindex.map(|z| z.0).unwrap_or(0),
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
@@ -128,15 +148,22 @@ pub fn ui_stack_system(
     }
     child_buffer.clear();
 
-    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+    for (id, target_camera, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
         if visited_stack_roots.contains(&id) {
             continue;
         }
 
         let previous = stack_root_order.get(&id).copied();
+        let camera_order = target_camera.get().and_then(|camera_entity| {
+            camera_query
+                .get(camera_entity)
+                .ok()
+                .map(|camera| (camera.order, camera_entity))
+        });
         stack_roots.push((
             id,
             StackRoot {
+                camera_order,
                 global_z: global_zindex.0,
                 local_z: maybe_zindex.map(|z| z.0).unwrap_or(0),
                 new_or_changed: previous.is_none()
@@ -233,6 +260,7 @@ fn update_uistack_recursive<'a>(
 
 #[cfg(test)]
 mod tests {
+    use bevy_camera::Camera;
     use bevy_ecs::{
         children,
         component::Component,
@@ -242,7 +270,7 @@ mod tests {
         world::{CommandQueue, World},
     };
 
-    use crate::{GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
+    use crate::{ComputedUiTargetCamera, GhostNode, GlobalZIndex, Node, UiStack, ZIndex};
 
     use super::ui_stack_system;
 
@@ -752,5 +780,41 @@ mod tests {
             );
             assert_eq!(ui_stack.partition, vec![0..5, 5..7]);
         }
+    }
+
+    #[test]
+    fn camera_order_has_priority_over_global_zindex() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(ui_stack_system);
+
+        let c0 = world
+            .spawn(Camera {
+                order: 0,
+                ..Default::default()
+            })
+            .id();
+        let c1 = world
+            .spawn(Camera {
+                order: 1,
+                ..Default::default()
+            })
+            .id();
+
+        let n0 = world
+            .spawn((Node::default(), ComputedUiTargetCamera { camera: Some(c1) }))
+            .id();
+        let n1 = world
+            .spawn((
+                Node::default(),
+                GlobalZIndex(1),
+                ComputedUiTargetCamera { camera: Some(c0) },
+            ))
+            .id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<UiStack>().uinodes, vec![n1, n0]);
     }
 }
