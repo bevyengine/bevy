@@ -2070,7 +2070,7 @@ mod tests {
     }
 
     #[test]
-    fn ghost_nodes_have_a_hidden_stack_index() {
+    fn ghost_nodes_have_an_absent_stack_index() {
         let mut world = World::default();
         world.init_resource::<UiStack>();
 
