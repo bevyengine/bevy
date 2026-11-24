@@ -8,7 +8,7 @@ pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 2
 
 This note will be completed once the rest of the series lands.
 
-- Added the `inspector` cargo feature, part of `dev`: `DefaultPlugins` then includes an inspector overlay, hidden until F12 is pressed, with floating panels and a toolbar that shows and hides each one
+- Added the `inspector` cargo feature, part of `dev`: `DefaultPlugins` then includes an inspector overlay, hidden until F12 is pressed, laid out as a dock with the entity tree and resources on the left, the details on the right and the app in the center. Tabs can be dragged between groups and splitters resize them
 - Added `app.info` to the Bevy Remote Protocol (#25822)
 - Added `diagnostics.list` and `diagnostics.get` to the Bevy Remote Protocol (#25824)
 - Added `WorldSummary` to `bevy_dev_tools` inspection (#25818)
