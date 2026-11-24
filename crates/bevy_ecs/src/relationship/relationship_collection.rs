@@ -16,6 +16,8 @@ use smallvec::SmallVec;
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipCollection {
+    /// True if the collection always contains exactly one entity. False if it can contain any number of entities.
+    const SINGLE: bool;
     /// The type of iterator returned by the `iter` method.
     ///
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
@@ -91,11 +93,6 @@ pub trait RelationshipCollection {
     ///
     /// May be faster than repeatedly calling [`Self::add`].
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
-
-    /// Returns an entity from the collection if that collection always contains exactly one entity.
-    fn single(&self) -> Option<Entity> {
-        None
-    }
 }
 
 /// This trait signals that a [`RelationshipCollection`] is ordered.
@@ -151,6 +148,7 @@ pub trait OrderedRelationshipCollection: RelationshipCollection {
 }
 
 impl RelationshipCollection for Vec<Entity> {
+    const SINGLE: bool = false;
     type Iter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -258,6 +256,7 @@ impl OrderedRelationshipCollection for Vec<Entity> {
 }
 
 impl RelationshipCollection for EntityHashSet {
+    const SINGLE: bool = false;
     type Iter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -310,6 +309,7 @@ impl RelationshipCollection for EntityHashSet {
 }
 
 impl<const N: usize> RelationshipCollection for SmallVec<[Entity; N]> {
+    const SINGLE: bool = false;
     type Iter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -365,6 +365,7 @@ impl<const N: usize> RelationshipCollection for SmallVec<[Entity; N]> {
 }
 
 impl RelationshipCollection for Entity {
+    const SINGLE: bool = true;
     type Iter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
@@ -434,10 +435,6 @@ impl RelationshipCollection for Entity {
             None
         }
     }
-
-    fn single(&self) -> Option<Entity> {
-        Some(*self)
-    }
 }
 
 impl<const N: usize> OrderedRelationshipCollection for SmallVec<[Entity; N]> {
@@ -491,6 +488,7 @@ impl<const N: usize> OrderedRelationshipCollection for SmallVec<[Entity; N]> {
 }
 
 impl<S: BuildHasher + Default> RelationshipCollection for IndexSet<Entity, S> {
+    const SINGLE: bool = false;
     type Iter<'a>
         = core::iter::Copied<indexmap::set::Iter<'a, Entity>>
     where
@@ -546,6 +544,7 @@ impl<S: BuildHasher + Default> RelationshipCollection for IndexSet<Entity, S> {
 }
 
 impl RelationshipCollection for EntityIndexSet {
+    const SINGLE: bool = false;
     type Iter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -598,6 +597,7 @@ impl RelationshipCollection for EntityIndexSet {
 }
 
 impl RelationshipCollection for BTreeSet<Entity> {
+    const SINGLE: bool = false;
     type Iter<'a> = core::iter::Copied<btree_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
@@ -651,6 +651,7 @@ impl RelationshipCollection for BTreeSet<Entity> {
 }
 
 impl RelationshipCollection for VecDeque<Entity> {
+    const SINGLE: bool = false;
     type Iter<'a>
         = core::iter::Copied<vec_deque::Iter<'a, Entity>>
     where

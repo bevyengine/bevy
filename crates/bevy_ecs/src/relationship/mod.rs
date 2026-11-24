@@ -207,6 +207,12 @@ pub trait Relationship: Component + Sized + RelationshipBase<Side = Source> {
         self.collection().len()
     }
 
+    /// Returns true if the collection only ever contains a single entity.
+    #[inline]
+    fn is_single(&self) -> bool {
+        Self::Collection::SINGLE
+    }
+
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     fn on_insert(
         mut world: DeferredWorld,
@@ -257,17 +263,17 @@ pub trait Relationship: Component + Sized + RelationshipBase<Side = Source> {
         }
 
         // For one-to-one relationships, remove existing relationship before adding new one
-        let current_source_to_remove = target_entities
-            .single()
-            .and_then(|target_entity| entities.get(target_entity).ok())
-            .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
-            .and_then(|relationship_target| {
-                relationship_target
-                    .collection()
-                    .source_to_remove_before_add()
-            });
-        if let Some(current_source) = current_source_to_remove {
-            commands.entity(current_source).try_remove::<Self>();
+        if Self::Collection::SINGLE
+            && <Self::RelationshipTarget as RelationshipTarget>::Collection::SINGLE
+        {
+            let target_entity = target_entities.iter().next().unwrap(); // collection always contains one entity
+            if let Some(target_entity_ref) = entities.get(target_entity).ok()
+                && let Some(relationship_target) =
+                    target_entity_ref.get::<Self::RelationshipTarget>()
+                && let Some(current_source) = relationship_target.collection().iter().next()
+            {
+                commands.entity(current_source).try_remove::<Self>();
+            }
         }
 
         for target_entity in target_entities.iter() {
@@ -501,6 +507,12 @@ pub trait RelationshipTarget:
     #[inline]
     fn is_empty(&self) -> bool {
         self.collection().is_empty()
+    }
+
+    /// Returns true if the collection only ever contains a single entity.
+    #[inline]
+    fn is_single(&self) -> bool {
+        Self::Collection::SINGLE
     }
 }
 

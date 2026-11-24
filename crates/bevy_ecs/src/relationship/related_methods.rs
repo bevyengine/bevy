@@ -41,13 +41,91 @@ impl<'w> EntityWorldMut<'w> {
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         self.world_scope(|world| {
-            for related in related {
-                world
-                    .entity_mut(*related)
-                    .modify_or_insert_relation_with_relationship_hook_mode::<R>(
-                        id,
-                        RelationshipHookMode::Run,
-                    );
+            match (
+                R::Collection::SINGLE,
+                <R::RelationshipTarget as RelationshipTarget>::Collection::SINGLE,
+            ) {
+                // one-to-one
+                (true, true) => {
+                    // only the last entity gets the connection, all other entities get their connection removed.
+                    if let Some((&last, rest)) = related.split_last() {
+                        for &related in rest {
+                            // we do call relationship hooks here, as this change can propagate arbitrarily far
+                            world.entity_mut(related).remove::<R>();
+                        }
+                        // also call hooks here
+                        world
+                            .entity_mut(last)
+                            .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                                id,
+                                RelationshipHookMode::Run,
+                            );
+                    }
+                }
+                // one-to-many
+                (true, false) => {
+                    for related in related {
+                        world
+                            .entity_mut(*related)
+                            .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                                id,
+                                RelationshipHookMode::Run,
+                            );
+                    }
+                }
+                // many-to-one
+                (false, true) => {
+                    // only the last one gets the connection, the rest are completely unchanged.
+                    // this saves running all the hooks for all other entities
+                    if let Some(&last) = related.last() {
+                        world
+                            .entity_mut(last)
+                            .modify_or_insert_relation_with_relationship_hook_mode::<R>(
+                                id,
+                                RelationshipHookMode::Run,
+                            );
+                    }
+                }
+                // many-to-many
+                (false, false) => {
+                    // sources
+                    let added = related
+                        .into_iter()
+                        .copied()
+                        .filter(|&related| {
+                            let mut entity_mut = world.entity_mut(related);
+                            if !entity_mut.contains::<R>() {
+                                entity_mut.insert_with_relationship_hook_mode(
+                                    R::from(id),
+                                    RelationshipHookMode::Skip,
+                                );
+                                true
+                            } else {
+                                // SAFETY: We know what we're doing here.
+                                let mut relationship =
+                                    unsafe { entity_mut.get_mut_assume_mutable::<R>() }.unwrap();
+                                relationship.collection_mut_risky().add(id)
+                            }
+                        })
+                        .collect::<Vec<Entity>>();
+                    if !added.is_empty() {
+                        // target
+                        let mut entity_mut = world.entity_mut(id);
+                        if !entity_mut.contains::<R::RelationshipTarget>() {
+                            entity_mut.insert_with_relationship_hook_mode(
+                                <R::RelationshipTarget as RelationshipTarget>::with_capacity(
+                                    added.len(),
+                                ),
+                                RelationshipHookMode::Skip,
+                            );
+                        }
+                        let mut relationship =
+                            entity_mut.get_mut::<R::RelationshipTarget>().unwrap();
+                        relationship
+                            .collection_mut_risky()
+                            .extend_from_iter(added.into_iter())
+                    }
+                }
             }
         });
         self
