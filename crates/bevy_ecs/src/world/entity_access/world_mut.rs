@@ -1336,11 +1336,30 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
-        self.remove_with_caller::<T>(MaybeLocation::caller())
+        self.remove_with_caller::<T>(MaybeLocation::caller(), RelationshipHookMode::Run)
+    }
+
+    /// Removes any components in the [`Bundle`] from the entity.
+    /// [`Relationship`](crate::relationship::Relationship) components in the bundle will follow the configuration
+    /// in `relationship_hook_mode`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
+    pub fn remove_with_relationship_hook_mode<T: Bundle>(
+        &mut self,
+        relationship_hook_mode: RelationshipHookMode,
+    ) -> &mut Self {
+        self.remove_with_caller::<T>(MaybeLocation::caller(), relationship_hook_mode)
     }
 
     #[inline]
-    pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
+    pub(crate) fn remove_with_caller<T: Bundle>(
+        &mut self,
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
+    ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
 
@@ -1350,6 +1369,9 @@ impl<'w> EntityWorldMut<'w> {
         else {
             return self;
         };
+
+        remover.relationship_hook_mode = relationship_hook_mode;
+
         // SAFETY:
         // - The remover archetype came from the passed location and the removal can not fail.
         // - `location` was obtained from a valid `Self`.

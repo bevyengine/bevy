@@ -220,13 +220,15 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
-        // target:
+        // target
         let mut relationship_target = self.get_mut::<R::RelationshipTarget>().unwrap();
         for &to_remove in &to_remove {
             relationship_target.collection_mut_risky().remove(to_remove);
         }
         if relationship_target.collection().is_empty() {
-            self.remove::<R::RelationshipTarget>();
+            self.remove_with_relationship_hook_mode::<R::RelationshipTarget>(
+                RelationshipHookMode::Skip,
+            );
         }
 
         // sources
@@ -234,8 +236,9 @@ impl<'w> EntityWorldMut<'w> {
         self.world_scope(|world| {
             if R::Collection::SINGLE {
                 for to_remove in to_remove {
-                    // ideally we don't run the relationship hooks here too, but as of yet there's no remove_with_relationship_run_mode.
-                    world.entity_mut(to_remove).remove::<R>();
+                    world
+                        .entity_mut(to_remove)
+                        .remove_with_relationship_hook_mode::<R>(RelationshipHookMode::Skip);
                 }
             } else {
                 for to_remove in to_remove {
@@ -245,8 +248,9 @@ impl<'w> EntityWorldMut<'w> {
                         unsafe { entity_mut.get_mut_assume_mutable::<R>() }.unwrap();
                     relationship.collection_mut_risky().remove(id);
                     if relationship.collection().is_empty() {
-                        // same here, we shouldn't use hooks here.
-                        entity_mut.remove::<R>(); // remove empty relationships.
+                        // remove empty relationships.
+                        entity_mut
+                            .remove_with_relationship_hook_mode::<R>(RelationshipHookMode::Skip);
                     }
                 }
             }
