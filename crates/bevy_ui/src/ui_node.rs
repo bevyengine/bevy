@@ -2861,13 +2861,15 @@ pub struct ZIndex(pub i32);
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
 ///
-/// If two Nodes have the same `GlobalZIndex`, ties are decided in order by:
+/// If two root Nodes have the same `GlobalZIndex`, ties are decided in order by:
 ///
 /// * The node with the higher `ZIndex`.
 /// * The node that was newly added this frame.
 /// * The node with a changed `GlobalZIndex` or `ZIndex`.
 ///
 /// Otherwise the order is stable between frames.
+///
+/// For a non-root node, ties are decided by its root.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 pub struct GlobalZIndex(pub i32);
