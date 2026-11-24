@@ -40,30 +40,34 @@ impl Default for ComputedStackIndex {
 #[derive(Debug, Resource, Default, Reflect)]
 #[reflect(Resource, Default)]
 pub struct UiStack {
-    /// Lists of UI nodes ordered from back-to-front, each sharing the same camera target.
-    partition: Vec<Vec<Entity>>,
+    /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
+    partition: Vec<Range<usize>>,
+    /// List of UI nodes ordered from back-to-front
+    uinodes: Vec<Entity>,
 }
 
 impl UiStack {
     /// Iterates over all the UI nodes in the stack, back-to-front.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> + '_ {
-        self.partition.iter().flatten().copied()
+        self.uinodes.iter().copied()
     }
 
     /// Iterates over the partitions of the stack, back-to-front.
     /// Each partition is a list of UI nodes ordered back-to-front that all share the same camera target.
     pub fn partitions(&self) -> impl DoubleEndedIterator<Item = &[Entity]> + '_ {
-        self.partition.iter().map(Vec::as_slice)
+        self.partition
+            .iter()
+            .map(|range| &self.uinodes[range.clone()])
     }
 
     /// The number of UI nodes in the stack.
     pub fn len(&self) -> usize {
-        self.partition.iter().map(Vec::len).sum()
+        self.uinodes.len()
     }
 
     /// Returns `true` if the stack has no UI nodes.
     pub fn is_empty(&self) -> bool {
-        self.partition.is_empty()
+        self.uinodes.is_empty()
     }
 }
 
@@ -80,9 +84,8 @@ pub(crate) struct StackRoot {
 pub fn ui_stack_system(
     mut local_cache: Local<Vec<(Entity, i32, Option<&'static Children>, bool, Option<i32>)>>,
     mut stack_roots: Local<Vec<((Entity, Option<i32>), StackRoot, Range<usize>)>>,
-    mut stack_lists: Local<Vec<(StackRoot, usize, Vec<Entity>)>>,
-    mut stack_list_order: Local<Vec<usize>>,
-    mut node_buffers: Local<Vec<Vec<Entity>>>,
+    mut stack_lists: Local<Vec<(StackRoot, Range<usize>)>>,
+    mut nodes: Local<Vec<Entity>>,
     mut stack_root_order: Local<HashMap<(Entity, Option<i32>), usize>>,
     mut removed_zindices: Local<EntityHashSet>,
     mut removed_global_zindices: Local<EntityHashSet>,
@@ -109,11 +112,6 @@ pub fn ui_stack_system(
         .map(|_| unreachable!())
         .collect();
 
-    for (order, mut nodes) in stack_list_order.drain(..).zip(ui_stack.partition.drain(..)) {
-        nodes.clear();
-        node_buffers[order] = nodes;
-    }
-
     removed_zindices.clear();
     removed_zindices.extend(zindex_removals.read());
     removed_global_zindices.clear();
@@ -134,13 +132,8 @@ pub fn ui_stack_system(
         let lists_start = stack_lists.len();
         if !is_ghost {
             stack_root.partition = Some(root_entity);
-            let order = stack_lists.len();
-            if order == node_buffers.len() {
-                node_buffers.push(Vec::new());
-            }
-            let mut nodes = core::mem::take(&mut node_buffers[order]);
+            stack_lists.push((stack_root, nodes.len()..nodes.len() + 1));
             nodes.push(root_entity);
-            stack_lists.push((stack_root, order, nodes));
         }
         let mut changed = global_zindex.as_ref().is_some_and(Ref::is_changed)
             || zindex.as_ref().is_some_and(Ref::is_changed)
@@ -156,7 +149,7 @@ pub fn ui_stack_system(
                 is_ghost && global_zindex.is_none() && zindex.is_none(),
                 &ui_children,
                 &mut stack_lists,
-                &mut node_buffers,
+                &mut nodes,
                 &removed_zindices,
                 &removed_global_zindices,
                 &mut changed_zindices,
@@ -169,7 +162,7 @@ pub fn ui_stack_system(
             let end = start
                 + stack_lists[start..]
                     .iter()
-                    .take_while(|(root, _, _)| root.local_z == local_z)
+                    .take_while(|(root, _)| root.local_z == local_z)
                     .count();
             stack_root.local_z = local_z;
             let order_key = (
@@ -195,18 +188,28 @@ pub fn ui_stack_system(
     stack_root_order.clear();
     for (index, (order_key, _, lists)) in stack_roots.drain(..).enumerate() {
         stack_root_order.insert(order_key, index);
-        for (root, _, _) in &mut stack_lists[lists] {
+        for (root, _) in &mut stack_lists[lists] {
             root.previous_index = index;
         }
     }
-    stack_lists.sort_unstable_by_key(|(root, order, _)| {
-        (root.global_z, root.local_z, root.previous_index, *order)
+    stack_lists.sort_unstable_by_key(|(root, range)| {
+        (
+            root.global_z,
+            root.local_z,
+            root.previous_index,
+            range.start,
+        )
     });
 
-    for (_, order, nodes) in stack_lists.drain(..) {
-        stack_list_order.push(order);
-        ui_stack.partition.push(nodes);
+    ui_stack.partition.clear();
+    ui_stack.uinodes.clear();
+    for (_, range) in stack_lists.drain(..) {
+        let start = ui_stack.uinodes.len();
+        ui_stack.uinodes.extend_from_slice(&nodes[range]);
+        let end = ui_stack.uinodes.len();
+        ui_stack.partition.push(start..end);
     }
+    nodes.clear();
 
     for (i, entity) in ui_stack.iter().enumerate() {
         if let Ok(mut stack_index) = update_query.get_mut(entity) {
@@ -237,8 +240,8 @@ fn update_uistack_recursive<'a>(
         ),
         With<ComputedStackIndex>,
     >,
-    stack_lists: &mut Vec<(StackRoot, usize, Vec<Entity>)>,
-    node_buffers: &mut Vec<Vec<Entity>>,
+    stack_lists: &mut Vec<(StackRoot, Range<usize>)>,
+    nodes: &mut Vec<Entity>,
     removed_zindices: &EntityHashSet,
     removed_global_zindices: &EntityHashSet,
     changed_zindices: &mut Vec<i32>,
@@ -267,7 +270,7 @@ fn update_uistack_recursive<'a>(
                     use_child_zindex,
                     ui_children,
                     stack_lists,
-                    node_buffers,
+                    nodes,
                     removed_zindices,
                     removed_global_zindices,
                     changed_zindices,
@@ -307,19 +310,14 @@ fn update_uistack_recursive<'a>(
         }
         if !is_ghost {
             child_root.partition.get_or_insert(child_entity);
-            if let Some((root, _, nodes)) = stack_lists.last_mut()
+            if let Some((root, range)) = stack_lists.last_mut()
                 && *root == child_root
             {
-                nodes.push(child_entity);
+                range.end += 1;
             } else {
-                let order = stack_lists.len();
-                if order == node_buffers.len() {
-                    node_buffers.push(Vec::new());
-                }
-                let mut nodes = core::mem::take(&mut node_buffers[order]);
-                nodes.push(child_entity);
-                stack_lists.push((child_root, order, nodes));
+                stack_lists.push((child_root, nodes.len()..nodes.len() + 1));
             }
+            nodes.push(child_entity);
         }
         if let Some(children) = maybe_children
             && update_uistack_recursive(
@@ -330,7 +328,7 @@ fn update_uistack_recursive<'a>(
                 false,
                 ui_children,
                 stack_lists,
-                node_buffers,
+                nodes,
                 removed_zindices,
                 removed_global_zindices,
                 changed_zindices,
@@ -483,13 +481,15 @@ mod tests {
         assert_eq!(actual_result, expected_result);
 
         // Test partitioning
-        let last_part = ui_stack.partition.last().unwrap();
+        let last_part = ui_stack.partitions().last().unwrap();
         assert_eq!(last_part.len(), 1);
         let last_entity = last_part[0];
         assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
 
-        let actual_result = ui_stack.partition[5..7]
-            .iter()
+        let actual_result = ui_stack
+            .partitions()
+            .skip(5)
+            .take(2)
             .flatten()
             .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
@@ -957,9 +957,8 @@ mod tests {
         assert_eq!(
             world
                 .resource::<UiStack>()
-                .partition
-                .iter()
-                .map(Vec::len)
+                .partitions()
+                .map(<[_]>::len)
                 .collect::<Vec<_>>(),
             vec![1; 7]
         );
@@ -998,7 +997,7 @@ mod tests {
                 vec![root, before, after, global, global_child, child, grandchild]
             );
             assert_eq!(
-                ui_stack.partition,
+                ui_stack.partitions().collect::<Vec<_>>(),
                 vec![
                     vec![root, before, after],
                     vec![global, global_child],
@@ -1289,7 +1288,7 @@ mod tests {
 
         let ui_stack = world.resource::<UiStack>();
         assert!(ui_stack.iter().eq([r, a, c, d, b, e]));
-        for nodes in &ui_stack.partition {
+        for nodes in ui_stack.partitions() {
             let camera = world.get::<ComputedUiTargetCamera>(nodes[0]).unwrap();
             assert!(nodes
                 .iter()
@@ -2162,47 +2161,31 @@ mod tests {
         world.init_resource::<UiStack>();
         let mut schedule = Schedule::default();
         schedule.add_systems(ui_stack_system);
-
-        let g = world.spawn(GhostNode).id();
-        let a = world.spawn((Node::default(), ChildOf(g), ZIndex(0))).id();
-        let b = world.spawn((Node::default(), ChildOf(g), ZIndex(1))).id();
-
+        let ghost = world.spawn(GhostNode).id();
+        let a = world
+            .spawn((Node::default(), ChildOf(ghost), ZIndex(0)))
+            .id();
+        let b = world
+            .spawn((Node::default(), ChildOf(ghost), ZIndex(1)))
+            .id();
         schedule.run(&mut world);
-
-        let r = world.spawn((Node::default(), ZIndex(1))).id();
-
+        let root = world.spawn((Node::default(), ZIndex(1))).id();
         schedule.run(&mut world);
-
         assert_eq!(
             world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![a, b, r]
-        );
-
-        schedule.run(&mut world);
-
-        world.entity_mut(a).insert(ZIndex(0));
-
-        schedule.run(&mut world);
-
-        assert_eq!(
-            world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![a, b, r]
+            vec![a, b, root]
         );
         world.entity_mut(a).insert(ZIndex(0));
-
         schedule.run(&mut world);
-
         assert_eq!(
             world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![a, b, r]
+            vec![a, b, root]
         );
         world.entity_mut(b).insert(ZIndex(1));
-
         schedule.run(&mut world);
-
         assert_eq!(
             world.resource::<UiStack>().iter().collect::<Vec<_>>(),
-            vec![a, r, b]
+            vec![a, root, b]
         );
     }
 }
